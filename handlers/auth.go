@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 
@@ -45,40 +48,116 @@ func (h *AuthHandler) LoginSubmit(e *core.RequestEvent) error {
 }
 
 func (h *AuthHandler) Register(e *core.RequestEvent) error {
-	return h.renderPage(e, "register.html", map[string]any{})
+	token := e.Request.URL.Query().Get("token")
+	if token == "" {
+		return h.renderPage(e, "register.html", map[string]any{
+			"NoInvite": true,
+		})
+	}
+
+	invites, err := h.app.FindRecordsByFilter("invitations",
+		"token = {:token} && status = 'pending'",
+		"", 0, 1,
+		map[string]any{"token": token})
+	if err != nil || len(invites) == 0 || isInviteExpired(invites[0]) {
+		return h.renderPage(e, "register.html", map[string]any{
+			"InvalidInvite": true,
+		})
+	}
+	invite := invites[0]
+
+	return h.renderPage(e, "register.html", map[string]any{
+		"Token":       token,
+		"InviteEmail": invite.GetString("email"),
+	})
 }
 
 func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
+	token := e.Request.FormValue("token")
 	displayName := e.Request.FormValue("display_name")
 	email := e.Request.FormValue("email")
 	password := e.Request.FormValue("password")
 	passwordConfirm := e.Request.FormValue("password_confirm")
 
+	if token == "" {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Invitación requerida</div>`)
+	}
+
 	if password != passwordConfirm {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Las contraseñas no coinciden</div>`)
 	}
 
-	collection, err := h.app.FindCollectionByNameOrId("users")
-	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error interno</div>`)
+	invites, err := h.app.FindRecordsByFilter("invitations",
+		"token = {:token} && status = 'pending'",
+		"", 0, 1,
+		map[string]any{"token": token})
+	if err != nil || len(invites) == 0 || isInviteExpired(invites[0]) {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Invitación inválida o expirada</div>`)
+	}
+	invite := invites[0]
+
+	inviteEmail := invite.GetString("email")
+	if inviteEmail != "" && !strings.EqualFold(email, inviteEmail) {
+		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Debes usar el email %s</div>`, inviteEmail))
 	}
 
-	record := core.NewRecord(collection)
-	record.Set("email", email)
-	record.Set("display_name", displayName)
-	record.Set("role", "user")
-	record.SetPassword(password)
+	var userRecord *core.Record
+	var authToken string
 
-	if err := h.app.Save(record); err != nil {
+	err = h.app.RunInTransaction(func(txApp core.App) error {
+		collection, err := txApp.FindCollectionByNameOrId("users")
+		if err != nil {
+			return err
+		}
+
+		userRecord = core.NewRecord(collection)
+		userRecord.Set("email", email)
+		userRecord.Set("display_name", displayName)
+		userRecord.Set("role", "player")
+		userRecord.SetPassword(password)
+
+		if err := txApp.Save(userRecord); err != nil {
+			return err
+		}
+
+		invite.Set("status", "used")
+		invite.Set("used_by", userRecord.Id)
+		invite.Set("used_at", time.Now().UTC().Format("2006-01-02 15:04:05.000Z"))
+		if err := txApp.Save(invite); err != nil {
+			return err
+		}
+
+		authToken, err = userRecord.NewAuthToken()
+		return err
+	})
+
+	if err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al crear la cuenta. Verifica los datos e intenta de nuevo.</div>`)
 	}
 
-	token, err := record.NewAuthToken()
-	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Cuenta creada, pero error al iniciar sesión. Intenta iniciar sesión manualmente.</div>`)
+	middleware.SetAuthCookie(e, authToken)
+
+	if e.Request.Header.Get("HX-Request") == "true" {
+		e.Response.Header().Set("HX-Redirect", "/")
+		return e.NoContent(http.StatusNoContent)
+	}
+	return e.Redirect(http.StatusFound, "/")
+}
+
+func (h *AuthHandler) ProfileComplete(e *core.RequestEvent) error {
+	return h.renderPage(e, "profile-complete.html", map[string]any{})
+}
+
+func (h *AuthHandler) ProfileCompleteSubmit(e *core.RequestEvent) error {
+	displayName := strings.TrimSpace(e.Request.FormValue("display_name"))
+	if displayName == "" {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">El nombre es obligatorio</div>`)
 	}
 
-	middleware.SetAuthCookie(e, token)
+	e.Auth.Set("display_name", displayName)
+	if err := h.app.Save(e.Auth); err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar el perfil</div>`)
+	}
 
 	if e.Request.Header.Get("HX-Request") == "true" {
 		e.Response.Header().Set("HX-Redirect", "/")

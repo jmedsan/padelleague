@@ -1,12 +1,15 @@
 {{define "content"}}
-<div class="flex justify-between items-center mb-6">
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
     <div>
-        <a href="/admin" class="link link-hover text-sm opacity-60">&larr; Panel de administración</a>
+        <a href="/admin" class="link link-hover text-sm opacity-60">&larr; Panel de administracion</a>
         <h1 class="text-2xl font-bold mt-1">Jugadores</h1>
     </div>
-    <div class="stat bg-base-100 shadow-sm rounded-box p-3 border border-base-300">
-        <div class="stat-title text-xs">Registrados</div>
-        <div class="stat-value text-lg">{{len .Players}}</div>
+    <div class="flex gap-3">
+        <div class="stat bg-base-100 shadow-sm rounded-box p-3 border border-base-300">
+            <div class="stat-title text-xs">Registrados</div>
+            <div class="stat-value text-lg">{{len .Players}}</div>
+        </div>
+        <label for="precreate-modal" class="btn btn-primary btn-sm self-center">+ Pre-crear usuario</label>
     </div>
 </div>
 
@@ -19,6 +22,7 @@
                     <th>Nombre</th>
                     <th>Email</th>
                     <th>Rol</th>
+                    <th class="w-20"></th>
                 </tr>
             </thead>
             <tbody>
@@ -27,12 +31,21 @@
                     <td>
                         <div class="avatar placeholder">
                             <div class="bg-primary/10 text-primary w-9 rounded-full">
+                                {{if .GetString "display_name"}}
                                 <span class="text-sm font-bold">{{slice (.GetString "display_name") 0 1}}</span>
+                                {{else}}
+                                <span class="text-sm font-bold">?</span>
+                                {{end}}
                             </div>
                         </div>
                     </td>
                     <td>
+                        {{if .GetString "display_name"}}
                         <a href="/player/{{.Id}}" class="font-medium link link-hover">{{.GetString "display_name"}}</a>
+                        {{else}}
+                        <span class="opacity-40 italic">Sin nombre</span>
+                        <span class="badge badge-warning badge-xs ml-1">Pendiente</span>
+                        {{end}}
                     </td>
                     <td class="opacity-60 text-sm">{{.GetString "email"}}</td>
                     <td>
@@ -42,14 +55,81 @@
                         <span class="badge badge-outline badge-sm">Jugador</span>
                         {{end}}
                     </td>
+                    <td>
+                        <label for="edit-player-{{.Id}}" class="btn btn-ghost btn-xs">Editar</label>
+                    </td>
                 </tr>
                 {{else}}
                 <tr>
-                    <td colspan="4" class="text-center py-12 opacity-60">No hay jugadores registrados</td>
+                    <td colspan="5" class="text-center py-12 opacity-60">No hay jugadores registrados</td>
                 </tr>
                 {{end}}
             </tbody>
         </table>
     </div>
+</div>
+
+{{range .Players}}
+<input type="checkbox" id="edit-player-{{.Id}}" class="modal-toggle">
+<div class="modal" role="dialog">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">Editar jugador</h3>
+        <form hx-post="/admin/players/{{.Id}}" hx-target="body">
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text text-xs font-medium">Nombre</span>
+                </label>
+                <input type="text" name="display_name" class="input input-bordered w-full" value="{{.GetString "display_name"}}" required>
+            </div>
+            <div class="form-control mt-3">
+                <label class="label">
+                    <span class="label-text text-xs font-medium">Rol</span>
+                </label>
+                <select name="role" class="select select-bordered w-full">
+                    <option value="player" {{if eq (.GetString "role") "player"}}selected{{end}}>Jugador</option>
+                    <option value="admin" {{if eq (.GetString "role") "admin"}}selected{{end}}>Admin</option>
+                </select>
+            </div>
+            <div class="form-control mt-3">
+                <label class="label">
+                    <span class="label-text text-xs font-medium">Email</span>
+                </label>
+                <input type="email" class="input input-bordered w-full opacity-60" value="{{.GetString "email"}}" disabled>
+            </div>
+            <div class="modal-action">
+                <label for="edit-player-{{.Id}}" class="btn btn-ghost">Cancelar</label>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
+    <label class="modal-backdrop" for="edit-player-{{.Id}}"></label>
+</div>
+{{end}}
+
+<input type="checkbox" id="precreate-modal" class="modal-toggle">
+<div class="modal" role="dialog">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-2">Pre-crear usuario</h3>
+        <p class="text-sm opacity-60 mb-4">Crea un usuario y genera una invitacion vinculada a su email.</p>
+        <form hx-post="/admin/players/pre-create" hx-target="body">
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text text-xs font-medium">Email</span>
+                </label>
+                <input type="email" name="email" class="input input-bordered w-full" placeholder="jugador@email.com" required>
+            </div>
+            <div class="form-control mt-3">
+                <label class="label">
+                    <span class="label-text text-xs font-medium">Nombre (opcional)</span>
+                </label>
+                <input type="text" name="display_name" class="input input-bordered w-full" placeholder="Nombre del jugador">
+            </div>
+            <div class="modal-action">
+                <label for="precreate-modal" class="btn btn-ghost">Cancelar</label>
+                <button type="submit" class="btn btn-primary">Crear</button>
+            </div>
+        </form>
+    </div>
+    <label class="modal-backdrop" for="precreate-modal"></label>
 </div>
 {{end}}

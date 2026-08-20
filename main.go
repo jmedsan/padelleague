@@ -50,7 +50,19 @@ func renderPage(e *core.RequestEvent, page string, data map[string]any) error {
 
 func requireAuthRedirect(e *core.RequestEvent) error {
 	if e.Auth == nil {
+		if e.Request.Header.Get("HX-Request") == "true" {
+			e.Response.Header().Set("HX-Redirect", "/login")
+			return e.NoContent(http.StatusNoContent)
+		}
 		return e.Redirect(http.StatusFound, "/login")
+	}
+	if e.Auth.GetString("display_name") == "" &&
+		e.Request.URL.Path != "/profile/complete" {
+		if e.Request.Header.Get("HX-Request") == "true" {
+			e.Response.Header().Set("HX-Redirect", "/profile/complete")
+			return e.NoContent(http.StatusNoContent)
+		}
+		return e.Redirect(http.StatusFound, "/profile/complete")
 	}
 	return e.Next()
 }
@@ -152,6 +164,12 @@ func main() {
 		adminGroup.POST("/pairs/{id}", admin.PairsUpdate)
 
 		adminGroup.GET("/players", admin.Players)
+		adminGroup.POST("/players/pre-create", admin.PlayerPreCreate)
+		adminGroup.POST("/players/{id}", admin.PlayerUpdate)
+
+		adminGroup.GET("/invitations", admin.InvitationsList)
+		adminGroup.POST("/invitations", admin.InvitationsCreate)
+		adminGroup.POST("/invitations/{id}/revoke", admin.InvitationsRevoke)
 
 		adminGroup.GET("/disputes", admin.Disputes)
 		adminGroup.POST("/disputes/{id}/resolve", admin.DisputesResolve)
@@ -178,6 +196,8 @@ func main() {
 		se.Router.GET("/notifications/list", notif.List).BindFunc(requireAuthRedirect)
 		se.Router.POST("/notifications/{id}/read", notif.MarkRead).BindFunc(requireAuthRedirect)
 		se.Router.POST("/notifications/read-all", notif.MarkAllRead).BindFunc(requireAuthRedirect)
+		se.Router.GET("/profile/complete", auth.ProfileComplete).BindFunc(requireAuthRedirect)
+		se.Router.POST("/profile/complete", auth.ProfileCompleteSubmit).BindFunc(requireAuthRedirect)
 		se.Router.GET("/profile/notifications", notif.Prefs).BindFunc(requireAuthRedirect)
 		se.Router.POST("/profile/notifications", notif.PrefsSave).BindFunc(requireAuthRedirect)
 

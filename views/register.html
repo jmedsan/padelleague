@@ -4,11 +4,28 @@
         <div class="card-body">
             <div class="text-center mb-4">
                 <span class="text-4xl">&#127934;</span>
+                {{if .NoInvite}}
+                <h2 class="text-2xl font-bold mt-2">Registro por invitacion</h2>
+                <p class="text-sm opacity-50 mt-3">Necesitas una invitacion para registrarte en PadelLeague.</p>
+                <p class="text-sm opacity-50 mt-1">Pide a un administrador que te envie un enlace de invitacion.</p>
+                <div class="mt-6">
+                    <a href="/login" class="btn btn-primary btn-sm">Volver a inicio de sesion</a>
+                </div>
+                {{else if .InvalidInvite}}
+                <h2 class="text-2xl font-bold mt-2">Invitacion no valida</h2>
+                <div class="alert alert-error mt-4 text-sm">
+                    Esta invitacion ha expirado o ya fue utilizada.
+                </div>
+                <div class="mt-4">
+                    <a href="/login" class="btn btn-primary btn-sm">Volver a inicio de sesion</a>
+                </div>
+                {{else}}
                 <h2 class="text-2xl font-bold mt-2">Crear cuenta</h2>
                 <p class="text-sm opacity-50 mt-1">Unete a PadelLeague</p>
             </div>
             <div id="error"></div>
             <form hx-post="/register" hx-target="#error">
+                <input type="hidden" name="token" value="{{.Token}}">
                 <div class="form-control">
                     <label class="label" for="display_name">
                         <span class="label-text text-xs font-medium">Nombre</span>
@@ -19,7 +36,11 @@
                     <label class="label" for="email">
                         <span class="label-text text-xs font-medium">Email</span>
                     </label>
+                    {{if .InviteEmail}}
+                    <input type="email" id="email" name="email" class="input input-bordered w-full" value="{{.InviteEmail}}" readonly>
+                    {{else}}
                     <input type="email" id="email" name="email" class="input input-bordered w-full" placeholder="tu@email.com" required>
+                    {{end}}
                 </div>
                 <div class="form-control mt-3">
                     <label class="label" for="password">
@@ -41,6 +62,8 @@
             <p class="text-center text-sm">
                 Ya tienes cuenta? <a href="/login" class="link link-primary font-medium">Inicia sesion</a>
             </p>
+                {{end}}
+            </div>
         </div>
     </div>
 </div>
