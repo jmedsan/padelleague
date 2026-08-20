@@ -1,4 +1,77 @@
 {{define "content"}}
+{{if .NextMatch}}
+<div class="card bg-primary text-primary-content shadow-lg mb-6">
+    <div class="card-body">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm opacity-70">Proximo partido</p>
+                <h2 class="card-title text-2xl">vs {{.NextMatch.Opponent}}</h2>
+                <p class="text-sm opacity-70 mt-1">{{.NextMatch.CompetitionName}} — Jornada {{.NextMatch.RoundNumber}}</p>
+            </div>
+            <div class="text-right">
+                {{if eq .NextMatch.ScheduleStatus "confirmed"}}
+                <span class="badge bg-white/20 border-0">Confirmado</span>
+                {{if .NextMatch.ProposedDate}}<p class="text-sm mt-1">{{.NextMatch.ProposedDate}}</p>{{end}}
+                {{if .NextMatch.ProposedVenue}}<p class="text-sm opacity-70">{{.NextMatch.ProposedVenue}}</p>{{end}}
+                {{else if eq .NextMatch.ScheduleStatus "proposed"}}
+                <span class="badge bg-white/20 border-0">Propuesta enviada</span>
+                {{if .NextMatch.ProposedDate}}<p class="text-sm mt-1">{{.NextMatch.ProposedDate}}</p>{{end}}
+                {{else}}
+                <span class="badge bg-white/20 border-0">Sin programar</span>
+                {{end}}
+            </div>
+        </div>
+        <div class="card-actions mt-2">
+            <a href="/match/{{.NextMatch.MatchID}}" class="btn btn-sm bg-white/20 border-0 hover:bg-white/30">Ver partido</a>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{if .PendingActions}}
+<div class="mb-6">
+    <h2 class="text-lg font-bold mb-3">Acciones pendientes</h2>
+    <div class="space-y-2">
+        {{range .PendingActions}}
+        <a href="/match/{{.MatchID}}" class="flex items-center gap-3 p-3 rounded-xl bg-warning/10 hover:bg-warning/20 transition-colors">
+            {{if eq .ActionType "confirm_score"}}
+            <div class="w-8 h-8 rounded-full bg-warning/20 flex items-center justify-center flex-none">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 text-warning"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+            </div>
+            {{else}}
+            <div class="w-8 h-8 rounded-full bg-info/20 flex items-center justify-center flex-none">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 text-info"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 9v9.75" /></svg>
+            </div>
+            {{end}}
+            <div class="flex-1 min-w-0">
+                <p class="font-medium text-sm">vs {{.Opponent}}</p>
+                <p class="text-xs opacity-60">{{.Description}}</p>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 opacity-40 flex-none"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+        </a>
+        {{end}}
+    </div>
+</div>
+{{end}}
+
+{{if .RecentResults}}
+<div class="mb-6">
+    <h2 class="text-lg font-bold mb-3">Ultimos resultados</h2>
+    <div class="space-y-2">
+        {{range .RecentResults}}
+        <a href="/match/{{.MatchID}}" class="block p-3 rounded-xl bg-base-100 shadow-sm hover:shadow-md transition-shadow">
+            <div class="flex items-center justify-between gap-2">
+                <span class="font-medium flex-1 text-right text-sm truncate">{{.Pair1Name}}</span>
+                <span class="font-bold text-base px-2">{{.Score}}</span>
+                <span class="font-medium flex-1 text-sm truncate">{{.Pair2Name}}</span>
+            </div>
+            <p class="text-xs opacity-50 mt-1 text-center">{{.CompetitionName}}</p>
+        </a>
+        {{end}}
+    </div>
+</div>
+{{end}}
+
 {{if .Competitions}}
 <h2 class="text-xl font-bold mb-4">Mis competiciones</h2>
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
