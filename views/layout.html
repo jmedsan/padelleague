@@ -1,94 +1,125 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="light">
+<html lang="es" data-theme="nord">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PadelLeague</title>
     <link rel="stylesheet" href="/static/css/styles.css">
     <script src="/static/js/htmx.min.js"></script>
+    <script>
+        (function() {
+            var t = localStorage.getItem('theme') || 'nord';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+        function toggleTheme() {
+            var cur = document.documentElement.getAttribute('data-theme');
+            var next = cur === 'night' ? 'nord' : 'night';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+        }
+    </script>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col bg-base-200">
     <div class="drawer">
         <input id="main-drawer" type="checkbox" class="drawer-toggle">
         <div class="drawer-content flex flex-col">
-            <div class="navbar bg-base-200 shadow-sm">
+            <div class="navbar bg-base-100 shadow-lg sticky top-0 z-30">
                 <div class="flex-none lg:hidden">
-                    <label for="main-drawer" aria-label="abrir menú" class="btn btn-square btn-ghost">
+                    <label for="main-drawer" aria-label="abrir menu" class="btn btn-square btn-ghost">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block h-5 w-5 stroke-current">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
                         </svg>
                     </label>
                 </div>
                 <div class="flex-1">
-                    <a href="/" class="btn btn-ghost text-xl">PadelLeague</a>
+                    <a href="/" class="btn btn-ghost gap-2 text-xl font-bold normal-case">
+                        <span class="text-2xl">&#127934;</span>
+                        PadelLeague
+                    </a>
                 </div>
-                <div class="hidden lg:flex items-center gap-2">
-                    <ul class="menu menu-horizontal px-1">
-                        <li><a href="/">Inicio</a></li>
+                <div class="hidden lg:flex items-center gap-1">
+                    <ul class="menu menu-horizontal px-1 gap-1">
+                        <li><a href="/" class="rounded-lg">Inicio</a></li>
                         {{if .IsAdmin}}
                         <li>
                             <details>
-                                <summary>Gestión</summary>
-                                <ul class="bg-base-200 rounded-t-none p-2 z-10">
+                                <summary class="rounded-lg">Gestion</summary>
+                                <ul class="bg-base-100 rounded-box shadow-lg p-2 z-30 w-48">
                                     <li><a href="/admin">Panel</a></li>
                                     <li><a href="/admin/pairs">Parejas</a></li>
                                     <li><a href="/admin/players">Jugadores</a></li>
+                                    <li><a href="/admin/disputes">Disputas</a></li>
                                 </ul>
                             </details>
                         </li>
                         {{end}}
                     </ul>
+                    <button onclick="toggleTheme()" class="btn btn-ghost btn-circle btn-sm" aria-label="cambiar tema">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
+                        </svg>
+                    </button>
                     {{if .DisplayName}}
                     <div class="dropdown dropdown-end">
                         <button tabindex="0" class="btn btn-ghost btn-circle" aria-label="notificaciones">
                             <div class="indicator">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block h-5 w-5 stroke-current">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                                 </svg>
                                 <span id="notif-badge" hx-get="/notifications/count" hx-trigger="load" hx-swap="innerHTML"></span>
                             </div>
                         </button>
-                        <div tabindex="0" id="notif-dropdown" class="dropdown-content z-20 mt-3" hx-get="/notifications/list" hx-trigger="click from:closest .dropdown" hx-swap="innerHTML">
+                        <div tabindex="0" id="notif-dropdown" class="dropdown-content z-30 mt-3" hx-get="/notifications/list" hx-trigger="click from:closest .dropdown" hx-swap="innerHTML">
                         </div>
                     </div>
-                    {{end}}
-                    {{if .DisplayName}}
-                    <span class="text-sm font-medium">{{.DisplayName}}</span>
+                    <div class="divider divider-horizontal mx-0"></div>
+                    <span class="text-sm font-medium px-2">{{.DisplayName}}</span>
                     <button hx-post="/logout" class="btn btn-ghost btn-sm">Salir</button>
                     {{end}}
                 </div>
             </div>
             {{if and .DisplayName (not .Verified)}}
-            <div class="alert alert-warning m-4">
-                <span>Tu email no está verificado. Revisa tu bandeja de entrada.</span>
+            <div class="alert alert-warning shadow-md mx-4 mt-4">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                <span>Tu email no esta verificado. Revisa tu bandeja de entrada.</span>
             </div>
             {{end}}
-            <main class="flex-1 container mx-auto p-4">
+            <main class="flex-1 container mx-auto px-4 py-6 max-w-5xl">
                 {{block "content" .}}{{end}}
             </main>
-            <footer class="footer footer-center p-4 bg-base-200 text-base-content">
-                <p>PadelLeague &copy; 2026</p>
+            <footer class="footer footer-center p-6 bg-base-100 text-base-content border-t border-base-300">
+                <p class="text-sm opacity-60">PadelLeague &copy; 2026</p>
             </footer>
         </div>
-        <div class="drawer-side">
-            <label for="main-drawer" aria-label="cerrar menú" class="drawer-overlay"></label>
-            <ul class="menu bg-base-200 min-h-full w-64 p-4">
-                <li><a href="/">Inicio</a></li>
-                {{if .IsAdmin}}
-                <li class="menu-title mt-4">Gestión</li>
-                <li><a href="/admin">Panel</a></li>
-                <li><a href="/admin/pairs">Parejas</a></li>
-                <li><a href="/admin/players">Jugadores</a></li>
-                {{end}}
-                {{if .DisplayName}}
-                <li class="mt-auto">
-                    <span class="text-sm">{{.DisplayName}}</span>
-                </li>
-                <li>
-                    <button hx-post="/logout">Salir</button>
-                </li>
-                {{end}}
-            </ul>
+        <div class="drawer-side z-40">
+            <label for="main-drawer" aria-label="cerrar menu" class="drawer-overlay"></label>
+            <div class="bg-base-100 min-h-full w-72 p-0">
+                <div class="p-4 bg-primary text-primary-content">
+                    <span class="text-xl font-bold">&#127934; PadelLeague</span>
+                </div>
+                <ul class="menu p-4 gap-1">
+                    <li><a href="/" class="rounded-lg font-medium">Inicio</a></li>
+                    {{if .IsAdmin}}
+                    <li class="menu-title mt-4 text-xs uppercase tracking-wider opacity-60">Gestion</li>
+                    <li><a href="/admin" class="rounded-lg">Panel</a></li>
+                    <li><a href="/admin/pairs" class="rounded-lg">Parejas</a></li>
+                    <li><a href="/admin/players" class="rounded-lg">Jugadores</a></li>
+                    <li><a href="/admin/disputes" class="rounded-lg">Disputas</a></li>
+                    {{end}}
+                    <li class="mt-4">
+                        <button onclick="toggleTheme()" class="rounded-lg">Cambiar tema</button>
+                    </li>
+                    {{if .DisplayName}}
+                    <div class="divider my-2"></div>
+                    <li>
+                        <span class="text-sm font-medium">{{.DisplayName}}</span>
+                    </li>
+                    <li>
+                        <button hx-post="/logout" class="rounded-lg text-error">Salir</button>
+                    </li>
+                    {{end}}
+                </ul>
+            </div>
         </div>
     </div>
 </body>

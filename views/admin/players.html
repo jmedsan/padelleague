@@ -1,37 +1,55 @@
 {{define "content"}}
 <div class="flex justify-between items-center mb-6">
     <div>
-        <a href="/admin" class="text-sm text-base-content/60 hover:text-primary">&larr; Panel de administración</a>
-        <h1 class="text-2xl font-bold">Jugadores</h1>
+        <a href="/admin" class="link link-hover text-sm opacity-60">&larr; Panel de administración</a>
+        <h1 class="text-2xl font-bold mt-1">Jugadores</h1>
+    </div>
+    <div class="stat bg-base-100 shadow-sm rounded-box p-3 border border-base-300">
+        <div class="stat-title text-xs">Registrados</div>
+        <div class="stat-value text-lg">{{len .Players}}</div>
     </div>
 </div>
 
-<div class="overflow-x-auto">
-    <table class="table">
-        <thead>
-            <tr>
-                <th></th>
-                <th>Nombre</th>
-                <th>Email</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Players}}
-            <tr>
-                <td class="w-12">
-                    <div class="avatar placeholder">
-                        <div class="bg-neutral text-neutral-content w-8 rounded-full">
-                            <span class="text-xs">{{slice (.GetString "display_name") 0 1}}</span>
+<div class="card bg-base-100 shadow-sm border border-base-300">
+    <div class="overflow-x-auto">
+        <table class="table table-zebra">
+            <thead>
+                <tr>
+                    <th class="w-14"></th>
+                    <th>Nombre</th>
+                    <th>Email</th>
+                    <th>Rol</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Players}}
+                <tr class="hover">
+                    <td>
+                        <div class="avatar placeholder">
+                            <div class="bg-primary/10 text-primary w-9 rounded-full">
+                                <span class="text-sm font-bold">{{slice (.GetString "display_name") 0 1}}</span>
+                            </div>
                         </div>
-                    </div>
-                </td>
-                <td class="font-medium">{{.GetString "display_name"}}</td>
-                <td class="text-base-content/60">{{.GetString "email"}}</td>
-            </tr>
-            {{else}}
-            <tr><td colspan="3" class="text-center text-base-content/60">No hay jugadores registrados</td></tr>
-            {{end}}
-        </tbody>
-    </table>
+                    </td>
+                    <td>
+                        <a href="/player/{{.Id}}" class="font-medium link link-hover">{{.GetString "display_name"}}</a>
+                    </td>
+                    <td class="opacity-60 text-sm">{{.GetString "email"}}</td>
+                    <td>
+                        {{if eq (.GetString "role") "admin"}}
+                        <span class="badge badge-secondary badge-sm">Admin</span>
+                        {{else}}
+                        <span class="badge badge-outline badge-sm">Jugador</span>
+                        {{end}}
+                    </td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="4" class="text-center py-12 opacity-60">No hay jugadores registrados</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
 </div>
 {{end}}

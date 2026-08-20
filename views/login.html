@@ -1,31 +1,36 @@
 {{define "content"}}
-<div class="flex items-center justify-center min-h-[60vh]">
-    <div class="card bg-base-100 shadow-xl w-full max-w-sm">
+<div class="flex items-center justify-center min-h-[70vh]">
+    <div class="card bg-base-100 shadow-xl w-full max-w-sm rounded-2xl">
         <div class="card-body">
-            <h2 class="card-title justify-center text-2xl mb-4">Iniciar sesión</h2>
+            <div class="text-center mb-4">
+                <span class="text-4xl">&#127934;</span>
+                <h2 class="text-2xl font-bold mt-2">Iniciar sesion</h2>
+                <p class="text-sm opacity-50 mt-1">Accede a tu cuenta de PadelLeague</p>
+            </div>
             <div id="error"></div>
             <form hx-post="/login" hx-target="#error">
                 <div class="form-control">
                     <label class="label" for="email">
-                        <span class="label-text">Email</span>
+                        <span class="label-text text-xs font-medium">Email</span>
                     </label>
-                    <input type="email" id="email" name="email" class="input input-bordered" required>
+                    <input type="email" id="email" name="email" class="input input-bordered w-full" placeholder="tu@email.com" required>
                 </div>
-                <div class="form-control mt-2">
+                <div class="form-control mt-3">
                     <label class="label" for="password">
-                        <span class="label-text">Contraseña</span>
+                        <span class="label-text text-xs font-medium">Contrasena</span>
                     </label>
-                    <input type="password" id="password" name="password" class="input input-bordered" required>
+                    <input type="password" id="password" name="password" class="input input-bordered w-full" placeholder="********" required>
                 </div>
                 <div class="form-control mt-6">
-                    <button type="submit" class="btn btn-primary">Entrar</button>
+                    <button type="submit" class="btn btn-primary w-full">Entrar</button>
                 </div>
             </form>
-            <p class="text-center mt-4 text-sm">
-                ¿No tienes cuenta? <a href="/register" class="link link-primary">Regístrate</a>
+            <div class="divider text-xs opacity-40 my-3">O</div>
+            <p class="text-center text-sm">
+                <a href="/register" class="link link-primary font-medium">Crear cuenta nueva</a>
             </p>
-            <p class="text-center mt-1 text-sm">
-                <a href="/forgot-password" class="link link-secondary">¿Olvidaste tu contraseña?</a>
+            <p class="text-center text-xs mt-1">
+                <a href="/forgot-password" class="link link-hover opacity-50">Olvidaste tu contrasena?</a>
             </p>
         </div>
     </div>

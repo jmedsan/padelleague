@@ -1,107 +1,125 @@
 {{define "content"}}
 <div class="flex justify-between items-center mb-6">
     <div>
-        <a href="/admin" class="text-sm text-base-content/60 hover:text-primary">&larr; Panel de administración</a>
-        <h1 class="text-2xl font-bold">Parejas</h1>
+        <a href="/admin" class="link link-hover text-sm opacity-60">&larr; Panel de administración</a>
+        <h1 class="text-2xl font-bold mt-1">Parejas</h1>
     </div>
-    <button class="btn btn-primary btn-sm" onclick="document.getElementById('modal-create').showModal()">Nueva pareja</button>
+    <button class="btn btn-primary" onclick="document.getElementById('modal-create').showModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+        Nueva pareja
+    </button>
 </div>
 
-<div class="overflow-x-auto">
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Nombre</th>
-                <th>Jugador 1</th>
-                <th>Jugador 2</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Pairs}}
-            <tr>
-                <td class="font-medium">{{.Record.GetString "name"}}</td>
-                <td>{{.Player1}}</td>
-                <td>{{.Player2}}</td>
-                <td>
-                    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-edit-{{.Record.Id}}').showModal()">Editar</button>
-                </td>
-            </tr>
-
-            <dialog id="modal-edit-{{.Record.Id}}" class="modal">
-                <div class="modal-box">
-                    <h3 class="text-lg font-bold mb-4">Editar pareja</h3>
-                    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
-                    <div id="edit-error-{{.Record.Id}}"></div>
-                    <form hx-post="/admin/pairs/{{.Record.Id}}" hx-target="#edit-error-{{.Record.Id}}">
-                        <div class="form-control">
-                            <label class="label"><span class="label-text">Nombre</span></label>
-                            <input type="text" name="name" value="{{.Record.GetString "name"}}" class="input input-bordered" required>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {{range .Pairs}}
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body p-5">
+            <h2 class="card-title text-base">{{.Record.GetString "name"}}</h2>
+            <div class="flex items-center gap-3 mt-1">
+                <div class="flex items-center gap-2">
+                    <div class="avatar placeholder">
+                        <div class="bg-primary/10 text-primary w-8 rounded-full">
+                            <span class="text-xs font-bold">{{slice .Player1 0 1}}</span>
                         </div>
-                        <div class="form-control mt-2">
-                            <label class="label"><span class="label-text">Jugador 1</span></label>
-                            <select name="player1" class="select select-bordered" required>
-                                <option value="">Seleccionar</option>
-                                {{$p1 := .Record.GetString "player1"}}
-                                {{range $.Users}}
-                                <option value="{{.Id}}" {{if eq .Id $p1}}selected{{end}}>{{.GetString "display_name"}}</option>
-                                {{end}}
-                            </select>
-                        </div>
-                        <div class="form-control mt-2">
-                            <label class="label"><span class="label-text">Jugador 2</span></label>
-                            <select name="player2" class="select select-bordered" required>
-                                <option value="">Seleccionar</option>
-                                {{$p2 := .Record.GetString "player2"}}
-                                {{range $.Users}}
-                                <option value="{{.Id}}" {{if eq .Id $p2}}selected{{end}}>{{.GetString "display_name"}}</option>
-                                {{end}}
-                            </select>
-                        </div>
-                        <div class="form-control mt-4">
-                            <button type="submit" class="btn btn-primary">Guardar</button>
-                        </div>
-                    </form>
+                    </div>
+                    <span class="text-sm">{{.Player1}}</span>
                 </div>
-                <form method="dialog" class="modal-backdrop"><button>close</button></form>
-            </dialog>
-            {{else}}
-            <tr><td colspan="4" class="text-center text-base-content/60">No hay parejas</td></tr>
-            {{end}}
-        </tbody>
-    </table>
+                <span class="text-base-content/40 text-xs font-bold">&amp;</span>
+                <div class="flex items-center gap-2">
+                    <div class="avatar placeholder">
+                        <div class="bg-secondary/10 text-secondary w-8 rounded-full">
+                            <span class="text-xs font-bold">{{slice .Player2 0 1}}</span>
+                        </div>
+                    </div>
+                    <span class="text-sm">{{.Player2}}</span>
+                </div>
+            </div>
+            <div class="card-actions justify-end mt-3">
+                <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-edit-{{.Record.Id}}').showModal()">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" /></svg>
+                    Editar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <dialog id="modal-edit-{{.Record.Id}}" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box">
+            <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+            <h3 class="text-lg font-bold mb-4">Editar pareja</h3>
+            <div id="edit-error-{{.Record.Id}}" class="mb-2"></div>
+            <form hx-post="/admin/pairs/{{.Record.Id}}" hx-target="#edit-error-{{.Record.Id}}">
+                <div class="form-control w-full">
+                    <label class="label"><span class="label-text font-medium">Nombre</span></label>
+                    <input type="text" name="name" value="{{.Record.GetString "name"}}" class="input input-bordered w-full" required>
+                </div>
+                <div class="form-control w-full mt-3">
+                    <label class="label"><span class="label-text font-medium">Jugador 1</span></label>
+                    <select name="player1" class="select select-bordered w-full" required>
+                        <option value="">Seleccionar jugador</option>
+                        {{$p1 := .Record.GetString "player1"}}
+                        {{range $.Users}}
+                        <option value="{{.Id}}" {{if eq .Id $p1}}selected{{end}}>{{.GetString "display_name"}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div class="form-control w-full mt-3">
+                    <label class="label"><span class="label-text font-medium">Jugador 2</span></label>
+                    <select name="player2" class="select select-bordered w-full" required>
+                        <option value="">Seleccionar jugador</option>
+                        {{$p2 := .Record.GetString "player2"}}
+                        {{range $.Users}}
+                        <option value="{{.Id}}" {{if eq .Id $p2}}selected{{end}}>{{.GetString "display_name"}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div class="modal-action">
+                    <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+    {{else}}
+    <div class="col-span-full">
+        <div class="text-center py-12 opacity-60">
+            <p class="text-lg">No hay parejas creadas</p>
+            <p class="text-sm mt-1">Crea la primera pareja para empezar</p>
+        </div>
+    </div>
+    {{end}}
 </div>
 
-<dialog id="modal-create" class="modal">
+<dialog id="modal-create" class="modal modal-bottom sm:modal-middle">
     <div class="modal-box">
-        <h3 class="text-lg font-bold mb-4">Nueva pareja</h3>
         <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
-        <div id="create-error"></div>
+        <h3 class="text-lg font-bold mb-4">Nueva pareja</h3>
+        <div id="create-error" class="mb-2"></div>
         <form hx-post="/admin/pairs" hx-target="#create-error">
-            <div class="form-control">
-                <label class="label"><span class="label-text">Nombre</span></label>
-                <input type="text" name="name" class="input input-bordered" required>
+            <div class="form-control w-full">
+                <label class="label"><span class="label-text font-medium">Nombre</span></label>
+                <input type="text" name="name" class="input input-bordered w-full" placeholder="Ej: Los Invencibles" required>
             </div>
-            <div class="form-control mt-2">
-                <label class="label"><span class="label-text">Jugador 1</span></label>
-                <select name="player1" class="select select-bordered" required>
-                    <option value="">Seleccionar</option>
+            <div class="form-control w-full mt-3">
+                <label class="label"><span class="label-text font-medium">Jugador 1</span></label>
+                <select name="player1" class="select select-bordered w-full" required>
+                    <option value="">Seleccionar jugador</option>
                     {{range .Users}}
                     <option value="{{.Id}}">{{.GetString "display_name"}}</option>
                     {{end}}
                 </select>
             </div>
-            <div class="form-control mt-2">
-                <label class="label"><span class="label-text">Jugador 2</span></label>
-                <select name="player2" class="select select-bordered" required>
-                    <option value="">Seleccionar</option>
+            <div class="form-control w-full mt-3">
+                <label class="label"><span class="label-text font-medium">Jugador 2</span></label>
+                <select name="player2" class="select select-bordered w-full" required>
+                    <option value="">Seleccionar jugador</option>
                     {{range .Users}}
                     <option value="{{.Id}}">{{.GetString "display_name"}}</option>
                     {{end}}
                 </select>
             </div>
-            <div class="form-control mt-4">
-                <button type="submit" class="btn btn-primary">Crear</button>
+            <div class="modal-action">
+                <button type="submit" class="btn btn-primary">Crear pareja</button>
             </div>
         </form>
     </div>

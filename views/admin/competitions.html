@@ -1,63 +1,103 @@
 {{define "content"}}
-<div class="flex justify-between items-center mb-6">
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
     <h1 class="text-2xl font-bold">Panel de administración</h1>
-    <button class="btn btn-primary btn-sm" onclick="document.getElementById('modal-create').showModal()">Crear competición</button>
+    <button class="btn btn-primary" onclick="document.getElementById('modal-create').showModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+        Crear competición
+    </button>
+</div>
+
+<div class="stats stats-vertical sm:stats-horizontal shadow bg-base-200 w-full mb-8">
+    <div class="stat">
+        <div class="stat-title">Competiciones</div>
+        <div class="stat-value text-2xl">{{len .Active}}{{if .Inactive}} + {{len .Inactive}}{{end}}</div>
+        <div class="stat-desc">{{len .Active}} activa{{if ne (len .Active) 1}}s{{end}}{{if .Inactive}}, {{len .Inactive}} inactiva{{if ne (len .Inactive) 1}}s{{end}}{{end}}</div>
+    </div>
+    <div class="stat">
+        <div class="stat-title">Activas</div>
+        <div class="stat-value text-2xl text-success">{{len .Active}}</div>
+        <div class="stat-desc">en juego</div>
+    </div>
+    <div class="stat">
+        <div class="stat-title">Disputas</div>
+        <div class="stat-value text-2xl {{if gt .DisputeCount 0}}text-error{{end}}">{{.DisputeCount}}</div>
+        <div class="stat-desc">{{if gt .DisputeCount 0}}pendientes de resolver{{else}}sin disputas{{end}}</div>
+    </div>
 </div>
 
 {{if gt .DisputeCount 0}}
-<div class="alert alert-warning mb-6">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-    <span>{{.DisputeCount}} partido{{if gt .DisputeCount 1}}s{{end}} en disputa</span>
+<div class="alert alert-warning shadow-sm mb-6">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+    <span>{{.DisputeCount}} partido{{if gt .DisputeCount 1}}s{{end}} en disputa — revisa las competiciones afectadas.</span>
 </div>
 {{end}}
 
 <h2 class="text-lg font-semibold mb-4">Competiciones activas</h2>
 {{if .Active}}
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
     {{range .Active}}
-    <a href="/admin/competitions/{{.Competition.Id}}" class="card bg-base-200 hover:bg-base-300 transition-colors cursor-pointer">
-        <div class="card-body">
+    <a href="/admin/competitions/{{.Competition.Id}}" class="card bg-base-100 shadow-sm border-l-4 border-success hover:shadow-md transition-shadow">
+        <div class="card-body gap-3">
             <div class="flex justify-between items-start">
                 <h3 class="card-title text-base">{{.Competition.GetString "name"}}</h3>
-                {{if eq (.Competition.GetString "type") "league"}}
-                <span class="badge badge-info badge-sm">Liga</span>
-                {{else}}
-                <span class="badge badge-secondary badge-sm">Playoff</span>
-                {{end}}
+                <div class="flex gap-1">
+                    {{if gt .DisputeCount 0}}
+                    <span class="badge badge-error badge-sm gap-1">{{.DisputeCount}} disputa{{if gt .DisputeCount 1}}s{{end}}</span>
+                    {{end}}
+                    {{if eq (.Competition.GetString "type") "league"}}
+                    <span class="badge badge-primary badge-sm">Liga</span>
+                    {{else}}
+                    <span class="badge badge-secondary badge-sm">Playoff</span>
+                    {{end}}
+                </div>
             </div>
             {{if .Competition.GetString "category"}}
             <p class="text-sm text-base-content/60">{{.Competition.GetString "category"}}</p>
             {{end}}
-            <p class="text-sm mt-1">{{.PairsCount}} parejas · {{.PlayedMatches}}/{{.TotalMatches}} partidos jugados</p>
-            {{if gt .DisputeCount 0}}
-            <span class="badge badge-warning badge-sm mt-1">{{.DisputeCount}} disputa{{if gt .DisputeCount 1}}s{{end}}</span>
+            <div class="flex items-center gap-4 text-sm">
+                <span class="font-medium">{{.PairsCount}} parejas</span>
+                <span class="text-base-content/60">·</span>
+                <span>{{.PlayedMatches}}/{{.TotalMatches}} partidos</span>
+            </div>
+            {{if gt .TotalMatches 0}}
+            <progress class="progress progress-success w-full" value="{{.PlayedMatches}}" max="{{.TotalMatches}}"></progress>
             {{end}}
         </div>
     </a>
     {{end}}
 </div>
 {{else}}
-<p class="text-base-content/60 mb-8">No hay competiciones activas</p>
+<div class="text-center py-12 mb-8">
+    <p class="text-base-content/50 text-lg">No hay competiciones activas</p>
+    <p class="text-base-content/40 text-sm mt-1">Crea una nueva competición para empezar.</p>
+</div>
 {{end}}
 
 {{if .Inactive}}
-<div class="collapse collapse-arrow bg-base-200 mb-8">
+<div class="collapse collapse-arrow bg-base-200 rounded-box mb-8">
     <input type="checkbox">
-    <div class="collapse-title font-semibold">Competiciones inactivas ({{len .Inactive}})</div>
+    <div class="collapse-title font-semibold text-base-content/70">
+        Competiciones inactivas ({{len .Inactive}})
+    </div>
     <div class="collapse-content">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pt-4">
             {{range .Inactive}}
-            <a href="/admin/competitions/{{.Competition.Id}}" class="card bg-base-100 hover:bg-base-300 transition-colors cursor-pointer opacity-70">
-                <div class="card-body py-3">
+            <a href="/admin/competitions/{{.Competition.Id}}" class="card bg-base-100 shadow-sm border-l-4 border-base-300 opacity-75 hover:opacity-100 hover:shadow-md transition-all">
+                <div class="card-body py-4 gap-2">
                     <div class="flex justify-between items-start">
                         <h3 class="card-title text-sm">{{.Competition.GetString "name"}}</h3>
                         {{if eq (.Competition.GetString "type") "league"}}
-                        <span class="badge badge-info badge-outline badge-sm">Liga</span>
+                        <span class="badge badge-primary badge-outline badge-sm">Liga</span>
                         {{else}}
                         <span class="badge badge-secondary badge-outline badge-sm">Playoff</span>
                         {{end}}
                     </div>
-                    <p class="text-xs">{{.PairsCount}} parejas · {{.PlayedMatches}}/{{.TotalMatches}} partidos</p>
+                    {{if .Competition.GetString "category"}}
+                    <p class="text-xs text-base-content/50">{{.Competition.GetString "category"}}</p>
+                    {{end}}
+                    <div class="text-xs text-base-content/60">
+                        {{.PairsCount}} parejas · {{.PlayedMatches}}/{{.TotalMatches}} partidos
+                    </div>
                 </div>
             </a>
             {{end}}
@@ -68,39 +108,40 @@
 
 <dialog id="modal-create" class="modal">
     <div class="modal-box">
-        <h3 class="text-lg font-bold mb-4">Nueva competición</h3>
         <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
-        <div id="create-error"></div>
+        <h3 class="text-lg font-bold mb-6">Nueva competición</h3>
+        <div id="create-error" class="mb-4"></div>
         <form hx-post="/admin/competitions" hx-target="#create-error">
-            <div class="form-control">
-                <label class="label"><span class="label-text">Nombre</span></label>
-                <input type="text" name="name" class="input input-bordered" required>
+            <div class="form-control w-full">
+                <label class="label"><span class="label-text font-medium">Nombre</span></label>
+                <input type="text" name="name" class="input input-bordered w-full" placeholder="Ej: Liga Primavera 2026" required>
             </div>
-            <div class="form-control mt-2">
-                <label class="label"><span class="label-text">Tipo</span></label>
-                <select name="type" class="select select-bordered">
+            <div class="form-control w-full mt-3">
+                <label class="label"><span class="label-text font-medium">Tipo</span></label>
+                <select name="type" class="select select-bordered w-full">
                     <option value="league">Liga</option>
                     <option value="playoff">Playoff</option>
                 </select>
             </div>
-            <div class="form-control mt-2">
-                <label class="label"><span class="label-text">Categoría</span></label>
-                <input type="text" name="category" class="input input-bordered">
+            <div class="form-control w-full mt-3">
+                <label class="label"><span class="label-text font-medium">Categoría</span></label>
+                <input type="text" name="category" class="input input-bordered w-full" placeholder="Ej: 1ª categoría">
             </div>
-            <div class="form-control mt-2">
-                <label class="label cursor-pointer justify-start gap-2">
-                    <input type="checkbox" name="play_twice" class="checkbox">
+            <div class="divider my-3"></div>
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-3">
+                    <input type="checkbox" name="play_twice" class="checkbox checkbox-sm">
                     <span class="label-text">Ida y vuelta</span>
                 </label>
             </div>
-            <div class="form-control mt-2">
-                <label class="label cursor-pointer justify-start gap-2">
-                    <input type="checkbox" name="active" class="checkbox" checked>
-                    <span class="label-text">Activa</span>
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-3">
+                    <input type="checkbox" name="active" class="checkbox checkbox-sm" checked>
+                    <span class="label-text">Activa desde el inicio</span>
                 </label>
             </div>
-            <div class="form-control mt-4">
-                <button type="submit" class="btn btn-primary">Crear</button>
+            <div class="modal-action">
+                <button type="submit" class="btn btn-primary">Crear competición</button>
             </div>
         </form>
     </div>

@@ -1,32 +1,39 @@
 {{define "content"}}
-<div class="mb-6">
-    <a href="/" class="btn btn-ghost btn-sm">&larr; Inicio</a>
-    <h1 class="text-2xl font-bold mt-2">{{.Competition.GetString "name"}}</h1>
-    <div class="flex gap-2 mt-1">
+<div class="mb-2">
+    <a href="/" class="btn btn-ghost btn-sm gap-1 opacity-70">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+        Inicio
+    </a>
+</div>
+
+<div class="bg-primary text-primary-content rounded-2xl p-6 mb-6 shadow-lg">
+    <h1 class="text-3xl font-bold">{{.Competition.GetString "name"}}</h1>
+    <div class="flex flex-wrap gap-2 mt-3">
         {{if eq (.Competition.GetString "type") "league"}}
-        <span class="badge badge-primary">Liga</span>
+        <span class="badge badge-lg bg-white/20 border-0 text-primary-content">Liga</span>
         {{else}}
-        <span class="badge badge-secondary">Playoff</span>
+        <span class="badge badge-lg bg-white/20 border-0 text-primary-content">Playoff</span>
         {{end}}
         {{if .Competition.GetString "category"}}
-        <span class="badge badge-outline">{{.Competition.GetString "category"}}</span>
+        <span class="badge badge-lg bg-white/10 border-0 text-primary-content">{{.Competition.GetString "category"}}</span>
         {{end}}
         {{if .IsArchived}}
-        <span class="badge badge-ghost">Archivada</span>
+        <span class="badge badge-lg bg-black/20 border-0 text-primary-content">Archivada</span>
         {{end}}
     </div>
 </div>
 
 {{if .Awards}}
 <div class="mb-6">
-    <h2 class="text-lg font-semibold mb-2">Premios</h2>
+    <h2 class="text-lg font-bold mb-3">Premios</h2>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         {{range .Awards}}
-        <div class="card bg-base-200">
+        <div class="card bg-gradient-to-br from-warning/10 to-warning/5 border border-warning/20">
             <div class="card-body p-4 text-center">
-                <h3 class="font-bold">{{.Title}}</h3>
-                <p class="text-lg">{{.PairName}}</p>
-                <p class="text-sm text-base-content/60">{{.Value}}</p>
+                <span class="text-2xl">&#127942;</span>
+                <h3 class="font-bold text-sm uppercase tracking-wide opacity-60">{{.Title}}</h3>
+                <p class="text-lg font-bold">{{.PairName}}</p>
+                <p class="text-sm opacity-60">{{.Value}}</p>
             </div>
         </div>
         {{end}}
@@ -34,104 +41,102 @@
 </div>
 {{end}}
 
-<div role="tablist" class="tabs tabs-bordered mb-4">
-    <input type="radio" name="comp_tabs" role="tab" class="tab" aria-label="Jornadas" checked>
-    <div role="tabpanel" class="tab-content pt-4">
+<div role="tablist" class="tabs tabs-boxed bg-base-100 shadow-sm mb-6 p-1">
+    <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Jornadas" checked>
+    <div role="tabpanel" class="tab-content pt-6">
         {{if .Rounds}}
+        <div class="space-y-3">
         {{range .Rounds}}
-        <div class="collapse collapse-arrow bg-base-100 shadow-md mb-2">
+        <div class="collapse collapse-arrow bg-base-100 shadow-sm rounded-xl border border-base-300">
             <input type="checkbox">
-            <div class="collapse-title font-medium">
+            <div class="collapse-title font-bold text-base">
                 Jornada {{.RoundNumber}}
             </div>
             <div class="collapse-content">
-                <div class="space-y-2">
+                <div class="space-y-2 pt-2">
                     {{range .Matches}}
-                    {{if .IsMyMatch}}
-                    <a href="/match/{{.Match.Id}}" class="card card-compact bg-primary/10 hover:bg-primary/20 transition-colors cursor-pointer">
-                        <div class="card-body flex-row items-center justify-between">
-                            <span class="font-medium">{{.Pair1}}</span>
-                            <span class="text-sm">
-                                {{if .Match.GetString "scores"}}{{.Match.GetString "scores"}}{{else}}vs{{end}}
-                            </span>
-                            <span class="font-medium">{{.Pair2}}</span>
-                            {{if eq (.Match.GetString "status") "final"}}
-                            <span class="badge badge-success badge-sm">Final</span>
-                            {{else if eq (.Match.GetString "status") "disputed"}}
-                            <span class="badge badge-error badge-sm">Disputa</span>
-                            {{else if eq (.Match.GetString "status") "confirmed"}}
-                            <span class="badge badge-info badge-sm">Enviado</span>
-                            {{else}}
-                            <span class="badge badge-warning badge-sm">Pendiente</span>
-                            {{end}}
+                    <a href="/match/{{.Match.Id}}" class="block rounded-xl p-3 transition-all duration-150 hover:shadow-md {{if .IsMyMatch}}bg-primary/5 border-l-4 border-l-primary hover:bg-primary/10{{else}}bg-base-200/50 hover:bg-base-200{{end}}">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="font-medium flex-1 text-right truncate">{{.Pair1}}</span>
+                            <div class="flex-none px-3">
+                                {{if .Match.GetString "scores"}}
+                                <span class="font-bold text-lg">{{.Match.GetString "scores"}}</span>
+                                {{else}}
+                                <span class="text-sm opacity-40">vs</span>
+                                {{end}}
+                            </div>
+                            <span class="font-medium flex-1 truncate">{{.Pair2}}</span>
+                            <div class="flex-none ml-2">
+                                {{if eq (.Match.GetString "status") "final"}}
+                                <span class="badge badge-success badge-sm">Final</span>
+                                {{else if eq (.Match.GetString "status") "disputed"}}
+                                <span class="badge badge-error badge-sm">Disputa</span>
+                                {{else if eq (.Match.GetString "status") "confirmed"}}
+                                <span class="badge badge-info badge-sm">Enviado</span>
+                                {{else}}
+                                <span class="badge badge-warning badge-sm">Pendiente</span>
+                                {{end}}
+                            </div>
                         </div>
                     </a>
-                    {{else}}
-                    <div class="card card-compact bg-base-100">
-                        <div class="card-body flex-row items-center justify-between">
-                            <span>{{.Pair1}}</span>
-                            <span class="text-sm">
-                                {{if .Match.GetString "scores"}}{{.Match.GetString "scores"}}{{else}}vs{{end}}
-                            </span>
-                            <span>{{.Pair2}}</span>
-                            {{if eq (.Match.GetString "status") "final"}}
-                            <span class="badge badge-success badge-sm">Final</span>
-                            {{else if eq (.Match.GetString "status") "confirmed"}}
-                            <span class="badge badge-info badge-sm">Enviado</span>
-                            {{else}}
-                            <span class="badge badge-ghost badge-sm">Pendiente</span>
-                            {{end}}
-                        </div>
-                    </div>
-                    {{end}}
                     {{end}}
                 </div>
             </div>
         </div>
         {{end}}
+        </div>
         {{else}}
-        <p class="text-base-content/50 text-center py-4">No hay jornadas generadas</p>
+        <div class="text-center py-8 opacity-50">No hay jornadas generadas</div>
         {{end}}
     </div>
 
     {{if .Standings}}
-    <input type="radio" name="comp_tabs" role="tab" class="tab" aria-label="Clasificación">
-    <div role="tabpanel" class="tab-content pt-4">
-        <div class="overflow-x-auto">
-            <table class="table table-sm">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Pareja</th>
-                        <th>PJ</th>
-                        <th>PG</th>
-                        <th>PP</th>
-                        <th>Sets</th>
-                        <th>Juegos</th>
-                        <th>Pts</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{range .Standings}}
-                    <tr>
-                        <td>{{.Position}}</td>
-                        <td><a href="/h2h?p1={{.PairID}}" class="link">{{.PairName}}</a></td>
-                        <td>{{.Played}}</td>
-                        <td>{{.Wins}}</td>
-                        <td>{{.Losses}}</td>
-                        <td>{{.SetsWon}}/{{.SetsLost}}</td>
-                        <td>{{.GamesWon}}/{{.GamesLost}}</td>
-                        <td class="font-bold">{{.Points}}</td>
-                    </tr>
-                    {{end}}
-                </tbody>
-            </table>
+    <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Clasificacion">
+    <div role="tabpanel" class="tab-content pt-6">
+        <div class="card bg-base-100 shadow-sm rounded-xl overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="table table-zebra">
+                    <thead>
+                        <tr class="bg-base-200">
+                            <th class="w-12 text-center">#</th>
+                            <th>Pareja</th>
+                            <th class="text-center">PJ</th>
+                            <th class="text-center">PG</th>
+                            <th class="text-center">PP</th>
+                            <th class="text-center">Sets</th>
+                            <th class="text-center">Juegos</th>
+                            <th class="text-center font-bold">Pts</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .Standings}}
+                        <tr class="hover">
+                            <td class="text-center">
+                                <div class="w-7 h-7 rounded-full {{if eq .Position 1}}bg-warning text-warning-content{{else if eq .Position 2}}bg-base-300{{else if eq .Position 3}}bg-orange-700/20{{else}}bg-base-200{{end}} flex items-center justify-center text-sm font-bold mx-auto">
+                                    {{.Position}}
+                                </div>
+                            </td>
+                            <td><a href="/h2h?p1={{.PairID}}" class="link link-hover font-medium">{{.PairName}}</a></td>
+                            <td class="text-center">{{.Played}}</td>
+                            <td class="text-center text-success">{{.Wins}}</td>
+                            <td class="text-center text-error">{{.Losses}}</td>
+                            <td class="text-center text-sm">{{.SetsWon}}/{{.SetsLost}}</td>
+                            <td class="text-center text-sm">{{.GamesWon}}/{{.GamesLost}}</td>
+                            <td class="text-center text-lg font-bold">{{.Points}}</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
     {{end}}
 </div>
 
-<div class="mt-4">
-    <a href="/ical/competition/{{.Competition.Id}}" class="btn btn-outline btn-sm">Descargar calendario .ics</a>
+<div class="mt-6">
+    <a href="/ical/competition/{{.Competition.Id}}" class="btn btn-ghost btn-sm gap-2 opacity-60">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
+        Descargar calendario .ics
+    </a>
 </div>
 {{end}}
