@@ -1,0 +1,7 @@
+pb_data/
+padelleague
+*.db
+.git/
+.kiro/
+screenshots/
+node_modules/
