@@ -45,7 +45,7 @@ func computeAwards(app core.App, competitionID string) []Award {
 
 	matches, _ := app.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'final'",
-		"round_number", 0, 0,
+		"", 0, 0,
 		map[string]any{"cid": competitionID})
 
 	type streakInfo struct {

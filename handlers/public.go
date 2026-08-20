@@ -99,7 +99,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 
 	matches, _ := h.app.FindRecordsByFilter("matches",
 		"competition = {:cid}",
-		"round_number", 0, 0,
+		"", 0, 0,
 		map[string]any{"cid": id})
 
 	allPairIDs := make(map[string]bool)

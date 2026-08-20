@@ -105,7 +105,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != {:cid}", "", 0, 0, map[string]any{"cid": id})
 
 	matches, _ := h.app.FindRecordsByFilter("matches",
-		"competition = {:cid}", "round_number", 0, 0,
+		"competition = {:cid}", "", 0, 0,
 		map[string]any{"cid": id})
 
 	pairNameMap, _ := expandPairNames(h.app, pairIDs)
@@ -159,7 +159,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		standings, _ = ComputeStandings(h.app, id)
 	}
 
-	allUsers, _ := h.app.FindRecordsByFilter("users", "role = 'player'", "display_name", 0, 0, nil)
+	allUsers, _ := h.app.FindRecordsByFilter("users", "role = 'player'", "", 0, 0, nil)
 
 	return h.renderPage(e, "admin/competition-detail.html", map[string]any{
 		"Competition":     comp,
