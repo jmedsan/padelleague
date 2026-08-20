@@ -144,17 +144,4 @@ func (h *AdminHandler) PlayoffsCreate(e *core.RequestEvent) error {
 	return e.Redirect(http.StatusFound, "/admin/playoffs?temporada="+temporadaID)
 }
 
-func statusLabel(status string) string {
-	switch status {
-	case "pending":
-		return "Pendiente"
-	case "confirmed":
-		return "Confirmado"
-	case "disputed":
-		return "Disputado"
-	case "final":
-		return "Final"
-	default:
-		return status
-	}
-}
+// statusLabel defined in match.go

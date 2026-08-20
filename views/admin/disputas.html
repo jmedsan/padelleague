@@ -1,0 +1,36 @@
+{{define "content"}}
+<h1 class="text-2xl font-bold mb-6">Partidos en disputa</h1>
+
+{{if .Disputas}}
+<div class="space-y-4">
+    {{range .Disputas}}
+    <div class="card bg-base-100 shadow-md">
+        <div class="card-body">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div class="flex-1">
+                    <h3 class="font-bold">{{.Pareja1Name}} vs {{.Pareja2Name}}</h3>
+                    <p class="text-sm">Marcador enviado: <span class="font-mono">{{.Partido.GetString "scores"}}</span></p>
+                    <p class="text-sm">Enviado por: {{.SubmittedBy}}</p>
+                    <p class="text-sm">Disputado por: {{.DisputedBy}}</p>
+                    {{if .DisputeNotes}}
+                    <p class="text-sm mt-1"><span class="font-semibold">Motivo:</span> {{.DisputeNotes}}</p>
+                    {{end}}
+                </div>
+                <form hx-post="/admin/disputas/{{.Partido.Id}}/resolve" hx-swap="none" class="flex items-end gap-2">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Marcador final</span></label>
+                        <input type="text" name="score" placeholder="6-3 4-6 7-5" class="input input-bordered input-sm w-40" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">Resolver</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {{end}}
+</div>
+{{else}}
+<div class="text-center py-8">
+    <p class="text-base-content/50">No hay partidos en disputa</p>
+</div>
+{{end}}
+{{end}}

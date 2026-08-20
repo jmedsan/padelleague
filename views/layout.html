@@ -25,6 +25,7 @@
                 <div class="hidden lg:flex items-center gap-2">
                     <ul class="menu menu-horizontal px-1">
                         <li><a href="/">Inicio</a></li>
+                        {{if .DisplayName}}<li><a href="/mis-partidos">Mis partidos</a></li>{{end}}
                         {{if .IsAdmin}}
                         <li>
                             <details>
@@ -61,6 +62,7 @@
             <label for="main-drawer" aria-label="cerrar menú" class="drawer-overlay"></label>
             <ul class="menu bg-base-200 min-h-full w-64 p-4">
                 <li><a href="/">Inicio</a></li>
+                {{if .DisplayName}}<li><a href="/mis-partidos">Mis partidos</a></li>{{end}}
                 {{if .IsAdmin}}
                 <li class="menu-title mt-4">Gestión</li>
                 <li><a href="/admin/categorias">Categorías</a></li>

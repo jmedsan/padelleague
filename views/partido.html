@@ -1,0 +1,175 @@
+{{define "content"}}
+<div class="max-w-2xl mx-auto">
+    <div class="text-sm breadcrumbs mb-4">
+        <ul>
+            <li><a href="/mis-partidos">Mis partidos</a></li>
+            <li>{{.CategoryName}} — {{.SeasonName}}</li>
+            <li>Jornada {{.Match.JornadaNum}}</li>
+        </ul>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <div class="flex justify-between items-center">
+                <h2 class="card-title">Jornada {{.Match.JornadaNum}}</h2>
+                <span class="badge {{.Match.StatusClass}}">{{.Match.StatusLabel}}</span>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="grid grid-cols-3 gap-4 text-center py-4">
+                <div>
+                    <p class="font-semibold">{{.Match.Pareja1Name}}</p>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold">
+                        {{if .Match.Partido.GetString "scores"}}
+                        {{.Match.Partido.GetString "scores"}}
+                        {{else}}
+                        vs
+                        {{end}}
+                    </p>
+                </div>
+                <div>
+                    <p class="font-semibold">{{.Match.Pareja2Name}}</p>
+                </div>
+            </div>
+
+            {{if .Match.Partido.GetString "date"}}
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-base-content/70">
+                <div><strong>Fecha:</strong> {{.Match.Partido.GetString "date"}}</div>
+                <div><strong>Hora:</strong> {{.Match.Partido.GetString "time"}}</div>
+                <div><strong>Club:</strong> {{.Match.Partido.GetString "club"}}</div>
+                <div><strong>Pista:</strong> {{.Match.Partido.GetString "court_number"}}</div>
+            </div>
+            {{end}}
+
+            {{if .Match.Partido.GetString "winner"}}
+            <div class="alert alert-success mt-4">
+                <span>Ganador: {{if eq (.Match.Partido.GetString "winner") (.Match.Partido.GetString "pareja1")}}{{.Match.Pareja1Name}}{{else}}{{.Match.Pareja2Name}}{{end}}</span>
+            </div>
+            {{end}}
+
+            {{if .SubmittedBy}}
+            <p class="text-sm text-base-content/60 mt-2">Enviado por: {{.SubmittedBy}}</p>
+            {{end}}
+            {{if .ConfirmedBy}}
+            <p class="text-sm text-base-content/60">Confirmado por: {{.ConfirmedBy}}</p>
+            {{end}}
+            {{if .DisputedBy}}
+            <p class="text-sm text-base-content/60">Disputado por: {{.DisputedBy}}</p>
+            {{if .DisputeNotes}}
+            <p class="text-sm text-base-content/60">Motivo: {{.DisputeNotes}}</p>
+            {{end}}
+            {{end}}
+
+            <div class="divider"></div>
+            <div id="action-result"></div>
+
+            {{if .Match.CanSubmit}}
+            <h3 class="font-semibold mb-2">Registrar resultado</h3>
+            <form hx-post="/partido/{{.Match.Partido.Id}}/submit" hx-target="#action-result">
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Fecha</span></label>
+                        <input type="date" name="date" class="input input-bordered input-sm" value="{{.Match.Partido.GetString "date"}}">
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Hora</span></label>
+                        <input type="text" name="time" class="input input-bordered input-sm" placeholder="19:30" value="{{.Match.Partido.GetString "time"}}">
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Club</span></label>
+                        <input type="text" name="club" class="input input-bordered input-sm" value="{{.Match.Partido.GetString "club"}}">
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Pista</span></label>
+                        <input type="text" name="court_number" class="input input-bordered input-sm" value="{{.Match.Partido.GetString "court_number"}}">
+                    </div>
+                </div>
+                <div class="form-control mt-2">
+                    <label class="label"><span class="label-text">Resultado (ej: 6-3 4-6 7-5)</span></label>
+                    <input type="text" name="scores" class="input input-bordered" placeholder="6-3 4-6 7-5" required>
+                </div>
+                <button type="submit" class="btn btn-primary mt-4 w-full">Enviar resultado</button>
+            </form>
+            {{end}}
+
+            {{if .Match.CanWalkover}}
+            <div class="mt-4">
+                <h3 class="font-semibold mb-2">Reportar incomparecencia</h3>
+                <form hx-post="/partido/{{.Match.Partido.Id}}/walkover" hx-target="#action-result">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Equipo que no se presentó</span></label>
+                        <select name="absent_team" class="select select-bordered" required>
+                            <option value="">Seleccionar...</option>
+                            <option value="1">{{.Match.Pareja1Name}}</option>
+                            <option value="2">{{.Match.Pareja2Name}}</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-warning mt-2 w-full">Reportar incomparecencia</button>
+                </form>
+            </div>
+            {{end}}
+
+            {{if .Match.CanEdit}}
+            <div class="mt-4">
+                <h3 class="font-semibold mb-2">Editar logística</h3>
+                <form hx-post="/partido/{{.Match.Partido.Id}}/edit" hx-target="#action-result">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Fecha</span></label>
+                            <input type="date" name="date" class="input input-bordered input-sm" value="{{.Match.Partido.GetString "date"}}">
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Hora</span></label>
+                            <input type="text" name="time" class="input input-bordered input-sm" value="{{.Match.Partido.GetString "time"}}">
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Club</span></label>
+                            <input type="text" name="club" class="input input-bordered input-sm" value="{{.Match.Partido.GetString "club"}}">
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Pista</span></label>
+                            <input type="text" name="court_number" class="input input-bordered input-sm" value="{{.Match.Partido.GetString "court_number"}}">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-outline mt-2 w-full">Guardar cambios</button>
+                </form>
+            </div>
+            {{end}}
+
+            {{if .Match.CanConfirm}}
+            <div class="mt-4">
+                <h3 class="font-semibold mb-2">El rival ha enviado este resultado</h3>
+                <div class="flex gap-2">
+                    <button hx-post="/partido/{{.Match.Partido.Id}}/confirm" hx-target="#action-result" class="btn btn-success flex-1">Confirmar resultado</button>
+                    <button onclick="document.getElementById('dispute-form').classList.toggle('hidden')" class="btn btn-error flex-1">Disputar</button>
+                </div>
+                <form id="dispute-form" class="hidden mt-2" hx-post="/partido/{{.Match.Partido.Id}}/dispute" hx-target="#action-result">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Motivo de la disputa</span></label>
+                        <textarea name="dispute_notes" class="textarea textarea-bordered" placeholder="Describe el problema con el resultado..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-error mt-2 w-full">Enviar disputa</button>
+                </form>
+            </div>
+            {{end}}
+
+            {{if eq (.Match.Partido.GetString "status") "confirmed"}}
+            {{if not .Match.CanConfirm}}
+            <div class="alert alert-info mt-4">
+                <span>Esperando confirmación del rival</span>
+            </div>
+            {{end}}
+            {{end}}
+
+            {{if eq (.Match.Partido.GetString "status") "disputed"}}
+            <div class="alert alert-warning mt-4">
+                <span>En disputa — esperando resolución del administrador</span>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

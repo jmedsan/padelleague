@@ -1,0 +1,46 @@
+{{define "content"}}
+<h1 class="text-2xl font-bold mb-6">Mis partidos</h1>
+
+{{if not .Seasons}}
+<div class="alert alert-info">No tienes partidos asignados</div>
+{{else}}
+{{range .Seasons}}
+<div class="collapse collapse-arrow bg-base-100 shadow-md mb-4">
+    <input type="checkbox" checked>
+    <div class="collapse-title text-lg font-medium">
+        {{.CategoryName}} — {{.SeasonName}}
+    </div>
+    <div class="collapse-content">
+        <div class="overflow-x-auto">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Jornada</th>
+                        <th>Pareja 1</th>
+                        <th>Pareja 2</th>
+                        <th>Resultado</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Matches}}
+                    <tr>
+                        <td>J{{.JornadaNum}}</td>
+                        <td>{{.Pareja1Name}}</td>
+                        <td>{{.Pareja2Name}}</td>
+                        <td>{{if .Partido.GetString "scores"}}{{.Partido.GetString "scores"}}{{else}}—{{end}}</td>
+                        <td><span class="badge {{.StatusClass}}">{{.StatusLabel}}</span></td>
+                        <td>
+                            <a href="/partido/{{.Partido.Id}}" class="btn btn-ghost btn-xs">Ver</a>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}
+{{end}}
+{{end}}

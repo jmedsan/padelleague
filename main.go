@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -59,6 +60,33 @@ func main() {
 		return e.Next()
 	})
 
+	app.OnRecordUpdate("partidos").BindFunc(func(e *core.RecordEvent) error {
+		oldStatus := e.Record.Original().GetString("status")
+		newStatus := e.Record.GetString("status")
+		if oldStatus != newStatus {
+			validTransitions := map[string][]string{
+				"pending":   {"confirmed", "final"},
+				"confirmed": {"final", "disputed"},
+				"disputed":  {"final"},
+			}
+			allowed, ok := validTransitions[oldStatus]
+			if !ok {
+				return fmt.Errorf("invalid transition from %s", oldStatus)
+			}
+			valid := false
+			for _, s := range allowed {
+				if s == newStatus {
+					valid = true
+					break
+				}
+			}
+			if !valid {
+				return fmt.Errorf("invalid transition: %s → %s", oldStatus, newStatus)
+			}
+		}
+		return e.Next()
+	})
+
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		se.Router.Bind(&hook.Handler[*core.RequestEvent]{
 			Func:     middleware.CookieAuth,
@@ -102,6 +130,17 @@ func main() {
 		adminGroup.POST("/parejas", admin.ParejasCreate)
 		adminGroup.GET("/playoffs", admin.Playoffs)
 		adminGroup.POST("/playoffs", admin.PlayoffsCreate)
+		adminGroup.GET("/disputas", admin.Disputas)
+		adminGroup.POST("/disputas/{id}/resolve", admin.DisputasResolve)
+
+		match := handlers.NewMatchHandler(app, renderPage)
+		se.Router.GET("/mis-partidos", match.MisPartidos).BindFunc(requireAuthRedirect)
+		se.Router.GET("/partido/{id}", match.Partido).BindFunc(requireAuthRedirect)
+		se.Router.POST("/partido/{id}/submit", match.PartidoSubmit).BindFunc(requireAuthRedirect)
+		se.Router.POST("/partido/{id}/confirm", match.PartidoConfirm).BindFunc(requireAuthRedirect)
+		se.Router.POST("/partido/{id}/dispute", match.PartidoDispute).BindFunc(requireAuthRedirect)
+		se.Router.POST("/partido/{id}/edit", match.PartidoEdit).BindFunc(requireAuthRedirect)
+		se.Router.POST("/partido/{id}/walkover", match.PartidoWalkover).BindFunc(requireAuthRedirect)
 
 		return se.Next()
 	})
