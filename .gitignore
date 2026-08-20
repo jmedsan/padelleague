@@ -4,3 +4,4 @@ node_modules/
 .mcp.json
 .playwright-mcp
 .kiro
+screenshots/
