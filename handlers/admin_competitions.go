@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -103,25 +105,24 @@ func (h *CompetitionHandler) ListPairs(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competición no encontrada</div>`)
 	}
 
-	cpRecords, _ := h.app.FindRecordsByFilter("competition_pairs",
-		"competition = {:cid}", "seed", 0, 0,
-		map[string]any{"cid": id})
+	pairIDs := comp.GetStringSlice("pairs")
+	seeding := h.getSeeding(comp)
 
 	type pairEntry struct {
-		CompPairID string
-		PairName   string
-		Seed       int
+		PairID   string
+		PairName string
+		Seed     int
 	}
 	var entries []pairEntry
-	for _, cp := range cpRecords {
-		pair, err := h.app.FindRecordById("pairs", cp.GetString("pair"))
+	for _, pid := range pairIDs {
+		pair, err := h.app.FindRecordById("pairs", pid)
 		if err != nil {
 			continue
 		}
 		entries = append(entries, pairEntry{
-			CompPairID: cp.Id,
-			PairName:   pair.GetString("name"),
-			Seed:       int(cp.GetFloat("seed")),
+			PairID:   pid,
+			PairName: pair.GetString("name"),
+			Seed:     seeding[pid],
 		})
 	}
 
@@ -141,28 +142,39 @@ func (h *CompetitionHandler) AddPair(e *core.RequestEvent) error {
 	pairID := e.Request.FormValue("pair")
 	seedStr := e.Request.FormValue("seed")
 
+	comp, err := h.app.FindRecordById("competitions", compID)
+	if err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competición no encontrada</div>`)
+	}
+
 	pair, err := h.app.FindRecordById("pairs", pairID)
 	if err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Pareja no encontrada</div>`)
 	}
 
-	if err := h.validatePlayerUniqueness(compID, pair, ""); err != nil {
+	existingPairIDs := comp.GetStringSlice("pairs")
+	if err := h.validatePlayerUniqueness(existingPairIDs, pair, ""); err != nil {
 		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">%s</div>`, err.Error()))
 	}
 
-	col, err := h.app.FindCollectionByNameOrId("competition_pairs")
-	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error interno</div>`)
+	for _, pid := range existingPairIDs {
+		if pid == pairID {
+			return e.HTML(http.StatusOK, `<div class="alert alert-error">Esta pareja ya está en la competición</div>`)
+		}
 	}
 
-	cp := core.NewRecord(col)
-	cp.Set("competition", compID)
-	cp.Set("pair", pairID)
+	comp.Set("pairs", append(existingPairIDs, pairID))
+
 	if seedStr != "" {
-		cp.Set("seed", seedStr)
+		seed, _ := strconv.Atoi(seedStr)
+		if seed > 0 {
+			seeding := h.getSeeding(comp)
+			seeding[pairID] = seed
+			comp.Set("seeding", seeding)
+		}
 	}
 
-	if err := h.app.Save(cp); err != nil {
+	if err := h.app.Save(comp); err != nil {
 		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
 	}
 
@@ -172,14 +184,27 @@ func (h *CompetitionHandler) AddPair(e *core.RequestEvent) error {
 
 func (h *CompetitionHandler) RemovePair(e *core.RequestEvent) error {
 	compID := e.Request.PathValue("id")
-	cpID := e.Request.FormValue("cp_id")
+	pairID := e.Request.FormValue("pair_id")
 
-	cp, err := h.app.FindRecordById("competition_pairs", cpID)
+	comp, err := h.app.FindRecordById("competitions", compID)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Registro no encontrado</div>`)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competición no encontrada</div>`)
 	}
 
-	if err := h.app.Delete(cp); err != nil {
+	existingPairIDs := comp.GetStringSlice("pairs")
+	var updated []string
+	for _, pid := range existingPairIDs {
+		if pid != pairID {
+			updated = append(updated, pid)
+		}
+	}
+	comp.Set("pairs", updated)
+
+	seeding := h.getSeeding(comp)
+	delete(seeding, pairID)
+	comp.Set("seeding", seeding)
+
+	if err := h.app.Save(comp); err != nil {
 		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
 	}
 
@@ -195,29 +220,30 @@ func (h *CompetitionHandler) CopyPairs(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Selecciona una competición de origen</div>`)
 	}
 
-	sourcePairs, _ := h.app.FindRecordsByFilter("competition_pairs",
-		"competition = {:sid}", "", 0, 0,
-		map[string]any{"sid": sourceID})
+	source, err := h.app.FindRecordById("competitions", sourceID)
+	if err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competición origen no encontrada</div>`)
+	}
 
 	target, err := h.app.FindRecordById("competitions", targetID)
 	if err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competición destino no encontrada</div>`)
 	}
 
-	col, err := h.app.FindCollectionByNameOrId("competition_pairs")
-	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error interno</div>`)
+	sourcePairIDs := source.GetStringSlice("pairs")
+	sourceSeeding := h.getSeeding(source)
+	existingPairIDs := target.GetStringSlice("pairs")
+	targetSeeding := h.getSeeding(target)
+
+	existingSet := make(map[string]bool, len(existingPairIDs))
+	for _, pid := range existingPairIDs {
+		existingSet[pid] = true
 	}
 
 	copied := 0
 	skipped := 0
-	for _, sp := range sourcePairs {
-		pairID := sp.GetString("pair")
-
-		existing, _ := h.app.FindRecordsByFilter("competition_pairs",
-			"competition = {:cid} && pair = {:pid}", "", 1, 0,
-			map[string]any{"cid": targetID, "pid": pairID})
-		if len(existing) > 0 {
+	for _, pairID := range sourcePairIDs {
+		if existingSet[pairID] {
 			skipped++
 			continue
 		}
@@ -227,41 +253,65 @@ func (h *CompetitionHandler) CopyPairs(e *core.RequestEvent) error {
 			skipped++
 			continue
 		}
-		if err := h.validatePlayerUniqueness(targetID, pair, ""); err != nil {
+		if err := h.validatePlayerUniqueness(existingPairIDs, pair, ""); err != nil {
 			skipped++
 			continue
 		}
 
-		cp := core.NewRecord(col)
-		cp.Set("competition", targetID)
-		cp.Set("pair", pairID)
+		existingPairIDs = append(existingPairIDs, pairID)
+		existingSet[pairID] = true
 		if target.GetString("type") == "playoff" {
-			cp.Set("seed", sp.GetFloat("seed"))
-		}
-		if err := h.app.Save(cp); err != nil {
-			skipped++
-			continue
+			if s, ok := sourceSeeding[pairID]; ok {
+				targetSeeding[pairID] = s
+			}
 		}
 		copied++
+	}
+
+	target.Set("pairs", existingPairIDs)
+	target.Set("seeding", targetSeeding)
+
+	if err := h.app.Save(target); err != nil {
+		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
 	}
 
 	return e.HTML(http.StatusOK, fmt.Sprintf(
 		`<div class="alert alert-success">%d parejas copiadas, %d omitidas</div>`, copied, skipped))
 }
 
-func (h *CompetitionHandler) validatePlayerUniqueness(compID string, pair *core.Record, excludeCPID string) error {
+func (h *CompetitionHandler) getSeeding(comp *core.Record) map[string]int {
+	seeding := make(map[string]int)
+	raw := comp.Get("seeding")
+	if raw == nil {
+		return seeding
+	}
+	switch v := raw.(type) {
+	case string:
+		if v != "" {
+			json.Unmarshal([]byte(v), &seeding)
+		}
+	case map[string]any:
+		for k, val := range v {
+			switch n := val.(type) {
+			case float64:
+				seeding[k] = int(n)
+			case int:
+				seeding[k] = n
+			}
+		}
+	}
+	return seeding
+}
+
+func (h *CompetitionHandler) validatePlayerUniqueness(existingPairIDs []string, pair *core.Record, excludePairID string) error {
 	p1 := pair.GetString("player1")
 	p2 := pair.GetString("player2")
 
-	existingCPs, _ := h.app.FindRecordsByFilter("competition_pairs",
-		"competition = {:cid}", "", 0, 0,
-		map[string]any{"cid": compID})
-
-	for _, cp := range existingCPs {
-		if excludeCPID != "" && cp.Id == excludeCPID {
+	for _, pid := range existingPairIDs {
+		if excludePairID != "" && pid == excludePairID {
 			continue
 		}
-		otherPair, err := h.app.FindRecordById("pairs", cp.GetString("pair"))
+		otherPair, err := h.app.FindRecordById("pairs", pid)
 		if err != nil {
 			continue
 		}

@@ -43,8 +43,8 @@ func computeAwards(app core.App, competitionID string) []Award {
 		})
 	}
 
-	matchdays, _ := app.FindRecordsByFilter("matchdays",
-		"competition = {:cid}",
+	matches, _ := app.FindRecordsByFilter("matches",
+		"competition = {:cid} && status = 'final'",
 		"round_number", 0, 0,
 		map[string]any{"cid": competitionID})
 
@@ -58,13 +58,7 @@ func computeAwards(app core.App, competitionID string) []Award {
 		streaks[s.PairID] = &streakInfo{pairID: s.PairID}
 	}
 
-	for _, md := range matchdays {
-		matches, _ := app.FindRecordsByFilter("matches",
-			"matchday = {:mid} && status = 'final'",
-			"", 0, 0,
-			map[string]any{"mid": md.Id})
-
-		for _, m := range matches {
+	for _, m := range matches {
 			p1 := m.GetString("pair1")
 			p2 := m.GetString("pair2")
 			winner := m.GetString("winner")
@@ -83,7 +77,6 @@ func computeAwards(app core.App, competitionID string) []Award {
 					si.current = 0
 				}
 			}
-		}
 	}
 
 	var longestPairID string

@@ -11,7 +11,6 @@ type StandingRowFull struct {
 	Position  int
 	PairID    string
 	PairName  string
-	ELO       int
 	Played    int
 	Wins      int
 	Losses    int
@@ -23,52 +22,19 @@ type StandingRowFull struct {
 }
 
 func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, error) {
-	compPairs, err := app.FindRecordsByFilter("competition_pairs",
-		"competition = {:cid}",
-		"", 0, 0,
-		map[string]any{"cid": competitionID})
+	comp, err := app.FindRecordById("competitions", competitionID)
 	if err != nil {
 		return nil, err
 	}
 
-	pairIDs := make([]string, len(compPairs))
-	for i, cp := range compPairs {
-		pairIDs[i] = cp.GetString("pair")
-	}
+	pairIDs := comp.GetStringSlice("pairs")
 
 	pairNames, _ := expandPairNames(app, pairIDs)
 
-	pairELO := make(map[string]int, len(pairIDs))
-	for _, pid := range pairIDs {
-		players := getPlayersForPair(app, pid)
-		totalELO := 0
-		count := 0
-		for _, uid := range players {
-			u, err := app.FindRecordById("users", uid)
-			if err != nil {
-				continue
-			}
-			elo := int(u.GetFloat("elo"))
-			if elo == 0 {
-				elo = 1500
-			}
-			totalELO += elo
-			count++
-		}
-		if count > 0 {
-			pairELO[pid] = totalELO / count
-		} else {
-			pairELO[pid] = 1500
-		}
-	}
-
-	matchdays, err := app.FindRecordsByFilter("matchdays",
-		"competition = {:cid}",
+	matches, _ := app.FindRecordsByFilter("matches",
+		"competition = {:cid} && status = 'final'",
 		"", 0, 0,
 		map[string]any{"cid": competitionID})
-	if err != nil {
-		return nil, err
-	}
 
 	type stats struct {
 		wins, losses, setsWon, setsLost, gamesWon, gamesLost int
@@ -78,13 +44,7 @@ func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, er
 		pairStats[pid] = &stats{}
 	}
 
-	for _, md := range matchdays {
-		matches, _ := app.FindRecordsByFilter("matches",
-			"matchday = {:mid} && status = 'final'",
-			"", 0, 0,
-			map[string]any{"mid": md.Id})
-
-		for _, m := range matches {
+	for _, m := range matches {
 			p1 := m.GetString("pair1")
 			p2 := m.GetString("pair2")
 			winner := m.GetString("winner")
@@ -129,7 +89,6 @@ func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, er
 				s2.wins++
 				s1.losses++
 			}
-		}
 	}
 
 	rows := make([]StandingRowFull, 0, len(pairIDs))
@@ -138,7 +97,6 @@ func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, er
 		rows = append(rows, StandingRowFull{
 			PairID:    pid,
 			PairName:  pairNames[pid],
-			ELO:       pairELO[pid],
 			Played:    s.wins + s.losses,
 			Wins:      s.wins,
 			Losses:    s.losses,

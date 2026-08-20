@@ -84,11 +84,7 @@ func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNam
 		}
 	}
 
-	matchday, _ := h.app.FindRecordById("matchdays", match.GetString("matchday"))
-	roundNum := 0
-	if matchday != nil {
-		roundNum = int(matchday.GetFloat("round_number"))
-	}
+	roundNum := int(match.GetFloat("round_number"))
 
 	canCorrect := false
 	if status == "confirmed" && team > 0 && isSubmitter {
@@ -163,11 +159,7 @@ func (h *MatchHandler) MyMatches(e *core.RequestEvent) error {
 	compGroups := map[string]*CompetitionMatchGroup{}
 	for _, m := range uniqueMatches {
 		mv := h.buildMatchView(m, userID, pairNames)
-		matchday, err := h.app.FindRecordById("matchdays", m.GetString("matchday"))
-		if err != nil {
-			continue
-		}
-		compID := matchday.GetString("competition")
+		compID := m.GetString("competition")
 		if _, ok := compGroups[compID]; !ok {
 			comp, err := h.app.FindRecordById("competitions", compID)
 			if err != nil {
@@ -214,9 +206,8 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	mv := h.buildMatchView(match, userID, pairNames)
 
 	compName := ""
-	matchday, _ := h.app.FindRecordById("matchdays", match.GetString("matchday"))
-	if matchday != nil {
-		comp, _ := h.app.FindRecordById("competitions", matchday.GetString("competition"))
+	if cid := match.GetString("competition"); cid != "" {
+		comp, _ := h.app.FindRecordById("competitions", cid)
 		if comp != nil {
 			compName = comp.GetString("name")
 		}

@@ -81,11 +81,9 @@ func (h *ICalHandler) Match(e *core.RequestEvent) error {
 	summary := pairNames[match.GetString("pair1")] + " vs " + pairNames[match.GetString("pair2")]
 	location := match.GetString("club")
 
-	description := ""
-	matchday, _ := h.app.FindRecordById("matchdays", match.GetString("matchday"))
-	if matchday != nil {
-		description = fmt.Sprintf("Jornada %d", int(matchday.GetFloat("round_number")))
-		comp, _ := h.app.FindRecordById("competitions", matchday.GetString("competition"))
+	description := fmt.Sprintf("Jornada %d", int(match.GetFloat("round_number")))
+	if cid := match.GetString("competition"); cid != "" {
+		comp, _ := h.app.FindRecordById("competitions", cid)
 		if comp != nil {
 			description += " — " + comp.GetString("name")
 		}
@@ -111,18 +109,12 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 		return e.String(http.StatusOK, "No tienes parejas en esta competición")
 	}
 
-	compPairs, _ := h.app.FindRecordsByFilter("competition_pairs",
-		"competition = {:cid}",
-		"", 0, 0,
-		map[string]any{"cid": id})
-
 	playerPairIDs := make(map[string]bool)
 	for _, p := range pairs {
 		playerPairIDs[p.Id] = true
 	}
 	compPairIDs := make(map[string]bool)
-	for _, cp := range compPairs {
-		pid := cp.GetString("pair")
+	for _, pid := range comp.GetStringSlice("pairs") {
 		if playerPairIDs[pid] {
 			compPairIDs[pid] = true
 		}
@@ -132,19 +124,10 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 		return e.String(http.StatusOK, "No tienes parejas en esta competición")
 	}
 
-	matchdays, _ := h.app.FindRecordsByFilter("matchdays",
+	allMatches, _ := h.app.FindRecordsByFilter("matches",
 		"competition = {:cid}",
 		"", 0, 0,
 		map[string]any{"cid": id})
-
-	var allMatches []*core.Record
-	for _, md := range matchdays {
-		matches, _ := h.app.FindRecordsByFilter("matches",
-			"matchday = {:mid}",
-			"", 0, 0,
-			map[string]any{"mid": md.Id})
-		allMatches = append(allMatches, matches...)
-	}
 
 	seen := make(map[string]bool)
 	pairIDSet := make(map[string]bool)
@@ -180,11 +163,7 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 		summary := pairNames[m.GetString("pair1")] + " vs " + pairNames[m.GetString("pair2")]
 		location := m.GetString("club")
 
-		description := ""
-		matchday, _ := h.app.FindRecordById("matchdays", m.GetString("matchday"))
-		if matchday != nil {
-			description = fmt.Sprintf("Jornada %d", int(matchday.GetFloat("round_number")))
-		}
+		description := fmt.Sprintf("Jornada %d", int(m.GetFloat("round_number")))
 
 		events.WriteString(buildVEvent(m.Id+"@padelleague", dtStart, dtEnd, summary, location, description))
 	}

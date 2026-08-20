@@ -24,7 +24,6 @@ func init() {
 			&core.FileField{Name: "avatar", MaxSelect: 1, MaxSize: 5 << 20},
 			&core.SelectField{Name: "role", Values: []string{"admin", "player"}, MaxSelect: 1, Required: true},
 			&core.JSONField{Name: "notification_prefs"},
-			&core.NumberField{Name: "elo"},
 		)
 		users.ListRule = strPtr("@request.auth.id != ''")
 		users.ViewRule = strPtr("@request.auth.id != ''")
@@ -54,42 +53,20 @@ func init() {
 			&core.BoolField{Name: "active"},
 			&core.BoolField{Name: "play_twice"},
 			&core.NumberField{Name: "rounds"},
+			&core.RelationField{Name: "pairs", CollectionId: pairs.Id, MaxSelect: 100},
+			&core.JSONField{Name: "seeding"},
 		)
 		setAdminRules(competitions)
 		if err := app.Save(competitions); err != nil {
 			return err
 		}
 
-		// --- competition_pairs ---
-		competitionPairs := core.NewBaseCollection("competition_pairs")
-		competitionPairs.Fields.Add(
-			&core.RelationField{Name: "competition", CollectionId: competitions.Id, Required: true, MaxSelect: 1, CascadeDelete: true},
-			&core.RelationField{Name: "pair", CollectionId: pairs.Id, Required: true, MaxSelect: 1, CascadeDelete: false},
-			&core.NumberField{Name: "seed"},
-		)
-		competitionPairs.Indexes = append(competitionPairs.Indexes,
-			"CREATE UNIQUE INDEX idx_competition_pair ON competition_pairs (competition, pair)")
-		setAdminRules(competitionPairs)
-		if err := app.Save(competitionPairs); err != nil {
-			return err
-		}
-
-		// --- matchdays ---
-		matchdays := core.NewBaseCollection("matchdays")
-		matchdays.Fields.Add(
-			&core.RelationField{Name: "competition", CollectionId: competitions.Id, Required: true, MaxSelect: 1, CascadeDelete: true},
-			&core.NumberField{Name: "round_number", Required: true},
-			&core.NumberField{Name: "matches_to_win"},
-		)
-		setAdminRules(matchdays)
-		if err := app.Save(matchdays); err != nil {
-			return err
-		}
-
 		// --- matches ---
 		matches := core.NewBaseCollection("matches")
 		matches.Fields.Add(
-			&core.RelationField{Name: "matchday", CollectionId: matchdays.Id, Required: true, MaxSelect: 1, CascadeDelete: true},
+			&core.RelationField{Name: "competition", CollectionId: competitions.Id, Required: true, MaxSelect: 1, CascadeDelete: true},
+			&core.NumberField{Name: "round_number", Required: true},
+			&core.NumberField{Name: "matches_to_win"},
 			&core.RelationField{Name: "pair1", CollectionId: pairs.Id, Required: false, MaxSelect: 1},
 			&core.RelationField{Name: "pair2", CollectionId: pairs.Id, Required: false, MaxSelect: 1},
 			&core.TextField{Name: "scores"},
@@ -111,24 +88,6 @@ func init() {
 		matches.UpdateRule = strPtr("")
 		matches.DeleteRule = strPtr("")
 		if err := app.Save(matches); err != nil {
-			return err
-		}
-
-		// --- elo_history ---
-		eloHistory := core.NewBaseCollection("elo_history")
-		eloHistory.Fields.Add(
-			&core.RelationField{Name: "player", CollectionId: users.Id, Required: true, MaxSelect: 1},
-			&core.NumberField{Name: "old_elo", Required: true},
-			&core.NumberField{Name: "new_elo", Required: true},
-			&core.NumberField{Name: "delta", Required: true},
-			&core.RelationField{Name: "match", CollectionId: matches.Id, Required: true, MaxSelect: 1, CascadeDelete: false},
-		)
-		eloHistory.ListRule = strPtr("@request.auth.id != ''")
-		eloHistory.ViewRule = strPtr("@request.auth.id != ''")
-		eloHistory.CreateRule = strPtr("")
-		eloHistory.UpdateRule = strPtr("")
-		eloHistory.DeleteRule = strPtr("")
-		if err := app.Save(eloHistory); err != nil {
 			return err
 		}
 
@@ -159,8 +118,8 @@ func init() {
 		return nil
 	}, func(app core.App) error {
 		collections := []string{
-			"notifications", "elo_history", "matches", "matchdays",
-			"competition_pairs", "competitions", "pairs",
+			"notifications", "matches",
+			"competitions", "pairs",
 		}
 		for _, name := range collections {
 			col, err := app.FindCollectionByNameOrId(name)
@@ -176,7 +135,6 @@ func init() {
 			users.Fields.RemoveByName("avatar")
 			users.Fields.RemoveByName("role")
 			users.Fields.RemoveByName("notification_prefs")
-			users.Fields.RemoveByName("elo")
 			if err := app.Save(users); err != nil {
 				return err
 			}

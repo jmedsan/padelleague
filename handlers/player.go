@@ -25,7 +25,6 @@ type PairInfo struct {
 
 type PlayerData struct {
 	User        *core.Record
-	ELO         int
 	Pairs       []PairInfo
 	WinRate     float64
 	TotalPlayed int
@@ -33,7 +32,6 @@ type PlayerData struct {
 	SetsLost    int
 	Streak      string
 	Recent      []RecentMatch
-	ELOHistory  []*core.Record
 }
 
 type RecentMatch struct {
@@ -60,11 +58,6 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 	user, err := h.app.FindRecordById("users", id)
 	if err != nil {
 		return e.HTML(http.StatusNotFound, `<div class="alert alert-error">Jugador no encontrado</div>`)
-	}
-
-	elo := int(user.GetFloat("elo"))
-	if elo == 0 {
-		elo = 1500
 	}
 
 	pairs, _ := findPairsForPlayer(h.app, user.Id)
@@ -185,14 +178,8 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 		})
 	}
 
-	eloHistory, _ := h.app.FindRecordsByFilter("elo_history",
-		"player = {:uid}",
-		"-created", 10, 0,
-		map[string]any{"uid": user.Id})
-
 	data := PlayerData{
 		User:        user,
-		ELO:         elo,
 		Pairs:       pairInfos,
 		WinRate:     winRate,
 		TotalPlayed: totalPlayed,
@@ -200,7 +187,6 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 		SetsLost:    setsLost,
 		Streak:      streak,
 		Recent:      recent,
-		ELOHistory:  eloHistory,
 	}
 
 	return h.renderPage(e, "player.html", map[string]any{

@@ -14,7 +14,7 @@
         <thead>
             <tr>
                 <th>Pareja</th>
-                <th>Seed</th>
+                <th>Cabeza de serie</th>
                 <th></th>
             </tr>
         </thead>
@@ -25,7 +25,7 @@
                 <td>{{if gt .Seed 0}}{{.Seed}}{{else}}—{{end}}</td>
                 <td>
                     <form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" class="inline">
-                        <input type="hidden" name="cp_id" value="{{.CompPairID}}">
+                        <input type="hidden" name="pair_id" value="{{.PairID}}">
                         <button type="submit" class="btn btn-ghost btn-sm text-error">Quitar</button>
                     </form>
                 </td>
@@ -52,7 +52,7 @@
                     </select>
                 </div>
                 <div class="form-control mt-2">
-                    <input type="number" name="seed" class="input input-bordered input-sm" placeholder="Seed (opcional)" min="1">
+                    <input type="number" name="seed" class="input input-bordered input-sm" placeholder="Nº cabeza de serie" min="1">
                 </div>
                 <button type="submit" class="btn btn-primary btn-sm mt-2">Añadir</button>
             </form>

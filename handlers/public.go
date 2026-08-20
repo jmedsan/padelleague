@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"sort"
+
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -22,12 +24,12 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	})
 }
 
-type MatchdayView struct {
-	Matchday *core.Record
-	Matches  []MatchdayMatchView
+type RoundView struct {
+	RoundNumber int
+	Matches     []RoundMatchView
 }
 
-type MatchdayMatchView struct {
+type RoundMatchView struct {
 	Match *core.Record
 	Pair1 string
 	Pair2 string
@@ -40,28 +42,15 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		return e.Redirect(302, "/")
 	}
 
-	matchdays, _ := h.app.FindRecordsByFilter("matchdays",
+	matches, _ := h.app.FindRecordsByFilter("matches",
 		"competition = {:cid}",
 		"round_number", 0, 0,
 		map[string]any{"cid": id})
 
 	allPairIDs := make(map[string]bool)
-	type mdMatches struct {
-		matchday *core.Record
-		matches  []*core.Record
-	}
-	mdData := make([]mdMatches, 0, len(matchdays))
-
-	for _, md := range matchdays {
-		matches, _ := h.app.FindRecordsByFilter("matches",
-			"matchday = {:mid}",
-			"", 0, 0,
-			map[string]any{"mid": md.Id})
-		for _, m := range matches {
-			allPairIDs[m.GetString("pair1")] = true
-			allPairIDs[m.GetString("pair2")] = true
-		}
-		mdData = append(mdData, mdMatches{matchday: md, matches: matches})
+	for _, m := range matches {
+		allPairIDs[m.GetString("pair1")] = true
+		allPairIDs[m.GetString("pair2")] = true
 	}
 
 	pairIDSlice := make([]string, 0, len(allPairIDs))
@@ -70,17 +59,25 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	}
 	pairNames, _ := expandPairNames(h.app, pairIDSlice)
 
-	var rounds []MatchdayView
-	for _, mdd := range mdData {
-		var matchViews []MatchdayMatchView
-		for _, m := range mdd.matches {
-			matchViews = append(matchViews, MatchdayMatchView{
-				Match: m,
-				Pair1: pairNames[m.GetString("pair1")],
-				Pair2: pairNames[m.GetString("pair2")],
-			})
-		}
-		rounds = append(rounds, MatchdayView{Matchday: mdd.matchday, Matches: matchViews})
+	roundMap := map[int][]RoundMatchView{}
+	for _, m := range matches {
+		rn := int(m.GetFloat("round_number"))
+		roundMap[rn] = append(roundMap[rn], RoundMatchView{
+			Match: m,
+			Pair1: pairNames[m.GetString("pair1")],
+			Pair2: pairNames[m.GetString("pair2")],
+		})
+	}
+
+	roundNums := make([]int, 0, len(roundMap))
+	for rn := range roundMap {
+		roundNums = append(roundNums, rn)
+	}
+	sort.Ints(roundNums)
+
+	rounds := make([]RoundView, 0, len(roundNums))
+	for _, rn := range roundNums {
+		rounds = append(rounds, RoundView{RoundNumber: rn, Matches: roundMap[rn]})
 	}
 
 	var standings []StandingRowFull
