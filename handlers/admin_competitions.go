@@ -28,7 +28,7 @@ type CompetitionSummary struct {
 }
 
 func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
-	allComps, _ := h.app.FindRecordsByFilter("competitions", "", "-created", 0, 0, nil)
+	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != ''", "", 0, 0, nil)
 
 	var active, inactive []CompetitionSummary
 	for _, comp := range allComps {
@@ -102,7 +102,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 	}
 
 	allPairs, _ := h.app.FindAllRecords("pairs")
-	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != {:cid}", "-created", 0, 0, map[string]any{"cid": id})
+	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != {:cid}", "", 0, 0, map[string]any{"cid": id})
 
 	matches, _ := h.app.FindRecordsByFilter("matches",
 		"competition = {:cid}", "round_number", 0, 0,
@@ -265,7 +265,7 @@ func (h *CompetitionHandler) ListPairs(e *core.RequestEvent) error {
 	}
 
 	allPairs, _ := h.app.FindAllRecords("pairs")
-	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != {:cid}", "-created", 0, 0, map[string]any{"cid": id})
+	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != {:cid}", "", 0, 0, map[string]any{"cid": id})
 
 	return h.renderPage(e, "admin/competition-pairs.html", map[string]any{
 		"Competition":     comp,

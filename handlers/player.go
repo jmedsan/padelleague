@@ -90,7 +90,7 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 	for _, p := range pairs {
 		matches, _ := h.app.FindRecordsByFilter("matches",
 			"(pair1 = {:pid} || pair2 = {:pid}) && status = 'final'",
-			"-created", 0, 0,
+			"", 0, 0,
 			map[string]any{"pid": p.Id})
 
 		pairIDSet := make(map[string]bool)
@@ -206,7 +206,7 @@ func (h *PlayerHandler) H2H(e *core.RequestEvent) error {
 
 	matches, _ := h.app.FindRecordsByFilter("matches",
 		"((pair1 = {:p1} && pair2 = {:p2}) || (pair1 = {:p2} && pair2 = {:p1})) && status = 'final'",
-		"-created", 0, 0,
+		"", 0, 0,
 		map[string]any{"p1": p1, "p2": p2})
 
 	wins1 := 0
