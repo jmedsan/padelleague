@@ -1,7 +1,7 @@
 .PHONY: build run migrate css
 
 css:
-	npx tailwindcss -i ./static/css/input.css -o ./static/css/styles.css --minify
+	cd frontend && npx tailwindcss -i ../static/css/input.css -o ../static/css/styles.css --minify
 
 build: css
 	go build -o padelleague .
