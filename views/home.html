@@ -1,0 +1,17 @@
+{{define "content"}}
+<h1 class="text-2xl font-bold mb-6">Bienvenido, {{.DisplayName}}</h1>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="card bg-base-100 shadow-md">
+        <div class="card-body">
+            <h2 class="card-title">Categorías</h2>
+            <p class="text-base-content/60">No hay categorías activas</p>
+        </div>
+    </div>
+    <div class="card bg-base-100 shadow-md">
+        <div class="card-body">
+            <h2 class="card-title">Próximos partidos</h2>
+            <p class="text-base-content/60">No hay partidos programados</p>
+        </div>
+    </div>
+</div>
+{{end}}

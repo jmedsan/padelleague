@@ -1,0 +1,42 @@
+{{define "content"}}
+<div class="flex items-center justify-center min-h-[60vh]">
+    <div class="card bg-base-100 shadow-xl w-full max-w-sm">
+        <div class="card-body">
+            <h2 class="card-title justify-center text-2xl mb-4">Crear cuenta</h2>
+            <div id="error"></div>
+            <form hx-post="/register" hx-target="#error">
+                <div class="form-control">
+                    <label class="label" for="display_name">
+                        <span class="label-text">Nombre</span>
+                    </label>
+                    <input type="text" id="display_name" name="display_name" class="input input-bordered" required>
+                </div>
+                <div class="form-control mt-2">
+                    <label class="label" for="email">
+                        <span class="label-text">Email</span>
+                    </label>
+                    <input type="email" id="email" name="email" class="input input-bordered" required>
+                </div>
+                <div class="form-control mt-2">
+                    <label class="label" for="password">
+                        <span class="label-text">Contraseña</span>
+                    </label>
+                    <input type="password" id="password" name="password" class="input input-bordered" required>
+                </div>
+                <div class="form-control mt-2">
+                    <label class="label" for="password_confirm">
+                        <span class="label-text">Confirmar contraseña</span>
+                    </label>
+                    <input type="password" id="password_confirm" name="password_confirm" class="input input-bordered" required>
+                </div>
+                <div class="form-control mt-6">
+                    <button type="submit" class="btn btn-primary">Registrarse</button>
+                </div>
+            </form>
+            <p class="text-center mt-4 text-sm">
+                ¿Ya tienes cuenta? <a href="/login" class="link link-primary">Inicia sesión</a>
+            </p>
+        </div>
+    </div>
+</div>
+{{end}}
