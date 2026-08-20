@@ -138,24 +138,74 @@ func (h *NotificationHandler) PrefsSave(e *core.RequestEvent) error {
 }
 
 func CheckQuorumTimeout(app core.App) {
-	cutoff := time.Now().Add(-7 * 24 * time.Hour).UTC().Format(time.RFC3339)
 	stale, err := app.FindRecordsByFilter("matches",
-		"status = 'confirmed' && submitted_at < {:cutoff}",
-		"", 0, 0,
-		map[string]any{"cutoff": cutoff})
+		"status = 'confirmed'", "", 0, 0, nil)
 	if err != nil || len(stale) == 0 {
 		return
 	}
 
+	compCache := map[string]*core.Record{}
 	for _, m := range stale {
-		m.Set("status", "disputed")
-		m.Set("dispute_notes", "Timeout: sin confirmación en 7 días")
-		if err := app.Save(m); err == nil {
-			pairIDs := []string{m.GetString("pair1"), m.GetString("pair2")}
-			names, _ := expandPairNames(app, pairIDs)
-			notifyAdmins(app, "dispute", "Timeout de confirmación",
-				fmt.Sprintf("Partido %s vs %s sin confirmar por más de 7 días", names[pairIDs[0]], names[pairIDs[1]]),
-				m.Id)
+		compID := m.GetString("competition")
+		if _, ok := compCache[compID]; !ok {
+			comp, err := app.FindRecordById("competitions", compID)
+			if err != nil {
+				compCache[compID] = nil
+				continue
+			}
+			compCache[compID] = comp
+		}
+	}
+
+	for _, m := range stale {
+		comp := compCache[m.GetString("competition")]
+		if comp == nil {
+			continue
+		}
+
+		timeoutHours := int(comp.GetFloat("quorum_timeout_hours"))
+		if timeoutHours == 0 {
+			continue
+		}
+
+		submittedAt := m.GetString("submitted_at")
+		if submittedAt == "" {
+			continue
+		}
+		t, err := time.Parse(time.RFC3339, submittedAt)
+		if err != nil {
+			continue
+		}
+		if time.Since(t) < time.Duration(timeoutHours)*time.Hour {
+			continue
+		}
+
+		fresh, err := app.FindRecordById("matches", m.Id)
+		if err != nil || fresh.GetString("status") != "confirmed" {
+			continue
+		}
+
+		score := fresh.GetString("scores")
+		winnerID, err := determineWinner(fresh, score)
+		if err != nil {
+			continue
+		}
+
+		fresh.Set("status", "final")
+		fresh.Set("winner", winnerID)
+		fresh.Set("confirmed_by", "")
+		fresh.Set("dispute_notes", "Auto-confirmado por tiempo de espera")
+		if err := app.Save(fresh); err != nil {
+			continue
+		}
+
+		pairIDs := []string{fresh.GetString("pair1"), fresh.GetString("pair2")}
+		for _, pid := range pairIDs {
+			players := getPlayersForPair(app, pid)
+			notifyPlayers(app, players, "general",
+				"Resultado confirmado automaticamente",
+				"El resultado ha sido confirmado por tiempo de espera.",
+				fresh.Id)
 		}
 	}
 }

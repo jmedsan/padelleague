@@ -127,6 +127,11 @@
                 <label class="label"><span class="label-text font-medium">Categoría</span></label>
                 <input type="text" name="category" class="input input-bordered w-full" placeholder="Ej: 1ª categoría">
             </div>
+            <div class="form-control w-full mt-3">
+                <label class="label"><span class="label-text font-medium">Tiempo de espera para confirmacion (horas)</span></label>
+                <input type="number" name="quorum_timeout_hours" value="48" min="0" class="input input-bordered w-full" placeholder="0 = desactivado">
+                <label class="label"><span class="label-text-alt opacity-50">0 = desactivado</span></label>
+            </div>
             <div class="divider my-3"></div>
             <div class="form-control">
                 <label class="label cursor-pointer justify-start gap-3">

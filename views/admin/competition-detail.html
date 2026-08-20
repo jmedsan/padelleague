@@ -54,6 +54,11 @@
                 <label class="label"><span class="label-text">Categoría</span></label>
                 <input type="text" name="category" value="{{.Competition.GetString "category"}}" class="input input-bordered">
             </div>
+            <div class="form-control mb-3">
+                <label class="label"><span class="label-text">Tiempo de espera para confirmacion (horas)</span></label>
+                <input type="number" name="quorum_timeout_hours" value="{{.Competition.GetFloat "quorum_timeout_hours"}}" min="0" class="input input-bordered" placeholder="0 = desactivado">
+                <label class="label"><span class="label-text-alt opacity-50">0 = desactivado</span></label>
+            </div>
             <div class="form-control">
                 <label class="cursor-pointer label justify-start gap-3">
                     <input type="checkbox" name="play_twice" class="checkbox" {{if .Competition.GetBool "play_twice"}}checked{{end}}>
@@ -85,7 +90,8 @@
                     <tr>
                         <th>Pareja</th>
                         {{if not .IsLeague}}<th>Cabeza de serie</th>{{end}}
-                        <th class="text-right">Acción</th>
+                        <th>Pagado</th>
+                        <th class="text-right">Accion</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -93,6 +99,14 @@
                     <tr>
                         <td class="font-medium">{{.PairName}}</td>
                         {{if not $.IsLeague}}<td>{{if gt .Seed 0}}<span class="badge badge-outline badge-sm">{{.Seed}}</span>{{else}}<span class="text-base-content/40">—</span>{{end}}</td>{{end}}
+                        <td>
+                            <form hx-post="/admin/competitions/{{$.Competition.Id}}/payment" class="inline">
+                                <input type="hidden" name="pair_id" value="{{.PairID}}">
+                                <input type="checkbox" class="checkbox checkbox-sm checkbox-success"
+                                       onchange="this.form.requestSubmit()"
+                                       {{if .Paid}}checked{{end}}>
+                            </form>
+                        </td>
                         <td class="text-right">
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja?" class="inline">
                                 <input type="hidden" name="pair_id" value="{{.PairID}}">

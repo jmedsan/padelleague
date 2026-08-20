@@ -82,11 +82,13 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 
 	pairIDs := comp.GetStringSlice("pairs")
 	seeding := h.getSeeding(comp)
+	paymentStatus := h.getPaymentStatus(comp)
 
 	type pairEntry struct {
 		PairID   string
 		PairName string
 		Seed     int
+		Paid     bool
 	}
 	var pairEntries []pairEntry
 	for _, pid := range pairIDs {
@@ -98,6 +100,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 			PairID:   pid,
 			PairName: pair.GetString("name"),
 			Seed:     seeding[pid],
+			Paid:     paymentStatus[pid],
 		})
 	}
 
@@ -192,6 +195,11 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 	record.Set("active", e.Request.FormValue("active") == "on")
 	record.Set("play_twice", e.Request.FormValue("play_twice") == "on")
 
+	if v := e.Request.FormValue("quorum_timeout_hours"); v != "" {
+		hours, _ := strconv.Atoi(v)
+		record.Set("quorum_timeout_hours", hours)
+	}
+
 	if err := h.app.Save(record); err != nil {
 		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
 	}
@@ -211,6 +219,11 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 	record.Set("type", e.Request.FormValue("type"))
 	record.Set("category", e.Request.FormValue("category"))
 	record.Set("play_twice", e.Request.FormValue("play_twice") == "on")
+
+	if v := e.Request.FormValue("quorum_timeout_hours"); v != "" {
+		hours, _ := strconv.Atoi(v)
+		record.Set("quorum_timeout_hours", hours)
+	}
 
 	if err := h.app.Save(record); err != nil {
 		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
@@ -342,6 +355,10 @@ func (h *CompetitionHandler) RemovePair(e *core.RequestEvent) error {
 	delete(seeding, pairID)
 	comp.Set("seeding", seeding)
 
+	paymentStatus := h.getPaymentStatus(comp)
+	delete(paymentStatus, pairID)
+	comp.Set("payment_status", paymentStatus)
+
 	if err := h.app.Save(comp); err != nil {
 		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
 	}
@@ -415,6 +432,48 @@ func (h *CompetitionHandler) CopyPairs(e *core.RequestEvent) error {
 
 	return e.HTML(http.StatusOK, fmt.Sprintf(
 		`<div class="alert alert-success">%d parejas copiadas, %d omitidas</div>`, copied, skipped))
+}
+
+func (h *CompetitionHandler) TogglePayment(e *core.RequestEvent) error {
+	compID := e.Request.PathValue("id")
+	pairID := e.Request.FormValue("pair_id")
+
+	comp, err := h.app.FindRecordById("competitions", compID)
+	if err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competicion no encontrada</div>`)
+	}
+
+	paymentStatus := h.getPaymentStatus(comp)
+	paymentStatus[pairID] = !paymentStatus[pairID]
+	comp.Set("payment_status", paymentStatus)
+
+	if err := h.app.Save(comp); err != nil {
+		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
+	}
+
+	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID)
+	return e.NoContent(http.StatusNoContent)
+}
+
+func (h *CompetitionHandler) getPaymentStatus(comp *core.Record) map[string]bool {
+	status := make(map[string]bool)
+	raw := comp.Get("payment_status")
+	if raw == nil {
+		return status
+	}
+	switch v := raw.(type) {
+	case string:
+		if v != "" {
+			json.Unmarshal([]byte(v), &status)
+		}
+	case map[string]any:
+		for k, val := range v {
+			if b, ok := val.(bool); ok {
+				status[k] = b
+			}
+		}
+	}
+	return status
 }
 
 func (h *CompetitionHandler) getSeeding(comp *core.Record) map[string]int {
