@@ -21,13 +21,19 @@
 
 {{if .Standings}}
 <div class="overflow-x-auto">
-    <table class="table">
+    <table class="table table-sm">
         <thead>
             <tr>
                 <th>#</th>
                 <th>Pareja</th>
+                <th>ELO</th>
+                <th>PJ</th>
                 <th>V</th>
                 <th>D</th>
+                <th>SG</th>
+                <th>SP</th>
+                <th>JG</th>
+                <th>JP</th>
                 <th>Pts</th>
             </tr>
         </thead>
@@ -36,8 +42,14 @@
             <tr>
                 <td>{{.Position}}</td>
                 <td class="font-medium">{{.PairName}}</td>
+                <td>{{.ELO}}</td>
+                <td>{{.Played}}</td>
                 <td>{{.Wins}}</td>
                 <td>{{.Losses}}</td>
+                <td>{{.SetsWon}}</td>
+                <td>{{.SetsLost}}</td>
+                <td>{{.GamesWon}}</td>
+                <td>{{.GamesLost}}</td>
                 <td class="font-bold">{{.Points}}</td>
             </tr>
             {{end}}

@@ -315,6 +315,14 @@ func (h *MatchHandler) PartidoSubmit(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar el resultado</div>`)
 	}
 
+	myTeam, _ := getJugadorTeam(h.app, jugador.Id, partido)
+	rivalParejaID := partido.GetString("pareja2")
+	if myTeam == 2 {
+		rivalParejaID = partido.GetString("pareja1")
+	}
+	rivalPlayers := getPlayersForPair(h.app, rivalParejaID)
+	notifyPlayers(h.app, rivalPlayers, "quorum_request", "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", partido.Id)
+
 	e.Response.Header().Set("HX-Redirect", "/mis-partidos")
 	return e.NoContent(http.StatusNoContent)
 }

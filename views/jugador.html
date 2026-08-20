@@ -1,0 +1,101 @@
+{{define "content"}}
+<div class="mb-6">
+    <a href="/" class="btn btn-ghost btn-sm">← Inicio</a>
+    <h1 class="text-2xl font-bold mt-2">{{.Data.User.GetString "display_name"}}</h1>
+</div>
+
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="stat bg-base-200 rounded-lg p-4">
+        <div class="stat-title">Partidos</div>
+        <div class="stat-value text-2xl">{{.Data.TotalPlayed}}</div>
+    </div>
+    <div class="stat bg-base-200 rounded-lg p-4">
+        <div class="stat-title">% Victorias</div>
+        <div class="stat-value text-2xl">{{printf "%.0f" .Data.WinRate}}%</div>
+    </div>
+    <div class="stat bg-base-200 rounded-lg p-4">
+        <div class="stat-title">Sets (G/P)</div>
+        <div class="stat-value text-2xl">{{.Data.SetsWon}}/{{.Data.SetsLost}}</div>
+    </div>
+    <div class="stat bg-base-200 rounded-lg p-4">
+        <div class="stat-title">Racha</div>
+        <div class="stat-value text-2xl">{{if .Data.Streak}}{{.Data.Streak}}{{else}}-{{end}}</div>
+    </div>
+</div>
+
+{{if .Data.Pairs}}
+<h2 class="text-lg font-semibold mb-2">Parejas</h2>
+<div class="overflow-x-auto mb-6">
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Temporada</th>
+                <th>Compañero</th>
+                <th>ELO</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Data.Pairs}}
+            <tr>
+                <td>{{.Season}}</td>
+                <td>{{.Partner}}</td>
+                <td class="font-bold">{{.ELO}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}
+
+{{if .Data.Recent}}
+<h2 class="text-lg font-semibold mb-2">Últimos partidos</h2>
+<div class="overflow-x-auto mb-6">
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Pareja 1</th>
+                <th>Pareja 2</th>
+                <th>Marcador</th>
+                <th>Resultado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Data.Recent}}
+            <tr>
+                <td>{{.Date}}</td>
+                <td>{{.PairName1}}</td>
+                <td>{{.PairName2}}</td>
+                <td>{{.Score}}</td>
+                <td>{{if .Won}}<span class="badge badge-success">V</span>{{else}}<span class="badge badge-error">D</span>{{end}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}
+
+{{if .Data.ELOHistory}}
+<h2 class="text-lg font-semibold mb-2">Historial ELO</h2>
+<div class="overflow-x-auto">
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Anterior</th>
+                <th>Nuevo</th>
+                <th>Cambio</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Data.ELOHistory}}
+            <tr>
+                <td>{{.GetFloat "old_elo" | printf "%.0f"}}</td>
+                <td>{{.GetFloat "new_elo" | printf "%.0f"}}</td>
+                <td>{{if gt (.GetFloat "delta") 0.0}}<span class="text-success">+{{.GetFloat "delta" | printf "%.0f"}}</span>{{else}}<span class="text-error">{{.GetFloat "delta" | printf "%.0f"}}</span>{{end}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}
+{{end}}

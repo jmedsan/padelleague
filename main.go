@@ -87,6 +87,83 @@ func main() {
 		return e.Next()
 	})
 
+	app.OnRecordAfterUpdateSuccess("partidos").BindFunc(func(e *core.RecordEvent) error {
+		oldStatus := e.Record.Original().GetString("status")
+		newStatus := e.Record.GetString("status")
+		winnerID := e.Record.GetString("winner")
+
+		if oldStatus == newStatus || newStatus != "final" || winnerID == "" {
+			return e.Next()
+		}
+
+		p1ID := e.Record.GetString("pareja1")
+		p2ID := e.Record.GetString("pareja2")
+		var loserID string
+		if winnerID == p1ID {
+			loserID = p2ID
+		} else {
+			loserID = p1ID
+		}
+
+		return app.RunInTransaction(func(txApp core.App) error {
+			winnerPair, err := txApp.FindRecordById("parejas", winnerID)
+			if err != nil {
+				return err
+			}
+			loserPair, err := txApp.FindRecordById("parejas", loserID)
+			if err != nil {
+				return err
+			}
+
+			oldWinnerELO := int(winnerPair.GetFloat("elo"))
+			oldLoserELO := int(loserPair.GetFloat("elo"))
+			if oldWinnerELO == 0 {
+				oldWinnerELO = 1500
+			}
+			if oldLoserELO == 0 {
+				oldLoserELO = 1500
+			}
+
+			newWinnerELO, newLoserELO := handlers.ComputeELO(oldWinnerELO, oldLoserELO)
+
+			winnerPair.Set("elo", newWinnerELO)
+			if err := txApp.Save(winnerPair); err != nil {
+				return err
+			}
+			loserPair.Set("elo", newLoserELO)
+			if err := txApp.Save(loserPair); err != nil {
+				return err
+			}
+
+			eloCol, err := txApp.FindCollectionByNameOrId("elo_history")
+			if err != nil {
+				return err
+			}
+
+			winnerHistory := core.NewRecord(eloCol)
+			winnerHistory.Set("pareja", winnerID)
+			winnerHistory.Set("old_elo", oldWinnerELO)
+			winnerHistory.Set("new_elo", newWinnerELO)
+			winnerHistory.Set("delta", newWinnerELO-oldWinnerELO)
+			winnerHistory.Set("partido", e.Record.Id)
+			if err := txApp.Save(winnerHistory); err != nil {
+				return err
+			}
+
+			loserHistory := core.NewRecord(eloCol)
+			loserHistory.Set("pareja", loserID)
+			loserHistory.Set("old_elo", oldLoserELO)
+			loserHistory.Set("new_elo", newLoserELO)
+			loserHistory.Set("delta", newLoserELO-oldLoserELO)
+			loserHistory.Set("partido", e.Record.Id)
+			if err := txApp.Save(loserHistory); err != nil {
+				return err
+			}
+
+			return nil
+		})
+	})
+
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		se.Router.Bind(&hook.Handler[*core.RequestEvent]{
 			Func:     middleware.CookieAuth,
@@ -114,6 +191,10 @@ func main() {
 		adminGroup := se.Router.Group("/admin")
 		adminGroup.BindFunc(requireAuthRedirect)
 		adminGroup.BindFunc(middleware.RequireAppAdmin)
+		adminGroup.BindFunc(func(e *core.RequestEvent) error {
+			handlers.CheckQuorumTimeout(app)
+			return e.Next()
+		})
 		adminGroup.GET("/categorias", admin.Categorias)
 		adminGroup.POST("/categorias", admin.CategoriasCreate)
 		adminGroup.POST("/categorias/{id}", admin.CategoriasUpdate)
@@ -133,6 +214,10 @@ func main() {
 		adminGroup.GET("/disputas", admin.Disputas)
 		adminGroup.POST("/disputas/{id}/resolve", admin.DisputasResolve)
 
+		player := handlers.NewPlayerHandler(app, renderPage)
+		se.Router.GET("/jugador/{id}", player.Player).BindFunc(requireAuthRedirect)
+		se.Router.GET("/h2h", player.H2H).BindFunc(requireAuthRedirect)
+
 		match := handlers.NewMatchHandler(app, renderPage)
 		se.Router.GET("/mis-partidos", match.MisPartidos).BindFunc(requireAuthRedirect)
 		se.Router.GET("/partido/{id}", match.Partido).BindFunc(requireAuthRedirect)
@@ -141,6 +226,14 @@ func main() {
 		se.Router.POST("/partido/{id}/dispute", match.PartidoDispute).BindFunc(requireAuthRedirect)
 		se.Router.POST("/partido/{id}/edit", match.PartidoEdit).BindFunc(requireAuthRedirect)
 		se.Router.POST("/partido/{id}/walkover", match.PartidoWalkover).BindFunc(requireAuthRedirect)
+
+		notif := handlers.NewNotificationHandler(app, renderPage)
+		se.Router.GET("/notifications/count", notif.Count).BindFunc(requireAuthRedirect)
+		se.Router.GET("/notifications/list", notif.List).BindFunc(requireAuthRedirect)
+		se.Router.POST("/notifications/{id}/read", notif.MarkRead).BindFunc(requireAuthRedirect)
+		se.Router.POST("/notifications/read-all", notif.MarkAllRead).BindFunc(requireAuthRedirect)
+		se.Router.GET("/profile/notifications", notif.Prefs).BindFunc(requireAuthRedirect)
+		se.Router.POST("/profile/notifications", notif.PrefsSave).BindFunc(requireAuthRedirect)
 
 		return se.Next()
 	})

@@ -1,0 +1,43 @@
+{{define "content"}}
+<div class="max-w-lg mx-auto">
+    <h1 class="text-2xl font-bold mb-6">Preferencias de notificaciones</h1>
+
+    {{if .Success}}
+    <div class="alert alert-success mb-4">Preferencias guardadas</div>
+    {{end}}
+
+    <form method="POST" action="/profile/notifications">
+        <div class="card bg-base-100 shadow-md">
+            <div class="card-body space-y-4">
+                <div class="form-control">
+                    <label class="label cursor-pointer">
+                        <span class="label-text">Solicitudes de quórum</span>
+                        <input type="checkbox" name="quorum_request" class="toggle toggle-primary" {{if index .Prefs "quorum_request"}}checked{{end}}>
+                    </label>
+                </div>
+                <div class="form-control">
+                    <label class="label cursor-pointer">
+                        <span class="label-text">Disputas</span>
+                        <input type="checkbox" name="dispute" class="toggle toggle-primary" {{if index .Prefs "dispute"}}checked{{end}}>
+                    </label>
+                </div>
+                <div class="form-control">
+                    <label class="label cursor-pointer">
+                        <span class="label-text">Partidos asignados</span>
+                        <input type="checkbox" name="match_assigned" class="toggle toggle-primary" {{if index .Prefs "match_assigned"}}checked{{end}}>
+                    </label>
+                </div>
+                <div class="form-control">
+                    <label class="label cursor-pointer">
+                        <span class="label-text">General</span>
+                        <input type="checkbox" name="general" class="toggle toggle-primary" {{if index .Prefs "general"}}checked{{end}}>
+                    </label>
+                </div>
+                <div class="card-actions justify-end">
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{{end}}

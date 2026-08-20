@@ -208,5 +208,18 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 		totalMatches += len(r.Matches)
 	}
 
+	var allPlayerIDs []string
+	seen := map[string]bool{}
+	for _, p := range pairs {
+		for _, uid := range getPlayersForPair(h.app, p.Id) {
+			if !seen[uid] {
+				seen[uid] = true
+				allPlayerIDs = append(allPlayerIDs, uid)
+			}
+		}
+	}
+	notifyPlayers(h.app, allPlayerIDs, "match_assigned", "Calendario generado",
+		fmt.Sprintf("Se han generado %d jornadas con %d partidos.", len(rounds), totalMatches), "")
+
 	return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-success">Calendario generado: %d jornadas, %d partidos</div>`, len(rounds), totalMatches))
 }

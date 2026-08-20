@@ -54,6 +54,13 @@ func (h *MatchHandler) PartidoConfirm(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al confirmar el partido</div>`)
 	}
 
+	submitterParejaID := partido.GetString("pareja1")
+	if submitterTeam == 2 {
+		submitterParejaID = partido.GetString("pareja2")
+	}
+	submitterPlayers := getPlayersForPair(h.app, submitterParejaID)
+	notifyPlayers(h.app, submitterPlayers, "general", "Resultado confirmado", "Tu rival ha confirmado el resultado del partido.", partido.Id)
+
 	e.Response.Header().Set("HX-Redirect", "/partido/"+id)
 	return e.NoContent(http.StatusNoContent)
 }

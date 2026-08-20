@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"sort"
-
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -54,14 +52,6 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	})
 }
 
-type StandingRow struct {
-	Position int
-	PairName string
-	Wins     int
-	Losses   int
-	Points   int
-}
-
 func (h *PublicHandler) Categoria(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	category, err := h.app.FindRecordById("categorias", id)
@@ -75,50 +65,17 @@ func (h *PublicHandler) Categoria(e *core.RequestEvent) error {
 		map[string]any{"cat": id})
 
 	var season *core.Record
-	var standings []StandingRow
+	var standings []StandingRowFull
 
 	if len(seasons) > 0 {
 		season = seasons[0]
-
-		rows, _ := h.app.FindRecordsByFilter("clasificacion",
-			"temporada = {:sid}",
-			"-points", 0, 0,
-			map[string]any{"sid": season.Id})
-
-		pairIDs := make([]string, 0, len(rows))
-		for _, r := range rows {
-			pairIDs = append(pairIDs, r.GetString("pareja"))
-		}
-		pairNames, _ := expandPairNames(h.app, pairIDs)
-
-		standings = make([]StandingRow, 0, len(rows))
-		for _, r := range rows {
-			standings = append(standings, StandingRow{
-				PairName: pairNames[r.GetString("pareja")],
-				Wins:     int(r.GetFloat("wins")),
-				Losses:   int(r.GetFloat("losses")),
-				Points:   int(r.GetFloat("points")),
-			})
-		}
-
-		sort.Slice(standings, func(i, j int) bool {
-			if standings[i].Points != standings[j].Points {
-				return standings[i].Points > standings[j].Points
-			}
-			return standings[i].Wins > standings[j].Wins
-		})
-
-		for i := range standings {
-			standings[i].Position = i + 1
-		}
+		standings, _ = ComputeStandings(h.app, season.Id)
 	}
 
 	return h.renderPage(e, "categoria.html", map[string]any{
-		"DisplayName": e.Auth.GetString("display_name"),
-		"IsAdmin":     e.Auth.GetString("role") == "admin",
-		"Category":    category,
-		"Season":      season,
-		"Standings":   standings,
+		"Category":  category,
+		"Season":    season,
+		"Standings": standings,
 	})
 }
 

@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -99,7 +99,7 @@ func (h *AdminHandler) renderParejasList(e *core.RequestEvent, temporadaID strin
 	for i, p := range parejas {
 		name1 := resolvePlayerName(h.app, p.GetString("jugador1"))
 		name2 := resolvePlayerName(h.app, p.GetString("jugador2"))
-		html += `<tr><td>` + itoa(i+1) + `</td><td>` + name1 + `</td><td>` + name2 + `</td></tr>`
+		html += `<tr><td>` + strconv.Itoa(i+1) + `</td><td>` + name1 + `</td><td>` + name2 + `</td></tr>`
 	}
 	if len(parejas) == 0 {
 		html += `<tr><td colspan="3" class="text-center text-base-content/50">No hay parejas registradas</td></tr>`
@@ -109,6 +109,3 @@ func (h *AdminHandler) renderParejasList(e *core.RequestEvent, temporadaID strin
 	return e.HTML(http.StatusOK, html)
 }
 
-func itoa(n int) string {
-	return fmt.Sprintf("%d", n)
-}
