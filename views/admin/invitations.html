@@ -1,0 +1,113 @@
+{{define "content"}}
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div>
+        <a href="/admin" class="link link-hover text-sm opacity-60">&larr; Panel de administracion</a>
+        <h1 class="text-2xl font-bold mt-1">Invitaciones</h1>
+    </div>
+    <button class="btn btn-primary btn-sm sm:btn-md" onclick="document.getElementById('modal-create').showModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+        Nueva invitacion
+    </button>
+</div>
+
+<div class="card bg-base-100 shadow-sm border border-base-300">
+    <div class="overflow-x-auto">
+        <table class="table table-zebra">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th class="hidden sm:table-cell">Competicion</th>
+                    <th>Estado</th>
+                    <th class="hidden md:table-cell">Expira</th>
+                    <th>Enlace</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Invitations}}
+                <tr class="hover">
+                    <td>
+                        <span class="text-sm">{{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="opacity-40">Cualquier email</span>{{end}}</span>
+                    </td>
+                    <td class="hidden sm:table-cell text-sm opacity-60">
+                        {{if .GetString "competition"}}Asignada{{else}}-{{end}}
+                    </td>
+                    <td>
+                        {{if eq (.GetString "status") "pending"}}
+                        <span class="badge badge-warning badge-sm">Pendiente</span>
+                        {{else if eq (.GetString "status") "used"}}
+                        <span class="badge badge-success badge-sm">Usada</span>
+                        {{else}}
+                        <span class="badge badge-error badge-sm">Expirada</span>
+                        {{end}}
+                    </td>
+                    <td class="hidden md:table-cell text-sm opacity-60">
+                        {{(.GetDateTime "expires_at").Time.Format "02/01/2006"}}
+                    </td>
+                    <td>
+                        {{if eq (.GetString "status") "pending"}}
+                        <button class="btn btn-ghost btn-xs" onclick="copyInviteLink('{{.GetString "token"}}', this)" title="Copiar enlace">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 7.5V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.057 1.123-.08M15.75 18H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08M15.75 18.75v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5A3.375 3.375 0 006.375 7.5H6M15.75 18.75h-6a2.25 2.25 0 01-2.25-2.25V7.5m0 0h2.25M6 7.5h-.75A2.25 2.25 0 003 9.75v8.25A2.25 2.25 0 005.25 20.25h7.5" /></svg>
+                            Copiar
+                        </button>
+                        {{else}}
+                        <span class="text-xs opacity-40">-</span>
+                        {{end}}
+                    </td>
+                    <td>
+                        {{if eq (.GetString "status") "pending"}}
+                        <form hx-post="/admin/invitations/{{.Id}}/revoke" hx-confirm="Revocar esta invitacion?">
+                            <button type="submit" class="btn btn-ghost btn-xs text-error">Revocar</button>
+                        </form>
+                        {{end}}
+                    </td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="6" class="text-center py-12 opacity-60">No hay invitaciones</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<dialog id="modal-create" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box">
+        <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">&times;</button></form>
+        <h3 class="text-lg font-bold mb-4">Nueva invitacion</h3>
+        <div id="create-error" class="mb-2"></div>
+        <form hx-post="/admin/invitations" hx-target="#create-error">
+            <div class="form-control w-full">
+                <label class="label"><span class="label-text font-medium">Email (opcional)</span></label>
+                <input type="email" name="email" class="input input-bordered w-full" placeholder="jugador@email.com">
+                <label class="label"><span class="label-text-alt opacity-50">Si se indica, solo este email podra registrarse con esta invitacion</span></label>
+            </div>
+            <div class="form-control w-full mt-3">
+                <label class="label"><span class="label-text font-medium">Competicion (opcional)</span></label>
+                <select name="competition" class="select select-bordered w-full">
+                    <option value="">Sin asignar</option>
+                    {{range .Competitions}}
+                    <option value="{{.Id}}">{{.GetString "name"}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="modal-action">
+                <button type="submit" class="btn btn-primary">Crear invitacion</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<script>
+function copyInviteLink(token, btn) {
+    var url = window.location.origin + '/register?token=' + token;
+    navigator.clipboard.writeText(url).then(function() {
+        var orig = btn.innerHTML;
+        btn.innerHTML = '<span class="text-success text-xs">Copiado!</span>';
+        setTimeout(function() { btn.innerHTML = orig; }, 2000);
+    });
+}
+</script>
+{{end}}
