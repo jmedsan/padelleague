@@ -4,7 +4,7 @@
     <h1 class="text-2xl font-bold mt-2">{{.Data.User.GetString "display_name"}}</h1>
 </div>
 
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
     <div class="stat bg-base-200 rounded-lg p-4">
         <div class="stat-title">Partidos</div>
         <div class="stat-value text-2xl">{{.Data.TotalPlayed}}</div>
@@ -20,6 +20,14 @@
     <div class="stat bg-base-200 rounded-lg p-4">
         <div class="stat-title">Racha</div>
         <div class="stat-value text-2xl">{{if .Data.Streak}}{{.Data.Streak}}{{else}}-{{end}}</div>
+    </div>
+    <div class="stat bg-base-200 rounded-lg p-4">
+        <div class="stat-title">Mejor racha</div>
+        <div class="stat-value text-2xl">{{if .Data.BestStreak}}{{.Data.BestStreak}}{{else}}-{{end}}</div>
+    </div>
+    <div class="stat bg-base-200 rounded-lg p-4">
+        <div class="stat-title">Juegos (G/P)</div>
+        <div class="stat-value text-2xl">{{.Data.GamesWon}}/{{.Data.GamesLost}}</div>
     </div>
 </div>
 
@@ -38,6 +46,32 @@
             <tr>
                 <td>{{.Pair.GetString "name"}}</td>
                 <td>{{.Partner}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}
+
+{{if .Data.CompetitionStats}}
+<h2 class="text-lg font-semibold mb-2">Por competicion</h2>
+<div class="overflow-x-auto mb-6">
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Competicion</th>
+                <th class="text-center">PJ</th>
+                <th class="text-center">PG</th>
+                <th class="text-center">PP</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Data.CompetitionStats}}
+            <tr>
+                <td class="font-medium">{{.Name}}</td>
+                <td class="text-center">{{.Played}}</td>
+                <td class="text-center text-success">{{.Wins}}</td>
+                <td class="text-center text-error">{{.Losses}}</td>
             </tr>
             {{end}}
         </tbody>

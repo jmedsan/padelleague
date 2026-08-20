@@ -30,8 +30,19 @@ type PlayerData struct {
 	TotalPlayed int
 	SetsWon     int
 	SetsLost    int
-	Streak      string
-	Recent      []RecentMatch
+	GamesWon         int
+	GamesLost        int
+	Streak           string
+	BestStreak       string
+	CompetitionStats []CompetitionStat
+	Recent           []RecentMatch
+}
+
+type CompetitionStat struct {
+	Name   string
+	Wins   int
+	Losses int
+	Played int
 }
 
 type RecentMatch struct {
@@ -78,12 +89,15 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 	totalPlayed := 0
 	setsWon := 0
 	setsLost := 0
+	gamesWon := 0
+	gamesLost := 0
 	type matchResult struct {
-		won   bool
-		date  string
-		p1    string
-		p2    string
-		score string
+		won    bool
+		date   string
+		p1     string
+		p2     string
+		score  string
+		compID string
 	}
 	var allResults []matchResult
 
@@ -114,24 +128,29 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 
 			score := m.GetString("scores")
 			if !strings.EqualFold(strings.TrimSpace(score), "WO") {
-				s1, s2, _, _, err := parseScore(score)
+				s1, s2, g1, g2, err := parseScore(score)
 				if err == nil {
 					if m.GetString("pair1") == p.Id {
 						setsWon += s1
 						setsLost += s2
+						gamesWon += g1
+						gamesLost += g2
 					} else {
 						setsWon += s2
 						setsLost += s1
+						gamesWon += g2
+						gamesLost += g1
 					}
 				}
 			}
 
 			allResults = append(allResults, matchResult{
-				won:   won,
-				date:  m.GetString("date"),
-				p1:    pairNames[m.GetString("pair1")],
-				p2:    pairNames[m.GetString("pair2")],
-				score: score,
+				won:    won,
+				date:   m.GetString("date"),
+				p1:     pairNames[m.GetString("pair1")],
+				p2:     pairNames[m.GetString("pair2")],
+				score:  score,
+				compID: m.GetString("competition"),
 			})
 		}
 	}
@@ -158,6 +177,55 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 		streak = fmt.Sprintf("%d%s", count, suffix)
 	}
 
+	bestStreak := ""
+	if len(allResults) > 0 {
+		bestWin, bestLoss := 0, 0
+		curWin, curLoss := 0, 0
+		for _, r := range allResults {
+			if r.won {
+				curWin++
+				curLoss = 0
+				if curWin > bestWin {
+					bestWin = curWin
+				}
+			} else {
+				curLoss++
+				curWin = 0
+				if curLoss > bestLoss {
+					bestLoss = curLoss
+				}
+			}
+		}
+		if bestWin >= bestLoss {
+			bestStreak = fmt.Sprintf("%dV", bestWin)
+		} else {
+			bestStreak = fmt.Sprintf("%dD", bestLoss)
+		}
+	}
+
+	compStatsMap := map[string]*CompetitionStat{}
+	for _, r := range allResults {
+		cs, ok := compStatsMap[r.compID]
+		if !ok {
+			compName := r.compID
+			if comp, err := h.app.FindRecordById("competitions", r.compID); err == nil {
+				compName = comp.GetString("name")
+			}
+			cs = &CompetitionStat{Name: compName}
+			compStatsMap[r.compID] = cs
+		}
+		cs.Played++
+		if r.won {
+			cs.Wins++
+		} else {
+			cs.Losses++
+		}
+	}
+	compStats := make([]CompetitionStat, 0, len(compStatsMap))
+	for _, cs := range compStatsMap {
+		compStats = append(compStats, *cs)
+	}
+
 	var winRate float64
 	if totalPlayed > 0 {
 		winRate = float64(totalWins) / float64(totalPlayed) * 100
@@ -179,14 +247,18 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 	}
 
 	data := PlayerData{
-		User:        user,
-		Pairs:       pairInfos,
-		WinRate:     winRate,
-		TotalPlayed: totalPlayed,
-		SetsWon:     setsWon,
-		SetsLost:    setsLost,
-		Streak:      streak,
-		Recent:      recent,
+		User:             user,
+		Pairs:            pairInfos,
+		WinRate:          winRate,
+		TotalPlayed:      totalPlayed,
+		SetsWon:          setsWon,
+		SetsLost:         setsLost,
+		GamesWon:         gamesWon,
+		GamesLost:        gamesLost,
+		Streak:           streak,
+		BestStreak:       bestStreak,
+		CompetitionStats: compStats,
+		Recent:           recent,
 	}
 
 	return h.renderPage(e, "player.html", map[string]any{
