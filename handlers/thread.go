@@ -337,7 +337,12 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Propuesta no pertenece a este partido</div>`)
 	}
 
-	if msg.GetString("proposal_status") != "pending" {
+	proposalStatus := msg.GetString("proposal_status")
+	if proposalStatus == "accepted" {
+		e.Response.Header().Set("HX-Redirect", "/match/"+matchID)
+		return e.NoContent(http.StatusNoContent)
+	}
+	if proposalStatus != "pending" {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Esta propuesta ya fue respondida</div>`)
 	}
 
