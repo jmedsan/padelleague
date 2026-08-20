@@ -21,6 +21,9 @@ func NewAuthHandler(app core.App, renderPage func(e *core.RequestEvent, page str
 }
 
 func (h *AuthHandler) Login(e *core.RequestEvent) error {
+	if e.Auth != nil {
+		return e.Redirect(http.StatusFound, "/")
+	}
 	return h.renderPage(e, "login.html", map[string]any{})
 }
 

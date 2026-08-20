@@ -151,7 +151,8 @@ func main() {
 		se.Router.GET("/", pub.Home).BindFunc(requireAuthRedirect)
 		se.Router.GET("/competition/{id}", pub.Competition).BindFunc(requireAuthRedirect)
 
-		se.Router.POST("/logout", auth.Logout).Bind(apis.RequireAuth())
+		se.Router.GET("/logout", auth.Logout)
+		se.Router.POST("/logout", auth.Logout)
 
 		admin := handlers.NewAdminHandler(app, renderPage)
 		comp := handlers.NewCompetitionHandler(app, renderPage)
