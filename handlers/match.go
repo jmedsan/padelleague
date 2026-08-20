@@ -165,6 +165,8 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		shareText = url.QueryEscape(fmt.Sprintf("Resultado: %s %s %s. Ganador: %s!", p1Name, score, p2Name, winnerName))
 	}
 
+	venues, _ := h.app.FindRecordsByFilter("venues", "", "name", 0, 0, nil)
+
 	return h.renderPage(e, "partido.html", map[string]any{
 		"Match":           mv,
 		"CompetitionName": compName,
@@ -174,6 +176,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		"DisputedBy":      disputedByName,
 		"DisputeNotes":    match.GetString("dispute_notes"),
 		"ShareText":       shareText,
+		"Venues":          venues,
 	})
 }
 
@@ -210,8 +213,12 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	if t := e.Request.FormValue("time"); t != "" {
 		match.Set("time", t)
 	}
-	if club := e.Request.FormValue("club"); club != "" {
-		match.Set("club", club)
+	venue := e.Request.FormValue("venue")
+	if venue == "__other__" {
+		venue = e.Request.FormValue("custom_venue")
+	}
+	if venue != "" {
+		match.Set("club", venue)
 	}
 	if court := e.Request.FormValue("court_number"); court != "" {
 		match.Set("court_number", court)
@@ -257,8 +264,12 @@ func (h *MatchHandler) MatchEdit(e *core.RequestEvent) error {
 	if t := e.Request.FormValue("time"); t != "" {
 		match.Set("time", t)
 	}
-	if club := e.Request.FormValue("club"); club != "" {
-		match.Set("club", club)
+	venue := e.Request.FormValue("venue")
+	if venue == "__other__" {
+		venue = e.Request.FormValue("custom_venue")
+	}
+	if venue != "" {
+		match.Set("club", venue)
 	}
 	if court := e.Request.FormValue("court_number"); court != "" {
 		match.Set("court_number", court)

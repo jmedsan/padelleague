@@ -80,7 +80,7 @@
             <div class="card bg-base-200/50 rounded-xl mb-4">
                 <div class="card-body p-4">
                     <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Registrar resultado</h3>
-                    <form hx-post="/match/{{.Match.Partido.Id}}/submit" hx-target="#action-result">
+                    <form hx-post="/match/{{.Match.Partido.Id}}/submit" hx-target="#action-result" onsubmit="return composeScore(this)">
                         <div class="grid grid-cols-2 gap-3">
                             <div class="form-control">
                                 <label class="label py-1"><span class="label-text text-xs">Fecha</span></label>
@@ -90,18 +90,66 @@
                                 <label class="label py-1"><span class="label-text text-xs">Hora</span></label>
                                 <input type="text" name="time" class="input input-bordered input-sm" placeholder="19:30" value="{{.Match.Partido.GetString "time"}}">
                             </div>
-                            <div class="form-control">
-                                <label class="label py-1"><span class="label-text text-xs">Club</span></label>
-                                <input type="text" name="club" class="input input-bordered input-sm" value="{{.Match.Partido.GetString "club"}}">
+                            <div class="form-control col-span-2">
+                                <label class="label py-1"><span class="label-text text-xs">Pista</span></label>
+                                <select name="venue" class="select select-bordered select-sm" onchange="toggleCustomVenue(this)">
+                                    <option value="">Seleccionar...</option>
+                                    {{range .Venues}}
+                                    <option value="{{.GetString "name"}}">{{.GetString "name"}}</option>
+                                    {{end}}
+                                    <option value="__other__">Otro...</option>
+                                </select>
+                            </div>
+                            <div class="form-control col-span-2 hidden" id="custom-venue-row">
+                                <label class="label py-1"><span class="label-text text-xs">Nombre de la pista</span></label>
+                                <input type="text" name="custom_venue" class="input input-bordered input-sm" placeholder="Nombre de la pista">
                             </div>
                             <div class="form-control">
-                                <label class="label py-1"><span class="label-text text-xs">Pista</span></label>
+                                <label class="label py-1"><span class="label-text text-xs">Pista/Cancha</span></label>
                                 <input type="text" name="court_number" class="input input-bordered input-sm" value="{{.Match.Partido.GetString "court_number"}}">
                             </div>
                         </div>
-                        <div class="form-control mt-3">
-                            <label class="label py-1"><span class="label-text text-xs">Resultado (ej: 6-3 4-6 7-5)</span></label>
-                            <input type="text" name="scores" class="input input-bordered" placeholder="6-3 4-6 7-5" required>
+                        <div class="mt-3">
+                            <label class="label py-1"><span class="label-text text-xs">Resultado</span></label>
+                            <div id="score-sets">
+                                <div class="flex items-center gap-2 mb-2" data-set="1">
+                                    <span class="text-xs font-bold w-8">Set 1</span>
+                                    <select name="s1a" class="select select-bordered select-sm w-16" onchange="checkThirdSet()">
+                                        <option value="">-</option>
+                                        <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+                                    </select>
+                                    <span class="opacity-40">-</span>
+                                    <select name="s1b" class="select select-bordered select-sm w-16" onchange="checkThirdSet()">
+                                        <option value="">-</option>
+                                        <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center gap-2 mb-2" data-set="2">
+                                    <span class="text-xs font-bold w-8">Set 2</span>
+                                    <select name="s2a" class="select select-bordered select-sm w-16" onchange="checkThirdSet()">
+                                        <option value="">-</option>
+                                        <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+                                    </select>
+                                    <span class="opacity-40">-</span>
+                                    <select name="s2b" class="select select-bordered select-sm w-16" onchange="checkThirdSet()">
+                                        <option value="">-</option>
+                                        <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center gap-2 mb-2 hidden" id="set3-row" data-set="3">
+                                    <span class="text-xs font-bold w-8">Set 3</span>
+                                    <select name="s3a" class="select select-bordered select-sm w-16">
+                                        <option value="">-</option>
+                                        <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+                                    </select>
+                                    <span class="opacity-40">-</span>
+                                    <select name="s3b" class="select select-bordered select-sm w-16">
+                                        <option value="">-</option>
+                                        <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <input type="hidden" name="scores" id="scores-hidden">
                         </div>
                         <button type="submit" class="btn btn-primary mt-4 w-full">Enviar resultado</button>
                     </form>
@@ -142,12 +190,22 @@
                                 <label class="label py-1"><span class="label-text text-xs">Hora</span></label>
                                 <input type="text" name="time" class="input input-bordered input-sm" value="{{.Match.Partido.GetString "time"}}">
                             </div>
-                            <div class="form-control">
-                                <label class="label py-1"><span class="label-text text-xs">Club</span></label>
-                                <input type="text" name="club" class="input input-bordered input-sm" value="{{.Match.Partido.GetString "club"}}">
+                            <div class="form-control col-span-2">
+                                <label class="label py-1"><span class="label-text text-xs">Pista</span></label>
+                                <select name="venue" class="select select-bordered select-sm" onchange="toggleCustomVenue(this)">
+                                    <option value="">Seleccionar...</option>
+                                    {{range .Venues}}
+                                    <option value="{{.GetString "name"}}">{{.GetString "name"}}</option>
+                                    {{end}}
+                                    <option value="__other__">Otro...</option>
+                                </select>
+                            </div>
+                            <div class="form-control col-span-2 hidden" id="custom-venue-row-edit">
+                                <label class="label py-1"><span class="label-text text-xs">Nombre de la pista</span></label>
+                                <input type="text" name="custom_venue" class="input input-bordered input-sm" placeholder="Nombre de la pista">
                             </div>
                             <div class="form-control">
-                                <label class="label py-1"><span class="label-text text-xs">Pista</span></label>
+                                <label class="label py-1"><span class="label-text text-xs">Pista/Cancha</span></label>
                                 <input type="text" name="court_number" class="input input-bordered input-sm" value="{{.Match.Partido.GetString "court_number"}}">
                             </div>
                         </div>
@@ -234,6 +292,36 @@
             {{end}}
         </div>
     </div>
+
+    <script>
+    function checkThirdSet() {
+        var s1a = document.querySelector('[name=s1a]').value;
+        var s1b = document.querySelector('[name=s1b]').value;
+        var s2a = document.querySelector('[name=s2a]').value;
+        var s2b = document.querySelector('[name=s2b]').value;
+        var row = document.getElementById('set3-row');
+        if (s1a && s1b && s2a && s2b) {
+            var w1 = (parseInt(s1a) > parseInt(s1b) ? 1 : 0) + (parseInt(s2a) > parseInt(s2b) ? 1 : 0);
+            row.classList.toggle('hidden', w1 === 0 || w1 === 2);
+        }
+    }
+    function composeScore(form) {
+        var parts = [];
+        for (var i = 1; i <= 3; i++) {
+            var a = form.querySelector('[name=s'+i+'a]');
+            var b = form.querySelector('[name=s'+i+'b]');
+            if (a && b && a.value !== '' && b.value !== '') {
+                parts.push(a.value + '-' + b.value);
+            }
+        }
+        document.getElementById('scores-hidden').value = parts.join(' ');
+        return true;
+    }
+    function toggleCustomVenue(sel) {
+        var row = sel.closest('form').querySelector('[id^=custom-venue]');
+        row.classList.toggle('hidden', sel.value !== '__other__');
+    }
+    </script>
 
     <div class="mt-6" id="match-thread"
          hx-get="/match/{{.Match.Partido.Id}}/thread"
