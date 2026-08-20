@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"fmt"
+	"html"
 	"net/http"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -33,7 +33,7 @@ func (h *AdminHandler) VenuesCreate(e *core.RequestEvent) error {
 	record.Set("courts", e.Request.FormValue("courts"))
 
 	if err := h.app.Save(record); err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error: ` + html.EscapeString(err.Error()) + `</div>`)
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/admin/venues")
@@ -52,7 +52,7 @@ func (h *AdminHandler) VenuesUpdate(e *core.RequestEvent) error {
 	record.Set("courts", e.Request.FormValue("courts"))
 
 	if err := h.app.Save(record); err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error: ` + html.EscapeString(err.Error()) + `</div>`)
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/admin/venues")
@@ -67,7 +67,7 @@ func (h *AdminHandler) VenuesDelete(e *core.RequestEvent) error {
 	}
 
 	if err := h.app.Delete(record); err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error: ` + html.EscapeString(err.Error()) + `</div>`)
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/admin/venues")

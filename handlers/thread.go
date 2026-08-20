@@ -99,13 +99,37 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	venues, _ := h.app.FindRecordsByFilter("venues",
 		"id != ''", "name", 0, 0, nil)
 
+	pair1Players := getPlayersForPair(h.app, pair1ID)
+	pair2Players := getPlayersForPair(h.app, pair2ID)
+	nameCache := make(map[string]string)
+
+	authorTeamOf := func(uid string) int {
+		for _, p := range pair1Players {
+			if p == uid {
+				return 1
+			}
+		}
+		for _, p := range pair2Players {
+			if p == uid {
+				return 2
+			}
+		}
+		return 0
+	}
+
+	cachedName := func(uid string) string {
+		if n, ok := nameCache[uid]; ok {
+			return n
+		}
+		n := resolvePlayerName(h.app, uid)
+		nameCache[uid] = n
+		return n
+	}
+
 	var threadMessages []ThreadMessage
 	for _, msg := range messages {
 		authorID := msg.GetString("author")
-		authorTeam := 0
-		if t, err := getPlayerTeam(h.app, authorID, match); err == nil {
-			authorTeam = t
-		}
+		authorTeam := authorTeamOf(authorID)
 
 		msgType := msg.GetString("type")
 		var pd *ProposalData
@@ -123,7 +147,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 
 		threadMessages = append(threadMessages, ThreadMessage{
 			Record:          msg,
-			AuthorName:      resolvePlayerName(h.app, authorID),
+			AuthorName:      cachedName(authorID),
 			AuthorTeam:      authorTeam,
 			IsMyTeam:        myTeam != 0 && authorTeam == myTeam,
 			Type:            msgType,
@@ -309,6 +333,10 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Propuesta no encontrada</div>`)
 	}
 
+	if msg.GetString("match") != matchID {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Propuesta no pertenece a este partido</div>`)
+	}
+
 	if msg.GetString("proposal_status") != "pending" {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Esta propuesta ya fue respondida</div>`)
 	}
@@ -316,6 +344,11 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 	authorTeam, _ := getPlayerTeam(h.app, msg.GetString("author"), match)
 	if authorTeam == myTeam {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No puedes responder a tu propia propuesta</div>`)
+	}
+
+	proposerPairID := match.GetString("pair1")
+	if authorTeam == 2 {
+		proposerPairID = match.GetString("pair2")
 	}
 
 	action := e.Request.FormValue("action")
@@ -342,7 +375,9 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 		}
 
 		msg.Set("proposal_status", "accepted")
-		h.app.Save(msg)
+		if err := h.app.Save(msg); err != nil {
+			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al marcar la propuesta como aceptada</div>`)
+		}
 
 		otherPending, _ := h.app.FindRecordsByFilter("match_messages",
 			"match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'pending' && id != {:msgid}",
@@ -353,10 +388,6 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 			h.app.Save(other)
 		}
 
-		proposerPairID := match.GetString("pair1")
-		if authorTeam == 2 {
-			proposerPairID = match.GetString("pair2")
-		}
 		proposerPlayers := getPlayersForPair(h.app, proposerPairID)
 		responderName := resolvePlayerName(h.app, e.Auth.Id)
 		notifyPlayers(h.app, proposerPlayers, "scheduling",
@@ -370,12 +401,10 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 		msg.Set("proposal_status", "rejected")
 		msg.Set("rejection_reason", reason)
 		msg.Set("rejection_text", text)
-		h.app.Save(msg)
-
-		proposerPairID := match.GetString("pair1")
-		if authorTeam == 2 {
-			proposerPairID = match.GetString("pair2")
+		if err := h.app.Save(msg); err != nil {
+			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al rechazar la propuesta</div>`)
 		}
+
 		proposerPlayers := getPlayersForPair(h.app, proposerPairID)
 		responderName := resolvePlayerName(h.app, e.Auth.Id)
 		notifyPlayers(h.app, proposerPlayers, "scheduling",
