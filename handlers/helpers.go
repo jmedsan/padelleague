@@ -80,6 +80,7 @@ func getNotificationPrefs(user *core.Record) map[string]any {
 		"dispute":        true,
 		"match_assigned": true,
 		"general":        true,
+		"scheduling":     true,
 	}
 	raw := user.Get("notification_prefs")
 	if raw == nil {

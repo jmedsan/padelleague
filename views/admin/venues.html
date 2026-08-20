@@ -1,0 +1,99 @@
+{{define "content"}}
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div>
+        <a href="/admin" class="link link-hover text-sm opacity-60">&larr; Panel de administracion</a>
+        <h1 class="text-2xl font-bold mt-1">Pistas</h1>
+    </div>
+    <button class="btn btn-primary btn-sm sm:btn-md" onclick="document.getElementById('modal-create-venue').showModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+        Nuevo club
+    </button>
+</div>
+
+<div class="card bg-base-100 shadow-sm border border-base-300">
+    <div class="overflow-x-auto">
+        <table class="table table-zebra">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th class="hidden sm:table-cell">Direccion</th>
+                    <th>Pistas</th>
+                    <th class="text-right">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Venues}}
+                <tr class="hover">
+                    <td class="font-medium">{{.GetString "name"}}</td>
+                    <td class="hidden sm:table-cell opacity-60 text-sm">{{if .GetString "address"}}{{.GetString "address"}}{{else}}<span class="opacity-40">—</span>{{end}}</td>
+                    <td>{{if .GetFloat "courts"}}<span class="badge badge-outline badge-sm">{{.GetFloat "courts"}}</span>{{else}}<span class="opacity-40">—</span>{{end}}</td>
+                    <td class="text-right">
+                        <button class="btn btn-ghost btn-xs" onclick="document.getElementById('modal-edit-venue-{{.Id}}').showModal()">Editar</button>
+                        <form hx-post="/admin/venues/{{.Id}}/delete" hx-confirm="Eliminar este club?">
+                            <button type="submit" class="btn btn-ghost btn-xs text-error">Eliminar</button>
+                        </form>
+                    </td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="4" class="text-center py-12 opacity-60">No hay clubs registrados</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{{range .Venues}}
+<dialog id="modal-edit-venue-{{.Id}}" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box">
+        <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">x</button></form>
+        <h3 class="text-lg font-bold mb-4">Editar club</h3>
+        <form hx-post="/admin/venues/{{.Id}}" hx-target="body">
+            <div class="form-control">
+                <label class="label"><span class="label-text font-medium">Nombre</span></label>
+                <input type="text" name="name" value="{{.GetString "name"}}" class="input input-bordered w-full" required>
+            </div>
+            <div class="form-control mt-3">
+                <label class="label"><span class="label-text font-medium">Direccion</span></label>
+                <input type="text" name="address" value="{{.GetString "address"}}" class="input input-bordered w-full">
+            </div>
+            <div class="form-control mt-3">
+                <label class="label"><span class="label-text font-medium">Pistas</span></label>
+                <input type="number" name="courts" value="{{.GetFloat "courts"}}" class="input input-bordered w-full" min="0">
+            </div>
+            <div class="modal-action">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+{{end}}
+
+<dialog id="modal-create-venue" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box">
+        <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">x</button></form>
+        <h3 class="text-lg font-bold mb-4">Nuevo club</h3>
+        <div id="create-venue-error" class="mb-2"></div>
+        <form hx-post="/admin/venues" hx-target="#create-venue-error">
+            <div class="form-control">
+                <label class="label"><span class="label-text font-medium">Nombre</span></label>
+                <input type="text" name="name" class="input input-bordered w-full" placeholder="Nombre del club" required>
+            </div>
+            <div class="form-control mt-3">
+                <label class="label"><span class="label-text font-medium">Direccion</span></label>
+                <input type="text" name="address" class="input input-bordered w-full" placeholder="Direccion">
+            </div>
+            <div class="form-control mt-3">
+                <label class="label"><span class="label-text font-medium">Pistas</span></label>
+                <input type="number" name="courts" class="input input-bordered w-full" min="0" placeholder="0">
+            </div>
+            <div class="modal-action">
+                <button type="submit" class="btn btn-primary">Crear</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+{{end}}

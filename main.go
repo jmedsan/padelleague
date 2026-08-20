@@ -175,6 +175,11 @@ func main() {
 		adminGroup.GET("/disputes", admin.Disputes)
 		adminGroup.POST("/disputes/{id}/resolve", admin.DisputesResolve)
 
+		adminGroup.GET("/venues", admin.Venues)
+		adminGroup.POST("/venues", admin.VenuesCreate)
+		adminGroup.POST("/venues/{id}", admin.VenuesUpdate)
+		adminGroup.POST("/venues/{id}/delete", admin.VenuesDelete)
+
 		player := handlers.NewPlayerHandler(app, renderPage)
 		se.Router.GET("/player/{id}", player.Player).BindFunc(requireAuthRedirect)
 		se.Router.GET("/h2h", player.H2H).BindFunc(requireAuthRedirect)
@@ -187,6 +192,12 @@ func main() {
 		se.Router.POST("/match/{id}/edit", match.MatchEdit).BindFunc(requireAuthRedirect)
 		se.Router.POST("/match/{id}/walkover", match.MatchWalkover).BindFunc(requireAuthRedirect)
 		se.Router.POST("/match/{id}/correct", match.MatchCorrect).BindFunc(requireAuthRedirect)
+
+		thread := handlers.NewThreadHandler(app, renderPage)
+		se.Router.GET("/match/{id}/thread", thread.Thread).BindFunc(requireAuthRedirect)
+		se.Router.POST("/match/{id}/thread/message", thread.PostMessage).BindFunc(requireAuthRedirect)
+		se.Router.POST("/match/{id}/thread/proposal", thread.PostProposal).BindFunc(requireAuthRedirect)
+		se.Router.POST("/match/{id}/thread/proposal/{msgId}/respond", thread.RespondProposal).BindFunc(requireAuthRedirect)
 
 		ical := handlers.NewICalHandler(app)
 		se.Router.GET("/ical/match/{id}", ical.Match).BindFunc(requireAuthRedirect)
