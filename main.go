@@ -189,11 +189,6 @@ func main() {
 		se.Router.GET("/reset-password", pwReset.ResetPassword)
 		se.Router.POST("/reset-password", pwReset.ResetPasswordSubmit)
 
-		resetHandler := handlers.NewPasswordResetHandler(app, renderPage)
-		se.Router.GET("/forgot-password", resetHandler.ForgotPassword)
-		se.Router.POST("/forgot-password", resetHandler.ForgotPasswordSubmit)
-		se.Router.GET("/reset-password", resetHandler.ResetPassword)
-		se.Router.POST("/reset-password", resetHandler.ResetPasswordSubmit)
 
 		pub := handlers.NewPublicHandler(app, renderPage)
 		se.Router.GET("/", pub.Home).BindFunc(requireAuthRedirect)
