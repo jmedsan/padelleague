@@ -1,0 +1,47 @@
+{{define "content"}}
+<h1 class="text-2xl font-bold mb-6">Disputas pendientes</h1>
+
+{{if .Disputes}}
+<div class="space-y-4">
+    {{range .Disputes}}
+    <div class="card bg-base-100 shadow">
+        <div class="card-body">
+            <h2 class="card-title">{{.Pair1Name}} vs {{.Pair2Name}}</h2>
+            <div class="grid grid-cols-2 gap-2 text-sm">
+                <span class="opacity-60">Marcador:</span><span>{{.Match.GetString "scores"}}</span>
+                <span class="opacity-60">Enviado por:</span><span>{{.SubmittedBy}}</span>
+                <span class="opacity-60">Disputado por:</span><span>{{.DisputedBy}}</span>
+                {{if .DisputeNotes}}
+                <span class="opacity-60">Notas:</span><span>{{.DisputeNotes}}</span>
+                {{end}}
+            </div>
+            <div class="divider my-2"></div>
+            <form hx-post="/admin/disputes/{{.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
+                <div class="flex flex-wrap gap-3 items-end">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Marcador final</span></label>
+                        <input type="text" name="score" value="{{.Match.GetString "scores"}}" class="input input-bordered input-sm w-40">
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Ganador</span></label>
+                        <select name="winner" class="select select-bordered select-sm">
+                            <option value="">Auto-detectar</option>
+                            <option value="{{.Match.GetString "pair1"}}">{{.Pair1Name}}</option>
+                            <option value="{{.Match.GetString "pair2"}}">{{.Pair2Name}}</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">Resolver</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {{end}}
+</div>
+{{else}}
+<div class="card bg-base-100 shadow">
+    <div class="card-body text-center py-12">
+        <p class="text-lg opacity-60">No hay disputas pendientes</p>
+    </div>
+</div>
+{{end}}
+{{end}}

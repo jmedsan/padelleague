@@ -37,6 +37,25 @@
                         PadelLeague
                     </a>
                 </div>
+                {{if .DisplayName}}
+                <div class="flex-none lg:hidden">
+                <div class="dropdown dropdown-end">
+                    <button tabindex="0" class="btn btn-ghost btn-circle btn-sm" aria-label="notificaciones">
+                        <div class="indicator">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                            </svg>
+                            <span hx-get="/notifications/count" hx-trigger="load" hx-swap="innerHTML"></span>
+                        </div>
+                    </button>
+                    <div tabindex="0" class="dropdown-content z-30 mt-3 w-80" hx-get="/notifications/list" hx-trigger="click from:closest .dropdown" hx-swap="innerHTML">
+                        <div class="card card-compact bg-base-100 shadow-xl">
+                            <div class="card-body"><p class="text-sm opacity-50">Cargando...</p></div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+                {{end}}
                 <div class="hidden lg:flex items-center gap-1">
                     <ul class="menu menu-horizontal px-1 gap-1">
                         <li><a href="/" class="rounded-lg">Inicio</a></li>
@@ -71,7 +90,10 @@
                                 <span id="notif-badge" hx-get="/notifications/count" hx-trigger="load" hx-swap="innerHTML"></span>
                             </div>
                         </button>
-                        <div tabindex="0" id="notif-dropdown" class="dropdown-content z-30 mt-3" hx-get="/notifications/list" hx-trigger="click from:closest .dropdown" hx-swap="innerHTML">
+                        <div tabindex="0" id="notif-dropdown" class="dropdown-content z-30 mt-3 w-80" hx-get="/notifications/list" hx-trigger="click from:closest .dropdown" hx-swap="innerHTML">
+                            <div class="card card-compact bg-base-100 shadow-xl">
+                                <div class="card-body"><p class="text-sm opacity-50">Cargando...</p></div>
+                            </div>
                         </div>
                     </div>
                     <div class="divider divider-horizontal mx-0"></div>
@@ -81,10 +103,12 @@
                 </div>
             </div>
             {{if and .DisplayName (not .Verified)}}
-            <div class="alert alert-warning shadow-md mx-4 mt-4">
+            <div id="verify-banner" class="alert alert-warning shadow-md mx-4 mt-4">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                 <span>Tu email no esta verificado. Revisa tu bandeja de entrada.</span>
+                <button onclick="document.getElementById('verify-banner').remove();sessionStorage.setItem('banner-dismissed','1')" class="btn btn-ghost btn-sm btn-circle">&#10005;</button>
             </div>
+            <script>if(sessionStorage.getItem('banner-dismissed'))document.getElementById('verify-banner').remove()</script>
             {{end}}
             <main class="flex-1 container mx-auto px-4 py-6 max-w-5xl">
                 {{block "content" .}}{{end}}
