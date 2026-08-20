@@ -118,21 +118,6 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
 	}
 
-	var allPlayerIDs []string
-	seen := map[string]bool{}
-	for _, pid := range pairIDs {
-		for _, uid := range getPlayersForPair(h.app, pid) {
-			if !seen[uid] {
-				seen[uid] = true
-				allPlayerIDs = append(allPlayerIDs, uid)
-			}
-		}
-	}
-	notifyPlayers(h.app, allPlayerIDs, "match_assigned", "Calendario generado",
-		"Se ha generado el calendario de la competición.", "")
-	emailNotifyPlayers(h.app, allPlayerIDs, "Calendario generado",
-		"Se ha generado el calendario de la competición.", "")
-
 	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID+"/pairs")
 	return e.NoContent(http.StatusNoContent)
 }
