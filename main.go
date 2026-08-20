@@ -173,6 +173,7 @@ func main() {
 		adminGroup.POST("/competitions/{id}/copy-pairs", comp.CopyPairs)
 		adminGroup.POST("/competitions/{id}/remove-pair", comp.RemovePair)
 		adminGroup.POST("/competitions/{id}/payment", comp.TogglePayment)
+		adminGroup.POST("/competitions/{id}/penalty", comp.ApplyPenalty)
 
 		fixture := handlers.NewFixtureHandler(app, renderPage)
 		adminGroup.POST("/competitions/{id}/generate", fixture.GenerateFixtures)

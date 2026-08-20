@@ -106,6 +106,7 @@
                             <th class="text-center">Sets</th>
                             <th class="text-center">Juegos</th>
                             <th class="text-center font-bold">Pts</th>
+                            <th class="text-center">Pen.</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -123,6 +124,9 @@
                             <td class="text-center text-sm">{{.SetsWon}}/{{.SetsLost}}</td>
                             <td class="text-center text-sm">{{.GamesWon}}/{{.GamesLost}}</td>
                             <td class="text-center text-lg font-bold">{{.Points}}</td>
+                            <td class="text-center">
+                                {{if gt .Penalty 0}}<span class="text-error font-medium">-{{.Penalty}}</span>{{else}}<span class="opacity-30">—</span>{{end}}
+                            </td>
                         </tr>
                         {{end}}
                     </tbody>

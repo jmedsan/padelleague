@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"sort"
 	"strings"
 
@@ -19,6 +20,7 @@ type StandingRowFull struct {
 	GamesWon  int
 	GamesLost int
 	Points    int
+	Penalty   int
 }
 
 func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, error) {
@@ -91,9 +93,25 @@ func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, er
 			}
 	}
 
+	penaltyMap := map[string]float64{}
+	rawPen := comp.Get("penalty_points")
+	switch v := rawPen.(type) {
+	case string:
+		if v != "" {
+			json.Unmarshal([]byte(v), &penaltyMap)
+		}
+	case map[string]any:
+		for k, val := range v {
+			if f, ok := val.(float64); ok {
+				penaltyMap[k] = f
+			}
+		}
+	}
+
 	rows := make([]StandingRowFull, 0, len(pairIDs))
 	for _, pid := range pairIDs {
 		s := pairStats[pid]
+		penalty := int(penaltyMap[pid])
 		rows = append(rows, StandingRowFull{
 			PairID:    pid,
 			PairName:  pairNames[pid],
@@ -104,7 +122,8 @@ func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, er
 			SetsLost:  s.setsLost,
 			GamesWon:  s.gamesWon,
 			GamesLost: s.gamesLost,
-			Points:    s.wins * 3,
+			Points:    s.wins*3 - penalty,
+			Penalty:   penalty,
 		})
 	}
 
@@ -119,7 +138,23 @@ func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, er
 		}
 		gameDiffI := rows[i].GamesWon - rows[i].GamesLost
 		gameDiffJ := rows[j].GamesWon - rows[j].GamesLost
-		return gameDiffI > gameDiffJ
+		if gameDiffI != gameDiffJ {
+			return gameDiffI > gameDiffJ
+		}
+		h2hI, h2hJ := 0, 0
+		for _, m := range matches {
+			p1 := m.GetString("pair1")
+			p2 := m.GetString("pair2")
+			winner := m.GetString("winner")
+			if (p1 == rows[i].PairID && p2 == rows[j].PairID) || (p1 == rows[j].PairID && p2 == rows[i].PairID) {
+				if winner == rows[i].PairID {
+					h2hI++
+				} else if winner == rows[j].PairID {
+					h2hJ++
+				}
+			}
+		}
+		return h2hI > h2hJ
 	})
 
 	for i := range rows {

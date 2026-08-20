@@ -83,6 +83,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 	pairIDs := comp.GetStringSlice("pairs")
 	seeding := h.getSeeding(comp)
 	paymentStatus := h.getPaymentStatus(comp)
+	penaltyMap := h.getPenaltyMap(comp)
 
 	type pairEntry struct {
 		PairID   string
@@ -173,6 +174,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"Rounds":          rounds,
 		"Disputes":        disputes,
 		"Standings":       standings,
+		"PenaltyMap":      penaltyMap,
 		"IsLeague":        comp.GetString("type") == "league",
 		"HasFixtures":     len(matches) > 0,
 	})
@@ -225,12 +227,70 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 		record.Set("quorum_timeout_hours", hours)
 	}
 
+	if dp := e.Request.FormValue("default_penalty"); dp != "" {
+		if v, err := strconv.Atoi(dp); err == nil {
+			record.Set("default_penalty", v)
+		}
+	}
+
 	if err := h.app.Save(record); err != nil {
 		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/admin/competitions")
 	return e.NoContent(http.StatusNoContent)
+}
+
+func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	comp, err := h.app.FindRecordById("competitions", id)
+	if err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competicion no encontrada</div>`)
+	}
+
+	pairID := e.Request.FormValue("pair_id")
+	action := e.Request.FormValue("action")
+
+	penalties := h.getPenaltyMap(comp)
+
+	if action == "apply" {
+		amount := comp.GetFloat("default_penalty")
+		if amount == 0 {
+			amount = 3
+		}
+		penalties[pairID] = amount
+	} else {
+		delete(penalties, pairID)
+	}
+
+	comp.Set("penalty_points", penalties)
+	if err := h.app.Save(comp); err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar</div>`)
+	}
+
+	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+id)
+	return e.NoContent(http.StatusNoContent)
+}
+
+func (h *CompetitionHandler) getPenaltyMap(comp *core.Record) map[string]float64 {
+	penalties := make(map[string]float64)
+	raw := comp.Get("penalty_points")
+	if raw == nil {
+		return penalties
+	}
+	switch v := raw.(type) {
+	case string:
+		if v != "" {
+			json.Unmarshal([]byte(v), &penalties)
+		}
+	case map[string]any:
+		for k, val := range v {
+			if f, ok := val.(float64); ok {
+				penalties[k] = f
+			}
+		}
+	}
+	return penalties
 }
 
 func (h *CompetitionHandler) Toggle(e *core.RequestEvent) error {

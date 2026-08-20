@@ -59,6 +59,10 @@
                 <input type="number" name="quorum_timeout_hours" value="{{.Competition.GetFloat "quorum_timeout_hours"}}" min="0" class="input input-bordered" placeholder="0 = desactivado">
                 <label class="label"><span class="label-text-alt opacity-50">0 = desactivado</span></label>
             </div>
+            <div class="form-control mb-3">
+                <label class="label"><span class="label-text">Penalizacion por defecto (puntos)</span></label>
+                <input type="number" name="default_penalty" value="{{or (.Competition.GetFloat "default_penalty") 3}}" min="1" class="input input-bordered">
+            </div>
             <div class="form-control">
                 <label class="cursor-pointer label justify-start gap-3">
                     <input type="checkbox" name="play_twice" class="checkbox" {{if .Competition.GetBool "play_twice"}}checked{{end}}>
@@ -91,6 +95,7 @@
                         <th>Pareja</th>
                         {{if not .IsLeague}}<th>Cabeza de serie</th>{{end}}
                         <th>Pagado</th>
+                        <th>Penalizacion</th>
                         <th class="text-right">Accion</th>
                     </tr>
                 </thead>
@@ -106,6 +111,26 @@
                                        onchange="this.form.requestSubmit()"
                                        {{if .Paid}}checked{{end}}>
                             </form>
+                        </td>
+                        <td>
+                            {{$penaltyMap := $.PenaltyMap}}
+                            {{$penalty := index $penaltyMap .PairID}}
+                            {{if $penalty}}
+                            <div class="flex items-center gap-2">
+                                <span class="badge badge-error badge-sm">-{{$penalty}}</span>
+                                <form hx-post="/admin/competitions/{{$.Competition.Id}}/penalty" class="inline">
+                                    <input type="hidden" name="pair_id" value="{{.PairID}}">
+                                    <input type="hidden" name="action" value="remove">
+                                    <button type="submit" class="btn btn-ghost btn-xs">Quitar</button>
+                                </form>
+                            </div>
+                            {{else}}
+                            <form hx-post="/admin/competitions/{{$.Competition.Id}}/penalty" class="inline">
+                                <input type="hidden" name="pair_id" value="{{.PairID}}">
+                                <input type="hidden" name="action" value="apply">
+                                <button type="submit" class="btn btn-ghost btn-xs text-warning">Penalizar</button>
+                            </form>
+                            {{end}}
                         </td>
                         <td class="text-right">
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja?" class="inline">
