@@ -17,6 +17,17 @@
 <div class="alert alert-warning mb-4">
     <span>Temporada archivada</span>
 </div>
+{{if .Awards}}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    {{range .Awards}}
+    <div class="stat bg-base-100 shadow rounded-box">
+        <div class="stat-title">{{.Title}}</div>
+        <div class="stat-value text-lg">{{.PairName}}</div>
+        <div class="stat-desc">{{.Value}}</div>
+    </div>
+    {{end}}
+</div>
+{{end}}
 {{end}}
 
 {{if .LeagueRounds}}

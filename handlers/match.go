@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
 	"sort"
 	"time"
 
@@ -27,6 +29,7 @@ type MatchView struct {
 	CanDispute  bool
 	CanEdit     bool
 	CanWalkover bool
+	CanCorrect  bool
 	StatusLabel string
 	StatusClass string
 }
@@ -88,6 +91,16 @@ func (h *MatchHandler) buildMatchView(partido *core.Record, jugadorID string, pa
 		jornadaNum = int(jornada.GetFloat("round_number"))
 	}
 
+	canCorrect := false
+	if status == "confirmed" && team > 0 && isSubmitter {
+		submittedAt := partido.GetString("submitted_at")
+		if submittedAt != "" {
+			if t, err := time.Parse(time.RFC3339, submittedAt); err == nil {
+				canCorrect = time.Since(t) < 24*time.Hour
+			}
+		}
+	}
+
 	return MatchView{
 		Partido:     partido,
 		Pareja1Name: pairNames[partido.GetString("pareja1")],
@@ -98,6 +111,7 @@ func (h *MatchHandler) buildMatchView(partido *core.Record, jugadorID string, pa
 		CanDispute:  status == "confirmed" && team > 0 && !isSubmitter,
 		CanEdit:     status == "pending" && team > 0,
 		CanWalkover: status == "pending" && team > 0,
+		CanCorrect:  canCorrect,
 		StatusLabel: statusLabel(status),
 		StatusClass: statusClass(status),
 	}
@@ -250,20 +264,27 @@ func (h *MatchHandler) Partido(e *core.RequestEvent) error {
 		disputedByName = resolvePlayerName(h.app, disputedByID)
 	}
 
-	detail := PartidoDetailData{
-		Match:        mv,
-		SeasonName:   seasonName,
-		CategoryName: categoryName,
-		SubmittedBy:  submittedByName,
-		ConfirmedBy:  confirmedByName,
-		DisputedBy:   disputedByName,
-		DisputeNotes: partido.GetString("dispute_notes"),
+	shareText := ""
+	if partido.GetString("status") == "final" {
+		p1Name := pairNames[partido.GetString("pareja1")]
+		p2Name := pairNames[partido.GetString("pareja2")]
+		score := partido.GetString("scores")
+		winnerName := p2Name
+		if partido.GetString("winner") == partido.GetString("pareja1") {
+			winnerName = p1Name
+		}
+		shareText = url.QueryEscape(fmt.Sprintf("Resultado: %s %s %s. Ganador: %s!", p1Name, score, p2Name, winnerName))
 	}
 
 	return h.renderPage(e, "partido.html", map[string]any{
-		"DisplayName": e.Auth.GetString("display_name"),
-		"IsAdmin":     e.Auth.GetString("role") == "admin",
-		"Detail":      detail,
+		"Match":        mv,
+		"SeasonName":   seasonName,
+		"CategoryName": categoryName,
+		"SubmittedBy":  submittedByName,
+		"ConfirmedBy":  confirmedByName,
+		"DisputedBy":   disputedByName,
+		"DisputeNotes": partido.GetString("dispute_notes"),
+		"ShareText":    shareText,
 	})
 }
 

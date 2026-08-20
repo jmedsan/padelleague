@@ -164,9 +164,36 @@
             {{end}}
             {{end}}
 
+            {{if .Match.CanCorrect}}
+            <div class="mt-4">
+                <h3 class="font-semibold mb-2">Corregir marcador</h3>
+                <form hx-post="/partido/{{.Match.Partido.Id}}/correct" hx-target="#action-result">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Nuevo marcador (ej: 6-3 4-6 7-5)</span></label>
+                        <input type="text" name="scores" class="input input-bordered" placeholder="6-3 4-6 7-5" value="{{.Match.Partido.GetString "scores"}}" required>
+                    </div>
+                    <button type="submit" class="btn btn-warning mt-2 w-full">Corregir resultado</button>
+                </form>
+            </div>
+            {{end}}
+
             {{if eq (.Match.Partido.GetString "status") "disputed"}}
             <div class="alert alert-warning mt-4">
                 <span>En disputa — esperando resolución del administrador</span>
+            </div>
+            {{end}}
+
+            {{if eq (.Match.Partido.GetString "status") "final"}}
+            <div class="flex gap-2 mt-4">
+                {{if .ShareText}}
+                <a href="https://wa.me/?text={{.ShareText}}" target="_blank" rel="noopener" class="btn btn-success btn-sm flex-1">Compartir en WhatsApp</a>
+                {{end}}
+            </div>
+            {{end}}
+
+            {{if .Match.Partido.GetString "date"}}
+            <div class="mt-2">
+                <a href="/ical/match/{{.Match.Partido.Id}}" class="btn btn-outline btn-sm">Descargar .ics</a>
             </div>
             {{end}}
         </div>

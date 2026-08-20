@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -104,6 +105,69 @@ func (h *MatchHandler) PartidoDispute(e *core.RequestEvent) error {
 	}
 
 	notifyAdmins(h.app, "dispute", "Partido disputado", disputeNotes, partido.Id)
+
+	e.Response.Header().Set("HX-Redirect", "/partido/"+id)
+	return e.NoContent(http.StatusNoContent)
+}
+
+func (h *MatchHandler) PartidoCorrect(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	partido, err := h.app.FindRecordById("partidos", id)
+	if err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
+	}
+
+	if partido.GetString("status") != "confirmed" {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Solo se puede corregir un partido en estado confirmado</div>`)
+	}
+
+	jugador, err := findJugadorByUser(h.app, e.Auth.Id)
+	if err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">No estás registrado como jugador</div>`)
+	}
+
+	submittedByID := partido.GetString("submitted_by")
+	if submittedByID == "" {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">No se encontró quién envió el resultado</div>`)
+	}
+
+	myTeam, err := getJugadorTeam(h.app, jugador.Id, partido)
+	if err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
+	}
+	submitterTeam, err := getJugadorTeam(h.app, submittedByID, partido)
+	if err != nil || myTeam != submitterTeam {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Solo el equipo que envió el resultado puede corregirlo</div>`)
+	}
+
+	submittedAt := partido.GetString("submitted_at")
+	if submittedAt == "" {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">No se encontró la fecha de envío</div>`)
+	}
+	t, err := time.Parse(time.RFC3339, submittedAt)
+	if err != nil || time.Since(t) >= 24*time.Hour {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">El plazo de 24 horas para corregir ha expirado</div>`)
+	}
+
+	scores := e.Request.FormValue("scores")
+	if scores == "" {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Debes indicar el marcador corregido</div>`)
+	}
+
+	partido.Set("scores", scores)
+	partido.Set("confirmed_by", "")
+	partido.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
+
+	if err := h.app.Save(partido); err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al corregir el resultado</div>`)
+	}
+
+	rivalParejaID := partido.GetString("pareja2")
+	if myTeam == 2 {
+		rivalParejaID = partido.GetString("pareja1")
+	}
+	rivalPlayers := getPlayersForPair(h.app, rivalParejaID)
+	notifyPlayers(h.app, rivalPlayers, "quorum_request", "Resultado corregido", "El rival ha corregido el resultado. Confirma o disputa.", partido.Id)
 
 	e.Response.Header().Set("HX-Redirect", "/partido/"+id)
 	return e.NoContent(http.StatusNoContent)

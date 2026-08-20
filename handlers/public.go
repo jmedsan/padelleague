@@ -148,6 +148,11 @@ func (h *PublicHandler) Temporada(e *core.RequestEvent) error {
 		}
 	}
 
+	var awards []Award
+	if !season.GetBool("active") {
+		awards = computeAwards(h.app, id)
+	}
+
 	return h.renderPage(e, "temporada.html", map[string]any{
 		"DisplayName":   e.Auth.GetString("display_name"),
 		"IsAdmin":       e.Auth.GetString("role") == "admin",
@@ -156,5 +161,6 @@ func (h *PublicHandler) Temporada(e *core.RequestEvent) error {
 		"LeagueRounds":  leagueRounds,
 		"PlayoffRounds": playoffRounds,
 		"IsArchived":    !season.GetBool("active"),
+		"Awards":        awards,
 	})
 }

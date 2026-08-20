@@ -226,6 +226,11 @@ func main() {
 		se.Router.POST("/partido/{id}/dispute", match.PartidoDispute).BindFunc(requireAuthRedirect)
 		se.Router.POST("/partido/{id}/edit", match.PartidoEdit).BindFunc(requireAuthRedirect)
 		se.Router.POST("/partido/{id}/walkover", match.PartidoWalkover).BindFunc(requireAuthRedirect)
+		se.Router.POST("/partido/{id}/correct", match.PartidoCorrect).BindFunc(requireAuthRedirect)
+
+		ical := handlers.NewICalHandler(app)
+		se.Router.GET("/ical/match/{id}", ical.Match).BindFunc(requireAuthRedirect)
+		se.Router.GET("/ical/season/{id}", ical.Season).BindFunc(requireAuthRedirect)
 
 		notif := handlers.NewNotificationHandler(app, renderPage)
 		se.Router.GET("/notifications/count", notif.Count).BindFunc(requireAuthRedirect)
