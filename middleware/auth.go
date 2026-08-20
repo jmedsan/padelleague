@@ -2,11 +2,15 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
 )
 
 func CookieAuth(e *core.RequestEvent) error {
+	if strings.HasPrefix(e.Request.URL.Path, "/_/") || strings.HasPrefix(e.Request.URL.Path, "/api/") {
+		return e.Next()
+	}
 	cookie, err := e.Request.Cookie("pb_auth")
 	if err == nil && cookie.Value != "" {
 		e.Request.Header.Set("Authorization", cookie.Value)
