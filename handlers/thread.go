@@ -10,12 +10,13 @@ import (
 )
 
 type ThreadHandler struct {
-	app        core.App
-	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
+	app           core.App
+	renderPage    func(e *core.RequestEvent, page string, data map[string]any) error
+	renderPartial func(e *core.RequestEvent, page string, data map[string]any) error
 }
 
-func NewThreadHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *ThreadHandler {
-	return &ThreadHandler{app: app, renderPage: renderPage}
+func NewThreadHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderPartial func(e *core.RequestEvent, page string, data map[string]any) error) *ThreadHandler {
+	return &ThreadHandler{app: app, renderPage: renderPage, renderPartial: renderPartial}
 }
 
 type ThreadMessage struct {
@@ -134,7 +135,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		msgType := msg.GetString("type")
 		var pd *ProposalData
 		if msgType == "scheduling_proposal" {
-			pd = ParseProposalData(msg.Get("proposal_data"))
+			pd = ParseProposalData(msg.GetString("proposal_data"))
 		}
 
 		status := msg.GetString("proposal_status")
@@ -164,7 +165,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	canPost := myTeam != 0 && !isAdmin
 	canPropose := canPost && match.GetString("status") == "pending"
 
-	return h.renderPage(e, "thread.html", map[string]any{
+	return h.renderPartial(e, "thread.html", map[string]any{
 		"MatchID":    matchID,
 		"Messages":   threadMessages,
 		"Venues":     venues,

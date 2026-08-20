@@ -57,7 +57,7 @@ func (h *AuthHandler) Register(e *core.RequestEvent) error {
 
 	invites, err := h.app.FindRecordsByFilter("invitations",
 		"token = {:token} && status = 'pending'",
-		"", 0, 1,
+		"", 1, 0,
 		map[string]any{"token": token})
 	if err != nil || len(invites) == 0 || isInviteExpired(invites[0]) {
 		return h.renderPage(e, "register.html", map[string]any{
@@ -89,7 +89,7 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 
 	invites, err := h.app.FindRecordsByFilter("invitations",
 		"token = {:token} && status = 'pending'",
-		"", 0, 1,
+		"", 1, 0,
 		map[string]any{"token": token})
 	if err != nil || len(invites) == 0 || isInviteExpired(invites[0]) {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Invitación inválida o expirada</div>`)

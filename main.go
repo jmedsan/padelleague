@@ -48,6 +48,22 @@ func renderPage(e *core.RequestEvent, page string, data map[string]any) error {
 	return e.HTML(http.StatusOK, html)
 }
 
+func renderPartial(e *core.RequestEvent, page string, data map[string]any) error {
+	if data == nil {
+		data = map[string]any{}
+	}
+	if e.Auth != nil {
+		if _, ok := data["IsAdmin"]; !ok {
+			data["IsAdmin"] = e.Auth.GetString("role") == "admin"
+		}
+	}
+	html, err := registry.LoadFS(viewsFS, "views/"+page).Render(data)
+	if err != nil {
+		return err
+	}
+	return e.HTML(http.StatusOK, html)
+}
+
 func requireAuthRedirect(e *core.RequestEvent) error {
 	if e.Auth == nil {
 		if e.Request.Header.Get("HX-Request") == "true" {
@@ -193,7 +209,7 @@ func main() {
 		se.Router.POST("/match/{id}/walkover", match.MatchWalkover).BindFunc(requireAuthRedirect)
 		se.Router.POST("/match/{id}/correct", match.MatchCorrect).BindFunc(requireAuthRedirect)
 
-		thread := handlers.NewThreadHandler(app, renderPage)
+		thread := handlers.NewThreadHandler(app, renderPage, renderPartial)
 		se.Router.GET("/match/{id}/thread", thread.Thread).BindFunc(requireAuthRedirect)
 		se.Router.POST("/match/{id}/thread/message", thread.PostMessage).BindFunc(requireAuthRedirect)
 		se.Router.POST("/match/{id}/thread/proposal", thread.PostProposal).BindFunc(requireAuthRedirect)
