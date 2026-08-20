@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -102,14 +103,17 @@ func (h *MatchHandler) buildMatchView(partido *core.Record, jugadorID string, pa
 	}
 }
 
+type SeasonMatchGroup struct {
+	CategoryName string
+	SeasonName   string
+	Matches      []MatchView
+}
+
 func (h *MatchHandler) MisPartidos(e *core.RequestEvent) error {
 	jugador, err := findJugadorByUser(h.app, e.Auth.Id)
 	if err != nil {
 		return h.renderPage(e, "mis-partidos.html", map[string]any{
-			"DisplayName": e.Auth.GetString("display_name"),
-			"IsAdmin":     e.Auth.GetString("role") == "admin",
-			"Matches":     []MatchView{},
-			"NoJugador":   true,
+			"Seasons": []SeasonMatchGroup{},
 		})
 	}
 
@@ -120,9 +124,7 @@ func (h *MatchHandler) MisPartidos(e *core.RequestEvent) error {
 
 	if len(parejas) == 0 {
 		return h.renderPage(e, "mis-partidos.html", map[string]any{
-			"DisplayName": e.Auth.GetString("display_name"),
-			"IsAdmin":     e.Auth.GetString("role") == "admin",
-			"Matches":     []MatchView{},
+			"Seasons": []SeasonMatchGroup{},
 		})
 	}
 
@@ -135,7 +137,6 @@ func (h *MatchHandler) MisPartidos(e *core.RequestEvent) error {
 		allPartidos = append(allPartidos, partidos...)
 	}
 
-	// Deduplicate
 	seen := make(map[string]bool)
 	var uniquePartidos []*core.Record
 	for _, p := range allPartidos {
@@ -145,7 +146,6 @@ func (h *MatchHandler) MisPartidos(e *core.RequestEvent) error {
 		}
 	}
 
-	// Collect all pair IDs for name resolution
 	pairIDSet := make(map[string]bool)
 	for _, p := range uniquePartidos {
 		pairIDSet[p.GetString("pareja1")] = true
@@ -157,19 +157,44 @@ func (h *MatchHandler) MisPartidos(e *core.RequestEvent) error {
 	}
 	pairNames, _ := expandPairNames(h.app, pairIDSlice)
 
-	matches := make([]MatchView, 0, len(uniquePartidos))
+	seasonGroups := map[string]*SeasonMatchGroup{}
 	for _, p := range uniquePartidos {
-		matches = append(matches, h.buildMatchView(p, jugador.Id, pairNames))
+		mv := h.buildMatchView(p, jugador.Id, pairNames)
+		jornadaID := p.GetString("jornada")
+		jornada, err := h.app.FindRecordById("jornadas", jornadaID)
+		if err != nil {
+			continue
+		}
+		seasonID := jornada.GetString("temporada")
+		if _, ok := seasonGroups[seasonID]; !ok {
+			season, err := h.app.FindRecordById("temporadas", seasonID)
+			if err != nil {
+				continue
+			}
+			catID := season.GetString("categoria")
+			cat, _ := h.app.FindRecordById("categorias", catID)
+			catName := ""
+			if cat != nil {
+				catName = cat.GetString("name")
+			}
+			seasonGroups[seasonID] = &SeasonMatchGroup{
+				CategoryName: catName,
+				SeasonName:   season.GetString("name"),
+			}
+		}
+		seasonGroups[seasonID].Matches = append(seasonGroups[seasonID].Matches, mv)
 	}
 
-	sort.Slice(matches, func(i, j int) bool {
-		return matches[i].JornadaNum < matches[j].JornadaNum
-	})
+	seasons := make([]SeasonMatchGroup, 0, len(seasonGroups))
+	for _, sg := range seasonGroups {
+		sort.Slice(sg.Matches, func(i, j int) bool {
+			return sg.Matches[i].JornadaNum < sg.Matches[j].JornadaNum
+		})
+		seasons = append(seasons, *sg)
+	}
 
 	return h.renderPage(e, "mis-partidos.html", map[string]any{
-		"DisplayName": e.Auth.GetString("display_name"),
-		"IsAdmin":     e.Auth.GetString("role") == "admin",
-		"Matches":     matches,
+		"Seasons": seasons,
 	})
 }
 
@@ -270,6 +295,7 @@ func (h *MatchHandler) PartidoSubmit(e *core.RequestEvent) error {
 
 	partido.Set("scores", scores)
 	partido.Set("submitted_by", jugador.Id)
+	partido.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
 	partido.Set("status", "confirmed")
 
 	if date := e.Request.FormValue("date"); date != "" {

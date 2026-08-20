@@ -59,9 +59,19 @@ func (h *AdminHandler) DisputasResolve(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Debes ingresar un marcador</div>`)
 	}
 
-	winnerID, err := determineWinner(partido, score)
-	if err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Marcador inválido: %s</div>`, err.Error()))
+	manualWinner := e.Request.FormValue("winner")
+	var winnerID string
+	if manualWinner != "" {
+		if manualWinner != partido.GetString("pareja1") && manualWinner != partido.GetString("pareja2") {
+			return e.HTML(http.StatusOK, `<div class="alert alert-error">El ganador debe ser una de las dos parejas</div>`)
+		}
+		winnerID = manualWinner
+	} else {
+		var err error
+		winnerID, err = determineWinner(partido, score)
+		if err != nil {
+			return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Marcador inválido: %s. Selecciona el ganador manualmente.</div>`, err.Error()))
+		}
 	}
 
 	partido.Set("scores", score)

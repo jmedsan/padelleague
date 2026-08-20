@@ -33,6 +33,9 @@ func parseScore(score string) (sets1, sets2, games1, games2 int, err error) {
 		if err1 != nil || err2 != nil {
 			return 0, 0, 0, 0, fmt.Errorf("invalid score numbers in %q", part)
 		}
+		if g1 < 0 || g2 < 0 {
+			return 0, 0, 0, 0, fmt.Errorf("negative numbers not allowed: %q", part)
+		}
 		games1 += g1
 		games2 += g2
 		if g1 > g2 {
