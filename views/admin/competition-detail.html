@@ -87,6 +87,15 @@
             {{if .Entries}}<span class="badge badge-neutral badge-sm">{{len .Entries}}</span>{{end}}
         </h2>
 
+        {{if .HasUnpaid}}
+        <form hx-post="/admin/competitions/{{.Competition.Id}}/payment-all" class="mb-3">
+            <button type="submit" class="btn btn-success btn-sm gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                Marcar todos como pagado
+            </button>
+        </form>
+        {{end}}
+
         {{if .Entries}}
         <div class="overflow-x-auto">
             <table class="table table-zebra">

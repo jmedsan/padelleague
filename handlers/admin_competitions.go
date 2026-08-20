@@ -165,6 +165,14 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 
 	allUsers, _ := h.app.FindRecordsByFilter("users", "role = 'player'", "", 0, 0, nil)
 
+	hasUnpaid := false
+	for _, pe := range pairEntries {
+		if !pe.Paid {
+			hasUnpaid = true
+			break
+		}
+	}
+
 	return h.renderPage(e, "admin/competition-detail.html", map[string]any{
 		"Competition":     comp,
 		"Entries":         pairEntries,
@@ -177,6 +185,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"PenaltyMap":      penaltyMap,
 		"IsLeague":        comp.GetString("type") == "league",
 		"HasFixtures":     len(matches) > 0,
+		"HasUnpaid":       hasUnpaid,
 	})
 }
 
@@ -512,6 +521,28 @@ func (h *CompetitionHandler) TogglePayment(e *core.RequestEvent) error {
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID)
+	return e.NoContent(http.StatusNoContent)
+}
+
+func (h *CompetitionHandler) TogglePaymentAll(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	comp, err := h.app.FindRecordById("competitions", id)
+	if err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competicion no encontrada</div>`)
+	}
+
+	pairIDs := comp.GetStringSlice("pairs")
+	status := map[string]bool{}
+	for _, pid := range pairIDs {
+		status[pid] = true
+	}
+
+	comp.Set("payment_status", status)
+	if err := h.app.Save(comp); err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar</div>`)
+	}
+
+	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+id)
 	return e.NoContent(http.StatusNoContent)
 }
 
