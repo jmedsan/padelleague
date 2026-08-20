@@ -33,20 +33,12 @@ func SendEmail(app core.App, to, subject, htmlBody string) {
 	}
 }
 
-func emailNotifyPlayers(app core.App, jugadorIDs []string, subject, body, matchLink string) {
+func emailNotifyPlayers(app core.App, playerUserIDs []string, subject, body, matchLink string) {
 	if !IsMailerConfigured(app) {
 		return
 	}
 
-	for _, jid := range jugadorIDs {
-		jugador, err := app.FindRecordById("jugadores", jid)
-		if err != nil {
-			continue
-		}
-		userID := jugador.GetString("user")
-		if userID == "" {
-			continue
-		}
+	for _, userID := range playerUserIDs {
 		user, err := app.FindRecordById("users", userID)
 		if err != nil {
 			continue

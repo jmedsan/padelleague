@@ -35,13 +35,12 @@ type MatchView struct {
 }
 
 type PartidoDetailData struct {
-	Match        MatchView
-	SeasonName   string
-	CategoryName string
-	SubmittedBy  string
-	ConfirmedBy  string
-	DisputedBy   string
-	DisputeNotes string
+	Match           MatchView
+	CompetitionName string
+	SubmittedBy     string
+	ConfirmedBy     string
+	DisputedBy      string
+	DisputeNotes    string
 }
 
 func statusLabel(status string) string {
@@ -72,28 +71,28 @@ func statusClass(status string) string {
 	return "badge-ghost"
 }
 
-func (h *MatchHandler) buildMatchView(partido *core.Record, jugadorID string, pairNames map[string]string) MatchView {
-	status := partido.GetString("status")
-	submittedBy := partido.GetString("submitted_by")
+func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNames map[string]string) MatchView {
+	status := match.GetString("status")
+	submittedBy := match.GetString("submitted_by")
 
-	team, _ := getJugadorTeam(h.app, jugadorID, partido)
+	team, _ := getPlayerTeam(h.app, userID, match)
 	isSubmitter := false
 	if submittedBy != "" {
-		submitterTeam, err := getJugadorTeam(h.app, submittedBy, partido)
+		submitterTeam, err := getPlayerTeam(h.app, submittedBy, match)
 		if err == nil {
 			isSubmitter = (submitterTeam == team)
 		}
 	}
 
-	jornada, _ := h.app.FindRecordById("jornadas", partido.GetString("jornada"))
-	jornadaNum := 0
-	if jornada != nil {
-		jornadaNum = int(jornada.GetFloat("round_number"))
+	matchday, _ := h.app.FindRecordById("matchdays", match.GetString("matchday"))
+	roundNum := 0
+	if matchday != nil {
+		roundNum = int(matchday.GetFloat("round_number"))
 	}
 
 	canCorrect := false
 	if status == "confirmed" && team > 0 && isSubmitter {
-		submittedAt := partido.GetString("submitted_at")
+		submittedAt := match.GetString("submitted_at")
 		if submittedAt != "" {
 			if t, err := time.Parse(time.RFC3339, submittedAt); err == nil {
 				canCorrect = time.Since(t) < 24*time.Hour
@@ -102,10 +101,10 @@ func (h *MatchHandler) buildMatchView(partido *core.Record, jugadorID string, pa
 	}
 
 	return MatchView{
-		Partido:     partido,
-		Pareja1Name: pairNames[partido.GetString("pareja1")],
-		Pareja2Name: pairNames[partido.GetString("pareja2")],
-		JornadaNum:  jornadaNum,
+		Partido:     match,
+		Pareja1Name: pairNames[match.GetString("pair1")],
+		Pareja2Name: pairNames[match.GetString("pair2")],
+		JornadaNum:  roundNum,
 		CanSubmit:   status == "pending" && team > 0,
 		CanConfirm:  status == "confirmed" && team > 0 && !isSubmitter,
 		CanDispute:  status == "confirmed" && team > 0 && !isSubmitter,
@@ -117,53 +116,43 @@ func (h *MatchHandler) buildMatchView(partido *core.Record, jugadorID string, pa
 	}
 }
 
-type SeasonMatchGroup struct {
-	CategoryName string
-	SeasonName   string
-	Matches      []MatchView
+type CompetitionMatchGroup struct {
+	CompetitionName string
+	Matches         []MatchView
 }
 
-func (h *MatchHandler) MisPartidos(e *core.RequestEvent) error {
-	jugador, err := findJugadorByUser(h.app, e.Auth.Id)
-	if err != nil {
+func (h *MatchHandler) MyMatches(e *core.RequestEvent) error {
+	userID := e.Auth.Id
+
+	pairs, _ := findPairsForPlayer(h.app, userID)
+	if len(pairs) == 0 {
 		return h.renderPage(e, "mis-partidos.html", map[string]any{
-			"Seasons": []SeasonMatchGroup{},
+			"Competitions": []CompetitionMatchGroup{},
 		})
 	}
 
-	parejas, _ := h.app.FindRecordsByFilter("parejas",
-		"jugador1 = {:jid} || jugador2 = {:jid}",
-		"", 0, 0,
-		map[string]any{"jid": jugador.Id})
-
-	if len(parejas) == 0 {
-		return h.renderPage(e, "mis-partidos.html", map[string]any{
-			"Seasons": []SeasonMatchGroup{},
-		})
-	}
-
-	var allPartidos []*core.Record
-	for _, p := range parejas {
-		partidos, _ := h.app.FindRecordsByFilter("partidos",
-			"pareja1 = {:pid} || pareja2 = {:pid}",
+	var allMatches []*core.Record
+	for _, p := range pairs {
+		matches, _ := h.app.FindRecordsByFilter("matches",
+			"pair1 = {:pid} || pair2 = {:pid}",
 			"", 0, 0,
 			map[string]any{"pid": p.Id})
-		allPartidos = append(allPartidos, partidos...)
+		allMatches = append(allMatches, matches...)
 	}
 
 	seen := make(map[string]bool)
-	var uniquePartidos []*core.Record
-	for _, p := range allPartidos {
-		if !seen[p.Id] {
-			seen[p.Id] = true
-			uniquePartidos = append(uniquePartidos, p)
+	var uniqueMatches []*core.Record
+	for _, m := range allMatches {
+		if !seen[m.Id] {
+			seen[m.Id] = true
+			uniqueMatches = append(uniqueMatches, m)
 		}
 	}
 
 	pairIDSet := make(map[string]bool)
-	for _, p := range uniquePartidos {
-		pairIDSet[p.GetString("pareja1")] = true
-		pairIDSet[p.GetString("pareja2")] = true
+	for _, m := range uniqueMatches {
+		pairIDSet[m.GetString("pair1")] = true
+		pairIDSet[m.GetString("pair2")] = true
 	}
 	pairIDSlice := make([]string, 0, len(pairIDSet))
 	for id := range pairIDSet {
@@ -171,141 +160,118 @@ func (h *MatchHandler) MisPartidos(e *core.RequestEvent) error {
 	}
 	pairNames, _ := expandPairNames(h.app, pairIDSlice)
 
-	seasonGroups := map[string]*SeasonMatchGroup{}
-	for _, p := range uniquePartidos {
-		mv := h.buildMatchView(p, jugador.Id, pairNames)
-		jornadaID := p.GetString("jornada")
-		jornada, err := h.app.FindRecordById("jornadas", jornadaID)
+	compGroups := map[string]*CompetitionMatchGroup{}
+	for _, m := range uniqueMatches {
+		mv := h.buildMatchView(m, userID, pairNames)
+		matchday, err := h.app.FindRecordById("matchdays", m.GetString("matchday"))
 		if err != nil {
 			continue
 		}
-		seasonID := jornada.GetString("temporada")
-		if _, ok := seasonGroups[seasonID]; !ok {
-			season, err := h.app.FindRecordById("temporadas", seasonID)
+		compID := matchday.GetString("competition")
+		if _, ok := compGroups[compID]; !ok {
+			comp, err := h.app.FindRecordById("competitions", compID)
 			if err != nil {
 				continue
 			}
-			catID := season.GetString("categoria")
-			cat, _ := h.app.FindRecordById("categorias", catID)
-			catName := ""
-			if cat != nil {
-				catName = cat.GetString("name")
-			}
-			seasonGroups[seasonID] = &SeasonMatchGroup{
-				CategoryName: catName,
-				SeasonName:   season.GetString("name"),
+			compGroups[compID] = &CompetitionMatchGroup{
+				CompetitionName: comp.GetString("name"),
 			}
 		}
-		seasonGroups[seasonID].Matches = append(seasonGroups[seasonID].Matches, mv)
+		compGroups[compID].Matches = append(compGroups[compID].Matches, mv)
 	}
 
-	seasons := make([]SeasonMatchGroup, 0, len(seasonGroups))
-	for _, sg := range seasonGroups {
-		sort.Slice(sg.Matches, func(i, j int) bool {
-			return sg.Matches[i].JornadaNum < sg.Matches[j].JornadaNum
+	competitions := make([]CompetitionMatchGroup, 0, len(compGroups))
+	for _, cg := range compGroups {
+		sort.Slice(cg.Matches, func(i, j int) bool {
+			return cg.Matches[i].JornadaNum < cg.Matches[j].JornadaNum
 		})
-		seasons = append(seasons, *sg)
+		competitions = append(competitions, *cg)
 	}
 
 	return h.renderPage(e, "mis-partidos.html", map[string]any{
-		"Seasons": seasons,
+		"Competitions": competitions,
 	})
 }
 
-func (h *MatchHandler) Partido(e *core.RequestEvent) error {
+func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	partido, err := h.app.FindRecordById("partidos", id)
+	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
 		return e.HTML(http.StatusNotFound, `<div class="alert alert-error">Partido no encontrado</div>`)
 	}
 
-	jugador, err := findJugadorByUser(h.app, e.Auth.Id)
-	if err != nil {
-		return e.HTML(http.StatusForbidden, `<div class="alert alert-error">No tienes acceso a este partido</div>`)
-	}
-
-	_, err = getJugadorTeam(h.app, jugador.Id, partido)
+	userID := e.Auth.Id
+	_, err = getPlayerTeam(h.app, userID, match)
 	if err != nil {
 		return e.HTML(http.StatusForbidden, `<div class="alert alert-error">No tienes acceso a este partido</div>`)
 	}
 
 	pairNames, _ := expandPairNames(h.app, []string{
-		partido.GetString("pareja1"),
-		partido.GetString("pareja2"),
+		match.GetString("pair1"),
+		match.GetString("pair2"),
 	})
 
-	mv := h.buildMatchView(partido, jugador.Id, pairNames)
+	mv := h.buildMatchView(match, userID, pairNames)
 
-	// Resolve context names
-	seasonName := ""
-	categoryName := ""
-	jornada, _ := h.app.FindRecordById("jornadas", partido.GetString("jornada"))
-	if jornada != nil {
-		season, _ := h.app.FindRecordById("temporadas", jornada.GetString("temporada"))
-		if season != nil {
-			seasonName = season.GetString("name")
-			cat, _ := h.app.FindRecordById("categorias", season.GetString("categoria"))
-			if cat != nil {
-				categoryName = cat.GetString("name")
-			}
+	compName := ""
+	matchday, _ := h.app.FindRecordById("matchdays", match.GetString("matchday"))
+	if matchday != nil {
+		comp, _ := h.app.FindRecordById("competitions", matchday.GetString("competition"))
+		if comp != nil {
+			compName = comp.GetString("name")
 		}
 	}
 
 	submittedByName := ""
-	if submittedByID := partido.GetString("submitted_by"); submittedByID != "" {
-		submittedByName = resolvePlayerName(h.app, submittedByID)
+	if sbID := match.GetString("submitted_by"); sbID != "" {
+		submittedByName = resolvePlayerName(h.app, sbID)
 	}
 	confirmedByName := ""
-	if confirmedByID := partido.GetString("confirmed_by"); confirmedByID != "" {
-		confirmedByName = resolvePlayerName(h.app, confirmedByID)
+	if cbID := match.GetString("confirmed_by"); cbID != "" {
+		confirmedByName = resolvePlayerName(h.app, cbID)
 	}
 	disputedByName := ""
-	if disputedByID := partido.GetString("disputed_by"); disputedByID != "" {
-		disputedByName = resolvePlayerName(h.app, disputedByID)
+	if dbID := match.GetString("disputed_by"); dbID != "" {
+		disputedByName = resolvePlayerName(h.app, dbID)
 	}
 
 	shareText := ""
-	if partido.GetString("status") == "final" {
-		p1Name := pairNames[partido.GetString("pareja1")]
-		p2Name := pairNames[partido.GetString("pareja2")]
-		score := partido.GetString("scores")
+	if match.GetString("status") == "final" {
+		p1Name := pairNames[match.GetString("pair1")]
+		p2Name := pairNames[match.GetString("pair2")]
+		score := match.GetString("scores")
 		winnerName := p2Name
-		if partido.GetString("winner") == partido.GetString("pareja1") {
+		if match.GetString("winner") == match.GetString("pair1") {
 			winnerName = p1Name
 		}
 		shareText = url.QueryEscape(fmt.Sprintf("Resultado: %s %s %s. Ganador: %s!", p1Name, score, p2Name, winnerName))
 	}
 
 	return h.renderPage(e, "partido.html", map[string]any{
-		"Match":        mv,
-		"SeasonName":   seasonName,
-		"CategoryName": categoryName,
-		"SubmittedBy":  submittedByName,
-		"ConfirmedBy":  confirmedByName,
-		"DisputedBy":   disputedByName,
-		"DisputeNotes": partido.GetString("dispute_notes"),
-		"ShareText":    shareText,
+		"Match":           mv,
+		"CompetitionName": compName,
+		"SubmittedBy":     submittedByName,
+		"ConfirmedBy":     confirmedByName,
+		"DisputedBy":      disputedByName,
+		"DisputeNotes":    match.GetString("dispute_notes"),
+		"ShareText":       shareText,
 	})
 }
 
-func (h *MatchHandler) PartidoSubmit(e *core.RequestEvent) error {
+func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	partido, err := h.app.FindRecordById("partidos", id)
+	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
 	}
 
-	jugador, err := findJugadorByUser(h.app, e.Auth.Id)
-	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">No estás registrado como jugador</div>`)
-	}
-
-	_, err = getJugadorTeam(h.app, jugador.Id, partido)
+	userID := e.Auth.Id
+	_, err = getPlayerTeam(h.app, userID, match)
 	if err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
 
-	if partido.GetString("status") != "pending" {
+	if match.GetString("status") != "pending" {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Este partido ya tiene un resultado registrado</div>`)
 	}
 
@@ -314,79 +280,75 @@ func (h *MatchHandler) PartidoSubmit(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Debes indicar el marcador</div>`)
 	}
 
-	partido.Set("scores", scores)
-	partido.Set("submitted_by", jugador.Id)
-	partido.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
-	partido.Set("status", "confirmed")
+	match.Set("scores", scores)
+	match.Set("submitted_by", userID)
+	match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
+	match.Set("status", "confirmed")
 
 	if date := e.Request.FormValue("date"); date != "" {
-		partido.Set("date", date)
+		match.Set("date", date)
 	}
 	if t := e.Request.FormValue("time"); t != "" {
-		partido.Set("time", t)
+		match.Set("time", t)
 	}
 	if club := e.Request.FormValue("club"); club != "" {
-		partido.Set("club", club)
+		match.Set("club", club)
 	}
 	if court := e.Request.FormValue("court_number"); court != "" {
-		partido.Set("court_number", court)
+		match.Set("court_number", court)
 	}
 
-	if err := h.app.Save(partido); err != nil {
+	if err := h.app.Save(match); err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar el resultado</div>`)
 	}
 
-	myTeam, _ := getJugadorTeam(h.app, jugador.Id, partido)
-	rivalParejaID := partido.GetString("pareja2")
+	myTeam, _ := getPlayerTeam(h.app, userID, match)
+	rivalPairID := match.GetString("pair2")
 	if myTeam == 2 {
-		rivalParejaID = partido.GetString("pareja1")
+		rivalPairID = match.GetString("pair1")
 	}
-	rivalPlayers := getPlayersForPair(h.app, rivalParejaID)
-	notifyPlayers(h.app, rivalPlayers, "quorum_request", "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", partido.Id)
-	emailNotifyPlayers(h.app, rivalPlayers, "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", "/partido/"+partido.Id)
+	rivalPlayers := getPlayersForPair(h.app, rivalPairID)
+	notifyPlayers(h.app, rivalPlayers, "quorum_request", "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", match.Id)
+	emailNotifyPlayers(h.app, rivalPlayers, "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", "/match/"+match.Id)
 
-	e.Response.Header().Set("HX-Redirect", "/mis-partidos")
+	e.Response.Header().Set("HX-Redirect", "/my-matches")
 	return e.NoContent(http.StatusNoContent)
 }
 
-func (h *MatchHandler) PartidoEdit(e *core.RequestEvent) error {
+func (h *MatchHandler) MatchEdit(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	partido, err := h.app.FindRecordById("partidos", id)
+	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
 	}
 
-	jugador, err := findJugadorByUser(h.app, e.Auth.Id)
-	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">No estás registrado como jugador</div>`)
-	}
-
-	_, err = getJugadorTeam(h.app, jugador.Id, partido)
+	userID := e.Auth.Id
+	_, err = getPlayerTeam(h.app, userID, match)
 	if err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
 
-	if partido.GetString("status") != "pending" {
+	if match.GetString("status") != "pending" {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Solo se pueden editar partidos pendientes</div>`)
 	}
 
 	if date := e.Request.FormValue("date"); date != "" {
-		partido.Set("date", date)
+		match.Set("date", date)
 	}
 	if t := e.Request.FormValue("time"); t != "" {
-		partido.Set("time", t)
+		match.Set("time", t)
 	}
 	if club := e.Request.FormValue("club"); club != "" {
-		partido.Set("club", club)
+		match.Set("club", club)
 	}
 	if court := e.Request.FormValue("court_number"); court != "" {
-		partido.Set("court_number", court)
+		match.Set("court_number", court)
 	}
 
-	if err := h.app.Save(partido); err != nil {
+	if err := h.app.Save(match); err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar los cambios</div>`)
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/partido/"+id)
+	e.Response.Header().Set("HX-Redirect", "/match/"+id)
 	return e.NoContent(http.StatusNoContent)
 }

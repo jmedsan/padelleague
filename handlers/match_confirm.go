@@ -7,32 +7,28 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-func (h *MatchHandler) PartidoConfirm(e *core.RequestEvent) error {
+func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	partido, err := h.app.FindRecordById("partidos", id)
+	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
 	}
 
-	if partido.GetString("status") != "confirmed" {
+	if match.GetString("status") != "confirmed" {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Este partido no está pendiente de confirmación</div>`)
 	}
 
-	jugador, err := findJugadorByUser(h.app, e.Auth.Id)
-	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">No estás registrado como jugador</div>`)
-	}
-
-	myTeam, err := getJugadorTeam(h.app, jugador.Id, partido)
+	userID := e.Auth.Id
+	myTeam, err := getPlayerTeam(h.app, userID, match)
 	if err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
 
-	submittedByID := partido.GetString("submitted_by")
+	submittedByID := match.GetString("submitted_by")
 	if submittedByID == "" {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No se encontró quién envió el resultado</div>`)
 	}
-	submitterTeam, err := getJugadorTeam(h.app, submittedByID, partido)
+	submitterTeam, err := getPlayerTeam(h.app, submittedByID, match)
 	if err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al verificar el equipo que envió el resultado</div>`)
 	}
@@ -41,107 +37,99 @@ func (h *MatchHandler) PartidoConfirm(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No puedes confirmar tu propio resultado</div>`)
 	}
 
-	score := partido.GetString("scores")
-	winnerID, err := determineWinner(partido, score)
+	score := match.GetString("scores")
+	winnerID, err := determineWinner(match, score)
 	if err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al determinar el ganador: `+err.Error()+`</div>`)
 	}
 
-	partido.Set("confirmed_by", jugador.Id)
-	partido.Set("winner", winnerID)
-	partido.Set("status", "final")
+	match.Set("confirmed_by", userID)
+	match.Set("winner", winnerID)
+	match.Set("status", "final")
 
-	if err := h.app.Save(partido); err != nil {
+	if err := h.app.Save(match); err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al confirmar el partido</div>`)
 	}
 
-	submitterParejaID := partido.GetString("pareja1")
+	submitterPairID := match.GetString("pair1")
 	if submitterTeam == 2 {
-		submitterParejaID = partido.GetString("pareja2")
+		submitterPairID = match.GetString("pair2")
 	}
-	submitterPlayers := getPlayersForPair(h.app, submitterParejaID)
-	notifyPlayers(h.app, submitterPlayers, "general", "Resultado confirmado", "Tu rival ha confirmado el resultado del partido.", partido.Id)
-	emailNotifyPlayers(h.app, submitterPlayers, "Resultado confirmado", "Tu rival ha confirmado el resultado del partido.", "/partido/"+id)
+	submitterPlayers := getPlayersForPair(h.app, submitterPairID)
+	notifyPlayers(h.app, submitterPlayers, "general", "Resultado confirmado", "Tu rival ha confirmado el resultado del partido.", match.Id)
+	emailNotifyPlayers(h.app, submitterPlayers, "Resultado confirmado", "Tu rival ha confirmado el resultado del partido.", "/match/"+id)
 
-	e.Response.Header().Set("HX-Redirect", "/partido/"+id)
+	e.Response.Header().Set("HX-Redirect", "/match/"+id)
 	return e.NoContent(http.StatusNoContent)
 }
 
-func (h *MatchHandler) PartidoDispute(e *core.RequestEvent) error {
+func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	partido, err := h.app.FindRecordById("partidos", id)
+	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
 	}
 
-	if partido.GetString("status") != "confirmed" {
+	if match.GetString("status") != "confirmed" {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Este partido no está pendiente de confirmación</div>`)
 	}
 
-	jugador, err := findJugadorByUser(h.app, e.Auth.Id)
-	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">No estás registrado como jugador</div>`)
-	}
-
-	myTeam, err := getJugadorTeam(h.app, jugador.Id, partido)
+	userID := e.Auth.Id
+	myTeam, err := getPlayerTeam(h.app, userID, match)
 	if err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
 
-	submittedByID := partido.GetString("submitted_by")
+	submittedByID := match.GetString("submitted_by")
 	if submittedByID != "" {
-		submitterTeam, err := getJugadorTeam(h.app, submittedByID, partido)
+		submitterTeam, err := getPlayerTeam(h.app, submittedByID, match)
 		if err == nil && myTeam == submitterTeam {
 			return e.HTML(http.StatusOK, `<div class="alert alert-error">No puedes disputar tu propio resultado</div>`)
 		}
 	}
 
 	disputeNotes := e.Request.FormValue("dispute_notes")
-	partido.Set("disputed_by", jugador.Id)
-	partido.Set("dispute_notes", disputeNotes)
-	partido.Set("status", "disputed")
+	match.Set("disputed_by", userID)
+	match.Set("dispute_notes", disputeNotes)
+	match.Set("status", "disputed")
 
-	if err := h.app.Save(partido); err != nil {
+	if err := h.app.Save(match); err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al disputar el partido</div>`)
 	}
 
-	notifyAdmins(h.app, "dispute", "Partido disputado", disputeNotes, partido.Id)
+	notifyAdmins(h.app, "dispute", "Partido disputado", disputeNotes, match.Id)
 
-	e.Response.Header().Set("HX-Redirect", "/partido/"+id)
+	e.Response.Header().Set("HX-Redirect", "/match/"+id)
 	return e.NoContent(http.StatusNoContent)
 }
 
-func (h *MatchHandler) PartidoCorrect(e *core.RequestEvent) error {
+func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	partido, err := h.app.FindRecordById("partidos", id)
+	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
 	}
 
-	if partido.GetString("status") != "confirmed" {
+	if match.GetString("status") != "confirmed" {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Solo se puede corregir un partido en estado confirmado</div>`)
 	}
 
-	jugador, err := findJugadorByUser(h.app, e.Auth.Id)
-	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">No estás registrado como jugador</div>`)
-	}
-
-	submittedByID := partido.GetString("submitted_by")
+	userID := e.Auth.Id
+	submittedByID := match.GetString("submitted_by")
 	if submittedByID == "" {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No se encontró quién envió el resultado</div>`)
 	}
 
-	myTeam, err := getJugadorTeam(h.app, jugador.Id, partido)
+	myTeam, err := getPlayerTeam(h.app, userID, match)
 	if err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
-	submitterTeam, err := getJugadorTeam(h.app, submittedByID, partido)
+	submitterTeam, err := getPlayerTeam(h.app, submittedByID, match)
 	if err != nil || myTeam != submitterTeam {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Solo el equipo que envió el resultado puede corregirlo</div>`)
 	}
 
-	submittedAt := partido.GetString("submitted_at")
+	submittedAt := match.GetString("submitted_at")
 	if submittedAt == "" {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No se encontró la fecha de envío</div>`)
 	}
@@ -155,42 +143,38 @@ func (h *MatchHandler) PartidoCorrect(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Debes indicar el marcador corregido</div>`)
 	}
 
-	partido.Set("scores", scores)
-	partido.Set("confirmed_by", "")
-	partido.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
+	match.Set("scores", scores)
+	match.Set("confirmed_by", "")
+	match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
 
-	if err := h.app.Save(partido); err != nil {
+	if err := h.app.Save(match); err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al corregir el resultado</div>`)
 	}
 
-	rivalParejaID := partido.GetString("pareja2")
+	rivalPairID := match.GetString("pair2")
 	if myTeam == 2 {
-		rivalParejaID = partido.GetString("pareja1")
+		rivalPairID = match.GetString("pair1")
 	}
-	rivalPlayers := getPlayersForPair(h.app, rivalParejaID)
-	notifyPlayers(h.app, rivalPlayers, "quorum_request", "Resultado corregido", "El rival ha corregido el resultado. Confirma o disputa.", partido.Id)
+	rivalPlayers := getPlayersForPair(h.app, rivalPairID)
+	notifyPlayers(h.app, rivalPlayers, "quorum_request", "Resultado corregido", "El rival ha corregido el resultado. Confirma o disputa.", match.Id)
 
-	e.Response.Header().Set("HX-Redirect", "/partido/"+id)
+	e.Response.Header().Set("HX-Redirect", "/match/"+id)
 	return e.NoContent(http.StatusNoContent)
 }
 
-func (h *MatchHandler) PartidoWalkover(e *core.RequestEvent) error {
+func (h *MatchHandler) MatchWalkover(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	partido, err := h.app.FindRecordById("partidos", id)
+	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
 	}
 
-	if partido.GetString("status") != "pending" {
+	if match.GetString("status") != "pending" {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Solo se puede reportar incomparecencia en partidos pendientes</div>`)
 	}
 
-	jugador, err := findJugadorByUser(h.app, e.Auth.Id)
-	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">No estás registrado como jugador</div>`)
-	}
-
-	if _, err := getJugadorTeam(h.app, jugador.Id, partido); err != nil {
+	userID := e.Auth.Id
+	if _, err := getPlayerTeam(h.app, userID, match); err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
 
@@ -198,22 +182,22 @@ func (h *MatchHandler) PartidoWalkover(e *core.RequestEvent) error {
 	var winnerID string
 	switch absentTeam {
 	case "1":
-		winnerID = partido.GetString("pareja2")
+		winnerID = match.GetString("pair2")
 	case "2":
-		winnerID = partido.GetString("pareja1")
+		winnerID = match.GetString("pair1")
 	default:
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Debes indicar qué equipo no se presentó</div>`)
 	}
 
-	partido.Set("scores", "WO")
-	partido.Set("winner", winnerID)
-	partido.Set("submitted_by", jugador.Id)
-	partido.Set("status", "final")
+	match.Set("scores", "WO")
+	match.Set("winner", winnerID)
+	match.Set("submitted_by", userID)
+	match.Set("status", "final")
 
-	if err := h.app.Save(partido); err != nil {
+	if err := h.app.Save(match); err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al registrar la incomparecencia</div>`)
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/partido/"+id)
+	e.Response.Header().Set("HX-Redirect", "/match/"+id)
 	return e.NoContent(http.StatusNoContent)
 }

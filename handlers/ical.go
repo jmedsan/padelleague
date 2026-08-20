@@ -58,40 +58,40 @@ func wrapVCalendar(events string) string {
 
 func (h *ICalHandler) Match(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	partido, err := h.app.FindRecordById("partidos", id)
+	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
 		return e.String(http.StatusNotFound, "Partido no encontrado")
 	}
 
-	dateStr := partido.GetString("date")
+	dateStr := match.GetString("date")
 	if dateStr == "" {
 		return e.String(http.StatusBadRequest, "El partido no tiene fecha asignada")
 	}
 
 	pairNames, _ := expandPairNames(h.app, []string{
-		partido.GetString("pareja1"),
-		partido.GetString("pareja2"),
+		match.GetString("pair1"),
+		match.GetString("pair2"),
 	})
 
-	dtStart, dtEnd := formatICalDate(dateStr, partido.GetString("time"))
+	dtStart, dtEnd := formatICalDate(dateStr, match.GetString("time"))
 	if dtStart == "" {
 		return e.String(http.StatusBadRequest, "Formato de fecha inválido")
 	}
 
-	summary := pairNames[partido.GetString("pareja1")] + " vs " + pairNames[partido.GetString("pareja2")]
-	location := partido.GetString("club")
+	summary := pairNames[match.GetString("pair1")] + " vs " + pairNames[match.GetString("pair2")]
+	location := match.GetString("club")
 
 	description := ""
-	jornada, _ := h.app.FindRecordById("jornadas", partido.GetString("jornada"))
-	if jornada != nil {
-		description = fmt.Sprintf("Jornada %d", int(jornada.GetFloat("round_number")))
-		season, _ := h.app.FindRecordById("temporadas", jornada.GetString("temporada"))
-		if season != nil {
-			description += " — " + season.GetString("name")
+	matchday, _ := h.app.FindRecordById("matchdays", match.GetString("matchday"))
+	if matchday != nil {
+		description = fmt.Sprintf("Jornada %d", int(matchday.GetFloat("round_number")))
+		comp, _ := h.app.FindRecordById("competitions", matchday.GetString("competition"))
+		if comp != nil {
+			description += " — " + comp.GetString("name")
 		}
 	}
 
-	event := buildVEvent(partido.Id+"@padelleague", dtStart, dtEnd, summary, location, description)
+	event := buildVEvent(match.Id+"@padelleague", dtStart, dtEnd, summary, location, description)
 	ics := wrapVCalendar(event)
 
 	e.Response.Header().Set("Content-Type", "text/calendar")
@@ -99,47 +99,69 @@ func (h *ICalHandler) Match(e *core.RequestEvent) error {
 	return e.String(http.StatusOK, ics)
 }
 
-func (h *ICalHandler) Season(e *core.RequestEvent) error {
+func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	season, err := h.app.FindRecordById("temporadas", id)
+	comp, err := h.app.FindRecordById("competitions", id)
 	if err != nil {
-		return e.String(http.StatusNotFound, "Temporada no encontrada")
+		return e.String(http.StatusNotFound, "Competición no encontrada")
 	}
 
-	jugador, err := findJugadorByUser(h.app, e.Auth.Id)
-	if err != nil {
-		return e.String(http.StatusForbidden, "No estás registrado como jugador")
+	pairs, _ := findPairsForPlayer(h.app, e.Auth.Id)
+	if len(pairs) == 0 {
+		return e.String(http.StatusOK, "No tienes parejas en esta competición")
 	}
 
-	parejas, _ := h.app.FindRecordsByFilter("parejas",
-		"(jugador1 = {:jid} || jugador2 = {:jid}) && temporada = {:sid}",
+	compPairs, _ := h.app.FindRecordsByFilter("competition_pairs",
+		"competition = {:cid}",
 		"", 0, 0,
-		map[string]any{"jid": jugador.Id, "sid": id})
+		map[string]any{"cid": id})
 
-	if len(parejas) == 0 {
-		return e.String(http.StatusOK, "No tienes parejas en esta temporada")
+	playerPairIDs := make(map[string]bool)
+	for _, p := range pairs {
+		playerPairIDs[p.Id] = true
+	}
+	compPairIDs := make(map[string]bool)
+	for _, cp := range compPairs {
+		pid := cp.GetString("pair")
+		if playerPairIDs[pid] {
+			compPairIDs[pid] = true
+		}
 	}
 
-	var allPartidos []*core.Record
-	for _, p := range parejas {
-		partidos, _ := h.app.FindRecordsByFilter("partidos",
-			"pareja1 = {:pid} || pareja2 = {:pid}",
+	if len(compPairIDs) == 0 {
+		return e.String(http.StatusOK, "No tienes parejas en esta competición")
+	}
+
+	matchdays, _ := h.app.FindRecordsByFilter("matchdays",
+		"competition = {:cid}",
+		"", 0, 0,
+		map[string]any{"cid": id})
+
+	var allMatches []*core.Record
+	for _, md := range matchdays {
+		matches, _ := h.app.FindRecordsByFilter("matches",
+			"matchday = {:mid}",
 			"", 0, 0,
-			map[string]any{"pid": p.Id})
-		allPartidos = append(allPartidos, partidos...)
+			map[string]any{"mid": md.Id})
+		allMatches = append(allMatches, matches...)
 	}
 
 	seen := make(map[string]bool)
 	pairIDSet := make(map[string]bool)
-	var datedPartidos []*core.Record
-	for _, p := range allPartidos {
-		if seen[p.Id] || p.GetString("date") == "" {
+	var datedMatches []*core.Record
+	for _, m := range allMatches {
+		p1 := m.GetString("pair1")
+		p2 := m.GetString("pair2")
+		if !compPairIDs[p1] && !compPairIDs[p2] {
 			continue
 		}
-		seen[p.Id] = true
-		pairIDSet[p.GetString("pareja1")] = true
-		pairIDSet[p.GetString("pareja2")] = true
-		datedPartidos = append(datedPartidos, p)
+		if seen[m.Id] || m.GetString("date") == "" {
+			continue
+		}
+		seen[m.Id] = true
+		pairIDSet[p1] = true
+		pairIDSet[p2] = true
+		datedMatches = append(datedMatches, m)
 	}
 
 	pairIDSlice := make([]string, 0, len(pairIDSet))
@@ -149,27 +171,27 @@ func (h *ICalHandler) Season(e *core.RequestEvent) error {
 	pairNames, _ := expandPairNames(h.app, pairIDSlice)
 
 	var events strings.Builder
-	for _, p := range datedPartidos {
-		dtStart, dtEnd := formatICalDate(p.GetString("date"), p.GetString("time"))
+	for _, m := range datedMatches {
+		dtStart, dtEnd := formatICalDate(m.GetString("date"), m.GetString("time"))
 		if dtStart == "" {
 			continue
 		}
 
-		summary := pairNames[p.GetString("pareja1")] + " vs " + pairNames[p.GetString("pareja2")]
-		location := p.GetString("club")
+		summary := pairNames[m.GetString("pair1")] + " vs " + pairNames[m.GetString("pair2")]
+		location := m.GetString("club")
 
 		description := ""
-		jornada, _ := h.app.FindRecordById("jornadas", p.GetString("jornada"))
-		if jornada != nil {
-			description = fmt.Sprintf("Jornada %d", int(jornada.GetFloat("round_number")))
+		matchday, _ := h.app.FindRecordById("matchdays", m.GetString("matchday"))
+		if matchday != nil {
+			description = fmt.Sprintf("Jornada %d", int(matchday.GetFloat("round_number")))
 		}
 
-		events.WriteString(buildVEvent(p.Id+"@padelleague", dtStart, dtEnd, summary, location, description))
+		events.WriteString(buildVEvent(m.Id+"@padelleague", dtStart, dtEnd, summary, location, description))
 	}
 
 	ics := wrapVCalendar(events.String())
 
-	filename := fmt.Sprintf("%s.ics", season.GetString("name"))
+	filename := fmt.Sprintf("%s.ics", comp.GetString("name"))
 	e.Response.Header().Set("Content-Type", "text/calendar")
 	e.Response.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	return e.String(http.StatusOK, ics)

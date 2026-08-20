@@ -18,17 +18,15 @@ func NewPlayerHandler(app core.App, renderPage func(e *core.RequestEvent, page s
 	return &PlayerHandler{app: app, renderPage: renderPage}
 }
 
-type PairWithELO struct {
+type PairInfo struct {
 	Pair    *core.Record
 	Partner string
-	Season  string
-	ELO     int
 }
 
 type PlayerData struct {
-	Player      *core.Record
 	User        *core.Record
-	Pairs       []PairWithELO
+	ELO         int
+	Pairs       []PairInfo
 	WinRate     float64
 	TotalPlayed int
 	SetsWon     int
@@ -59,45 +57,27 @@ type H2HData struct {
 
 func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	jugador, err := h.app.FindRecordById("jugadores", id)
+	user, err := h.app.FindRecordById("users", id)
 	if err != nil {
 		return e.HTML(http.StatusNotFound, `<div class="alert alert-error">Jugador no encontrado</div>`)
 	}
 
-	user, err := h.app.FindRecordById("users", jugador.GetString("user"))
-	if err != nil {
-		return e.HTML(http.StatusNotFound, `<div class="alert alert-error">Usuario no encontrado</div>`)
+	elo := int(user.GetFloat("elo"))
+	if elo == 0 {
+		elo = 1500
 	}
 
-	parejas, _ := h.app.FindRecordsByFilter("parejas",
-		"jugador1 = {:jid} || jugador2 = {:jid}",
-		"", 0, 0,
-		map[string]any{"jid": jugador.Id})
+	pairs, _ := findPairsForPlayer(h.app, user.Id)
 
-	var pairsWithELO []PairWithELO
-	for _, p := range parejas {
-		partnerID := p.GetString("jugador1")
-		if partnerID == jugador.Id {
-			partnerID = p.GetString("jugador2")
+	var pairInfos []PairInfo
+	for _, p := range pairs {
+		partnerID := p.GetString("player1")
+		if partnerID == user.Id {
+			partnerID = p.GetString("player2")
 		}
-		partnerName := resolvePlayerName(h.app, partnerID)
-
-		seasonName := ""
-		season, err := h.app.FindRecordById("temporadas", p.GetString("temporada"))
-		if err == nil {
-			seasonName = season.GetString("name")
-		}
-
-		elo := int(p.GetFloat("elo"))
-		if elo == 0 {
-			elo = 1500
-		}
-
-		pairsWithELO = append(pairsWithELO, PairWithELO{
+		pairInfos = append(pairInfos, PairInfo{
 			Pair:    p,
-			Partner: partnerName,
-			Season:  seasonName,
-			ELO:     elo,
+			Partner: resolvePlayerName(h.app, partnerID),
 		})
 	}
 
@@ -114,24 +94,24 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 	}
 	var allResults []matchResult
 
-	for _, p := range parejas {
-		partidos, _ := h.app.FindRecordsByFilter("partidos",
-			"(pareja1 = {:pid} || pareja2 = {:pid}) && status = 'final'",
+	for _, p := range pairs {
+		matches, _ := h.app.FindRecordsByFilter("matches",
+			"(pair1 = {:pid} || pair2 = {:pid}) && status = 'final'",
 			"-created", 0, 0,
 			map[string]any{"pid": p.Id})
 
-		pairIDs := make(map[string]bool)
-		for _, m := range partidos {
-			pairIDs[m.GetString("pareja1")] = true
-			pairIDs[m.GetString("pareja2")] = true
+		pairIDSet := make(map[string]bool)
+		for _, m := range matches {
+			pairIDSet[m.GetString("pair1")] = true
+			pairIDSet[m.GetString("pair2")] = true
 		}
-		pairIDSlice := make([]string, 0, len(pairIDs))
-		for id := range pairIDs {
-			pairIDSlice = append(pairIDSlice, id)
+		pairIDSlice := make([]string, 0, len(pairIDSet))
+		for pid := range pairIDSet {
+			pairIDSlice = append(pairIDSlice, pid)
 		}
 		pairNames, _ := expandPairNames(h.app, pairIDSlice)
 
-		for _, m := range partidos {
+		for _, m := range matches {
 			totalPlayed++
 			winner := m.GetString("winner")
 			won := winner == p.Id
@@ -143,7 +123,7 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 			if !strings.EqualFold(strings.TrimSpace(score), "WO") {
 				s1, s2, _, _, err := parseScore(score)
 				if err == nil {
-					if m.GetString("pareja1") == p.Id {
+					if m.GetString("pair1") == p.Id {
 						setsWon += s1
 						setsLost += s2
 					} else {
@@ -156,8 +136,8 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 			allResults = append(allResults, matchResult{
 				won:   won,
 				date:  m.GetString("date"),
-				p1:    pairNames[m.GetString("pareja1")],
-				p2:    pairNames[m.GetString("pareja2")],
+				p1:    pairNames[m.GetString("pair1")],
+				p2:    pairNames[m.GetString("pair2")],
 				score: score,
 			})
 		}
@@ -205,19 +185,15 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 		})
 	}
 
-	var eloHistory []*core.Record
-	if len(parejas) > 0 {
-		latestPair := parejas[len(parejas)-1]
-		eloHistory, _ = h.app.FindRecordsByFilter("elo_history",
-			"pareja = {:pid}",
-			"-created", 10, 0,
-			map[string]any{"pid": latestPair.Id})
-	}
+	eloHistory, _ := h.app.FindRecordsByFilter("elo_history",
+		"player = {:uid}",
+		"-created", 10, 0,
+		map[string]any{"uid": user.Id})
 
 	data := PlayerData{
-		Player:      jugador,
 		User:        user,
-		Pairs:       pairsWithELO,
+		ELO:         elo,
+		Pairs:       pairInfos,
 		WinRate:     winRate,
 		TotalPlayed: totalPlayed,
 		SetsWon:     setsWon,
@@ -227,7 +203,7 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 		ELOHistory:  eloHistory,
 	}
 
-	return h.renderPage(e, "jugador.html", map[string]any{
+	return h.renderPage(e, "player.html", map[string]any{
 		"Data": data,
 	})
 }
@@ -242,8 +218,8 @@ func (h *PlayerHandler) H2H(e *core.RequestEvent) error {
 
 	pairNames, _ := expandPairNames(h.app, []string{p1, p2})
 
-	matches, _ := h.app.FindRecordsByFilter("partidos",
-		"((pareja1 = {:p1} && pareja2 = {:p2}) || (pareja1 = {:p2} && pareja2 = {:p1})) && status = 'final'",
+	matches, _ := h.app.FindRecordsByFilter("matches",
+		"((pair1 = {:p1} && pair2 = {:p2}) || (pair1 = {:p2} && pair2 = {:p1})) && status = 'final'",
 		"-created", 0, 0,
 		map[string]any{"p1": p1, "p2": p2})
 
@@ -262,8 +238,8 @@ func (h *PlayerHandler) H2H(e *core.RequestEvent) error {
 
 		if len(recent) < 5 {
 			recent = append(recent, RecentMatch{
-				PairName1: pairNames[m.GetString("pareja1")],
-				PairName2: pairNames[m.GetString("pareja2")],
+				PairName1: pairNames[m.GetString("pair1")],
+				PairName2: pairNames[m.GetString("pair2")],
 				Score:     m.GetString("scores"),
 				Won:       won,
 				Date:      m.GetString("date"),

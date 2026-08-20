@@ -2,17 +2,19 @@ package handlers
 
 import (
 	"fmt"
+	"math"
 	"net/http"
+	"sort"
 
 	"github.com/pocketbase/pocketbase/core"
 )
 
 type Round struct {
 	Number  int
-	Matches []Match
+	Matches []RoundMatch
 }
 
-type Match struct {
+type RoundMatch struct {
 	Home string
 	Away string
 }
@@ -33,12 +35,12 @@ func generateRoundRobin(pairIDs []string, double bool) []Round {
 
 	rounds := make([]Round, 0, n-1)
 	for r := 0; r < n-1; r++ {
-		var matches []Match
+		var matches []RoundMatch
 		for i := 0; i < n/2; i++ {
 			home := pairs[i]
 			away := pairs[n-1-i]
 			if home != "" && away != "" {
-				matches = append(matches, Match{Home: home, Away: away})
+				matches = append(matches, RoundMatch{Home: home, Away: away})
 			}
 		}
 		rounds = append(rounds, Round{Number: r + 1, Matches: matches})
@@ -50,57 +52,15 @@ func generateRoundRobin(pairIDs []string, double bool) []Round {
 	if double {
 		half := len(rounds)
 		for i := 0; i < half; i++ {
-			var swapped []Match
+			var swapped []RoundMatch
 			for _, m := range rounds[i].Matches {
-				swapped = append(swapped, Match{Home: m.Away, Away: m.Home})
+				swapped = append(swapped, RoundMatch{Home: m.Away, Away: m.Home})
 			}
 			rounds = append(rounds, Round{Number: half + i + 1, Matches: swapped})
 		}
 	}
 
 	return rounds
-}
-
-func expandPairNames(app core.App, pairIDs []string) (map[string]string, error) {
-	names := make(map[string]string, len(pairIDs))
-	for _, id := range pairIDs {
-		if id == "" {
-			continue
-		}
-		pair, err := app.FindRecordById("parejas", id)
-		if err != nil {
-			names[id] = "Pareja desconocida"
-			continue
-		}
-
-		j1ID := pair.GetString("jugador1")
-		j2ID := pair.GetString("jugador2")
-
-		name1 := resolvePlayerName(app, j1ID)
-		name2 := resolvePlayerName(app, j2ID)
-
-		names[id] = fmt.Sprintf("%s / %s", name1, name2)
-	}
-	return names, nil
-}
-
-func resolvePlayerName(app core.App, jugadorID string) string {
-	if jugadorID == "" {
-		return "?"
-	}
-	jugador, err := app.FindRecordById("jugadores", jugadorID)
-	if err != nil {
-		return "?"
-	}
-	userID := jugador.GetString("user")
-	if userID == "" {
-		return "?"
-	}
-	user, err := app.FindRecordById("users", userID)
-	if err != nil {
-		return "?"
-	}
-	return user.GetString("display_name")
 }
 
 type FixtureHandler struct {
@@ -113,105 +73,70 @@ func NewFixtureHandler(app core.App, renderPage func(e *core.RequestEvent, page 
 }
 
 func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
-	seasonID := e.Request.PathValue("id")
+	compID := e.Request.PathValue("id")
 	confirm := e.Request.URL.Query().Get("confirm") == "true"
 
-	season, err := h.app.FindRecordById("temporadas", seasonID)
+	comp, err := h.app.FindRecordById("competitions", compID)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Temporada no encontrada</div>`)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competición no encontrada</div>`)
 	}
 
-	existingJornadas, _ := h.app.FindRecordsByFilter("jornadas",
-		"temporada = {:id} && is_playoff = false",
-		"-round_number", 0, 0,
-		map[string]any{"id": seasonID})
+	existingMatchdays, _ := h.app.FindRecordsByFilter("matchdays",
+		"competition = {:id}", "-round_number", 0, 0,
+		map[string]any{"id": compID})
 
-	if len(existingJornadas) > 0 && !confirm {
+	if len(existingMatchdays) > 0 && !confirm {
 		return e.HTML(http.StatusOK, fmt.Sprintf(`
 			<div class="alert alert-warning">
-				<span>Ya existen %d jornadas para esta temporada. ¿Desea regenerar? Esto eliminará los partidos existentes.</span>
-				<button hx-post="/admin/temporadas/%s/generate?confirm=true" hx-target="#generate-result" class="btn btn-sm btn-warning">Confirmar</button>
-			</div>`, len(existingJornadas), seasonID))
+				<span>Ya existen %d jornadas. ¿Desea regenerar? Esto eliminará los partidos existentes.</span>
+				<button hx-post="/admin/competitions/%s/generate?confirm=true" hx-target="#generate-result" class="btn btn-sm btn-warning">Confirmar</button>
+			</div>`, len(existingMatchdays), compID))
 	}
 
-	pairs, _ := h.app.FindRecordsByFilter("parejas",
-		"temporada = {:id}",
-		"", 0, 0,
-		map[string]any{"id": seasonID})
+	cpRecords, _ := h.app.FindRecordsByFilter("competition_pairs",
+		"competition = {:id}", "seed", 0, 0,
+		map[string]any{"id": compID})
 
-	if len(pairs) < 2 {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Se necesitan al menos 2 parejas para generar el calendario</div>`)
+	if len(cpRecords) < 2 {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Se necesitan al menos 2 parejas</div>`)
 	}
 
-	pairIDs := make([]string, len(pairs))
-	for i, p := range pairs {
-		pairIDs[i] = p.Id
+	pairIDs := make([]string, len(cpRecords))
+	for i, cp := range cpRecords {
+		pairIDs[i] = cp.GetString("pair")
 	}
 
-	double := season.GetBool("play_twice")
-	rounds := generateRoundRobin(pairIDs, double)
+	compType := comp.GetString("type")
 
 	err = h.app.RunInTransaction(func(txApp core.App) error {
-		for _, j := range existingJornadas {
-			partidos, _ := txApp.FindRecordsByFilter("partidos",
-				"jornada = {:jid}",
-				"", 0, 0,
-				map[string]any{"jid": j.Id})
-			for _, p := range partidos {
-				if err := txApp.Delete(p); err != nil {
+		for _, md := range existingMatchdays {
+			matches, _ := txApp.FindRecordsByFilter("matches",
+				"matchday = {:mdid}", "", 0, 0,
+				map[string]any{"mdid": md.Id})
+			for _, m := range matches {
+				if err := txApp.Delete(m); err != nil {
 					return err
 				}
 			}
-			if err := txApp.Delete(j); err != nil {
+			if err := txApp.Delete(md); err != nil {
 				return err
 			}
 		}
 
-		jornadaCol, err := txApp.FindCollectionByNameOrId("jornadas")
-		if err != nil {
-			return err
+		if compType == "league" {
+			return h.generateLeague(txApp, compID, pairIDs, comp.GetBool("play_twice"))
 		}
-		partidoCol, err := txApp.FindCollectionByNameOrId("partidos")
-		if err != nil {
-			return err
-		}
-
-		for _, round := range rounds {
-			jornada := core.NewRecord(jornadaCol)
-			jornada.Set("temporada", seasonID)
-			jornada.Set("round_number", round.Number)
-			jornada.Set("is_playoff", false)
-			if err := txApp.Save(jornada); err != nil {
-				return err
-			}
-
-			for _, match := range round.Matches {
-				partido := core.NewRecord(partidoCol)
-				partido.Set("jornada", jornada.Id)
-				partido.Set("pareja1", match.Home)
-				partido.Set("pareja2", match.Away)
-				partido.Set("status", "pending")
-				if err := txApp.Save(partido); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
+		return h.generatePlayoff(txApp, compID, cpRecords)
 	})
 
 	if err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error al generar: %s</div>`, err.Error()))
-	}
-
-	totalMatches := 0
-	for _, r := range rounds {
-		totalMatches += len(r.Matches)
+		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
 	}
 
 	var allPlayerIDs []string
 	seen := map[string]bool{}
-	for _, p := range pairs {
-		for _, uid := range getPlayersForPair(h.app, p.Id) {
+	for _, pid := range pairIDs {
+		for _, uid := range getPlayersForPair(h.app, pid) {
 			if !seen[uid] {
 				seen[uid] = true
 				allPlayerIDs = append(allPlayerIDs, uid)
@@ -219,9 +144,233 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 		}
 	}
 	notifyPlayers(h.app, allPlayerIDs, "match_assigned", "Calendario generado",
-		fmt.Sprintf("Se han generado %d jornadas con %d partidos.", len(rounds), totalMatches), "")
+		fmt.Sprintf("Se ha generado el calendario de la competición."), "")
 	emailNotifyPlayers(h.app, allPlayerIDs, "Calendario generado",
-		fmt.Sprintf("Se han generado %d jornadas con %d partidos.", len(rounds), totalMatches), "")
+		"Se ha generado el calendario de la competición.", "")
 
-	return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-success">Calendario generado: %d jornadas, %d partidos</div>`, len(rounds), totalMatches))
+	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID+"/pairs")
+	return e.NoContent(http.StatusNoContent)
+}
+
+func (h *FixtureHandler) generateLeague(txApp core.App, compID string, pairIDs []string, double bool) error {
+	rounds := generateRoundRobin(pairIDs, double)
+
+	matchdayCol, err := txApp.FindCollectionByNameOrId("matchdays")
+	if err != nil {
+		return err
+	}
+	matchCol, err := txApp.FindCollectionByNameOrId("matches")
+	if err != nil {
+		return err
+	}
+
+	for _, round := range rounds {
+		md := core.NewRecord(matchdayCol)
+		md.Set("competition", compID)
+		md.Set("round_number", round.Number)
+		md.Set("matches_to_win", 1)
+		if err := txApp.Save(md); err != nil {
+			return err
+		}
+
+		for _, m := range round.Matches {
+			match := core.NewRecord(matchCol)
+			match.Set("matchday", md.Id)
+			match.Set("pair1", m.Home)
+			match.Set("pair2", m.Away)
+			match.Set("status", "pending")
+			if err := txApp.Save(match); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (h *FixtureHandler) generatePlayoff(txApp core.App, compID string, cpRecords []*core.Record) error {
+	n := len(cpRecords)
+	numRounds := int(math.Ceil(math.Log2(float64(n))))
+	bracketSize := 1 << numRounds
+
+	sort.Slice(cpRecords, func(i, j int) bool {
+		si := cpRecords[i].GetFloat("seed")
+		sj := cpRecords[j].GetFloat("seed")
+		if si == 0 && sj == 0 {
+			return i < j
+		}
+		if si == 0 {
+			return false
+		}
+		if sj == 0 {
+			return true
+		}
+		return si < sj
+	})
+
+	// Slot pairs into bracket positions: top seed vs bottom, 2nd vs 2nd-bottom, etc.
+	slots := make([]string, bracketSize)
+	for i, cp := range cpRecords {
+		slots[i] = cp.GetString("pair")
+	}
+
+	matchdayCol, err := txApp.FindCollectionByNameOrId("matchdays")
+	if err != nil {
+		return err
+	}
+	matchCol, err := txApp.FindCollectionByNameOrId("matches")
+	if err != nil {
+		return err
+	}
+
+	var matchdayIDs []string
+	for r := 1; r <= numRounds; r++ {
+		md := core.NewRecord(matchdayCol)
+		md.Set("competition", compID)
+		md.Set("round_number", r)
+		md.Set("matches_to_win", 1)
+		if err := txApp.Save(md); err != nil {
+			return err
+		}
+		matchdayIDs = append(matchdayIDs, md.Id)
+	}
+
+	type bracketSlot struct {
+		pair1 string
+		pair2 string
+	}
+
+	firstRound := make([]bracketSlot, bracketSize/2)
+	for i := 0; i < bracketSize/2; i++ {
+		firstRound[i] = bracketSlot{
+			pair1: slots[i],
+			pair2: slots[bracketSize-1-i],
+		}
+	}
+
+	advancers := make([]string, bracketSize/2)
+	for i, bs := range firstRound {
+		if bs.pair1 == "" && bs.pair2 == "" {
+			continue
+		}
+		// Bye: one side empty, opponent auto-advances
+		if bs.pair2 == "" {
+			advancers[i] = bs.pair1
+			continue
+		}
+		if bs.pair1 == "" {
+			advancers[i] = bs.pair2
+			continue
+		}
+		match := core.NewRecord(matchCol)
+		match.Set("matchday", matchdayIDs[0])
+		match.Set("pair1", bs.pair1)
+		match.Set("pair2", bs.pair2)
+		match.Set("status", "pending")
+		if err := txApp.Save(match); err != nil {
+			return err
+		}
+	}
+
+	currentAdvancers := advancers
+	for r := 1; r < numRounds; r++ {
+		numMatches := len(currentAdvancers) / 2
+		nextAdvancers := make([]string, numMatches)
+		for i := 0; i < numMatches; i++ {
+			p1 := currentAdvancers[i*2]
+			p2 := currentAdvancers[i*2+1]
+
+			// Both known from byes — create match directly
+			if p1 != "" && p2 != "" {
+				match := core.NewRecord(matchCol)
+				match.Set("matchday", matchdayIDs[r])
+				match.Set("pair1", p1)
+				match.Set("pair2", p2)
+				match.Set("status", "pending")
+				if err := txApp.Save(match); err != nil {
+					return err
+				}
+				continue
+			}
+
+			// At least one slot TBD — create placeholder match
+			match := core.NewRecord(matchCol)
+			match.Set("matchday", matchdayIDs[r])
+			if p1 != "" {
+				match.Set("pair1", p1)
+			}
+			if p2 != "" {
+				match.Set("pair2", p2)
+			}
+			match.Set("status", "pending")
+			if err := txApp.Save(match); err != nil {
+				return err
+			}
+		}
+		currentAdvancers = nextAdvancers
+	}
+
+	return nil
+}
+
+// AutoAdvancePlayoff checks if all matches in the current playoff round are
+// final, and if so populates the next round with the winners.
+func AutoAdvancePlayoff(app core.App, matchRecord *core.Record) error {
+	matchday, err := app.FindRecordById("matchdays", matchRecord.GetString("matchday"))
+	if err != nil {
+		return nil
+	}
+
+	comp, err := app.FindRecordById("competitions", matchday.GetString("competition"))
+	if err != nil || comp.GetString("type") != "playoff" {
+		return nil
+	}
+
+	currentRound := int(matchday.GetFloat("round_number"))
+
+	roundMatches, _ := app.FindRecordsByFilter("matches",
+		"matchday = {:mdid}", "created", 0, 0,
+		map[string]any{"mdid": matchday.Id})
+
+	for _, m := range roundMatches {
+		if m.GetString("status") != "final" {
+			return nil
+		}
+	}
+
+	nextMatchdays, _ := app.FindRecordsByFilter("matchdays",
+		"competition = {:cid} && round_number = {:rn}", "", 1, 0,
+		map[string]any{"cid": comp.Id, "rn": nextRound(currentRound)})
+
+	if len(nextMatchdays) == 0 {
+		return nil
+	}
+
+	var roundWinners []string
+	for _, m := range roundMatches {
+		roundWinners = append(roundWinners, m.GetString("winner"))
+	}
+
+	nextMatches, _ := app.FindRecordsByFilter("matches",
+		"matchday = {:mdid}", "created", 0, 0,
+		map[string]any{"mdid": nextMatchdays[0].Id})
+
+	for i, nm := range nextMatches {
+		p1Idx := i * 2
+		p2Idx := i*2 + 1
+		if p1Idx < len(roundWinners) && roundWinners[p1Idx] != "" {
+			nm.Set("pair1", roundWinners[p1Idx])
+		}
+		if p2Idx < len(roundWinners) && roundWinners[p2Idx] != "" {
+			nm.Set("pair2", roundWinners[p2Idx])
+		}
+		if err := app.Save(nm); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func nextRound(current int) int {
+	return current + 1
 }

@@ -7,52 +7,71 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-func findJugadorByUser(app core.App, userID string) (*core.Record, error) {
-	records, err := app.FindRecordsByFilter("jugadores", "user = {:uid}", "", 1, 0,
-		map[string]any{"uid": userID})
-	if err != nil || len(records) == 0 {
-		return nil, fmt.Errorf("jugador not found for user %s", userID)
-	}
-	return records[0], nil
-}
-
-func getJugadorTeam(app core.App, jugadorID string, partido *core.Record) (int, error) {
-	pareja1, err := app.FindRecordById("parejas", partido.GetString("pareja1"))
+func getPlayerTeam(app core.App, userID string, match *core.Record) (int, error) {
+	pair1, err := app.FindRecordById("pairs", match.GetString("pair1"))
 	if err != nil {
-		return 0, fmt.Errorf("pareja1 not found: %w", err)
+		return 0, fmt.Errorf("pair1 not found: %w", err)
 	}
-	if pareja1.GetString("jugador1") == jugadorID || pareja1.GetString("jugador2") == jugadorID {
+	if pair1.GetString("player1") == userID || pair1.GetString("player2") == userID {
 		return 1, nil
 	}
-	pareja2, err := app.FindRecordById("parejas", partido.GetString("pareja2"))
+	pair2, err := app.FindRecordById("pairs", match.GetString("pair2"))
 	if err != nil {
-		return 0, fmt.Errorf("pareja2 not found: %w", err)
+		return 0, fmt.Errorf("pair2 not found: %w", err)
 	}
-	if pareja2.GetString("jugador1") == jugadorID || pareja2.GetString("jugador2") == jugadorID {
+	if pair2.GetString("player1") == userID || pair2.GetString("player2") == userID {
 		return 2, nil
 	}
-	return 0, fmt.Errorf("jugador %s is not a participant", jugadorID)
+	return 0, fmt.Errorf("user %s is not a participant", userID)
 }
 
-func getPlayersForPair(app core.App, parejaID string) []string {
-	pareja, err := app.FindRecordById("parejas", parejaID)
+func expandPairNames(app core.App, pairIDs []string) (map[string]string, error) {
+	names := make(map[string]string, len(pairIDs))
+	for _, id := range pairIDs {
+		if id == "" {
+			continue
+		}
+		pair, err := app.FindRecordById("pairs", id)
+		if err != nil {
+			names[id] = "Pareja desconocida"
+			continue
+		}
+		names[id] = pair.GetString("name")
+	}
+	return names, nil
+}
+
+func resolvePlayerName(app core.App, userID string) string {
+	if userID == "" {
+		return "?"
+	}
+	user, err := app.FindRecordById("users", userID)
+	if err != nil {
+		return "?"
+	}
+	return user.GetString("display_name")
+}
+
+func getPlayersForPair(app core.App, pairID string) []string {
+	pair, err := app.FindRecordById("pairs", pairID)
 	if err != nil {
 		return nil
 	}
 	var userIDs []string
-	for _, jID := range []string{pareja.GetString("jugador1"), pareja.GetString("jugador2")} {
-		if jID == "" {
-			continue
-		}
-		jugador, err := app.FindRecordById("jugadores", jID)
-		if err != nil {
-			continue
-		}
-		if uid := jugador.GetString("user"); uid != "" {
-			userIDs = append(userIDs, uid)
-		}
+	if p1 := pair.GetString("player1"); p1 != "" {
+		userIDs = append(userIDs, p1)
+	}
+	if p2 := pair.GetString("player2"); p2 != "" {
+		userIDs = append(userIDs, p2)
 	}
 	return userIDs
+}
+
+func findPairsForPlayer(app core.App, userID string) ([]*core.Record, error) {
+	return app.FindRecordsByFilter("pairs",
+		"player1 = {:uid} || player2 = {:uid}",
+		"", 0, 0,
+		map[string]any{"uid": userID})
 }
 
 func getNotificationPrefs(user *core.Record) map[string]any {
@@ -78,10 +97,10 @@ func getNotificationPrefs(user *core.Record) map[string]any {
 	return prefs
 }
 
-func notifyPlayers(app core.App, playerUserIDs []string, notifType, title, body, relatedPartidoID string) {
-	notifCol, err := app.FindCollectionByNameOrId("notificaciones")
+func notifyPlayers(app core.App, playerUserIDs []string, notifType, title, body, relatedMatchID string) {
+	notifCol, err := app.FindCollectionByNameOrId("notifications")
 	if err != nil {
-		log.Printf("notifyPlayers: notificaciones collection not found: %v", err)
+		log.Printf("notifyPlayers: notifications collection not found: %v", err)
 		return
 	}
 	for _, userID := range playerUserIDs {
@@ -100,8 +119,8 @@ func notifyPlayers(app core.App, playerUserIDs []string, notifType, title, body,
 		notif.Set("type", notifType)
 		notif.Set("title", title)
 		notif.Set("body", body)
-		if relatedPartidoID != "" {
-			notif.Set("related_partido", relatedPartidoID)
+		if relatedMatchID != "" {
+			notif.Set("related_match", relatedMatchID)
 		}
 		if err := app.Save(notif); err != nil {
 			log.Printf("notifyPlayers: failed to notify user %s: %v", userID, err)
@@ -109,10 +128,10 @@ func notifyPlayers(app core.App, playerUserIDs []string, notifType, title, body,
 	}
 }
 
-func notifyAdmins(app core.App, notifType, title, body, relatedPartidoID string) error {
-	notifCol, err := app.FindCollectionByNameOrId("notificaciones")
+func notifyAdmins(app core.App, notifType, title, body, relatedMatchID string) error {
+	notifCol, err := app.FindCollectionByNameOrId("notifications")
 	if err != nil {
-		return fmt.Errorf("notificaciones collection not found: %w", err)
+		return fmt.Errorf("notifications collection not found: %w", err)
 	}
 	admins, err := app.FindRecordsByFilter("users", "role = 'admin'", "", 0, 0, nil)
 	if err != nil {
@@ -124,8 +143,8 @@ func notifyAdmins(app core.App, notifType, title, body, relatedPartidoID string)
 		notif.Set("type", notifType)
 		notif.Set("title", title)
 		notif.Set("body", body)
-		if relatedPartidoID != "" {
-			notif.Set("related_partido", relatedPartidoID)
+		if relatedMatchID != "" {
+			notif.Set("related_match", relatedMatchID)
 		}
 		if err := app.Save(notif); err != nil {
 			log.Printf("failed to notify admin %s: %v", admin.Id, err)

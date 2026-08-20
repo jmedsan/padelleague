@@ -22,57 +22,71 @@ type StandingRowFull struct {
 	Points    int
 }
 
-func ComputeStandings(app core.App, seasonID string) ([]StandingRowFull, error) {
-	pairs, err := app.FindRecordsByFilter("parejas",
-		"temporada = {:sid}",
+func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, error) {
+	compPairs, err := app.FindRecordsByFilter("competition_pairs",
+		"competition = {:cid}",
 		"", 0, 0,
-		map[string]any{"sid": seasonID})
+		map[string]any{"cid": competitionID})
 	if err != nil {
 		return nil, err
 	}
 
-	pairIDs := make([]string, len(pairs))
-	pairELO := make(map[string]int, len(pairs))
-	for i, p := range pairs {
-		pairIDs[i] = p.Id
-		pairELO[p.Id] = int(p.GetFloat("elo"))
-		if pairELO[p.Id] == 0 {
-			pairELO[p.Id] = 1500
-		}
+	pairIDs := make([]string, len(compPairs))
+	for i, cp := range compPairs {
+		pairIDs[i] = cp.GetString("pair")
 	}
 
 	pairNames, _ := expandPairNames(app, pairIDs)
 
-	jornadas, err := app.FindRecordsByFilter("jornadas",
-		"temporada = {:sid}",
-		"", 0, 0,
-		map[string]any{"sid": seasonID})
-	if err != nil {
-		return nil, err
+	pairELO := make(map[string]int, len(pairIDs))
+	for _, pid := range pairIDs {
+		players := getPlayersForPair(app, pid)
+		totalELO := 0
+		count := 0
+		for _, uid := range players {
+			u, err := app.FindRecordById("users", uid)
+			if err != nil {
+				continue
+			}
+			elo := int(u.GetFloat("elo"))
+			if elo == 0 {
+				elo = 1500
+			}
+			totalELO += elo
+			count++
+		}
+		if count > 0 {
+			pairELO[pid] = totalELO / count
+		} else {
+			pairELO[pid] = 1500
+		}
 	}
 
-	jornadaIDs := make(map[string]bool, len(jornadas))
-	for _, j := range jornadas {
-		jornadaIDs[j.Id] = true
+	matchdays, err := app.FindRecordsByFilter("matchdays",
+		"competition = {:cid}",
+		"", 0, 0,
+		map[string]any{"cid": competitionID})
+	if err != nil {
+		return nil, err
 	}
 
 	type stats struct {
 		wins, losses, setsWon, setsLost, gamesWon, gamesLost int
 	}
-	pairStats := make(map[string]*stats, len(pairs))
-	for _, p := range pairs {
-		pairStats[p.Id] = &stats{}
+	pairStats := make(map[string]*stats, len(pairIDs))
+	for _, pid := range pairIDs {
+		pairStats[pid] = &stats{}
 	}
 
-	for _, j := range jornadas {
-		partidos, _ := app.FindRecordsByFilter("partidos",
-			"jornada = {:jid} && status = 'final'",
+	for _, md := range matchdays {
+		matches, _ := app.FindRecordsByFilter("matches",
+			"matchday = {:mid} && status = 'final'",
 			"", 0, 0,
-			map[string]any{"jid": j.Id})
+			map[string]any{"mid": md.Id})
 
-		for _, m := range partidos {
-			p1 := m.GetString("pareja1")
-			p2 := m.GetString("pareja2")
+		for _, m := range matches {
+			p1 := m.GetString("pair1")
+			p2 := m.GetString("pair2")
 			winner := m.GetString("winner")
 			score := m.GetString("scores")
 
@@ -118,13 +132,13 @@ func ComputeStandings(app core.App, seasonID string) ([]StandingRowFull, error) 
 		}
 	}
 
-	rows := make([]StandingRowFull, 0, len(pairs))
-	for _, p := range pairs {
-		s := pairStats[p.Id]
+	rows := make([]StandingRowFull, 0, len(pairIDs))
+	for _, pid := range pairIDs {
+		s := pairStats[pid]
 		rows = append(rows, StandingRowFull{
-			PairID:    p.Id,
-			PairName:  pairNames[p.Id],
-			ELO:       pairELO[p.Id],
+			PairID:    pid,
+			PairName:  pairNames[pid],
+			ELO:       pairELO[pid],
 			Played:    s.wins + s.losses,
 			Wins:      s.wins,
 			Losses:    s.losses,

@@ -2,8 +2,8 @@
 <div class="max-w-2xl mx-auto">
     <div class="text-sm breadcrumbs mb-4">
         <ul>
-            <li><a href="/mis-partidos">Mis partidos</a></li>
-            <li>{{.CategoryName}} — {{.SeasonName}}</li>
+            <li><a href="/my-matches">Mis partidos</a></li>
+            <li>{{.CompetitionName}}</li>
             <li>Jornada {{.Match.JornadaNum}}</li>
         </ul>
     </div>
@@ -46,7 +46,7 @@
 
             {{if .Match.Partido.GetString "winner"}}
             <div class="alert alert-success mt-4">
-                <span>Ganador: {{if eq (.Match.Partido.GetString "winner") (.Match.Partido.GetString "pareja1")}}{{.Match.Pareja1Name}}{{else}}{{.Match.Pareja2Name}}{{end}}</span>
+                <span>Ganador: {{if eq (.Match.Partido.GetString "winner") (.Match.Partido.GetString "pair1")}}{{.Match.Pareja1Name}}{{else}}{{.Match.Pareja2Name}}{{end}}</span>
             </div>
             {{end}}
 
@@ -68,7 +68,7 @@
 
             {{if .Match.CanSubmit}}
             <h3 class="font-semibold mb-2">Registrar resultado</h3>
-            <form hx-post="/partido/{{.Match.Partido.Id}}/submit" hx-target="#action-result">
+            <form hx-post="/match/{{.Match.Partido.Id}}/submit" hx-target="#action-result">
                 <div class="grid grid-cols-2 gap-2">
                     <div class="form-control">
                         <label class="label"><span class="label-text">Fecha</span></label>
@@ -98,7 +98,7 @@
             {{if .Match.CanWalkover}}
             <div class="mt-4">
                 <h3 class="font-semibold mb-2">Reportar incomparecencia</h3>
-                <form hx-post="/partido/{{.Match.Partido.Id}}/walkover" hx-target="#action-result">
+                <form hx-post="/match/{{.Match.Partido.Id}}/walkover" hx-target="#action-result">
                     <div class="form-control">
                         <label class="label"><span class="label-text">Equipo que no se presentó</span></label>
                         <select name="absent_team" class="select select-bordered" required>
@@ -115,7 +115,7 @@
             {{if .Match.CanEdit}}
             <div class="mt-4">
                 <h3 class="font-semibold mb-2">Editar logística</h3>
-                <form hx-post="/partido/{{.Match.Partido.Id}}/edit" hx-target="#action-result">
+                <form hx-post="/match/{{.Match.Partido.Id}}/edit" hx-target="#action-result">
                     <div class="grid grid-cols-2 gap-2">
                         <div class="form-control">
                             <label class="label"><span class="label-text">Fecha</span></label>
@@ -143,10 +143,10 @@
             <div class="mt-4">
                 <h3 class="font-semibold mb-2">El rival ha enviado este resultado</h3>
                 <div class="flex gap-2">
-                    <button hx-post="/partido/{{.Match.Partido.Id}}/confirm" hx-target="#action-result" class="btn btn-success flex-1">Confirmar resultado</button>
+                    <button hx-post="/match/{{.Match.Partido.Id}}/confirm" hx-target="#action-result" class="btn btn-success flex-1">Confirmar resultado</button>
                     <button onclick="document.getElementById('dispute-form').classList.toggle('hidden')" class="btn btn-error flex-1">Disputar</button>
                 </div>
-                <form id="dispute-form" class="hidden mt-2" hx-post="/partido/{{.Match.Partido.Id}}/dispute" hx-target="#action-result">
+                <form id="dispute-form" class="hidden mt-2" hx-post="/match/{{.Match.Partido.Id}}/dispute" hx-target="#action-result">
                     <div class="form-control">
                         <label class="label"><span class="label-text">Motivo de la disputa</span></label>
                         <textarea name="dispute_notes" class="textarea textarea-bordered" placeholder="Describe el problema con el resultado..." required></textarea>
@@ -167,7 +167,7 @@
             {{if .Match.CanCorrect}}
             <div class="mt-4">
                 <h3 class="font-semibold mb-2">Corregir marcador</h3>
-                <form hx-post="/partido/{{.Match.Partido.Id}}/correct" hx-target="#action-result">
+                <form hx-post="/match/{{.Match.Partido.Id}}/correct" hx-target="#action-result">
                     <div class="form-control">
                         <label class="label"><span class="label-text">Nuevo marcador (ej: 6-3 4-6 7-5)</span></label>
                         <input type="text" name="scores" class="input input-bordered" placeholder="6-3 4-6 7-5" value="{{.Match.Partido.GetString "scores"}}" required>

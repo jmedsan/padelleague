@@ -12,15 +12,14 @@ type Award struct {
 	Value    string
 }
 
-func computeAwards(app core.App, seasonID string) []Award {
-	standings, err := ComputeStandings(app, seasonID)
+func computeAwards(app core.App, competitionID string) []Award {
+	standings, err := ComputeStandings(app, competitionID)
 	if err != nil || len(standings) == 0 {
 		return nil
 	}
 
 	var awards []Award
 
-	// Best pair: highest points (standings already sorted)
 	best := standings[0]
 	if best.Played > 0 {
 		awards = append(awards, Award{
@@ -30,7 +29,6 @@ func computeAwards(app core.App, seasonID string) []Award {
 		})
 	}
 
-	// Most matches played
 	mostPlayed := standings[0]
 	for _, s := range standings[1:] {
 		if s.Played > mostPlayed.Played {
@@ -45,11 +43,10 @@ func computeAwards(app core.App, seasonID string) []Award {
 		})
 	}
 
-	// Longest win streak: scan matches chronologically per pair
-	jornadas, _ := app.FindRecordsByFilter("jornadas",
-		"temporada = {:sid}",
+	matchdays, _ := app.FindRecordsByFilter("matchdays",
+		"competition = {:cid}",
 		"round_number", 0, 0,
-		map[string]any{"sid": seasonID})
+		map[string]any{"cid": competitionID})
 
 	type streakInfo struct {
 		pairID  string
@@ -61,15 +58,15 @@ func computeAwards(app core.App, seasonID string) []Award {
 		streaks[s.PairID] = &streakInfo{pairID: s.PairID}
 	}
 
-	for _, j := range jornadas {
-		partidos, _ := app.FindRecordsByFilter("partidos",
-			"jornada = {:jid} && status = 'final'",
+	for _, md := range matchdays {
+		matches, _ := app.FindRecordsByFilter("matches",
+			"matchday = {:mid} && status = 'final'",
 			"", 0, 0,
-			map[string]any{"jid": j.Id})
+			map[string]any{"mid": md.Id})
 
-		for _, m := range partidos {
-			p1 := m.GetString("pareja1")
-			p2 := m.GetString("pareja2")
+		for _, m := range matches {
+			p1 := m.GetString("pair1")
+			p2 := m.GetString("pair2")
 			winner := m.GetString("winner")
 
 			for _, pid := range []string{p1, p2} {

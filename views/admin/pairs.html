@@ -1,0 +1,107 @@
+{{define "content"}}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold">Parejas</h1>
+    <button class="btn btn-primary btn-sm" onclick="document.getElementById('modal-create').showModal()">Nueva pareja</button>
+</div>
+
+<div class="overflow-x-auto">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Jugador 1</th>
+                <th>Jugador 2</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Pairs}}
+            <tr>
+                <td class="font-medium">{{.Record.GetString "name"}}</td>
+                <td>{{.Player1}}</td>
+                <td>{{.Player2}}</td>
+                <td>
+                    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-edit-{{.Record.Id}}').showModal()">Editar</button>
+                </td>
+            </tr>
+
+            <dialog id="modal-edit-{{.Record.Id}}" class="modal">
+                <div class="modal-box">
+                    <h3 class="text-lg font-bold mb-4">Editar pareja</h3>
+                    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+                    <div id="edit-error-{{.Record.Id}}"></div>
+                    <form hx-post="/admin/pairs/{{.Record.Id}}" hx-target="#edit-error-{{.Record.Id}}">
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Nombre</span></label>
+                            <input type="text" name="name" value="{{.Record.GetString "name"}}" class="input input-bordered" required>
+                        </div>
+                        <div class="form-control mt-2">
+                            <label class="label"><span class="label-text">Jugador 1</span></label>
+                            <select name="player1" class="select select-bordered" required>
+                                <option value="">Seleccionar</option>
+                                {{$p1 := .Record.GetString "player1"}}
+                                {{range $.Users}}
+                                <option value="{{.Id}}" {{if eq .Id $p1}}selected{{end}}>{{.GetString "display_name"}}</option>
+                                {{end}}
+                            </select>
+                        </div>
+                        <div class="form-control mt-2">
+                            <label class="label"><span class="label-text">Jugador 2</span></label>
+                            <select name="player2" class="select select-bordered" required>
+                                <option value="">Seleccionar</option>
+                                {{$p2 := .Record.GetString "player2"}}
+                                {{range $.Users}}
+                                <option value="{{.Id}}" {{if eq .Id $p2}}selected{{end}}>{{.GetString "display_name"}}</option>
+                                {{end}}
+                            </select>
+                        </div>
+                        <div class="form-control mt-4">
+                            <button type="submit" class="btn btn-primary">Guardar</button>
+                        </div>
+                    </form>
+                </div>
+                <form method="dialog" class="modal-backdrop"><button>close</button></form>
+            </dialog>
+            {{else}}
+            <tr><td colspan="4" class="text-center text-base-content/60">No hay parejas</td></tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+
+<dialog id="modal-create" class="modal">
+    <div class="modal-box">
+        <h3 class="text-lg font-bold mb-4">Nueva pareja</h3>
+        <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+        <div id="create-error"></div>
+        <form hx-post="/admin/pairs" hx-target="#create-error">
+            <div class="form-control">
+                <label class="label"><span class="label-text">Nombre</span></label>
+                <input type="text" name="name" class="input input-bordered" required>
+            </div>
+            <div class="form-control mt-2">
+                <label class="label"><span class="label-text">Jugador 1</span></label>
+                <select name="player1" class="select select-bordered" required>
+                    <option value="">Seleccionar</option>
+                    {{range .Users}}
+                    <option value="{{.Id}}">{{.GetString "display_name"}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="form-control mt-2">
+                <label class="label"><span class="label-text">Jugador 2</span></label>
+                <select name="player2" class="select select-bordered" required>
+                    <option value="">Seleccionar</option>
+                    {{range .Users}}
+                    <option value="{{.Id}}">{{.GetString "display_name"}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="form-control mt-4">
+                <button type="submit" class="btn btn-primary">Crear</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+{{end}}

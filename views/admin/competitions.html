@@ -1,0 +1,134 @@
+{{define "content"}}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold">Competiciones</h1>
+    <div class="flex gap-2">
+        <select onchange="window.location='/admin/competitions?filter='+this.value" class="select select-bordered select-sm">
+            <option value="" {{if eq .Filter ""}}>selected{{end}}>Todas</option>
+            <option value="active" {{if eq .Filter "active"}}selected{{end}}>Activas</option>
+            <option value="inactive" {{if eq .Filter "inactive"}}selected{{end}}>Inactivas</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('modal-create').showModal()">Nueva competición</button>
+    </div>
+</div>
+
+<div class="overflow-x-auto">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Tipo</th>
+                <th>Categoría</th>
+                <th>Estado</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Competitions}}
+            <tr>
+                <td class="font-medium">{{.GetString "name"}}</td>
+                <td>
+                    {{if eq (.GetString "type") "league"}}
+                    <span class="badge badge-info">Liga</span>
+                    {{else}}
+                    <span class="badge badge-secondary">Playoff</span>
+                    {{end}}
+                </td>
+                <td>{{.GetString "category"}}</td>
+                <td>
+                    {{if .GetBool "active"}}
+                    <span class="badge badge-success">Activa</span>
+                    {{else}}
+                    <span class="badge badge-ghost">Inactiva</span>
+                    {{end}}
+                </td>
+                <td class="flex gap-1">
+                    <a href="/admin/competitions/{{.Id}}/pairs" class="btn btn-ghost btn-sm">Parejas</a>
+                    <button hx-post="/admin/competitions/{{.Id}}/toggle" class="btn btn-ghost btn-sm">
+                        {{if .GetBool "active"}}Desactivar{{else}}Activar{{end}}
+                    </button>
+                    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-edit-{{.Id}}').showModal()">Editar</button>
+                </td>
+            </tr>
+
+            <dialog id="modal-edit-{{.Id}}" class="modal">
+                <div class="modal-box">
+                    <h3 class="text-lg font-bold mb-4">Editar competición</h3>
+                    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+                    <div id="edit-error-{{.Id}}"></div>
+                    <form hx-post="/admin/competitions/{{.Id}}" hx-target="#edit-error-{{.Id}}">
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Nombre</span></label>
+                            <input type="text" name="name" value="{{.GetString "name"}}" class="input input-bordered" required>
+                        </div>
+                        <div class="form-control mt-2">
+                            <label class="label"><span class="label-text">Tipo</span></label>
+                            <select name="type" class="select select-bordered">
+                                <option value="league" {{if eq (.GetString "type") "league"}}selected{{end}}>Liga</option>
+                                <option value="playoff" {{if eq (.GetString "type") "playoff"}}selected{{end}}>Playoff</option>
+                            </select>
+                        </div>
+                        <div class="form-control mt-2">
+                            <label class="label"><span class="label-text">Categoría</span></label>
+                            <input type="text" name="category" value="{{.GetString "category"}}" class="input input-bordered">
+                        </div>
+                        <div class="form-control mt-2">
+                            <label class="label cursor-pointer justify-start gap-2">
+                                <input type="checkbox" name="play_twice" class="checkbox" {{if .GetBool "play_twice"}}checked{{end}}>
+                                <span class="label-text">Ida y vuelta</span>
+                            </label>
+                        </div>
+                        <div class="form-control mt-4">
+                            <button type="submit" class="btn btn-primary">Guardar</button>
+                        </div>
+                    </form>
+                </div>
+                <form method="dialog" class="modal-backdrop"><button>close</button></form>
+            </dialog>
+            {{else}}
+            <tr><td colspan="5" class="text-center text-base-content/60">No hay competiciones</td></tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+
+<dialog id="modal-create" class="modal">
+    <div class="modal-box">
+        <h3 class="text-lg font-bold mb-4">Nueva competición</h3>
+        <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+        <div id="create-error"></div>
+        <form hx-post="/admin/competitions" hx-target="#create-error">
+            <div class="form-control">
+                <label class="label"><span class="label-text">Nombre</span></label>
+                <input type="text" name="name" class="input input-bordered" required>
+            </div>
+            <div class="form-control mt-2">
+                <label class="label"><span class="label-text">Tipo</span></label>
+                <select name="type" class="select select-bordered">
+                    <option value="league">Liga</option>
+                    <option value="playoff">Playoff</option>
+                </select>
+            </div>
+            <div class="form-control mt-2">
+                <label class="label"><span class="label-text">Categoría</span></label>
+                <input type="text" name="category" class="input input-bordered">
+            </div>
+            <div class="form-control mt-2">
+                <label class="label cursor-pointer justify-start gap-2">
+                    <input type="checkbox" name="play_twice" class="checkbox">
+                    <span class="label-text">Ida y vuelta</span>
+                </label>
+            </div>
+            <div class="form-control mt-2">
+                <label class="label cursor-pointer justify-start gap-2">
+                    <input type="checkbox" name="active" class="checkbox" checked>
+                    <span class="label-text">Activa</span>
+                </label>
+            </div>
+            <div class="form-control mt-4">
+                <button type="submit" class="btn btn-primary">Crear</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+{{end}}

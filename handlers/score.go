@@ -65,7 +65,7 @@ func determineWinner(partido *core.Record, score string) (string, error) {
 	}
 
 	if sets1 > sets2 {
-		return partido.GetString("pareja1"), nil
+		return partido.GetString("pair1"), nil
 	}
-	return partido.GetString("pareja2"), nil
+	return partido.GetString("pair2"), nil
 }

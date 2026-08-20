@@ -14,113 +14,54 @@ func NewPublicHandler(app core.App, renderPage func(e *core.RequestEvent, page s
 }
 
 func (h *PublicHandler) Home(e *core.RequestEvent) error {
-	categories, err := h.app.FindAllRecords("categorias")
-	if err != nil {
-		categories = []*core.Record{}
-	}
-
-	type categoryView struct {
-		Record          *core.Record
-		ActiveSeason    *core.Record
-		HasActiveSeason bool
-	}
-
-	var catViews []categoryView
-	for _, c := range categories {
-		seasons, _ := h.app.FindRecordsByFilter("temporadas",
-			"categoria = {:cid} && active = true",
-			"", 1, 0,
-			map[string]any{"cid": c.Id})
-
-		cv := categoryView{Record: c}
-		if len(seasons) > 0 {
-			cv.ActiveSeason = seasons[0]
-			cv.HasActiveSeason = true
-		}
-		catViews = append(catViews, cv)
-	}
-
-	displayName := ""
-	if e.Auth != nil {
-		displayName = e.Auth.GetString("display_name")
-	}
+	competitions, _ := h.app.FindRecordsByFilter("competitions",
+		"active = true", "", 0, 0, nil)
 
 	return h.renderPage(e, "home.html", map[string]any{
-		"DisplayName": displayName,
-		"IsAdmin":     e.Auth != nil && e.Auth.GetString("role") == "admin",
-		"Categories":  catViews,
+		"Competitions": competitions,
 	})
 }
 
-func (h *PublicHandler) Categoria(e *core.RequestEvent) error {
+type MatchdayView struct {
+	Matchday *core.Record
+	Matches  []MatchdayMatchView
+}
+
+type MatchdayMatchView struct {
+	Match *core.Record
+	Pair1 string
+	Pair2 string
+}
+
+func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	category, err := h.app.FindRecordById("categorias", id)
+	comp, err := h.app.FindRecordById("competitions", id)
 	if err != nil {
 		return e.Redirect(302, "/")
 	}
 
-	seasons, _ := h.app.FindRecordsByFilter("temporadas",
-		"categoria = {:cat} && active = true",
-		"", 1, 0,
-		map[string]any{"cat": id})
-
-	var season *core.Record
-	var standings []StandingRowFull
-
-	if len(seasons) > 0 {
-		season = seasons[0]
-		standings, _ = ComputeStandings(h.app, season.Id)
-	}
-
-	return h.renderPage(e, "categoria.html", map[string]any{
-		"Category":  category,
-		"Season":    season,
-		"Standings": standings,
-	})
-}
-
-type JornadaView struct {
-	Jornada  *core.Record
-	Partidos []PartidoView
-}
-
-type PartidoView struct {
-	Partido *core.Record
-	Pareja1 string
-	Pareja2 string
-}
-
-func (h *PublicHandler) Temporada(e *core.RequestEvent) error {
-	id := e.Request.PathValue("id")
-	season, err := h.app.FindRecordById("temporadas", id)
-	if err != nil {
-		return e.Redirect(302, "/")
-	}
-
-	category, _ := h.app.FindRecordById("categorias", season.GetString("categoria"))
-
-	jornadas, _ := h.app.FindRecordsByFilter("jornadas",
-		"temporada = {:sid}",
+	matchdays, _ := h.app.FindRecordsByFilter("matchdays",
+		"competition = {:cid}",
 		"round_number", 0, 0,
-		map[string]any{"sid": id})
+		map[string]any{"cid": id})
 
 	allPairIDs := make(map[string]bool)
-	type jornadaPartidos struct {
-		jornada  *core.Record
-		partidos []*core.Record
+	type mdMatches struct {
+		matchday *core.Record
+		matches  []*core.Record
 	}
-	jornadaData := make([]jornadaPartidos, 0, len(jornadas))
+	mdData := make([]mdMatches, 0, len(matchdays))
 
-	for _, j := range jornadas {
-		partidos, _ := h.app.FindRecordsByFilter("partidos",
-			"jornada = {:jid}",
+	for _, md := range matchdays {
+		matches, _ := h.app.FindRecordsByFilter("matches",
+			"matchday = {:mid}",
 			"", 0, 0,
-			map[string]any{"jid": j.Id})
-		for _, p := range partidos {
-			allPairIDs[p.GetString("pareja1")] = true
-			allPairIDs[p.GetString("pareja2")] = true
+			map[string]any{"mid": md.Id})
+		for _, m := range matches {
+			allPairIDs[m.GetString("pair1")] = true
+			allPairIDs[m.GetString("pair2")] = true
 		}
-		jornadaData = append(jornadaData, jornadaPartidos{jornada: j, partidos: partidos})
+		mdData = append(mdData, mdMatches{matchday: md, matches: matches})
 	}
 
 	pairIDSlice := make([]string, 0, len(allPairIDs))
@@ -129,38 +70,34 @@ func (h *PublicHandler) Temporada(e *core.RequestEvent) error {
 	}
 	pairNames, _ := expandPairNames(h.app, pairIDSlice)
 
-	var leagueRounds, playoffRounds []JornadaView
-
-	for _, jd := range jornadaData {
-		var partidoViews []PartidoView
-		for _, p := range jd.partidos {
-			partidoViews = append(partidoViews, PartidoView{
-				Partido: p,
-				Pareja1: pairNames[p.GetString("pareja1")],
-				Pareja2: pairNames[p.GetString("pareja2")],
+	var rounds []MatchdayView
+	for _, mdd := range mdData {
+		var matchViews []MatchdayMatchView
+		for _, m := range mdd.matches {
+			matchViews = append(matchViews, MatchdayMatchView{
+				Match: m,
+				Pair1: pairNames[m.GetString("pair1")],
+				Pair2: pairNames[m.GetString("pair2")],
 			})
 		}
-		jv := JornadaView{Jornada: jd.jornada, Partidos: partidoViews}
-		if jd.jornada.GetBool("is_playoff") {
-			playoffRounds = append(playoffRounds, jv)
-		} else {
-			leagueRounds = append(leagueRounds, jv)
-		}
+		rounds = append(rounds, MatchdayView{Matchday: mdd.matchday, Matches: matchViews})
+	}
+
+	var standings []StandingRowFull
+	if comp.GetString("type") == "league" {
+		standings, _ = ComputeStandings(h.app, id)
 	}
 
 	var awards []Award
-	if !season.GetBool("active") {
+	if !comp.GetBool("active") {
 		awards = computeAwards(h.app, id)
 	}
 
-	return h.renderPage(e, "temporada.html", map[string]any{
-		"DisplayName":   e.Auth.GetString("display_name"),
-		"IsAdmin":       e.Auth.GetString("role") == "admin",
-		"Season":        season,
-		"Category":      category,
-		"LeagueRounds":  leagueRounds,
-		"PlayoffRounds": playoffRounds,
-		"IsArchived":    !season.GetBool("active"),
-		"Awards":        awards,
+	return h.renderPage(e, "competition.html", map[string]any{
+		"Competition": comp,
+		"Rounds":      rounds,
+		"Standings":   standings,
+		"Awards":      awards,
+		"IsArchived":  !comp.GetBool("active"),
 	})
 }

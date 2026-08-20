@@ -25,16 +25,15 @@
                 <div class="hidden lg:flex items-center gap-2">
                     <ul class="menu menu-horizontal px-1">
                         <li><a href="/">Inicio</a></li>
-                        {{if .DisplayName}}<li><a href="/mis-partidos">Mis partidos</a></li>{{end}}
+                        {{if .DisplayName}}<li><a href="/my-matches">Mis partidos</a></li>{{end}}
                         {{if .IsAdmin}}
                         <li>
                             <details>
                                 <summary>Gestión</summary>
                                 <ul class="bg-base-200 rounded-t-none p-2 z-10">
-                                    <li><a href="/admin/categorias">Categorías</a></li>
-                                    <li><a href="/admin/temporadas">Temporadas</a></li>
-                                    <li><a href="/admin/jugadores">Jugadores</a></li>
-                                    <li><a href="/admin/parejas">Parejas</a></li>
+                                    <li><a href="/admin/competitions">Competiciones</a></li>
+                                    <li><a href="/admin/pairs">Parejas</a></li>
+                                    <li><a href="/admin/disputes">Disputas</a></li>
                                 </ul>
                             </details>
                         </li>
@@ -76,13 +75,12 @@
             <label for="main-drawer" aria-label="cerrar menú" class="drawer-overlay"></label>
             <ul class="menu bg-base-200 min-h-full w-64 p-4">
                 <li><a href="/">Inicio</a></li>
-                {{if .DisplayName}}<li><a href="/mis-partidos">Mis partidos</a></li>{{end}}
+                {{if .DisplayName}}<li><a href="/my-matches">Mis partidos</a></li>{{end}}
                 {{if .IsAdmin}}
                 <li class="menu-title mt-4">Gestión</li>
-                <li><a href="/admin/categorias">Categorías</a></li>
-                <li><a href="/admin/temporadas">Temporadas</a></li>
-                <li><a href="/admin/jugadores">Jugadores</a></li>
-                <li><a href="/admin/parejas">Parejas</a></li>
+                <li><a href="/admin/competitions">Competiciones</a></li>
+                <li><a href="/admin/pairs">Parejas</a></li>
+                <li><a href="/admin/disputes">Disputas</a></li>
                 {{end}}
                 {{if .DisplayName}}
                 <li class="mt-auto">

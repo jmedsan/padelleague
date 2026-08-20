@@ -1,14 +1,14 @@
 {{define "content"}}
 <h1 class="text-2xl font-bold mb-6">Mis partidos</h1>
 
-{{if not .Seasons}}
+{{if not .Competitions}}
 <div class="alert alert-info">No tienes partidos asignados</div>
 {{else}}
-{{range .Seasons}}
+{{range .Competitions}}
 <div class="collapse collapse-arrow bg-base-100 shadow-md mb-4">
     <input type="checkbox" checked>
     <div class="collapse-title text-lg font-medium">
-        {{.CategoryName}} — {{.SeasonName}}
+        {{.CompetitionName}}
     </div>
     <div class="collapse-content">
         <div class="overflow-x-auto">
@@ -32,7 +32,7 @@
                         <td>{{if .Partido.GetString "scores"}}{{.Partido.GetString "scores"}}{{else}}—{{end}}</td>
                         <td><span class="badge {{.StatusClass}}">{{.StatusLabel}}</span></td>
                         <td>
-                            <a href="/partido/{{.Partido.Id}}" class="btn btn-ghost btn-xs">Ver</a>
+                            <a href="/match/{{.Partido.Id}}" class="btn btn-ghost btn-xs">Ver</a>
                         </td>
                     </tr>
                     {{end}}

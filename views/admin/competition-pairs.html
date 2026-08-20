@@ -1,0 +1,87 @@
+{{define "content"}}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold">Parejas</h1>
+        <p class="text-base-content/60">{{.Competition.GetString "name"}}</p>
+    </div>
+    <a href="/admin/competitions" class="btn btn-ghost btn-sm">← Competiciones</a>
+</div>
+
+<div id="generate-result" class="mb-4"></div>
+
+<div class="overflow-x-auto mb-6">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Pareja</th>
+                <th>Seed</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Entries}}
+            <tr>
+                <td class="font-medium">{{.PairName}}</td>
+                <td>{{if gt .Seed 0}}{{.Seed}}{{else}}—{{end}}</td>
+                <td>
+                    <form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" class="inline">
+                        <input type="hidden" name="cp_id" value="{{.CompPairID}}">
+                        <button type="submit" class="btn btn-ghost btn-sm text-error">Quitar</button>
+                    </form>
+                </td>
+            </tr>
+            {{else}}
+            <tr><td colspan="3" class="text-center text-base-content/60">No hay parejas</td></tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="card bg-base-200">
+        <div class="card-body">
+            <h3 class="card-title text-sm">Añadir pareja</h3>
+            <div id="add-error"></div>
+            <form hx-post="/admin/competitions/{{.Competition.Id}}/pairs" hx-target="#add-error">
+                <div class="form-control">
+                    <select name="pair" class="select select-bordered select-sm" required>
+                        <option value="">Seleccionar pareja</option>
+                        {{range .AllPairs}}
+                        <option value="{{.Id}}">{{.GetString "name"}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div class="form-control mt-2">
+                    <input type="number" name="seed" class="input input-bordered input-sm" placeholder="Seed (opcional)" min="1">
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm mt-2">Añadir</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card bg-base-200">
+        <div class="card-body">
+            <h3 class="card-title text-sm">Copiar parejas</h3>
+            <div id="copy-result"></div>
+            <form hx-post="/admin/competitions/{{.Competition.Id}}/copy-pairs" hx-target="#copy-result">
+                <div class="form-control">
+                    <select name="source_competition" class="select select-bordered select-sm" required>
+                        <option value="">Competición origen</option>
+                        {{range .AllCompetitions}}
+                        <option value="{{.Id}}">{{.GetString "name"}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-accent btn-sm mt-2">Copiar</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card bg-base-200">
+        <div class="card-body">
+            <h3 class="card-title text-sm">Generar calendario</h3>
+            <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" class="btn btn-secondary btn-sm mt-2">Generar</button>
+        </div>
+    </div>
+</div>
+{{end}}

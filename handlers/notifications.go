@@ -19,7 +19,7 @@ func NewNotificationHandler(app core.App, renderPage func(e *core.RequestEvent, 
 
 func (h *NotificationHandler) Count(e *core.RequestEvent) error {
 	count := 0
-	records, err := h.app.FindRecordsByFilter("notificaciones",
+	records, err := h.app.FindRecordsByFilter("notifications",
 		"user = {:uid} && read = false",
 		"", 0, 0,
 		map[string]any{"uid": e.Auth.Id})
@@ -34,7 +34,7 @@ func (h *NotificationHandler) Count(e *core.RequestEvent) error {
 }
 
 func (h *NotificationHandler) List(e *core.RequestEvent) error {
-	records, err := h.app.FindRecordsByFilter("notificaciones",
+	records, err := h.app.FindRecordsByFilter("notifications",
 		"user = {:uid}",
 		"-created", 10, 0,
 		map[string]any{"uid": e.Auth.Id})
@@ -74,7 +74,7 @@ func (h *NotificationHandler) List(e *core.RequestEvent) error {
 
 func (h *NotificationHandler) MarkRead(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	record, err := h.app.FindRecordById("notificaciones", id)
+	record, err := h.app.FindRecordById("notifications", id)
 	if err != nil {
 		return e.NoContent(http.StatusNoContent)
 	}
@@ -86,9 +86,9 @@ func (h *NotificationHandler) MarkRead(e *core.RequestEvent) error {
 	record.Set("read", true)
 	h.app.Save(record)
 
-	redirect := "/mis-partidos"
-	if related := record.GetString("related_partido"); related != "" {
-		redirect = "/partido/" + related
+	redirect := "/my-matches"
+	if related := record.GetString("related_match"); related != "" {
+		redirect = "/match/" + related
 	}
 
 	e.Response.Header().Set("HX-Redirect", redirect)
@@ -96,7 +96,7 @@ func (h *NotificationHandler) MarkRead(e *core.RequestEvent) error {
 }
 
 func (h *NotificationHandler) MarkAllRead(e *core.RequestEvent) error {
-	records, _ := h.app.FindRecordsByFilter("notificaciones",
+	records, _ := h.app.FindRecordsByFilter("notifications",
 		"user = {:uid} && read = false",
 		"", 0, 0,
 		map[string]any{"uid": e.Auth.Id})
@@ -139,7 +139,7 @@ func (h *NotificationHandler) PrefsSave(e *core.RequestEvent) error {
 
 func CheckQuorumTimeout(app core.App) {
 	cutoff := time.Now().Add(-7 * 24 * time.Hour).UTC().Format(time.RFC3339)
-	stale, err := app.FindRecordsByFilter("partidos",
+	stale, err := app.FindRecordsByFilter("matches",
 		"status = 'confirmed' && submitted_at < {:cutoff}",
 		"", 0, 0,
 		map[string]any{"cutoff": cutoff})
@@ -147,15 +147,15 @@ func CheckQuorumTimeout(app core.App) {
 		return
 	}
 
-	for _, p := range stale {
-		p.Set("status", "disputed")
-		p.Set("dispute_notes", "Timeout: sin confirmación en 7 días")
-		if err := app.Save(p); err == nil {
-			pairIDs := []string{p.GetString("pareja1"), p.GetString("pareja2")}
+	for _, m := range stale {
+		m.Set("status", "disputed")
+		m.Set("dispute_notes", "Timeout: sin confirmación en 7 días")
+		if err := app.Save(m); err == nil {
+			pairIDs := []string{m.GetString("pair1"), m.GetString("pair2")}
 			names, _ := expandPairNames(app, pairIDs)
 			notifyAdmins(app, "dispute", "Timeout de confirmación",
 				fmt.Sprintf("Partido %s vs %s sin confirmar por más de 7 días", names[pairIDs[0]], names[pairIDs[1]]),
-				p.Id)
+				m.Id)
 		}
 	}
 }

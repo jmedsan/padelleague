@@ -1,0 +1,126 @@
+{{define "content"}}
+<div class="mb-6">
+    <a href="/" class="btn btn-ghost btn-sm">← Inicio</a>
+    <h1 class="text-2xl font-bold mt-2">{{.Competition.GetString "name"}}</h1>
+    <div class="flex gap-2 mt-1">
+        {{if eq (.Competition.GetString "type") "league"}}
+        <span class="badge badge-primary">Liga</span>
+        {{else}}
+        <span class="badge badge-secondary">Playoff</span>
+        {{end}}
+        {{if .Competition.GetString "category"}}
+        <span class="badge badge-outline">{{.Competition.GetString "category"}}</span>
+        {{end}}
+        {{if .IsArchived}}
+        <span class="badge badge-ghost">Archivada</span>
+        {{end}}
+    </div>
+</div>
+
+{{if .Awards}}
+<div class="mb-6">
+    <h2 class="text-lg font-semibold mb-2">Premios</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {{range .Awards}}
+        <div class="card bg-base-200">
+            <div class="card-body p-4 text-center">
+                <h3 class="font-bold">{{.Title}}</h3>
+                <p class="text-lg">{{.PairName}}</p>
+                <p class="text-sm text-base-content/60">{{.Value}}</p>
+            </div>
+        </div>
+        {{end}}
+    </div>
+</div>
+{{end}}
+
+{{if .Standings}}
+<div class="mb-6">
+    <h2 class="text-lg font-semibold mb-2">Clasificación</h2>
+    <div class="overflow-x-auto">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Pareja</th>
+                    <th>PJ</th>
+                    <th>PG</th>
+                    <th>PP</th>
+                    <th>Sets</th>
+                    <th>Juegos</th>
+                    <th>Pts</th>
+                    <th>ELO</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Standings}}
+                <tr>
+                    <td>{{.Position}}</td>
+                    <td><a href="/h2h?p1={{.PairID}}" class="link">{{.PairName}}</a></td>
+                    <td>{{.Played}}</td>
+                    <td>{{.Wins}}</td>
+                    <td>{{.Losses}}</td>
+                    <td>{{.SetsWon}}/{{.SetsLost}}</td>
+                    <td>{{.GamesWon}}/{{.GamesLost}}</td>
+                    <td class="font-bold">{{.Points}}</td>
+                    <td>{{.ELO}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{end}}
+
+{{if .Rounds}}
+<h2 class="text-lg font-semibold mb-2">Jornadas</h2>
+{{range .Rounds}}
+<div class="collapse collapse-arrow bg-base-100 shadow-md mb-2">
+    <input type="checkbox">
+    <div class="collapse-title font-medium">
+        Jornada {{.Matchday.GetFloat "round_number" | printf "%.0f"}}
+    </div>
+    <div class="collapse-content">
+        <div class="overflow-x-auto">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Pareja 1</th>
+                        <th></th>
+                        <th>Pareja 2</th>
+                        <th>Resultado</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Matches}}
+                    <tr>
+                        <td>{{.Pair1}}</td>
+                        <td class="text-center">vs</td>
+                        <td>{{.Pair2}}</td>
+                        <td>{{if .Match.GetString "scores"}}{{.Match.GetString "scores"}}{{else}}—{{end}}</td>
+                        <td>
+                            {{if eq (.Match.GetString "status") "final"}}
+                            <span class="badge badge-success">Finalizado</span>
+                            {{else if eq (.Match.GetString "status") "disputed"}}
+                            <span class="badge badge-error">En disputa</span>
+                            {{else if eq (.Match.GetString "status") "confirmed"}}
+                            <span class="badge badge-info">Enviado</span>
+                            {{else}}
+                            <span class="badge badge-warning">Pendiente</span>
+                            {{end}}
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}
+{{end}}
+
+<div class="mt-4">
+    <a href="/ical/competition/{{.Competition.Id}}" class="btn btn-outline btn-sm">Descargar calendario .ics</a>
+</div>
+{{end}}

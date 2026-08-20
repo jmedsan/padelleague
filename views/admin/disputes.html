@@ -1,0 +1,44 @@
+{{define "content"}}
+<div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold">Disputas</h1>
+</div>
+
+{{if .Disputes}}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    {{range .Disputes}}
+    <div class="card bg-base-200">
+        <div class="card-body">
+            <h3 class="card-title text-base">{{.Pair1Name}} vs {{.Pair2Name}}</h3>
+            <div class="text-sm space-y-1">
+                <p>Marcador: <span class="font-mono font-bold">{{.Match.GetString "scores"}}</span></p>
+                <p>Enviado por: {{.SubmittedBy}}</p>
+                <p>Disputado por: <span class="text-error">{{.DisputedBy}}</span></p>
+                {{if .DisputeNotes}}
+                <p class="italic text-base-content/70">{{.DisputeNotes}}</p>
+                {{end}}
+            </div>
+            <div class="divider my-2"></div>
+            <div id="resolve-error-{{.Match.Id}}"></div>
+            <form hx-post="/admin/disputes/{{.Match.Id}}/resolve" hx-target="#resolve-error-{{.Match.Id}}">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Marcador final</span></label>
+                    <input type="text" name="score" value="{{.Match.GetString "scores"}}" class="input input-bordered input-sm" required placeholder="6-3 6-4">
+                </div>
+                <div class="form-control mt-2">
+                    <label class="label"><span class="label-text">Ganador (opcional, si el marcador es ambiguo)</span></label>
+                    <select name="winner" class="select select-bordered select-sm">
+                        <option value="">Determinar por marcador</option>
+                        <option value="{{.Match.GetString "pair1"}}">{{.Pair1Name}}</option>
+                        <option value="{{.Match.GetString "pair2"}}">{{.Pair2Name}}</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm mt-3">Resolver</button>
+            </form>
+        </div>
+    </div>
+    {{end}}
+</div>
+{{else}}
+<div class="text-center text-base-content/60 py-12">No hay partidos en disputa</div>
+{{end}}
+{{end}}
