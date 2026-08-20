@@ -48,7 +48,7 @@
         <div class="space-y-3">
         {{range .Rounds}}
         <div class="collapse collapse-arrow bg-base-100 shadow-sm rounded-xl border border-base-300">
-            <input type="checkbox">
+            <input type="checkbox" {{if and $.AutoExpandRound (eq $.AutoExpandRound .RoundNumber)}}checked{{end}}>
             <div class="collapse-title font-bold text-base">
                 Jornada {{.RoundNumber}}
             </div>

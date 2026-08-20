@@ -305,6 +305,13 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		})
 	}
 
+	for rn, matches := range roundMap {
+		sort.SliceStable(matches, func(i, j int) bool {
+			return matches[i].IsMyMatch && !matches[j].IsMyMatch
+		})
+		roundMap[rn] = matches
+	}
+
 	roundNums := make([]int, 0, len(roundMap))
 	for rn := range roundMap {
 		roundNums = append(roundNums, rn)
@@ -314,6 +321,19 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	rounds := make([]RoundView, 0, len(roundNums))
 	for _, rn := range roundNums {
 		rounds = append(rounds, RoundView{RoundNumber: rn, Matches: roundMap[rn]})
+	}
+
+	autoExpandRound := 0
+	for _, rv := range rounds {
+		for _, mv := range rv.Matches {
+			if mv.IsMyMatch && mv.Match.GetString("status") == "pending" {
+				autoExpandRound = rv.RoundNumber
+				break
+			}
+		}
+		if autoExpandRound > 0 {
+			break
+		}
 	}
 
 	var standings []StandingRowFull
@@ -330,7 +350,8 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		"Competition": comp,
 		"Rounds":      rounds,
 		"Standings":   standings,
-		"Awards":      awards,
-		"IsArchived":  !comp.GetBool("active"),
+		"Awards":         awards,
+		"IsArchived":     !comp.GetBool("active"),
+		"AutoExpandRound": autoExpandRound,
 	})
 }
