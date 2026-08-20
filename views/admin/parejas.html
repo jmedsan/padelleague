@@ -1,0 +1,77 @@
+{{define "content"}}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold">Parejas</h1>
+        <p class="text-sm text-base-content/60">Temporada: {{.Temporada.GetString "name"}}</p>
+    </div>
+    <button class="btn btn-primary" onclick="document.getElementById('modal-create').showModal()">Nueva pareja</button>
+</div>
+
+<div id="list">
+    <div class="overflow-x-auto">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Jugador 1</th>
+                    <th>Jugador 2</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Parejas}}
+                <tr>
+                    <td>{{.Number}}</td>
+                    <td>{{$p.Name1}}</td>
+                    <td>{{$p.Name2}}</td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="3" class="text-center text-base-content/50">No hay parejas registradas</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<dialog id="modal-create" class="modal">
+    <div class="modal-box">
+        <h3 class="text-lg font-bold mb-4">Nueva pareja</h3>
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <form hx-post="/admin/parejas" hx-target="#list" hx-swap="outerHTML">
+            <input type="hidden" name="temporada" value="{{.TemporadaID}}">
+            <input type="hidden" name="categoria" value="{{.CategoriaID}}">
+            <div class="form-control mb-4">
+                <label class="label"><span class="label-text">Jugador 1</span></label>
+                <select name="jugador1" class="select select-bordered w-full" required>
+                    <option value="" disabled selected>Seleccionar jugador</option>
+                    {{range .Jugadores}}
+                    {{$expand := .Expand}}
+                    <option value="{{.Id}}">
+                        {{with index $expand "user"}}{{.GetString "display_name"}}{{end}}
+                    </option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="form-control mb-4">
+                <label class="label"><span class="label-text">Jugador 2</span></label>
+                <select name="jugador2" class="select select-bordered w-full" required>
+                    <option value="" disabled selected>Seleccionar jugador</option>
+                    {{range .Jugadores}}
+                    {{$expand := .Expand}}
+                    <option value="{{.Id}}">
+                        {{with index $expand "user"}}{{.GetString "display_name"}}{{end}}
+                    </option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="modal-action">
+                <button type="submit" class="btn btn-primary">Crear pareja</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+{{end}}

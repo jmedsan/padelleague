@@ -1,17 +1,34 @@
 {{define "content"}}
 <h1 class="text-2xl font-bold mb-6">Bienvenido, {{.DisplayName}}</h1>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <div class="card bg-base-100 shadow-md">
+
+{{if .Categories}}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {{range .Categories}}
+    <a href="/categoria/{{.Record.Id}}" class="card bg-base-100 shadow-md hover:shadow-lg transition-shadow">
         <div class="card-body">
-            <h2 class="card-title">Categorías</h2>
-            <p class="text-base-content/60">No hay categorías activas</p>
+            <h2 class="card-title">
+                {{.Record.GetString "name"}}
+                {{if eq (.Record.GetString "sport_type") "padel"}}
+                <span class="badge badge-primary">Pádel</span>
+                {{else if eq (.Record.GetString "sport_type") "tennis"}}
+                <span class="badge badge-secondary">Tenis</span>
+                {{end}}
+            </h2>
+            {{if .Record.GetString "description"}}
+            <p class="text-base-content/60">{{.Record.GetString "description"}}</p>
+            {{end}}
+            {{if .HasActiveSeason}}
+            <p class="text-sm">Temporada activa: {{.ActiveSeason.GetString "name"}}</p>
+            {{else}}
+            <p class="text-sm text-base-content/40">Sin temporada activa</p>
+            {{end}}
         </div>
-    </div>
-    <div class="card bg-base-100 shadow-md">
-        <div class="card-body">
-            <h2 class="card-title">Próximos partidos</h2>
-            <p class="text-base-content/60">No hay partidos programados</p>
-        </div>
-    </div>
+    </a>
+    {{end}}
 </div>
+{{else}}
+<div class="text-center py-8">
+    <p class="text-base-content/50">No hay categorías disponibles</p>
+</div>
+{{end}}
 {{end}}

@@ -25,6 +25,19 @@
                 <div class="hidden lg:flex items-center gap-2">
                     <ul class="menu menu-horizontal px-1">
                         <li><a href="/">Inicio</a></li>
+                        {{if .IsAdmin}}
+                        <li>
+                            <details>
+                                <summary>Gestión</summary>
+                                <ul class="bg-base-200 rounded-t-none p-2 z-10">
+                                    <li><a href="/admin/categorias">Categorías</a></li>
+                                    <li><a href="/admin/temporadas">Temporadas</a></li>
+                                    <li><a href="/admin/jugadores">Jugadores</a></li>
+                                    <li><a href="/admin/parejas">Parejas</a></li>
+                                </ul>
+                            </details>
+                        </li>
+                        {{end}}
                     </ul>
                     <button class="btn btn-ghost btn-circle" aria-label="notificaciones" disabled>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block h-5 w-5 stroke-current">
@@ -48,6 +61,13 @@
             <label for="main-drawer" aria-label="cerrar menú" class="drawer-overlay"></label>
             <ul class="menu bg-base-200 min-h-full w-64 p-4">
                 <li><a href="/">Inicio</a></li>
+                {{if .IsAdmin}}
+                <li class="menu-title mt-4">Gestión</li>
+                <li><a href="/admin/categorias">Categorías</a></li>
+                <li><a href="/admin/temporadas">Temporadas</a></li>
+                <li><a href="/admin/jugadores">Jugadores</a></li>
+                <li><a href="/admin/parejas">Parejas</a></li>
+                {{end}}
                 {{if .DisplayName}}
                 <li class="mt-auto">
                     <span class="text-sm">{{.DisplayName}}</span>
