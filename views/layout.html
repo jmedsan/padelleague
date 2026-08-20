@@ -60,6 +60,11 @@
                     {{end}}
                 </div>
             </div>
+            {{if and .DisplayName (not .Verified)}}
+            <div class="alert alert-warning m-4">
+                <span>Tu email no está verificado. Revisa tu bandeja de entrada.</span>
+            </div>
+            {{end}}
             <main class="flex-1 container mx-auto p-4">
                 {{block "content" .}}{{end}}
             </main>

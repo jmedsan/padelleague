@@ -85,6 +85,7 @@ func (h *AdminHandler) DisputasResolve(e *core.RequestEvent) error {
 	allPlayers := append(getPlayersForPair(h.app, partido.GetString("pareja1")),
 		getPlayersForPair(h.app, partido.GetString("pareja2"))...)
 	notifyPlayers(h.app, allPlayers, "dispute", "Disputa resuelta", "Un administrador ha resuelto la disputa de tu partido.", partido.Id)
+	emailNotifyPlayers(h.app, allPlayers, "Disputa resuelta", "Un administrador ha resuelto la disputa de tu partido.", "/partido/"+partido.Id)
 
 	e.Response.Header().Set("HX-Redirect", "/admin/disputas")
 	return e.NoContent(http.StatusNoContent)

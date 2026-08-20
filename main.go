@@ -37,6 +37,9 @@ func renderPage(e *core.RequestEvent, page string, data map[string]any) error {
 		if _, ok := data["IsAdmin"]; !ok {
 			data["IsAdmin"] = e.Auth.GetString("role") == "admin"
 		}
+		if _, ok := data["Verified"]; !ok {
+			data["Verified"] = e.Auth.Verified()
+		}
 	}
 	html, err := registry.LoadFS(viewsFS, "views/layout.html", "views/"+page).Render(data)
 	if err != nil {
@@ -179,6 +182,18 @@ func main() {
 		se.Router.POST("/login", auth.LoginSubmit)
 		se.Router.GET("/register", auth.Register)
 		se.Router.POST("/register", auth.RegisterSubmit)
+
+		pwReset := handlers.NewPasswordResetHandler(app, renderPage)
+		se.Router.GET("/forgot-password", pwReset.ForgotPassword)
+		se.Router.POST("/forgot-password", pwReset.ForgotPasswordSubmit)
+		se.Router.GET("/reset-password", pwReset.ResetPassword)
+		se.Router.POST("/reset-password", pwReset.ResetPasswordSubmit)
+
+		resetHandler := handlers.NewPasswordResetHandler(app, renderPage)
+		se.Router.GET("/forgot-password", resetHandler.ForgotPassword)
+		se.Router.POST("/forgot-password", resetHandler.ForgotPasswordSubmit)
+		se.Router.GET("/reset-password", resetHandler.ResetPassword)
+		se.Router.POST("/reset-password", resetHandler.ResetPasswordSubmit)
 
 		pub := handlers.NewPublicHandler(app, renderPage)
 		se.Router.GET("/", pub.Home).BindFunc(requireAuthRedirect)

@@ -220,6 +220,8 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 	}
 	notifyPlayers(h.app, allPlayerIDs, "match_assigned", "Calendario generado",
 		fmt.Sprintf("Se han generado %d jornadas con %d partidos.", len(rounds), totalMatches), "")
+	emailNotifyPlayers(h.app, allPlayerIDs, "Calendario generado",
+		fmt.Sprintf("Se han generado %d jornadas con %d partidos.", len(rounds), totalMatches), "")
 
 	return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-success">Calendario generado: %d jornadas, %d partidos</div>`, len(rounds), totalMatches))
 }

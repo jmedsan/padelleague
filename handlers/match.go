@@ -343,6 +343,7 @@ func (h *MatchHandler) PartidoSubmit(e *core.RequestEvent) error {
 	}
 	rivalPlayers := getPlayersForPair(h.app, rivalParejaID)
 	notifyPlayers(h.app, rivalPlayers, "quorum_request", "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", partido.Id)
+	emailNotifyPlayers(h.app, rivalPlayers, "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", "/partido/"+partido.Id)
 
 	e.Response.Header().Set("HX-Redirect", "/mis-partidos")
 	return e.NoContent(http.StatusNoContent)
