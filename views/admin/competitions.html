@@ -1,95 +1,70 @@
 {{define "content"}}
 <div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-bold">Competiciones</h1>
-    <div class="flex gap-2">
-        <select onchange="window.location='/admin/competitions?filter='+this.value" class="select select-bordered select-sm">
-            <option value="" {{if eq .Filter ""}}>selected{{end}}>Todas</option>
-            <option value="active" {{if eq .Filter "active"}}selected{{end}}>Activas</option>
-            <option value="inactive" {{if eq .Filter "inactive"}}selected{{end}}>Inactivas</option>
-        </select>
-        <button class="btn btn-primary btn-sm" onclick="document.getElementById('modal-create').showModal()">Nueva competición</button>
+    <h1 class="text-2xl font-bold">Panel de administración</h1>
+    <button class="btn btn-primary btn-sm" onclick="document.getElementById('modal-create').showModal()">Crear competición</button>
+</div>
+
+{{if gt .DisputeCount 0}}
+<div class="alert alert-warning mb-6">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+    <span>{{.DisputeCount}} partido{{if gt .DisputeCount 1}}s{{end}} en disputa</span>
+</div>
+{{end}}
+
+<h2 class="text-lg font-semibold mb-4">Competiciones activas</h2>
+{{if .Active}}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+    {{range .Active}}
+    <a href="/admin/competitions/{{.Competition.Id}}" class="card bg-base-200 hover:bg-base-300 transition-colors cursor-pointer">
+        <div class="card-body">
+            <div class="flex justify-between items-start">
+                <h3 class="card-title text-base">{{.Competition.GetString "name"}}</h3>
+                {{if eq (.Competition.GetString "type") "league"}}
+                <span class="badge badge-info badge-sm">Liga</span>
+                {{else}}
+                <span class="badge badge-secondary badge-sm">Playoff</span>
+                {{end}}
+            </div>
+            {{if .Competition.GetString "category"}}
+            <p class="text-sm text-base-content/60">{{.Competition.GetString "category"}}</p>
+            {{end}}
+            <p class="text-sm mt-1">{{.PairsCount}} parejas · {{.PlayedMatches}}/{{.TotalMatches}} partidos jugados</p>
+            {{if gt .DisputeCount 0}}
+            <span class="badge badge-warning badge-sm mt-1">{{.DisputeCount}} disputa{{if gt .DisputeCount 1}}s{{end}}</span>
+            {{end}}
+        </div>
+    </a>
+    {{end}}
+</div>
+{{else}}
+<p class="text-base-content/60 mb-8">No hay competiciones activas</p>
+{{end}}
+
+{{if .Inactive}}
+<div class="collapse collapse-arrow bg-base-200 mb-8">
+    <input type="checkbox">
+    <div class="collapse-title font-semibold">Competiciones inactivas ({{len .Inactive}})</div>
+    <div class="collapse-content">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+            {{range .Inactive}}
+            <a href="/admin/competitions/{{.Competition.Id}}" class="card bg-base-100 hover:bg-base-300 transition-colors cursor-pointer opacity-70">
+                <div class="card-body py-3">
+                    <div class="flex justify-between items-start">
+                        <h3 class="card-title text-sm">{{.Competition.GetString "name"}}</h3>
+                        {{if eq (.Competition.GetString "type") "league"}}
+                        <span class="badge badge-info badge-outline badge-sm">Liga</span>
+                        {{else}}
+                        <span class="badge badge-secondary badge-outline badge-sm">Playoff</span>
+                        {{end}}
+                    </div>
+                    <p class="text-xs">{{.PairsCount}} parejas · {{.PlayedMatches}}/{{.TotalMatches}} partidos</p>
+                </div>
+            </a>
+            {{end}}
+        </div>
     </div>
 </div>
-
-<div class="overflow-x-auto">
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Nombre</th>
-                <th>Tipo</th>
-                <th>Categoría</th>
-                <th>Estado</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Competitions}}
-            <tr>
-                <td class="font-medium">{{.GetString "name"}}</td>
-                <td>
-                    {{if eq (.GetString "type") "league"}}
-                    <span class="badge badge-info">Liga</span>
-                    {{else}}
-                    <span class="badge badge-secondary">Playoff</span>
-                    {{end}}
-                </td>
-                <td>{{.GetString "category"}}</td>
-                <td>
-                    {{if .GetBool "active"}}
-                    <span class="badge badge-success">Activa</span>
-                    {{else}}
-                    <span class="badge badge-ghost">Inactiva</span>
-                    {{end}}
-                </td>
-                <td class="flex gap-1">
-                    <a href="/admin/competitions/{{.Id}}/pairs" class="btn btn-ghost btn-sm">Parejas</a>
-                    <button hx-post="/admin/competitions/{{.Id}}/toggle" class="btn btn-ghost btn-sm">
-                        {{if .GetBool "active"}}Desactivar{{else}}Activar{{end}}
-                    </button>
-                    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-edit-{{.Id}}').showModal()">Editar</button>
-                </td>
-            </tr>
-
-            <dialog id="modal-edit-{{.Id}}" class="modal">
-                <div class="modal-box">
-                    <h3 class="text-lg font-bold mb-4">Editar competición</h3>
-                    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
-                    <div id="edit-error-{{.Id}}"></div>
-                    <form hx-post="/admin/competitions/{{.Id}}" hx-target="#edit-error-{{.Id}}">
-                        <div class="form-control">
-                            <label class="label"><span class="label-text">Nombre</span></label>
-                            <input type="text" name="name" value="{{.GetString "name"}}" class="input input-bordered" required>
-                        </div>
-                        <div class="form-control mt-2">
-                            <label class="label"><span class="label-text">Tipo</span></label>
-                            <select name="type" class="select select-bordered">
-                                <option value="league" {{if eq (.GetString "type") "league"}}selected{{end}}>Liga</option>
-                                <option value="playoff" {{if eq (.GetString "type") "playoff"}}selected{{end}}>Playoff</option>
-                            </select>
-                        </div>
-                        <div class="form-control mt-2">
-                            <label class="label"><span class="label-text">Categoría</span></label>
-                            <input type="text" name="category" value="{{.GetString "category"}}" class="input input-bordered">
-                        </div>
-                        <div class="form-control mt-2">
-                            <label class="label cursor-pointer justify-start gap-2">
-                                <input type="checkbox" name="play_twice" class="checkbox" {{if .GetBool "play_twice"}}checked{{end}}>
-                                <span class="label-text">Ida y vuelta</span>
-                            </label>
-                        </div>
-                        <div class="form-control mt-4">
-                            <button type="submit" class="btn btn-primary">Guardar</button>
-                        </div>
-                    </form>
-                </div>
-                <form method="dialog" class="modal-backdrop"><button>close</button></form>
-            </dialog>
-            {{else}}
-            <tr><td colspan="5" class="text-center text-base-content/60">No hay competiciones</td></tr>
-            {{end}}
-        </tbody>
-    </table>
-</div>
+{{end}}
 
 <dialog id="modal-create" class="modal">
     <div class="modal-box">

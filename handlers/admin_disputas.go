@@ -84,6 +84,7 @@ func (h *AdminHandler) DisputesResolve(e *core.RequestEvent) error {
 	notifyPlayers(h.app, allPlayers, "dispute", "Disputa resuelta", "Un administrador ha resuelto la disputa de tu partido.", match.Id)
 	emailNotifyPlayers(h.app, allPlayers, "Disputa resuelta", "Un administrador ha resuelto la disputa de tu partido.", "/match/"+match.Id)
 
-	e.Response.Header().Set("HX-Redirect", "/admin/disputes")
+	compID := match.GetString("competition")
+	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID)
 	return e.NoContent(http.StatusNoContent)
 }

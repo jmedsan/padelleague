@@ -86,7 +86,7 @@ func (h *NotificationHandler) MarkRead(e *core.RequestEvent) error {
 	record.Set("read", true)
 	h.app.Save(record)
 
-	redirect := "/my-matches"
+	redirect := "/"
 	if related := record.GetString("related_match"); related != "" {
 		redirect = "/match/" + related
 	}

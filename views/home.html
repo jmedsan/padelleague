@@ -1,21 +1,25 @@
 {{define "content"}}
-<h1 class="text-2xl font-bold mb-6">Bienvenido, {{.DisplayName}}</h1>
+<h1 class="text-2xl font-bold mb-6">Hola, {{.DisplayName}}</h1>
 
 {{if .Competitions}}
+<h2 class="text-lg font-semibold mb-3">Mis competiciones</h2>
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     {{range .Competitions}}
-    <a href="/competition/{{.Id}}" class="card bg-base-100 shadow-md hover:shadow-lg transition-shadow">
+    <a href="/competition/{{.Competition.Id}}" class="card bg-base-100 shadow-md hover:shadow-lg transition-shadow">
         <div class="card-body">
             <h2 class="card-title">
-                {{.GetString "name"}}
-                {{if eq (.GetString "type") "league"}}
+                {{.Competition.GetString "name"}}
+                {{if eq (.Competition.GetString "type") "league"}}
                 <span class="badge badge-primary">Liga</span>
                 {{else}}
                 <span class="badge badge-secondary">Playoff</span>
                 {{end}}
             </h2>
-            {{if .GetString "category"}}
-            <p class="text-base-content/60">{{.GetString "category"}}</p>
+            {{if .Competition.GetString "category"}}
+            <p class="text-base-content/60">{{.Competition.GetString "category"}}</p>
+            {{end}}
+            {{if gt .PendingMatches 0}}
+            <div class="badge badge-warning gap-1">{{.PendingMatches}} pendiente{{if gt .PendingMatches 1}}s{{end}}</div>
             {{end}}
         </div>
     </a>
@@ -23,7 +27,16 @@
 </div>
 {{else}}
 <div class="text-center py-8">
-    <p class="text-base-content/50">No hay competiciones activas</p>
+    <p class="text-base-content/50">No participas en ninguna competición activa</p>
+</div>
+{{end}}
+
+{{if .IsAdmin}}
+<div class="divider mt-8"></div>
+<div class="flex gap-2">
+    <a href="/admin/competitions" class="btn btn-outline btn-sm">Gestionar competiciones</a>
+    <a href="/admin/pairs" class="btn btn-outline btn-sm">Gestionar parejas</a>
+    <a href="/admin/disputes" class="btn btn-outline btn-sm">Disputas</a>
 </div>
 {{end}}
 {{end}}

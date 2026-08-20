@@ -1,0 +1,305 @@
+{{define "content"}}
+<div class="flex justify-between items-center mb-6">
+    <div class="flex items-center gap-3">
+        <a href="/admin" class="btn btn-ghost btn-sm">←</a>
+        <div>
+            <h1 class="text-2xl font-bold inline">{{.Competition.GetString "name"}}</h1>
+            {{if eq (.Competition.GetString "type") "league"}}
+                <span class="badge badge-primary ml-2">Liga</span>
+            {{else}}
+                <span class="badge badge-secondary ml-2">Playoff</span>
+            {{end}}
+            {{if .Competition.GetString "category"}}
+                <span class="badge badge-outline ml-1">{{.Competition.GetString "category"}}</span>
+            {{end}}
+        </div>
+    </div>
+    <div class="flex gap-2">
+        <form hx-post="/admin/competitions/{{.Competition.Id}}/toggle" class="inline">
+            {{if .Competition.GetBool "active"}}
+                <button type="submit" class="btn btn-warning btn-sm">Desactivar</button>
+            {{else}}
+                <button type="submit" class="btn btn-success btn-sm">Activar</button>
+            {{end}}
+        </form>
+        <label for="edit-modal" class="btn btn-ghost btn-sm">Editar</label>
+    </div>
+</div>
+
+<!-- Edit modal -->
+<input type="checkbox" id="edit-modal" class="modal-toggle">
+<div class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">Editar competición</h3>
+        <form hx-post="/admin/competitions/{{.Competition.Id}}">
+            <div class="form-control mb-3">
+                <label class="label"><span class="label-text">Nombre</span></label>
+                <input type="text" name="name" value="{{.Competition.GetString "name"}}" class="input input-bordered" required>
+            </div>
+            <div class="form-control mb-3">
+                <label class="label"><span class="label-text">Tipo</span></label>
+                <select name="type" class="select select-bordered">
+                    <option value="league" {{if eq (.Competition.GetString "type") "league"}}selected{{end}}>Liga</option>
+                    <option value="playoff" {{if eq (.Competition.GetString "type") "playoff"}}selected{{end}}>Playoff</option>
+                </select>
+            </div>
+            <div class="form-control mb-3">
+                <label class="label"><span class="label-text">Categoría</span></label>
+                <input type="text" name="category" value="{{.Competition.GetString "category"}}" class="input input-bordered">
+            </div>
+            <div class="form-control mb-3">
+                <label class="cursor-pointer label justify-start gap-3">
+                    <input type="checkbox" name="play_twice" class="checkbox" {{if .Competition.GetBool "play_twice"}}checked{{end}}>
+                    <span class="label-text">Ida y vuelta</span>
+                </label>
+            </div>
+            <div class="modal-action">
+                <label for="edit-modal" class="btn btn-ghost">Cancelar</label>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
+    <label class="modal-backdrop" for="edit-modal"></label>
+</div>
+
+<!-- Parejas -->
+<div class="card bg-base-200 mb-6">
+    <div class="card-body">
+        <h2 class="card-title">Parejas</h2>
+
+        {{if .Entries}}
+        <div class="overflow-x-auto">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Pareja</th>
+                        {{if not .IsLeague}}<th>Cabeza de serie</th>{{end}}
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Entries}}
+                    <tr>
+                        <td class="font-medium">{{.PairName}}</td>
+                        {{if not $.IsLeague}}<td>{{if gt .Seed 0}}{{.Seed}}{{else}}—{{end}}</td>{{end}}
+                        <td class="text-right">
+                            <form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" class="inline">
+                                <input type="hidden" name="pair_id" value="{{.PairID}}">
+                                <button type="submit" class="btn btn-ghost btn-xs text-error">Quitar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <p class="text-base-content/60 text-sm">No hay parejas en esta competición.</p>
+        {{end}}
+
+        <div class="divider text-sm">Añadir</div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <p class="text-sm font-semibold mb-2">Desde el listado</p>
+                <div id="add-pair-result"></div>
+                <form hx-post="/admin/competitions/{{.Competition.Id}}/pairs" hx-target="#add-pair-result">
+                    <select name="pair" class="select select-bordered select-sm w-full" required>
+                        <option value="">Seleccionar pareja</option>
+                        {{range .AllPairs}}
+                        <option value="{{.Id}}">{{.GetString "name"}}</option>
+                        {{end}}
+                    </select>
+                    {{if not .IsLeague}}
+                    <input type="number" name="seed" class="input input-bordered input-sm w-full mt-2" placeholder="Nº cabeza de serie" min="1">
+                    {{end}}
+                    <button type="submit" class="btn btn-primary btn-sm mt-2">Añadir</button>
+                </form>
+            </div>
+
+            <div>
+                <p class="text-sm font-semibold mb-2">Copiar de otra competición</p>
+                <div id="copy-result"></div>
+                <form hx-post="/admin/competitions/{{.Competition.Id}}/copy-pairs" hx-target="#copy-result">
+                    <select name="source_competition" class="select select-bordered select-sm w-full" required>
+                        <option value="">Competición origen</option>
+                        {{range .AllCompetitions}}
+                        <option value="{{.Id}}">{{.GetString "name"}}</option>
+                        {{end}}
+                    </select>
+                    <button type="submit" class="btn btn-accent btn-sm mt-2">Copiar</button>
+                </form>
+            </div>
+
+            <div>
+                <p class="text-sm font-semibold mb-2">Crear nueva pareja</p>
+                <div id="create-pair-result"></div>
+                <form hx-post="/admin/pairs" hx-target="#create-pair-result">
+                    <input type="text" name="name" class="input input-bordered input-sm w-full" placeholder="Nombre de la pareja" required>
+                    <select name="player1" class="select select-bordered select-sm w-full mt-2" required>
+                        <option value="">Jugador 1</option>
+                        {{range .AllUsers}}
+                        <option value="{{.Id}}">{{.GetString "display_name"}}</option>
+                        {{end}}
+                    </select>
+                    <select name="player2" class="select select-bordered select-sm w-full mt-2" required>
+                        <option value="">Jugador 2</option>
+                        {{range .AllUsers}}
+                        <option value="{{.Id}}">{{.GetString "display_name"}}</option>
+                        {{end}}
+                    </select>
+                    <button type="submit" class="btn btn-secondary btn-sm mt-2">Crear pareja</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Calendario -->
+<div class="card bg-base-200 mb-6">
+    <div class="card-body">
+        <h2 class="card-title">Calendario</h2>
+
+        <div id="generate-result" class="mb-2"></div>
+
+        <div class="mb-4">
+            {{if .HasFixtures}}
+                <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" class="btn btn-warning btn-sm">Regenerar calendario</button>
+            {{else}}
+                <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" class="btn btn-primary btn-sm">Generar calendario</button>
+            {{end}}
+        </div>
+
+        {{if .HasFixtures}}
+        {{range .Rounds}}
+        <div class="collapse collapse-arrow bg-base-100 mb-2">
+            <input type="checkbox">
+            <div class="collapse-title font-medium">Jornada {{.Number}}</div>
+            <div class="collapse-content">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Local</th>
+                            <th></th>
+                            <th>Visitante</th>
+                            <th>Resultado</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .Matches}}
+                        <tr>
+                            <td>{{.Pair1Name}}</td>
+                            <td class="text-center text-base-content/40">vs</td>
+                            <td>{{.Pair2Name}}</td>
+                            <td>{{if .Match.GetString "scores"}}{{.Match.GetString "scores"}}{{else}}—{{end}}</td>
+                            <td>
+                                {{$status := .Match.GetString "status"}}
+                                {{if eq $status "pending"}}<span class="badge badge-warning badge-sm">Pendiente</span>
+                                {{else if eq $status "confirmed"}}<span class="badge badge-info badge-sm">Enviado</span>
+                                {{else if eq $status "disputed"}}<span class="badge badge-error badge-sm">Disputado</span>
+                                {{else if eq $status "final"}}<span class="badge badge-success badge-sm">Finalizado</span>
+                                {{end}}
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {{end}}
+        {{else}}
+        <p class="text-base-content/60 text-sm">No hay calendario generado. Añade parejas y genera el calendario.</p>
+        {{end}}
+    </div>
+</div>
+
+<!-- Disputas -->
+{{if .Disputes}}
+<div class="card bg-base-200 mb-6">
+    <div class="card-body">
+        <h2 class="card-title text-error">Disputas</h2>
+        {{range .Disputes}}
+        <div class="card bg-base-100 mb-3">
+            <div class="card-body p-4">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="font-semibold">{{.Pair1Name}} vs {{.Pair2Name}}</p>
+                        <p class="text-sm text-base-content/60">
+                            Resultado enviado: {{.Match.GetString "scores"}}
+                        </p>
+                        <p class="text-sm">Enviado por: <span class="font-medium">{{.SubmittedBy}}</span></p>
+                        <p class="text-sm">Disputado por: <span class="font-medium">{{.DisputedBy}}</span></p>
+                        {{if .DisputeNotes}}
+                        <p class="text-sm mt-1 italic">"{{.DisputeNotes}}"</p>
+                        {{end}}
+                    </div>
+                </div>
+                <div class="divider my-1"></div>
+                <form hx-post="/admin/disputes/{{.Match.Id}}/resolve" class="flex flex-wrap gap-2 items-end">
+                    <div class="form-control">
+                        <label class="label py-0"><span class="label-text text-xs">Marcador final</span></label>
+                        <input type="text" name="score" class="input input-bordered input-sm w-32" placeholder="6-4 6-3" required>
+                    </div>
+                    <div class="form-control">
+                        <label class="label py-0"><span class="label-text text-xs">Ganador (opcional)</span></label>
+                        <select name="winner" class="select select-bordered select-sm">
+                            <option value="">Automático</option>
+                            <option value="{{.Match.GetString "pair1"}}">{{.Pair1Name}}</option>
+                            <option value="{{.Match.GetString "pair2"}}">{{.Pair2Name}}</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">Resolver</button>
+                </form>
+            </div>
+        </div>
+        {{end}}
+    </div>
+</div>
+{{end}}
+
+<!-- Clasificación -->
+{{if .IsLeague}}
+<div class="card bg-base-200 mb-6">
+    <div class="card-body">
+        <h2 class="card-title">Clasificación</h2>
+        {{if .Standings}}
+        <div class="overflow-x-auto">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Pareja</th>
+                        <th>PJ</th>
+                        <th>PG</th>
+                        <th>PP</th>
+                        <th>Sets</th>
+                        <th>Juegos</th>
+                        <th>Pts</th>
+                        <th>ELO</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Standings}}
+                    <tr>
+                        <td>{{.Position}}</td>
+                        <td class="font-medium">{{.PairName}}</td>
+                        <td>{{.Played}}</td>
+                        <td>{{.Wins}}</td>
+                        <td>{{.Losses}}</td>
+                        <td>{{.SetsWon}}-{{.SetsLost}}</td>
+                        <td>{{.GamesWon}}-{{.GamesLost}}</td>
+                        <td class="font-bold">{{.Points}}</td>
+                        <td>{{.ELO}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <p class="text-base-content/60 text-sm">No hay datos de clasificación todavía.</p>
+        {{end}}
+    </div>
+</div>
+{{end}}
+{{end}}

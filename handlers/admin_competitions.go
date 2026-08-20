@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -18,27 +19,164 @@ func NewCompetitionHandler(app core.App, renderPage func(e *core.RequestEvent, p
 	return &CompetitionHandler{app: app, renderPage: renderPage}
 }
 
-func (h *CompetitionHandler) List(e *core.RequestEvent) error {
-	filter := e.Request.URL.Query().Get("filter")
-	var competitions []*core.Record
-	var err error
+type CompetitionSummary struct {
+	Competition  *core.Record
+	PairsCount   int
+	TotalMatches int
+	PlayedMatches int
+	DisputeCount int
+}
 
-	switch filter {
-	case "active":
-		competitions, err = h.app.FindRecordsByFilter("competitions", "active = true", "-created", 0, 0, nil)
-	case "inactive":
-		competitions, err = h.app.FindRecordsByFilter("competitions", "active = false", "-created", 0, 0, nil)
-	default:
-		competitions, err = h.app.FindRecordsByFilter("competitions", "", "-created", 0, 0, nil)
+func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
+	allComps, _ := h.app.FindRecordsByFilter("competitions", "", "-created", 0, 0, nil)
+
+	var active, inactive []CompetitionSummary
+	for _, comp := range allComps {
+		pairsCount := len(comp.GetStringSlice("pairs"))
+
+		allMatches, _ := h.app.FindRecordsByFilter("matches",
+			"competition = {:cid}", "", 0, 0,
+			map[string]any{"cid": comp.Id})
+		playedMatches := 0
+		disputeCount := 0
+		for _, m := range allMatches {
+			if m.GetString("status") == "final" {
+				playedMatches++
+			}
+			if m.GetString("status") == "disputed" {
+				disputeCount++
+			}
+		}
+
+		summary := CompetitionSummary{
+			Competition:   comp,
+			PairsCount:    pairsCount,
+			TotalMatches:  len(allMatches),
+			PlayedMatches: playedMatches,
+			DisputeCount:  disputeCount,
+		}
+
+		if comp.GetBool("active") {
+			active = append(active, summary)
+		} else {
+			inactive = append(inactive, summary)
+		}
 	}
-	if err != nil {
-		competitions = []*core.Record{}
-	}
+
+	totalDisputes, _ := h.app.FindRecordsByFilter("matches",
+		"status = 'disputed'", "", 0, 0, nil)
 
 	return h.renderPage(e, "admin/competitions.html", map[string]any{
-		"Competitions": competitions,
-		"Filter":       filter,
+		"Active":       active,
+		"Inactive":     inactive,
+		"DisputeCount": len(totalDisputes),
 	})
+}
+
+func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	comp, err := h.app.FindRecordById("competitions", id)
+	if err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competición no encontrada</div>`)
+	}
+
+	pairIDs := comp.GetStringSlice("pairs")
+	seeding := h.getSeeding(comp)
+
+	type pairEntry struct {
+		PairID   string
+		PairName string
+		Seed     int
+	}
+	var pairEntries []pairEntry
+	for _, pid := range pairIDs {
+		pair, err := h.app.FindRecordById("pairs", pid)
+		if err != nil {
+			continue
+		}
+		pairEntries = append(pairEntries, pairEntry{
+			PairID:   pid,
+			PairName: pair.GetString("name"),
+			Seed:     seeding[pid],
+		})
+	}
+
+	allPairs, _ := h.app.FindAllRecords("pairs")
+	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != {:cid}", "-created", 0, 0, map[string]any{"cid": id})
+
+	matches, _ := h.app.FindRecordsByFilter("matches",
+		"competition = {:cid}", "round_number", 0, 0,
+		map[string]any{"cid": id})
+
+	pairNameMap, _ := expandPairNames(h.app, pairIDs)
+
+	type matchEntry struct {
+		Match      *core.Record
+		Pair1Name  string
+		Pair2Name  string
+		RoundNum   int
+	}
+	roundMap := map[int][]matchEntry{}
+	for _, m := range matches {
+		rn := int(m.GetFloat("round_number"))
+		roundMap[rn] = append(roundMap[rn], matchEntry{
+			Match:     m,
+			Pair1Name: pairNameMap[m.GetString("pair1")],
+			Pair2Name: pairNameMap[m.GetString("pair2")],
+			RoundNum:  rn,
+		})
+	}
+
+	type roundGroup struct {
+		Number  int
+		Matches []matchEntry
+	}
+	var rounds []roundGroup
+	for rn, ms := range roundMap {
+		rounds = append(rounds, roundGroup{Number: rn, Matches: ms})
+	}
+	sort.Slice(rounds, func(i, j int) bool {
+		return rounds[i].Number < rounds[j].Number
+	})
+
+	var disputes []DisputeView
+	for _, m := range matches {
+		if m.GetString("status") != "disputed" {
+			continue
+		}
+		disputes = append(disputes, DisputeView{
+			Match:        m,
+			Pair1Name:    pairNameMap[m.GetString("pair1")],
+			Pair2Name:    pairNameMap[m.GetString("pair2")],
+			SubmittedBy:  resolvePlayerName(h.app, m.GetString("submitted_by")),
+			DisputedBy:   resolvePlayerName(h.app, m.GetString("disputed_by")),
+			DisputeNotes: m.GetString("dispute_notes"),
+		})
+	}
+
+	var standings []StandingRowFull
+	if comp.GetString("type") == "league" {
+		standings, _ = ComputeStandings(h.app, id)
+	}
+
+	allUsers, _ := h.app.FindRecordsByFilter("users", "role = 'player'", "display_name", 0, 0, nil)
+
+	return h.renderPage(e, "admin/competition-detail.html", map[string]any{
+		"Competition":     comp,
+		"Entries":         pairEntries,
+		"AllPairs":        allPairs,
+		"AllCompetitions": allComps,
+		"AllUsers":        allUsers,
+		"Rounds":          rounds,
+		"Disputes":        disputes,
+		"Standings":       standings,
+		"IsLeague":        comp.GetString("type") == "league",
+		"HasFixtures":     len(matches) > 0,
+	})
+}
+
+func (h *CompetitionHandler) List(e *core.RequestEvent) error {
+	return h.Dashboard(e)
 }
 
 func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
@@ -178,7 +316,7 @@ func (h *CompetitionHandler) AddPair(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID+"/pairs")
+	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID)
 	return e.NoContent(http.StatusNoContent)
 }
 
@@ -208,7 +346,7 @@ func (h *CompetitionHandler) RemovePair(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID+"/pairs")
+	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID)
 	return e.NoContent(http.StatusNoContent)
 }
 

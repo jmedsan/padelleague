@@ -134,14 +134,15 @@ func main() {
 			handlers.CheckQuorumTimeout(app)
 			return e.Next()
 		})
-		adminGroup.GET("/competitions", comp.List)
+		adminGroup.GET("", comp.Dashboard)
+		adminGroup.GET("/competitions", comp.Dashboard)
 		adminGroup.POST("/competitions", comp.Create)
+		adminGroup.GET("/competitions/{id}", comp.Detail)
 		adminGroup.POST("/competitions/{id}", comp.Update)
 		adminGroup.POST("/competitions/{id}/toggle", comp.Toggle)
-		adminGroup.GET("/competitions/{id}/pairs", comp.ListPairs)
 		adminGroup.POST("/competitions/{id}/pairs", comp.AddPair)
 		adminGroup.POST("/competitions/{id}/copy-pairs", comp.CopyPairs)
-			adminGroup.POST("/competitions/{id}/remove-pair", comp.RemovePair)
+		adminGroup.POST("/competitions/{id}/remove-pair", comp.RemovePair)
 
 		fixture := handlers.NewFixtureHandler(app, renderPage)
 		adminGroup.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
@@ -149,6 +150,8 @@ func main() {
 		adminGroup.GET("/pairs", admin.Pairs)
 		adminGroup.POST("/pairs", admin.PairsCreate)
 		adminGroup.POST("/pairs/{id}", admin.PairsUpdate)
+
+		adminGroup.GET("/players", admin.Players)
 
 		adminGroup.GET("/disputes", admin.Disputes)
 		adminGroup.POST("/disputes/{id}/resolve", admin.DisputesResolve)
@@ -158,7 +161,6 @@ func main() {
 		se.Router.GET("/h2h", player.H2H).BindFunc(requireAuthRedirect)
 
 		match := handlers.NewMatchHandler(app, renderPage)
-		se.Router.GET("/my-matches", match.MyMatches).BindFunc(requireAuthRedirect)
 		se.Router.GET("/match/{id}", match.MatchDetail).BindFunc(requireAuthRedirect)
 		se.Router.POST("/match/{id}/submit", match.MatchSubmit).BindFunc(requireAuthRedirect)
 		se.Router.POST("/match/{id}/confirm", match.MatchConfirm).BindFunc(requireAuthRedirect)

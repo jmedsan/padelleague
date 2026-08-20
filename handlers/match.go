@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"sort"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -112,79 +111,6 @@ func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNam
 	}
 }
 
-type CompetitionMatchGroup struct {
-	CompetitionName string
-	Matches         []MatchView
-}
-
-func (h *MatchHandler) MyMatches(e *core.RequestEvent) error {
-	userID := e.Auth.Id
-
-	pairs, _ := findPairsForPlayer(h.app, userID)
-	if len(pairs) == 0 {
-		return h.renderPage(e, "mis-partidos.html", map[string]any{
-			"Competitions": []CompetitionMatchGroup{},
-		})
-	}
-
-	var allMatches []*core.Record
-	for _, p := range pairs {
-		matches, _ := h.app.FindRecordsByFilter("matches",
-			"pair1 = {:pid} || pair2 = {:pid}",
-			"", 0, 0,
-			map[string]any{"pid": p.Id})
-		allMatches = append(allMatches, matches...)
-	}
-
-	seen := make(map[string]bool)
-	var uniqueMatches []*core.Record
-	for _, m := range allMatches {
-		if !seen[m.Id] {
-			seen[m.Id] = true
-			uniqueMatches = append(uniqueMatches, m)
-		}
-	}
-
-	pairIDSet := make(map[string]bool)
-	for _, m := range uniqueMatches {
-		pairIDSet[m.GetString("pair1")] = true
-		pairIDSet[m.GetString("pair2")] = true
-	}
-	pairIDSlice := make([]string, 0, len(pairIDSet))
-	for id := range pairIDSet {
-		pairIDSlice = append(pairIDSlice, id)
-	}
-	pairNames, _ := expandPairNames(h.app, pairIDSlice)
-
-	compGroups := map[string]*CompetitionMatchGroup{}
-	for _, m := range uniqueMatches {
-		mv := h.buildMatchView(m, userID, pairNames)
-		compID := m.GetString("competition")
-		if _, ok := compGroups[compID]; !ok {
-			comp, err := h.app.FindRecordById("competitions", compID)
-			if err != nil {
-				continue
-			}
-			compGroups[compID] = &CompetitionMatchGroup{
-				CompetitionName: comp.GetString("name"),
-			}
-		}
-		compGroups[compID].Matches = append(compGroups[compID].Matches, mv)
-	}
-
-	competitions := make([]CompetitionMatchGroup, 0, len(compGroups))
-	for _, cg := range compGroups {
-		sort.Slice(cg.Matches, func(i, j int) bool {
-			return cg.Matches[i].JornadaNum < cg.Matches[j].JornadaNum
-		})
-		competitions = append(competitions, *cg)
-	}
-
-	return h.renderPage(e, "mis-partidos.html", map[string]any{
-		"Competitions": competitions,
-	})
-}
-
 func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
@@ -206,8 +132,9 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	mv := h.buildMatchView(match, userID, pairNames)
 
 	compName := ""
-	if cid := match.GetString("competition"); cid != "" {
-		comp, _ := h.app.FindRecordById("competitions", cid)
+	compID := match.GetString("competition")
+	if compID != "" {
+		comp, _ := h.app.FindRecordById("competitions", compID)
 		if comp != nil {
 			compName = comp.GetString("name")
 		}
@@ -241,6 +168,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	return h.renderPage(e, "partido.html", map[string]any{
 		"Match":           mv,
 		"CompetitionName": compName,
+		"CompetitionID":   compID,
 		"SubmittedBy":     submittedByName,
 		"ConfirmedBy":     confirmedByName,
 		"DisputedBy":      disputedByName,
@@ -302,7 +230,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	notifyPlayers(h.app, rivalPlayers, "quorum_request", "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", match.Id)
 	emailNotifyPlayers(h.app, rivalPlayers, "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", "/match/"+match.Id)
 
-	e.Response.Header().Set("HX-Redirect", "/my-matches")
+	e.Response.Header().Set("HX-Redirect", "/")
 	return e.NoContent(http.StatusNoContent)
 }
 
