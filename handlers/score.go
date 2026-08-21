@@ -38,17 +38,35 @@ func parseScore(score string) (sets1, sets2, games1, games2 int, err error) {
 		}
 		games1 += g1
 		games2 += g2
+		winner, loser := g1, g2
+		if g2 > g1 {
+			winner, loser = g2, g1
+		}
+		if g1 == g2 {
+			return 0, 0, 0, 0, fmt.Errorf("tied set not allowed: %q", part)
+		}
+		if winner < 6 || winner > 7 {
+			return 0, 0, 0, 0, fmt.Errorf("invalid set score: %q", part)
+		}
+		if winner == 7 && loser != 5 && loser != 6 {
+			return 0, 0, 0, 0, fmt.Errorf("invalid set score: %q", part)
+		}
+		if winner == 6 && loser > 4 {
+			return 0, 0, 0, 0, fmt.Errorf("invalid set score: %q", part)
+		}
 		if g1 > g2 {
 			sets1++
-		} else if g2 > g1 {
-			sets2++
 		} else {
-			return 0, 0, 0, 0, fmt.Errorf("tied set not allowed: %q", part)
+			sets2++
 		}
 	}
 
-	if sets1 == sets2 {
-		return 0, 0, 0, 0, fmt.Errorf("tied match: %d-%d sets", sets1, sets2)
+	numSets := len(parts)
+	if numSets < 2 || numSets > 3 {
+		return 0, 0, 0, 0, fmt.Errorf("invalid number of sets: %d", numSets)
+	}
+	if sets1 != 2 && sets2 != 2 {
+		return 0, 0, 0, 0, fmt.Errorf("winner must have exactly 2 sets")
 	}
 
 	return sets1, sets2, games1, games2, nil
