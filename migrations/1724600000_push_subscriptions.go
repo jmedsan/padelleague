@@ -21,7 +21,7 @@ func init() {
 		)
 		subs.ListRule = strPtr("user = @request.auth.id")
 		subs.ViewRule = strPtr("user = @request.auth.id")
-		subs.CreateRule = strPtr("@request.auth.id != ''")
+		subs.CreateRule = strPtr("@request.auth.id != '' && user = @request.auth.id")
 		subs.UpdateRule = strPtr("user = @request.auth.id")
 		subs.DeleteRule = strPtr("user = @request.auth.id")
 
