@@ -143,6 +143,10 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Debes indicar el marcador corregido</div>`)
 	}
 
+	if _, _, _, _, err := parseScore(scores); err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Marcador no valido</div>`)
+	}
+
 	match.Set("scores", scores)
 	match.Set("confirmed_by", "")
 	match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))

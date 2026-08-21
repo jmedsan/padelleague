@@ -39,6 +39,8 @@ function urlBase64ToUint8Array(base64String) {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(sub.toJSON())
                         });
+                    }).catch(function() {
+                        toggle.checked = false;
                     });
                 });
             });
