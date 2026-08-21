@@ -9,6 +9,16 @@
     <form method="POST" action="/profile/notifications">
         <div class="card bg-base-100 shadow-md">
             <div class="card-body space-y-4">
+                {{if .VAPIDPublicKey}}
+                <div class="form-control">
+                    <label class="label cursor-pointer">
+                        <span class="label-text">Notificaciones push</span>
+                        <input type="checkbox" id="push-toggle" class="toggle toggle-primary">
+                    </label>
+                    <span class="label-text-alt text-base-content/50">Recibe notificaciones en tu dispositivo</span>
+                </div>
+                <div class="divider my-1"></div>
+                {{end}}
                 <div class="form-control">
                     <label class="label cursor-pointer">
                         <span class="label-text">Solicitudes de quórum</span>
@@ -46,4 +56,7 @@
         </div>
     </form>
 </div>
+{{if .VAPIDPublicKey}}
+<script src="/static/js/push.js"></script>
+{{end}}
 {{end}}
