@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PadelLeague</title>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#4b6bfb">
     <script src="/static/js/htmx.min.js"></script>
     <script>
         (function() {
@@ -150,5 +152,13 @@
             </div>
         </div>
     </div>
+{{if .VAPIDPublicKey}}
+<script>window.VAPID_PUBLIC_KEY = '{{.VAPIDPublicKey}}';</script>
+{{end}}
+<script>
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+}
+</script>
 </body>
 </html>
