@@ -126,6 +126,7 @@ func notifyPlayers(app core.App, playerUserIDs []string, notifType, title, body,
 		if err := app.Save(notif); err != nil {
 			log.Printf("notifyPlayers: failed to notify user %s: %v", userID, err)
 		}
+		go sendPush(app, userID, title, body, relatedMatchID)
 	}
 }
 
@@ -150,6 +151,7 @@ func notifyAdmins(app core.App, notifType, title, body, relatedMatchID string) e
 		if err := app.Save(notif); err != nil {
 			log.Printf("failed to notify admin %s: %v", admin.Id, err)
 		}
+		go sendPush(app, admin.Id, title, body, relatedMatchID)
 	}
 	return nil
 }
