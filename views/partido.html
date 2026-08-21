@@ -340,7 +340,7 @@
 
 <script>
 function shareOrCopy(text) {
-    var decoded = decodeURIComponent(text);
+    var decoded = decodeURIComponent(text.replace(/\+/g, ' '));
     if (navigator.share) {
         navigator.share({ text: decoded }).catch(function() {});
         return;
