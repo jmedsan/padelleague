@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
@@ -24,12 +25,16 @@ var viewsFS embed.FS
 //go:embed all:static/*
 var staticFS embed.FS
 
-var registry = template.NewRegistry()
+var (
+	registry       = template.NewRegistry()
+	vapidPublicKey string
+)
 
 func renderPage(e *core.RequestEvent, page string, data map[string]any) error {
 	if data == nil {
 		data = map[string]any{}
 	}
+	data["VAPIDPublicKey"] = vapidPublicKey
 	if e.Auth != nil {
 		if _, ok := data["DisplayName"]; !ok {
 			data["DisplayName"] = e.Auth.GetString("display_name")
@@ -86,6 +91,8 @@ func requireAuthRedirect(e *core.RequestEvent) error {
 func main() {
 	app := pocketbase.New()
 
+	vapidPublicKey = os.Getenv("VAPID_PUBLIC_KEY")
+
 	app.OnRecordCreate("users").BindFunc(func(e *core.RecordEvent) error {
 		e.Record.Set("role", "player")
 		return e.Next()
@@ -132,6 +139,16 @@ func main() {
 		})
 
 		auth := handlers.NewAuthHandler(app, renderPage)
+
+		se.Router.GET("/manifest.json", func(e *core.RequestEvent) error {
+			data, _ := staticFS.ReadFile("static/manifest.json")
+			return e.Blob(http.StatusOK, "application/manifest+json", data)
+		})
+		se.Router.GET("/sw.js", func(e *core.RequestEvent) error {
+			data, _ := staticFS.ReadFile("static/sw.js")
+			e.Response.Header().Set("Service-Worker-Allowed", "/")
+			return e.Blob(http.StatusOK, "application/javascript", data)
+		})
 
 		staticSubFS, _ := fs.Sub(staticFS, "static")
 		se.Router.GET("/static/{path...}", apis.Static(staticSubFS, false))
@@ -227,6 +244,12 @@ func main() {
 		se.Router.GET("/notifications/list", notif.List).BindFunc(requireAuthRedirect)
 		se.Router.POST("/notifications/{id}/read", notif.MarkRead).BindFunc(requireAuthRedirect)
 		se.Router.POST("/notifications/read-all", notif.MarkAllRead).BindFunc(requireAuthRedirect)
+
+		push := handlers.NewPushHandler(app)
+		if push.Enabled() {
+			se.Router.POST("/push/subscribe", push.Subscribe).BindFunc(requireAuthRedirect)
+			se.Router.POST("/push/unsubscribe", push.Unsubscribe).BindFunc(requireAuthRedirect)
+		}
 		se.Router.GET("/profile/complete", auth.ProfileComplete).BindFunc(requireAuthRedirect)
 		se.Router.POST("/profile/complete", auth.ProfileCompleteSubmit).BindFunc(requireAuthRedirect)
 		se.Router.GET("/profile/notifications", notif.Prefs).BindFunc(requireAuthRedirect)
