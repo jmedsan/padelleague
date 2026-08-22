@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -98,60 +97,3 @@ func getNotificationPrefs(user *core.Record) map[string]any {
 	return prefs
 }
 
-func notifyPlayers(app core.App, playerUserIDs []string, notifType, title, body, relatedMatchID string) {
-	notifCol, err := app.FindCollectionByNameOrId("notifications")
-	if err != nil {
-		log.Printf("notifyPlayers: notifications collection not found: %v", err)
-		return
-	}
-	for _, userID := range playerUserIDs {
-		user, err := app.FindRecordById("users", userID)
-		if err != nil {
-			continue
-		}
-		prefs := getNotificationPrefs(user)
-		if enabled, ok := prefs[notifType]; ok {
-			if b, ok := enabled.(bool); ok && !b {
-				continue
-			}
-		}
-		notif := core.NewRecord(notifCol)
-		notif.Set("user", userID)
-		notif.Set("type", notifType)
-		notif.Set("title", title)
-		notif.Set("body", body)
-		if relatedMatchID != "" {
-			notif.Set("related_match", relatedMatchID)
-		}
-		if err := app.Save(notif); err != nil {
-			log.Printf("notifyPlayers: failed to notify user %s: %v", userID, err)
-		}
-		go sendPush(app, userID, title, body, relatedMatchID)
-	}
-}
-
-func notifyAdmins(app core.App, notifType, title, body, relatedMatchID string) error {
-	notifCol, err := app.FindCollectionByNameOrId("notifications")
-	if err != nil {
-		return fmt.Errorf("notifications collection not found: %w", err)
-	}
-	admins, err := app.FindRecordsByFilter("users", "role = 'admin'", "", 0, 0, nil)
-	if err != nil {
-		return fmt.Errorf("failed to find admins: %w", err)
-	}
-	for _, admin := range admins {
-		notif := core.NewRecord(notifCol)
-		notif.Set("user", admin.Id)
-		notif.Set("type", notifType)
-		notif.Set("title", title)
-		notif.Set("body", body)
-		if relatedMatchID != "" {
-			notif.Set("related_match", relatedMatchID)
-		}
-		if err := app.Save(notif); err != nil {
-			log.Printf("failed to notify admin %s: %v", admin.Id, err)
-		}
-		go sendPush(app, admin.Id, title, body, relatedMatchID)
-	}
-	return nil
-}

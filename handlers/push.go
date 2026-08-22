@@ -1,32 +1,23 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
-	"os"
 
-	webpush "github.com/SherClockHolmes/webpush-go"
 	"github.com/pocketbase/pocketbase/core"
 )
 
 type PushHandler struct {
-	app        core.App
-	publicKey  string
-	privateKey string
+	app      core.App
+	notifier *Notifier
 }
 
-func NewPushHandler(app core.App) *PushHandler {
-	return &PushHandler{
-		app:        app,
-		publicKey:  os.Getenv("VAPID_PUBLIC_KEY"),
-		privateKey: os.Getenv("VAPID_PRIVATE_KEY"),
-	}
+func NewPushHandler(app core.App, notifier *Notifier) *PushHandler {
+	return &PushHandler{app: app, notifier: notifier}
 }
 
 func (h *PushHandler) Enabled() bool {
-	return h.publicKey != "" && h.privateKey != ""
+	return h.notifier.vapidPublicKey != "" && h.notifier.vapidPrivateKey != ""
 }
 
 type pushSubscribeRequest struct {
@@ -96,59 +87,3 @@ func (h *PushHandler) Unsubscribe(e *core.RequestEvent) error {
 	return e.NoContent(http.StatusNoContent)
 }
 
-func sendPush(app core.App, userID, title, body, relatedMatchID string) {
-	publicKey := os.Getenv("VAPID_PUBLIC_KEY")
-	privateKey := os.Getenv("VAPID_PRIVATE_KEY")
-	if publicKey == "" || privateKey == "" {
-		return
-	}
-
-	subs, err := app.FindRecordsByFilter("push_subscriptions", "user = {:user}", "", 0, 0, map[string]any{"user": userID})
-	if err != nil || len(subs) == 0 {
-		return
-	}
-
-	url := "/"
-	if relatedMatchID != "" {
-		url = "/match/" + relatedMatchID
-	}
-
-	payload, _ := json.Marshal(map[string]string{
-		"title": title,
-		"body":  body,
-		"url":   url,
-	})
-
-	subscriber := app.Settings().Meta.SenderAddress
-	if subscriber == "" {
-		subscriber = "noreply@padelleague.com"
-	}
-	subscriber = "mailto:" + subscriber
-
-	for _, sub := range subs {
-		s := &webpush.Subscription{
-			Endpoint: sub.GetString("endpoint"),
-			Keys: webpush.Keys{
-				P256dh: sub.GetString("p256dh"),
-				Auth:   sub.GetString("auth"),
-			},
-		}
-
-		resp, err := webpush.SendNotification(payload, s, &webpush.Options{
-			Subscriber:      subscriber,
-			VAPIDPublicKey:  publicKey,
-			VAPIDPrivateKey: privateKey,
-		})
-		if err != nil {
-			log.Printf("sendPush: failed to send to %s: %v", sub.GetString("endpoint"), err)
-			continue
-		}
-		resp.Body.Close()
-
-		if resp.StatusCode == http.StatusGone {
-			if err := app.Delete(sub); err != nil {
-				log.Printf("sendPush: failed to delete gone subscription: %v", err)
-			}
-		}
-	}
-}

@@ -12,19 +12,20 @@ import (
 
 type MatchHandler struct {
 	app             core.App
+	notifier        *Notifier
 	renderPage      func(e *core.RequestEvent, page string, data map[string]any) error
 	renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error
 }
 
-func NewMatchHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error) *MatchHandler {
-	return &MatchHandler{app: app, renderPage: renderPage, renderErrorPage: renderErrorPage}
+func NewMatchHandler(app core.App, notifier *Notifier, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error) *MatchHandler {
+	return &MatchHandler{app: app, notifier: notifier, renderPage: renderPage, renderErrorPage: renderErrorPage}
 }
 
 type MatchView struct {
-	Partido       *core.Record
-	Pareja1Name   string
-	Pareja2Name   string
-	JornadaNum    int
+	Record       *core.Record
+	Pair1Name   string
+	Pair2Name   string
+	RoundNum    int
 	CanSubmit     bool
 	CanConfirm    bool
 	CanDispute    bool
@@ -37,7 +38,7 @@ type MatchView struct {
 	StatusClass   string
 }
 
-type PartidoDetailData struct {
+type MatchDetailData struct {
 	Match           MatchView
 	CompetitionName string
 	SubmittedBy     string
@@ -100,10 +101,10 @@ func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNam
 	}
 
 	return MatchView{
-		Partido:       match,
-		Pareja1Name:   pairNames[match.GetString("pair1")],
-		Pareja2Name:   pairNames[match.GetString("pair2")],
-		JornadaNum:    roundNum,
+		Record:       match,
+		Pair1Name:   pairNames[match.GetString("pair1")],
+		Pair2Name:   pairNames[match.GetString("pair2")],
+		RoundNum:    roundNum,
 		CanSubmit:     status == "pending" && team > 0,
 		CanConfirm:    status == "confirmed" && team > 0 && !isSubmitter,
 		CanDispute:    status == "confirmed" && team > 0 && !isSubmitter,
@@ -121,7 +122,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
-		return h.renderErrorPage(e, http.StatusNotFound, "Partido no encontrado")
+		return h.renderErrorPage(e, http.StatusNotFound, "Record no encontrado")
 	}
 
 	userID := e.Auth.Id
@@ -176,7 +177,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 
 	venues, _ := h.app.FindRecordsByFilter("venues", "", "name", 0, 0, nil)
 
-	return h.renderPage(e, "partido.html", map[string]any{
+	return h.renderPage(e, "match.html", map[string]any{
 		"Match":           mv,
 		"CompetitionName": compName,
 		"CompetitionID":   compID,
@@ -193,7 +194,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Record no encontrado</div>`)
 	}
 
 	userID := e.Auth.Id
@@ -231,7 +232,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 		rivalPairID = match.GetString("pair1")
 	}
 	rivalPlayers := getPlayersForPair(h.app, rivalPairID)
-	notifyPlayers(h.app, rivalPlayers, "quorum_request", "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", match.Id)
+	h.notifier.NotifyPlayers( rivalPlayers, "quorum_request", "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", match.Id)
 	emailNotifyPlayers(h.app, rivalPlayers, "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", "/match/"+match.Id)
 
 	e.Response.Header().Set("HX-Redirect", "/")
@@ -242,7 +243,7 @@ func (h *MatchHandler) MatchEdit(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Record no encontrado</div>`)
 	}
 
 	userID := e.Auth.Id
@@ -298,7 +299,7 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Record no encontrado</div>`)
 	}
 
 	if e.Auth.GetString("role") != "admin" {
