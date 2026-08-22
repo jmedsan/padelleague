@@ -246,7 +246,7 @@
                 <div class="collapse-content">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
                         {{range .Matches}}
-                        <div class="flex items-center justify-between bg-base-100 rounded-lg px-4 py-3">
+                        <a href="/match/{{.Match.Id}}" class="flex items-center justify-between bg-base-100 rounded-lg px-4 py-3 hover:bg-base-200 transition-colors cursor-pointer">
                             <div class="flex-1 text-right text-sm font-medium truncate">{{.Pair1Name}}</div>
                             <div class="px-3 text-xs text-base-content/40 flex-shrink-0">vs</div>
                             <div class="flex-1 text-sm font-medium truncate">{{.Pair2Name}}</div>
@@ -261,7 +261,7 @@
                                 {{else if eq $status "final"}}<span class="badge badge-success badge-xs">Final</span>
                                 {{end}}
                             </div>
-                        </div>
+                        </a>
                         {{end}}
                     </div>
                 </div>
