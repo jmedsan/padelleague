@@ -226,7 +226,7 @@
                 Calendario
             </h2>
             {{if .HasFixtures}}
-                <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" class="btn btn-warning btn-sm">Regenerar</button>
+                <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" hx-confirm="¿Regenerar el calendario? Se perderan todos los partidos y resultados existentes." class="btn btn-warning btn-sm">Regenerar</button>
             {{else if .Entries}}
                 <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" class="btn btn-primary btn-sm">Generar calendario</button>
             {{end}}
