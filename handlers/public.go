@@ -15,9 +15,16 @@ func NewPublicHandler(app core.App, renderPage func(e *core.RequestEvent, page s
 	return &PublicHandler{app: app, renderPage: renderPage}
 }
 
+type PendingMatchDetail struct {
+	MatchID     string
+	Opponent    string
+	RoundNumber int
+}
+
 type HomeCompetition struct {
 	Competition    *core.Record
 	PendingMatches int
+	PendingDetails []PendingMatchDetail
 }
 
 type NextMatch struct {
@@ -79,9 +86,10 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 		}
 
 		pending := 0
+		var pendingDetails []PendingMatchDetail
 		pendingMatches, _ := h.app.FindRecordsByFilter("matches",
 			"competition = {:cid} && status = 'pending'",
-			"", 0, 0,
+			"round_number", 0, 0,
 			map[string]any{"cid": c.Id})
 		for _, m := range pendingMatches {
 			p1 := m.GetString("pair1")
@@ -90,6 +98,22 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 				continue
 			}
 			pending++
+
+			if len(pendingDetails) < 5 {
+				opponent := p1
+				if playerPairIDs[p1] {
+					opponent = p2
+				}
+				opName := "?"
+				if pair, err := h.app.FindRecordById("pairs", opponent); err == nil {
+					opName = pair.GetString("name")
+				}
+				pendingDetails = append(pendingDetails, PendingMatchDetail{
+					MatchID:     m.Id,
+					Opponent:    opName,
+					RoundNumber: int(m.GetFloat("round_number")),
+				})
+			}
 
 			if nextMatch == nil {
 				opponent := p1
@@ -231,6 +255,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 		comps = append(comps, HomeCompetition{
 			Competition:    c,
 			PendingMatches: pending,
+			PendingDetails: pendingDetails,
 		})
 	}
 

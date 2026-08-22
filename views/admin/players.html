@@ -14,8 +14,11 @@
 </div>
 
 <div class="card bg-base-100 shadow-sm border border-base-300">
+    <div class="p-3 border-b border-base-300">
+        <input type="text" id="player-search" placeholder="Buscar jugador..." class="input input-bordered input-sm w-full" oninput="filterPlayers(this.value)">
+    </div>
     <div class="overflow-x-auto">
-        <table class="table table-zebra">
+        <table class="table table-zebra" id="players-table">
             <thead>
                 <tr>
                     <th class="w-14"></th>
@@ -132,4 +135,13 @@
     </div>
     <label class="modal-backdrop" for="precreate-modal"></label>
 </div>
+<script>
+function filterPlayers(q) {
+    q = q.toLowerCase();
+    document.querySelectorAll('#players-table tbody tr').forEach(function(row) {
+        var text = row.textContent.toLowerCase();
+        row.style.display = text.includes(q) ? '' : 'none';
+    });
+}
+</script>
 {{end}}
