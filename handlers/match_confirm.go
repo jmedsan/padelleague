@@ -19,8 +19,9 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
+	isAdmin := e.Auth.GetString("role") == "admin"
 	myTeam, err := getPlayerTeam(h.app, userID, match)
-	if err != nil {
+	if err != nil && !isAdmin {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
 
@@ -75,8 +76,9 @@ func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
+	isAdmin := e.Auth.GetString("role") == "admin"
 	myTeam, err := getPlayerTeam(h.app, userID, match)
-	if err != nil {
+	if err != nil && !isAdmin {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
 
@@ -115,18 +117,21 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
+	isAdmin := e.Auth.GetString("role") == "admin"
 	submittedByID := match.GetString("submitted_by")
 	if submittedByID == "" {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No se encontró quién envió el resultado</div>`)
 	}
 
 	myTeam, err := getPlayerTeam(h.app, userID, match)
-	if err != nil {
+	if err != nil && !isAdmin {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
-	submitterTeam, err := getPlayerTeam(h.app, submittedByID, match)
-	if err != nil || myTeam != submitterTeam {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Solo el equipo que envió el resultado puede corregirlo</div>`)
+	if !isAdmin {
+		submitterTeam, err := getPlayerTeam(h.app, submittedByID, match)
+		if err != nil || myTeam != submitterTeam {
+			return e.HTML(http.StatusOK, `<div class="alert alert-error">Solo el equipo que envió el resultado puede corregirlo</div>`)
+		}
 	}
 
 	submittedAt := match.GetString("submitted_at")
@@ -178,7 +183,8 @@ func (h *MatchHandler) MatchWalkover(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
-	if _, err := getPlayerTeam(h.app, userID, match); err != nil {
+	isAdmin := e.Auth.GetString("role") == "admin"
+	if _, err := getPlayerTeam(h.app, userID, match); err != nil && !isAdmin {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
 

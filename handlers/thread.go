@@ -162,16 +162,18 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		})
 	}
 
-	canPost := myTeam != 0 && !isAdmin
+	isParticipant := myTeam != 0
+	canPost := isParticipant
 	canPropose := canPost && match.GetString("status") == "pending"
 
 	return h.renderPartial(e, "thread.html", map[string]any{
-		"MatchID":    matchID,
-		"Messages":   threadMessages,
-		"Venues":     venues,
-		"CanPost":    canPost,
-		"CanPropose": canPropose,
-		"IsAdmin":    isAdmin,
+		"MatchID":       matchID,
+		"Messages":      threadMessages,
+		"Venues":        venues,
+		"CanPost":       canPost,
+		"CanPropose":    canPropose,
+		"IsAdmin":       isAdmin,
+		"IsParticipant": isParticipant,
 	})
 }
 
