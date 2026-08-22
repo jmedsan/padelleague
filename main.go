@@ -45,12 +45,31 @@ func renderPage(e *core.RequestEvent, page string, data map[string]any) error {
 		if _, ok := data["Verified"]; !ok {
 			data["Verified"] = e.Auth.Verified()
 		}
+		if _, ok := data["AuthID"]; !ok {
+			data["AuthID"] = e.Auth.Id
+		}
 	}
 	html, err := registry.LoadFS(viewsFS, "views/layout.html", "views/"+page).Render(data)
 	if err != nil {
 		return err
 	}
 	return e.HTML(http.StatusOK, html)
+}
+
+func renderErrorPage(e *core.RequestEvent, statusCode int, message string) error {
+	data := map[string]any{"ErrorMessage": message}
+	data["VAPIDPublicKey"] = vapidPublicKey
+	if e.Auth != nil {
+		data["DisplayName"] = e.Auth.GetString("display_name")
+		data["IsAdmin"] = e.Auth.GetString("role") == "admin"
+		data["Verified"] = e.Auth.Verified()
+		data["AuthID"] = e.Auth.Id
+	}
+	html, err := registry.LoadFS(viewsFS, "views/layout.html", "views/error.html").Render(data)
+	if err != nil {
+		return e.HTML(statusCode, message)
+	}
+	return e.HTML(statusCode, html)
 }
 
 func renderPartial(e *core.RequestEvent, page string, data map[string]any) error {
@@ -216,11 +235,11 @@ func main() {
 		adminGroup.POST("/venues/{id}", admin.VenuesUpdate)
 		adminGroup.POST("/venues/{id}/delete", admin.VenuesDelete)
 
-		player := handlers.NewPlayerHandler(app, renderPage)
+		player := handlers.NewPlayerHandler(app, renderPage, renderErrorPage)
 		se.Router.GET("/player/{id}", player.Player).BindFunc(requireAuthRedirect)
 		se.Router.GET("/h2h", player.H2H).BindFunc(requireAuthRedirect)
 
-		match := handlers.NewMatchHandler(app, renderPage)
+		match := handlers.NewMatchHandler(app, renderPage, renderErrorPage)
 		se.Router.GET("/match/{id}", match.MatchDetail).BindFunc(requireAuthRedirect)
 		se.Router.POST("/match/{id}/submit", match.MatchSubmit).BindFunc(requireAuthRedirect)
 		se.Router.POST("/match/{id}/confirm", match.MatchConfirm).BindFunc(requireAuthRedirect)

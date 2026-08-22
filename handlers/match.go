@@ -10,12 +10,13 @@ import (
 )
 
 type MatchHandler struct {
-	app        core.App
-	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
+	app             core.App
+	renderPage      func(e *core.RequestEvent, page string, data map[string]any) error
+	renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error
 }
 
-func NewMatchHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *MatchHandler {
-	return &MatchHandler{app: app, renderPage: renderPage}
+func NewMatchHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error) *MatchHandler {
+	return &MatchHandler{app: app, renderPage: renderPage, renderErrorPage: renderErrorPage}
 }
 
 type MatchView struct {
@@ -115,13 +116,13 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
-		return e.HTML(http.StatusNotFound, `<div class="alert alert-error">Partido no encontrado</div>`)
+		return h.renderErrorPage(e, http.StatusNotFound, "Partido no encontrado")
 	}
 
 	userID := e.Auth.Id
 	_, err = getPlayerTeam(h.app, userID, match)
 	if err != nil {
-		return e.HTML(http.StatusForbidden, `<div class="alert alert-error">No tienes acceso a este partido</div>`)
+		return h.renderErrorPage(e, http.StatusForbidden, "No tienes acceso a este partido")
 	}
 
 	pairNames, _ := expandPairNames(h.app, []string{
