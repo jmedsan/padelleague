@@ -20,18 +20,19 @@ func NewThreadHandler(app core.App, renderPage func(e *core.RequestEvent, page s
 }
 
 type ThreadMessage struct {
-	Record          *core.Record
-	AuthorName      string
-	AuthorTeam      int
-	IsMyTeam        bool
-	Type            string
-	Content         string
-	ProposalData    *ProposalData
-	Status          string
-	RejectionReason string
-	RejectionText   string
-	CanRespond      bool
-	CreatedAt       string
+	Record            *core.Record
+	AuthorName        string
+	AuthorTeam        int
+	IsMyTeam          bool
+	Type              string
+	Content           string
+	ProposalData      *ProposalData
+	Status            string
+	RejectionReason   string
+	RejectionText     string
+	CanRespond        bool
+	CanChangeDecision bool
+	CreatedAt         string
 }
 
 type ProposalData struct {
@@ -125,19 +126,26 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 			isParticipant &&
 			authorTeam != myTeam
 
+		canChangeDecision := msgType == "scheduling_proposal" &&
+			(status == "accepted" || status == "rejected") &&
+			match.GetString("status") == "pending" &&
+			isParticipant &&
+			authorTeam != myTeam
+
 		threadMessages = append(threadMessages, ThreadMessage{
-			Record:          msg,
-			AuthorName:      cachedName(authorID),
-			AuthorTeam:      authorTeam,
-			IsMyTeam:        myTeam != 0 && authorTeam == myTeam,
-			Type:            msgType,
-			Content:         msg.GetString("content"),
-			ProposalData:    pd,
-			Status:          status,
-			RejectionReason: msg.GetString("rejection_reason"),
-			RejectionText:   msg.GetString("rejection_text"),
-			CanRespond:      canRespond,
-			CreatedAt:       msg.GetDateTime("created").Time().Format("02/01 15:04"),
+			Record:            msg,
+			AuthorName:        cachedName(authorID),
+			AuthorTeam:        authorTeam,
+			IsMyTeam:          myTeam != 0 && authorTeam == myTeam,
+			Type:              msgType,
+			Content:           msg.GetString("content"),
+			ProposalData:      pd,
+			Status:            status,
+			RejectionReason:   msg.GetString("rejection_reason"),
+			RejectionText:     msg.GetString("rejection_text"),
+			CanRespond:        canRespond,
+			CanChangeDecision: canChangeDecision,
+			CreatedAt:         msg.GetDateTime("created").Time().Format("02/01 15:04"),
 		})
 	}
 	return threadMessages
@@ -447,6 +455,113 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 			matchID)
 	} else {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Accion no valida</div>`)
+	}
+
+	e.Response.Header().Set("HX-Redirect", "/match/"+matchID)
+	return e.NoContent(http.StatusNoContent)
+}
+
+func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
+	matchID := e.Request.PathValue("id")
+	msgID := e.Request.PathValue("msgId")
+
+	match, err := h.app.FindRecordById("matches", matchID)
+	if err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
+	}
+
+	if match.GetString("status") != "pending" {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Este partido ya no acepta cambios</div>`)
+	}
+
+	myTeam, err := getPlayerTeam(h.app, e.Auth.Id, match)
+	if err != nil || myTeam == 0 {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
+	}
+
+	msg, err := h.app.FindRecordById("match_messages", msgID)
+	if err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Propuesta no encontrada</div>`)
+	}
+
+	if msg.GetString("match") != matchID {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Propuesta no pertenece a este partido</div>`)
+	}
+
+	authorTeam, _ := getPlayerTeam(h.app, msg.GetString("author"), match)
+	if authorTeam == myTeam {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">No puedes cambiar la decision de tu propia propuesta</div>`)
+	}
+
+	currentStatus := msg.GetString("proposal_status")
+	if currentStatus != "accepted" && currentStatus != "rejected" {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Solo se pueden cambiar decisiones de propuestas aceptadas o rechazadas</div>`)
+	}
+
+	proposerPairID := match.GetString("pair1")
+	if authorTeam == 2 {
+		proposerPairID = match.GetString("pair2")
+	}
+
+	responderName := resolvePlayerName(h.app, e.Auth.Id)
+
+	if currentStatus == "accepted" {
+		msg.Set("proposal_status", "rejected")
+		msg.Set("rejection_reason", "Decision cambiada")
+		if err := h.app.Save(msg); err != nil {
+			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al cambiar la decision</div>`)
+		}
+
+		match.Set("date", "")
+		match.Set("time", "")
+		match.Set("club", "")
+		h.app.Save(match)
+
+		proposerPlayers := getPlayersForPair(h.app, proposerPairID)
+		notifyPlayers(h.app, proposerPlayers, "scheduling",
+			"Decision cambiada",
+			fmt.Sprintf("%s cambio su decision: propuesta ahora rechazada", responderName),
+			matchID)
+	} else {
+		existing, _ := h.app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && proposal_status = 'accepted'",
+			"", 0, 1,
+			map[string]any{"mid": matchID})
+		if len(existing) > 0 {
+			return e.HTML(http.StatusOK, `<div class="alert alert-error">Ya hay otra propuesta aceptada</div>`)
+		}
+
+		pd := ParseProposalData(msg.Get("proposal_data"))
+		if pd == nil {
+			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al leer los datos de la propuesta</div>`)
+		}
+
+		msg.Set("proposal_status", "accepted")
+		msg.Set("rejection_reason", "")
+		msg.Set("rejection_text", "")
+		if err := h.app.Save(msg); err != nil {
+			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al cambiar la decision</div>`)
+		}
+
+		match.Set("date", pd.Date)
+		match.Set("time", pd.Time)
+		match.Set("club", pd.VenueName)
+		h.app.Save(match)
+
+		otherPending, _ := h.app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'pending' && id != {:msgid}",
+			"", 0, 0,
+			map[string]any{"mid": matchID, "msgid": msgID})
+		for _, other := range otherPending {
+			other.Set("proposal_status", "superseded")
+			h.app.Save(other)
+		}
+
+		proposerPlayers := getPlayersForPair(h.app, proposerPairID)
+		notifyPlayers(h.app, proposerPlayers, "scheduling",
+			"Decision cambiada",
+			fmt.Sprintf("%s cambio su decision: propuesta ahora aceptada para el %s a las %s", responderName, pd.Date, pd.Time),
+			matchID)
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/match/"+matchID)
