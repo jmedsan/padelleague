@@ -43,7 +43,7 @@
                         {{end}}
                     </td>
                     <td class="text-sm">
-                        {{.GetFloat "use_count" | printf "%.0f"}}/{{if gt (.GetFloat "max_uses") 0}}{{.GetFloat "max_uses" | printf "%.0f"}}{{else}}1{{end}}
+                        {{.GetString "use_count"}}/{{if and (.GetString "max_uses") (ne (.GetString "max_uses") "0")}}{{.GetString "max_uses"}}{{else}}1{{end}}
                     </td>
                     <td class="hidden md:table-cell text-sm opacity-60">
                         {{(.GetDateTime "expires_at").Time.Format "02/01/2006"}}
