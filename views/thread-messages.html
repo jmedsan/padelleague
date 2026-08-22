@@ -2,7 +2,7 @@
 <div class="space-y-3 mb-6 max-h-96 overflow-y-auto" id="thread-messages">
     {{range .Messages}}
     {{if eq .Type "scheduling_proposal"}}
-    <div class="card bg-base-200/50 border border-base-300 rounded-xl">
+    <div class="entry card bg-base-200/50 border border-base-300 rounded-xl" data-type="proposal">
         <div class="card-body p-3 sm:p-4">
             <div class="flex items-center justify-between flex-wrap gap-2">
                 <div class="flex items-center gap-2">
@@ -72,7 +72,7 @@
         </div>
     </div>
     {{else}}
-    <div class="chat {{if .IsMyTeam}}chat-end{{else}}chat-start{{end}}">
+    <div class="entry chat {{if .IsMyTeam}}chat-end{{else}}chat-start{{end}}" data-type="{{if or (eq .Type "score_discussion") (eq .Type "admin_action")}}action{{else}}message{{end}}">
         <div class="chat-header text-xs opacity-50 mb-1">
             {{.AuthorName}} <time class="ml-1">{{.CreatedAt}}</time>
         </div>

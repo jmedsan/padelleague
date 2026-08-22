@@ -2,6 +2,28 @@
     <div class="card-body p-4 sm:p-6">
         <h3 class="font-bold text-lg mb-4">Hilo del partido</h3>
 
+        <div class="flex gap-1 mb-3" id="timeline-filters">
+            <button class="btn btn-xs btn-primary" onclick="filterTimeline('all')">Todo</button>
+            <button class="btn btn-xs btn-ghost" onclick="filterTimeline('message')">Mensajes</button>
+            <button class="btn btn-xs btn-ghost" onclick="filterTimeline('proposal')">Propuestas</button>
+            <button class="btn btn-xs btn-ghost" onclick="filterTimeline('action')">Acciones</button>
+        </div>
+
+        <script>
+        function filterTimeline(type) {
+            document.querySelectorAll('#thread-messages-list .entry').forEach(function(el) {
+                el.style.display = (type === 'all' || el.dataset.type === type) ? '' : 'none';
+            });
+            var labels = {all: 'Todo', message: 'Mensajes', proposal: 'Propuestas', action: 'Acciones'};
+            var active = labels[type];
+            document.querySelectorAll('#timeline-filters button').forEach(function(btn) {
+                var match = btn.textContent.trim() === active;
+                btn.classList.toggle('btn-primary', match);
+                btn.classList.toggle('btn-ghost', !match);
+            });
+        }
+        </script>
+
         <div id="thread-messages-list"
              hx-get="/match/{{.MatchID}}/thread-messages"
              hx-trigger="load, every 15s"
@@ -10,63 +32,61 @@
 
         {{if .CanPost}}
         <div class="border-t border-base-300 pt-4">
-            <div class="tabs tabs-boxed mb-3 bg-base-200" id="thread-tabs">
-                <button type="button" class="tab tab-active" onclick="switchThreadTab(this, 'chat-form')">Mensaje</button>
-                {{if .CanPropose}}
-                <button type="button" class="tab" onclick="switchThreadTab(this, 'proposal-form')">Proponer fecha</button>
-                {{end}}
-            </div>
-
-            <div id="chat-form">
-                <form hx-post="/match/{{.MatchID}}/thread/message" hx-target="body" class="flex gap-2">
-                    <input type="hidden" name="type" value="chat">
-                    <input type="text" name="content" class="input input-bordered input-sm flex-1" placeholder="Escribe un mensaje..." required>
-                    <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
-                </form>
-            </div>
+            <form hx-post="/match/{{.MatchID}}/thread/message" hx-target="body" class="flex gap-2 mb-3">
+                <input type="hidden" name="type" value="chat">
+                <input type="text" name="content" class="input input-bordered input-sm flex-1" placeholder="Escribe un mensaje..." required>
+                <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
+            </form>
 
             {{if .CanPropose}}
-            <div id="proposal-form" class="hidden">
-                <form hx-post="/match/{{.MatchID}}/thread/proposal" hx-target="body">
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="form-control">
-                            <label class="label py-1"><span class="label-text text-xs">Fecha</span></label>
-                            <input type="date" name="date" class="input input-bordered input-sm" required>
+            <div class="collapse collapse-arrow bg-base-200 rounded-lg">
+                <input type="checkbox" class="peer">
+                <div class="collapse-title text-sm font-medium py-2 min-h-0">Proponer fecha</div>
+                <div class="collapse-content">
+                    <form id="proposal-form" hx-post="/match/{{.MatchID}}/thread/proposal" hx-target="body">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="form-control">
+                                <label class="label py-1"><span class="label-text text-xs">Fecha</span></label>
+                                <input type="date" name="date" class="input input-bordered input-sm">
+                            </div>
+                            <div class="form-control">
+                                <label class="label py-1"><span class="label-text text-xs">Hora</span></label>
+                                <input type="time" name="time" class="input input-bordered input-sm">
+                            </div>
                         </div>
-                        <div class="form-control">
-                            <label class="label py-1"><span class="label-text text-xs">Hora</span></label>
-                            <input type="time" name="time" class="input input-bordered input-sm" required>
+                        <div class="form-control mt-3">
+                            <label class="label py-1"><span class="label-text text-xs">Club</span></label>
+                            <select name="venue_id" class="select select-bordered select-sm w-full" onchange="document.getElementById('venue-text-wrap').classList.toggle('hidden', this.value !== 'otro')">
+                                <option value="">Seleccionar...</option>
+                                {{range .Venues}}
+                                <option value="{{.Id}}">{{.GetString "name"}}</option>
+                                {{end}}
+                                <option value="otro">Otro</option>
+                            </select>
                         </div>
-                    </div>
-                    <div class="form-control mt-3">
-                        <label class="label py-1"><span class="label-text text-xs">Club</span></label>
-                        <select name="venue_id" class="select select-bordered select-sm w-full" onchange="document.getElementById('venue-text-wrap').classList.toggle('hidden', this.value !== 'otro')">
-                            <option value="">Seleccionar...</option>
-                            {{range .Venues}}
-                            <option value="{{.Id}}">{{.GetString "name"}}</option>
-                            {{end}}
-                            <option value="otro">Otro</option>
-                        </select>
-                    </div>
-                    <div id="venue-text-wrap" class="form-control mt-2 hidden">
-                        <input type="text" name="venue_text" class="input input-bordered input-sm" placeholder="Nombre del club">
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-sm w-full mt-3">Proponer fecha</button>
-                </form>
+                        <div id="venue-text-wrap" class="form-control mt-2 hidden">
+                            <input type="text" name="venue_text" class="input input-bordered input-sm" placeholder="Nombre del club">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm w-full mt-3">Proponer fecha</button>
+                    </form>
+                </div>
             </div>
+            <script>
+            (function() {
+                var f = document.getElementById('proposal-form');
+                if (f) f.addEventListener('submit', function(ev) {
+                    var d = f.querySelector('[name=date]').value;
+                    var t = f.querySelector('[name=time]').value;
+                    var v = f.querySelector('[name=venue_id]').value;
+                    if ((d || t || v) && !(d && t && v)) {
+                        ev.preventDefault();
+                        alert('Completa todos los campos de la propuesta');
+                    }
+                });
+            })();
+            </script>
             {{end}}
         </div>
-
-        <script>
-        function switchThreadTab(btn, formId) {
-            btn.closest('.tabs').querySelectorAll('.tab').forEach(function(t) { t.classList.remove('tab-active'); });
-            btn.classList.add('tab-active');
-            document.getElementById('chat-form').classList.add('hidden');
-            var pf = document.getElementById('proposal-form');
-            if (pf) pf.classList.add('hidden');
-            document.getElementById(formId).classList.remove('hidden');
-        }
-        </script>
         {{end}}
 
         {{if and .IsAdmin (not .IsParticipant)}}
