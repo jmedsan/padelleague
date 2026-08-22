@@ -250,6 +250,7 @@ func main() {
 
 		thread := handlers.NewThreadHandler(app, renderPage, renderPartial)
 		se.Router.GET("/match/{id}/thread", thread.Thread).BindFunc(requireAuthRedirect)
+		se.Router.GET("/match/{id}/thread-messages", thread.ThreadMessages).BindFunc(requireAuthRedirect)
 		se.Router.POST("/match/{id}/thread/message", thread.PostMessage).BindFunc(requireAuthRedirect)
 		se.Router.POST("/match/{id}/thread/proposal", thread.PostProposal).BindFunc(requireAuthRedirect)
 		se.Router.POST("/match/{id}/thread/proposal/{msgId}/respond", thread.RespondProposal).BindFunc(requireAuthRedirect)
