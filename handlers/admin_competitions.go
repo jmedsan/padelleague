@@ -6,9 +6,21 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 )
+
+type AdminIssue struct {
+	Type            string
+	TypeLabel       string
+	BadgeClass      string
+	CompetitionName string
+	Pair1Name       string
+	Pair2Name       string
+	MatchID         string
+	Detail          string
+}
 
 type CompetitionHandler struct {
 	app        core.App
@@ -66,10 +78,92 @@ func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
 	totalDisputes, _ := h.app.FindRecordsByFilter("matches",
 		"status = 'disputed'", "", 0, 0, nil)
 
+	var issues []AdminIssue
+	now := time.Now().UTC()
+	for _, cs := range active {
+		comp := cs.Competition
+		compName := comp.GetString("name")
+		quorumHours := comp.GetFloat("quorum_timeout_hours")
+
+		matches, _ := h.app.FindRecordsByFilter("matches",
+			"competition = {:cid}", "", 0, 0,
+			map[string]any{"cid": comp.Id})
+		pairIDs := make([]string, 0)
+		for _, m := range matches {
+			pairIDs = append(pairIDs, m.GetString("pair1"), m.GetString("pair2"))
+		}
+		pairNames, _ := expandPairNames(h.app, pairIDs)
+
+		for _, m := range matches {
+			status := m.GetString("status")
+			p1 := pairNames[m.GetString("pair1")]
+			p2 := pairNames[m.GetString("pair2")]
+
+			switch status {
+			case "disputed":
+				issues = append(issues, AdminIssue{
+					Type: "dispute", TypeLabel: "Disputa", BadgeClass: "badge-error",
+					CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
+					MatchID: m.Id, Detail: "pendiente de resolucion",
+				})
+			case "confirmed":
+				if quorumHours > 0 {
+					if sa := m.GetString("submitted_at"); sa != "" {
+						if t, err := time.Parse(time.RFC3339, sa); err == nil {
+							elapsed := now.Sub(t)
+							if elapsed > time.Duration(quorumHours)*time.Hour {
+								days := int(elapsed.Hours() / 24)
+								detail := fmt.Sprintf("enviado hace %d dias", days)
+								if days == 0 {
+									detail = fmt.Sprintf("enviado hace %d horas", int(elapsed.Hours()))
+								}
+								issues = append(issues, AdminIssue{
+									Type: "quorum", TypeLabel: "Quorum", BadgeClass: "badge-warning",
+									CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
+									MatchID: m.Id, Detail: detail,
+								})
+							}
+						}
+					}
+				}
+			case "pending":
+				if d := m.GetString("date"); d != "" {
+					if matchDate, err := time.Parse("2006-01-02", d); err == nil {
+						if matchDate.Before(now) {
+							issues = append(issues, AdminIssue{
+								Type: "overdue", TypeLabel: "Vencido", BadgeClass: "badge-ghost",
+								CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
+								MatchID: m.Id, Detail: "fecha: " + d,
+							})
+						}
+					}
+				}
+				lastMsg, _ := h.app.FindRecordsByFilter("match_messages",
+					"match = {:mid}", "-created", 1, 0,
+					map[string]any{"mid": m.Id})
+				if len(lastMsg) > 0 {
+					created := lastMsg[0].GetString("created")
+					if t, err := time.Parse("2006-01-02 15:04:05.000Z", created); err == nil {
+						if now.Sub(t) > 14*24*time.Hour {
+							days := int(now.Sub(t).Hours() / 24)
+							issues = append(issues, AdminIssue{
+								Type: "stale", TypeLabel: "Inactivo", BadgeClass: "badge-info",
+								CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
+								MatchID: m.Id, Detail: fmt.Sprintf("sin actividad en %d dias", days),
+							})
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return h.renderPage(e, "admin/competitions.html", map[string]any{
 		"Active":       active,
 		"Inactive":     inactive,
 		"DisputeCount": len(totalDisputes),
+		"Issues":       issues,
+		"IssueCount":   len(issues),
 	})
 }
 

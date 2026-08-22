@@ -23,12 +23,40 @@
         <div class="stat-value text-2xl {{if gt .DisputeCount 0}}text-error{{end}}">{{.DisputeCount}}</div>
         <div class="stat-desc">{{if gt .DisputeCount 0}}pendientes de resolver{{else}}sin disputas{{end}}</div>
     </div>
+    <div class="stat">
+        <div class="stat-title">Incidencias</div>
+        <div class="stat-value text-2xl {{if gt .IssueCount 0}}text-error{{end}}">{{.IssueCount}}</div>
+        <div class="stat-desc">{{if gt .IssueCount 0}}requieren atencion{{else}}todo en orden{{end}}</div>
+    </div>
 </div>
 
 {{if gt .DisputeCount 0}}
 <div class="alert alert-warning shadow-sm mb-6">
     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
     <span>{{.DisputeCount}} partido{{if gt .DisputeCount 1}}s{{end}} en disputa — revisa las competiciones afectadas.</span>
+</div>
+{{end}}
+
+{{if .Issues}}
+<div class="card bg-base-100 shadow-sm mb-6">
+    <div class="card-body p-4">
+        <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Incidencias ({{.IssueCount}})</h3>
+        <div class="space-y-2">
+            {{range .Issues}}
+            <a href="/match/{{.MatchID}}" class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200 transition-colors">
+                <span class="badge {{.BadgeClass}} badge-sm whitespace-nowrap">{{.TypeLabel}}</span>
+                <span class="text-sm font-medium truncate">{{.Pair1Name}} vs {{.Pair2Name}}</span>
+                <span class="text-xs opacity-50 hidden sm:inline">{{.CompetitionName}}</span>
+                <span class="text-xs opacity-40 ml-auto whitespace-nowrap">{{.Detail}}</span>
+            </a>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{else}}
+<div class="alert alert-success shadow-sm mb-6">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+    <span>Sin incidencias — todo en orden.</span>
 </div>
 {{end}}
 
