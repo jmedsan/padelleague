@@ -15,9 +15,10 @@
         <table class="table table-zebra">
             <thead>
                 <tr>
-                    <th>Email</th>
+                    <th>Destinatario</th>
                     <th class="hidden sm:table-cell">Competicion</th>
                     <th>Estado</th>
+                    <th>Usos</th>
                     <th class="hidden md:table-cell">Expira</th>
                     <th>Enlace</th>
                     <th></th>
@@ -27,7 +28,7 @@
                 {{range .Invitations}}
                 <tr class="hover">
                     <td>
-                        <span class="text-sm">{{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="opacity-40">Cualquier email</span>{{end}}</span>
+                        <span class="text-sm">{{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="badge badge-info badge-sm">Enlace generico</span>{{end}}</span>
                     </td>
                     <td class="hidden sm:table-cell text-sm opacity-60">
                         {{if .GetString "competition"}}Asignada{{else}}-{{end}}
@@ -40,6 +41,9 @@
                         {{else}}
                         <span class="badge badge-error badge-sm">Expirada</span>
                         {{end}}
+                    </td>
+                    <td class="text-sm">
+                        {{.GetFloat "use_count" | printf "%.0f"}}/{{if gt (.GetFloat "max_uses") 0}}{{.GetFloat "max_uses" | printf "%.0f"}}{{else}}1{{end}}
                     </td>
                     <td class="hidden md:table-cell text-sm opacity-60">
                         {{(.GetDateTime "expires_at").Time.Format "02/01/2006"}}
@@ -64,7 +68,7 @@
                 </tr>
                 {{else}}
                 <tr>
-                    <td colspan="6" class="text-center py-12 opacity-60">No hay invitaciones</td>
+                    <td colspan="7" class="text-center py-12 opacity-60">No hay invitaciones</td>
                 </tr>
                 {{end}}
             </tbody>
@@ -80,8 +84,18 @@
         <form hx-post="/admin/invitations" hx-target="#create-error">
             <div class="form-control w-full">
                 <label class="label"><span class="label-text font-medium">Email (opcional)</span></label>
-                <input type="email" name="email" class="input input-bordered w-full" placeholder="jugador@email.com">
-                <label class="label"><span class="label-text-alt opacity-50">Si se indica, solo este email podra registrarse con esta invitacion</span></label>
+                <input type="email" name="email" id="invite-email" class="input input-bordered w-full" placeholder="jugador@email.com" oninput="toggleGenericFields()">
+                <label class="label"><span class="label-text-alt opacity-50">Vacio = enlace generico que cualquiera puede usar</span></label>
+            </div>
+            <div id="generic-fields">
+                <div class="form-control w-full mt-3">
+                    <label class="label"><span class="label-text font-medium">Usos maximos</span></label>
+                    <input type="number" name="max_uses" class="input input-bordered w-full" value="10" min="1">
+                </div>
+            </div>
+            <div class="form-control w-full mt-3">
+                <label class="label"><span class="label-text font-medium">Dias de validez</span></label>
+                <input type="number" name="expiration_days" class="input input-bordered w-full" value="7" min="1">
             </div>
             <div class="form-control w-full mt-3">
                 <label class="label"><span class="label-text font-medium">Competicion (opcional)</span></label>
@@ -101,6 +115,11 @@
 </dialog>
 
 <script>
+function toggleGenericFields() {
+    var email = document.getElementById('invite-email').value.trim();
+    document.getElementById('generic-fields').classList.toggle('hidden', email !== '');
+}
+
 function copyInviteLink(token, btn) {
     var url = window.location.origin + '/register?token=' + token;
     navigator.clipboard.writeText(url).then(function() {
