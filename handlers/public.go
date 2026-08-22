@@ -326,7 +326,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	autoExpandRound := 0
 	for _, rv := range rounds {
 		for _, mv := range rv.Matches {
-			if mv.IsMyMatch && mv.Match.GetString("status") == "pending" {
+			if mv.Match.GetString("status") != "final" {
 				autoExpandRound = rv.RoundNumber
 				break
 			}
@@ -337,8 +337,15 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	}
 
 	var standings []StandingRowFull
+	hasPenalties := false
 	if comp.GetString("type") == "league" {
 		standings, _ = ComputeStandings(h.app, id)
+		for _, s := range standings {
+			if s.Penalty > 0 {
+				hasPenalties = true
+				break
+			}
+		}
 	}
 
 	var awards []Award
@@ -353,5 +360,6 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		"Awards":         awards,
 		"IsArchived":     !comp.GetBool("active"),
 		"AutoExpandRound": autoExpandRound,
+		"HasPenalties":    hasPenalties,
 	})
 }
