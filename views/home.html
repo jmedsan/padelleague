@@ -95,9 +95,18 @@
                 {{end}}
             </div>
             {{if gt .PendingMatches 0}}
-            <div class="mt-3 flex items-center gap-2">
-                <div class="bg-warning/20 text-warning-content rounded-lg px-3 py-1.5 font-bold text-lg">{{.PendingMatches}}</div>
-                <span class="text-sm opacity-70">partido{{if gt .PendingMatches 1}}s{{end}} pendiente{{if gt .PendingMatches 1}}s{{end}}</span>
+            <div class="mt-3">
+                <p class="text-sm opacity-70 mb-2">{{.PendingMatches}} partido{{if gt .PendingMatches 1}}s{{end}} pendiente{{if gt .PendingMatches 1}}s{{end}}</p>
+                {{if .PendingDetails}}
+                <div class="space-y-1">
+                    {{range .PendingDetails}}
+                    <a href="/match/{{.MatchID}}" class="flex items-center justify-between text-sm p-1.5 rounded-lg hover:bg-base-200/50 transition-colors">
+                        <span>vs <span class="font-medium">{{.Opponent}}</span></span>
+                        <span class="badge badge-ghost badge-sm">J{{.RoundNumber}}</span>
+                    </a>
+                    {{end}}
+                </div>
+                {{end}}
             </div>
             {{else}}
             <p class="text-sm opacity-50 mt-3">Sin partidos pendientes</p>
