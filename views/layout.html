@@ -24,7 +24,7 @@
 <body class="min-h-screen flex flex-col bg-base-200">
     <div class="drawer">
         <input id="main-drawer" type="checkbox" class="drawer-toggle">
-        <div class="drawer-content flex flex-col">
+        <div class="drawer-content flex flex-col overflow-x-hidden">
             <div class="navbar bg-base-100 shadow-lg sticky top-0 z-30">
                 <div class="flex-none lg:hidden">
                     <label for="main-drawer" aria-label="abrir menu" class="btn btn-square btn-ghost">
@@ -50,7 +50,7 @@
                             <span hx-get="/notifications/count" hx-trigger="load" hx-swap="innerHTML"></span>
                         </div>
                     </button>
-                    <div tabindex="0" class="dropdown-content z-30 mt-3 w-80" hx-get="/notifications/list" hx-trigger="click from:closest .dropdown" hx-swap="innerHTML">
+                    <div tabindex="0" class="dropdown-content z-30 mt-3 w-80 max-w-[calc(100vw-2rem)]" hx-get="/notifications/list" hx-trigger="click from:closest .dropdown" hx-swap="innerHTML">
                         <div class="card card-compact bg-base-100 shadow-xl">
                             <div class="card-body"><p class="text-sm opacity-50">Cargando...</p></div>
                         </div>
@@ -108,9 +108,9 @@
             <div id="verify-banner" class="alert alert-warning shadow-md mx-4 mt-4">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                 <span>Tu email no esta verificado. Revisa tu bandeja de entrada.</span>
-                <button onclick="document.getElementById('verify-banner').remove();sessionStorage.setItem('banner-dismissed','1')" class="btn btn-ghost btn-sm btn-circle">&#10005;</button>
+                <button onclick="document.getElementById('verify-banner').remove();localStorage.setItem('banner-dismissed','1')" class="btn btn-ghost btn-sm btn-circle">&#10005;</button>
             </div>
-            <script>if(sessionStorage.getItem('banner-dismissed'))document.getElementById('verify-banner').remove()</script>
+            <script>if(localStorage.getItem('banner-dismissed'))document.getElementById('verify-banner').remove()</script>
             {{end}}
             <main class="flex-1 container mx-auto px-4 py-6 max-w-5xl">
                 {{block "content" .}}{{end}}
@@ -161,6 +161,15 @@
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js');
 }
+document.addEventListener('click', function(e) {
+    document.querySelectorAll('.dropdown').forEach(function(d) {
+        if (!d.contains(e.target)) {
+            d.querySelector('[tabindex]')?.blur();
+            var det = d.querySelector('details[open]');
+            if (det) det.removeAttribute('open');
+        }
+    });
+});
 </script>
 </body>
 </html>
