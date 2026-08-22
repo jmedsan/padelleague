@@ -138,7 +138,7 @@ func (h *NotificationHandler) PrefsSave(e *core.RequestEvent) error {
 	})
 }
 
-func CheckQuorumTimeout(app core.App) {
+func CheckQuorumTimeout(app core.App, notifier *Notifier) {
 	stale, err := app.FindRecordsByFilter("matches",
 		"status = 'confirmed'", "", 0, 0, nil)
 	if err != nil || len(stale) == 0 {
@@ -203,7 +203,7 @@ func CheckQuorumTimeout(app core.App) {
 		pairIDs := []string{fresh.GetString("pair1"), fresh.GetString("pair2")}
 		for _, pid := range pairIDs {
 			players := getPlayersForPair(app, pid)
-			notifyPlayers(app, players, "general",
+			notifier.NotifyPlayers(players, "general",
 				"Resultado confirmado automaticamente",
 				"El resultado ha sido confirmado por tiempo de espera.",
 				fresh.Id)

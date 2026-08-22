@@ -81,7 +81,7 @@ func (h *AdminHandler) DisputesResolve(e *core.RequestEvent) error {
 
 	allPlayers := append(getPlayersForPair(h.app, match.GetString("pair1")),
 		getPlayersForPair(h.app, match.GetString("pair2"))...)
-	notifyPlayers(h.app, allPlayers, "dispute", "Disputa resuelta", "Un administrador ha resuelto la disputa de tu partido.", match.Id)
+	h.notifier.NotifyPlayers(allPlayers, "dispute", "Disputa resuelta", "Un administrador ha resuelto la disputa de tu partido.", match.Id)
 	emailNotifyPlayers(h.app, allPlayers, "Disputa resuelta", "Un administrador ha resuelto la disputa de tu partido.", "/match/"+match.Id)
 
 	compID := match.GetString("competition")

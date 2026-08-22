@@ -57,7 +57,7 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 		submitterPairID = match.GetString("pair2")
 	}
 	submitterPlayers := getPlayersForPair(h.app, submitterPairID)
-	notifyPlayers(h.app, submitterPlayers, "general", "Resultado confirmado", "Tu rival ha confirmado el resultado del partido.", match.Id)
+	h.notifier.NotifyPlayers( submitterPlayers, "general", "Resultado confirmado", "Tu rival ha confirmado el resultado del partido.", match.Id)
 	emailNotifyPlayers(h.app, submitterPlayers, "Resultado confirmado", "Tu rival ha confirmado el resultado del partido.", "/match/"+id)
 
 	e.Response.Header().Set("HX-Redirect", "/match/"+id)
@@ -99,7 +99,7 @@ func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al disputar el partido</div>`)
 	}
 
-	notifyAdmins(h.app, "dispute", "Partido disputado", disputeNotes, match.Id)
+	h.notifier.NotifyAdmins( "dispute", "Partido disputado", disputeNotes, match.Id)
 
 	e.Response.Header().Set("HX-Redirect", "/match/"+id)
 	return e.NoContent(http.StatusNoContent)
@@ -165,7 +165,7 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 		rivalPairID = match.GetString("pair1")
 	}
 	rivalPlayers := getPlayersForPair(h.app, rivalPairID)
-	notifyPlayers(h.app, rivalPlayers, "quorum_request", "Resultado corregido", "El rival ha corregido el resultado. Confirma o disputa.", match.Id)
+	h.notifier.NotifyPlayers( rivalPlayers, "quorum_request", "Resultado corregido", "El rival ha corregido el resultado. Confirma o disputa.", match.Id)
 
 	e.Response.Header().Set("HX-Redirect", "/match/"+id)
 	return e.NoContent(http.StatusNoContent)
