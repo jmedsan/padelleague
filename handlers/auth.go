@@ -59,7 +59,7 @@ func (h *AuthHandler) Register(e *core.RequestEvent) error {
 	}
 
 	invites, err := h.app.FindRecordsByFilter("invitations",
-		"token = {:token} && status = 'pending'",
+		"token = {:token}",
 		"", 1, 0,
 		map[string]any{"token": token})
 	if err != nil || len(invites) == 0 || isInviteExpired(invites[0]) {
@@ -68,6 +68,17 @@ func (h *AuthHandler) Register(e *core.RequestEvent) error {
 		})
 	}
 	invite := invites[0]
+
+	maxUses := int(invite.GetFloat("max_uses"))
+	if maxUses < 1 {
+		maxUses = 1
+	}
+	useCount := int(invite.GetFloat("use_count"))
+	if useCount >= maxUses {
+		return h.renderPage(e, "register.html", map[string]any{
+			"InvalidInvite": true,
+		})
+	}
 
 	return h.renderPage(e, "register.html", map[string]any{
 		"Token":       token,
@@ -91,13 +102,22 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 	}
 
 	invites, err := h.app.FindRecordsByFilter("invitations",
-		"token = {:token} && status = 'pending'",
+		"token = {:token}",
 		"", 1, 0,
 		map[string]any{"token": token})
 	if err != nil || len(invites) == 0 || isInviteExpired(invites[0]) {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Invitación inválida o expirada</div>`)
 	}
 	invite := invites[0]
+
+	maxUses := int(invite.GetFloat("max_uses"))
+	if maxUses < 1 {
+		maxUses = 1
+	}
+	useCount := int(invite.GetFloat("use_count"))
+	if useCount >= maxUses {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Invitación agotada</div>`)
+	}
 
 	inviteEmail := invite.GetString("email")
 	if inviteEmail != "" && !strings.EqualFold(email, inviteEmail) {
@@ -123,9 +143,17 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 			return err
 		}
 
-		invite.Set("status", "used")
+		newCount := int(invite.GetFloat("use_count")) + 1
+		invite.Set("use_count", newCount)
 		invite.Set("used_by", userRecord.Id)
 		invite.Set("used_at", time.Now().UTC().Format("2006-01-02 15:04:05.000Z"))
+		invMaxUses := int(invite.GetFloat("max_uses"))
+		if invMaxUses < 1 {
+			invMaxUses = 1
+		}
+		if newCount >= invMaxUses {
+			invite.Set("status", "used")
+		}
 		if err := txApp.Save(invite); err != nil {
 			return err
 		}

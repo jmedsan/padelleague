@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"net/http"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -49,13 +50,33 @@ func (h *AdminHandler) InvitationsCreate(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error interno</div>`)
 	}
 
+	maxUses := 1
+	if email == "" {
+		if v := e.Request.FormValue("max_uses"); v != "" {
+			maxUses, _ = strconv.Atoi(v)
+		}
+		if maxUses < 1 {
+			maxUses = 1
+		}
+	}
+
+	expirationDays := 7
+	if d := e.Request.FormValue("expiration_days"); d != "" {
+		expirationDays, _ = strconv.Atoi(d)
+	}
+	if expirationDays < 1 {
+		expirationDays = 1
+	}
+
 	record := core.NewRecord(col)
 	record.Set("token", token)
 	record.Set("email", email)
 	record.Set("competition", competition)
 	record.Set("created_by", e.Auth.Id)
 	record.Set("status", "pending")
-	record.Set("expires_at", time.Now().Add(7*24*time.Hour).UTC().Format(time.RFC3339))
+	record.Set("max_uses", maxUses)
+	record.Set("use_count", 0)
+	record.Set("expires_at", time.Now().Add(time.Duration(expirationDays)*24*time.Hour).UTC().Format(time.RFC3339))
 
 	if err := h.app.Save(record); err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al crear la invitacion</div>`)
