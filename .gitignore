@@ -3,6 +3,6 @@ pb_data/
 node_modules/
 .mcp.json
 .playwright-mcp
-.kiro
+.claude
 screenshots/
 .env
