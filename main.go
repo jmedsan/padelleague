@@ -247,6 +247,7 @@ func main() {
 		se.Router.POST("/match/{id}/edit", match.MatchEdit).BindFunc(requireAuthRedirect)
 		se.Router.POST("/match/{id}/walkover", match.MatchWalkover).BindFunc(requireAuthRedirect)
 		se.Router.POST("/match/{id}/correct", match.MatchCorrect).BindFunc(requireAuthRedirect)
+		se.Router.POST("/match/{id}/admin-override", match.AdminOverride).BindFunc(requireAuthRedirect)
 
 		thread := handlers.NewThreadHandler(app, renderPage, renderPartial)
 		se.Router.GET("/match/{id}/thread", thread.Thread).BindFunc(requireAuthRedirect)

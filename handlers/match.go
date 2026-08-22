@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -275,6 +276,106 @@ func (h *MatchHandler) MatchEdit(e *core.RequestEvent) error {
 	if err := h.app.Save(match); err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar los cambios</div>`)
 	}
+
+	e.Response.Header().Set("HX-Redirect", "/match/"+id)
+	return e.NoContent(http.StatusNoContent)
+}
+
+func (h *MatchHandler) createAdminTimelineEntry(matchID, adminID, content string) {
+	col, err := h.app.FindCollectionByNameOrId("match_messages")
+	if err != nil {
+		return
+	}
+	record := core.NewRecord(col)
+	record.Set("match", matchID)
+	record.Set("author", adminID)
+	record.Set("type", "admin_action")
+	record.Set("content", content)
+	h.app.Save(record)
+}
+
+func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	match, err := h.app.FindRecordById("matches", id)
+	if err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
+	}
+
+	if e.Auth.GetString("role") != "admin" {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Solo administradores</div>`)
+	}
+
+	var changes []string
+
+	if scores := e.Request.FormValue("scores"); scores != "" {
+		oldScores := match.GetString("scores")
+		if scores != oldScores {
+			if _, _, _, _, err := parseScore(scores); err != nil {
+				return e.HTML(http.StatusOK, `<div class="alert alert-error">Marcador no valido</div>`)
+			}
+			winner, err := determineWinner(match, scores)
+			if err != nil {
+				return e.HTML(http.StatusOK, `<div class="alert alert-error">No se pudo determinar ganador</div>`)
+			}
+			match.Set("scores", scores)
+			match.Set("winner", winner)
+			if match.GetString("status") != "final" {
+				match.Set("status", "final")
+			}
+			if oldScores == "" {
+				changes = append(changes, "Resultado establecido: "+scores)
+			} else {
+				changes = append(changes, "Resultado corregido: "+oldScores+" → "+scores)
+			}
+		}
+	}
+
+	if date := e.Request.FormValue("date"); date != "" && date != match.GetString("date") {
+		old := match.GetString("date")
+		match.Set("date", date)
+		if old == "" {
+			changes = append(changes, "Fecha establecida: "+date)
+		} else {
+			changes = append(changes, "Fecha cambiada: "+old+" → "+date)
+		}
+	}
+
+	if t := e.Request.FormValue("time"); t != "" && t != match.GetString("time") {
+		old := match.GetString("time")
+		match.Set("time", t)
+		if old == "" {
+			changes = append(changes, "Hora establecida: "+t)
+		} else {
+			changes = append(changes, "Hora cambiada: "+old+" → "+t)
+		}
+	}
+
+	if venueID := e.Request.FormValue("venue_id"); venueID != "" {
+		venueName := venueID
+		if v, err := h.app.FindRecordById("venues", venueID); err == nil {
+			venueName = v.GetString("name")
+		}
+		old := match.GetString("club")
+		if venueName != old {
+			match.Set("club", venueName)
+			if old == "" {
+				changes = append(changes, "Club establecido: "+venueName)
+			} else {
+				changes = append(changes, "Club cambiado: "+old+" → "+venueName)
+			}
+		}
+	}
+
+	if len(changes) == 0 {
+		return e.HTML(http.StatusOK, `<div class="alert alert-warning">No se detectaron cambios</div>`)
+	}
+
+	if err := h.app.Save(match); err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar</div>`)
+	}
+
+	adminName := resolvePlayerName(h.app, e.Auth.Id)
+	h.createAdminTimelineEntry(id, e.Auth.Id, adminName+" (admin): "+strings.Join(changes, "; "))
 
 	e.Response.Header().Set("HX-Redirect", "/match/"+id)
 	return e.NoContent(http.StatusNoContent)
