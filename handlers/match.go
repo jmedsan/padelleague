@@ -20,18 +20,20 @@ func NewMatchHandler(app core.App, renderPage func(e *core.RequestEvent, page st
 }
 
 type MatchView struct {
-	Partido     *core.Record
-	Pareja1Name string
-	Pareja2Name string
-	JornadaNum  int
-	CanSubmit   bool
-	CanConfirm  bool
-	CanDispute  bool
-	CanEdit     bool
-	CanWalkover bool
-	CanCorrect  bool
-	StatusLabel string
-	StatusClass string
+	Partido       *core.Record
+	Pareja1Name   string
+	Pareja2Name   string
+	JornadaNum    int
+	CanSubmit     bool
+	CanConfirm    bool
+	CanDispute    bool
+	CanEdit       bool
+	CanWalkover   bool
+	CanCorrect    bool
+	IsAdmin       bool
+	IsParticipant bool
+	StatusLabel   string
+	StatusClass   string
 }
 
 type PartidoDetailData struct {
@@ -71,7 +73,7 @@ func statusClass(status string) string {
 	return "badge-ghost"
 }
 
-func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNames map[string]string) MatchView {
+func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNames map[string]string, isAdmin, isParticipant bool) MatchView {
 	status := match.GetString("status")
 	submittedBy := match.GetString("submitted_by")
 
@@ -97,18 +99,20 @@ func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNam
 	}
 
 	return MatchView{
-		Partido:     match,
-		Pareja1Name: pairNames[match.GetString("pair1")],
-		Pareja2Name: pairNames[match.GetString("pair2")],
-		JornadaNum:  roundNum,
-		CanSubmit:   status == "pending" && team > 0,
-		CanConfirm:  status == "confirmed" && team > 0 && !isSubmitter,
-		CanDispute:  status == "confirmed" && team > 0 && !isSubmitter,
-		CanEdit:     status == "pending" && team > 0,
-		CanWalkover: status == "pending" && team > 0,
-		CanCorrect:  canCorrect,
-		StatusLabel: statusLabel(status),
-		StatusClass: statusClass(status),
+		Partido:       match,
+		Pareja1Name:   pairNames[match.GetString("pair1")],
+		Pareja2Name:   pairNames[match.GetString("pair2")],
+		JornadaNum:    roundNum,
+		CanSubmit:     status == "pending" && team > 0,
+		CanConfirm:    status == "confirmed" && team > 0 && !isSubmitter,
+		CanDispute:    status == "confirmed" && team > 0 && !isSubmitter,
+		CanEdit:       status == "pending" && team > 0,
+		CanWalkover:   status == "pending" && team > 0,
+		CanCorrect:    canCorrect,
+		IsAdmin:       isAdmin,
+		IsParticipant: isParticipant,
+		StatusLabel:   statusLabel(status),
+		StatusClass:   statusClass(status),
 	}
 }
 
@@ -120,8 +124,11 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
-	_, err = getPlayerTeam(h.app, userID, match)
-	if err != nil {
+	isAdmin := e.Auth.GetString("role") == "admin"
+	_, teamErr := getPlayerTeam(h.app, userID, match)
+	isParticipant := teamErr == nil
+
+	if !isParticipant && !isAdmin {
 		return h.renderErrorPage(e, http.StatusForbidden, "No tienes acceso a este partido")
 	}
 
@@ -130,7 +137,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		match.GetString("pair2"),
 	})
 
-	mv := h.buildMatchView(match, userID, pairNames)
+	mv := h.buildMatchView(match, userID, pairNames, isAdmin, isParticipant)
 
 	compName := ""
 	compID := match.GetString("competition")
@@ -189,8 +196,9 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
-	_, err = getPlayerTeam(h.app, userID, match)
-	if err != nil {
+	isAdmin := e.Auth.GetString("role") == "admin"
+	_, teamErr := getPlayerTeam(h.app, userID, match)
+	if teamErr != nil && !isAdmin {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
 
@@ -211,23 +219,6 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	match.Set("submitted_by", userID)
 	match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
 	match.Set("status", "confirmed")
-
-	if date := e.Request.FormValue("date"); date != "" {
-		match.Set("date", date)
-	}
-	if t := e.Request.FormValue("time"); t != "" {
-		match.Set("time", t)
-	}
-	venue := e.Request.FormValue("venue")
-	if venue == "__other__" {
-		venue = e.Request.FormValue("custom_venue")
-	}
-	if venue != "" {
-		match.Set("club", venue)
-	}
-	if court := e.Request.FormValue("court_number"); court != "" {
-		match.Set("court_number", court)
-	}
 
 	if err := h.app.Save(match); err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar el resultado</div>`)
@@ -254,8 +245,9 @@ func (h *MatchHandler) MatchEdit(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
-	_, err = getPlayerTeam(h.app, userID, match)
-	if err != nil {
+	isAdmin := e.Auth.GetString("role") == "admin"
+	_, teamErr := getPlayerTeam(h.app, userID, match)
+	if teamErr != nil && !isAdmin {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
 
