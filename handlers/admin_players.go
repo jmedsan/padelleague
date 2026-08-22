@@ -86,13 +86,32 @@ func (h *AdminHandler) PlayerPreCreate(e *core.RequestEvent) error {
 	invite.Set("token", inviteToken)
 	invite.Set("email", email)
 	invite.Set("created_by", e.Auth.Id)
-	invite.Set("expires_at", time.Now().Add(7*24*time.Hour).UTC().Format("2006-01-02 15:04:05.000Z"))
+	invite.Set("expires_at", time.Now().Add(2*24*time.Hour).UTC().Format("2006-01-02 15:04:05.000Z"))
 	invite.Set("status", "pending")
 
 	if err := h.app.Save(invite); err != nil {
 		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error al crear invitación: %s</div>`, err.Error()))
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/players")
-	return e.NoContent(http.StatusNoContent)
+	resetToken, err := user.NewPasswordResetToken()
+	if err != nil {
+		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-warning">Usuario creado pero no se pudo generar enlace de contraseña: %s</div>`, err.Error()))
+	}
+
+	scheme := "https"
+	if e.Request.TLS == nil {
+		scheme = "http"
+	}
+	resetURL := fmt.Sprintf("%s://%s/reset-password?token=%s", scheme, e.Request.Host, resetToken)
+
+	return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-success">
+	<div class="w-full">
+		<p class="font-medium">Usuario creado: %s</p>
+		<p class="text-sm mt-1">Enlace para establecer contraseña:</p>
+		<div class="flex gap-2 mt-2">
+			<input type="text" value="%s" class="input input-bordered input-sm flex-1" readonly id="pwd-link">
+			<button onclick="navigator.clipboard.writeText(document.getElementById('pwd-link').value).then(function(){this.textContent='Copiado!';setTimeout(function(){document.getElementById('copy-btn').textContent='Copiar'},2000)}.bind(this))" class="btn btn-sm btn-ghost" id="copy-btn">Copiar</button>
+		</div>
+	</div>
+</div>`, email, resetURL))
 }
