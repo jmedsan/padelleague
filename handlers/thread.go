@@ -69,25 +69,7 @@ func ParseProposalData(raw any) *ProposalData {
 	return &pd
 }
 
-func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
-	matchID := e.Request.PathValue("id")
-	match, err := h.app.FindRecordById("matches", matchID)
-	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
-	}
-
-	pair1ID := match.GetString("pair1")
-	pair2ID := match.GetString("pair2")
-	if pair1ID == "" || pair2ID == "" {
-		return e.HTML(http.StatusOK, `<div class="text-center py-6 opacity-60">Parejas pendientes de asignacion</div>`)
-	}
-
-	isAdmin := e.Auth.GetString("role") == "admin"
-	myTeam, teamErr := getPlayerTeam(h.app, e.Auth.Id, match)
-	if teamErr != nil && !isAdmin {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">No tienes acceso a este hilo</div>`)
-	}
-
+func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, isAdmin bool, myTeam int) []ThreadMessage {
 	messages, _ := h.app.FindRecordsByFilter("match_messages",
 		"match = {:mid}", "", 0, 0,
 		map[string]any{"mid": matchID})
@@ -97,11 +79,8 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 			messages[j].GetDateTime("created").Time())
 	})
 
-	venues, _ := h.app.FindRecordsByFilter("venues",
-		"id != ''", "name", 0, 0, nil)
-
-	pair1Players := getPlayersForPair(h.app, pair1ID)
-	pair2Players := getPlayersForPair(h.app, pair2ID)
+	pair1Players := getPlayersForPair(h.app, match.GetString("pair1"))
+	pair2Players := getPlayersForPair(h.app, match.GetString("pair2"))
 	nameCache := make(map[string]string)
 
 	authorTeamOf := func(uid string) int {
@@ -139,11 +118,11 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		}
 
 		status := msg.GetString("proposal_status")
+		isParticipant := myTeam != 0
 		canRespond := msgType == "scheduling_proposal" &&
 			status == "pending" &&
 			match.GetString("status") == "pending" &&
-			!isAdmin &&
-			myTeam != 0 &&
+			isParticipant &&
 			authorTeam != myTeam
 
 		threadMessages = append(threadMessages, ThreadMessage{
@@ -161,6 +140,32 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 			CreatedAt:       msg.GetDateTime("created").Time().Format("02/01 15:04"),
 		})
 	}
+	return threadMessages
+}
+
+func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
+	matchID := e.Request.PathValue("id")
+	match, err := h.app.FindRecordById("matches", matchID)
+	if err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
+	}
+
+	pair1ID := match.GetString("pair1")
+	pair2ID := match.GetString("pair2")
+	if pair1ID == "" || pair2ID == "" {
+		return e.HTML(http.StatusOK, `<div class="text-center py-6 opacity-60">Parejas pendientes de asignacion</div>`)
+	}
+
+	isAdmin := e.Auth.GetString("role") == "admin"
+	myTeam, teamErr := getPlayerTeam(h.app, e.Auth.Id, match)
+	if teamErr != nil && !isAdmin {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">No tienes acceso a este hilo</div>`)
+	}
+
+	threadMessages := h.buildThreadMessages(match, matchID, isAdmin, myTeam)
+
+	venues, _ := h.app.FindRecordsByFilter("venues",
+		"id != ''", "name", 0, 0, nil)
 
 	isParticipant := myTeam != 0
 	canPost := isParticipant
@@ -174,6 +179,27 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		"CanPropose":    canPropose,
 		"IsAdmin":       isAdmin,
 		"IsParticipant": isParticipant,
+	})
+}
+
+func (h *ThreadHandler) ThreadMessages(e *core.RequestEvent) error {
+	matchID := e.Request.PathValue("id")
+	match, err := h.app.FindRecordById("matches", matchID)
+	if err != nil {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
+	}
+
+	isAdmin := e.Auth.GetString("role") == "admin"
+	myTeam, teamErr := getPlayerTeam(h.app, e.Auth.Id, match)
+	if teamErr != nil && !isAdmin {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">No tienes acceso a este hilo</div>`)
+	}
+
+	threadMessages := h.buildThreadMessages(match, matchID, isAdmin, myTeam)
+
+	return h.renderPartial(e, "thread-messages.html", map[string]any{
+		"MatchID":  matchID,
+		"Messages": threadMessages,
 	})
 }
 
