@@ -105,7 +105,17 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		})
 	}
 
-	allPairs, _ := h.app.FindAllRecords("pairs")
+	allPairsRaw, _ := h.app.FindAllRecords("pairs")
+	enrolledSet := map[string]bool{}
+	for _, pid := range pairIDs {
+		enrolledSet[pid] = true
+	}
+	var allPairs []*core.Record
+	for _, p := range allPairsRaw {
+		if !enrolledSet[p.Id] {
+			allPairs = append(allPairs, p)
+		}
+	}
 	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != {:cid}", "", 0, 0, map[string]any{"cid": id})
 
 	matches, _ := h.app.FindRecordsByFilter("matches",
@@ -346,13 +356,23 @@ func (h *CompetitionHandler) ListPairs(e *core.RequestEvent) error {
 		})
 	}
 
-	allPairs, _ := h.app.FindAllRecords("pairs")
+	allPairsRaw2, _ := h.app.FindAllRecords("pairs")
+	enrolledSet2 := map[string]bool{}
+	for _, pid := range pairIDs {
+		enrolledSet2[pid] = true
+	}
+	var allPairs2 []*core.Record
+	for _, p := range allPairsRaw2 {
+		if !enrolledSet2[p.Id] {
+			allPairs2 = append(allPairs2, p)
+		}
+	}
 	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != {:cid}", "", 0, 0, map[string]any{"cid": id})
 
 	return h.renderPage(e, "admin/competition-pairs.html", map[string]any{
 		"Competition":     comp,
 		"Entries":         entries,
-		"AllPairs":        allPairs,
+		"AllPairs":        allPairs2,
 		"AllCompetitions": allComps,
 	})
 }
