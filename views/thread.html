@@ -154,7 +154,7 @@
         </script>
         {{end}}
 
-        {{if .IsAdmin}}
+        {{if and .IsAdmin (not .IsParticipant)}}
         <div class="text-center text-xs opacity-40 mt-2">Vista de administrador (solo lectura)</div>
         {{end}}
     </div>
