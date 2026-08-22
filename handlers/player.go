@@ -10,12 +10,13 @@ import (
 )
 
 type PlayerHandler struct {
-	app        core.App
-	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
+	app             core.App
+	renderPage      func(e *core.RequestEvent, page string, data map[string]any) error
+	renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error
 }
 
-func NewPlayerHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *PlayerHandler {
-	return &PlayerHandler{app: app, renderPage: renderPage}
+func NewPlayerHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error) *PlayerHandler {
+	return &PlayerHandler{app: app, renderPage: renderPage, renderErrorPage: renderErrorPage}
 }
 
 type PairInfo struct {
@@ -68,7 +69,7 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	user, err := h.app.FindRecordById("users", id)
 	if err != nil {
-		return e.HTML(http.StatusNotFound, `<div class="alert alert-error">Jugador no encontrado</div>`)
+		return h.renderErrorPage(e, http.StatusNotFound, "Jugador no encontrado")
 	}
 
 	pairs, _ := findPairsForPlayer(h.app, user.Id)
