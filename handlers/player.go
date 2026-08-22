@@ -270,8 +270,14 @@ func (h *PlayerHandler) H2H(e *core.RequestEvent) error {
 	p1 := e.Request.URL.Query().Get("p1")
 	p2 := e.Request.URL.Query().Get("p2")
 
-	if p1 == "" || p2 == "" {
-		return e.HTML(http.StatusBadRequest, `<div class="alert alert-error">Faltan parámetros p1 y p2</div>`)
+	if p1 == "" && p2 == "" {
+		return e.Redirect(http.StatusFound, "/")
+	}
+	if p2 == "" {
+		return e.Redirect(http.StatusFound, "/player/"+p1)
+	}
+	if p1 == "" {
+		return e.Redirect(http.StatusFound, "/player/"+p2)
 	}
 
 	pairNames, _ := expandPairNames(h.app, []string{p1, p2})
