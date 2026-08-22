@@ -44,6 +44,13 @@
                 {{end}}
             </div>
             {{end}}
+            {{if .CanChangeDecision}}
+            <div class="mt-2">
+                <form hx-post="/match/{{$.MatchID}}/thread/proposal/{{.Record.Id}}/change-decision" hx-target="#thread-messages-list">
+                    <button type="submit" class="btn btn-ghost btn-xs">Cambiar decision</button>
+                </form>
+            </div>
+            {{end}}
             {{if .CanRespond}}
             <div class="flex gap-2 mt-3">
                 <form hx-post="/match/{{$.MatchID}}/thread/proposal/{{.Record.Id}}/respond" hx-target="#thread-messages-list" class="flex-1">

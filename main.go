@@ -254,6 +254,7 @@ func main() {
 		se.Router.POST("/match/{id}/thread/message", thread.PostMessage).BindFunc(requireAuthRedirect)
 		se.Router.POST("/match/{id}/thread/proposal", thread.PostProposal).BindFunc(requireAuthRedirect)
 		se.Router.POST("/match/{id}/thread/proposal/{msgId}/respond", thread.RespondProposal).BindFunc(requireAuthRedirect)
+		se.Router.POST("/match/{id}/thread/proposal/{msgId}/change-decision", thread.ProposalChangeDecision).BindFunc(requireAuthRedirect)
 
 		ical := handlers.NewICalHandler(app)
 		se.Router.GET("/ical/match/{id}", ical.Match).BindFunc(requireAuthRedirect)
