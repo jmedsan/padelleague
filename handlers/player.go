@@ -47,6 +47,7 @@ type CompetitionStat struct {
 }
 
 type RecentMatch struct {
+	MatchID   string
 	PairName1 string
 	PairName2 string
 	Score     string
@@ -93,12 +94,13 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 	gamesWon := 0
 	gamesLost := 0
 	type matchResult struct {
-		won    bool
-		date   string
-		p1     string
-		p2     string
-		score  string
-		compID string
+		matchID string
+		won     bool
+		date    string
+		p1      string
+		p2      string
+		score   string
+		compID  string
 	}
 	var allResults []matchResult
 
@@ -146,12 +148,13 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 			}
 
 			allResults = append(allResults, matchResult{
-				won:    won,
-				date:   m.GetString("date"),
-				p1:     pairNames[m.GetString("pair1")],
-				p2:     pairNames[m.GetString("pair2")],
-				score:  score,
-				compID: m.GetString("competition"),
+				matchID: m.Id,
+				won:     won,
+				date:    m.GetString("date"),
+				p1:      pairNames[m.GetString("pair1")],
+				p2:      pairNames[m.GetString("pair2")],
+				score:   score,
+				compID:  m.GetString("competition"),
 			})
 		}
 	}
@@ -239,6 +242,7 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 	recent := make([]RecentMatch, 0, limit)
 	for _, r := range allResults[:limit] {
 		recent = append(recent, RecentMatch{
+			MatchID:   r.matchID,
 			PairName1: r.p1,
 			PairName2: r.p2,
 			Score:     r.score,
@@ -303,6 +307,7 @@ func (h *PlayerHandler) H2H(e *core.RequestEvent) error {
 
 		if len(recent) < 5 {
 			recent = append(recent, RecentMatch{
+				MatchID:   m.Id,
 				PairName1: pairNames[m.GetString("pair1")],
 				PairName2: pairNames[m.GetString("pair2")],
 				Score:     m.GetString("scores"),
