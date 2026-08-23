@@ -213,6 +213,10 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Debes indicar el marcador</div>`)
 	}
 
+	if strings.EqualFold(strings.TrimSpace(scores), "WO") {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Usa el botón de incomparecencia para reportar un WO</div>`)
+	}
+
 	if _, _, _, _, err := parseScore(scores); err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Marcador no valido</div>`)
 	}

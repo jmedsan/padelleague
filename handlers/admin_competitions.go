@@ -293,10 +293,6 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 	})
 }
 
-func (h *CompetitionHandler) List(e *core.RequestEvent) error {
-	return h.Dashboard(e)
-}
-
 func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 	col, err := h.app.FindCollectionByNameOrId("competitions")
 	if err != nil {
@@ -420,55 +416,6 @@ func (h *CompetitionHandler) Toggle(e *core.RequestEvent) error {
 
 	e.Response.Header().Set("HX-Redirect", "/admin/competitions")
 	return e.NoContent(http.StatusNoContent)
-}
-
-func (h *CompetitionHandler) ListPairs(e *core.RequestEvent) error {
-	id := e.Request.PathValue("id")
-	comp, err := h.app.FindRecordById("competitions", id)
-	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competición no encontrada</div>`)
-	}
-
-	pairIDs := comp.GetStringSlice("pairs")
-	seeding := h.getSeeding(comp)
-
-	type pairEntry struct {
-		PairID   string
-		PairName string
-		Seed     int
-	}
-	var entries []pairEntry
-	for _, pid := range pairIDs {
-		pair, err := h.app.FindRecordById("pairs", pid)
-		if err != nil {
-			continue
-		}
-		entries = append(entries, pairEntry{
-			PairID:   pid,
-			PairName: pair.GetString("name"),
-			Seed:     seeding[pid],
-		})
-	}
-
-	allPairsRaw2, _ := h.app.FindAllRecords("pairs")
-	enrolledSet2 := map[string]bool{}
-	for _, pid := range pairIDs {
-		enrolledSet2[pid] = true
-	}
-	var allPairs2 []*core.Record
-	for _, p := range allPairsRaw2 {
-		if !enrolledSet2[p.Id] {
-			allPairs2 = append(allPairs2, p)
-		}
-	}
-	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != {:cid}", "", 0, 0, map[string]any{"cid": id})
-
-	return h.renderPage(e, "admin/competition-pairs.html", map[string]any{
-		"Competition":     comp,
-		"Entries":         entries,
-		"AllPairs":        allPairs2,
-		"AllCompetitions": allComps,
-	})
 }
 
 func (h *CompetitionHandler) AddPair(e *core.RequestEvent) error {
