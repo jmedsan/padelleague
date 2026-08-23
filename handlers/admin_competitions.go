@@ -92,7 +92,7 @@ func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
 		for _, m := range matches {
 			pairIDs = append(pairIDs, m.GetString("pair1"), m.GetString("pair2"))
 		}
-		pairNames, _ := expandPairNames(h.app, pairIDs)
+		pairNames := expandPairNames(h.app, pairIDs)
 
 		for _, m := range matches {
 			status := m.GetString("status")
@@ -216,7 +216,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"competition = {:cid}", "", 0, 0,
 		map[string]any{"cid": id})
 
-	pairNameMap, _ := expandPairNames(h.app, pairIDs)
+	pairNameMap := expandPairNames(h.app, pairIDs)
 
 	type matchEntry struct {
 		Match     *core.Record
@@ -667,7 +667,7 @@ func (h *CompetitionHandler) validatePlayerUniqueness(existingPairIDs []string, 
 		op1 := otherPair.GetString("player1")
 		op2 := otherPair.GetString("player2")
 		if p1 == op1 || p1 == op2 || p2 == op1 || p2 == op2 {
-			return fmt.Errorf("Un jugador ya participa en otra pareja de esta competición")
+			return fmt.Errorf("un jugador ya participa en otra pareja de esta competición")
 		}
 	}
 	return nil

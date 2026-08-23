@@ -235,10 +235,10 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 				p2Name = pair.GetString("name")
 			}
 			winnerName := ""
-			winner := m.GetString("winner")
-			if winner == p1 {
+			switch m.GetString("winner") {
+			case p1:
 				winnerName = p1Name
-			} else if winner == p2 {
+			case p2:
 				winnerName = p2Name
 			}
 			recentResults = append(recentResults, RecentResult{
@@ -315,7 +315,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	for pid := range allPairIDs {
 		pairIDSlice = append(pairIDSlice, pid)
 	}
-	pairNames, _ := expandPairNames(h.app, pairIDSlice)
+	pairNames := expandPairNames(h.app, pairIDSlice)
 
 	roundMap := map[int][]RoundMatchView{}
 	for _, m := range matches {

@@ -24,7 +24,7 @@ func getPlayerTeam(app core.App, userID string, match *core.Record) (int, error)
 	return 0, fmt.Errorf("user %s is not a participant", userID)
 }
 
-func expandPairNames(app core.App, pairIDs []string) (map[string]string, error) {
+func expandPairNames(app core.App, pairIDs []string) map[string]string {
 	names := make(map[string]string, len(pairIDs))
 	for _, id := range pairIDs {
 		if id == "" {
@@ -37,7 +37,7 @@ func expandPairNames(app core.App, pairIDs []string) (map[string]string, error) 
 		}
 		names[id] = pair.GetString("name")
 	}
-	return names, nil
+	return names
 }
 
 func resolvePlayerName(app core.App, userID string) string {

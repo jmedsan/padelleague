@@ -89,7 +89,7 @@ func computeAwards(app core.App, competitionID string) []Award {
 	}
 
 	if longestStreak > 1 {
-		pairNames, _ := expandPairNames(app, []string{longestPairID})
+		pairNames := expandPairNames(app, []string{longestPairID})
 		awards = append(awards, Award{
 			Title:    "Mayor racha",
 			PairName: pairNames[longestPairID],

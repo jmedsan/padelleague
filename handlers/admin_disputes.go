@@ -23,7 +23,7 @@ func (h *AdminHandler) Disputes(e *core.RequestEvent) error {
 	var views []DisputeView
 	for _, m := range matches {
 		pairIDs := []string{m.GetString("pair1"), m.GetString("pair2")}
-		pairNames, _ := expandPairNames(h.app, pairIDs)
+		pairNames := expandPairNames(h.app, pairIDs)
 
 		views = append(views, DisputeView{
 			Match:        m,

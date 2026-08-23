@@ -119,7 +119,7 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 		for pid := range pairIDSet {
 			pairIDSlice = append(pairIDSlice, pid)
 		}
-		pairNames, _ := expandPairNames(h.app, pairIDSlice)
+		pairNames := expandPairNames(h.app, pairIDSlice)
 
 		for _, m := range matches {
 			totalPlayed++
@@ -285,7 +285,7 @@ func (h *PlayerHandler) H2H(e *core.RequestEvent) error {
 		return e.Redirect(http.StatusFound, "/player/"+p2)
 	}
 
-	pairNames, _ := expandPairNames(h.app, []string{p1, p2})
+	pairNames := expandPairNames(h.app, []string{p1, p2})
 
 	matches, _ := h.app.FindRecordsByFilter("matches",
 		"((pair1 = {:p1} && pair2 = {:p2}) || (pair1 = {:p2} && pair2 = {:p1})) && status = 'final'",

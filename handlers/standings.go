@@ -31,7 +31,7 @@ func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, er
 
 	pairIDs := comp.GetStringSlice("pairs")
 
-	pairNames, _ := expandPairNames(app, pairIDs)
+	pairNames := expandPairNames(app, pairIDs)
 
 	matches, _ := app.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'final'",
@@ -59,10 +59,11 @@ func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, er
 		}
 
 		if strings.EqualFold(strings.TrimSpace(score), "WO") {
-			if winner == p1 {
+			switch winner {
+			case p1:
 				s1.wins++
 				s2.losses++
-			} else if winner == p2 {
+			case p2:
 				s2.wins++
 				s1.losses++
 			}
@@ -84,10 +85,11 @@ func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, er
 		s2.gamesWon += games2
 		s2.gamesLost += games1
 
-		if winner == p1 {
+		switch winner {
+		case p1:
 			s1.wins++
 			s2.losses++
-		} else if winner == p2 {
+		case p2:
 			s2.wins++
 			s1.losses++
 		}
