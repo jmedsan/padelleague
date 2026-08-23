@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginViaForm, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 
 test('unauthenticated access redirects to login', async ({ page }) => {
   await page.goto('/');
@@ -7,7 +7,7 @@ test('unauthenticated access redirects to login', async ({ page }) => {
 });
 
 test('login with valid credentials', async ({ page }) => {
-  await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+  await loginViaForm(page, ADMIN_EMAIL, ADMIN_PASSWORD);
   await expect(page).toHaveURL('/');
   await expect(page.locator('body')).toBeVisible();
 });
