@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -101,6 +102,37 @@ func makeFinalMatch(t *testing.T, app core.App, compID, p1ID, p2ID, score, winne
 	record.Set("scores", score)
 	record.Set("winner", winnerID)
 	record.Set("round_number", 1)
+	require.NoError(t, app.Save(record))
+	return record
+}
+
+func makeInvitation(t *testing.T, app core.App, expiresAt time.Time) *core.Record {
+	t.Helper()
+	creator := makeUser(t, app, "Inviter", "")
+	col, err := app.FindCollectionByNameOrId("invitations")
+	require.NoError(t, err)
+	n := userSeq.Add(1)
+	record := core.NewRecord(col)
+	record.Set("token", fmt.Sprintf("tok%d", n))
+	record.Set("created_by", creator.Id)
+	record.Set("status", "pending")
+	if !expiresAt.IsZero() {
+		record.Set("expires_at", expiresAt.UTC().Format("2006-01-02 15:04:05.000Z"))
+	}
+	require.NoError(t, app.Save(record))
+	return record
+}
+
+func makeNotification(t *testing.T, app core.App, userID, title, body string, read bool) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("notifications")
+	require.NoError(t, err)
+	record := core.NewRecord(col)
+	record.Set("user", userID)
+	record.Set("type", "general")
+	record.Set("title", title)
+	record.Set("body", body)
+	record.Set("read", read)
 	require.NoError(t, app.Save(record))
 	return record
 }
