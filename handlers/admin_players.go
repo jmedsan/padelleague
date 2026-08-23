@@ -98,9 +98,12 @@ func (h *AdminHandler) PlayerPreCreate(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-warning">Usuario creado pero no se pudo generar enlace de contraseña: %s</div>`, err.Error()))
 	}
 
-	scheme := "https"
-	if e.Request.TLS == nil {
-		scheme = "http"
+	scheme := e.Request.Header.Get("X-Forwarded-Proto")
+	if scheme == "" {
+		scheme = "https"
+		if e.Request.TLS == nil {
+			scheme = "http"
+		}
 	}
 	resetURL := fmt.Sprintf("%s://%s/reset-password?token=%s", scheme, e.Request.Host, resetToken)
 
