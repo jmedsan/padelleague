@@ -209,7 +209,15 @@ func setupAllRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	match := NewMatchHandler(app, notifier, r.Page, r.ErrorPage)
 	e.Router.GET("/match/{id}", match.MatchDetail).BindFunc(requireAuthTest)
 	e.Router.POST("/match/{id}/submit", match.MatchSubmit).BindFunc(requireAuthTest)
+	e.Router.POST("/match/{id}/confirm", match.MatchConfirm).BindFunc(requireAuthTest)
+	e.Router.POST("/match/{id}/dispute", match.MatchDispute).BindFunc(requireAuthTest)
+	e.Router.POST("/match/{id}/edit", match.MatchEdit).BindFunc(requireAuthTest)
 	e.Router.POST("/match/{id}/walkover", match.MatchWalkover).BindFunc(requireAuthTest)
+	e.Router.POST("/match/{id}/correct", match.MatchCorrect).BindFunc(requireAuthTest)
+
+	thread := NewThreadHandler(app, notifier, r.Page, r.Partial)
+	e.Router.GET("/match/{id}/thread", thread.Thread).BindFunc(requireAuthTest)
+	e.Router.POST("/match/{id}/thread/message", thread.PostMessage).BindFunc(requireAuthTest)
 
 	notif := NewNotificationHandler(app, r.Page)
 	e.Router.GET("/notifications/count", notif.Count).BindFunc(requireAuthTest)
