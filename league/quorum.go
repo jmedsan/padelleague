@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/types"
 )
 
 func (svc *Service) ConfirmStaleMatches() {
@@ -42,13 +43,11 @@ func (svc *Service) ConfirmStaleMatches() {
 		if submittedAt == "" {
 			continue
 		}
-		t, err := time.Parse(time.RFC3339, submittedAt)
+		dt, err := types.ParseDateTime(submittedAt)
 		if err != nil {
-			t, err = time.Parse("2006-01-02 15:04:05.000Z", submittedAt)
-			if err != nil {
-				continue
-			}
+			continue
 		}
+		t := dt.Time()
 		if time.Since(t) < time.Duration(timeoutHours)*time.Hour {
 			continue
 		}

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/types"
 
 	"padelleague/league"
 )
@@ -132,8 +133,8 @@ func (h *CompetitionHandler) classifyMatchIssues(m *core.Record, compName string
 	case StatusConfirmed:
 		if quorumHours > 0 {
 			if sa := m.GetString("submitted_at"); sa != "" {
-				if t, err := time.Parse(time.RFC3339, sa); err == nil {
-					elapsed := now.Sub(t)
+				if dt, err := types.ParseDateTime(sa); err == nil {
+					elapsed := now.Sub(dt.Time())
 					if elapsed > time.Duration(quorumHours)*time.Hour {
 						days := int(elapsed.Hours() / 24)
 						detail := fmt.Sprintf("enviado hace %d dias", days)

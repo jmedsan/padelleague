@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/types"
 
 	"padelleague/league"
 	"padelleague/notify"
@@ -98,8 +99,8 @@ func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNam
 	if status == StatusConfirmed && team > 0 && isSubmitter {
 		submittedAt := match.GetString("submitted_at")
 		if submittedAt != "" {
-			if t, err := time.Parse(time.RFC3339, submittedAt); err == nil {
-				canCorrect = time.Since(t) < 24*time.Hour
+			if dt, err := types.ParseDateTime(submittedAt); err == nil {
+				canCorrect = time.Since(dt.Time()) < 24*time.Hour
 			}
 		}
 	}
