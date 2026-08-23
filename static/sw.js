@@ -26,7 +26,13 @@ self.addEventListener('fetch', function(event) {
     if (event.request.url.includes('/static/')) {
         event.respondWith(
             caches.match(event.request).then(function(cached) {
-                return cached || fetch(event.request);
+                var fetched = fetch(event.request).then(function(response) {
+                    caches.open(CACHE_NAME).then(function(cache) {
+                        cache.put(event.request, response.clone());
+                    });
+                    return response;
+                });
+                return cached || fetched;
             })
         );
     }

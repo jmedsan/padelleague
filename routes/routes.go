@@ -49,7 +49,6 @@ func Register(app core.App, se *core.ServeEvent, r *render.Renderer, notifier *h
 	se.Router.GET("/", pub.Home).BindFunc(requireAuth)
 	se.Router.GET("/competition/{id}", pub.Competition).BindFunc(requireAuth)
 
-	se.Router.GET("/logout", auth.Logout)
 	se.Router.POST("/logout", auth.Logout)
 
 	admin := handlers.NewAdminHandler(app, notifier, r.Page)
