@@ -14,6 +14,8 @@ type Config struct {
 
 	AppPlayerEmail    string `env:"APP_PLAYER_EMAIL"`
 	AppPlayerPassword string `env:"APP_PLAYER_PASSWORD"`
+
+	AppEnv string `env:"APP_ENV" envDefault:"dev"`
 }
 
 func Load() (Config, error) {

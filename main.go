@@ -47,9 +47,12 @@ func main() {
 }
 
 func seedUsers(cfg config.Config) []seed.User {
-	return []seed.User{
+	users := []seed.User{
 		{Email: cfg.PBAdminEmail, Password: cfg.PBAdminPassword, Collection: core.CollectionNameSuperusers},
 		{Email: cfg.AppAdminEmail, Password: cfg.AppAdminPassword, Collection: "users", Role: "admin", DisplayName: "Admin"},
-		{Email: cfg.AppPlayerEmail, Password: cfg.AppPlayerPassword, Collection: "users", Role: "player", DisplayName: "Javi"},
 	}
+	if cfg.AppEnv != "prod" {
+		users = append(users, seed.User{Email: cfg.AppPlayerEmail, Password: cfg.AppPlayerPassword, Collection: "users", Role: "player", DisplayName: "Javi"})
+	}
+	return users
 }
