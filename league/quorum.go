@@ -83,4 +83,3 @@ func (svc *Service) ConfirmStaleMatches() {
 		}
 	}
 }
-
