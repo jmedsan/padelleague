@@ -1,5 +1,7 @@
 # PadelLeague
 
+[![CI](https://github.com/jmedsan/padelleague/actions/workflows/ci.yml/badge.svg)](https://github.com/jmedsan/padelleague/actions/workflows/ci.yml)
+
 Padel league management — competitions, matches, rankings and scheduling.
 
 ## What it does
@@ -95,6 +97,10 @@ views/               # Go HTML templates (layout + pages + partials)
 static/              # CSS, JS, images, manifest.json, sw.js (PWA)
 frontend/            # Tailwind config + input CSS (build only)
 ```
+
+## CI
+
+Every push and pull request runs format check, lint, tests with race detector, vulnerability scan, and Docker build via GitHub Actions. Enable branch protection on `main` requiring the `gate` job to pass before merging.
 
 ## UI language
 
