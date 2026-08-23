@@ -1,0 +1,191 @@
+package handlers
+
+import (
+	"net/http"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tests"
+	"github.com/stretchr/testify/require"
+
+	"padelleague/league"
+	"padelleague/middleware"
+	"padelleague/notify"
+	"padelleague/render"
+)
+
+func setupPublicRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+	viewsFS := os.DirFS("..")
+	r := render.New(viewsFS, "")
+	notifier := notify.NewNotifier(app, "", "")
+	svc := league.New(app, notifier)
+
+	e.Router.BindFunc(middleware.CookieAuth)
+
+	auth := NewAuthHandler(app, r.Page)
+	e.Router.GET("/login", auth.Login)
+	e.Router.GET("/profile/complete", auth.ProfileComplete).BindFunc(requireAuthTest)
+	e.Router.POST("/profile/complete", auth.ProfileCompleteSubmit).BindFunc(requireAuthTest)
+
+	pub := NewPublicHandler(app, svc, r.Page)
+	e.Router.GET("/", pub.Home).BindFunc(requireAuthTest)
+	e.Router.GET("/competition/{id}", pub.Competition).BindFunc(requireAuthTest)
+
+	player := NewPlayerHandler(app, r.Page, r.ErrorPage)
+	e.Router.GET("/player/{id}", player.Player).BindFunc(requireAuthTest)
+	e.Router.GET("/h2h", player.H2H).BindFunc(requireAuthTest)
+
+	ical := NewICalHandler(app)
+	e.Router.GET("/ical/match/{id}", ical.Match).BindFunc(requireAuthTest)
+	e.Router.GET("/ical/competition/{id}", ical.Competition).BindFunc(requireAuthTest)
+}
+
+func TestHomeWithAuth(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "GET / with auth returns home page",
+		Method:          http.MethodGet,
+		URL:             "/",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"PadelLeague"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Home Player", "")
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestCompetitionPage(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "GET /competition/{id} with auth returns 200",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"PadelLeague"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "CompA")
+		p2 := makePairTB(tb, app, "CompB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestPlayerProfilePage(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "GET /player/{id} with auth returns 200",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"PadelLeague"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Profile Viewer", "")
+		s.URL = "/player/" + user.Id
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestH2HPage(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "GET /h2h with two players returns 200",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"PadelLeague"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		u1 := makeUserTB(tb, app, "H2H P1", "")
+		u2 := makeUserTB(tb, app, "H2H P2", "")
+		s.URL = "/h2h?p1=" + u1.Id + "&p2=" + u2.Id
+		s.Headers = authHeaders(tb, u1)
+	}
+	s.Test(t)
+}
+
+func TestICalMatch(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "GET /ical/match/{id} with date returns ics",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"VCALENDAR"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "IcalA")
+		p2 := makePairTB(tb, app, "IcalB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match.Set("date", "2026-09-01")
+		match.Set("time", "18:00")
+		require.NoError(tb, app.Save(match))
+		s.URL = "/ical/match/" + match.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestICalCompetition(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "GET /ical/competition/{id} with auth returns ics",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"VCALENDAR"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "IcalCompA")
+		p2 := makePairTB(tb, app, "IcalCompB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match.Set("date", "2026-09-01")
+		match.Set("time", "18:00")
+		require.NoError(tb, app.Save(match))
+		s.URL = "/ical/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestProfileCompletePage(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "GET /profile/complete with auth returns 200",
+		Method:          http.MethodGet,
+		URL:             "/profile/complete",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"PadelLeague"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Profile User", "")
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestProfileCompleteSubmit(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:           "POST /profile/complete sets display name",
+		Method:         http.MethodPost,
+		URL:            "/profile/complete",
+		Body:           strings.NewReader("display_name=NuevoNombre"),
+		ExpectedStatus: 302,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Old Name", "")
+		hdrs := authHeaders(tb, user)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
