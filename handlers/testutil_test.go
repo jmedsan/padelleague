@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"os"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -11,12 +12,31 @@ import (
 	"github.com/stretchr/testify/require"
 
 	_ "padelleague/migrations"
+	"padelleague/render"
 )
 
 var (
 	pairSeq atomic.Int64
 	userSeq atomic.Int64
 )
+
+func makeUserTB(t testing.TB, app core.App, displayName, email string) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("users")
+	require.NoError(t, err)
+	if email == "" {
+		n := userSeq.Add(1)
+		email = fmt.Sprintf("user%d@test.local", n)
+	}
+	record := core.NewRecord(col)
+	record.Set("email", email)
+	record.Set("display_name", displayName)
+	record.Set("role", "player")
+	record.SetPassword("testpass123456")
+	record.SetVerified(true)
+	require.NoError(t, app.Save(record))
+	return record
+}
 
 func makeUser(t *testing.T, app core.App, displayName, email string) *core.Record {
 	t.Helper()
@@ -135,6 +155,17 @@ func makeNotification(t *testing.T, app core.App, userID, title, body string, re
 	record.Set("read", read)
 	require.NoError(t, app.Save(record))
 	return record
+}
+
+func setupAuthRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+	viewsFS := os.DirFS("..")
+	r := render.New(viewsFS, "")
+	auth := NewAuthHandler(app, r.Page)
+	e.Router.GET("/login", auth.Login)
+	e.Router.POST("/login", auth.LoginSubmit)
+	e.Router.GET("/register", auth.Register)
+	e.Router.POST("/register", auth.RegisterSubmit)
+	e.Router.POST("/logout", auth.Logout)
 }
 
 func TestNewTestApp(t *testing.T) {
