@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -67,7 +67,8 @@ func (h *AdminHandler) DisputesResolve(e *core.RequestEvent) error {
 		var err error
 		winnerID, err = determineWinner(match, score)
 		if err != nil {
-			return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Marcador inválido: %s. Selecciona el ganador manualmente.</div>`, err.Error()))
+			slog.Error("determine winner in dispute resolution", "match", match.Id, "err", err)
+			return e.HTML(http.StatusOK, `<div class="alert alert-error">Marcador inválido. Selecciona el ganador manualmente.</div>`)
 		}
 	}
 

@@ -130,7 +130,9 @@ func (n *Notifier) sendPush(userID, title, body, relatedMatchID string) {
 			slog.Error("push send failed", "endpoint", sub.GetString("endpoint"), "err", err)
 			continue
 		}
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			slog.Warn("close push response", "err", err)
+		}
 
 		if resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusNotFound {
 			if err := n.app.Delete(sub); err != nil {

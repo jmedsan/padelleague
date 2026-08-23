@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log/slog"
 	"math"
 	"net/http"
 	"sort"
@@ -115,7 +116,8 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 	})
 
 	if err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
+		slog.Error("generate fixtures failed", "competition", compID, "err", err)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al generar partidos</div>`)
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID)
