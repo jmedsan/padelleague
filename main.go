@@ -9,9 +9,10 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 
 	"padelleague/config"
-	"padelleague/handlers"
 	"padelleague/hooks"
+	"padelleague/league"
 	_ "padelleague/migrations"
+	"padelleague/notify"
 	"padelleague/render"
 	"padelleague/routes"
 	"padelleague/seed"
@@ -32,7 +33,8 @@ func main() {
 	app := pocketbase.New()
 
 	r := render.New(viewsFS, cfg.VAPIDPublicKey)
-	notifier := handlers.NewNotifier(app, cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey)
+	notifier := notify.NewNotifier(app, cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey)
+	leagueSvc := league.New(app, notifier)
 
 	hooks.Register(app, notifier)
 
@@ -45,10 +47,11 @@ func main() {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		seed.Run(app, seedUsers(cfg))
 		routes.Register(se, routes.Deps{
-			App:      app,
-			Renderer: r,
-			Notifier: notifier,
-			StaticFS: staticFS,
+			App:       app,
+			Renderer:  r,
+			Notifier:  notifier,
+			LeagueSvc: leagueSvc,
+			StaticFS:  staticFS,
 		})
 		return se.Next()
 	})

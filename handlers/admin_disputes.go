@@ -5,6 +5,9 @@ import (
 	"net/http"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
+	"padelleague/notify"
 )
 
 type DisputeView struct {
@@ -23,14 +26,14 @@ func (h *AdminHandler) Disputes(e *core.RequestEvent) error {
 	var views []DisputeView
 	for _, m := range matches {
 		pairIDs := []string{m.GetString("pair1"), m.GetString("pair2")}
-		pairNames := expandPairNames(h.app, pairIDs)
+		pairNames := league.PairNames(h.app, pairIDs)
 
 		views = append(views, DisputeView{
 			Match:        m,
 			Pair1Name:    pairNames[pairIDs[0]],
 			Pair2Name:    pairNames[pairIDs[1]],
-			SubmittedBy:  resolvePlayerName(h.app, m.GetString("submitted_by")),
-			DisputedBy:   resolvePlayerName(h.app, m.GetString("disputed_by")),
+			SubmittedBy:  league.PlayerName(h.app, m.GetString("submitted_by")),
+			DisputedBy:   league.PlayerName(h.app, m.GetString("disputed_by")),
 			DisputeNotes: m.GetString("dispute_notes"),
 		})
 	}
@@ -65,7 +68,7 @@ func (h *AdminHandler) DisputesResolve(e *core.RequestEvent) error {
 		winnerID = manualWinner
 	} else {
 		var err error
-		winnerID, err = determineWinner(match, score)
+		winnerID, err = league.DetermineWinner(match, score)
 		if err != nil {
 			slog.Error("determine winner in dispute resolution", "match", match.Id, "err", err)
 			return e.HTML(http.StatusOK, `<div class="alert alert-error">Marcador inválido. Selecciona el ganador manualmente.</div>`)
@@ -80,10 +83,10 @@ func (h *AdminHandler) DisputesResolve(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al resolver la disputa</div>`)
 	}
 
-	allPlayers := append(getPlayersForPair(h.app, match.GetString("pair1")),
-		getPlayersForPair(h.app, match.GetString("pair2"))...)
+	allPlayers := append(league.PlayersForPair(h.app, match.GetString("pair1")),
+		league.PlayersForPair(h.app, match.GetString("pair2"))...)
 	h.notifier.NotifyPlayers(allPlayers, "dispute", "Disputa resuelta", "Un administrador ha resuelto la disputa de tu partido.", match.Id)
-	emailNotifyPlayers(h.app, allPlayers, "Disputa resuelta", "Un administrador ha resuelto la disputa de tu partido.", "/match/"+match.Id)
+	notify.EmailNotifyPlayers(h.app, allPlayers, "Disputa resuelta", "Un administrador ha resuelto la disputa de tu partido.", "/match/"+match.Id)
 
 	compID := match.GetString("competition")
 	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID)

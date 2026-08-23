@@ -8,6 +8,8 @@ import (
 	"sort"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
 )
 
 type Round struct {
@@ -66,11 +68,12 @@ func generateRoundRobin(pairIDs []string, double bool) []Round {
 
 type FixtureHandler struct {
 	app        core.App
+	leagueSvc  *league.Service
 	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
 }
 
-func NewFixtureHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *FixtureHandler {
-	return &FixtureHandler{app: app, renderPage: renderPage}
+func NewFixtureHandler(app core.App, leagueSvc *league.Service, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *FixtureHandler {
+	return &FixtureHandler{app: app, leagueSvc: leagueSvc, renderPage: renderPage}
 }
 
 func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
@@ -125,7 +128,7 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 }
 
 func (h *FixtureHandler) generateLeague(txApp core.App, compID string, pairIDs []string, double bool) error {
-	rounds := generateRoundRobin(pairIDs, double)
+	rounds := league.RoundRobin(pairIDs, double)
 
 	matchCol, err := txApp.FindCollectionByNameOrId("matches")
 	if err != nil {
@@ -154,7 +157,7 @@ func (h *FixtureHandler) generatePlayoff(txApp core.App, compID string, pairIDs 
 	numRounds := int(math.Ceil(math.Log2(float64(n))))
 	bracketSize := 1 << numRounds
 
-	seeding := NewCompetitionHandler(h.app, h.renderPage).getSeeding(comp)
+	seeding := NewCompetitionHandler(h.app, h.leagueSvc, h.renderPage).getSeeding(comp)
 
 	type seededPair struct {
 		id   string

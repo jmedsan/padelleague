@@ -6,19 +6,21 @@ import (
 	"net/url"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/notify"
 )
 
 type PushHandler struct {
 	app      core.App
-	notifier *Notifier
+	notifier *notify.Notifier
 }
 
-func NewPushHandler(app core.App, notifier *Notifier) *PushHandler {
+func NewPushHandler(app core.App, notifier *notify.Notifier) *PushHandler {
 	return &PushHandler{app: app, notifier: notifier}
 }
 
 func (h *PushHandler) Enabled() bool {
-	return h.notifier.vapidPublicKey != "" && h.notifier.vapidPrivateKey != ""
+	return h.notifier.VAPIDPublicKey != "" && h.notifier.VAPIDPrivateKey != ""
 }
 
 type pushSubscribeRequest struct {

@@ -4,6 +4,8 @@ import (
 	"net/http"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
 )
 
 type PairView struct {
@@ -19,8 +21,8 @@ func (h *AdminHandler) Pairs(e *core.RequestEvent) error {
 	for _, p := range pairs {
 		views = append(views, PairView{
 			Record:  p,
-			Player1: resolvePlayerName(h.app, p.GetString("player1")),
-			Player2: resolvePlayerName(h.app, p.GetString("player2")),
+			Player1: league.PlayerName(h.app, p.GetString("player1")),
+			Player2: league.PlayerName(h.app, p.GetString("player2")),
 		})
 	}
 

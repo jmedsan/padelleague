@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
 )
 
 type PlayerHandler struct {
@@ -73,7 +75,7 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 		return h.renderErrorPage(e, http.StatusNotFound, "Jugador no encontrado")
 	}
 
-	pairs, _ := findPairsForPlayer(h.app, user.Id)
+	pairs, _ := league.PairsForPlayer(h.app, user.Id)
 
 	var pairInfos []PairInfo
 	for _, p := range pairs {
@@ -83,7 +85,7 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 		}
 		pairInfos = append(pairInfos, PairInfo{
 			Pair:    p,
-			Partner: resolvePlayerName(h.app, partnerID),
+			Partner: league.PlayerName(h.app, partnerID),
 		})
 	}
 
@@ -119,7 +121,7 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 		for pid := range pairIDSet {
 			pairIDSlice = append(pairIDSlice, pid)
 		}
-		pairNames := expandPairNames(h.app, pairIDSlice)
+		pairNames := league.PairNames(h.app, pairIDSlice)
 
 		for _, m := range matches {
 			totalPlayed++
@@ -131,18 +133,18 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 
 			score := m.GetString("scores")
 			if !strings.EqualFold(strings.TrimSpace(score), "WO") {
-				s1, s2, g1, g2, err := parseScore(score)
+				sc, err := league.ParseScore(score)
 				if err == nil {
 					if m.GetString("pair1") == p.Id {
-						setsWon += s1
-						setsLost += s2
-						gamesWon += g1
-						gamesLost += g2
+						setsWon += sc.Sets1
+						setsLost += sc.Sets2
+						gamesWon += sc.Games1
+						gamesLost += sc.Games2
 					} else {
-						setsWon += s2
-						setsLost += s1
-						gamesWon += g2
-						gamesLost += g1
+						setsWon += sc.Sets2
+						setsLost += sc.Sets1
+						gamesWon += sc.Games2
+						gamesLost += sc.Games1
 					}
 				}
 			}
@@ -285,7 +287,7 @@ func (h *PlayerHandler) H2H(e *core.RequestEvent) error {
 		return e.Redirect(http.StatusFound, "/player/"+p2)
 	}
 
-	pairNames := expandPairNames(h.app, []string{p1, p2})
+	pairNames := league.PairNames(h.app, []string{p1, p2})
 
 	matches, _ := h.app.FindRecordsByFilter("matches",
 		"((pair1 = {:p1} && pair2 = {:p2}) || (pair1 = {:p2} && pair2 = {:p1})) && status = 'final'",

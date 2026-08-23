@@ -7,7 +7,8 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 
-	"padelleague/handlers"
+	"padelleague/league"
+	"padelleague/notify"
 )
 
 var validTransitions = map[string][]string{
@@ -16,7 +17,9 @@ var validTransitions = map[string][]string{
 	"disputed":  {"final"},
 }
 
-func Register(app core.App, notifier *handlers.Notifier) {
+func Register(app core.App, notifier *notify.Notifier) {
+	svc := league.New(app, notifier)
+
 	app.OnRecordCreate("users").BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.GetString("role") == "" {
 			e.Record.Set("role", "player")
@@ -41,7 +44,7 @@ func Register(app core.App, notifier *handlers.Notifier) {
 
 	app.OnRecordAfterUpdateSuccess("matches").BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.GetString("status") == "final" {
-			if err := handlers.AutoAdvancePlayoff(app, e.Record); err != nil {
+			if err := svc.AdvancePlayoff(e.Record); err != nil {
 				slog.Error("auto-advance playoff failed", "match", e.Record.Id, "err", err)
 			}
 		}
@@ -49,6 +52,6 @@ func Register(app core.App, notifier *handlers.Notifier) {
 	})
 
 	app.Cron().MustAdd("quorum-timeout", "*/5 * * * *", func() {
-		handlers.CheckQuorumTimeout(app, notifier)
+		svc.ConfirmStaleMatches()
 	})
 }

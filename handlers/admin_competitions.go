@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
 )
 
 type AdminIssue struct {
@@ -25,11 +27,12 @@ type AdminIssue struct {
 
 type CompetitionHandler struct {
 	app        core.App
+	leagueSvc  *league.Service
 	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
 }
 
-func NewCompetitionHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *CompetitionHandler {
-	return &CompetitionHandler{app: app, renderPage: renderPage}
+func NewCompetitionHandler(app core.App, leagueSvc *league.Service, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *CompetitionHandler {
+	return &CompetitionHandler{app: app, leagueSvc: leagueSvc, renderPage: renderPage}
 }
 
 type CompetitionSummary struct {
@@ -93,7 +96,7 @@ func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
 		for _, m := range matches {
 			pairIDs = append(pairIDs, m.GetString("pair1"), m.GetString("pair2"))
 		}
-		pairNames := expandPairNames(h.app, pairIDs)
+		pairNames := league.PairNames(h.app, pairIDs)
 
 		for _, m := range matches {
 			status := m.GetString("status")
@@ -217,7 +220,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"competition = {:cid}", "", 0, 0,
 		map[string]any{"cid": id})
 
-	pairNameMap := expandPairNames(h.app, pairIDs)
+	pairNameMap := league.PairNames(h.app, pairIDs)
 
 	type matchEntry struct {
 		Match     *core.Record
@@ -257,15 +260,15 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 			Match:        m,
 			Pair1Name:    pairNameMap[m.GetString("pair1")],
 			Pair2Name:    pairNameMap[m.GetString("pair2")],
-			SubmittedBy:  resolvePlayerName(h.app, m.GetString("submitted_by")),
-			DisputedBy:   resolvePlayerName(h.app, m.GetString("disputed_by")),
+			SubmittedBy:  league.PlayerName(h.app, m.GetString("submitted_by")),
+			DisputedBy:   league.PlayerName(h.app, m.GetString("disputed_by")),
 			DisputeNotes: m.GetString("dispute_notes"),
 		})
 	}
 
-	var standings []StandingRowFull
+	var standings []league.StandingRowFull
 	if comp.GetString("type") == "league" {
-		standings, _ = ComputeStandings(h.app, id)
+		standings, _ = h.leagueSvc.ComputeStandings(id)
 	}
 
 	allUsers, _ := h.app.FindRecordsByFilter("users", "role = 'player'", "", 0, 0, nil)

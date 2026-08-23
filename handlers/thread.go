@@ -8,16 +8,19 @@ import (
 	"sort"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
+	"padelleague/notify"
 )
 
 type ThreadHandler struct {
 	app           core.App
-	notifier      *Notifier
+	notifier      *notify.Notifier
 	renderPage    func(e *core.RequestEvent, page string, data map[string]any) error
 	renderPartial func(e *core.RequestEvent, page string, data map[string]any) error
 }
 
-func NewThreadHandler(app core.App, notifier *Notifier, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderPartial func(e *core.RequestEvent, page string, data map[string]any) error) *ThreadHandler {
+func NewThreadHandler(app core.App, notifier *notify.Notifier, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderPartial func(e *core.RequestEvent, page string, data map[string]any) error) *ThreadHandler {
 	return &ThreadHandler{app: app, notifier: notifier, renderPage: renderPage, renderPartial: renderPartial}
 }
 
@@ -82,8 +85,8 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 			messages[j].GetDateTime("created").Time())
 	})
 
-	pair1Players := getPlayersForPair(h.app, match.GetString("pair1"))
-	pair2Players := getPlayersForPair(h.app, match.GetString("pair2"))
+	pair1Players := league.PlayersForPair(h.app, match.GetString("pair1"))
+	pair2Players := league.PlayersForPair(h.app, match.GetString("pair2"))
 	nameCache := make(map[string]string)
 
 	authorTeamOf := func(uid string) int {
@@ -104,7 +107,7 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 		if n, ok := nameCache[uid]; ok {
 			return n
 		}
-		n := resolvePlayerName(h.app, uid)
+		n := league.PlayerName(h.app, uid)
 		nameCache[uid] = n
 		return n
 	}
@@ -167,7 +170,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	}
 
 	isAdmin := e.Auth.GetString("role") == "admin"
-	myTeam, teamErr := getPlayerTeam(h.app, e.Auth.Id, match)
+	myTeam, teamErr := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if teamErr != nil && !isAdmin {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No tienes acceso a este hilo</div>`)
 	}
@@ -200,7 +203,7 @@ func (h *ThreadHandler) ThreadMessages(e *core.RequestEvent) error {
 	}
 
 	isAdmin := e.Auth.GetString("role") == "admin"
-	myTeam, teamErr := getPlayerTeam(h.app, e.Auth.Id, match)
+	myTeam, teamErr := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if teamErr != nil && !isAdmin {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No tienes acceso a este hilo</div>`)
 	}
@@ -220,7 +223,7 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
 	}
 
-	myTeam, err := getPlayerTeam(h.app, e.Auth.Id, match)
+	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if err != nil || myTeam == 0 {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
@@ -254,11 +257,11 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 	if myTeam == 1 {
 		rivalPairID = match.GetString("pair2")
 	}
-	rivalPlayers := getPlayersForPair(h.app, rivalPairID)
-	authorName := resolvePlayerName(h.app, e.Auth.Id)
+	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
+	authorName := league.PlayerName(h.app, e.Auth.Id)
 	h.notifier.NotifyPlayers(rivalPlayers, "general",
 		"Nuevo mensaje",
-		fmt.Sprintf("%s escribio: %s", authorName, truncate(content, 60)),
+		fmt.Sprintf("%s escribio: %s", authorName, league.Truncate(content, 60)),
 		matchID)
 
 	e.Response.Header().Set("HX-Redirect", "/match/"+matchID)
@@ -282,7 +285,7 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Este partido aun no tiene parejas asignadas</div>`)
 	}
 
-	myTeam, err := getPlayerTeam(h.app, e.Auth.Id, match)
+	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if err != nil || myTeam == 0 {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
@@ -338,8 +341,8 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 	if myTeam == 1 {
 		rivalPairID = match.GetString("pair2")
 	}
-	rivalPlayers := getPlayersForPair(h.app, rivalPairID)
-	authorName := resolvePlayerName(h.app, e.Auth.Id)
+	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
+	authorName := league.PlayerName(h.app, e.Auth.Id)
 	h.notifier.NotifyPlayers(rivalPlayers, "scheduling",
 		"Propuesta de fecha",
 		fmt.Sprintf("%s propone jugar el %s a las %s en %s", authorName, date, time, venueName),
@@ -362,7 +365,7 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Este partido ya no acepta propuestas</div>`)
 	}
 
-	myTeam, err := getPlayerTeam(h.app, e.Auth.Id, match)
+	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if err != nil || myTeam == 0 {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
@@ -385,7 +388,7 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Esta propuesta ya fue respondida</div>`)
 	}
 
-	authorTeam, _ := getPlayerTeam(h.app, msg.GetString("author"), match)
+	authorTeam, _ := league.PlayerTeam(h.app, msg.GetString("author"), match)
 	if authorTeam == myTeam {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No puedes responder a tu propia propuesta</div>`)
 	}
@@ -435,8 +438,8 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 			}
 		}
 
-		proposerPlayers := getPlayersForPair(h.app, proposerPairID)
-		responderName := resolvePlayerName(h.app, e.Auth.Id)
+		proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
+		responderName := league.PlayerName(h.app, e.Auth.Id)
 		h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
 			"Propuesta aceptada",
 			fmt.Sprintf("%s acepto tu propuesta para el %s a las %s", responderName, pd.Date, pd.Time),
@@ -452,8 +455,8 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al rechazar la propuesta</div>`)
 		}
 
-		proposerPlayers := getPlayersForPair(h.app, proposerPairID)
-		responderName := resolvePlayerName(h.app, e.Auth.Id)
+		proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
+		responderName := league.PlayerName(h.app, e.Auth.Id)
 		h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
 			"Propuesta rechazada",
 			fmt.Sprintf("%s rechazo tu propuesta: %s", responderName, reason),
@@ -479,7 +482,7 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Este partido ya no acepta cambios</div>`)
 	}
 
-	myTeam, err := getPlayerTeam(h.app, e.Auth.Id, match)
+	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if err != nil || myTeam == 0 {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
@@ -493,7 +496,7 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Propuesta no pertenece a este partido</div>`)
 	}
 
-	authorTeam, _ := getPlayerTeam(h.app, msg.GetString("author"), match)
+	authorTeam, _ := league.PlayerTeam(h.app, msg.GetString("author"), match)
 	if authorTeam == myTeam {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No puedes cambiar la decision de tu propia propuesta</div>`)
 	}
@@ -508,7 +511,7 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 		proposerPairID = match.GetString("pair2")
 	}
 
-	responderName := resolvePlayerName(h.app, e.Auth.Id)
+	responderName := league.PlayerName(h.app, e.Auth.Id)
 
 	if currentStatus == "accepted" {
 		msg.Set("proposal_status", "rejected")
@@ -525,7 +528,7 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al actualizar el partido</div>`)
 		}
 
-		proposerPlayers := getPlayersForPair(h.app, proposerPairID)
+		proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 		h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
 			"Decision cambiada",
 			fmt.Sprintf("%s cambio su decision: propuesta ahora rechazada", responderName),
@@ -570,7 +573,7 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 			}
 		}
 
-		proposerPlayers := getPlayersForPair(h.app, proposerPairID)
+		proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 		h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
 			"Decision cambiada",
 			fmt.Sprintf("%s cambio su decision: propuesta ahora aceptada para el %s a las %s", responderName, pd.Date, pd.Time),
