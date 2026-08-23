@@ -7,6 +7,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,18 +17,26 @@ func TestMatchSubmitScore(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Submit A")
 		p2 := makePairTB(tb, app, "Submit B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
 		s.URL = "/match/" + match.Id + "/submit"
 		s.Body = strings.NewReader("scores=6-3+6-4")
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "confirmed", m.GetString("status"))
+		assert.Equal(tb, "6-3 6-4", m.GetString("scores"))
 	}
 	s.Test(t)
 }
@@ -38,12 +47,14 @@ func TestMatchConfirm(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Confirm A")
 		p2 := makePairTB(tb, app, "Confirm B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
+		matchID = match.Id
 		submitter := p1.GetString("player1")
 		match.Set("scores", "6-3 6-4")
 		match.Set("submitted_by", submitter)
@@ -51,6 +62,11 @@ func TestMatchConfirm(t *testing.T) {
 		s.URL = "/match/" + match.Id + "/confirm"
 		opponent, _ := app.FindRecordById("users", p2.GetString("player1"))
 		s.Headers = authHeaders(tb, opponent)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "final", m.GetString("status"))
 	}
 	s.Test(t)
 }
@@ -61,12 +77,14 @@ func TestMatchDispute(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Dispute A")
 		p2 := makePairTB(tb, app, "Dispute B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
+		matchID = match.Id
 		submitter := p1.GetString("player1")
 		match.Set("scores", "6-3 6-4")
 		match.Set("submitted_by", submitter)
@@ -77,6 +95,12 @@ func TestMatchDispute(t *testing.T) {
 		hdrs := authHeaders(tb, opponent)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "disputed", m.GetString("status"))
+		assert.Equal(tb, "El marcador es incorrecto", m.GetString("dispute_notes"))
 	}
 	s.Test(t)
 }
