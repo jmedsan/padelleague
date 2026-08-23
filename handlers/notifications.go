@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"html"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -85,7 +86,9 @@ func (h *NotificationHandler) MarkRead(e *core.RequestEvent) error {
 	}
 
 	record.Set("read", true)
-	h.app.Save(record)
+	if err := h.app.Save(record); err != nil {
+		slog.Error("mark notification read", "id", id, "err", err)
+	}
 
 	redirect := "/"
 	if related := record.GetString("related_match"); related != "" {
@@ -104,7 +107,9 @@ func (h *NotificationHandler) MarkAllRead(e *core.RequestEvent) error {
 
 	for _, r := range records {
 		r.Set("read", true)
-		h.app.Save(r)
+		if err := h.app.Save(r); err != nil {
+			slog.Error("mark notification read", "id", r.Id, "err", err)
+		}
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/")

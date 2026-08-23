@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"sort"
 	"strings"
 
@@ -100,7 +101,9 @@ func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, er
 	switch v := rawPen.(type) {
 	case string:
 		if v != "" {
-			json.Unmarshal([]byte(v), &penaltyMap)
+			if err := json.Unmarshal([]byte(v), &penaltyMap); err != nil {
+				slog.Warn("unmarshal penalty_points", "err", err)
+			}
 		}
 	case map[string]any:
 		for k, val := range v {
