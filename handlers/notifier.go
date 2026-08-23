@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -29,7 +29,7 @@ func NewNotifier(app core.App, vapidPublicKey, vapidPrivateKey string) *Notifier
 func (n *Notifier) NotifyPlayers(playerUserIDs []string, notifType, title, body, relatedMatchID string) {
 	notifCol, err := n.app.FindCollectionByNameOrId("notifications")
 	if err != nil {
-		log.Printf("notifyPlayers: notifications collection not found: %v", err)
+		slog.Error("notifications collection not found", "err", err)
 		return
 	}
 	for _, userID := range playerUserIDs {
@@ -52,7 +52,7 @@ func (n *Notifier) NotifyPlayers(playerUserIDs []string, notifType, title, body,
 			notif.Set("related_match", relatedMatchID)
 		}
 		if err := n.app.Save(notif); err != nil {
-			log.Printf("notifyPlayers: failed to notify user %s: %v", userID, err)
+			slog.Error("notify player failed", "user", userID, "err", err)
 		}
 		go n.sendPush(userID, title, body, relatedMatchID)
 	}
@@ -77,7 +77,7 @@ func (n *Notifier) NotifyAdmins(notifType, title, body, relatedMatchID string) e
 			notif.Set("related_match", relatedMatchID)
 		}
 		if err := n.app.Save(notif); err != nil {
-			log.Printf("failed to notify admin %s: %v", admin.Id, err)
+			slog.Error("notify admin failed", "admin", admin.Id, "err", err)
 		}
 		go n.sendPush(admin.Id, title, body, relatedMatchID)
 	}
@@ -127,14 +127,14 @@ func (n *Notifier) sendPush(userID, title, body, relatedMatchID string) {
 			HTTPClient:      n.httpClient,
 		})
 		if err != nil {
-			log.Printf("sendPush: failed to send to %s: %v", sub.GetString("endpoint"), err)
+			slog.Error("push send failed", "endpoint", sub.GetString("endpoint"), "err", err)
 			continue
 		}
 		resp.Body.Close()
 
 		if resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusNotFound {
 			if err := n.app.Delete(sub); err != nil {
-				log.Printf("sendPush: failed to delete gone subscription: %v", err)
+				slog.Error("push delete subscription failed", "err", err)
 			}
 		}
 	}

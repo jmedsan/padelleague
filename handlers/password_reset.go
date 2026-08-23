@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -32,7 +32,7 @@ func (h *PasswordResetHandler) ForgotPasswordSubmit(e *core.RequestEvent) error 
 		record, err := h.app.FindAuthRecordByEmail("users", email)
 		if err == nil && record != nil {
 			if err := mails.SendRecordPasswordReset(h.app, record); err != nil {
-				log.Printf("password reset email error: %v", err)
+				slog.Error("password reset email failed", "err", err)
 			}
 		}
 	}

@@ -1,7 +1,7 @@
 package seed
 
 import (
-	"log"
+	"log/slog"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -25,7 +25,7 @@ func Run(app core.App, users []User) {
 		}
 		col, err := app.FindCollectionByNameOrId(u.Collection)
 		if err != nil {
-			log.Printf("seed: collection %s not found: %v", u.Collection, err)
+			slog.Error("seed collection not found", "collection", u.Collection, "err", err)
 			continue
 		}
 		record := core.NewRecord(col)
@@ -39,9 +39,9 @@ func Run(app core.App, users []User) {
 		}
 		record.SetVerified(true)
 		if err := app.Save(record); err != nil {
-			log.Printf("seed: failed to create %s (%s): %v", u.Email, u.Collection, err)
+			slog.Error("seed create failed", "email", u.Email, "collection", u.Collection, "err", err)
 		} else {
-			log.Printf("seed: created %s in %s", u.Email, u.Collection)
+			slog.Info("seed created", "email", u.Email, "collection", u.Collection)
 		}
 	}
 }

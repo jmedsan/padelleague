@@ -3,7 +3,7 @@ package handlers
 import (
 	"fmt"
 	"html"
-	"log"
+	"log/slog"
 	"net/mail"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -30,7 +30,7 @@ func SendEmail(app core.App, to, subject, htmlBody string) {
 		HTML:    htmlBody,
 	}
 	if err := client.Send(msg); err != nil {
-		log.Printf("failed to send email to %s: %v", to, err)
+		slog.Error("send email failed", "to", to, "err", err)
 	}
 }
 
