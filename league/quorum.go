@@ -44,7 +44,10 @@ func (svc *Service) ConfirmStaleMatches() {
 		}
 		t, err := time.Parse(time.RFC3339, submittedAt)
 		if err != nil {
-			continue
+			t, err = time.Parse("2006-01-02 15:04:05.000Z", submittedAt)
+			if err != nil {
+				continue
+			}
 		}
 		if time.Since(t) < time.Duration(timeoutHours)*time.Hour {
 			continue

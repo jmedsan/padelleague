@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestParseScore(t *testing.T) {
@@ -46,22 +48,24 @@ func TestParseScore(t *testing.T) {
 
 		// Winner must have exactly 2 sets
 		{"invalid: winner has 3 sets", "6-3 6-4 6-2", 0, 0, 0, 0, true},
+
+		// Edge cases: 6-5 invalid (winner=6 requires loser<=4), tied 7-7
+		{"invalid set: 6-5", "6-5 6-3", 0, 0, 0, 0, true},
+		{"tied 7-7", "7-7 6-3", 0, 0, 0, 0, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s1, s2, g1, g2, err := parseScore(tt.score)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("parseScore(%q) error = %v, wantErr %v", tt.score, err, tt.wantErr)
+			if tt.wantErr {
+				assert.Error(t, err, "parseScore(%q) should error", tt.score)
 				return
 			}
-			if err != nil {
-				return
-			}
-			if s1 != tt.sets1 || s2 != tt.sets2 || g1 != tt.games1 || g2 != tt.games2 {
-				t.Errorf("parseScore(%q) = (%d,%d,%d,%d), want (%d,%d,%d,%d)",
-					tt.score, s1, s2, g1, g2, tt.sets1, tt.sets2, tt.games1, tt.games2)
-			}
+			assert.NoError(t, err, "parseScore(%q) should not error", tt.score)
+			assert.Equal(t, tt.sets1, s1, "sets1")
+			assert.Equal(t, tt.sets2, s2, "sets2")
+			assert.Equal(t, tt.games1, g1, "games1")
+			assert.Equal(t, tt.games2, g2, "games2")
 		})
 	}
 }
