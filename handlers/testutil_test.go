@@ -313,6 +313,32 @@ func makeAdminUserTB(t testing.TB, app core.App) *core.Record {
 	return record
 }
 
+func makeVenueTB(t testing.TB, app core.App, name string) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("venues")
+	require.NoError(t, err)
+	record := core.NewRecord(col)
+	record.Set("name", name)
+	require.NoError(t, app.Save(record))
+	return record
+}
+
+func makeInvitationTB(t testing.TB, app core.App, creatorID string, expiresAt time.Time) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("invitations")
+	require.NoError(t, err)
+	n := userSeq.Add(1)
+	record := core.NewRecord(col)
+	record.Set("token", fmt.Sprintf("tok%d", n))
+	record.Set("created_by", creatorID)
+	record.Set("status", "pending")
+	if !expiresAt.IsZero() {
+		record.Set("expires_at", expiresAt.UTC().Format("2006-01-02 15:04:05.000Z"))
+	}
+	require.NoError(t, app.Save(record))
+	return record
+}
+
 func TestNewTestApp(t *testing.T) {
 	app := newTestApp(t)
 

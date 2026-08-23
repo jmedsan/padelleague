@@ -38,9 +38,18 @@ func setupAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.GET("/competitions/{id}", comp.Detail)
 	g.POST("/competitions", comp.Create)
 	g.GET("/players", admin.Players)
+	g.POST("/players/pre-create", admin.PlayerPreCreate)
+	g.POST("/players/{id}", admin.PlayerUpdate)
+	g.GET("/pairs", admin.Pairs)
+	g.POST("/pairs", admin.PairsCreate)
+	g.POST("/pairs/{id}", admin.PairsUpdate)
 	g.GET("/invitations", admin.InvitationsList)
 	g.POST("/invitations", admin.InvitationsCreate)
+	g.POST("/invitations/{id}/revoke", admin.InvitationsRevoke)
 	g.GET("/venues", admin.Venues)
+	g.POST("/venues", admin.VenuesCreate)
+	g.POST("/venues/{id}", admin.VenuesUpdate)
+	g.POST("/venues/{id}/delete", admin.VenuesDelete)
 }
 
 func makeAdminUser(t testing.TB, app core.App) *core.Record {
