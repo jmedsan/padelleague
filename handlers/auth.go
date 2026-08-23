@@ -33,19 +33,18 @@ func (h *AuthHandler) LoginSubmit(e *core.RequestEvent) error {
 
 	record, err := h.app.FindAuthRecordByEmail("users", email)
 	if err != nil || !record.ValidatePassword(password) {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Email o contraseña incorrectos</div>`)
+		return alertError(e, "Email o contraseña incorrectos")
 	}
 
 	token, err := record.NewAuthToken()
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al generar sesión</div>`)
+		return alertError(e, "Error al generar sesión")
 	}
 
 	middleware.SetAuthCookie(e, token)
 
 	if e.Request.Header.Get("HX-Request") == "true" {
-		e.Response.Header().Set("HX-Redirect", "/")
-		return e.NoContent(http.StatusNoContent)
+		return redirectHX(e, "/")
 	}
 	return e.Redirect(http.StatusFound, "/")
 }
@@ -94,11 +93,11 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 	passwordConfirm := e.Request.FormValue("password_confirm")
 
 	if token == "" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Invitación requerida</div>`)
+		return alertError(e, "Invitación requerida")
 	}
 
 	if password != passwordConfirm {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Las contraseñas no coinciden</div>`)
+		return alertError(e, "Las contraseñas no coinciden")
 	}
 
 	invites, err := h.app.FindRecordsByFilter("invitations",
@@ -106,7 +105,7 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 		"", 1, 0,
 		map[string]any{"token": token})
 	if err != nil || len(invites) == 0 || isInviteExpired(invites[0]) {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Invitación inválida o expirada</div>`)
+		return alertError(e, "Invitación inválida o expirada")
 	}
 	invite := invites[0]
 
@@ -116,12 +115,12 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 	}
 	useCount := int(invite.GetFloat("use_count"))
 	if useCount >= maxUses {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Invitación agotada</div>`)
+		return alertError(e, "Invitación agotada")
 	}
 
 	inviteEmail := invite.GetString("email")
 	if inviteEmail != "" && !strings.EqualFold(email, inviteEmail) {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Debes usar el email %s</div>`, inviteEmail))
+		return alertError(e, fmt.Sprintf("Debes usar el email %s", inviteEmail))
 	}
 
 	var userRecord *core.Record
@@ -170,14 +169,13 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 	})
 
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al crear la cuenta. Verifica los datos e intenta de nuevo.</div>`)
+		return alertError(e, "Error al crear la cuenta. Verifica los datos e intenta de nuevo.")
 	}
 
 	middleware.SetAuthCookie(e, authToken)
 
 	if e.Request.Header.Get("HX-Request") == "true" {
-		e.Response.Header().Set("HX-Redirect", "/")
-		return e.NoContent(http.StatusNoContent)
+		return redirectHX(e, "/")
 	}
 	return e.Redirect(http.StatusFound, "/")
 }
@@ -189,17 +187,16 @@ func (h *AuthHandler) ProfileComplete(e *core.RequestEvent) error {
 func (h *AuthHandler) ProfileCompleteSubmit(e *core.RequestEvent) error {
 	displayName := strings.TrimSpace(e.Request.FormValue("display_name"))
 	if displayName == "" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">El nombre es obligatorio</div>`)
+		return alertError(e, "El nombre es obligatorio")
 	}
 
 	e.Auth.Set("display_name", displayName)
 	if err := h.app.Save(e.Auth); err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar el perfil</div>`)
+		return alertError(e, "Error al guardar el perfil")
 	}
 
 	if e.Request.Header.Get("HX-Request") == "true" {
-		e.Response.Header().Set("HX-Redirect", "/")
-		return e.NoContent(http.StatusNoContent)
+		return redirectHX(e, "/")
 	}
 	return e.Redirect(http.StatusFound, "/")
 }
@@ -208,8 +205,7 @@ func (h *AuthHandler) Logout(e *core.RequestEvent) error {
 	middleware.ClearAuthCookie(e)
 
 	if e.Request.Header.Get("HX-Request") == "true" {
-		e.Response.Header().Set("HX-Redirect", "/login")
-		return e.NoContent(http.StatusNoContent)
+		return redirectHX(e, "/login")
 	}
 	return e.Redirect(http.StatusFound, "/login")
 }

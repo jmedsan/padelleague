@@ -37,7 +37,7 @@ func (h *PasswordResetHandler) ForgotPasswordSubmit(e *core.RequestEvent) error 
 		}
 	}
 
-	return e.HTML(http.StatusOK, `<div class="alert alert-success">Si el email está registrado, recibirás un enlace para restablecer tu contraseña.</div>`)
+	return alertSuccess(e, "Si el email está registrado, recibirás un enlace para restablecer tu contraseña.")
 }
 
 func (h *PasswordResetHandler) ResetPassword(e *core.RequestEvent) error {
@@ -53,23 +53,22 @@ func (h *PasswordResetHandler) ResetPasswordSubmit(e *core.RequestEvent) error {
 	passwordConfirm := e.Request.FormValue("passwordConfirm")
 
 	if token == "" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Token inválido o expirado.</div>`)
+		return alertError(e, "Token inválido o expirado.")
 	}
 
 	if password == "" || password != passwordConfirm {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Las contraseñas no coinciden.</div>`)
+		return alertError(e, "Las contraseñas no coinciden.")
 	}
 
 	record, err := h.app.FindAuthRecordByToken(token, core.TokenTypePasswordReset)
 	if err != nil || record == nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Token inválido o expirado.</div>`)
+		return alertError(e, "Token inválido o expirado.")
 	}
 
 	record.SetPassword(password)
 	if err := h.app.Save(record); err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al cambiar la contraseña.</div>`)
+		return alertError(e, "Error al cambiar la contraseña.")
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/login")
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/login")
 }

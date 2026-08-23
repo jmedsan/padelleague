@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"log/slog"
-	"net/http"
 
 	"github.com/pocketbase/pocketbase/core"
 
@@ -47,23 +46,23 @@ func (h *AdminHandler) DisputesResolve(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
+		return alertError(e, "Partido no encontrado")
 	}
 
-	if match.GetString("status") != "disputed" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Este partido no está en disputa</div>`)
+	if match.GetString("status") != StatusDisputed {
+		return alertError(e, "Este partido no está en disputa")
 	}
 
 	score := e.Request.FormValue("score")
 	if score == "" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Debes ingresar un marcador</div>`)
+		return alertError(e, "Debes ingresar un marcador")
 	}
 
 	manualWinner := e.Request.FormValue("winner")
 	var winnerID string
 	if manualWinner != "" {
 		if manualWinner != match.GetString("pair1") && manualWinner != match.GetString("pair2") {
-			return e.HTML(http.StatusOK, `<div class="alert alert-error">El ganador debe ser una de las dos parejas</div>`)
+			return alertError(e, "El ganador debe ser una de las dos parejas")
 		}
 		winnerID = manualWinner
 	} else {
@@ -71,16 +70,16 @@ func (h *AdminHandler) DisputesResolve(e *core.RequestEvent) error {
 		winnerID, err = league.DetermineWinner(match, score)
 		if err != nil {
 			slog.Error("determine winner in dispute resolution", "match", match.Id, "err", err)
-			return e.HTML(http.StatusOK, `<div class="alert alert-error">Marcador inválido. Selecciona el ganador manualmente.</div>`)
+			return alertError(e, "Marcador inválido. Selecciona el ganador manualmente.")
 		}
 	}
 
 	match.Set("scores", score)
 	match.Set("winner", winnerID)
-	match.Set("status", "final")
+	match.Set("status", StatusFinal)
 
 	if err := h.app.Save(match); err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al resolver la disputa</div>`)
+		return alertError(e, "Error al resolver la disputa")
 	}
 
 	allPlayers := append(league.PlayersForPair(h.app, match.GetString("pair1")),
@@ -89,6 +88,5 @@ func (h *AdminHandler) DisputesResolve(e *core.RequestEvent) error {
 	notify.EmailNotifyPlayers(h.app, allPlayers, "Disputa resuelta", "Un administrador ha resuelto la disputa de tu partido.", "/match/"+match.Id)
 
 	compID := match.GetString("competition")
-	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID)
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/admin/competitions/"+compID)
 }

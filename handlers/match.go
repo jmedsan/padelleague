@@ -53,13 +53,13 @@ type MatchDetailData struct {
 
 func statusLabel(status string) string {
 	switch status {
-	case "pending":
+	case StatusPending:
 		return "Pendiente"
-	case "confirmed":
+	case StatusConfirmed:
 		return "Enviado — esperando confirmación"
-	case "disputed":
+	case StatusDisputed:
 		return "En disputa"
-	case "final":
+	case StatusFinal:
 		return "Finalizado"
 	}
 	return status
@@ -67,13 +67,13 @@ func statusLabel(status string) string {
 
 func statusClass(status string) string {
 	switch status {
-	case "pending":
+	case StatusPending:
 		return "badge-warning"
-	case "confirmed":
+	case StatusConfirmed:
 		return "badge-info"
-	case "disputed":
+	case StatusDisputed:
 		return "badge-error"
-	case "final":
+	case StatusFinal:
 		return "badge-success"
 	}
 	return "badge-ghost"
@@ -95,7 +95,7 @@ func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNam
 	roundNum := int(match.GetFloat("round_number"))
 
 	canCorrect := false
-	if status == "confirmed" && team > 0 && isSubmitter {
+	if status == StatusConfirmed && team > 0 && isSubmitter {
 		submittedAt := match.GetString("submitted_at")
 		if submittedAt != "" {
 			if t, err := time.Parse(time.RFC3339, submittedAt); err == nil {
@@ -109,11 +109,11 @@ func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNam
 		Pair1Name:     pairNames[match.GetString("pair1")],
 		Pair2Name:     pairNames[match.GetString("pair2")],
 		RoundNum:      roundNum,
-		CanSubmit:     status == "pending" && team > 0,
-		CanConfirm:    status == "confirmed" && team > 0 && !isSubmitter,
-		CanDispute:    status == "confirmed" && team > 0 && !isSubmitter,
-		CanEdit:       status == "pending" && team > 0,
-		CanWalkover:   status == "pending" && team > 0,
+		CanSubmit:     status == StatusPending && team > 0,
+		CanConfirm:    status == StatusConfirmed && team > 0 && !isSubmitter,
+		CanDispute:    status == StatusConfirmed && team > 0 && !isSubmitter,
+		CanEdit:       status == StatusPending && team > 0,
+		CanWalkover:   status == StatusPending && team > 0,
 		CanCorrect:    canCorrect,
 		IsAdmin:       isAdmin,
 		IsParticipant: isParticipant,
@@ -168,7 +168,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	}
 
 	shareText := ""
-	if match.GetString("status") == "final" {
+	if match.GetString("status") == StatusFinal {
 		p1Name := pairNames[match.GetString("pair1")]
 		p2Name := pairNames[match.GetString("pair2")]
 		score := match.GetString("scores")
@@ -198,40 +198,40 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Record no encontrado</div>`)
+		return alertError(e, "Record no encontrado")
 	}
 
 	userID := e.Auth.Id
 	isAdmin := e.Auth.GetString("role") == "admin"
 	_, teamErr := league.PlayerTeam(h.app, userID, match)
 	if teamErr != nil && !isAdmin {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
+		return alertError(e, "No eres participante de este partido")
 	}
 
-	if match.GetString("status") != "pending" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Este partido ya tiene un resultado registrado</div>`)
+	if match.GetString("status") != StatusPending {
+		return alertError(e, "Este partido ya tiene un resultado registrado")
 	}
 
 	scores := e.Request.FormValue("scores")
 	if scores == "" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Debes indicar el marcador</div>`)
+		return alertError(e, "Debes indicar el marcador")
 	}
 
 	if strings.EqualFold(strings.TrimSpace(scores), "WO") {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Usa el botón de incomparecencia para reportar un WO</div>`)
+		return alertError(e, "Usa el botón de incomparecencia para reportar un WO")
 	}
 
 	if _, err := league.ParseScore(scores); err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Marcador no valido</div>`)
+		return alertError(e, "Marcador no valido")
 	}
 
 	match.Set("scores", scores)
 	match.Set("submitted_by", userID)
 	match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
-	match.Set("status", "confirmed")
+	match.Set("status", StatusConfirmed)
 
 	if err := h.app.Save(match); err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar el resultado</div>`)
+		return alertError(e, "Error al guardar el resultado")
 	}
 
 	myTeam, _ := league.PlayerTeam(h.app, userID, match)
@@ -243,26 +243,25 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	h.notifier.NotifyPlayers(rivalPlayers, "quorum_request", "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", match.Id)
 	notify.EmailNotifyPlayers(h.app, rivalPlayers, "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", "/match/"+match.Id)
 
-	e.Response.Header().Set("HX-Redirect", "/")
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/")
 }
 
 func (h *MatchHandler) MatchEdit(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Record no encontrado</div>`)
+		return alertError(e, "Record no encontrado")
 	}
 
 	userID := e.Auth.Id
 	isAdmin := e.Auth.GetString("role") == "admin"
 	_, teamErr := league.PlayerTeam(h.app, userID, match)
 	if teamErr != nil && !isAdmin {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
+		return alertError(e, "No eres participante de este partido")
 	}
 
-	if match.GetString("status") != "pending" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Solo se pueden editar partidos pendientes</div>`)
+	if match.GetString("status") != StatusPending {
+		return alertError(e, "Solo se pueden editar partidos pendientes")
 	}
 
 	if date := e.Request.FormValue("date"); date != "" {
@@ -283,11 +282,10 @@ func (h *MatchHandler) MatchEdit(e *core.RequestEvent) error {
 	}
 
 	if err := h.app.Save(match); err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar los cambios</div>`)
+		return alertError(e, "Error al guardar los cambios")
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/match/"+id)
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/match/"+id)
 }
 
 func (h *MatchHandler) createAdminTimelineEntry(matchID, adminID, content string) {
@@ -309,11 +307,11 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Record no encontrado</div>`)
+		return alertError(e, "Record no encontrado")
 	}
 
 	if e.Auth.GetString("role") != "admin" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Solo administradores</div>`)
+		return alertError(e, "Solo administradores")
 	}
 
 	var changes []string
@@ -322,16 +320,16 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 		oldScores := match.GetString("scores")
 		if scores != oldScores {
 			if _, err := league.ParseScore(scores); err != nil {
-				return e.HTML(http.StatusOK, `<div class="alert alert-error">Marcador no valido</div>`)
+				return alertError(e, "Marcador no valido")
 			}
 			winner, err := league.DetermineWinner(match, scores)
 			if err != nil {
-				return e.HTML(http.StatusOK, `<div class="alert alert-error">No se pudo determinar ganador</div>`)
+				return alertError(e, "No se pudo determinar ganador")
 			}
 			match.Set("scores", scores)
 			match.Set("winner", winner)
-			if match.GetString("status") != "final" {
-				match.Set("status", "final")
+			if match.GetString("status") != StatusFinal {
+				match.Set("status", StatusFinal)
 			}
 			if oldScores == "" {
 				changes = append(changes, "Resultado establecido: "+scores)
@@ -378,16 +376,15 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 	}
 
 	if len(changes) == 0 {
-		return e.HTML(http.StatusOK, `<div class="alert alert-warning">No se detectaron cambios</div>`)
+		return alertWarning(e, "No se detectaron cambios")
 	}
 
 	if err := h.app.Save(match); err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar</div>`)
+		return alertError(e, "Error al guardar")
 	}
 
 	adminName := league.PlayerName(h.app, e.Auth.Id)
 	h.createAdminTimelineEntry(id, e.Auth.Id, adminName+" (admin): "+strings.Join(changes, "; "))
 
-	e.Response.Header().Set("HX-Redirect", "/match/"+id)
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/match/"+id)
 }

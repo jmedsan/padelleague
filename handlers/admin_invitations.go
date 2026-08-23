@@ -3,7 +3,6 @@ package handlers
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"net/http"
 	"sort"
 	"strconv"
 	"time"
@@ -35,12 +34,12 @@ func (h *AdminHandler) InvitationsCreate(e *core.RequestEvent) error {
 
 	token, err := generateInviteToken()
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al generar el token</div>`)
+		return alertError(e, "Error al generar el token")
 	}
 
 	col, err := h.app.FindCollectionByNameOrId("invitations")
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error interno</div>`)
+		return alertError(e, "Error interno")
 	}
 
 	maxUses := 1
@@ -72,30 +71,28 @@ func (h *AdminHandler) InvitationsCreate(e *core.RequestEvent) error {
 	record.Set("expires_at", time.Now().Add(time.Duration(expirationDays)*24*time.Hour).UTC().Format(time.RFC3339))
 
 	if err := h.app.Save(record); err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al crear la invitacion</div>`)
+		return alertError(e, "Error al crear la invitacion")
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/invitations")
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/admin/invitations")
 }
 
 func (h *AdminHandler) InvitationsRevoke(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	invitation, err := h.app.FindRecordById("invitations", id)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Invitacion no encontrada</div>`)
+		return alertError(e, "Invitacion no encontrada")
 	}
 
 	if invitation.GetString("status") != "pending" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Solo se pueden revocar invitaciones pendientes</div>`)
+		return alertError(e, "Solo se pueden revocar invitaciones pendientes")
 	}
 
 	if err := h.app.Delete(invitation); err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al revocar la invitacion</div>`)
+		return alertError(e, "Error al revocar la invitacion")
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/invitations")
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/admin/invitations")
 }
 
 func generateInviteToken() (string, error) {

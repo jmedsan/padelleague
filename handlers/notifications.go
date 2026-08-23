@@ -98,8 +98,7 @@ func (h *NotificationHandler) MarkRead(e *core.RequestEvent) error {
 		redirect = "/match/" + related
 	}
 
-	e.Response.Header().Set("HX-Redirect", redirect)
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, redirect)
 }
 
 func (h *NotificationHandler) MarkAllRead(e *core.RequestEvent) error {
@@ -115,8 +114,7 @@ func (h *NotificationHandler) MarkAllRead(e *core.RequestEvent) error {
 		}
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/")
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/")
 }
 
 func (h *NotificationHandler) Prefs(e *core.RequestEvent) error {
@@ -138,7 +136,7 @@ func (h *NotificationHandler) PrefsSave(e *core.RequestEvent) error {
 
 	e.Auth.Set("notification_prefs", prefs)
 	if err := h.app.Save(e.Auth); err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar preferencias</div>`)
+		return alertError(e, "Error al guardar preferencias")
 	}
 
 	return h.renderPage(e, "notification-prefs.html", map[string]any{
@@ -194,7 +192,7 @@ func CheckQuorumTimeout(app core.App, notifier *Notifier) {
 		}
 
 		fresh, err := app.FindRecordById("matches", m.Id)
-		if err != nil || fresh.GetString("status") != "confirmed" {
+		if err != nil || fresh.GetString("status") != StatusConfirmed {
 			continue
 		}
 
@@ -204,7 +202,7 @@ func CheckQuorumTimeout(app core.App, notifier *Notifier) {
 			continue
 		}
 
-		fresh.Set("status", "final")
+		fresh.Set("status", StatusFinal)
 		fresh.Set("winner", winnerID)
 		fresh.Set("confirmed_by", "")
 		fresh.Set("dispute_notes", "Auto-confirmado por tiempo de espera")

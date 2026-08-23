@@ -127,13 +127,13 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 		isParticipant := myTeam != 0
 		canRespond := msgType == "scheduling_proposal" &&
 			status == "pending" &&
-			match.GetString("status") == "pending" &&
+			match.GetString("status") == StatusPending &&
 			isParticipant &&
 			authorTeam != myTeam
 
 		canChangeDecision := msgType == "scheduling_proposal" &&
 			(status == "accepted" || status == "rejected") &&
-			match.GetString("status") == "pending" &&
+			match.GetString("status") == StatusPending &&
 			isParticipant &&
 			authorTeam != myTeam
 
@@ -160,7 +160,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", matchID)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
+		return alertError(e, "Partido no encontrado")
 	}
 
 	pair1ID := match.GetString("pair1")
@@ -172,7 +172,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	isAdmin := e.Auth.GetString("role") == "admin"
 	myTeam, teamErr := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if teamErr != nil && !isAdmin {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">No tienes acceso a este hilo</div>`)
+		return alertError(e, "No tienes acceso a este hilo")
 	}
 
 	threadMessages := h.buildThreadMessages(match, matchID, myTeam)
@@ -182,7 +182,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 
 	isParticipant := myTeam != 0
 	canPost := isParticipant
-	canPropose := canPost && match.GetString("status") == "pending"
+	canPropose := canPost && match.GetString("status") == StatusPending
 
 	return h.renderPartial(e, "thread.html", map[string]any{
 		"MatchID":       matchID,
@@ -199,13 +199,13 @@ func (h *ThreadHandler) ThreadMessages(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", matchID)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
+		return alertError(e, "Partido no encontrado")
 	}
 
 	isAdmin := e.Auth.GetString("role") == "admin"
 	myTeam, teamErr := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if teamErr != nil && !isAdmin {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">No tienes acceso a este hilo</div>`)
+		return alertError(e, "No tienes acceso a este hilo")
 	}
 
 	threadMessages := h.buildThreadMessages(match, matchID, myTeam)
@@ -220,17 +220,17 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", matchID)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
+		return alertError(e, "Partido no encontrado")
 	}
 
 	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if err != nil || myTeam == 0 {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
+		return alertError(e, "No eres participante de este partido")
 	}
 
 	content := e.Request.FormValue("content")
 	if content == "" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">El mensaje no puede estar vacio</div>`)
+		return alertError(e, "El mensaje no puede estar vacio")
 	}
 
 	msgType := e.Request.FormValue("type")
@@ -240,7 +240,7 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 
 	col, err := h.app.FindCollectionByNameOrId("match_messages")
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error interno</div>`)
+		return alertError(e, "Error interno")
 	}
 
 	record := core.NewRecord(col)
@@ -250,7 +250,7 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 	record.Set("content", content)
 
 	if err := h.app.Save(record); err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al enviar mensaje</div>`)
+		return alertError(e, "Error al enviar mensaje")
 	}
 
 	rivalPairID := match.GetString("pair1")
@@ -264,30 +264,29 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 		fmt.Sprintf("%s escribio: %s", authorName, league.Truncate(content, 60)),
 		matchID)
 
-	e.Response.Header().Set("HX-Redirect", "/match/"+matchID)
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/match/"+matchID)
 }
 
 func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", matchID)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
+		return alertError(e, "Partido no encontrado")
 	}
 
-	if match.GetString("status") != "pending" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Solo se pueden proponer fechas para partidos pendientes</div>`)
+	if match.GetString("status") != StatusPending {
+		return alertError(e, "Solo se pueden proponer fechas para partidos pendientes")
 	}
 
 	pair1ID := match.GetString("pair1")
 	pair2ID := match.GetString("pair2")
 	if pair1ID == "" || pair2ID == "" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Este partido aun no tiene parejas asignadas</div>`)
+		return alertError(e, "Este partido aun no tiene parejas asignadas")
 	}
 
 	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if err != nil || myTeam == 0 {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
+		return alertError(e, "No eres participante de este partido")
 	}
 
 	date := e.Request.FormValue("date")
@@ -296,7 +295,7 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 	venueText := e.Request.FormValue("venue_text")
 
 	if date == "" || time == "" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Fecha y hora son obligatorias</div>`)
+		return alertError(e, "Fecha y hora son obligatorias")
 	}
 
 	venueName := venueText
@@ -323,7 +322,7 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 
 	col, err := h.app.FindCollectionByNameOrId("match_messages")
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error interno</div>`)
+		return alertError(e, "Error interno")
 	}
 
 	record := core.NewRecord(col)
@@ -334,7 +333,7 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 	record.Set("proposal_status", "pending")
 
 	if err := h.app.Save(record); err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al crear propuesta</div>`)
+		return alertError(e, "Error al crear propuesta")
 	}
 
 	rivalPairID := match.GetString("pair1")
@@ -348,8 +347,7 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 		fmt.Sprintf("%s propone jugar el %s a las %s en %s", authorName, date, time, venueName),
 		matchID)
 
-	e.Response.Header().Set("HX-Redirect", "/match/"+matchID)
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/match/"+matchID)
 }
 
 func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
@@ -358,39 +356,38 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 
 	match, err := h.app.FindRecordById("matches", matchID)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
+		return alertError(e, "Partido no encontrado")
 	}
 
-	if match.GetString("status") != "pending" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Este partido ya no acepta propuestas</div>`)
+	if match.GetString("status") != StatusPending {
+		return alertError(e, "Este partido ya no acepta propuestas")
 	}
 
 	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if err != nil || myTeam == 0 {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
+		return alertError(e, "No eres participante de este partido")
 	}
 
 	msg, err := h.app.FindRecordById("match_messages", msgID)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Propuesta no encontrada</div>`)
+		return alertError(e, "Propuesta no encontrada")
 	}
 
 	if msg.GetString("match") != matchID {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Propuesta no pertenece a este partido</div>`)
+		return alertError(e, "Propuesta no pertenece a este partido")
 	}
 
 	proposalStatus := msg.GetString("proposal_status")
 	if proposalStatus == "accepted" {
-		e.Response.Header().Set("HX-Redirect", "/match/"+matchID)
-		return e.NoContent(http.StatusNoContent)
+		return redirectHX(e, "/match/"+matchID)
 	}
 	if proposalStatus != "pending" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Esta propuesta ya fue respondida</div>`)
+		return alertError(e, "Esta propuesta ya fue respondida")
 	}
 
 	authorTeam, _ := league.PlayerTeam(h.app, msg.GetString("author"), match)
 	if authorTeam == myTeam {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">No puedes responder a tu propia propuesta</div>`)
+		return alertError(e, "No puedes responder a tu propia propuesta")
 	}
 
 	proposerPairID := match.GetString("pair1")
@@ -407,24 +404,24 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 			"", 0, 1,
 			map[string]any{"mid": matchID})
 		if len(existing) > 0 {
-			return e.HTML(http.StatusOK, `<div class="alert alert-error">Ya hay una propuesta aceptada para este partido</div>`)
+			return alertError(e, "Ya hay una propuesta aceptada para este partido")
 		}
 
 		pd := ParseProposalData(msg.Get("proposal_data"))
 		if pd == nil {
-			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al leer los datos de la propuesta</div>`)
+			return alertError(e, "Error al leer los datos de la propuesta")
 		}
 
 		match.Set("date", pd.Date)
 		match.Set("time", pd.Time)
 		match.Set("club", pd.VenueName)
 		if err := h.app.Save(match); err != nil {
-			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al actualizar el partido</div>`)
+			return alertError(e, "Error al actualizar el partido")
 		}
 
 		msg.Set("proposal_status", "accepted")
 		if err := h.app.Save(msg); err != nil {
-			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al marcar la propuesta como aceptada</div>`)
+			return alertError(e, "Error al marcar la propuesta como aceptada")
 		}
 
 		otherPending, _ := h.app.FindRecordsByFilter("match_messages",
@@ -452,7 +449,7 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 		msg.Set("rejection_reason", reason)
 		msg.Set("rejection_text", text)
 		if err := h.app.Save(msg); err != nil {
-			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al rechazar la propuesta</div>`)
+			return alertError(e, "Error al rechazar la propuesta")
 		}
 
 		proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
@@ -462,11 +459,10 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 			fmt.Sprintf("%s rechazo tu propuesta: %s", responderName, reason),
 			matchID)
 	default:
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Accion no valida</div>`)
+		return alertError(e, "Accion no valida")
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/match/"+matchID)
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/match/"+matchID)
 }
 
 func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
@@ -475,35 +471,35 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 
 	match, err := h.app.FindRecordById("matches", matchID)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Partido no encontrado</div>`)
+		return alertError(e, "Partido no encontrado")
 	}
 
-	if match.GetString("status") != "pending" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Este partido ya no acepta cambios</div>`)
+	if match.GetString("status") != StatusPending {
+		return alertError(e, "Este partido ya no acepta cambios")
 	}
 
 	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if err != nil || myTeam == 0 {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
+		return alertError(e, "No eres participante de este partido")
 	}
 
 	msg, err := h.app.FindRecordById("match_messages", msgID)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Propuesta no encontrada</div>`)
+		return alertError(e, "Propuesta no encontrada")
 	}
 
 	if msg.GetString("match") != matchID {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Propuesta no pertenece a este partido</div>`)
+		return alertError(e, "Propuesta no pertenece a este partido")
 	}
 
 	authorTeam, _ := league.PlayerTeam(h.app, msg.GetString("author"), match)
 	if authorTeam == myTeam {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">No puedes cambiar la decision de tu propia propuesta</div>`)
+		return alertError(e, "No puedes cambiar la decision de tu propia propuesta")
 	}
 
 	currentStatus := msg.GetString("proposal_status")
 	if currentStatus != "accepted" && currentStatus != "rejected" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Solo se pueden cambiar decisiones de propuestas aceptadas o rechazadas</div>`)
+		return alertError(e, "Solo se pueden cambiar decisiones de propuestas aceptadas o rechazadas")
 	}
 
 	proposerPairID := match.GetString("pair1")
@@ -517,7 +513,7 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 		msg.Set("proposal_status", "rejected")
 		msg.Set("rejection_reason", "Decision cambiada")
 		if err := h.app.Save(msg); err != nil {
-			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al cambiar la decision</div>`)
+			return alertError(e, "Error al cambiar la decision")
 		}
 
 		match.Set("date", "")
@@ -525,7 +521,7 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 		match.Set("club", "")
 		if err := h.app.Save(match); err != nil {
 			slog.Error("save match after rejection", "match", matchID, "err", err)
-			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al actualizar el partido</div>`)
+			return alertError(e, "Error al actualizar el partido")
 		}
 
 		proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
@@ -539,19 +535,19 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 			"", 0, 1,
 			map[string]any{"mid": matchID})
 		if len(existing) > 0 {
-			return e.HTML(http.StatusOK, `<div class="alert alert-error">Ya hay otra propuesta aceptada</div>`)
+			return alertError(e, "Ya hay otra propuesta aceptada")
 		}
 
 		pd := ParseProposalData(msg.Get("proposal_data"))
 		if pd == nil {
-			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al leer los datos de la propuesta</div>`)
+			return alertError(e, "Error al leer los datos de la propuesta")
 		}
 
 		msg.Set("proposal_status", "accepted")
 		msg.Set("rejection_reason", "")
 		msg.Set("rejection_text", "")
 		if err := h.app.Save(msg); err != nil {
-			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al cambiar la decision</div>`)
+			return alertError(e, "Error al cambiar la decision")
 		}
 
 		match.Set("date", pd.Date)
@@ -559,7 +555,7 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 		match.Set("club", pd.VenueName)
 		if err := h.app.Save(match); err != nil {
 			slog.Error("save match after acceptance", "match", matchID, "err", err)
-			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al actualizar el partido</div>`)
+			return alertError(e, "Error al actualizar el partido")
 		}
 
 		otherPending, _ := h.app.FindRecordsByFilter("match_messages",
@@ -580,6 +576,5 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 			matchID)
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/match/"+matchID)
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/match/"+matchID)
 }

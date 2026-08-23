@@ -7,14 +7,15 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 
+	"padelleague/handlers"
 	"padelleague/league"
 	"padelleague/notify"
 )
 
 var validTransitions = map[string][]string{
-	"pending":   {"confirmed", "final"},
-	"confirmed": {"final", "disputed"},
-	"disputed":  {"final"},
+	handlers.StatusPending:   {handlers.StatusConfirmed, handlers.StatusFinal},
+	handlers.StatusConfirmed: {handlers.StatusFinal, handlers.StatusDisputed},
+	handlers.StatusDisputed:  {handlers.StatusFinal},
 }
 
 func Register(app core.App, notifier *notify.Notifier) {
@@ -43,7 +44,7 @@ func Register(app core.App, notifier *notify.Notifier) {
 	})
 
 	app.OnRecordAfterUpdateSuccess("matches").BindFunc(func(e *core.RecordEvent) error {
-		if e.Record.GetString("status") == "final" {
+		if e.Record.GetString("status") == handlers.StatusFinal {
 			if err := svc.AdvancePlayoff(e.Record); err != nil {
 				slog.Error("auto-advance playoff failed", "match", e.Record.Id, "err", err)
 			}
