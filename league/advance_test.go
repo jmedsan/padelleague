@@ -76,8 +76,8 @@ func TestAdvancePlayoff_AdvancesWinners(t *testing.T) {
 
 	updated, updErr := app.FindRecordById("matches", final.Id)
 	require.NoError(t, updErr)
-	// AdvancePlayoff sets pairs on the next-round match
-	assert.NotNil(t, updated)
+	assert.Equal(t, p1.Id, updated.GetString("pair1"))
+	assert.Equal(t, p4.Id, updated.GetString("pair2"))
 }
 
 func TestAdvancePlayoff_NotAllFinished(t *testing.T) {
