@@ -1,7 +1,5 @@
 # PadelLeague
 
-[![CI](https://github.com/jmedsan/padelleague/actions/workflows/ci.yml/badge.svg)](https://github.com/jmedsan/padelleague/actions/workflows/ci.yml)
-
 Padel league management — competitions, matches, rankings and scheduling.
 
 ## What it does
@@ -100,7 +98,7 @@ frontend/            # Tailwind config + input CSS (build only)
 
 ## CI
 
-Every push and pull request runs format check, lint, tests with race detector, vulnerability scan, and Docker build via GitHub Actions. Enable branch protection on `main` requiring the `gate` job to pass before merging.
+`make ci` runs the full gate: format check, lint, tests, and vulnerability scan. Any CI provider (GitHub Actions, GitLab CI, Northflank, etc.) just calls `make ci`.
 
 ## UI language
 
