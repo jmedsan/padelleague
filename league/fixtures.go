@@ -58,14 +58,14 @@ func RoundRobin(pairIDs []string, double bool) []Round {
 
 func (svc *Service) AdvancePlayoff(matchRecord *core.Record) error {
 	compID := matchRecord.GetString("competition")
-	comp, err := svc.App.FindRecordById("competitions", compID)
+	comp, err := svc.app.FindRecordById("competitions", compID)
 	if err != nil || comp.GetString("type") != "playoff" {
 		return nil
 	}
 
 	currentRound := int(matchRecord.GetFloat("round_number"))
 
-	roundMatches, _ := svc.App.FindRecordsByFilter("matches",
+	roundMatches, _ := svc.app.FindRecordsByFilter("matches",
 		"competition = {:cid} && round_number = {:rn}", "", 0, 0,
 		map[string]any{"cid": compID, "rn": currentRound})
 
@@ -76,7 +76,7 @@ func (svc *Service) AdvancePlayoff(matchRecord *core.Record) error {
 	}
 
 	nextRound := currentRound + 1
-	nextMatches, _ := svc.App.FindRecordsByFilter("matches",
+	nextMatches, _ := svc.app.FindRecordsByFilter("matches",
 		"competition = {:cid} && round_number = {:rn}", "", 0, 0,
 		map[string]any{"cid": compID, "rn": nextRound})
 
@@ -98,7 +98,7 @@ func (svc *Service) AdvancePlayoff(matchRecord *core.Record) error {
 		if p2Idx < len(roundWinners) && roundWinners[p2Idx] != "" {
 			nm.Set("pair2", roundWinners[p2Idx])
 		}
-		if err := svc.App.Save(nm); err != nil {
+		if err := svc.app.Save(nm); err != nil {
 			return err
 		}
 	}

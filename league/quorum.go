@@ -9,7 +9,7 @@ import (
 )
 
 func (svc *Service) ConfirmStaleMatches() {
-	stale, err := svc.App.FindRecordsByFilter("matches",
+	stale, err := svc.app.FindRecordsByFilter("matches",
 		"status = 'confirmed'", "", 0, 0, nil)
 	if err != nil || len(stale) == 0 {
 		return
@@ -19,7 +19,7 @@ func (svc *Service) ConfirmStaleMatches() {
 	for _, m := range stale {
 		compID := m.GetString("competition")
 		if _, ok := compCache[compID]; !ok {
-			comp, err := svc.App.FindRecordById("competitions", compID)
+			comp, err := svc.app.FindRecordById("competitions", compID)
 			if err != nil {
 				compCache[compID] = nil
 				continue
@@ -52,7 +52,7 @@ func (svc *Service) ConfirmStaleMatches() {
 			continue
 		}
 
-		fresh, err := svc.App.FindRecordById("matches", m.Id)
+		fresh, err := svc.app.FindRecordById("matches", m.Id)
 		if err != nil || fresh.GetString("status") != "confirmed" {
 			continue
 		}
@@ -67,15 +67,15 @@ func (svc *Service) ConfirmStaleMatches() {
 		fresh.Set("winner", winnerID)
 		fresh.Set("confirmed_by", "")
 		fresh.Set("dispute_notes", "Auto-confirmado por tiempo de espera")
-		if err := svc.App.Save(fresh); err != nil {
+		if err := svc.app.Save(fresh); err != nil {
 			slog.Error("save stale match confirmation", "match", m.Id, "err", err)
 			continue
 		}
 
 		pairIDs := []string{fresh.GetString("pair1"), fresh.GetString("pair2")}
 		for _, pid := range pairIDs {
-			players := PlayersForPair(svc.App, pid)
-			svc.Notifier.NotifyPlayers(players, "general",
+			players := PlayersForPair(svc.app, pid)
+			svc.notifier.NotifyPlayers(players, "general",
 				"Resultado confirmado automaticamente",
 				"El resultado ha sido confirmado por tiempo de espera.",
 				fresh.Id)

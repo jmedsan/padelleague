@@ -7,10 +7,10 @@ type Notifier interface {
 }
 
 type Service struct {
-	App      core.App
-	Notifier Notifier
+	app      core.App
+	notifier Notifier
 }
 
 func New(app core.App, notifier Notifier) *Service {
-	return &Service{App: app, Notifier: notifier}
+	return &Service{app: app, notifier: notifier}
 }
