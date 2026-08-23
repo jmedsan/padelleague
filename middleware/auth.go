@@ -24,6 +24,7 @@ func SetAuthCookie(e *core.RequestEvent, token string) {
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	})
 }
@@ -35,6 +36,7 @@ func ClearAuthCookie(e *core.RequestEvent) {
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	})
 }
