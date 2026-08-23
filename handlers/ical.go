@@ -20,6 +20,9 @@ func NewICalHandler(app core.App) *ICalHandler {
 }
 
 func formatICalDate(dateStr, timeStr string) (string, string) {
+	if len(dateStr) > 10 {
+		dateStr = dateStr[:10]
+	}
 	t, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
 		return "", ""
