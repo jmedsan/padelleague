@@ -1,28 +1,40 @@
 import { test, expect } from '@playwright/test';
-import { loginAs, PLAYER_EMAIL, PLAYER_PASSWORD } from '../helpers';
+import { loginAs, loadTestData, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
-test('player can view match thread', async ({ page }) => {
-  await loginAs(page, PLAYER_EMAIL, PLAYER_PASSWORD);
-  await page.goto('/');
-  const matchLink = page.locator('a[href^="/match/"]').first();
-  if (await matchLink.isVisible()) {
-    await matchLink.click();
-    await expect(page.locator('[name="content"]')).toBeVisible();
-  }
-});
+test.describe('match thread', () => {
+  test('player can view match thread', async ({ page }) => {
+    const data = loadTestData();
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/match/${data.matchIds[0]}`);
+    await expect(page.getByText('Hilo del partido')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[name="content"]')).toBeVisible({ timeout: 10000 });
+  });
 
-test('player can post a message in thread', async ({ page }) => {
-  await loginAs(page, PLAYER_EMAIL, PLAYER_PASSWORD);
-  await page.goto('/');
-  const matchLink = page.locator('a[href^="/match/"]').first();
-  if (await matchLink.isVisible()) {
-    await matchLink.click();
-    const input = page.locator('input[name="content"]');
-    if (await input.isVisible()) {
-      const msg = `E2E test message ${Date.now()}`;
-      await input.fill(msg);
-      await page.getByRole('button', { name: 'Enviar' }).first().click();
-      await expect(page.getByText(msg)).toBeVisible({ timeout: 5000 });
+  test('player can post a message', async ({ page }) => {
+    const data = loadTestData();
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    const msg = `E2E msg ${Date.now()}`;
+    const resp = await page.request.post(`/match/${data.matchIds[0]}/thread/message`, {
+      form: { content: msg },
+    });
+    expect(resp.status()).toBeLessThan(400);
+    await page.goto(`/match/${data.matchIds[0]}`);
+    await page.waitForFunction(
+      (text) => document.body.innerText.includes(text),
+      msg,
+      { timeout: 15000 }
+    );
+  });
+
+  test('player can propose a schedule', async ({ page }) => {
+    const data = loadTestData();
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/match/${data.matchIds[0]}`);
+    await page.waitForLoadState('networkidle');
+    const proposalBtn = page.getByRole('button', { name: /proponer fecha/i });
+    if (await proposalBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await proposalBtn.click();
+      await expect(page.locator('input[type="date"]')).toBeVisible({ timeout: 3000 });
     }
-  }
+  });
 });

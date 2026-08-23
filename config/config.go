@@ -15,6 +15,9 @@ type Config struct {
 	AppPlayerEmail    string `env:"APP_PLAYER_EMAIL"`
 	AppPlayerPassword string `env:"APP_PLAYER_PASSWORD"`
 
+	AppPlayer2Email    string `env:"APP_PLAYER2_EMAIL"`
+	AppPlayer2Password string `env:"APP_PLAYER2_PASSWORD"`
+
 	AppEnv string `env:"APP_ENV" envDefault:"dev"`
 }
 

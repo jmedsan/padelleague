@@ -1,4 +1,34 @@
 import { Page, expect } from '@playwright/test';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+export const ADMIN_EMAIL = 'admin@test.com';
+export const ADMIN_PASSWORD = 'testpass123456';
+export const PLAYER1_EMAIL = 'player@test.com';
+export const PLAYER1_PASSWORD = 'testpass123456';
+export const PLAYER2_EMAIL = 'player2@test.com';
+export const PLAYER2_PASSWORD = 'testpass123456';
+
+export interface TestData {
+  adminToken: string;
+  player1: { id: string; email: string };
+  player2: { id: string; email: string };
+  pair1Id: string;
+  pair2Id: string;
+  competitionId: string;
+  matchIds: string[];
+  venueId: string;
+}
+
+let _cachedData: TestData | null = null;
+
+export function loadTestData(): TestData {
+  if (!_cachedData) {
+    const raw = readFileSync(join(__dirname, '.test-data/seed.json'), 'utf-8');
+    _cachedData = JSON.parse(raw);
+  }
+  return _cachedData!;
+}
 
 export async function loginAs(page: Page, email: string, password: string) {
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -34,8 +64,3 @@ export async function loginViaForm(page: Page, email: string, password: string) 
   await page.getByRole('button', { name: 'Entrar' }).click();
   await page.waitForURL('/', { timeout: 10000 });
 }
-
-export const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@test.com';
-export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'testpass123456';
-export const PLAYER_EMAIL = process.env.PLAYER_EMAIL || 'player@test.com';
-export const PLAYER_PASSWORD = process.env.PLAYER_PASSWORD || 'testpass123456';
