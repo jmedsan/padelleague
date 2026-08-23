@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/types"
 )
 
 type StandingRowFull struct {
@@ -99,6 +100,12 @@ func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, er
 	penaltyMap := map[string]float64{}
 	rawPen := comp.Get("penalty_points")
 	switch v := rawPen.(type) {
+	case types.JSONRaw:
+		if len(v) > 0 {
+			if err := json.Unmarshal(v, &penaltyMap); err != nil {
+				slog.Warn("unmarshal penalty_points", "err", err)
+			}
+		}
 	case string:
 		if v != "" {
 			if err := json.Unmarshal([]byte(v), &penaltyMap); err != nil {

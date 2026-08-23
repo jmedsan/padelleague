@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"fmt"
+	"sync/atomic"
 	"testing"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -9,6 +11,29 @@ import (
 
 	_ "padelleague/migrations"
 )
+
+var (
+	pairSeq atomic.Int64
+	userSeq atomic.Int64
+)
+
+func makeUser(t *testing.T, app core.App, displayName, email string) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("users")
+	require.NoError(t, err)
+	if email == "" {
+		n := userSeq.Add(1)
+		email = fmt.Sprintf("user%d@test.local", n)
+	}
+	record := core.NewRecord(col)
+	record.Set("email", email)
+	record.Set("display_name", displayName)
+	record.Set("role", "player")
+	record.SetPassword("testpass123456")
+	record.SetVerified(true)
+	require.NoError(t, app.Save(record))
+	return record
+}
 
 func newTestApp(t *testing.T) core.App {
 	t.Helper()
@@ -24,10 +49,15 @@ func newTestNotifier(app core.App) *Notifier {
 
 func makePair(t *testing.T, app core.App, name string) *core.Record {
 	t.Helper()
+	n := pairSeq.Add(1)
+	u1 := makeUser(t, app, name+" P1", fmt.Sprintf("pair%dp1@test.local", n))
+	u2 := makeUser(t, app, name+" P2", fmt.Sprintf("pair%dp2@test.local", n))
 	col, err := app.FindCollectionByNameOrId("pairs")
 	require.NoError(t, err)
 	record := core.NewRecord(col)
 	record.Set("name", name)
+	record.Set("player1", u1.Id)
+	record.Set("player2", u2.Id)
 	require.NoError(t, app.Save(record))
 	return record
 }
