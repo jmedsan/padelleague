@@ -111,18 +111,28 @@ func TestMatchWalkover(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var matchID, p1ID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "WO A")
 		p2 := makePairTB(tb, app, "WO B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
+		p1ID = p1.Id
 		s.URL = "/match/" + match.Id + "/walkover"
 		s.Body = strings.NewReader("absent_team=2")
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "final", m.GetString("status"))
+		assert.Equal(tb, "WO", m.GetString("scores"))
+		assert.Equal(tb, p1ID, m.GetString("winner"))
 	}
 	s.Test(t)
 }
@@ -133,12 +143,14 @@ func TestMatchCorrect(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Correct A")
 		p2 := makePairTB(tb, app, "Correct B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
+		matchID = match.Id
 		submitter := p1.GetString("player1")
 		match.Set("scores", "6-3 6-4")
 		match.Set("submitted_by", submitter)
@@ -150,6 +162,12 @@ func TestMatchCorrect(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "confirmed", m.GetString("status"))
+		assert.Equal(tb, "6-4 6-3", m.GetString("scores"))
+	}
 	s.Test(t)
 }
 
@@ -159,18 +177,26 @@ func TestMatchEdit(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Edit A")
 		p2 := makePairTB(tb, app, "Edit B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
 		s.URL = "/match/" + match.Id + "/edit"
 		s.Body = strings.NewReader("date=2026-09-15&time=18:00")
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Contains(tb, m.GetString("date"), "2026-09-15")
+		assert.Equal(tb, "18:00", m.GetString("time"))
 	}
 	s.Test(t)
 }
@@ -201,18 +227,28 @@ func TestMatchThreadPostMessage(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Msg A")
 		p2 := makePairTB(tb, app, "Msg B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
 		s.URL = "/match/" + match.Id + "/thread/message"
 		s.Body = strings.NewReader("content=Hola+equipo&type=chat")
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		msgs, err := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'chat'", "", 0, 0,
+			map[string]any{"mid": matchID})
+		require.NoError(tb, err)
+		assert.Equal(tb, 1, len(msgs))
+		assert.Equal(tb, "Hola equipo", msgs[0].GetString("content"))
 	}
 	s.Test(t)
 }

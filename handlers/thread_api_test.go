@@ -8,6 +8,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,18 +38,28 @@ func TestThreadPostProposal(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Prop A")
 		p2 := makePairTB(tb, app, "Prop B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
 		s.URL = "/match/" + match.Id + "/thread/proposal"
 		s.Body = strings.NewReader("date=2026-09-15&time=18:00&venue_text=Club+Test")
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		msgs, err := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'scheduling_proposal'", "", 0, 0,
+			map[string]any{"mid": matchID})
+		require.NoError(tb, err)
+		assert.Equal(tb, 1, len(msgs))
+		assert.Equal(tb, "pending", msgs[0].GetString("proposal_status"))
 	}
 	s.Test(t)
 }
@@ -59,6 +70,7 @@ func TestThreadRespondProposal(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var msgID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Resp A")
@@ -66,7 +78,6 @@ func TestThreadRespondProposal(t *testing.T) {
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 
-		// Create a proposal message from p1's player
 		proposer := p1.GetString("player1")
 		col, err := app.FindCollectionByNameOrId("match_messages")
 		require.NoError(tb, err)
@@ -77,6 +88,7 @@ func TestThreadRespondProposal(t *testing.T) {
 		msg.Set("proposal_data", `{"date":"2026-09-15","time":"18:00","venue_name":"Club Test","venue_id":"","venue_text":""}`)
 		msg.Set("proposal_status", "pending")
 		require.NoError(tb, app.Save(msg))
+		msgID = msg.Id
 
 		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/respond", match.Id, msg.Id)
 		s.Body = strings.NewReader("action=accept")
@@ -84,6 +96,11 @@ func TestThreadRespondProposal(t *testing.T) {
 		hdrs := authHeaders(tb, opponent)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		msg, err := app.FindRecordById("match_messages", msgID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "accepted", msg.GetString("proposal_status"))
 	}
 	s.Test(t)
 }
