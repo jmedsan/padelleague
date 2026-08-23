@@ -1,11 +1,13 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
   retries: 0,
   workers: 1,
+  globalSetup: './global-setup.ts',
+  globalTeardown: './global-teardown.ts',
   use: {
-    baseURL: 'http://localhost:8090',
+    baseURL: 'http://localhost:8099',
   },
   projects: [
     {
