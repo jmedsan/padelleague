@@ -134,7 +134,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		return h.renderErrorPage(e, http.StatusForbidden, "No tienes acceso a este partido")
 	}
 
-	pairNames, _ := expandPairNames(h.app, []string{
+	pairNames := expandPairNames(h.app, []string{
 		match.GetString("pair1"),
 		match.GetString("pair2"),
 	})

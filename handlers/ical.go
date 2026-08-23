@@ -68,7 +68,7 @@ func (h *ICalHandler) Match(e *core.RequestEvent) error {
 		return e.String(http.StatusBadRequest, "El partido no tiene fecha asignada")
 	}
 
-	pairNames, _ := expandPairNames(h.app, []string{
+	pairNames := expandPairNames(h.app, []string{
 		match.GetString("pair1"),
 		match.GetString("pair2"),
 	})
@@ -151,7 +151,7 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 	for pid := range pairIDSet {
 		pairIDSlice = append(pairIDSlice, pid)
 	}
-	pairNames, _ := expandPairNames(h.app, pairIDSlice)
+	pairNames := expandPairNames(h.app, pairIDSlice)
 
 	var events strings.Builder
 	for _, m := range datedMatches {

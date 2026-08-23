@@ -72,7 +72,7 @@ func parseScore(score string) (sets1, sets2, games1, games2 int, err error) {
 	return sets1, sets2, games1, games2, nil
 }
 
-func determineWinner(partido *core.Record, score string) (string, error) {
+func determineWinner(match *core.Record, score string) (string, error) {
 	if strings.EqualFold(strings.TrimSpace(score), "WO") {
 		return "", fmt.Errorf("walkover requires manual winner selection")
 	}
@@ -83,7 +83,7 @@ func determineWinner(partido *core.Record, score string) (string, error) {
 	}
 
 	if sets1 > sets2 {
-		return partido.GetString("pair1"), nil
+		return match.GetString("pair1"), nil
 	}
-	return partido.GetString("pair2"), nil
+	return match.GetString("pair2"), nil
 }

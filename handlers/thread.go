@@ -71,7 +71,7 @@ func ParseProposalData(raw any) *ProposalData {
 	return &pd
 }
 
-func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, isAdmin bool, myTeam int) []ThreadMessage {
+func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, myTeam int) []ThreadMessage {
 	messages, _ := h.app.FindRecordsByFilter("match_messages",
 		"match = {:mid}", "", 0, 0,
 		map[string]any{"mid": matchID})
@@ -171,7 +171,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No tienes acceso a este hilo</div>`)
 	}
 
-	threadMessages := h.buildThreadMessages(match, matchID, isAdmin, myTeam)
+	threadMessages := h.buildThreadMessages(match, matchID, myTeam)
 
 	venues, _ := h.app.FindRecordsByFilter("venues",
 		"id != ''", "name", 0, 0, nil)
@@ -204,7 +204,7 @@ func (h *ThreadHandler) ThreadMessages(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No tienes acceso a este hilo</div>`)
 	}
 
-	threadMessages := h.buildThreadMessages(match, matchID, isAdmin, myTeam)
+	threadMessages := h.buildThreadMessages(match, matchID, myTeam)
 
 	return h.renderPartial(e, "thread-messages.html", map[string]any{
 		"MatchID":  matchID,
@@ -396,7 +396,8 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 
 	action := e.Request.FormValue("action")
 
-	if action == "accept" {
+	switch action {
+	case "accept":
 		existing, _ := h.app.FindRecordsByFilter("match_messages",
 			"match = {:mid} && proposal_status = 'accepted'",
 			"", 0, 1,
@@ -437,7 +438,7 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 			"Propuesta aceptada",
 			fmt.Sprintf("%s acepto tu propuesta para el %s a las %s", responderName, pd.Date, pd.Time),
 			matchID)
-	} else if action == "reject" {
+	case "reject":
 		reason := e.Request.FormValue("rejection_reason")
 		text := e.Request.FormValue("rejection_text")
 
@@ -454,7 +455,7 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 			"Propuesta rechazada",
 			fmt.Sprintf("%s rechazo tu propuesta: %s", responderName, reason),
 			matchID)
-	} else {
+	default:
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Accion no valida</div>`)
 	}
 

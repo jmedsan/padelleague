@@ -2,11 +2,18 @@ package hooks
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/pocketbase/pocketbase/core"
 
 	"padelleague/handlers"
 )
+
+var validTransitions = map[string][]string{
+	"pending":   {"confirmed", "final"},
+	"confirmed": {"final", "disputed"},
+	"disputed":  {"final"},
+}
 
 func Register(app core.App, notifier *handlers.Notifier) {
 	app.OnRecordCreate("users").BindFunc(func(e *core.RecordEvent) error {
@@ -20,23 +27,11 @@ func Register(app core.App, notifier *handlers.Notifier) {
 		oldStatus := e.Record.Original().GetString("status")
 		newStatus := e.Record.GetString("status")
 		if oldStatus != newStatus {
-			validTransitions := map[string][]string{
-				"pending":   {"confirmed", "final"},
-				"confirmed": {"final", "disputed"},
-				"disputed":  {"final"},
-			}
 			allowed, ok := validTransitions[oldStatus]
 			if !ok {
 				return fmt.Errorf("invalid transition from %s", oldStatus)
 			}
-			valid := false
-			for _, s := range allowed {
-				if s == newStatus {
-					valid = true
-					break
-				}
-			}
-			if !valid {
+			if !slices.Contains(allowed, newStatus) {
 				return fmt.Errorf("invalid transition: %s → %s", oldStatus, newStatus)
 			}
 		}
