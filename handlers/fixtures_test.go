@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/league"
 )
 
 func TestGenerateRoundRobin_AllPairsPlayOnce(t *testing.T) {
@@ -16,10 +18,9 @@ func TestGenerateRoundRobin_AllPairsPlayOnce(t *testing.T) {
 				pairIDs[i] = fmt.Sprintf("p%d", i+1)
 			}
 
-			rounds := generateRoundRobin(pairIDs, false)
+			rounds := league.RoundRobin(pairIDs, false)
 			require.NotEmpty(t, rounds)
 
-			// Every pair must play every other exactly once
 			matchups := map[string]int{}
 			for _, r := range rounds {
 				for _, m := range r.Matches {
@@ -44,7 +45,7 @@ func TestGenerateRoundRobin_AllPairsPlayOnce(t *testing.T) {
 func TestGenerateRoundRobin_Double(t *testing.T) {
 	pairIDs := []string{"p1", "p2", "p3", "p4"}
 
-	rounds := generateRoundRobin(pairIDs, true)
+	rounds := league.RoundRobin(pairIDs, true)
 	require.NotEmpty(t, rounds)
 
 	matchups := map[string]int{}
@@ -74,7 +75,7 @@ func TestGenerateRoundRobin_NoPairTwicePerRound(t *testing.T) {
 				pairIDs[i] = fmt.Sprintf("p%d", i+1)
 			}
 
-			rounds := generateRoundRobin(pairIDs, false)
+			rounds := league.RoundRobin(pairIDs, false)
 
 			for _, r := range rounds {
 				seen := map[string]bool{}

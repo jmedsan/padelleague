@@ -6,6 +6,8 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/mails"
+
+	"padelleague/notify"
 )
 
 type PasswordResetHandler struct {
@@ -24,7 +26,7 @@ func (h *PasswordResetHandler) ForgotPassword(e *core.RequestEvent) error {
 func (h *PasswordResetHandler) ForgotPasswordSubmit(e *core.RequestEvent) error {
 	email := e.Request.FormValue("email")
 
-	if !IsMailerConfigured(h.app) {
+	if !notify.IsMailerConfigured(h.app) {
 		return e.HTML(http.StatusOK, `<div class="alert alert-info">SMTP no configurado. Contacta al administrador para restablecer tu contraseña.</div>`)
 	}
 
