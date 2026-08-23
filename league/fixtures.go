@@ -66,7 +66,7 @@ func (svc *Service) AdvancePlayoff(matchRecord *core.Record) error {
 	currentRound := int(matchRecord.GetFloat("round_number"))
 
 	roundMatches, _ := svc.App.FindRecordsByFilter("matches",
-		"competition = {:cid} && round_number = {:rn}", "created", 0, 0,
+		"competition = {:cid} && round_number = {:rn}", "", 0, 0,
 		map[string]any{"cid": compID, "rn": currentRound})
 
 	for _, m := range roundMatches {
@@ -77,7 +77,7 @@ func (svc *Service) AdvancePlayoff(matchRecord *core.Record) error {
 
 	nextRound := currentRound + 1
 	nextMatches, _ := svc.App.FindRecordsByFilter("matches",
-		"competition = {:cid} && round_number = {:rn}", "created", 0, 0,
+		"competition = {:cid} && round_number = {:rn}", "", 0, 0,
 		map[string]any{"cid": compID, "rn": nextRound})
 
 	if len(nextMatches) == 0 {
