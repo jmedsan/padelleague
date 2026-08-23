@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -296,7 +297,9 @@ func (h *MatchHandler) createAdminTimelineEntry(matchID, adminID, content string
 	record.Set("author", adminID)
 	record.Set("type", "admin_action")
 	record.Set("content", content)
-	h.app.Save(record)
+	if err := h.app.Save(record); err != nil {
+		slog.Error("save admin timeline entry", "match", matchID, "err", err)
+	}
 }
 
 func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {

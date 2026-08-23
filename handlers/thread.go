@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sort"
 
@@ -429,7 +430,9 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 			map[string]any{"mid": matchID, "msgid": msgID})
 		for _, other := range otherPending {
 			other.Set("proposal_status", "superseded")
-			h.app.Save(other)
+			if err := h.app.Save(other); err != nil {
+				slog.Error("supersede proposal", "id", other.Id, "err", err)
+			}
 		}
 
 		proposerPlayers := getPlayersForPair(h.app, proposerPairID)
@@ -517,7 +520,10 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 		match.Set("date", "")
 		match.Set("time", "")
 		match.Set("club", "")
-		h.app.Save(match)
+		if err := h.app.Save(match); err != nil {
+			slog.Error("save match after rejection", "match", matchID, "err", err)
+			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al actualizar el partido</div>`)
+		}
 
 		proposerPlayers := getPlayersForPair(h.app, proposerPairID)
 		h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
@@ -548,7 +554,10 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 		match.Set("date", pd.Date)
 		match.Set("time", pd.Time)
 		match.Set("club", pd.VenueName)
-		h.app.Save(match)
+		if err := h.app.Save(match); err != nil {
+			slog.Error("save match after acceptance", "match", matchID, "err", err)
+			return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al actualizar el partido</div>`)
+		}
 
 		otherPending, _ := h.app.FindRecordsByFilter("match_messages",
 			"match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'pending' && id != {:msgid}",
@@ -556,7 +565,9 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 			map[string]any{"mid": matchID, "msgid": msgID})
 		for _, other := range otherPending {
 			other.Set("proposal_status", "superseded")
-			h.app.Save(other)
+			if err := h.app.Save(other); err != nil {
+				slog.Error("supersede proposal", "id", other.Id, "err", err)
+			}
 		}
 
 		proposerPlayers := getPlayersForPair(h.app, proposerPairID)
