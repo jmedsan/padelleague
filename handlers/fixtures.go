@@ -88,7 +88,7 @@ func (h *FixtureHandler) generateLeague(txApp core.App, compID string, pairIDs [
 			match.Set("matches_to_win", 1)
 			match.Set("pair1", m.Home)
 			match.Set("pair2", m.Away)
-			match.Set("status", StatusPending)
+			match.Set("status", league.StatusPending)
 			if err := txApp.Save(match); err != nil {
 				return err
 			}
@@ -168,7 +168,7 @@ func (h *FixtureHandler) generatePlayoff(txApp core.App, compID string, pairIDs 
 		match.Set("matches_to_win", 1)
 		match.Set("pair1", bs.pair1)
 		match.Set("pair2", bs.pair2)
-		match.Set("status", StatusPending)
+		match.Set("status", league.StatusPending)
 		if err := txApp.Save(match); err != nil {
 			return err
 		}
@@ -192,7 +192,7 @@ func (h *FixtureHandler) generatePlayoff(txApp core.App, compID string, pairIDs 
 			if p2 != "" {
 				match.Set("pair2", p2)
 			}
-			match.Set("status", StatusPending)
+			match.Set("status", league.StatusPending)
 			if err := txApp.Save(match); err != nil {
 				return err
 			}

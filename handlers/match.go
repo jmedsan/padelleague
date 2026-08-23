@@ -54,13 +54,13 @@ type MatchDetailData struct {
 
 func statusLabel(status string) string {
 	switch status {
-	case StatusPending:
+	case league.StatusPending:
 		return "Pendiente"
-	case StatusConfirmed:
+	case league.StatusConfirmed:
 		return "Enviado — esperando confirmación"
-	case StatusDisputed:
+	case league.StatusDisputed:
 		return "En disputa"
-	case StatusFinal:
+	case league.StatusFinal:
 		return "Finalizado"
 	}
 	return status
@@ -68,13 +68,13 @@ func statusLabel(status string) string {
 
 func statusClass(status string) string {
 	switch status {
-	case StatusPending:
+	case league.StatusPending:
 		return "badge-warning"
-	case StatusConfirmed:
+	case league.StatusConfirmed:
 		return "badge-info"
-	case StatusDisputed:
+	case league.StatusDisputed:
 		return "badge-error"
-	case StatusFinal:
+	case league.StatusFinal:
 		return "badge-success"
 	}
 	return "badge-ghost"
@@ -96,7 +96,7 @@ func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNam
 	roundNum := int(match.GetFloat("round_number"))
 
 	canCorrect := false
-	if status == StatusConfirmed && team > 0 && isSubmitter {
+	if status == league.StatusConfirmed && team > 0 && isSubmitter {
 		submittedAt := match.GetString("submitted_at")
 		if submittedAt != "" {
 			if dt, err := types.ParseDateTime(submittedAt); err == nil {
@@ -110,11 +110,11 @@ func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNam
 		Pair1Name:     pairNames[match.GetString("pair1")],
 		Pair2Name:     pairNames[match.GetString("pair2")],
 		RoundNum:      roundNum,
-		CanSubmit:     status == StatusPending && team > 0,
-		CanConfirm:    status == StatusConfirmed && team > 0 && !isSubmitter,
-		CanDispute:    status == StatusConfirmed && team > 0 && !isSubmitter,
-		CanEdit:       status == StatusPending && team > 0,
-		CanWalkover:   status == StatusPending && team > 0,
+		CanSubmit:     status == league.StatusPending && team > 0,
+		CanConfirm:    status == league.StatusConfirmed && team > 0 && !isSubmitter,
+		CanDispute:    status == league.StatusConfirmed && team > 0 && !isSubmitter,
+		CanEdit:       status == league.StatusPending && team > 0,
+		CanWalkover:   status == league.StatusPending && team > 0,
 		CanCorrect:    canCorrect,
 		IsAdmin:       isAdmin,
 		IsParticipant: isParticipant,
@@ -169,7 +169,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	}
 
 	shareText := ""
-	if match.GetString("status") == StatusFinal {
+	if match.GetString("status") == league.StatusFinal {
 		p1Name := pairNames[match.GetString("pair1")]
 		p2Name := pairNames[match.GetString("pair2")]
 		score := match.GetString("scores")
@@ -209,7 +209,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 		return alertError(e, "No eres participante de este partido")
 	}
 
-	if match.GetString("status") != StatusPending {
+	if match.GetString("status") != league.StatusPending {
 		return alertError(e, "Este partido ya tiene un resultado registrado")
 	}
 
@@ -229,7 +229,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	match.Set("scores", scores)
 	match.Set("submitted_by", userID)
 	match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
-	match.Set("status", StatusConfirmed)
+	match.Set("status", league.StatusConfirmed)
 
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al guardar el resultado")
@@ -261,7 +261,7 @@ func (h *MatchHandler) MatchEdit(e *core.RequestEvent) error {
 		return alertError(e, "No eres participante de este partido")
 	}
 
-	if match.GetString("status") != StatusPending {
+	if match.GetString("status") != league.StatusPending {
 		return alertError(e, "Solo se pueden editar partidos pendientes")
 	}
 
@@ -349,8 +349,8 @@ func (h *MatchHandler) detectChanges(e *core.RequestEvent, match *core.Record) (
 			}
 			match.Set("scores", scores)
 			match.Set("winner", winner)
-			if match.GetString("status") != StatusFinal {
-				match.Set("status", StatusFinal)
+			if match.GetString("status") != league.StatusFinal {
+				match.Set("status", league.StatusFinal)
 			}
 			if oldScores == "" {
 				changes = append(changes, "Resultado establecido: "+scores)

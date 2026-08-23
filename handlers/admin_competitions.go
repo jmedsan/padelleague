@@ -77,10 +77,10 @@ func (h *CompetitionHandler) buildCompetitionSummary(comp *core.Record) Competit
 	playedMatches := 0
 	disputeCount := 0
 	for _, m := range allMatches {
-		if m.GetString("status") == StatusFinal {
+		if m.GetString("status") == league.StatusFinal {
 			playedMatches++
 		}
-		if m.GetString("status") == StatusDisputed {
+		if m.GetString("status") == league.StatusDisputed {
 			disputeCount++
 		}
 	}
@@ -124,13 +124,13 @@ func (h *CompetitionHandler) classifyMatchIssues(m *core.Record, compName string
 	var issues []AdminIssue
 
 	switch status {
-	case StatusDisputed:
+	case league.StatusDisputed:
 		issues = append(issues, AdminIssue{
 			Type: "dispute", TypeLabel: "Disputa", BadgeClass: "badge-error",
 			CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
 			MatchID: m.Id, Detail: "pendiente de resolucion",
 		})
-	case StatusConfirmed:
+	case league.StatusConfirmed:
 		if quorumHours > 0 {
 			if sa := m.GetString("submitted_at"); sa != "" {
 				if dt, err := types.ParseDateTime(sa); err == nil {
@@ -150,7 +150,7 @@ func (h *CompetitionHandler) classifyMatchIssues(m *core.Record, compName string
 				}
 			}
 		}
-	case StatusPending:
+	case league.StatusPending:
 		if d := m.GetString("date"); d != "" {
 			if matchDate, err := time.Parse("2006-01-02", d); err == nil {
 				if matchDate.Before(now) {
@@ -303,7 +303,7 @@ func (h *CompetitionHandler) buildRoundGroups(matches []*core.Record, pairNames 
 func (h *CompetitionHandler) buildDisputeViews(matches []*core.Record, pairNames map[string]string) []DisputeView {
 	var disputes []DisputeView
 	for _, m := range matches {
-		if m.GetString("status") != StatusDisputed {
+		if m.GetString("status") != league.StatusDisputed {
 			continue
 		}
 		disputes = append(disputes, DisputeView{

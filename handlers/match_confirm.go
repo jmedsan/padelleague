@@ -19,7 +19,7 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 		return alertError(e, "Partido no encontrado")
 	}
 
-	if match.GetString("status") != StatusConfirmed {
+	if match.GetString("status") != league.StatusConfirmed {
 		return alertError(e, "Este partido no está pendiente de confirmación")
 	}
 
@@ -52,7 +52,7 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 
 	match.Set("confirmed_by", userID)
 	match.Set("winner", winnerID)
-	match.Set("status", StatusFinal)
+	match.Set("status", league.StatusFinal)
 
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al confirmar el partido")
@@ -76,7 +76,7 @@ func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 		return alertError(e, "Partido no encontrado")
 	}
 
-	if match.GetString("status") != StatusConfirmed {
+	if match.GetString("status") != league.StatusConfirmed {
 		return alertError(e, "Este partido no está pendiente de confirmación")
 	}
 
@@ -98,7 +98,7 @@ func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 	disputeNotes := e.Request.FormValue("dispute_notes")
 	match.Set("disputed_by", userID)
 	match.Set("dispute_notes", disputeNotes)
-	match.Set("status", StatusDisputed)
+	match.Set("status", league.StatusDisputed)
 
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al disputar el partido")
@@ -118,7 +118,7 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 		return alertError(e, "Partido no encontrado")
 	}
 
-	if match.GetString("status") != StatusConfirmed {
+	if match.GetString("status") != league.StatusConfirmed {
 		return alertError(e, "Solo se puede corregir un partido en estado confirmado")
 	}
 
@@ -187,7 +187,7 @@ func (h *MatchHandler) MatchWalkover(e *core.RequestEvent) error {
 		return alertError(e, "Partido no encontrado")
 	}
 
-	if match.GetString("status") != StatusPending {
+	if match.GetString("status") != league.StatusPending {
 		return alertError(e, "Solo se puede reportar incomparecencia en partidos pendientes")
 	}
 
@@ -211,7 +211,7 @@ func (h *MatchHandler) MatchWalkover(e *core.RequestEvent) error {
 	match.Set("scores", "WO")
 	match.Set("winner", winnerID)
 	match.Set("submitted_by", userID)
-	match.Set("status", StatusFinal)
+	match.Set("status", league.StatusFinal)
 
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al registrar la incomparecencia")

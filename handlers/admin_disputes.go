@@ -49,7 +49,7 @@ func (h *AdminHandler) DisputesResolve(e *core.RequestEvent) error {
 		return alertError(e, "Partido no encontrado")
 	}
 
-	if match.GetString("status") != StatusDisputed {
+	if match.GetString("status") != league.StatusDisputed {
 		return alertError(e, "Este partido no está en disputa")
 	}
 
@@ -76,7 +76,7 @@ func (h *AdminHandler) DisputesResolve(e *core.RequestEvent) error {
 
 	match.Set("scores", score)
 	match.Set("winner", winnerID)
-	match.Set("status", StatusFinal)
+	match.Set("status", league.StatusFinal)
 
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al resolver la disputa")
