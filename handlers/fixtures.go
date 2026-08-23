@@ -118,7 +118,7 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID+"/pairs")
+	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID)
 	return e.NoContent(http.StatusNoContent)
 }
 
