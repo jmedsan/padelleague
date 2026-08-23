@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
 	"github.com/pocketbase/pocketbase/core"
@@ -13,6 +14,7 @@ type Notifier struct {
 	app             core.App
 	vapidPublicKey  string
 	vapidPrivateKey string
+	httpClient      *http.Client
 }
 
 func NewNotifier(app core.App, vapidPublicKey, vapidPrivateKey string) *Notifier {
@@ -20,6 +22,7 @@ func NewNotifier(app core.App, vapidPublicKey, vapidPrivateKey string) *Notifier
 		app:             app,
 		vapidPublicKey:  vapidPublicKey,
 		vapidPrivateKey: vapidPrivateKey,
+		httpClient:      &http.Client{Timeout: 10 * time.Second},
 	}
 }
 
@@ -121,6 +124,7 @@ func (n *Notifier) sendPush(userID, title, body, relatedMatchID string) {
 			Subscriber:      subscriber,
 			VAPIDPublicKey:  n.vapidPublicKey,
 			VAPIDPrivateKey: n.vapidPrivateKey,
+			HTTPClient:      n.httpClient,
 		})
 		if err != nil {
 			log.Printf("sendPush: failed to send to %s: %v", sub.GetString("endpoint"), err)
@@ -128,7 +132,7 @@ func (n *Notifier) sendPush(userID, title, body, relatedMatchID string) {
 		}
 		resp.Body.Close()
 
-		if resp.StatusCode == http.StatusGone {
+		if resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusNotFound {
 			if err := n.app.Delete(sub); err != nil {
 				log.Printf("sendPush: failed to delete gone subscription: %v", err)
 			}

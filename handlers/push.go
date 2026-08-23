@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -32,6 +33,11 @@ func (h *PushHandler) Subscribe(e *core.RequestEvent) error {
 	var req pushSubscribeRequest
 	if err := e.BindBody(&req); err != nil {
 		return e.BadRequestError("invalid request body", err)
+	}
+
+	epURL, err := url.Parse(req.Endpoint)
+	if err != nil || epURL.Scheme != "https" {
+		return e.BadRequestError("endpoint must use https", nil)
 	}
 
 	existing, _ := h.app.FindFirstRecordByFilter(
