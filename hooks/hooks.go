@@ -8,7 +8,7 @@ import (
 	"padelleague/handlers"
 )
 
-func Register(app core.App) {
+func Register(app core.App, notifier *handlers.Notifier) {
 	app.OnRecordCreate("users").BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.GetString("role") == "" {
 			e.Record.Set("role", "player")
@@ -48,5 +48,9 @@ func Register(app core.App) {
 			handlers.AutoAdvancePlayoff(app, e.Record)
 		}
 		return e.Next()
+	})
+
+	app.Cron().MustAdd("quorum-timeout", "*/5 * * * *", func() {
+		handlers.CheckQuorumTimeout(app, notifier)
 	})
 }
