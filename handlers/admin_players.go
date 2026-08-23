@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -40,7 +41,8 @@ func (h *AdminHandler) PlayerUpdate(e *core.RequestEvent) error {
 	user.Set("role", role)
 
 	if err := h.app.Save(user); err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
+		slog.Error("save player failed", "err", err)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar el jugador</div>`)
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/admin/players")
@@ -69,7 +71,8 @@ func (h *AdminHandler) PlayerPreCreate(e *core.RequestEvent) error {
 	user.SetPassword(tempPassword)
 
 	if err := h.app.Save(user); err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error al crear usuario: %s</div>`, err.Error()))
+		slog.Error("create player failed", "err", err)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al crear usuario</div>`)
 	}
 
 	inviteToken, err := generateInviteToken()
@@ -90,12 +93,14 @@ func (h *AdminHandler) PlayerPreCreate(e *core.RequestEvent) error {
 	invite.Set("status", "pending")
 
 	if err := h.app.Save(invite); err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error al crear invitación: %s</div>`, err.Error()))
+		slog.Error("create invitation failed", "err", err)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al crear invitación</div>`)
 	}
 
 	resetToken, err := user.NewPasswordResetToken()
 	if err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-warning">Usuario creado pero no se pudo generar enlace de contraseña: %s</div>`, err.Error()))
+		slog.Error("generate password reset token failed", "user", user.Id, "err", err)
+		return e.HTML(http.StatusOK, `<div class="alert alert-warning">Usuario creado pero no se pudo generar enlace de contraseña</div>`)
 	}
 
 	scheme := e.Request.Header.Get("X-Forwarded-Proto")

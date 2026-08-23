@@ -2,6 +2,7 @@ package hooks
 
 import (
 	"fmt"
+	"log/slog"
 	"slices"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -40,7 +41,9 @@ func Register(app core.App, notifier *handlers.Notifier) {
 
 	app.OnRecordAfterUpdateSuccess("matches").BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.GetString("status") == "final" {
-			handlers.AutoAdvancePlayoff(app, e.Record)
+			if err := handlers.AutoAdvancePlayoff(app, e.Record); err != nil {
+				slog.Error("auto-advance playoff failed", "match", e.Record.Id, "err", err)
+			}
 		}
 		return e.Next()
 	})

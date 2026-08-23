@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"log"
+	"log/slog"
 
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
@@ -34,6 +35,12 @@ func main() {
 	notifier := handlers.NewNotifier(app, cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey)
 
 	hooks.Register(app, notifier)
+
+	slog.Info("startup",
+		"app_env", cfg.AppEnv,
+		"push_enabled", cfg.VAPIDPublicKey != "",
+		"seed_users", len(seedUsers(cfg)),
+	)
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		seed.Run(app, seedUsers(cfg))

@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"html"
+	"log/slog"
 	"net/http"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -33,7 +33,8 @@ func (h *AdminHandler) VenuesCreate(e *core.RequestEvent) error {
 	record.Set("courts", e.Request.FormValue("courts"))
 
 	if err := h.app.Save(record); err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error: `+html.EscapeString(err.Error())+`</div>`)
+		slog.Error("save venue failed", "err", err)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar el club</div>`)
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/admin/venues")
@@ -52,7 +53,8 @@ func (h *AdminHandler) VenuesUpdate(e *core.RequestEvent) error {
 	record.Set("courts", e.Request.FormValue("courts"))
 
 	if err := h.app.Save(record); err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error: `+html.EscapeString(err.Error())+`</div>`)
+		slog.Error("update venue failed", "err", err)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar el club</div>`)
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/admin/venues")
@@ -67,7 +69,8 @@ func (h *AdminHandler) VenuesDelete(e *core.RequestEvent) error {
 	}
 
 	if err := h.app.Delete(record); err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error: `+html.EscapeString(err.Error())+`</div>`)
+		slog.Error("delete venue failed", "err", err)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al eliminar el club</div>`)
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/admin/venues")

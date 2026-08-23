@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -42,7 +43,8 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 	score := match.GetString("scores")
 	winnerID, err := determineWinner(match, score)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al determinar el ganador: `+err.Error()+`</div>`)
+		slog.Error("determine winner failed", "match", match.Id, "err", err)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al determinar el ganador</div>`)
 	}
 
 	match.Set("confirmed_by", userID)
@@ -100,7 +102,9 @@ func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al disputar el partido</div>`)
 	}
 
-	h.notifier.NotifyAdmins("dispute", "Partido disputado", disputeNotes, match.Id)
+	if err := h.notifier.NotifyAdmins("dispute", "Partido disputado", disputeNotes, match.Id); err != nil {
+		slog.Error("notify admins failed", "err", err)
+	}
 
 	e.Response.Header().Set("HX-Redirect", "/match/"+id)
 	return e.NoContent(http.StatusNoContent)

@@ -1,6 +1,8 @@
 package migrations
 
 import (
+	"log/slog"
+
 	"github.com/pocketbase/pocketbase/core"
 	m "github.com/pocketbase/pocketbase/migrations"
 )
@@ -80,11 +82,15 @@ func init() {
 	}, func(app core.App) error {
 		col, err := app.FindCollectionByNameOrId("match_messages")
 		if err == nil {
-			app.Delete(col)
+			if err := app.Delete(col); err != nil {
+				slog.Error("migration rollback delete", "collection", "match_messages", "err", err)
+			}
 		}
 		col, err = app.FindCollectionByNameOrId("venues")
 		if err == nil {
-			app.Delete(col)
+			if err := app.Delete(col); err != nil {
+				slog.Error("migration rollback delete", "collection", "venues", "err", err)
+			}
 		}
 		return nil
 	})

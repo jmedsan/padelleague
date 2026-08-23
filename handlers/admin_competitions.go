@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strconv"
@@ -312,7 +313,8 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 	}
 
 	if err := h.app.Save(record); err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
+		slog.Error("create competition failed", "err", err)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al crear la competición</div>`)
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/admin/competitions")
@@ -343,7 +345,8 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 	}
 
 	if err := h.app.Save(record); err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
+		slog.Error("update competition failed", "err", err)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar la competición</div>`)
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/admin/competitions")
@@ -390,7 +393,9 @@ func (h *CompetitionHandler) getPenaltyMap(comp *core.Record) map[string]float64
 	switch v := raw.(type) {
 	case string:
 		if v != "" {
-			json.Unmarshal([]byte(v), &penalties)
+			if err := json.Unmarshal([]byte(v), &penalties); err != nil {
+				slog.Warn("unmarshal penalty_points", "err", err)
+			}
 		}
 	case map[string]any:
 		for k, val := range v {
@@ -411,7 +416,8 @@ func (h *CompetitionHandler) Toggle(e *core.RequestEvent) error {
 
 	record.Set("active", !record.GetBool("active"))
 	if err := h.app.Save(record); err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
+		slog.Error("toggle competition active failed", "err", err)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al cambiar el estado</div>`)
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/admin/competitions")
@@ -435,7 +441,8 @@ func (h *CompetitionHandler) AddPair(e *core.RequestEvent) error {
 
 	existingPairIDs := comp.GetStringSlice("pairs")
 	if err := h.validatePlayerUniqueness(existingPairIDs, pair, ""); err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">%s</div>`, err.Error()))
+		slog.Error("player uniqueness validation failed", "pair", pairID, "err", err)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Esta pareja tiene jugadores duplicados en la competición</div>`)
 	}
 
 	for _, pid := range existingPairIDs {
@@ -456,7 +463,8 @@ func (h *CompetitionHandler) AddPair(e *core.RequestEvent) error {
 	}
 
 	if err := h.app.Save(comp); err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
+		slog.Error("add pair failed", "competition", compID, "err", err)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al añadir la pareja</div>`)
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID)
@@ -490,7 +498,8 @@ func (h *CompetitionHandler) RemovePair(e *core.RequestEvent) error {
 	comp.Set("payment_status", paymentStatus)
 
 	if err := h.app.Save(comp); err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
+		slog.Error("remove pair failed", "competition", compID, "err", err)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al eliminar la pareja</div>`)
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID)
@@ -557,7 +566,8 @@ func (h *CompetitionHandler) CopyPairs(e *core.RequestEvent) error {
 	target.Set("seeding", targetSeeding)
 
 	if err := h.app.Save(target); err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
+		slog.Error("copy pairs failed", "err", err)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al copiar parejas</div>`)
 	}
 
 	return e.HTML(http.StatusOK, fmt.Sprintf(
@@ -578,7 +588,8 @@ func (h *CompetitionHandler) TogglePayment(e *core.RequestEvent) error {
 	comp.Set("payment_status", paymentStatus)
 
 	if err := h.app.Save(comp); err != nil {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-error">Error: %s</div>`, err.Error()))
+		slog.Error("toggle payment failed", "err", err)
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al cambiar el estado de pago</div>`)
 	}
 
 	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID)
@@ -616,7 +627,9 @@ func (h *CompetitionHandler) getPaymentStatus(comp *core.Record) map[string]bool
 	switch v := raw.(type) {
 	case string:
 		if v != "" {
-			json.Unmarshal([]byte(v), &status)
+			if err := json.Unmarshal([]byte(v), &status); err != nil {
+				slog.Warn("unmarshal payment_status", "err", err)
+			}
 		}
 	case map[string]any:
 		for k, val := range v {
@@ -637,7 +650,9 @@ func (h *CompetitionHandler) getSeeding(comp *core.Record) map[string]int {
 	switch v := raw.(type) {
 	case string:
 		if v != "" {
-			json.Unmarshal([]byte(v), &seeding)
+			if err := json.Unmarshal([]byte(v), &seeding); err != nil {
+				slog.Warn("unmarshal seeding", "err", err)
+			}
 		}
 	case map[string]any:
 		for k, val := range v {
