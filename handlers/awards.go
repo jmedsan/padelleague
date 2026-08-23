@@ -59,24 +59,24 @@ func computeAwards(app core.App, competitionID string) []Award {
 	}
 
 	for _, m := range matches {
-			p1 := m.GetString("pair1")
-			p2 := m.GetString("pair2")
-			winner := m.GetString("winner")
+		p1 := m.GetString("pair1")
+		p2 := m.GetString("pair2")
+		winner := m.GetString("winner")
 
-			for _, pid := range []string{p1, p2} {
-				si, ok := streaks[pid]
-				if !ok {
-					continue
-				}
-				if pid == winner {
-					si.current++
-					if si.current > si.best {
-						si.best = si.current
-					}
-				} else {
-					si.current = 0
-				}
+		for _, pid := range []string{p1, p2} {
+			si, ok := streaks[pid]
+			if !ok {
+				continue
 			}
+			if pid == winner {
+				si.current++
+				if si.current > si.best {
+					si.best = si.current
+				}
+			} else {
+				si.current = 0
+			}
+		}
 	}
 
 	var longestPairID string

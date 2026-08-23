@@ -30,4 +30,3 @@ func init() {
 		return app.Save(col)
 	})
 }
-

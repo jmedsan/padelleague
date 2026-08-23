@@ -255,7 +255,7 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 	}
 	rivalPlayers := getPlayersForPair(h.app, rivalPairID)
 	authorName := resolvePlayerName(h.app, e.Auth.Id)
-	h.notifier.NotifyPlayers( rivalPlayers, "general",
+	h.notifier.NotifyPlayers(rivalPlayers, "general",
 		"Nuevo mensaje",
 		fmt.Sprintf("%s escribio: %s", authorName, truncate(content, 60)),
 		matchID)
@@ -339,7 +339,7 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 	}
 	rivalPlayers := getPlayersForPair(h.app, rivalPairID)
 	authorName := resolvePlayerName(h.app, e.Auth.Id)
-	h.notifier.NotifyPlayers( rivalPlayers, "scheduling",
+	h.notifier.NotifyPlayers(rivalPlayers, "scheduling",
 		"Propuesta de fecha",
 		fmt.Sprintf("%s propone jugar el %s a las %s en %s", authorName, date, time, venueName),
 		matchID)
@@ -433,7 +433,7 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 
 		proposerPlayers := getPlayersForPair(h.app, proposerPairID)
 		responderName := resolvePlayerName(h.app, e.Auth.Id)
-		h.notifier.NotifyPlayers( proposerPlayers, "scheduling",
+		h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
 			"Propuesta aceptada",
 			fmt.Sprintf("%s acepto tu propuesta para el %s a las %s", responderName, pd.Date, pd.Time),
 			matchID)
@@ -450,7 +450,7 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 
 		proposerPlayers := getPlayersForPair(h.app, proposerPairID)
 		responderName := resolvePlayerName(h.app, e.Auth.Id)
-		h.notifier.NotifyPlayers( proposerPlayers, "scheduling",
+		h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
 			"Propuesta rechazada",
 			fmt.Sprintf("%s rechazo tu propuesta: %s", responderName, reason),
 			matchID)
@@ -519,7 +519,7 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 		h.app.Save(match)
 
 		proposerPlayers := getPlayersForPair(h.app, proposerPairID)
-		h.notifier.NotifyPlayers( proposerPlayers, "scheduling",
+		h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
 			"Decision cambiada",
 			fmt.Sprintf("%s cambio su decision: propuesta ahora rechazada", responderName),
 			matchID)
@@ -559,7 +559,7 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 		}
 
 		proposerPlayers := getPlayersForPair(h.app, proposerPairID)
-		h.notifier.NotifyPlayers( proposerPlayers, "scheduling",
+		h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
 			"Decision cambiada",
 			fmt.Sprintf("%s cambio su decision: propuesta ahora aceptada para el %s a las %s", responderName, pd.Date, pd.Time),
 			matchID)

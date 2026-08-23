@@ -47,43 +47,18 @@ func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, er
 	}
 
 	for _, m := range matches {
-			p1 := m.GetString("pair1")
-			p2 := m.GetString("pair2")
-			winner := m.GetString("winner")
-			score := m.GetString("scores")
+		p1 := m.GetString("pair1")
+		p2 := m.GetString("pair2")
+		winner := m.GetString("winner")
+		score := m.GetString("scores")
 
-			s1, ok1 := pairStats[p1]
-			s2, ok2 := pairStats[p2]
-			if !ok1 || !ok2 {
-				continue
-			}
+		s1, ok1 := pairStats[p1]
+		s2, ok2 := pairStats[p2]
+		if !ok1 || !ok2 {
+			continue
+		}
 
-			if strings.EqualFold(strings.TrimSpace(score), "WO") {
-				if winner == p1 {
-					s1.wins++
-					s2.losses++
-				} else if winner == p2 {
-					s2.wins++
-					s1.losses++
-				}
-				continue
-			}
-
-			sets1, sets2, games1, games2, err := parseScore(score)
-			if err != nil {
-				continue
-			}
-
-			s1.setsWon += sets1
-			s1.setsLost += sets2
-			s1.gamesWon += games1
-			s1.gamesLost += games2
-
-			s2.setsWon += sets2
-			s2.setsLost += sets1
-			s2.gamesWon += games2
-			s2.gamesLost += games1
-
+		if strings.EqualFold(strings.TrimSpace(score), "WO") {
 			if winner == p1 {
 				s1.wins++
 				s2.losses++
@@ -91,6 +66,31 @@ func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, er
 				s2.wins++
 				s1.losses++
 			}
+			continue
+		}
+
+		sets1, sets2, games1, games2, err := parseScore(score)
+		if err != nil {
+			continue
+		}
+
+		s1.setsWon += sets1
+		s1.setsLost += sets2
+		s1.gamesWon += games1
+		s1.gamesLost += games2
+
+		s2.setsWon += sets2
+		s2.setsLost += sets1
+		s2.gamesWon += games2
+		s2.gamesLost += games1
+
+		if winner == p1 {
+			s1.wins++
+			s2.losses++
+		} else if winner == p2 {
+			s2.wins++
+			s1.losses++
+		}
 	}
 
 	penaltyMap := map[string]float64{}

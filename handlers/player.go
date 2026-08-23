@@ -25,12 +25,12 @@ type PairInfo struct {
 }
 
 type PlayerData struct {
-	User        *core.Record
-	Pairs       []PairInfo
-	WinRate     float64
-	TotalPlayed int
-	SetsWon     int
-	SetsLost    int
+	User             *core.Record
+	Pairs            []PairInfo
+	WinRate          float64
+	TotalPlayed      int
+	SetsWon          int
+	SetsLost         int
 	GamesWon         int
 	GamesLost        int
 	Streak           string
