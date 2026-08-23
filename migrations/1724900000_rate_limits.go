@@ -11,7 +11,7 @@ func init() {
 		settings.RateLimits.Enabled = true
 		settings.RateLimits.Rules = append(settings.RateLimits.Rules, core.RateLimitRule{
 			Label:       "POST /login",
-			MaxRequests: 20,
+			MaxRequests: 5,
 			Duration:    60,
 		})
 		return app.Save(settings)

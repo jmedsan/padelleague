@@ -7,14 +7,15 @@ test('admin can view competitions page', async ({ page }) => {
   await expect(page.getByText('Panel de administración')).toBeVisible();
 });
 
-test('admin can create a competition', async ({ page }) => {
+test('admin can create a competition', async ({ page, browserName }, testInfo) => {
+  const name = `E2E League ${testInfo.project.name} ${Date.now()}`;
   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
   await page.goto('/admin');
   await page.getByRole('button', { name: /crear competición/i }).first().click();
-  await page.fill('input[name="name"]', 'E2E Test League');
+  await page.fill('input[name="name"]', name);
   await page.selectOption('select[name="type"]', 'league');
   await page.locator('dialog button[type="submit"]').click();
   await page.waitForTimeout(2000);
   await page.goto('/admin');
-  await expect(page.getByText('E2E Test League')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText(name)).toBeVisible({ timeout: 10000 });
 });
