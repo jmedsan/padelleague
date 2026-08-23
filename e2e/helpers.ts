@@ -5,7 +5,7 @@ export async function loginAs(page: Page, email: string, password: string) {
   await page.fill('#email', email);
   await page.fill('#password', password);
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await page.waitForURL('/');
+  await page.waitForURL('/', { timeout: 15000, waitUntil: 'domcontentloaded' });
 }
 
 export const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@test.com';

@@ -65,7 +65,7 @@ test.describe('Competition page styles', () => {
   test('desktop', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto('/admin/competitions');
+    await page.goto('/admin');
     await expect(page.locator('body')).toBeVisible();
     await page.screenshot({ path: `${SCREENSHOTS_DIR}/competitions-desktop.png`, fullPage: true });
   });
@@ -73,7 +73,7 @@ test.describe('Competition page styles', () => {
   test('mobile - no overflow', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto('/admin/competitions');
+    await page.goto('/admin');
     await expect(page.locator('body')).toBeVisible();
     await page.screenshot({ path: `${SCREENSHOTS_DIR}/competitions-mobile.png`, fullPage: true });
     await checkNoHorizontalOverflow(page);

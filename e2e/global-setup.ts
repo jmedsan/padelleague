@@ -27,13 +27,15 @@ export default async function globalSetup() {
       APP_PLAYER_EMAIL: 'player@test.com',
       APP_PLAYER_PASSWORD: 'testpass123456',
     },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['ignore', 'pipe', 'inherit'],
   });
+
+  serverProcess.stdout?.resume();
 
   (globalThis as any).__E2E_SERVER = serverProcess;
   (globalThis as any).__E2E_DATA_DIR = dataDir;
 
-  await waitForServer(BASE_URL + '/login', 30_000);
+  await waitForServer(BASE_URL + '/login', 60_000);
 }
 
 async function waitForServer(url: string, timeoutMs: number) {
