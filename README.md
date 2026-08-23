@@ -66,17 +66,34 @@ docker run -p 8090:8090 -v padelleague_data:/app/pb_data padelleague
 
 The `-v` flag persists the SQLite database between container restarts.
 
+## Environment variables
+
+| Variable | Description |
+|----------|-------------|
+| `PB_ADMIN_EMAIL` | PocketBase superuser email |
+| `PB_ADMIN_PASSWORD` | PocketBase superuser password |
+| `APP_ADMIN_EMAIL` | App-level admin user email |
+| `APP_ADMIN_PASSWORD` | App-level admin user password |
+| `APP_PLAYER_EMAIL` | Seed player email (dev/test) |
+| `APP_PLAYER_PASSWORD` | Seed player password (dev/test) |
+| `VAPID_PUBLIC_KEY` | Web push VAPID public key |
+| `VAPID_PRIVATE_KEY` | Web push VAPID private key |
+
 ## Project structure
 
 ```
-main.go              # Routes, middleware, template rendering
-handlers/            # Request handlers (auth, matches, admin, etc.)
+main.go              # Entry point, wires packages together
+config/              # Env-based configuration struct
+handlers/            # HTTP handlers (auth, match, admin, thread, push, etc.)
+hooks/               # PocketBase event hooks and cron jobs
 middleware/          # Cookie auth bridge, admin role check
 migrations/          # PocketBase schema migrations
-views/               # Go HTML templates (layout + pages)
-views/admin/         # Admin-only templates
-static/css/          # Tailwind CSS (built from frontend/)
-frontend/            # Tailwind config + input CSS
+render/              # Template rendering helpers
+routes/              # Route registration
+seed/                # Dev/test data seeding
+views/               # Go HTML templates (layout + pages + partials)
+static/              # CSS, JS, images, manifest.json, sw.js (PWA)
+frontend/            # Tailwind config + input CSS (build only)
 ```
 
 ## UI language
