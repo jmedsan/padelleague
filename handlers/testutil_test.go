@@ -198,6 +198,13 @@ func setupAllRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	e.Router.POST("/login", auth.LoginSubmit)
 	e.Router.GET("/register", auth.Register)
 	e.Router.POST("/register", auth.RegisterSubmit)
+	e.Router.POST("/logout", auth.Logout)
+
+	pwReset := NewPasswordResetHandler(app, r.Page)
+	e.Router.GET("/forgot-password", pwReset.ForgotPassword)
+	e.Router.POST("/forgot-password", pwReset.ForgotPasswordSubmit)
+	e.Router.GET("/reset-password", pwReset.ResetPassword)
+	e.Router.POST("/reset-password", pwReset.ResetPasswordSubmit)
 
 	pub := NewPublicHandler(app, svc, r.Page)
 	e.Router.GET("/", pub.Home).BindFunc(requireAuthTest)
