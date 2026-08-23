@@ -64,3 +64,169 @@ func TestLoginValidCreds(t *testing.T) {
 	}
 	scenario.Test(t)
 }
+
+func TestHomeWithoutAuth(t *testing.T) {
+	scenario := tests.ApiScenario{
+		Name:           "GET / without auth redirects to login",
+		Method:         http.MethodGet,
+		URL:            "/",
+		ExpectedStatus: 302,
+		BeforeTestFunc: func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+			setupAllRoutes(tb, app, e)
+		},
+	}
+	scenario.Test(t)
+}
+
+func TestNotificationCount(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:           "GET /notifications/count returns 200",
+		Method:         http.MethodGet,
+		URL:            "/notifications/count",
+		ExpectedStatus: 200,
+		NotExpectedContent: []string{"error"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Player", "")
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestNotificationList(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "GET /notifications/list returns page",
+		Method:          http.MethodGet,
+		URL:             "/notifications/list",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Notificaciones"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Notif User", "")
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestMatchDetail(t *testing.T) {
+	var matchID string
+	s := &tests.ApiScenario{
+		Name:            "GET /match/{id} with auth returns match page",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"PadelLeague"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Equipo A")
+		p2 := makePairTB(tb, app, "Equipo B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
+		s.URL = "/match/" + matchID
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestMatchDetailWithoutAuth(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:           "GET /match/{id} without auth redirects",
+		Method:         http.MethodGet,
+		URL:            "/match/fakeid",
+		ExpectedStatus: 302,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+	}
+	s.Test(t)
+}
+
+func TestAdminDashboard(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "GET /admin with admin auth returns dashboard",
+		Method:          http.MethodGet,
+		URL:             "/admin",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Competiciones"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestAdminDashboardNonAdmin(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:           "GET /admin with non-admin redirects",
+		Method:         http.MethodGet,
+		URL:            "/admin",
+		ExpectedStatus: 302,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Regular", "")
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestAdminCompetitionDetail(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "GET /admin/competitions/{id} returns detail",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"PadelLeague"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestPlayerProfile(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "GET /player/{id} returns profile page",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"PadelLeague"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Profile Player", "")
+		s.URL = "/player/" + user.Id
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestMatchSubmitValidScore(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:           "POST /match/{id}/submit with valid score",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Submit A")
+		p2 := makePairTB(tb, app, "Submit B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + match.Id + "/submit"
+		s.Body = strings.NewReader("scores=6-3+6-4")
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		hdrs := authHeaders(tb, user)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
