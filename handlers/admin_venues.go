@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"log/slog"
-	"net/http"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -19,12 +18,12 @@ func (h *AdminHandler) Venues(e *core.RequestEvent) error {
 func (h *AdminHandler) VenuesCreate(e *core.RequestEvent) error {
 	name := e.Request.FormValue("name")
 	if name == "" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">El nombre es obligatorio</div>`)
+		return alertError(e, "El nombre es obligatorio")
 	}
 
 	col, err := h.app.FindCollectionByNameOrId("venues")
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error interno</div>`)
+		return alertError(e, "Error interno")
 	}
 
 	record := core.NewRecord(col)
@@ -34,18 +33,17 @@ func (h *AdminHandler) VenuesCreate(e *core.RequestEvent) error {
 
 	if err := h.app.Save(record); err != nil {
 		slog.Error("save venue failed", "err", err)
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar el club</div>`)
+		return alertError(e, "Error al guardar el club")
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/venues")
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/admin/venues")
 }
 
 func (h *AdminHandler) VenuesUpdate(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	record, err := h.app.FindRecordById("venues", id)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Club no encontrado</div>`)
+		return alertError(e, "Club no encontrado")
 	}
 
 	record.Set("name", e.Request.FormValue("name"))
@@ -54,25 +52,23 @@ func (h *AdminHandler) VenuesUpdate(e *core.RequestEvent) error {
 
 	if err := h.app.Save(record); err != nil {
 		slog.Error("update venue failed", "err", err)
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar el club</div>`)
+		return alertError(e, "Error al guardar el club")
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/venues")
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/admin/venues")
 }
 
 func (h *AdminHandler) VenuesDelete(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	record, err := h.app.FindRecordById("venues", id)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Club no encontrado</div>`)
+		return alertError(e, "Club no encontrado")
 	}
 
 	if err := h.app.Delete(record); err != nil {
 		slog.Error("delete venue failed", "err", err)
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al eliminar el club</div>`)
+		return alertError(e, "Error al eliminar el club")
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/venues")
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/admin/venues")
 }

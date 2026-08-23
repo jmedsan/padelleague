@@ -82,7 +82,7 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 
 	comp, err := h.app.FindRecordById("competitions", compID)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competición no encontrada</div>`)
+		return alertError(e, "Competición no encontrada")
 	}
 
 	existingMatches, _ := h.app.FindRecordsByFilter("matches",
@@ -100,7 +100,7 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 	pairIDs := comp.GetStringSlice("pairs")
 
 	if len(pairIDs) < 2 {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Se necesitan al menos 2 parejas</div>`)
+		return alertError(e, "Se necesitan al menos 2 parejas")
 	}
 
 	compType := comp.GetString("type")
@@ -120,11 +120,10 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 
 	if err != nil {
 		slog.Error("generate fixtures failed", "competition", compID, "err", err)
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al generar partidos</div>`)
+		return alertError(e, "Error al generar partidos")
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID)
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
 func (h *FixtureHandler) generateLeague(txApp core.App, compID string, pairIDs []string, double bool) error {
@@ -143,7 +142,7 @@ func (h *FixtureHandler) generateLeague(txApp core.App, compID string, pairIDs [
 			match.Set("matches_to_win", 1)
 			match.Set("pair1", m.Home)
 			match.Set("pair2", m.Away)
-			match.Set("status", "pending")
+			match.Set("status", StatusPending)
 			if err := txApp.Save(match); err != nil {
 				return err
 			}
@@ -223,7 +222,7 @@ func (h *FixtureHandler) generatePlayoff(txApp core.App, compID string, pairIDs 
 		match.Set("matches_to_win", 1)
 		match.Set("pair1", bs.pair1)
 		match.Set("pair2", bs.pair2)
-		match.Set("status", "pending")
+		match.Set("status", StatusPending)
 		if err := txApp.Save(match); err != nil {
 			return err
 		}
@@ -247,7 +246,7 @@ func (h *FixtureHandler) generatePlayoff(txApp core.App, compID string, pairIDs 
 			if p2 != "" {
 				match.Set("pair2", p2)
 			}
-			match.Set("status", "pending")
+			match.Set("status", StatusPending)
 			if err := txApp.Save(match); err != nil {
 				return err
 			}
@@ -272,7 +271,7 @@ func AutoAdvancePlayoff(app core.App, matchRecord *core.Record) error {
 		map[string]any{"cid": compID, "rn": currentRound})
 
 	for _, m := range roundMatches {
-		if m.GetString("status") != "final" {
+		if m.GetString("status") != StatusFinal {
 			return nil
 		}
 	}

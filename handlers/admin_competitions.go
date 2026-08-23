@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"sort"
 	"strconv"
 	"time"
@@ -56,10 +55,10 @@ func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
 		playedMatches := 0
 		disputeCount := 0
 		for _, m := range allMatches {
-			if m.GetString("status") == "final" {
+			if m.GetString("status") == StatusFinal {
 				playedMatches++
 			}
-			if m.GetString("status") == "disputed" {
+			if m.GetString("status") == StatusDisputed {
 				disputeCount++
 			}
 		}
@@ -104,13 +103,13 @@ func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
 			p2 := pairNames[m.GetString("pair2")]
 
 			switch status {
-			case "disputed":
+			case StatusDisputed:
 				issues = append(issues, AdminIssue{
 					Type: "dispute", TypeLabel: "Disputa", BadgeClass: "badge-error",
 					CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
 					MatchID: m.Id, Detail: "pendiente de resolucion",
 				})
-			case "confirmed":
+			case StatusConfirmed:
 				if quorumHours > 0 {
 					if sa := m.GetString("submitted_at"); sa != "" {
 						if t, err := time.Parse(time.RFC3339, sa); err == nil {
@@ -130,7 +129,7 @@ func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
 						}
 					}
 				}
-			case "pending":
+			case StatusPending:
 				if d := m.GetString("date"); d != "" {
 					if matchDate, err := time.Parse("2006-01-02", d); err == nil {
 						if matchDate.Before(now) {
@@ -175,7 +174,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	comp, err := h.app.FindRecordById("competitions", id)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competición no encontrada</div>`)
+		return alertError(e, "Competición no encontrada")
 	}
 
 	pairIDs := comp.GetStringSlice("pairs")
@@ -253,7 +252,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 
 	var disputes []DisputeView
 	for _, m := range matches {
-		if m.GetString("status") != "disputed" {
+		if m.GetString("status") != StatusDisputed {
 			continue
 		}
 		disputes = append(disputes, DisputeView{
@@ -300,7 +299,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 	col, err := h.app.FindCollectionByNameOrId("competitions")
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error interno</div>`)
+		return alertError(e, "Error interno")
 	}
 
 	record := core.NewRecord(col)
@@ -317,18 +316,17 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 
 	if err := h.app.Save(record); err != nil {
 		slog.Error("create competition failed", "err", err)
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al crear la competición</div>`)
+		return alertError(e, "Error al crear la competición")
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/competitions")
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/admin/competitions")
 }
 
 func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	record, err := h.app.FindRecordById("competitions", id)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competición no encontrada</div>`)
+		return alertError(e, "Competición no encontrada")
 	}
 
 	record.Set("name", e.Request.FormValue("name"))
@@ -349,18 +347,17 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 
 	if err := h.app.Save(record); err != nil {
 		slog.Error("update competition failed", "err", err)
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar la competición</div>`)
+		return alertError(e, "Error al guardar la competición")
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/competitions")
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/admin/competitions")
 }
 
 func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	comp, err := h.app.FindRecordById("competitions", id)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competicion no encontrada</div>`)
+		return alertError(e, "Competicion no encontrada")
 	}
 
 	pairID := e.Request.FormValue("pair_id")
@@ -380,11 +377,10 @@ func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 
 	comp.Set("penalty_points", penalties)
 	if err := h.app.Save(comp); err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar</div>`)
+		return alertError(e, "Error al guardar")
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+id)
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/admin/competitions/"+id)
 }
 
 func (h *CompetitionHandler) getPenaltyMap(comp *core.Record) map[string]float64 {
@@ -414,17 +410,16 @@ func (h *CompetitionHandler) Toggle(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	record, err := h.app.FindRecordById("competitions", id)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competición no encontrada</div>`)
+		return alertError(e, "Competición no encontrada")
 	}
 
 	record.Set("active", !record.GetBool("active"))
 	if err := h.app.Save(record); err != nil {
 		slog.Error("toggle competition active failed", "err", err)
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al cambiar el estado</div>`)
+		return alertError(e, "Error al cambiar el estado")
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/competitions")
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/admin/competitions")
 }
 
 func (h *CompetitionHandler) AddPair(e *core.RequestEvent) error {
@@ -434,23 +429,23 @@ func (h *CompetitionHandler) AddPair(e *core.RequestEvent) error {
 
 	comp, err := h.app.FindRecordById("competitions", compID)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competición no encontrada</div>`)
+		return alertError(e, "Competición no encontrada")
 	}
 
 	pair, err := h.app.FindRecordById("pairs", pairID)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Pareja no encontrada</div>`)
+		return alertError(e, "Pareja no encontrada")
 	}
 
 	existingPairIDs := comp.GetStringSlice("pairs")
 	if err := h.validatePlayerUniqueness(existingPairIDs, pair, ""); err != nil {
 		slog.Error("player uniqueness validation failed", "pair", pairID, "err", err)
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Esta pareja tiene jugadores duplicados en la competición</div>`)
+		return alertError(e, "Esta pareja tiene jugadores duplicados en la competición")
 	}
 
 	for _, pid := range existingPairIDs {
 		if pid == pairID {
-			return e.HTML(http.StatusOK, `<div class="alert alert-error">Esta pareja ya está en la competición</div>`)
+			return alertError(e, "Esta pareja ya está en la competición")
 		}
 	}
 
@@ -467,11 +462,10 @@ func (h *CompetitionHandler) AddPair(e *core.RequestEvent) error {
 
 	if err := h.app.Save(comp); err != nil {
 		slog.Error("add pair failed", "competition", compID, "err", err)
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al añadir la pareja</div>`)
+		return alertError(e, "Error al añadir la pareja")
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID)
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
 func (h *CompetitionHandler) RemovePair(e *core.RequestEvent) error {
@@ -480,7 +474,7 @@ func (h *CompetitionHandler) RemovePair(e *core.RequestEvent) error {
 
 	comp, err := h.app.FindRecordById("competitions", compID)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competición no encontrada</div>`)
+		return alertError(e, "Competición no encontrada")
 	}
 
 	existingPairIDs := comp.GetStringSlice("pairs")
@@ -502,11 +496,10 @@ func (h *CompetitionHandler) RemovePair(e *core.RequestEvent) error {
 
 	if err := h.app.Save(comp); err != nil {
 		slog.Error("remove pair failed", "competition", compID, "err", err)
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al eliminar la pareja</div>`)
+		return alertError(e, "Error al eliminar la pareja")
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID)
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
 func (h *CompetitionHandler) CopyPairs(e *core.RequestEvent) error {
@@ -514,17 +507,17 @@ func (h *CompetitionHandler) CopyPairs(e *core.RequestEvent) error {
 	sourceID := e.Request.FormValue("source_competition")
 
 	if sourceID == "" {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Selecciona una competición de origen</div>`)
+		return alertError(e, "Selecciona una competición de origen")
 	}
 
 	source, err := h.app.FindRecordById("competitions", sourceID)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competición origen no encontrada</div>`)
+		return alertError(e, "Competición origen no encontrada")
 	}
 
 	target, err := h.app.FindRecordById("competitions", targetID)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competición destino no encontrada</div>`)
+		return alertError(e, "Competición destino no encontrada")
 	}
 
 	sourcePairIDs := source.GetStringSlice("pairs")
@@ -570,11 +563,10 @@ func (h *CompetitionHandler) CopyPairs(e *core.RequestEvent) error {
 
 	if err := h.app.Save(target); err != nil {
 		slog.Error("copy pairs failed", "err", err)
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al copiar parejas</div>`)
+		return alertError(e, "Error al copiar parejas")
 	}
 
-	return e.HTML(http.StatusOK, fmt.Sprintf(
-		`<div class="alert alert-success">%d parejas copiadas, %d omitidas</div>`, copied, skipped))
+	return alertSuccess(e, fmt.Sprintf("%d parejas copiadas, %d omitidas", copied, skipped))
 }
 
 func (h *CompetitionHandler) TogglePayment(e *core.RequestEvent) error {
@@ -583,7 +575,7 @@ func (h *CompetitionHandler) TogglePayment(e *core.RequestEvent) error {
 
 	comp, err := h.app.FindRecordById("competitions", compID)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competicion no encontrada</div>`)
+		return alertError(e, "Competicion no encontrada")
 	}
 
 	paymentStatus := h.getPaymentStatus(comp)
@@ -592,18 +584,17 @@ func (h *CompetitionHandler) TogglePayment(e *core.RequestEvent) error {
 
 	if err := h.app.Save(comp); err != nil {
 		slog.Error("toggle payment failed", "err", err)
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al cambiar el estado de pago</div>`)
+		return alertError(e, "Error al cambiar el estado de pago")
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+compID)
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
 func (h *CompetitionHandler) TogglePaymentAll(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	comp, err := h.app.FindRecordById("competitions", id)
 	if err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Competicion no encontrada</div>`)
+		return alertError(e, "Competicion no encontrada")
 	}
 
 	pairIDs := comp.GetStringSlice("pairs")
@@ -614,11 +605,10 @@ func (h *CompetitionHandler) TogglePaymentAll(e *core.RequestEvent) error {
 
 	comp.Set("payment_status", status)
 	if err := h.app.Save(comp); err != nil {
-		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar</div>`)
+		return alertError(e, "Error al guardar")
 	}
 
-	e.Response.Header().Set("HX-Redirect", "/admin/competitions/"+id)
-	return e.NoContent(http.StatusNoContent)
+	return redirectHX(e, "/admin/competitions/"+id)
 }
 
 func (h *CompetitionHandler) getPaymentStatus(comp *core.Record) map[string]bool {
