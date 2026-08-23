@@ -4,7 +4,7 @@ export
 LOCAL_URL ?= http://127.0.0.1:8090
 OPENER ?= xdg-open
 
-.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci
+.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci e2e
 
 css:
 	cd frontend && npx tailwindcss -i ../static/css/input.css -o ../static/css/styles.css --minify
@@ -44,6 +44,9 @@ fmt-check:
 
 ci: fmt-check lint test vuln
 	@echo "CI gate passed"
+
+e2e:
+	cd e2e && npx playwright test
 
 stop:
 	@pid=$$(lsof -ti :8090 2>/dev/null) && kill $$pid 2>/dev/null && echo "stopped (pid $$pid)" || echo "not running"
