@@ -1,11 +1,34 @@
-import { Page } from '@playwright/test';
+import { Page, expect } from '@playwright/test';
 
 export async function loginAs(page: Page, email: string, password: string) {
-  await page.goto('/login');
-  await page.fill('#email', email);
-  await page.fill('#password', password);
-  await page.getByRole('button', { name: 'Entrar' }).click();
-  await page.waitForURL('/', { timeout: 15000, waitUntil: 'domcontentloaded' });
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const resp = await page.request.post('/login', {
+      form: { email, password },
+      maxRedirects: 0,
+    });
+    if (resp.status() === 429) {
+      await page.waitForTimeout(12000);
+      continue;
+    }
+    const headers = resp.headersArray();
+    const setCookies = headers.filter(h => h.name.toLowerCase() === 'set-cookie');
+    for (const sc of setCookies) {
+      const match = sc.value.match(/pb_auth=([^;]+)/);
+      if (match) {
+        await page.context().addCookies([{
+          name: 'pb_auth',
+          value: match[1],
+          domain: 'localhost',
+          path: '/',
+          httpOnly: true,
+        }]);
+      }
+    }
+    await page.goto('/');
+    await expect(page).toHaveURL('/', { timeout: 5000 });
+    return;
+  }
+  throw new Error('Login failed after 5 attempts (rate limited)');
 }
 
 export const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@test.com';
