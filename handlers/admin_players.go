@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"html"
 	"log/slog"
 	"net/http"
 	"time"
@@ -120,5 +121,5 @@ func (h *AdminHandler) PlayerPreCreate(e *core.RequestEvent) error {
 			<button onclick="navigator.clipboard.writeText(document.getElementById('pwd-link').value).then(function(){this.textContent='Copiado!';setTimeout(function(){document.getElementById('copy-btn').textContent='Copiar'},2000)}.bind(this))" class="btn btn-sm btn-ghost" id="copy-btn">Copiar</button>
 		</div>
 	</div>
-</div>`, email, resetURL))
+</div>`, html.EscapeString(email), html.EscapeString(resetURL)))
 }
