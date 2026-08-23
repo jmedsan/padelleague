@@ -9,15 +9,18 @@ import (
 	"github.com/pocketbase/pocketbase/tools/hook"
 
 	"padelleague/handlers"
+	"padelleague/league"
 	"padelleague/middleware"
+	"padelleague/notify"
 	"padelleague/render"
 )
 
 type Deps struct {
-	App      core.App
-	Renderer *render.Renderer
-	Notifier *handlers.Notifier
-	StaticFS fs.FS
+	App       core.App
+	Renderer  *render.Renderer
+	Notifier  *notify.Notifier
+	LeagueSvc *league.Service
+	StaticFS  fs.FS
 }
 
 func Register(se *core.ServeEvent, deps Deps) {
@@ -67,7 +70,7 @@ func registerAuthRoutes(se *core.ServeEvent, deps Deps) {
 }
 
 func registerPublicRoutes(se *core.ServeEvent, deps Deps) {
-	pub := handlers.NewPublicHandler(deps.App, deps.Renderer.Page)
+	pub := handlers.NewPublicHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page)
 	se.Router.GET("/", pub.Home).BindFunc(requireAuth)
 	se.Router.GET("/competition/{id}", pub.Competition).BindFunc(requireAuth)
 
@@ -82,8 +85,8 @@ func registerPublicRoutes(se *core.ServeEvent, deps Deps) {
 
 func registerAdminRoutes(se *core.ServeEvent, deps Deps) {
 	admin := handlers.NewAdminHandler(deps.App, deps.Notifier, deps.Renderer.Page)
-	comp := handlers.NewCompetitionHandler(deps.App, deps.Renderer.Page)
-	fixture := handlers.NewFixtureHandler(deps.App, deps.Renderer.Page)
+	comp := handlers.NewCompetitionHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page)
+	fixture := handlers.NewFixtureHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page)
 
 	g := se.Router.Group("/admin")
 	g.BindFunc(requireAuth)

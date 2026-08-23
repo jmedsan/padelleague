@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
 )
 
 type ICalHandler struct {
@@ -68,7 +70,7 @@ func (h *ICalHandler) Match(e *core.RequestEvent) error {
 		return e.String(http.StatusBadRequest, "El partido no tiene fecha asignada")
 	}
 
-	pairNames := expandPairNames(h.app, []string{
+	pairNames := league.PairNames(h.app, []string{
 		match.GetString("pair1"),
 		match.GetString("pair2"),
 	})
@@ -104,7 +106,7 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 		return e.String(http.StatusNotFound, "Competición no encontrada")
 	}
 
-	pairs, _ := findPairsForPlayer(h.app, e.Auth.Id)
+	pairs, _ := league.PairsForPlayer(h.app, e.Auth.Id)
 	if len(pairs) == 0 {
 		return e.String(http.StatusOK, "No tienes parejas en esta competición")
 	}
@@ -151,7 +153,7 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 	for pid := range pairIDSet {
 		pairIDSlice = append(pairIDSlice, pid)
 	}
-	pairNames := expandPairNames(h.app, pairIDSlice)
+	pairNames := league.PairNames(h.app, pairIDSlice)
 
 	var events strings.Builder
 	for _, m := range datedMatches {

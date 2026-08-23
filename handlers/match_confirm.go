@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
+	"padelleague/notify"
 )
 
 func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
@@ -22,7 +25,7 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 
 	userID := e.Auth.Id
 	isAdmin := e.Auth.GetString("role") == "admin"
-	myTeam, err := getPlayerTeam(h.app, userID, match)
+	myTeam, err := league.PlayerTeam(h.app, userID, match)
 	if err != nil && !isAdmin {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
@@ -31,7 +34,7 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 	if submittedByID == "" {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No se encontró quién envió el resultado</div>`)
 	}
-	submitterTeam, err := getPlayerTeam(h.app, submittedByID, match)
+	submitterTeam, err := league.PlayerTeam(h.app, submittedByID, match)
 	if err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al verificar el equipo que envió el resultado</div>`)
 	}
@@ -41,7 +44,7 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 	}
 
 	score := match.GetString("scores")
-	winnerID, err := determineWinner(match, score)
+	winnerID, err := league.DetermineWinner(match, score)
 	if err != nil {
 		slog.Error("determine winner failed", "match", match.Id, "err", err)
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al determinar el ganador</div>`)
@@ -59,9 +62,9 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 	if submitterTeam == 2 {
 		submitterPairID = match.GetString("pair2")
 	}
-	submitterPlayers := getPlayersForPair(h.app, submitterPairID)
+	submitterPlayers := league.PlayersForPair(h.app, submitterPairID)
 	h.notifier.NotifyPlayers(submitterPlayers, "general", "Resultado confirmado", "Tu rival ha confirmado el resultado del partido.", match.Id)
-	emailNotifyPlayers(h.app, submitterPlayers, "Resultado confirmado", "Tu rival ha confirmado el resultado del partido.", "/match/"+id)
+	notify.EmailNotifyPlayers(h.app, submitterPlayers, "Resultado confirmado", "Tu rival ha confirmado el resultado del partido.", "/match/"+id)
 
 	e.Response.Header().Set("HX-Redirect", "/match/"+id)
 	return e.NoContent(http.StatusNoContent)
@@ -80,14 +83,14 @@ func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 
 	userID := e.Auth.Id
 	isAdmin := e.Auth.GetString("role") == "admin"
-	myTeam, err := getPlayerTeam(h.app, userID, match)
+	myTeam, err := league.PlayerTeam(h.app, userID, match)
 	if err != nil && !isAdmin {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
 
 	submittedByID := match.GetString("submitted_by")
 	if submittedByID != "" {
-		submitterTeam, err := getPlayerTeam(h.app, submittedByID, match)
+		submitterTeam, err := league.PlayerTeam(h.app, submittedByID, match)
 		if err == nil && myTeam == submitterTeam {
 			return e.HTML(http.StatusOK, `<div class="alert alert-error">No puedes disputar tu propio resultado</div>`)
 		}
@@ -128,12 +131,12 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No se encontró quién envió el resultado</div>`)
 	}
 
-	myTeam, err := getPlayerTeam(h.app, userID, match)
+	myTeam, err := league.PlayerTeam(h.app, userID, match)
 	if err != nil && !isAdmin {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
 	if !isAdmin {
-		submitterTeam, err := getPlayerTeam(h.app, submittedByID, match)
+		submitterTeam, err := league.PlayerTeam(h.app, submittedByID, match)
 		if err != nil || myTeam != submitterTeam {
 			return e.HTML(http.StatusOK, `<div class="alert alert-error">Solo el equipo que envió el resultado puede corregirlo</div>`)
 		}
@@ -157,7 +160,7 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Usa el botón de incomparecencia para reportar un WO</div>`)
 	}
 
-	if _, _, _, _, err := parseScore(scores); err != nil {
+	if _, err := league.ParseScore(scores); err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Marcador no valido</div>`)
 	}
 
@@ -173,7 +176,7 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	if myTeam == 2 {
 		rivalPairID = match.GetString("pair1")
 	}
-	rivalPlayers := getPlayersForPair(h.app, rivalPairID)
+	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
 	h.notifier.NotifyPlayers(rivalPlayers, "quorum_request", "Resultado corregido", "El rival ha corregido el resultado. Confirma o disputa.", match.Id)
 
 	e.Response.Header().Set("HX-Redirect", "/match/"+id)
@@ -193,7 +196,7 @@ func (h *MatchHandler) MatchWalkover(e *core.RequestEvent) error {
 
 	userID := e.Auth.Id
 	isAdmin := e.Auth.GetString("role") == "admin"
-	if _, err := getPlayerTeam(h.app, userID, match); err != nil && !isAdmin {
+	if _, err := league.PlayerTeam(h.app, userID, match); err != nil && !isAdmin {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
 

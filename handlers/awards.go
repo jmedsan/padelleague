@@ -4,6 +4,8 @@ import (
 	"strconv"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
 )
 
 type Award struct {
@@ -13,7 +15,8 @@ type Award struct {
 }
 
 func computeAwards(app core.App, competitionID string) []Award {
-	standings, err := ComputeStandings(app, competitionID)
+	svc := league.New(app, nil)
+	standings, err := svc.ComputeStandings(competitionID)
 	if err != nil || len(standings) == 0 {
 		return nil
 	}
@@ -89,7 +92,7 @@ func computeAwards(app core.App, competitionID string) []Award {
 	}
 
 	if longestStreak > 1 {
-		pairNames := expandPairNames(app, []string{longestPairID})
+		pairNames := league.PairNames(app, []string{longestPairID})
 		awards = append(awards, Award{
 			Title:    "Mayor racha",
 			PairName: pairNames[longestPairID],

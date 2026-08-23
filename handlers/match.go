@@ -9,16 +9,19 @@ import (
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
+	"padelleague/notify"
 )
 
 type MatchHandler struct {
 	app             core.App
-	notifier        *Notifier
+	notifier        *notify.Notifier
 	renderPage      func(e *core.RequestEvent, page string, data map[string]any) error
 	renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error
 }
 
-func NewMatchHandler(app core.App, notifier *Notifier, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error) *MatchHandler {
+func NewMatchHandler(app core.App, notifier *notify.Notifier, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error) *MatchHandler {
 	return &MatchHandler{app: app, notifier: notifier, renderPage: renderPage, renderErrorPage: renderErrorPage}
 }
 
@@ -80,10 +83,10 @@ func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNam
 	status := match.GetString("status")
 	submittedBy := match.GetString("submitted_by")
 
-	team, _ := getPlayerTeam(h.app, userID, match)
+	team, _ := league.PlayerTeam(h.app, userID, match)
 	isSubmitter := false
 	if submittedBy != "" {
-		submitterTeam, err := getPlayerTeam(h.app, submittedBy, match)
+		submitterTeam, err := league.PlayerTeam(h.app, submittedBy, match)
 		if err == nil {
 			isSubmitter = (submitterTeam == team)
 		}
@@ -128,14 +131,14 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 
 	userID := e.Auth.Id
 	isAdmin := e.Auth.GetString("role") == "admin"
-	_, teamErr := getPlayerTeam(h.app, userID, match)
+	_, teamErr := league.PlayerTeam(h.app, userID, match)
 	isParticipant := teamErr == nil
 
 	if !isParticipant && !isAdmin {
 		return h.renderErrorPage(e, http.StatusForbidden, "No tienes acceso a este partido")
 	}
 
-	pairNames := expandPairNames(h.app, []string{
+	pairNames := league.PairNames(h.app, []string{
 		match.GetString("pair1"),
 		match.GetString("pair2"),
 	})
@@ -153,15 +156,15 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 
 	submittedByName := ""
 	if sbID := match.GetString("submitted_by"); sbID != "" {
-		submittedByName = resolvePlayerName(h.app, sbID)
+		submittedByName = league.PlayerName(h.app, sbID)
 	}
 	confirmedByName := ""
 	if cbID := match.GetString("confirmed_by"); cbID != "" {
-		confirmedByName = resolvePlayerName(h.app, cbID)
+		confirmedByName = league.PlayerName(h.app, cbID)
 	}
 	disputedByName := ""
 	if dbID := match.GetString("disputed_by"); dbID != "" {
-		disputedByName = resolvePlayerName(h.app, dbID)
+		disputedByName = league.PlayerName(h.app, dbID)
 	}
 
 	shareText := ""
@@ -200,7 +203,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 
 	userID := e.Auth.Id
 	isAdmin := e.Auth.GetString("role") == "admin"
-	_, teamErr := getPlayerTeam(h.app, userID, match)
+	_, teamErr := league.PlayerTeam(h.app, userID, match)
 	if teamErr != nil && !isAdmin {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
@@ -218,7 +221,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Usa el botón de incomparecencia para reportar un WO</div>`)
 	}
 
-	if _, _, _, _, err := parseScore(scores); err != nil {
+	if _, err := league.ParseScore(scores); err != nil {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Marcador no valido</div>`)
 	}
 
@@ -231,14 +234,14 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar el resultado</div>`)
 	}
 
-	myTeam, _ := getPlayerTeam(h.app, userID, match)
+	myTeam, _ := league.PlayerTeam(h.app, userID, match)
 	rivalPairID := match.GetString("pair2")
 	if myTeam == 2 {
 		rivalPairID = match.GetString("pair1")
 	}
-	rivalPlayers := getPlayersForPair(h.app, rivalPairID)
+	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
 	h.notifier.NotifyPlayers(rivalPlayers, "quorum_request", "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", match.Id)
-	emailNotifyPlayers(h.app, rivalPlayers, "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", "/match/"+match.Id)
+	notify.EmailNotifyPlayers(h.app, rivalPlayers, "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", "/match/"+match.Id)
 
 	e.Response.Header().Set("HX-Redirect", "/")
 	return e.NoContent(http.StatusNoContent)
@@ -253,7 +256,7 @@ func (h *MatchHandler) MatchEdit(e *core.RequestEvent) error {
 
 	userID := e.Auth.Id
 	isAdmin := e.Auth.GetString("role") == "admin"
-	_, teamErr := getPlayerTeam(h.app, userID, match)
+	_, teamErr := league.PlayerTeam(h.app, userID, match)
 	if teamErr != nil && !isAdmin {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">No eres participante de este partido</div>`)
 	}
@@ -318,10 +321,10 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 	if scores := e.Request.FormValue("scores"); scores != "" {
 		oldScores := match.GetString("scores")
 		if scores != oldScores {
-			if _, _, _, _, err := parseScore(scores); err != nil {
+			if _, err := league.ParseScore(scores); err != nil {
 				return e.HTML(http.StatusOK, `<div class="alert alert-error">Marcador no valido</div>`)
 			}
-			winner, err := determineWinner(match, scores)
+			winner, err := league.DetermineWinner(match, scores)
 			if err != nil {
 				return e.HTML(http.StatusOK, `<div class="alert alert-error">No se pudo determinar ganador</div>`)
 			}
@@ -382,7 +385,7 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Error al guardar</div>`)
 	}
 
-	adminName := resolvePlayerName(h.app, e.Auth.Id)
+	adminName := league.PlayerName(h.app, e.Auth.Id)
 	h.createAdminTimelineEntry(id, e.Auth.Id, adminName+" (admin): "+strings.Join(changes, "; "))
 
 	e.Response.Header().Set("HX-Redirect", "/match/"+id)

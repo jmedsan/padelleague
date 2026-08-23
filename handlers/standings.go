@@ -8,6 +8,8 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/types"
+
+	"padelleague/league"
 )
 
 type StandingRowFull struct {
@@ -33,7 +35,7 @@ func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, er
 
 	pairIDs := comp.GetStringSlice("pairs")
 
-	pairNames := expandPairNames(app, pairIDs)
+	pairNames := league.PairNames(app, pairIDs)
 
 	matches, _ := app.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'final'",
@@ -72,20 +74,20 @@ func ComputeStandings(app core.App, competitionID string) ([]StandingRowFull, er
 			continue
 		}
 
-		sets1, sets2, games1, games2, err := parseScore(score)
+		sc, err := league.ParseScore(score)
 		if err != nil {
 			continue
 		}
 
-		s1.setsWon += sets1
-		s1.setsLost += sets2
-		s1.gamesWon += games1
-		s1.gamesLost += games2
+		s1.setsWon += sc.Sets1
+		s1.setsLost += sc.Sets2
+		s1.gamesWon += sc.Games1
+		s1.gamesLost += sc.Games2
 
-		s2.setsWon += sets2
-		s2.setsLost += sets1
-		s2.gamesWon += games2
-		s2.gamesLost += games1
+		s2.setsWon += sc.Sets2
+		s2.setsLost += sc.Sets1
+		s2.gamesWon += sc.Games2
+		s2.gamesLost += sc.Games1
 
 		switch winner {
 		case p1:

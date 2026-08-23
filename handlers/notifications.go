@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
+	"padelleague/notify"
 )
 
 type NotificationHandler struct {
@@ -62,7 +65,7 @@ func (h *NotificationHandler) List(e *core.RequestEvent) error {
 			out += fmt.Sprintf(`<a hx-post="/notifications/%s/read" hx-swap="none" class="block p-2 rounded hover:bg-base-200 cursor-pointer %s">`, r.Id, readClass)
 			out += fmt.Sprintf(`<p class="text-sm">%s</p>`, html.EscapeString(r.GetString("title")))
 			if body := r.GetString("body"); body != "" {
-				out += fmt.Sprintf(`<p class="text-xs text-base-content/60">%s</p>`, html.EscapeString(truncate(body, 80)))
+				out += fmt.Sprintf(`<p class="text-xs text-base-content/60">%s</p>`, html.EscapeString(league.Truncate(body, 80)))
 			}
 			out += `</a>`
 		}
@@ -117,7 +120,7 @@ func (h *NotificationHandler) MarkAllRead(e *core.RequestEvent) error {
 }
 
 func (h *NotificationHandler) Prefs(e *core.RequestEvent) error {
-	prefs := getNotificationPrefs(e.Auth)
+	prefs := notify.GetNotificationPrefs(e.Auth)
 
 	return h.renderPage(e, "notification-prefs.html", map[string]any{
 		"Prefs": prefs,
@@ -196,7 +199,7 @@ func CheckQuorumTimeout(app core.App, notifier *Notifier) {
 		}
 
 		score := fresh.GetString("scores")
-		winnerID, err := determineWinner(fresh, score)
+		winnerID, err := league.DetermineWinner(fresh, score)
 		if err != nil {
 			continue
 		}
@@ -211,7 +214,7 @@ func CheckQuorumTimeout(app core.App, notifier *Notifier) {
 
 		pairIDs := []string{fresh.GetString("pair1"), fresh.GetString("pair2")}
 		for _, pid := range pairIDs {
-			players := getPlayersForPair(app, pid)
+			players := league.PlayersForPair(app, pid)
 			notifier.NotifyPlayers(players, "general",
 				"Resultado confirmado automaticamente",
 				"El resultado ha sido confirmado por tiempo de espera.",

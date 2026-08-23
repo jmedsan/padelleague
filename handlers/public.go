@@ -4,15 +4,18 @@ import (
 	"sort"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
 )
 
 type PublicHandler struct {
 	app        core.App
+	leagueSvc  *league.Service
 	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
 }
 
-func NewPublicHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *PublicHandler {
-	return &PublicHandler{app: app, renderPage: renderPage}
+func NewPublicHandler(app core.App, leagueSvc *league.Service, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *PublicHandler {
+	return &PublicHandler{app: app, leagueSvc: leagueSvc, renderPage: renderPage}
 }
 
 type PendingMatchDetail struct {
@@ -57,7 +60,7 @@ type RecentResult struct {
 func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	userID := e.Auth.Id
 
-	pairs, _ := findPairsForPlayer(h.app, userID)
+	pairs, _ := league.PairsForPlayer(h.app, userID)
 
 	playerPairIDs := make(map[string]bool, len(pairs))
 	for _, p := range pairs {
@@ -161,7 +164,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 			if len(proposals) > 0 {
 				prop := proposals[0]
 				proposerID := prop.GetString("author")
-				proposerTeam, _ := getPlayerTeam(h.app, proposerID, m)
+				proposerTeam, _ := league.PlayerTeam(h.app, proposerID, m)
 				playerTeam := 1
 				if playerPairIDs[p2] {
 					playerTeam = 2
@@ -196,7 +199,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 				continue
 			}
 			submittedBy := m.GetString("submitted_by")
-			submitterTeam, _ := getPlayerTeam(h.app, submittedBy, m)
+			submitterTeam, _ := league.PlayerTeam(h.app, submittedBy, m)
 			playerTeam := 1
 			if playerPairIDs[p2] {
 				playerTeam = 2
@@ -294,7 +297,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
-	pairs, _ := findPairsForPlayer(h.app, userID)
+	pairs, _ := league.PairsForPlayer(h.app, userID)
 	playerPairIDs := make(map[string]bool, len(pairs))
 	for _, p := range pairs {
 		playerPairIDs[p.Id] = true
@@ -315,7 +318,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	for pid := range allPairIDs {
 		pairIDSlice = append(pairIDSlice, pid)
 	}
-	pairNames := expandPairNames(h.app, pairIDSlice)
+	pairNames := league.PairNames(h.app, pairIDSlice)
 
 	roundMap := map[int][]RoundMatchView{}
 	for _, m := range matches {
@@ -361,10 +364,10 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		}
 	}
 
-	var standings []StandingRowFull
+	var standings []league.StandingRowFull
 	hasPenalties := false
 	if comp.GetString("type") == "league" {
-		standings, _ = ComputeStandings(h.app, id)
+		standings, _ = h.leagueSvc.ComputeStandings(id)
 		for _, s := range standings {
 			if s.Penalty > 0 {
 				hasPenalties = true
@@ -373,9 +376,9 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		}
 	}
 
-	var awards []Award
+	var awards []league.Award
 	if !comp.GetBool("active") {
-		awards = computeAwards(h.app, id)
+		awards = h.leagueSvc.Awards(id)
 	}
 
 	return h.renderPage(e, "competition.html", map[string]any{
