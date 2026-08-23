@@ -103,15 +103,11 @@ func TestMatchWalkover(t *testing.T) {
 	s.Test(t)
 }
 
-func TestMatchCorrectExpired(t *testing.T) {
-	// NOTE: MatchCorrect has a bug — PocketBase stores dates as "2006-01-02 15:04:05.000Z"
-	// but the handler parses with time.RFC3339 (requires "T" separator), so it always
-	// fails with "expired". This test documents the current (broken) behavior.
+func TestMatchCorrect(t *testing.T) {
 	s := &tests.ApiScenario{
-		Name:            "POST /match/{id}/correct always reports expired due to date format bug",
-		Method:          http.MethodPost,
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"expirado"},
+		Name:           "POST /match/{id}/correct within 24h returns 204",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)

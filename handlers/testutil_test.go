@@ -217,7 +217,10 @@ func setupAllRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 
 	thread := NewThreadHandler(app, notifier, r.Page, r.Partial)
 	e.Router.GET("/match/{id}/thread", thread.Thread).BindFunc(requireAuthTest)
+	e.Router.GET("/match/{id}/thread-messages", thread.ThreadMessages).BindFunc(requireAuthTest)
 	e.Router.POST("/match/{id}/thread/message", thread.PostMessage).BindFunc(requireAuthTest)
+	e.Router.POST("/match/{id}/thread/proposal", thread.PostProposal).BindFunc(requireAuthTest)
+	e.Router.POST("/match/{id}/thread/proposal/{msgId}/respond", thread.RespondProposal).BindFunc(requireAuthTest)
 
 	notif := NewNotificationHandler(app, r.Page)
 	e.Router.GET("/notifications/count", notif.Count).BindFunc(requireAuthTest)

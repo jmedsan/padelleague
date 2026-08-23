@@ -61,7 +61,7 @@ func ParseProposalData(raw any) *ProposalData {
 		if err := json.Unmarshal([]byte(v), &pd); err != nil {
 			return nil
 		}
-	case map[string]any:
+	default:
 		b, err := json.Marshal(v)
 		if err != nil {
 			return nil
@@ -69,8 +69,6 @@ func ParseProposalData(raw any) *ProposalData {
 		if err := json.Unmarshal(b, &pd); err != nil {
 			return nil
 		}
-	default:
-		return nil
 	}
 	return &pd
 }

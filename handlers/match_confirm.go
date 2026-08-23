@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/types"
 
 	"padelleague/league"
 	"padelleague/notify"
@@ -143,8 +144,8 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	if submittedAt == "" {
 		return alertError(e, "No se encontró la fecha de envío")
 	}
-	t, err := time.Parse(time.RFC3339, submittedAt)
-	if err != nil || time.Since(t) >= 24*time.Hour {
+	dt, err := types.ParseDateTime(submittedAt)
+	if err != nil || time.Since(dt.Time()) >= 24*time.Hour {
 		return alertError(e, "El plazo de 24 horas para corregir ha expirado")
 	}
 
