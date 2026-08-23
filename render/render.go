@@ -2,6 +2,7 @@ package render
 
 import (
 	"io/fs"
+	"log/slog"
 	"net/http"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -22,10 +23,7 @@ func New(viewsFS fs.FS, vapidPublicKey string) *Renderer {
 	}
 }
 
-func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) error {
-	if data == nil {
-		data = map[string]any{}
-	}
+func (r *Renderer) withAuth(e *core.RequestEvent, data map[string]any) {
 	data["VAPIDPublicKey"] = r.vapidPublicKey
 	if e.Auth != nil {
 		if _, ok := data["DisplayName"]; !ok {
@@ -41,6 +39,13 @@ func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) 
 			data["AuthID"] = e.Auth.Id
 		}
 	}
+}
+
+func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) error {
+	if data == nil {
+		data = map[string]any{}
+	}
+	r.withAuth(e, data)
 	html, err := r.registry.LoadFS(r.viewsFS, "views/layout.html", "views/"+page).Render(data)
 	if err != nil {
 		return err
@@ -50,15 +55,10 @@ func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) 
 
 func (r *Renderer) ErrorPage(e *core.RequestEvent, statusCode int, message string) error {
 	data := map[string]any{"ErrorMessage": message}
-	data["VAPIDPublicKey"] = r.vapidPublicKey
-	if e.Auth != nil {
-		data["DisplayName"] = e.Auth.GetString("display_name")
-		data["IsAdmin"] = e.Auth.GetString("role") == "admin"
-		data["Verified"] = e.Auth.Verified()
-		data["AuthID"] = e.Auth.Id
-	}
+	r.withAuth(e, data)
 	html, err := r.registry.LoadFS(r.viewsFS, "views/layout.html", "views/error.html").Render(data)
 	if err != nil {
+		slog.Error("render error page", "err", err)
 		return e.HTML(statusCode, message)
 	}
 	return e.HTML(statusCode, html)
@@ -68,11 +68,7 @@ func (r *Renderer) Partial(e *core.RequestEvent, page string, data map[string]an
 	if data == nil {
 		data = map[string]any{}
 	}
-	if e.Auth != nil {
-		if _, ok := data["IsAdmin"]; !ok {
-			data["IsAdmin"] = e.Auth.GetString("role") == "admin"
-		}
-	}
+	r.withAuth(e, data)
 	html, err := r.registry.LoadFS(r.viewsFS, "views/"+page).Render(data)
 	if err != nil {
 		return err
