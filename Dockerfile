@@ -11,4 +11,6 @@ COPY --from=build /padelleague /app/padelleague
 COPY entrypoint.sh /app/entrypoint.sh
 WORKDIR /app
 EXPOSE 8090
+RUN useradd -r -m app && chown -R app:app /app
+USER app
 ENTRYPOINT ["./entrypoint.sh"]
