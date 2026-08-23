@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -146,6 +147,10 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	scores := e.Request.FormValue("scores")
 	if scores == "" {
 		return e.HTML(http.StatusOK, `<div class="alert alert-error">Debes indicar el marcador corregido</div>`)
+	}
+
+	if strings.EqualFold(strings.TrimSpace(scores), "WO") {
+		return e.HTML(http.StatusOK, `<div class="alert alert-error">Usa el botón de incomparecencia para reportar un WO</div>`)
 	}
 
 	if _, _, _, _, err := parseScore(scores); err != nil {
