@@ -9,6 +9,8 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPlayerPreCreate(t *testing.T) {
@@ -36,15 +38,22 @@ func TestPlayerUpdate(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var playerID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		player := makeUserTB(tb, app, "Old Name", "")
+		playerID = player.Id
 		s.URL = "/admin/players/" + player.Id
 		s.Body = strings.NewReader("display_name=New+Name&role=player")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		p, err := app.FindRecordById("users", playerID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "New Name", p.GetString("display_name"))
 	}
 	s.Test(t)
 }
@@ -131,13 +140,19 @@ func TestVenuesDelete(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var venueID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		venue := makeVenueTB(tb, app, "Delete Me")
+		venueID = venue.Id
 		s.URL = "/admin/venues/" + venue.Id + "/delete"
 		hdrs := authHeaders(tb, admin)
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		_, err := app.FindRecordById("venues", venueID)
+		assert.Error(tb, err)
 	}
 	s.Test(t)
 }
@@ -148,13 +163,19 @@ func TestInvitationsRevoke(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var inviteID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		invite := makeInvitationTB(tb, app, admin.Id, time.Now().Add(24*time.Hour))
+		inviteID = invite.Id
 		s.URL = "/admin/invitations/" + invite.Id + "/revoke"
 		hdrs := authHeaders(tb, admin)
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		_, err := app.FindRecordById("invitations", inviteID)
+		assert.Error(tb, err)
 	}
 	s.Test(t)
 }
