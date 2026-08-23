@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"html"
 	"log"
 	"net/mail"
 
@@ -64,5 +65,5 @@ func buildNotificationEmail(displayName, body, matchLink string) string {
 <p>Hola %s,</p>
 <p>%s</p>
 %s
-<p>— PadelLeague</p>`, displayName, body, linkHTML)
+<p>— PadelLeague</p>`, html.EscapeString(displayName), html.EscapeString(body), linkHTML)
 }

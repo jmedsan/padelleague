@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"html"
 	"net/http"
 	"time"
 
@@ -36,40 +37,40 @@ func (h *NotificationHandler) Count(e *core.RequestEvent) error {
 func (h *NotificationHandler) List(e *core.RequestEvent) error {
 	records, err := h.app.FindRecordsByFilter("notifications",
 		"user = {:uid}",
-		"", 10, 0,
+		"-created", 10, 0,
 		map[string]any{"uid": e.Auth.Id})
 	if err != nil {
 		records = []*core.Record{}
 	}
 
-	html := `<div class="card card-compact w-80 bg-base-100 shadow-xl">`
-	html += `<div class="card-body">`
-	html += `<div class="flex justify-between items-center mb-2">`
-	html += `<h3 class="font-bold">Notificaciones</h3>`
-	html += `<button hx-post="/notifications/read-all" hx-swap="none" class="btn btn-ghost btn-xs">Marcar todas</button>`
-	html += `</div>`
+	out := `<div class="card card-compact w-80 bg-base-100 shadow-xl">`
+	out += `<div class="card-body">`
+	out += `<div class="flex justify-between items-center mb-2">`
+	out += `<h3 class="font-bold">Notificaciones</h3>`
+	out += `<button hx-post="/notifications/read-all" hx-swap="none" class="btn btn-ghost btn-xs">Marcar todas</button>`
+	out += `</div>`
 
 	if len(records) == 0 {
-		html += `<p class="text-sm text-base-content/50">Sin notificaciones</p>`
+		out += `<p class="text-sm text-base-content/50">Sin notificaciones</p>`
 	} else {
 		for _, r := range records {
 			readClass := ""
 			if !r.GetBool("read") {
 				readClass = "bg-primary/5 font-medium"
 			}
-			html += fmt.Sprintf(`<a hx-post="/notifications/%s/read" hx-swap="none" class="block p-2 rounded hover:bg-base-200 cursor-pointer %s">`, r.Id, readClass)
-			html += fmt.Sprintf(`<p class="text-sm">%s</p>`, r.GetString("title"))
+			out += fmt.Sprintf(`<a hx-post="/notifications/%s/read" hx-swap="none" class="block p-2 rounded hover:bg-base-200 cursor-pointer %s">`, r.Id, readClass)
+			out += fmt.Sprintf(`<p class="text-sm">%s</p>`, html.EscapeString(r.GetString("title")))
 			if body := r.GetString("body"); body != "" {
-				html += fmt.Sprintf(`<p class="text-xs text-base-content/60">%s</p>`, truncate(body, 80))
+				out += fmt.Sprintf(`<p class="text-xs text-base-content/60">%s</p>`, html.EscapeString(truncate(body, 80)))
 			}
-			html += `</a>`
+			out += `</a>`
 		}
 	}
 
-	html += `<div class="mt-2"><a href="/profile/notifications" class="text-xs link">Preferencias</a></div>`
-	html += `</div></div>`
+	out += `<div class="mt-2"><a href="/profile/notifications" class="text-xs link">Preferencias</a></div>`
+	out += `</div></div>`
 
-	return e.HTML(http.StatusOK, html)
+	return e.HTML(http.StatusOK, out)
 }
 
 func (h *NotificationHandler) MarkRead(e *core.RequestEvent) error {
@@ -212,8 +213,9 @@ func CheckQuorumTimeout(app core.App, notifier *Notifier) {
 }
 
 func truncate(s string, max int) string {
-	if len(s) <= max {
+	r := []rune(s)
+	if len(r) <= max {
 		return s
 	}
-	return s[:max] + "..."
+	return string(r[:max]) + "..."
 }
