@@ -20,17 +20,6 @@ func (h *AdminHandler) InvitationsList(e *core.RequestEvent) error {
 			invitations[j].GetDateTime("created").Time())
 	})
 
-	for _, inv := range invitations {
-		if inv.GetString("status") == "pending" && isInviteExpired(inv) {
-			inv.Set("status", "expired")
-			h.app.Save(inv)
-		}
-		if inv.GetFloat("max_uses") == 0 {
-			inv.Set("max_uses", 1)
-			h.app.Save(inv)
-		}
-	}
-
 	competitions, _ := h.app.FindRecordsByFilter("competitions",
 		"active = true", "name", 0, 0, nil)
 

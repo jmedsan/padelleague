@@ -143,18 +143,25 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 			return err
 		}
 
-		newCount := int(invite.GetFloat("use_count")) + 1
-		invite.Set("use_count", newCount)
-		invite.Set("used_by", userRecord.Id)
-		invite.Set("used_at", time.Now().UTC().Format("2006-01-02 15:04:05.000Z"))
-		invMaxUses := int(invite.GetFloat("max_uses"))
-		if invMaxUses < 1 {
-			invMaxUses = 1
+		freshInvite, err := txApp.FindRecordById("invitations", invite.Id)
+		if err != nil {
+			return fmt.Errorf("invitation not found")
 		}
-		if newCount >= invMaxUses {
-			invite.Set("status", "used")
+		maxUses := int(freshInvite.GetFloat("max_uses"))
+		if maxUses < 1 {
+			maxUses = 1
 		}
-		if err := txApp.Save(invite); err != nil {
+		currentCount := int(freshInvite.GetFloat("use_count"))
+		if currentCount >= maxUses {
+			return fmt.Errorf("invitation exhausted")
+		}
+		freshInvite.Set("use_count", currentCount+1)
+		freshInvite.Set("used_by", userRecord.Id)
+		freshInvite.Set("used_at", time.Now().UTC().Format("2006-01-02 15:04:05.000Z"))
+		if currentCount+1 >= maxUses {
+			freshInvite.Set("status", "used")
+		}
+		if err := txApp.Save(freshInvite); err != nil {
 			return err
 		}
 
