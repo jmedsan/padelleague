@@ -22,10 +22,10 @@ func NewMatchHandler(app core.App, notifier *Notifier, renderPage func(e *core.R
 }
 
 type MatchView struct {
-	Record       *core.Record
-	Pair1Name   string
-	Pair2Name   string
-	RoundNum    int
+	Record        *core.Record
+	Pair1Name     string
+	Pair2Name     string
+	RoundNum      int
 	CanSubmit     bool
 	CanConfirm    bool
 	CanDispute    bool
@@ -101,10 +101,10 @@ func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNam
 	}
 
 	return MatchView{
-		Record:       match,
-		Pair1Name:   pairNames[match.GetString("pair1")],
-		Pair2Name:   pairNames[match.GetString("pair2")],
-		RoundNum:    roundNum,
+		Record:        match,
+		Pair1Name:     pairNames[match.GetString("pair1")],
+		Pair2Name:     pairNames[match.GetString("pair2")],
+		RoundNum:      roundNum,
 		CanSubmit:     status == "pending" && team > 0,
 		CanConfirm:    status == "confirmed" && team > 0 && !isSubmitter,
 		CanDispute:    status == "confirmed" && team > 0 && !isSubmitter,
@@ -232,7 +232,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 		rivalPairID = match.GetString("pair1")
 	}
 	rivalPlayers := getPlayersForPair(h.app, rivalPairID)
-	h.notifier.NotifyPlayers( rivalPlayers, "quorum_request", "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", match.Id)
+	h.notifier.NotifyPlayers(rivalPlayers, "quorum_request", "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", match.Id)
 	emailNotifyPlayers(h.app, rivalPlayers, "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", "/match/"+match.Id)
 
 	e.Response.Header().Set("HX-Redirect", "/")

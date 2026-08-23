@@ -3,9 +3,13 @@ module padelleague
 go 1.27.0
 
 require (
-	github.com/SherClockHolmes/webpush-go v1.4.0 // indirect
+	github.com/SherClockHolmes/webpush-go v1.4.0
+	github.com/caarlos0/env/v11 v11.4.1
+	github.com/pocketbase/pocketbase v0.39.11
+)
+
+require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/caarlos0/env/v11 v11.4.1 // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/domodwyer/mailyak/v3 v3.6.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -21,7 +25,6 @@ require (
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/pocketbase/dbx v1.12.0 // indirect
 	github.com/pocketbase/ozzo-validation/v4 v4.3.0 // indirect
-	github.com/pocketbase/pocketbase v0.39.11 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect

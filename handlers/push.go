@@ -86,4 +86,3 @@ func (h *PushHandler) Unsubscribe(e *core.RequestEvent) error {
 
 	return e.NoContent(http.StatusNoContent)
 }
-

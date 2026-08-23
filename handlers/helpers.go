@@ -96,4 +96,3 @@ func getNotificationPrefs(user *core.Record) map[string]any {
 	}
 	return prefs
 }
-

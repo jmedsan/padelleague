@@ -32,11 +32,11 @@ func NewCompetitionHandler(app core.App, renderPage func(e *core.RequestEvent, p
 }
 
 type CompetitionSummary struct {
-	Competition  *core.Record
-	PairsCount   int
-	TotalMatches int
+	Competition   *core.Record
+	PairsCount    int
+	TotalMatches  int
 	PlayedMatches int
-	DisputeCount int
+	DisputeCount  int
 }
 
 func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
@@ -219,10 +219,10 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 	pairNameMap, _ := expandPairNames(h.app, pairIDs)
 
 	type matchEntry struct {
-		Match      *core.Record
-		Pair1Name  string
-		Pair2Name  string
-		RoundNum   int
+		Match     *core.Record
+		Pair1Name string
+		Pair2Name string
+		RoundNum  int
 	}
 	roundMap := map[int][]matchEntry{}
 	for _, m := range matches {

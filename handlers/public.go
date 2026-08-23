@@ -280,10 +280,10 @@ type RoundView struct {
 }
 
 type RoundMatchView struct {
-	Match      *core.Record
-	Pair1      string
-	Pair2      string
-	IsMyMatch  bool
+	Match     *core.Record
+	Pair1     string
+	Pair2     string
+	IsMyMatch bool
 }
 
 func (h *PublicHandler) Competition(e *core.RequestEvent) error {
@@ -379,11 +379,11 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	}
 
 	return h.renderPage(e, "competition.html", map[string]any{
-		"Competition": comp,
-		"Rounds":      rounds,
-		"Standings":   standings,
-		"Awards":         awards,
-		"IsArchived":     !comp.GetBool("active"),
+		"Competition":     comp,
+		"Rounds":          rounds,
+		"Standings":       standings,
+		"Awards":          awards,
+		"IsArchived":      !comp.GetBool("active"),
 		"AutoExpandRound": autoExpandRound,
 		"HasPenalties":    hasPenalties,
 	})
