@@ -36,7 +36,7 @@ func main() {
 	notifier := notify.NewNotifier(app, cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey)
 	leagueSvc := league.New(app, notifier)
 
-	hooks.Register(app, notifier)
+	hooks.Register(app, notifier, leagueSvc)
 
 	slog.Info("startup",
 		"app_env", cfg.AppEnv,
@@ -68,6 +68,9 @@ func seedUsers(cfg config.Config) []seed.User {
 	}
 	if cfg.AppEnv != "prod" {
 		users = append(users, seed.User{Email: cfg.AppPlayerEmail, Password: cfg.AppPlayerPassword, Collection: "users", Role: "player", DisplayName: "Javi"})
+		if cfg.AppPlayer2Email != "" {
+			users = append(users, seed.User{Email: cfg.AppPlayer2Email, Password: cfg.AppPlayer2Password, Collection: "users", Role: "player", DisplayName: "Carlos"})
+		}
 	}
 	return users
 }

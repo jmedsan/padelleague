@@ -39,7 +39,7 @@ func (svc *Service) Awards(competitionID string) []Award {
 		})
 	}
 
-	matches, _ := svc.App.FindRecordsByFilter("matches",
+	matches, _ := svc.app.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'final'",
 		"", 0, 0,
 		map[string]any{"cid": competitionID})
@@ -85,7 +85,7 @@ func (svc *Service) Awards(competitionID string) []Award {
 	}
 
 	if longestStreak > 1 {
-		pairNames := PairNames(svc.App, []string{longestPairID})
+		pairNames := PairNames(svc.app, []string{longestPairID})
 		awards = append(awards, Award{
 			Title:    "Mayor racha",
 			PairName: pairNames[longestPairID],

@@ -20,7 +20,7 @@ func NewPushHandler(app core.App, notifier *notify.Notifier) *PushHandler {
 }
 
 func (h *PushHandler) Enabled() bool {
-	return h.notifier.VAPIDPublicKey != "" && h.notifier.VAPIDPrivateKey != ""
+	return h.notifier.PushEnabled()
 }
 
 type pushSubscribeRequest struct {

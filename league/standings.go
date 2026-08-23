@@ -25,15 +25,15 @@ type StandingRowFull struct {
 }
 
 func (svc *Service) ComputeStandings(competitionID string) ([]StandingRowFull, error) {
-	comp, err := svc.App.FindRecordById("competitions", competitionID)
+	comp, err := svc.app.FindRecordById("competitions", competitionID)
 	if err != nil {
 		return nil, err
 	}
 
 	pairIDs := comp.GetStringSlice("pairs")
-	pairNames := PairNames(svc.App, pairIDs)
+	pairNames := PairNames(svc.app, pairIDs)
 
-	matches, _ := svc.App.FindRecordsByFilter("matches",
+	matches, _ := svc.app.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'final'",
 		"", 0, 0,
 		map[string]any{"cid": competitionID})

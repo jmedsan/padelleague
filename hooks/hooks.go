@@ -17,8 +17,7 @@ var validTransitions = map[string][]string{
 	league.StatusDisputed:  {league.StatusFinal},
 }
 
-func Register(app core.App, notifier *notify.Notifier) {
-	svc := league.New(app, notifier)
+func Register(app core.App, notifier *notify.Notifier, svc *league.Service) {
 
 	app.OnRecordCreate("users").BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.GetString("role") == "" {
