@@ -206,10 +206,6 @@ func TestAdminOverride(t *testing.T) {
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
-		// Need to add admin-override route
-		match := NewMatchHandler(app, nil, nil, nil)
-		e.Router.POST("/match/{id}/admin-override", match.AdminOverride).BindFunc(requireAuthTest)
-
 		p1 := makePairTB(tb, app, "Override A")
 		p2 := makePairTB(tb, app, "Override B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
