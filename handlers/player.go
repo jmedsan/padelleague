@@ -89,21 +89,30 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 		})
 	}
 
+	data := h.buildPlayerStats(user, pairs, pairInfos)
+
+	return h.renderPage(e, "player.html", map[string]any{
+		"Data": data,
+	})
+}
+
+type matchResult struct {
+	matchID string
+	won     bool
+	date    string
+	p1      string
+	p2      string
+	score   string
+	compID  string
+}
+
+func (h *PlayerHandler) buildPlayerStats(user *core.Record, pairs []*core.Record, pairInfos []PairInfo) PlayerData {
 	totalWins := 0
 	totalPlayed := 0
 	setsWon := 0
 	setsLost := 0
 	gamesWon := 0
 	gamesLost := 0
-	type matchResult struct {
-		matchID string
-		won     bool
-		date    string
-		p1      string
-		p2      string
-		score   string
-		compID  string
-	}
 	var allResults []matchResult
 
 	for _, p := range pairs {
@@ -165,72 +174,9 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 		return allResults[i].date > allResults[j].date
 	})
 
-	streak := ""
-	if len(allResults) > 0 {
-		firstWon := allResults[0].won
-		count := 0
-		for _, r := range allResults {
-			if r.won == firstWon {
-				count++
-			} else {
-				break
-			}
-		}
-		suffix := "D"
-		if firstWon {
-			suffix = "V"
-		}
-		streak = fmt.Sprintf("%d%s", count, suffix)
-	}
-
-	bestStreak := ""
-	if len(allResults) > 0 {
-		bestWin, bestLoss := 0, 0
-		curWin, curLoss := 0, 0
-		for _, r := range allResults {
-			if r.won {
-				curWin++
-				curLoss = 0
-				if curWin > bestWin {
-					bestWin = curWin
-				}
-			} else {
-				curLoss++
-				curWin = 0
-				if curLoss > bestLoss {
-					bestLoss = curLoss
-				}
-			}
-		}
-		if bestWin >= bestLoss {
-			bestStreak = fmt.Sprintf("%dV", bestWin)
-		} else {
-			bestStreak = fmt.Sprintf("%dD", bestLoss)
-		}
-	}
-
-	compStatsMap := map[string]*CompetitionStat{}
-	for _, r := range allResults {
-		cs, ok := compStatsMap[r.compID]
-		if !ok {
-			compName := r.compID
-			if comp, err := h.app.FindRecordById("competitions", r.compID); err == nil {
-				compName = comp.GetString("name")
-			}
-			cs = &CompetitionStat{Name: compName}
-			compStatsMap[r.compID] = cs
-		}
-		cs.Played++
-		if r.won {
-			cs.Wins++
-		} else {
-			cs.Losses++
-		}
-	}
-	compStats := make([]CompetitionStat, 0, len(compStatsMap))
-	for _, cs := range compStatsMap {
-		compStats = append(compStats, *cs)
-	}
+	streak := computeCurrentStreak(allResults)
+	bestStreak := computeBestStreak(allResults)
+	compStats := h.computeCompetitionStats(allResults)
 
 	var winRate float64
 	if totalPlayed > 0 {
@@ -253,7 +199,7 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 		})
 	}
 
-	data := PlayerData{
+	return PlayerData{
 		User:             user,
 		Pairs:            pairInfos,
 		WinRate:          winRate,
@@ -267,10 +213,79 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 		CompetitionStats: compStats,
 		Recent:           recent,
 	}
+}
 
-	return h.renderPage(e, "player.html", map[string]any{
-		"Data": data,
-	})
+func computeCurrentStreak(results []matchResult) string {
+	if len(results) == 0 {
+		return ""
+	}
+	firstWon := results[0].won
+	count := 0
+	for _, r := range results {
+		if r.won == firstWon {
+			count++
+		} else {
+			break
+		}
+	}
+	suffix := "D"
+	if firstWon {
+		suffix = "V"
+	}
+	return fmt.Sprintf("%d%s", count, suffix)
+}
+
+func computeBestStreak(results []matchResult) string {
+	if len(results) == 0 {
+		return ""
+	}
+	bestWin, bestLoss := 0, 0
+	curWin, curLoss := 0, 0
+	for _, r := range results {
+		if r.won {
+			curWin++
+			curLoss = 0
+			if curWin > bestWin {
+				bestWin = curWin
+			}
+		} else {
+			curLoss++
+			curWin = 0
+			if curLoss > bestLoss {
+				bestLoss = curLoss
+			}
+		}
+	}
+	if bestWin >= bestLoss {
+		return fmt.Sprintf("%dV", bestWin)
+	}
+	return fmt.Sprintf("%dD", bestLoss)
+}
+
+func (h *PlayerHandler) computeCompetitionStats(results []matchResult) []CompetitionStat {
+	compStatsMap := map[string]*CompetitionStat{}
+	for _, r := range results {
+		cs, ok := compStatsMap[r.compID]
+		if !ok {
+			compName := r.compID
+			if comp, err := h.app.FindRecordById("competitions", r.compID); err == nil {
+				compName = comp.GetString("name")
+			}
+			cs = &CompetitionStat{Name: compName}
+			compStatsMap[r.compID] = cs
+		}
+		cs.Played++
+		if r.won {
+			cs.Wins++
+		} else {
+			cs.Losses++
+		}
+	}
+	compStats := make([]CompetitionStat, 0, len(compStatsMap))
+	for _, cs := range compStatsMap {
+		compStats = append(compStats, *cs)
+	}
+	return compStats
 }
 
 func (h *PlayerHandler) H2H(e *core.RequestEvent) error {

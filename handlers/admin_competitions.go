@@ -47,30 +47,7 @@ func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
 
 	var active, inactive []CompetitionSummary
 	for _, comp := range allComps {
-		pairsCount := len(comp.GetStringSlice("pairs"))
-
-		allMatches, _ := h.app.FindRecordsByFilter("matches",
-			"competition = {:cid}", "", 0, 0,
-			map[string]any{"cid": comp.Id})
-		playedMatches := 0
-		disputeCount := 0
-		for _, m := range allMatches {
-			if m.GetString("status") == StatusFinal {
-				playedMatches++
-			}
-			if m.GetString("status") == StatusDisputed {
-				disputeCount++
-			}
-		}
-
-		summary := CompetitionSummary{
-			Competition:   comp,
-			PairsCount:    pairsCount,
-			TotalMatches:  len(allMatches),
-			PlayedMatches: playedMatches,
-			DisputeCount:  disputeCount,
-		}
-
+		summary := h.buildCompetitionSummary(comp)
 		if comp.GetBool("active") {
 			active = append(active, summary)
 		} else {
@@ -81,6 +58,41 @@ func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
 	totalDisputes, _ := h.app.FindRecordsByFilter("matches",
 		"status = 'disputed'", "", 0, 0, nil)
 
+	issues := h.buildAdminIssues(active)
+
+	return h.renderPage(e, "admin/competitions.html", map[string]any{
+		"Active":       active,
+		"Inactive":     inactive,
+		"DisputeCount": len(totalDisputes),
+		"Issues":       issues,
+		"IssueCount":   len(issues),
+	})
+}
+
+func (h *CompetitionHandler) buildCompetitionSummary(comp *core.Record) CompetitionSummary {
+	allMatches, _ := h.app.FindRecordsByFilter("matches",
+		"competition = {:cid}", "", 0, 0,
+		map[string]any{"cid": comp.Id})
+	playedMatches := 0
+	disputeCount := 0
+	for _, m := range allMatches {
+		if m.GetString("status") == StatusFinal {
+			playedMatches++
+		}
+		if m.GetString("status") == StatusDisputed {
+			disputeCount++
+		}
+	}
+	return CompetitionSummary{
+		Competition:   comp,
+		PairsCount:    len(comp.GetStringSlice("pairs")),
+		TotalMatches:  len(allMatches),
+		PlayedMatches: playedMatches,
+		DisputeCount:  disputeCount,
+	}
+}
+
+func (h *CompetitionHandler) buildAdminIssues(active []CompetitionSummary) []AdminIssue {
 	var issues []AdminIssue
 	now := time.Now().UTC()
 	for _, cs := range active {
@@ -98,76 +110,75 @@ func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
 		pairNames := league.PairNames(h.app, pairIDs)
 
 		for _, m := range matches {
-			status := m.GetString("status")
-			p1 := pairNames[m.GetString("pair1")]
-			p2 := pairNames[m.GetString("pair2")]
+			issues = append(issues, h.classifyMatchIssues(m, compName, quorumHours, pairNames, now)...)
+		}
+	}
+	return issues
+}
 
-			switch status {
-			case StatusDisputed:
-				issues = append(issues, AdminIssue{
-					Type: "dispute", TypeLabel: "Disputa", BadgeClass: "badge-error",
-					CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
-					MatchID: m.Id, Detail: "pendiente de resolucion",
-				})
-			case StatusConfirmed:
-				if quorumHours > 0 {
-					if sa := m.GetString("submitted_at"); sa != "" {
-						if t, err := time.Parse(time.RFC3339, sa); err == nil {
-							elapsed := now.Sub(t)
-							if elapsed > time.Duration(quorumHours)*time.Hour {
-								days := int(elapsed.Hours() / 24)
-								detail := fmt.Sprintf("enviado hace %d dias", days)
-								if days == 0 {
-									detail = fmt.Sprintf("enviado hace %d horas", int(elapsed.Hours()))
-								}
-								issues = append(issues, AdminIssue{
-									Type: "quorum", TypeLabel: "Quorum", BadgeClass: "badge-warning",
-									CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
-									MatchID: m.Id, Detail: detail,
-								})
-							}
+func (h *CompetitionHandler) classifyMatchIssues(m *core.Record, compName string, quorumHours float64, pairNames map[string]string, now time.Time) []AdminIssue {
+	status := m.GetString("status")
+	p1 := pairNames[m.GetString("pair1")]
+	p2 := pairNames[m.GetString("pair2")]
+	var issues []AdminIssue
+
+	switch status {
+	case StatusDisputed:
+		issues = append(issues, AdminIssue{
+			Type: "dispute", TypeLabel: "Disputa", BadgeClass: "badge-error",
+			CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
+			MatchID: m.Id, Detail: "pendiente de resolucion",
+		})
+	case StatusConfirmed:
+		if quorumHours > 0 {
+			if sa := m.GetString("submitted_at"); sa != "" {
+				if t, err := time.Parse(time.RFC3339, sa); err == nil {
+					elapsed := now.Sub(t)
+					if elapsed > time.Duration(quorumHours)*time.Hour {
+						days := int(elapsed.Hours() / 24)
+						detail := fmt.Sprintf("enviado hace %d dias", days)
+						if days == 0 {
+							detail = fmt.Sprintf("enviado hace %d horas", int(elapsed.Hours()))
 						}
-					}
-				}
-			case StatusPending:
-				if d := m.GetString("date"); d != "" {
-					if matchDate, err := time.Parse("2006-01-02", d); err == nil {
-						if matchDate.Before(now) {
-							issues = append(issues, AdminIssue{
-								Type: "overdue", TypeLabel: "Vencido", BadgeClass: "badge-ghost",
-								CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
-								MatchID: m.Id, Detail: "fecha: " + d,
-							})
-						}
-					}
-				}
-				lastMsg, _ := h.app.FindRecordsByFilter("match_messages",
-					"match = {:mid}", "-created", 1, 0,
-					map[string]any{"mid": m.Id})
-				if len(lastMsg) > 0 {
-					created := lastMsg[0].GetString("created")
-					if t, err := time.Parse("2006-01-02 15:04:05.000Z", created); err == nil {
-						if now.Sub(t) > 14*24*time.Hour {
-							days := int(now.Sub(t).Hours() / 24)
-							issues = append(issues, AdminIssue{
-								Type: "stale", TypeLabel: "Inactivo", BadgeClass: "badge-info",
-								CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
-								MatchID: m.Id, Detail: fmt.Sprintf("sin actividad en %d dias", days),
-							})
-						}
+						issues = append(issues, AdminIssue{
+							Type: "quorum", TypeLabel: "Quorum", BadgeClass: "badge-warning",
+							CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
+							MatchID: m.Id, Detail: detail,
+						})
 					}
 				}
 			}
 		}
+	case StatusPending:
+		if d := m.GetString("date"); d != "" {
+			if matchDate, err := time.Parse("2006-01-02", d); err == nil {
+				if matchDate.Before(now) {
+					issues = append(issues, AdminIssue{
+						Type: "overdue", TypeLabel: "Vencido", BadgeClass: "badge-ghost",
+						CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
+						MatchID: m.Id, Detail: "fecha: " + d,
+					})
+				}
+			}
+		}
+		lastMsg, _ := h.app.FindRecordsByFilter("match_messages",
+			"match = {:mid}", "-created", 1, 0,
+			map[string]any{"mid": m.Id})
+		if len(lastMsg) > 0 {
+			created := lastMsg[0].GetString("created")
+			if t, err := time.Parse("2006-01-02 15:04:05.000Z", created); err == nil {
+				if now.Sub(t) > 14*24*time.Hour {
+					days := int(now.Sub(t).Hours() / 24)
+					issues = append(issues, AdminIssue{
+						Type: "stale", TypeLabel: "Inactivo", BadgeClass: "badge-info",
+						CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
+						MatchID: m.Id, Detail: fmt.Sprintf("sin actividad en %d dias", days),
+					})
+				}
+			}
+		}
 	}
-
-	return h.renderPage(e, "admin/competitions.html", map[string]any{
-		"Active":       active,
-		"Inactive":     inactive,
-		"DisputeCount": len(totalDisputes),
-		"Issues":       issues,
-		"IssueCount":   len(issues),
-	})
+	return issues
 }
 
 func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
@@ -221,49 +232,8 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 
 	pairNameMap := league.PairNames(h.app, pairIDs)
 
-	type matchEntry struct {
-		Match     *core.Record
-		Pair1Name string
-		Pair2Name string
-		RoundNum  int
-	}
-	roundMap := map[int][]matchEntry{}
-	for _, m := range matches {
-		rn := int(m.GetFloat("round_number"))
-		roundMap[rn] = append(roundMap[rn], matchEntry{
-			Match:     m,
-			Pair1Name: pairNameMap[m.GetString("pair1")],
-			Pair2Name: pairNameMap[m.GetString("pair2")],
-			RoundNum:  rn,
-		})
-	}
-
-	type roundGroup struct {
-		Number  int
-		Matches []matchEntry
-	}
-	var rounds []roundGroup
-	for rn, ms := range roundMap {
-		rounds = append(rounds, roundGroup{Number: rn, Matches: ms})
-	}
-	sort.Slice(rounds, func(i, j int) bool {
-		return rounds[i].Number < rounds[j].Number
-	})
-
-	var disputes []DisputeView
-	for _, m := range matches {
-		if m.GetString("status") != StatusDisputed {
-			continue
-		}
-		disputes = append(disputes, DisputeView{
-			Match:        m,
-			Pair1Name:    pairNameMap[m.GetString("pair1")],
-			Pair2Name:    pairNameMap[m.GetString("pair2")],
-			SubmittedBy:  league.PlayerName(h.app, m.GetString("submitted_by")),
-			DisputedBy:   league.PlayerName(h.app, m.GetString("disputed_by")),
-			DisputeNotes: m.GetString("dispute_notes"),
-		})
-	}
+	rounds := h.buildRoundGroups(matches, pairNameMap)
+	disputes := h.buildDisputeViews(matches, pairNameMap)
 
 	var standings []league.StandingRowFull
 	if comp.GetString("type") == "league" {
@@ -294,6 +264,57 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"HasFixtures":     len(matches) > 0,
 		"HasUnpaid":       hasUnpaid,
 	})
+}
+
+type matchEntry struct {
+	Match     *core.Record
+	Pair1Name string
+	Pair2Name string
+	RoundNum  int
+}
+
+type roundGroup struct {
+	Number  int
+	Matches []matchEntry
+}
+
+func (h *CompetitionHandler) buildRoundGroups(matches []*core.Record, pairNames map[string]string) []roundGroup {
+	roundMap := map[int][]matchEntry{}
+	for _, m := range matches {
+		rn := int(m.GetFloat("round_number"))
+		roundMap[rn] = append(roundMap[rn], matchEntry{
+			Match:     m,
+			Pair1Name: pairNames[m.GetString("pair1")],
+			Pair2Name: pairNames[m.GetString("pair2")],
+			RoundNum:  rn,
+		})
+	}
+	var rounds []roundGroup
+	for rn, ms := range roundMap {
+		rounds = append(rounds, roundGroup{Number: rn, Matches: ms})
+	}
+	sort.Slice(rounds, func(i, j int) bool {
+		return rounds[i].Number < rounds[j].Number
+	})
+	return rounds
+}
+
+func (h *CompetitionHandler) buildDisputeViews(matches []*core.Record, pairNames map[string]string) []DisputeView {
+	var disputes []DisputeView
+	for _, m := range matches {
+		if m.GetString("status") != StatusDisputed {
+			continue
+		}
+		disputes = append(disputes, DisputeView{
+			Match:        m,
+			Pair1Name:    pairNames[m.GetString("pair1")],
+			Pair2Name:    pairNames[m.GetString("pair2")],
+			SubmittedBy:  league.PlayerName(h.app, m.GetString("submitted_by")),
+			DisputedBy:   league.PlayerName(h.app, m.GetString("disputed_by")),
+			DisputeNotes: m.GetString("dispute_notes"),
+		})
+	}
+	return disputes
 }
 
 func (h *CompetitionHandler) Create(e *core.RequestEvent) error {

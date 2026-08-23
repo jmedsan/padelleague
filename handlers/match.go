@@ -314,17 +314,37 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 		return alertError(e, "Solo administradores")
 	}
 
+	changes, alertErr := h.detectChanges(e, match)
+	if alertErr != nil {
+		return alertErr
+	}
+
+	if len(changes) == 0 {
+		return alertWarning(e, "No se detectaron cambios")
+	}
+
+	if err := h.app.Save(match); err != nil {
+		return alertError(e, "Error al guardar")
+	}
+
+	adminName := league.PlayerName(h.app, e.Auth.Id)
+	h.createAdminTimelineEntry(id, e.Auth.Id, adminName+" (admin): "+strings.Join(changes, "; "))
+
+	return redirectHX(e, "/match/"+id)
+}
+
+func (h *MatchHandler) detectChanges(e *core.RequestEvent, match *core.Record) ([]string, error) {
 	var changes []string
 
 	if scores := e.Request.FormValue("scores"); scores != "" {
 		oldScores := match.GetString("scores")
 		if scores != oldScores {
 			if _, err := league.ParseScore(scores); err != nil {
-				return alertError(e, "Marcador no valido")
+				return nil, alertError(e, "Marcador no valido")
 			}
 			winner, err := league.DetermineWinner(match, scores)
 			if err != nil {
-				return alertError(e, "No se pudo determinar ganador")
+				return nil, alertError(e, "No se pudo determinar ganador")
 			}
 			match.Set("scores", scores)
 			match.Set("winner", winner)
@@ -375,16 +395,5 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 		}
 	}
 
-	if len(changes) == 0 {
-		return alertWarning(e, "No se detectaron cambios")
-	}
-
-	if err := h.app.Save(match); err != nil {
-		return alertError(e, "Error al guardar")
-	}
-
-	adminName := league.PlayerName(h.app, e.Auth.Id)
-	h.createAdminTimelineEntry(id, e.Auth.Id, adminName+" (admin): "+strings.Join(changes, "; "))
-
-	return redirectHX(e, "/match/"+id)
+	return changes, nil
 }

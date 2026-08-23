@@ -61,7 +61,6 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	userID := e.Auth.Id
 
 	pairs, _ := league.PairsForPlayer(h.app, userID)
-
 	playerPairIDs := make(map[string]bool, len(pairs))
 	for _, p := range pairs {
 		playerPairIDs[p.Id] = true
@@ -76,190 +75,16 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	var recentResults []RecentResult
 
 	for _, c := range allComps {
-		compPairIDs := c.GetStringSlice("pairs")
-		inComp := false
-		for _, pid := range compPairIDs {
-			if playerPairIDs[pid] {
-				inComp = true
-				break
-			}
-		}
-		if !inComp {
+		if !h.playerInCompetition(c, playerPairIDs) {
 			continue
 		}
-
-		pending := 0
-		var pendingDetails []PendingMatchDetail
-		pendingMatches, _ := h.app.FindRecordsByFilter("matches",
-			"competition = {:cid} && status = 'pending'",
-			"round_number", 0, 0,
-			map[string]any{"cid": c.Id})
-		for _, m := range pendingMatches {
-			p1 := m.GetString("pair1")
-			p2 := m.GetString("pair2")
-			if !playerPairIDs[p1] && !playerPairIDs[p2] {
-				continue
-			}
-			pending++
-
-			if len(pendingDetails) < 5 {
-				opponent := p1
-				if playerPairIDs[p1] {
-					opponent = p2
-				}
-				opName := "?"
-				if pair, err := h.app.FindRecordById("pairs", opponent); err == nil {
-					opName = pair.GetString("name")
-				}
-				pendingDetails = append(pendingDetails, PendingMatchDetail{
-					MatchID:     m.Id,
-					Opponent:    opName,
-					RoundNumber: int(m.GetFloat("round_number")),
-				})
-			}
-
-			if nextMatch == nil {
-				opponent := p1
-				if playerPairIDs[p1] {
-					opponent = p2
-				}
-				opponentName := "?"
-				if pair, err := h.app.FindRecordById("pairs", opponent); err == nil {
-					opponentName = pair.GetString("name")
-				}
-				nm := &NextMatch{
-					MatchID:         m.Id,
-					Opponent:        opponentName,
-					CompetitionName: c.GetString("name"),
-					RoundNumber:     int(m.GetFloat("round_number")),
-					ScheduleStatus:  "unscheduled",
-				}
-				proposals, _ := h.app.FindRecordsByFilter("match_messages",
-					"match = {:mid} && type = 'scheduling_proposal' && proposal_status != 'rejected' && proposal_status != 'superseded'",
-					"-created", 1, 0, map[string]any{"mid": m.Id})
-				if len(proposals) > 0 {
-					prop := proposals[0]
-					pd := ParseProposalData(prop.GetString("proposal_data"))
-					if prop.GetString("proposal_status") == "accepted" {
-						nm.ScheduleStatus = "confirmed"
-					} else {
-						nm.ScheduleStatus = "proposed"
-					}
-					if pd != nil {
-						nm.ProposedDate = pd.Date + " " + pd.Time
-						if pd.VenueName != "" {
-							nm.ProposedVenue = pd.VenueName
-						} else if pd.VenueText != "" {
-							nm.ProposedVenue = pd.VenueText
-						}
-					}
-				}
-				nextMatch = nm
-			}
-
-			// Check for unanswered proposals from rival team
-			proposals, _ := h.app.FindRecordsByFilter("match_messages",
-				"match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'pending'",
-				"-created", 1, 0, map[string]any{"mid": m.Id})
-			if len(proposals) > 0 {
-				prop := proposals[0]
-				proposerID := prop.GetString("author")
-				proposerTeam, _ := league.PlayerTeam(h.app, proposerID, m)
-				playerTeam := 1
-				if playerPairIDs[p2] {
-					playerTeam = 2
-				}
-				if proposerTeam != playerTeam {
-					opponent := p1
-					if playerPairIDs[p1] {
-						opponent = p2
-					}
-					opName := "?"
-					if pair, err := h.app.FindRecordById("pairs", opponent); err == nil {
-						opName = pair.GetString("name")
-					}
-					pendingActions = append(pendingActions, PendingAction{
-						MatchID:     m.Id,
-						Opponent:    opName,
-						ActionType:  "respond_proposal",
-						Description: "Propuesta de horario pendiente",
-					})
-				}
-			}
+		hc, nm, actions, results := h.buildHomeCompetition(c, playerPairIDs, nextMatch == nil)
+		comps = append(comps, hc)
+		if nextMatch == nil && nm != nil {
+			nextMatch = nm
 		}
-
-		// Unconfirmed scores
-		confirmed, _ := h.app.FindRecordsByFilter("matches",
-			"competition = {:cid} && status = 'confirmed'",
-			"", 0, 0, map[string]any{"cid": c.Id})
-		for _, m := range confirmed {
-			p1 := m.GetString("pair1")
-			p2 := m.GetString("pair2")
-			if !playerPairIDs[p1] && !playerPairIDs[p2] {
-				continue
-			}
-			submittedBy := m.GetString("submitted_by")
-			submitterTeam, _ := league.PlayerTeam(h.app, submittedBy, m)
-			playerTeam := 1
-			if playerPairIDs[p2] {
-				playerTeam = 2
-			}
-			if submitterTeam == playerTeam {
-				continue
-			}
-			opponent := p1
-			if playerPairIDs[p1] {
-				opponent = p2
-			}
-			opName := "?"
-			if pair, err := h.app.FindRecordById("pairs", opponent); err == nil {
-				opName = pair.GetString("name")
-			}
-			pendingActions = append(pendingActions, PendingAction{
-				MatchID:     m.Id,
-				Opponent:    opName,
-				ActionType:  "confirm_score",
-				Description: "Confirmar resultado: " + m.GetString("scores"),
-			})
-		}
-
-		// Recent results
-		finals, _ := h.app.FindRecordsByFilter("matches",
-			"competition = {:cid} && status = 'final'",
-			"-updated", 5, 0, map[string]any{"cid": c.Id})
-		for _, m := range finals {
-			p1 := m.GetString("pair1")
-			p2 := m.GetString("pair2")
-			p1Name, p2Name := "?", "?"
-			if pair, err := h.app.FindRecordById("pairs", p1); err == nil {
-				p1Name = pair.GetString("name")
-			}
-			if pair, err := h.app.FindRecordById("pairs", p2); err == nil {
-				p2Name = pair.GetString("name")
-			}
-			winnerName := ""
-			switch m.GetString("winner") {
-			case p1:
-				winnerName = p1Name
-			case p2:
-				winnerName = p2Name
-			}
-			recentResults = append(recentResults, RecentResult{
-				MatchID:         m.Id,
-				Pair1Name:       p1Name,
-				Pair2Name:       p2Name,
-				Score:           m.GetString("scores"),
-				WinnerName:      winnerName,
-				CompetitionName: c.GetString("name"),
-				UpdatedAt:       m.GetString("updated"),
-			})
-		}
-
-		comps = append(comps, HomeCompetition{
-			Competition:    c,
-			PendingMatches: pending,
-			PendingDetails: pendingDetails,
-		})
+		pendingActions = append(pendingActions, actions...)
+		recentResults = append(recentResults, results...)
 	}
 
 	sort.Slice(recentResults, func(i, j int) bool {
@@ -275,6 +100,192 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 		"PendingActions": pendingActions,
 		"RecentResults":  recentResults,
 	})
+}
+
+func (h *PublicHandler) playerInCompetition(c *core.Record, playerPairIDs map[string]bool) bool {
+	for _, pid := range c.GetStringSlice("pairs") {
+		if playerPairIDs[pid] {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *PublicHandler) opponentName(m *core.Record, playerPairIDs map[string]bool) string {
+	opponent := m.GetString("pair1")
+	if playerPairIDs[opponent] {
+		opponent = m.GetString("pair2")
+	}
+	if pair, err := h.app.FindRecordById("pairs", opponent); err == nil {
+		return pair.GetString("name")
+	}
+	return "?"
+}
+
+func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[string]bool, needNext bool) (HomeCompetition, *NextMatch, []PendingAction, []RecentResult) {
+	pending := 0
+	var pendingDetails []PendingMatchDetail
+	var nextMatch *NextMatch
+	var actions []PendingAction
+
+	pendingMatches, _ := h.app.FindRecordsByFilter("matches",
+		"competition = {:cid} && status = 'pending'",
+		"round_number", 0, 0,
+		map[string]any{"cid": c.Id})
+
+	for _, m := range pendingMatches {
+		p1 := m.GetString("pair1")
+		p2 := m.GetString("pair2")
+		if !playerPairIDs[p1] && !playerPairIDs[p2] {
+			continue
+		}
+		pending++
+
+		if len(pendingDetails) < 5 {
+			pendingDetails = append(pendingDetails, PendingMatchDetail{
+				MatchID:     m.Id,
+				Opponent:    h.opponentName(m, playerPairIDs),
+				RoundNumber: int(m.GetFloat("round_number")),
+			})
+		}
+
+		if needNext && nextMatch == nil {
+			nextMatch = h.buildNextMatch(m, c, playerPairIDs)
+		}
+
+		if pa := h.checkPendingProposal(m, playerPairIDs); pa != nil {
+			actions = append(actions, *pa)
+		}
+	}
+
+	actions = append(actions, h.findUnconfirmedScores(c, playerPairIDs)...)
+	results := h.findRecentResults(c)
+
+	hc := HomeCompetition{
+		Competition:    c,
+		PendingMatches: pending,
+		PendingDetails: pendingDetails,
+	}
+	return hc, nextMatch, actions, results
+}
+
+func (h *PublicHandler) buildNextMatch(m *core.Record, c *core.Record, playerPairIDs map[string]bool) *NextMatch {
+	nm := &NextMatch{
+		MatchID:         m.Id,
+		Opponent:        h.opponentName(m, playerPairIDs),
+		CompetitionName: c.GetString("name"),
+		RoundNumber:     int(m.GetFloat("round_number")),
+		ScheduleStatus:  "unscheduled",
+	}
+	proposals, _ := h.app.FindRecordsByFilter("match_messages",
+		"match = {:mid} && type = 'scheduling_proposal' && proposal_status != 'rejected' && proposal_status != 'superseded'",
+		"-created", 1, 0, map[string]any{"mid": m.Id})
+	if len(proposals) > 0 {
+		prop := proposals[0]
+		pd := ParseProposalData(prop.GetString("proposal_data"))
+		if prop.GetString("proposal_status") == "accepted" {
+			nm.ScheduleStatus = "confirmed"
+		} else {
+			nm.ScheduleStatus = "proposed"
+		}
+		if pd != nil {
+			nm.ProposedDate = pd.Date + " " + pd.Time
+			if pd.VenueName != "" {
+				nm.ProposedVenue = pd.VenueName
+			} else if pd.VenueText != "" {
+				nm.ProposedVenue = pd.VenueText
+			}
+		}
+	}
+	return nm
+}
+
+func (h *PublicHandler) checkPendingProposal(m *core.Record, playerPairIDs map[string]bool) *PendingAction {
+	proposals, _ := h.app.FindRecordsByFilter("match_messages",
+		"match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'pending'",
+		"-created", 1, 0, map[string]any{"mid": m.Id})
+	if len(proposals) == 0 {
+		return nil
+	}
+	prop := proposals[0]
+	proposerTeam, _ := league.PlayerTeam(h.app, prop.GetString("author"), m)
+	playerTeam := 1
+	if playerPairIDs[m.GetString("pair2")] {
+		playerTeam = 2
+	}
+	if proposerTeam == playerTeam {
+		return nil
+	}
+	return &PendingAction{
+		MatchID:     m.Id,
+		Opponent:    h.opponentName(m, playerPairIDs),
+		ActionType:  "respond_proposal",
+		Description: "Propuesta de horario pendiente",
+	}
+}
+
+func (h *PublicHandler) findUnconfirmedScores(c *core.Record, playerPairIDs map[string]bool) []PendingAction {
+	confirmed, _ := h.app.FindRecordsByFilter("matches",
+		"competition = {:cid} && status = 'confirmed'",
+		"", 0, 0, map[string]any{"cid": c.Id})
+	var actions []PendingAction
+	for _, m := range confirmed {
+		p1 := m.GetString("pair1")
+		p2 := m.GetString("pair2")
+		if !playerPairIDs[p1] && !playerPairIDs[p2] {
+			continue
+		}
+		submitterTeam, _ := league.PlayerTeam(h.app, m.GetString("submitted_by"), m)
+		playerTeam := 1
+		if playerPairIDs[p2] {
+			playerTeam = 2
+		}
+		if submitterTeam == playerTeam {
+			continue
+		}
+		actions = append(actions, PendingAction{
+			MatchID:     m.Id,
+			Opponent:    h.opponentName(m, playerPairIDs),
+			ActionType:  "confirm_score",
+			Description: "Confirmar resultado: " + m.GetString("scores"),
+		})
+	}
+	return actions
+}
+
+func (h *PublicHandler) findRecentResults(c *core.Record) []RecentResult {
+	finals, _ := h.app.FindRecordsByFilter("matches",
+		"competition = {:cid} && status = 'final'",
+		"-updated", 5, 0, map[string]any{"cid": c.Id})
+	var results []RecentResult
+	for _, m := range finals {
+		p1 := m.GetString("pair1")
+		p2 := m.GetString("pair2")
+		p1Name, p2Name := "?", "?"
+		if pair, err := h.app.FindRecordById("pairs", p1); err == nil {
+			p1Name = pair.GetString("name")
+		}
+		if pair, err := h.app.FindRecordById("pairs", p2); err == nil {
+			p2Name = pair.GetString("name")
+		}
+		winnerName := ""
+		switch m.GetString("winner") {
+		case p1:
+			winnerName = p1Name
+		case p2:
+			winnerName = p2Name
+		}
+		results = append(results, RecentResult{
+			MatchID:         m.Id,
+			Pair1Name:       p1Name,
+			Pair2Name:       p2Name,
+			Score:           m.GetString("scores"),
+			WinnerName:      winnerName,
+			CompetitionName: c.GetString("name"),
+			UpdatedAt:       m.GetString("updated"),
+		})
+	}
+	return results
 }
 
 type RoundView struct {
