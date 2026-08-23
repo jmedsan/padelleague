@@ -365,7 +365,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	autoExpandRound := 0
 	for _, rv := range rounds {
 		for _, mv := range rv.Matches {
-			if mv.Match.GetString("status") != StatusFinal {
+			if mv.Match.GetString("status") != league.StatusFinal {
 				autoExpandRound = rv.RoundNumber
 				break
 			}

@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"padelleague/league"
 )
 
 func TestStatusLabel(t *testing.T) {
@@ -11,10 +13,10 @@ func TestStatusLabel(t *testing.T) {
 		status string
 		want   string
 	}{
-		{StatusPending, "Pendiente"},
-		{StatusConfirmed, "Enviado — esperando confirmación"},
-		{StatusDisputed, "En disputa"},
-		{StatusFinal, "Finalizado"},
+		{league.StatusPending, "Pendiente"},
+		{league.StatusConfirmed, "Enviado — esperando confirmación"},
+		{league.StatusDisputed, "En disputa"},
+		{league.StatusFinal, "Finalizado"},
 		{"unknown", "unknown"},
 	}
 
@@ -30,10 +32,10 @@ func TestStatusClass(t *testing.T) {
 		status string
 		want   string
 	}{
-		{StatusPending, "badge-warning"},
-		{StatusConfirmed, "badge-info"},
-		{StatusDisputed, "badge-error"},
-		{StatusFinal, "badge-success"},
+		{league.StatusPending, "badge-warning"},
+		{league.StatusConfirmed, "badge-info"},
+		{league.StatusDisputed, "badge-error"},
+		{league.StatusFinal, "badge-success"},
 		{"unknown", "badge-ghost"},
 	}
 

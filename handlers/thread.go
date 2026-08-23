@@ -125,13 +125,13 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 		isParticipant := myTeam != 0
 		canRespond := msgType == "scheduling_proposal" &&
 			status == "pending" &&
-			match.GetString("status") == StatusPending &&
+			match.GetString("status") == league.StatusPending &&
 			isParticipant &&
 			authorTeam != myTeam
 
 		canChangeDecision := msgType == "scheduling_proposal" &&
 			(status == "accepted" || status == "rejected") &&
-			match.GetString("status") == StatusPending &&
+			match.GetString("status") == league.StatusPending &&
 			isParticipant &&
 			authorTeam != myTeam
 
@@ -180,7 +180,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 
 	isParticipant := myTeam != 0
 	canPost := isParticipant
-	canPropose := canPost && match.GetString("status") == StatusPending
+	canPropose := canPost && match.GetString("status") == league.StatusPending
 
 	return h.renderPartial(e, "thread.html", map[string]any{
 		"MatchID":       matchID,
@@ -272,7 +272,7 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 		return alertError(e, "Partido no encontrado")
 	}
 
-	if match.GetString("status") != StatusPending {
+	if match.GetString("status") != league.StatusPending {
 		return alertError(e, "Solo se pueden proponer fechas para partidos pendientes")
 	}
 
@@ -357,7 +357,7 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 		return alertError(e, "Partido no encontrado")
 	}
 
-	if match.GetString("status") != StatusPending {
+	if match.GetString("status") != league.StatusPending {
 		return alertError(e, "Este partido ya no acepta propuestas")
 	}
 
@@ -472,7 +472,7 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 		return alertError(e, "Partido no encontrado")
 	}
 
-	if match.GetString("status") != StatusPending {
+	if match.GetString("status") != league.StatusPending {
 		return alertError(e, "Este partido ya no acepta cambios")
 	}
 
