@@ -7,6 +7,9 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/league"
+	"padelleague/notify"
 )
 
 func TestCheckQuorumTimeout_Expired(t *testing.T) {
@@ -23,14 +26,14 @@ func TestCheckQuorumTimeout_Expired(t *testing.T) {
 	match.Set("submitted_by", user.Id)
 	require.NoError(t, app.Save(match))
 
-	// Bypass autodate by updating submitted_at directly in DB
 	pastTime := time.Now().Add(-2 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
 	_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:t} WHERE id = {:id}").
 		Bind(map[string]any{"t": pastTime, "id": match.Id}).Execute()
 	require.NoError(t, err)
 
-	notifier := newTestNotifier(app)
-	CheckQuorumTimeout(app, notifier)
+	notifier := notify.NewNotifier(app, "", "")
+	svc := league.New(app, notifier)
+	svc.ConfirmStaleMatches()
 
 	fresh, findErr := app.FindRecordById("matches", match.Id)
 	require.NoError(t, findErr)
@@ -52,14 +55,14 @@ func TestCheckQuorumTimeout_NotExpired(t *testing.T) {
 	match.Set("submitted_by", user.Id)
 	require.NoError(t, app.Save(match))
 
-	// Bypass autodate — set submitted_at to 5 minutes ago (within timeout)
 	recentTime := time.Now().Add(-5 * time.Minute).UTC().Format("2006-01-02 15:04:05.000Z")
 	_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:t} WHERE id = {:id}").
 		Bind(map[string]any{"t": recentTime, "id": match.Id}).Execute()
 	require.NoError(t, err)
 
-	notifier := newTestNotifier(app)
-	CheckQuorumTimeout(app, notifier)
+	notifier := notify.NewNotifier(app, "", "")
+	svc := league.New(app, notifier)
+	svc.ConfirmStaleMatches()
 
 	fresh, findErr := app.FindRecordById("matches", match.Id)
 	require.NoError(t, findErr)

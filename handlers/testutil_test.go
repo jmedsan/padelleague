@@ -43,10 +43,6 @@ func newTestApp(t *testing.T) core.App {
 	return app
 }
 
-func newTestNotifier(app core.App) *Notifier {
-	return NewNotifier(app, "", "")
-}
-
 func makePair(t *testing.T, app core.App, name string) *core.Record {
 	t.Helper()
 	n := pairSeq.Add(1)
