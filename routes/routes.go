@@ -56,10 +56,6 @@ func Register(app core.App, se *core.ServeEvent, r *render.Renderer, notifier *h
 	adminGroup := se.Router.Group("/admin")
 	adminGroup.BindFunc(requireAuth)
 	adminGroup.BindFunc(middleware.RequireAppAdmin)
-	adminGroup.BindFunc(func(e *core.RequestEvent) error {
-		handlers.CheckQuorumTimeout(app, notifier)
-		return e.Next()
-	})
 	adminGroup.GET("", comp.Dashboard)
 	adminGroup.GET("/competitions", comp.Dashboard)
 	adminGroup.POST("/competitions", comp.Create)

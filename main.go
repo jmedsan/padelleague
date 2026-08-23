@@ -33,7 +33,7 @@ func main() {
 	r := render.New(viewsFS, cfg.VAPIDPublicKey)
 	notifier := handlers.NewNotifier(app, cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey)
 
-	hooks.Register(app)
+	hooks.Register(app, notifier)
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		seed.Run(app, seedUsers(cfg))
