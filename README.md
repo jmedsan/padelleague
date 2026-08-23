@@ -76,6 +76,8 @@ The `-v` flag persists the SQLite database between container restarts.
 | `APP_ADMIN_PASSWORD` | App-level admin user password |
 | `APP_PLAYER_EMAIL` | Seed player email (dev/test) |
 | `APP_PLAYER_PASSWORD` | Seed player password (dev/test) |
+| `APP_PLAYER_NAME` | Seed player display name (dev/test) |
+| `APP_ENV` | Environment: `dev` (default) or `prod` (skips player seed) |
 | `VAPID_PUBLIC_KEY` | Web push VAPID public key |
 | `VAPID_PRIVATE_KEY` | Web push VAPID private key |
 
@@ -84,16 +86,19 @@ The `-v` flag persists the SQLite database between container restarts.
 ```
 main.go              # Entry point, wires packages together
 config/              # Env-based configuration struct
-handlers/            # HTTP handlers (auth, match, admin, thread, push, etc.)
+league/              # Domain logic (scoring, standings, fixtures, awards, quorum)
+notify/              # Notification delivery (push, in-app, email)
+handlers/            # HTTP handlers (thin: parse request, call domain, render)
 hooks/               # PocketBase event hooks and cron jobs
 middleware/          # Cookie auth bridge, admin role check
 migrations/          # PocketBase schema migrations
 render/              # Template rendering helpers
-routes/              # Route registration
+routes/              # Route registration with Deps struct
 seed/                # Dev/test data seeding
 views/               # Go HTML templates (layout + pages + partials)
 static/              # CSS, JS, images, manifest.json, sw.js (PWA)
 frontend/            # Tailwind config + input CSS (build only)
+e2e/                 # Playwright end-to-end tests
 ```
 
 ## CI
