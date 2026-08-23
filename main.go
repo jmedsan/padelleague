@@ -37,7 +37,12 @@ func main() {
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		seed.Run(app, seedUsers(cfg))
-		routes.Register(app, se, r, notifier, staticFS)
+		routes.Register(se, routes.Deps{
+			App:      app,
+			Renderer: r,
+			Notifier: notifier,
+			StaticFS: staticFS,
+		})
 		return se.Next()
 	})
 
