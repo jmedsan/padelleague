@@ -9,6 +9,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,7 +19,7 @@ func TestHomeWithCompetitionData(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Home A", "Home B"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -55,10 +56,10 @@ func TestHomeWithCompetitionData(t *testing.T) {
 
 func TestCompetitionPageWithMatches(t *testing.T) {
 	s := &tests.ApiScenario{
-		Name:            "GET /competition/{id} with matches shows standings",
+		Name:            "GET /competition/{id} with matches shows pair names",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Comp A", "Comp B"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -83,6 +84,9 @@ func TestLogout(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/login", res.Header.Get("Location"))
+	}
 	s.Test(t)
 }
 
@@ -92,7 +96,7 @@ func TestForgotPasswordPage(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/forgot-password",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Restablecer contrasena"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -122,7 +126,7 @@ func TestResetPasswordPage(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/reset-password?token=test",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Nueva contrase"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -185,41 +189,68 @@ func TestRegisterSubmitValidInvite(t *testing.T) {
 		URL:            "/register",
 		ExpectedStatus: 302,
 	}
+	var inviteID, regEmail string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		admin := makeAdminUserTB(tb, app)
 		invite := makeInvitationTB(tb, app, admin.Id, time.Now().Add(24*time.Hour))
+		inviteID = invite.Id
 		token := invite.GetString("token")
 		n := userSeq.Add(1)
-		body := fmt.Sprintf("token=%s&email=reg%d@test.local&display_name=New+Player&password=testpass123456&password_confirm=testpass123456", token, n)
+		regEmail = fmt.Sprintf("reg%d@test.local", n)
+		body := fmt.Sprintf("token=%s&email=%s&display_name=New+Player&password=testpass123456&password_confirm=testpass123456", token, regEmail)
 		s.Body = strings.NewReader(body)
 		s.Headers = map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		users, err := app.FindRecordsByFilter("users",
+			"email = {:email}", "", 0, 0,
+			map[string]any{"email": regEmail})
+		require.NoError(tb, err)
+		require.Equal(tb, 1, len(users))
+		assert.Equal(tb, "New Player", users[0].GetString("display_name"))
+
+		inv, err := app.FindRecordById("invitations", inviteID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "used", inv.GetString("status"))
+
+		assert.Equal(tb, "/", res.Header.Get("Location"))
 	}
 	s.Test(t)
 }
 
 func TestAdminOverride(t *testing.T) {
 	s := &tests.ApiScenario{
-		Name:           "POST /match/{id}/admin-override changes score",
+		Name:           "POST /match/{id}/admin-override changes score and finalizes",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var matchID, p1ID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Override A")
 		p2 := makePairTB(tb, app, "Override B")
+		p1ID = p1.Id
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		matchID = m.Id
 		m.Set("scores", "6-3 6-4")
 		m.Set("submitted_by", p1.GetString("player1"))
 		require.NoError(tb, app.Save(m))
 
 		s.URL = "/match/" + m.Id + "/admin-override"
-		s.Body = strings.NewReader("scores=6-4+6-3&winner=" + p2.Id + "&dispute_notes=Corregido+por+admin")
+		s.Body = strings.NewReader("scores=6-4+6-3&dispute_notes=Corregido+por+admin")
 		admin := makeAdminUserTB(tb, app)
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "final", m.GetString("status"))
+		assert.Equal(tb, "6-4 6-3", m.GetString("scores"))
+		assert.Equal(tb, p1ID, m.GetString("winner"))
 	}
 	s.Test(t)
 }
