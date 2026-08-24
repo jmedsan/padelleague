@@ -230,50 +230,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	h.notifier.NotifyPlayers(rivalPlayers, "quorum_request", "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", match.Id)
 	notify.EmailNotifyPlayers(h.app, rivalPlayers, "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", "/match/"+match.Id)
 
-	return redirectHX(e, "/")
-}
-
-// MatchEdit allows the submitter to revise a pending score before confirmation.
-func (h *MatchHandler) MatchEdit(e *core.RequestEvent) error {
-	id := e.Request.PathValue("id")
-	match, err := h.app.FindRecordById("matches", id)
-	if err != nil {
-		return alertError(e, "Record no encontrado")
-	}
-
-	userID := e.Auth.Id
-	isAdmin := e.Auth.GetString("role") == "admin"
-	_, teamErr := league.PlayerTeam(h.app, userID, match)
-	if teamErr != nil && !isAdmin {
-		return alertError(e, "No eres participante de este partido")
-	}
-
-	if match.GetString("status") != league.StatusPending {
-		return alertError(e, "Solo se pueden editar partidos pendientes")
-	}
-
-	if date := e.Request.FormValue("date"); date != "" {
-		match.Set("date", date)
-	}
-	if t := e.Request.FormValue("time"); t != "" {
-		match.Set("time", t)
-	}
-	venue := e.Request.FormValue("venue")
-	if venue == "__other__" {
-		venue = e.Request.FormValue("custom_venue")
-	}
-	if venue != "" {
-		match.Set("club", venue)
-	}
-	if court := e.Request.FormValue("court_number"); court != "" {
-		match.Set("court_number", court)
-	}
-
-	if err := h.app.Save(match); err != nil {
-		return alertError(e, "Error al guardar los cambios")
-	}
-
-	return redirectHX(e, "/match/"+id)
+	return redirectHX(e, "/match/"+match.Id)
 }
 
 func (h *MatchHandler) createAdminTimelineEntry(matchID, adminID, content string) {
@@ -333,6 +290,7 @@ func (h *MatchHandler) detectChanges(e *core.RequestEvent, match *core.Record) (
 	changes = append(changes, detectFieldChange(match, "date", e.Request.FormValue("date"), "Fecha")...)
 	changes = append(changes, detectFieldChange(match, "time", e.Request.FormValue("time"), "Hora")...)
 	changes = append(changes, h.detectVenueChange(match, e.Request.FormValue("venue_id"))...)
+	changes = append(changes, detectFieldChange(match, "court_number", e.Request.FormValue("court_number"), "Pista")...)
 
 	return changes, nil
 }

@@ -301,3 +301,33 @@ func TestMatchSubmitAlreadyScored(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestAdminOverrideCourtNumber(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:           "POST /match/{id}/admin-override sets court_number",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Court A")
+		p2 := makePairTB(tb, app, "Court B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = m.Id
+
+		s.URL = "/match/" + m.Id + "/admin-override"
+		s.Body = strings.NewReader("court_number=5")
+		admin := makeAdminUserTB(tb, app)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "5", m.GetString("court_number"))
+	}
+	s.Test(t)
+}

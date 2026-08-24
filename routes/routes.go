@@ -136,7 +136,6 @@ func registerMatchRoutes(se *core.ServeEvent, deps Deps) {
 	se.Router.POST("/match/{id}/submit", match.MatchSubmit).BindFunc(requireAuth)
 	se.Router.POST("/match/{id}/confirm", match.MatchConfirm).BindFunc(requireAuth)
 	se.Router.POST("/match/{id}/dispute", match.MatchDispute).BindFunc(requireAuth)
-	se.Router.POST("/match/{id}/edit", match.MatchEdit).BindFunc(requireAuth)
 	se.Router.POST("/match/{id}/walkover", match.MatchWalkover).BindFunc(requireAuth)
 	se.Router.POST("/match/{id}/correct", match.MatchCorrect).BindFunc(requireAuth)
 	se.Router.POST("/match/{id}/admin-override", match.AdminOverride).BindFunc(requireAuth)
