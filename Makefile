@@ -43,7 +43,13 @@ fmt-check:
 	@test -z "$$(gofmt -l .)" || (echo "gofmt needed:" && gofmt -l . && exit 1)
 
 dead:
-	@deadcode ./... | tee /dev/stderr | (! grep -q .)
+	@out=$$(deadcode ./... 2>&1); \
+	if [ -n "$$out" ]; then \
+		echo "$$out"; \
+		echo "FAIL: dead code found, or deadcode could not analyse the tree"; \
+		exit 1; \
+	fi; \
+	echo "no dead code"
 
 ci: fmt-check lint dead test vuln
 	@echo "CI gate passed"
