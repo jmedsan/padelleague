@@ -1,3 +1,4 @@
+// Package render provides HTML template rendering helpers.
 package render
 
 import (

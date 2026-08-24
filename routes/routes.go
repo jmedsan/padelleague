@@ -1,3 +1,4 @@
+// Package routes registers all HTTP routes with their handlers.
 package routes
 
 import (

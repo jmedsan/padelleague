@@ -1,3 +1,4 @@
+// Package league implements domain logic for scoring, standings, fixtures, and awards.
 package league
 
 import "github.com/pocketbase/pocketbase/core"

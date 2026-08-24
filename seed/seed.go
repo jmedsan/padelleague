@@ -1,3 +1,4 @@
+// Package seed provides development and test data seeding.
 package seed
 
 import (
