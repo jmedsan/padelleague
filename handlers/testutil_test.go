@@ -286,8 +286,15 @@ func setupAllRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.BindFunc(requireAdminTest)
 	g.GET("", comp.Dashboard)
 	g.GET("/competitions/{id}", comp.Detail)
+	g.POST("/competitions", comp.Create)
+	g.POST("/competitions/{id}", comp.Update)
 	g.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
+	g.POST("/competitions/{id}/toggle", comp.Toggle)
+	g.POST("/competitions/{id}/pairs", comp.AddPair)
+	g.POST("/competitions/{id}/copy-pairs", comp.CopyPairs)
+	g.POST("/competitions/{id}/remove-pair", comp.RemovePair)
 	g.POST("/competitions/{id}/payment", comp.TogglePayment)
+	g.POST("/competitions/{id}/payment-all", comp.TogglePaymentAll)
 	g.POST("/competitions/{id}/penalty", comp.ApplyPenalty)
 }
 
