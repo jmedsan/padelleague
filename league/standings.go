@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/types"
 )
 
@@ -40,63 +41,75 @@ func (svc *Service) ComputeStandings(competitionID string) ([]StandingRowFull, e
 		"", 0, 0,
 		map[string]any{"cid": competitionID})
 
-	type stats struct {
-		wins, losses, setsWon, setsLost, gamesWon, gamesLost int
+	pairStats := tallyMatchStats(pairIDs, matches)
+	penaltyMap := parsePenalties(comp)
+	rows := buildStandingRows(pairIDs, pairNames, pairStats, penaltyMap)
+	sortStandings(rows, matches)
+
+	for i := range rows {
+		rows[i].Position = i + 1
 	}
-	pairStats := make(map[string]*stats, len(pairIDs))
+	return rows, nil
+}
+
+type pairStats struct {
+	wins, losses, setsWon, setsLost, gamesWon, gamesLost int
+}
+
+func tallyMatchStats(pairIDs []string, matches []*core.Record) map[string]*pairStats {
+	stats := make(map[string]*pairStats, len(pairIDs))
 	for _, pid := range pairIDs {
-		pairStats[pid] = &stats{}
+		stats[pid] = &pairStats{}
 	}
-
 	for _, m := range matches {
-		p1 := m.GetString("pair1")
-		p2 := m.GetString("pair2")
-		winner := m.GetString("winner")
-		score := m.GetString("scores")
+		tallyMatch(stats, m)
+	}
+	return stats
+}
 
-		s1, ok1 := pairStats[p1]
-		s2, ok2 := pairStats[p2]
-		if !ok1 || !ok2 {
-			continue
-		}
+func tallyMatch(stats map[string]*pairStats, m *core.Record) {
+	p1 := m.GetString("pair1")
+	p2 := m.GetString("pair2")
+	winner := m.GetString("winner")
+	score := m.GetString("scores")
 
-		if strings.EqualFold(strings.TrimSpace(score), "WO") {
-			switch winner {
-			case p1:
-				s1.wins++
-				s2.losses++
-			case p2:
-				s2.wins++
-				s1.losses++
-			}
-			continue
-		}
-
-		sc, err := ParseScore(score)
-		if err != nil {
-			continue
-		}
-
-		s1.setsWon += sc.Sets1
-		s1.setsLost += sc.Sets2
-		s1.gamesWon += sc.Games1
-		s1.gamesLost += sc.Games2
-
-		s2.setsWon += sc.Sets2
-		s2.setsLost += sc.Sets1
-		s2.gamesWon += sc.Games2
-		s2.gamesLost += sc.Games1
-
-		switch winner {
-		case p1:
-			s1.wins++
-			s2.losses++
-		case p2:
-			s2.wins++
-			s1.losses++
-		}
+	s1, ok1 := stats[p1]
+	s2, ok2 := stats[p2]
+	if !ok1 || !ok2 {
+		return
 	}
 
+	creditWin(s1, s2, winner, p1, p2)
+
+	if strings.EqualFold(strings.TrimSpace(score), "WO") {
+		return
+	}
+	sc, err := ParseScore(score)
+	if err != nil {
+		return
+	}
+	s1.setsWon += sc.Sets1
+	s1.setsLost += sc.Sets2
+	s1.gamesWon += sc.Games1
+	s1.gamesLost += sc.Games2
+	s2.setsWon += sc.Sets2
+	s2.setsLost += sc.Sets1
+	s2.gamesWon += sc.Games2
+	s2.gamesLost += sc.Games1
+}
+
+func creditWin(s1, s2 *pairStats, winner, p1, p2 string) {
+	switch winner {
+	case p1:
+		s1.wins++
+		s2.losses++
+	case p2:
+		s2.wins++
+		s1.losses++
+	}
+}
+
+func parsePenalties(comp *core.Record) map[string]float64 {
 	penaltyMap := map[string]float64{}
 	rawPen := comp.Get("penalty_points")
 	switch v := rawPen.(type) {
@@ -113,10 +126,13 @@ func (svc *Service) ComputeStandings(competitionID string) ([]StandingRowFull, e
 			}
 		}
 	}
+	return penaltyMap
+}
 
+func buildStandingRows(pairIDs []string, pairNames map[string]string, stats map[string]*pairStats, penaltyMap map[string]float64) []StandingRowFull {
 	rows := make([]StandingRowFull, 0, len(pairIDs))
 	for _, pid := range pairIDs {
-		s := pairStats[pid]
+		s := stats[pid]
 		penalty := int(penaltyMap[pid])
 		rows = append(rows, StandingRowFull{
 			PairID:    pid,
@@ -132,7 +148,10 @@ func (svc *Service) ComputeStandings(competitionID string) ([]StandingRowFull, e
 			Penalty:   penalty,
 		})
 	}
+	return rows
+}
 
+func sortStandings(rows []StandingRowFull, matches []*core.Record) {
 	sort.Slice(rows, func(i, j int) bool {
 		if rows[i].Points != rows[j].Points {
 			return rows[i].Points > rows[j].Points
@@ -147,26 +166,24 @@ func (svc *Service) ComputeStandings(competitionID string) ([]StandingRowFull, e
 		if gameDiffI != gameDiffJ {
 			return gameDiffI > gameDiffJ
 		}
-		h2hI, h2hJ := 0, 0
-		for _, m := range matches {
-			p1 := m.GetString("pair1")
-			p2 := m.GetString("pair2")
-			winner := m.GetString("winner")
-			if (p1 == rows[i].PairID && p2 == rows[j].PairID) || (p1 == rows[j].PairID && p2 == rows[i].PairID) {
-				switch winner {
-				case rows[i].PairID:
-					h2hI++
-				case rows[j].PairID:
-					h2hJ++
-				}
+		return headToHead(rows[i].PairID, rows[j].PairID, matches)
+	})
+}
+
+func headToHead(pairA, pairB string, matches []*core.Record) bool {
+	winsA, winsB := 0, 0
+	for _, m := range matches {
+		p1 := m.GetString("pair1")
+		p2 := m.GetString("pair2")
+		winner := m.GetString("winner")
+		if (p1 == pairA && p2 == pairB) || (p1 == pairB && p2 == pairA) {
+			switch winner {
+			case pairA:
+				winsA++
+			case pairB:
+				winsB++
 			}
 		}
-		return h2hI > h2hJ
-	})
-
-	for i := range rows {
-		rows[i].Position = i + 1
 	}
-
-	return rows, nil
+	return winsA > winsB
 }

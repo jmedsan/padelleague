@@ -41,17 +41,26 @@ func (svc *Service) Awards(competitionID string) []Award {
 		})
 	}
 
+	if a := svc.longestStreakAward(competitionID, standings); a != nil {
+		awards = append(awards, *a)
+	}
+
+	return awards
+}
+
+type streakInfo struct {
+	pairID  string
+	current int
+	best    int
+}
+
+func (svc *Service) longestStreakAward(competitionID string, standings []StandingRowFull) *Award {
 	matches, _ := svc.app.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'final'",
 		"", 0, 0,
 		map[string]any{"cid": competitionID})
 
-	type streakInfo struct {
-		pairID  string
-		current int
-		best    int
-	}
-	streaks := make(map[string]*streakInfo)
+	streaks := make(map[string]*streakInfo, len(standings))
 	for _, s := range standings {
 		streaks[s.PairID] = &streakInfo{pairID: s.PairID}
 	}
@@ -60,7 +69,6 @@ func (svc *Service) Awards(competitionID string) []Award {
 		p1 := m.GetString("pair1")
 		p2 := m.GetString("pair2")
 		winner := m.GetString("winner")
-
 		for _, pid := range []string{p1, p2} {
 			si, ok := streaks[pid]
 			if !ok {
@@ -77,10 +85,8 @@ func (svc *Service) Awards(competitionID string) []Award {
 		}
 	}
 
-	// Walk the standings rather than the streaks map: map iteration order is
-	// random, so a tie on the longest streak would otherwise award a different
-	// pair on each call. Standings order breaks the tie in favor of the better
-	// placed pair, deterministically.
+	// Walk standings (not the map) for deterministic tie-breaking in favor
+	// of the better-placed pair.
 	var longestPairID string
 	longestStreak := 0
 	for _, s := range standings {
@@ -94,14 +100,13 @@ func (svc *Service) Awards(competitionID string) []Award {
 		}
 	}
 
-	if longestStreak > 1 {
-		pairNames := PairNames(svc.app, []string{longestPairID})
-		awards = append(awards, Award{
-			Title:    "Mayor racha",
-			PairName: pairNames[longestPairID],
-			Value:    strconv.Itoa(longestStreak) + " victorias",
-		})
+	if longestStreak <= 1 {
+		return nil
 	}
-
-	return awards
+	pairNames := PairNames(svc.app, []string{longestPairID})
+	return &Award{
+		Title:    "Mayor racha",
+		PairName: pairNames[longestPairID],
+		Value:    strconv.Itoa(longestStreak) + " victorias",
+	}
 }

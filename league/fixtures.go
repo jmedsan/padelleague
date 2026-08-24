@@ -94,18 +94,22 @@ func (svc *Service) AdvancePlayoff(matchRecord *core.Record) error {
 	}
 
 	for i, nm := range nextMatches {
-		p1Idx := i * 2
-		p2Idx := i*2 + 1
-		if p1Idx < len(roundWinners) && roundWinners[p1Idx] != "" {
-			nm.Set("pair1", roundWinners[p1Idx])
-		}
-		if p2Idx < len(roundWinners) && roundWinners[p2Idx] != "" {
-			nm.Set("pair2", roundWinners[p2Idx])
-		}
+		seedNextMatch(nm, roundWinners, i)
 		if err := svc.app.Save(nm); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func seedNextMatch(nm *core.Record, winners []string, matchIdx int) {
+	p1Idx := matchIdx * 2
+	p2Idx := matchIdx*2 + 1
+	if p1Idx < len(winners) && winners[p1Idx] != "" {
+		nm.Set("pair1", winners[p1Idx])
+	}
+	if p2Idx < len(winners) && winners[p2Idx] != "" {
+		nm.Set("pair2", winners[p2Idx])
+	}
 }

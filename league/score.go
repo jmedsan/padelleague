@@ -34,36 +34,12 @@ func ParseScore(score string) (Score, error) {
 
 	var s Score
 	for _, part := range parts {
-		halves := strings.SplitN(part, "-", 2)
-		if len(halves) != 2 {
-			return Score{}, fmt.Errorf("invalid set format: %q", part)
-		}
-		g1, err1 := strconv.Atoi(strings.TrimSpace(halves[0]))
-		g2, err2 := strconv.Atoi(strings.TrimSpace(halves[1]))
-		if err1 != nil || err2 != nil {
-			return Score{}, fmt.Errorf("invalid score numbers in %q", part)
-		}
-		if g1 < 0 || g2 < 0 {
-			return Score{}, fmt.Errorf("negative numbers not allowed: %q", part)
+		g1, g2, err := parseSet(part)
+		if err != nil {
+			return Score{}, err
 		}
 		s.Games1 += g1
 		s.Games2 += g2
-		winner, loser := g1, g2
-		if g2 > g1 {
-			winner, loser = g2, g1
-		}
-		if g1 == g2 {
-			return Score{}, fmt.Errorf("tied set not allowed: %q", part)
-		}
-		if winner < 6 || winner > 7 {
-			return Score{}, fmt.Errorf("invalid set score: %q", part)
-		}
-		if winner == 7 && loser != 5 && loser != 6 {
-			return Score{}, fmt.Errorf("invalid set score: %q", part)
-		}
-		if winner == 6 && loser > 4 {
-			return Score{}, fmt.Errorf("invalid set score: %q", part)
-		}
 		if g1 > g2 {
 			s.Sets1++
 		} else {
@@ -80,6 +56,38 @@ func ParseScore(score string) (Score, error) {
 	}
 
 	return s, nil
+}
+
+func parseSet(part string) (int, int, error) {
+	halves := strings.SplitN(part, "-", 2)
+	if len(halves) != 2 {
+		return 0, 0, fmt.Errorf("invalid set format: %q", part)
+	}
+	g1, err1 := strconv.Atoi(strings.TrimSpace(halves[0]))
+	g2, err2 := strconv.Atoi(strings.TrimSpace(halves[1]))
+	if err1 != nil || err2 != nil {
+		return 0, 0, fmt.Errorf("invalid score numbers in %q", part)
+	}
+	if g1 < 0 || g2 < 0 {
+		return 0, 0, fmt.Errorf("negative numbers not allowed: %q", part)
+	}
+	if g1 == g2 {
+		return 0, 0, fmt.Errorf("tied set not allowed: %q", part)
+	}
+	winner, loser := g1, g2
+	if g2 > g1 {
+		winner, loser = g2, g1
+	}
+	if winner < 6 || winner > 7 {
+		return 0, 0, fmt.Errorf("invalid set score: %q", part)
+	}
+	if winner == 7 && loser != 5 && loser != 6 {
+		return 0, 0, fmt.Errorf("invalid set score: %q", part)
+	}
+	if winner == 6 && loser > 4 {
+		return 0, 0, fmt.Errorf("invalid set score: %q", part)
+	}
+	return g1, g2, nil
 }
 
 // DetermineWinner returns the pair ID of the match winner based on the score.
