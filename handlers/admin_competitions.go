@@ -178,7 +178,7 @@ func (h *CompetitionHandler) checkQuorumIssue(m *core.Record, base AdminIssue, q
 func (h *CompetitionHandler) checkPendingIssues(m *core.Record, base AdminIssue, now time.Time) []AdminIssue {
 	var issues []AdminIssue
 	if d := m.GetString("date"); d != "" {
-		if matchDate, err := time.Parse("2006-01-02", d); err == nil && matchDate.Before(now) {
+		if dt, err := types.ParseDateTime(d); err == nil && dt.Time().Before(now) {
 			issue := base
 			issue.Type = "overdue"
 			issue.TypeLabel = "Vencido"
