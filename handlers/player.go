@@ -11,21 +11,25 @@ import (
 	"padelleague/league"
 )
 
+// PlayerHandler serves player profile and head-to-head comparison pages.
 type PlayerHandler struct {
 	app             core.App
 	renderPage      func(e *core.RequestEvent, page string, data map[string]any) error
 	renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error
 }
 
+// NewPlayerHandler creates a PlayerHandler with the given dependencies.
 func NewPlayerHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error) *PlayerHandler {
 	return &PlayerHandler{app: app, renderPage: renderPage, renderErrorPage: renderErrorPage}
 }
 
+// PairInfo holds a pair record with the partner's display name.
 type PairInfo struct {
 	Pair    *core.Record
 	Partner string
 }
 
+// PlayerData bundles all statistics for a player's profile page.
 type PlayerData struct {
 	User             *core.Record
 	Pairs            []PairInfo
@@ -41,6 +45,7 @@ type PlayerData struct {
 	Recent           []RecentMatch
 }
 
+// CompetitionStat holds win/loss totals for one competition on a player's profile.
 type CompetitionStat struct {
 	Name   string
 	Wins   int
@@ -48,6 +53,7 @@ type CompetitionStat struct {
 	Played int
 }
 
+// RecentMatch holds a finalized match for the player's recent-results list.
 type RecentMatch struct {
 	MatchID   string
 	PairName1 string
@@ -57,6 +63,7 @@ type RecentMatch struct {
 	Date      string
 }
 
+// H2HData holds head-to-head statistics between two pairs.
 type H2HData struct {
 	Pair1Name string
 	Pair2Name string
@@ -68,6 +75,7 @@ type H2HData struct {
 	Recent    []RecentMatch
 }
 
+// Player renders the player profile page with stats and recent matches.
 func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	user, err := h.app.FindRecordById("users", id)
@@ -288,6 +296,7 @@ func (h *PlayerHandler) computeCompetitionStats(results []matchResult) []Competi
 	return compStats
 }
 
+// H2H renders the head-to-head comparison page between two pairs.
 func (h *PlayerHandler) H2H(e *core.RequestEvent) error {
 	p1 := e.Request.URL.Query().Get("p1")
 	p2 := e.Request.URL.Query().Get("p2")

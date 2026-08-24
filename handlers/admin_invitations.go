@@ -10,6 +10,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// InvitationsList renders the admin invitations page.
 func (h *AdminHandler) InvitationsList(e *core.RequestEvent) error {
 	invitations, _ := h.app.FindRecordsByFilter("invitations",
 		"id != ''", "", 0, 0, nil)
@@ -28,6 +29,7 @@ func (h *AdminHandler) InvitationsList(e *core.RequestEvent) error {
 	})
 }
 
+// InvitationsCreate generates a new invitation token with the given max uses.
 func (h *AdminHandler) InvitationsCreate(e *core.RequestEvent) error {
 	email := e.Request.FormValue("email")
 	competition := e.Request.FormValue("competition")
@@ -77,6 +79,7 @@ func (h *AdminHandler) InvitationsCreate(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/invitations")
 }
 
+// InvitationsRevoke deactivates an invitation so it can no longer be used.
 func (h *AdminHandler) InvitationsRevoke(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	invitation, err := h.app.FindRecordById("invitations", id)

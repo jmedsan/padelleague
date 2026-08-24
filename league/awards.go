@@ -2,12 +2,14 @@ package league
 
 import "strconv"
 
+// Award represents a competition award (e.g. best pair, longest streak).
 type Award struct {
 	Title    string
 	PairName string
 	Value    string
 }
 
+// Awards computes end-of-competition awards based on standings and match history.
 func (svc *Service) Awards(competitionID string) []Award {
 	standings, err := svc.ComputeStandings(competitionID)
 	if err != nil || len(standings) == 0 {

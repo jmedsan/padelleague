@@ -6,6 +6,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// Venues renders the admin venues management page.
 func (h *AdminHandler) Venues(e *core.RequestEvent) error {
 	venues, _ := h.app.FindRecordsByFilter("venues",
 		"id != ''", "name", 0, 0, nil)
@@ -15,6 +16,7 @@ func (h *AdminHandler) Venues(e *core.RequestEvent) error {
 	})
 }
 
+// VenuesCreate handles POST to add a new venue.
 func (h *AdminHandler) VenuesCreate(e *core.RequestEvent) error {
 	name := e.Request.FormValue("name")
 	if name == "" {
@@ -39,6 +41,7 @@ func (h *AdminHandler) VenuesCreate(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/venues")
 }
 
+// VenuesUpdate handles POST to modify an existing venue.
 func (h *AdminHandler) VenuesUpdate(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	record, err := h.app.FindRecordById("venues", id)
@@ -58,6 +61,7 @@ func (h *AdminHandler) VenuesUpdate(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/venues")
 }
 
+// VenuesDelete handles POST to remove a venue.
 func (h *AdminHandler) VenuesDelete(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	record, err := h.app.FindRecordById("venues", id)

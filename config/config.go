@@ -3,6 +3,7 @@ package config
 
 import "github.com/caarlos0/env/v11"
 
+// Config holds all environment-parsed settings for the application.
 type Config struct {
 	VAPIDPublicKey  string `env:"VAPID_PUBLIC_KEY"`
 	VAPIDPrivateKey string `env:"VAPID_PRIVATE_KEY"`
@@ -22,6 +23,7 @@ type Config struct {
 	AppEnv string `env:"APP_ENV" envDefault:"dev"`
 }
 
+// Load parses environment variables into a Config struct.
 func Load() (Config, error) {
 	return env.ParseAs[Config]()
 }

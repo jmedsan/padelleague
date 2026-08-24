@@ -7,6 +7,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// RequireAppAdmin redirects non-admin users to the home page.
 func RequireAppAdmin(e *core.RequestEvent) error {
 	if e.Auth == nil || e.Auth.GetString("role") != "admin" {
 		return e.Redirect(http.StatusFound, "/")

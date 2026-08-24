@@ -9,6 +9,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/types"
 )
 
+// StandingRowFull holds a pair's full standings row including all tiebreaker fields.
 type StandingRowFull struct {
 	Position  int
 	PairID    string
@@ -24,6 +25,7 @@ type StandingRowFull struct {
 	Penalty   int
 }
 
+// ComputeStandings calculates ranked standings for a competition.
 func (svc *Service) ComputeStandings(competitionID string) ([]StandingRowFull, error) {
 	comp, err := svc.app.FindRecordById("competitions", competitionID)
 	if err != nil {

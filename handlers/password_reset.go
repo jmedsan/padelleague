@@ -10,19 +10,23 @@ import (
 	"padelleague/notify"
 )
 
+// PasswordResetHandler handles forgot-password and reset-password flows.
 type PasswordResetHandler struct {
 	app        core.App
 	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
 }
 
+// NewPasswordResetHandler creates a PasswordResetHandler with the given dependencies.
 func NewPasswordResetHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *PasswordResetHandler {
 	return &PasswordResetHandler{app: app, renderPage: renderPage}
 }
 
+// ForgotPassword renders the forgot-password form.
 func (h *PasswordResetHandler) ForgotPassword(e *core.RequestEvent) error {
 	return h.renderPage(e, "forgot-password.html", nil)
 }
 
+// ForgotPasswordSubmit sends a password-reset email if the address exists.
 func (h *PasswordResetHandler) ForgotPasswordSubmit(e *core.RequestEvent) error {
 	email := e.Request.FormValue("email")
 
@@ -42,6 +46,7 @@ func (h *PasswordResetHandler) ForgotPasswordSubmit(e *core.RequestEvent) error 
 	return alertSuccess(e, "Si el email está registrado, recibirás un enlace para restablecer tu contraseña.")
 }
 
+// ResetPassword renders the reset-password form with the token from the URL.
 func (h *PasswordResetHandler) ResetPassword(e *core.RequestEvent) error {
 	token := e.Request.URL.Query().Get("token")
 	return h.renderPage(e, "reset-password.html", map[string]any{
@@ -49,6 +54,7 @@ func (h *PasswordResetHandler) ResetPassword(e *core.RequestEvent) error {
 	})
 }
 
+// ResetPasswordSubmit processes the new password and confirms the token.
 func (h *PasswordResetHandler) ResetPasswordSubmit(e *core.RequestEvent) error {
 	token := e.Request.FormValue("token")
 	password := e.Request.FormValue("password")

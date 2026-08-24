@@ -11,6 +11,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/types"
 )
 
+// Notifier delivers in-app and push notifications to players.
 type Notifier struct {
 	app             core.App
 	vapidPublicKey  string
@@ -18,6 +19,7 @@ type Notifier struct {
 	httpClient      *http.Client
 }
 
+// NewNotifier creates a Notifier with the given VAPID keys for web push.
 func NewNotifier(app core.App, vapidPublicKey, vapidPrivateKey string) *Notifier {
 	return &Notifier{
 		app:             app,
@@ -27,10 +29,12 @@ func NewNotifier(app core.App, vapidPublicKey, vapidPrivateKey string) *Notifier
 	}
 }
 
+// PushEnabled reports whether VAPID keys are configured for web push.
 func (n *Notifier) PushEnabled() bool {
 	return n.vapidPublicKey != "" && n.vapidPrivateKey != ""
 }
 
+// NotifyPlayers creates an in-app notification and sends a push for each player.
 func (n *Notifier) NotifyPlayers(playerUserIDs []string, notifType, title, body, relatedMatchID string) {
 	notifCol, err := n.app.FindCollectionByNameOrId("notifications")
 	if err != nil {
@@ -63,6 +67,7 @@ func (n *Notifier) NotifyPlayers(playerUserIDs []string, notifType, title, body,
 	}
 }
 
+// NotifyAdmins creates an in-app notification and sends a push for each admin user.
 func (n *Notifier) NotifyAdmins(notifType, title, body, relatedMatchID string) error {
 	notifCol, err := n.app.FindCollectionByNameOrId("notifications")
 	if err != nil {
@@ -147,6 +152,7 @@ func (n *Notifier) sendPush(userID, title, body, relatedMatchID string) {
 	}
 }
 
+// GetNotificationPrefs returns the user's notification preferences with defaults applied.
 func GetNotificationPrefs(user *core.Record) map[string]any {
 	defaults := map[string]any{
 		"quorum_request": true,

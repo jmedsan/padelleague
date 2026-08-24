@@ -11,6 +11,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/security"
 )
 
+// Players renders the admin players management page.
 func (h *AdminHandler) Players(e *core.RequestEvent) error {
 	players, _ := h.app.FindRecordsByFilter("users",
 		"id != ''", "display_name", 0, 0, nil)
@@ -24,6 +25,7 @@ func (h *AdminHandler) Players(e *core.RequestEvent) error {
 	})
 }
 
+// PlayerUpdate handles POST to update a player's display name or role.
 func (h *AdminHandler) PlayerUpdate(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	user, err := h.app.FindRecordById("users", id)
@@ -49,6 +51,7 @@ func (h *AdminHandler) PlayerUpdate(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/players")
 }
 
+// PlayerPreCreate creates a placeholder user account for a player not yet registered.
 func (h *AdminHandler) PlayerPreCreate(e *core.RequestEvent) error {
 	email := e.Request.FormValue("email")
 	displayName := e.Request.FormValue("display_name")

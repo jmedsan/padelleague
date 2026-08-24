@@ -10,15 +10,18 @@ import (
 	"padelleague/notify"
 )
 
+// PushHandler handles web push subscription and unsubscription.
 type PushHandler struct {
 	app      core.App
 	notifier *notify.Notifier
 }
 
+// NewPushHandler creates a PushHandler with the given dependencies.
 func NewPushHandler(app core.App, notifier *notify.Notifier) *PushHandler {
 	return &PushHandler{app: app, notifier: notifier}
 }
 
+// Enabled reports whether push notifications are configured.
 func (h *PushHandler) Enabled() bool {
 	return h.notifier.PushEnabled()
 }
@@ -31,6 +34,7 @@ type pushSubscribeRequest struct {
 	} `json:"keys"`
 }
 
+// Subscribe registers a browser push subscription for the current user.
 func (h *PushHandler) Subscribe(e *core.RequestEvent) error {
 	var req pushSubscribeRequest
 	if err := e.BindBody(&req); err != nil {
@@ -72,6 +76,7 @@ func (h *PushHandler) Subscribe(e *core.RequestEvent) error {
 	return e.NoContent(http.StatusNoContent)
 }
 
+// Unsubscribe removes a browser push subscription for the current user.
 func (h *PushHandler) Unsubscribe(e *core.RequestEvent) error {
 	var req struct {
 		Endpoint string `json:"endpoint"`

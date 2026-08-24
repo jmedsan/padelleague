@@ -2,16 +2,19 @@ package league
 
 import "github.com/pocketbase/pocketbase/core"
 
+// Round groups matches for a single round of play.
 type Round struct {
 	Number  int
 	Matches []RoundMatch
 }
 
+// RoundMatch pairs home and away pair IDs for a single fixture.
 type RoundMatch struct {
 	Home string
 	Away string
 }
 
+// RoundRobin generates a round-robin schedule for the given pair IDs.
 func RoundRobin(pairIDs []string, double bool) []Round {
 	n := len(pairIDs)
 	if n < 2 {
@@ -56,6 +59,7 @@ func RoundRobin(pairIDs []string, double bool) []Round {
 	return rounds
 }
 
+// AdvancePlayoff seeds winners of the current round into the next playoff round.
 func (svc *Service) AdvancePlayoff(matchRecord *core.Record) error {
 	compID := matchRecord.GetString("competition")
 	comp, err := svc.app.FindRecordById("competitions", compID)

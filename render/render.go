@@ -10,12 +10,14 @@ import (
 	"github.com/pocketbase/pocketbase/tools/template"
 )
 
+// Renderer renders HTML templates with auth context injected.
 type Renderer struct {
 	registry       *template.Registry
 	viewsFS        fs.FS
 	vapidPublicKey string
 }
 
+// New creates a Renderer backed by the given views filesystem.
 func New(viewsFS fs.FS, vapidPublicKey string) *Renderer {
 	return &Renderer{
 		registry:       template.NewRegistry(),
@@ -42,6 +44,7 @@ func (r *Renderer) withAuth(e *core.RequestEvent, data map[string]any) {
 	}
 }
 
+// Page renders a full page within the site layout.
 func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) error {
 	if data == nil {
 		data = map[string]any{}
@@ -54,6 +57,7 @@ func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) 
 	return e.HTML(http.StatusOK, html)
 }
 
+// ErrorPage renders an error page with the given status code and message.
 func (r *Renderer) ErrorPage(e *core.RequestEvent, statusCode int, message string) error {
 	data := map[string]any{"ErrorMessage": message}
 	r.withAuth(e, data)
@@ -65,6 +69,7 @@ func (r *Renderer) ErrorPage(e *core.RequestEvent, statusCode int, message strin
 	return e.HTML(statusCode, html)
 }
 
+// Partial renders an HTML fragment without the site layout.
 func (r *Renderer) Partial(e *core.RequestEvent, page string, data map[string]any) error {
 	if data == nil {
 		data = map[string]any{}

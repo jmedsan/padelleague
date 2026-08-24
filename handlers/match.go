@@ -15,6 +15,7 @@ import (
 	"padelleague/notify"
 )
 
+// MatchHandler handles match detail, score submission, and correction flows.
 type MatchHandler struct {
 	app             core.App
 	notifier        *notify.Notifier
@@ -22,10 +23,12 @@ type MatchHandler struct {
 	renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error
 }
 
+// NewMatchHandler creates a MatchHandler with the given dependencies.
 func NewMatchHandler(app core.App, notifier *notify.Notifier, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error) *MatchHandler {
 	return &MatchHandler{app: app, notifier: notifier, renderPage: renderPage, renderErrorPage: renderErrorPage}
 }
 
+// MatchView holds a match record with display-ready fields and permission flags.
 type MatchView struct {
 	Record        *core.Record
 	Pair1Name     string
@@ -43,6 +46,7 @@ type MatchView struct {
 	StatusClass   string
 }
 
+// MatchDetailData bundles a MatchView with competition context for the detail page.
 type MatchDetailData struct {
 	Match           MatchView
 	CompetitionName string
@@ -123,6 +127,7 @@ func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNam
 	}
 }
 
+// MatchDetail renders the match page with score, status, and available actions.
 func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
@@ -195,6 +200,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	})
 }
 
+// MatchSubmit processes a score submission from one of the participating pairs.
 func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
@@ -247,6 +253,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	return redirectHX(e, "/")
 }
 
+// MatchEdit allows the submitter to revise a pending score before confirmation.
 func (h *MatchHandler) MatchEdit(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
@@ -304,6 +311,7 @@ func (h *MatchHandler) createAdminTimelineEntry(matchID, adminID, content string
 	}
 }
 
+// AdminOverride lets an admin set the final score, bypassing the normal flow.
 func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)

@@ -9,6 +9,7 @@ import (
 	"padelleague/notify"
 )
 
+// DisputeView holds a disputed match with resolved pair and player names.
 type DisputeView struct {
 	Match        *core.Record
 	Pair1Name    string
@@ -18,6 +19,7 @@ type DisputeView struct {
 	DisputeNotes string
 }
 
+// Disputes renders the admin disputes page listing all disputed matches.
 func (h *AdminHandler) Disputes(e *core.RequestEvent) error {
 	matches, _ := h.app.FindRecordsByFilter("matches",
 		"status = 'disputed'", "", 0, 0, nil)
@@ -42,6 +44,7 @@ func (h *AdminHandler) Disputes(e *core.RequestEvent) error {
 	})
 }
 
+// DisputesResolve handles POST to resolve a disputed match with the admin's chosen score.
 func (h *AdminHandler) DisputesResolve(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)

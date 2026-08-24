@@ -12,16 +12,19 @@ import (
 	"padelleague/league"
 )
 
+// FixtureHandler handles fixture generation for competitions.
 type FixtureHandler struct {
 	app        core.App
 	leagueSvc  *league.Service
 	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
 }
 
+// NewFixtureHandler creates a FixtureHandler with the given dependencies.
 func NewFixtureHandler(app core.App, leagueSvc *league.Service, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *FixtureHandler {
 	return &FixtureHandler{app: app, leagueSvc: leagueSvc, renderPage: renderPage}
 }
 
+// GenerateFixtures creates round-robin or playoff matches for a competition.
 func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 	compID := e.Request.PathValue("id")
 	confirm := e.Request.URL.Query().Get("confirm") == "true"

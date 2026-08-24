@@ -12,6 +12,7 @@ import (
 	"padelleague/notify"
 )
 
+// MatchConfirm handles the opponent's confirmation of a submitted score.
 func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
@@ -69,6 +70,7 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 	return redirectHX(e, "/match/"+id)
 }
 
+// MatchDispute handles the opponent disputing a submitted score.
 func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
@@ -180,6 +182,7 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	return redirectHX(e, "/match/"+id)
 }
 
+// MatchWalkover records a walkover win when the opponent does not show up.
 func (h *MatchHandler) MatchWalkover(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
