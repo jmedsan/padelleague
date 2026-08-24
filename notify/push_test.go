@@ -50,12 +50,14 @@ func makeSubscription(t *testing.T, app core.App, userID, endpoint string) *core
 }
 
 func TestNewNotifier_HTTPClientTimeout(t *testing.T) {
+	t.Parallel()
 	n := NewNotifier(nil, "pub", "priv")
 	assert.Equal(t, 10*time.Second, n.httpClient.Timeout,
 		"a missing timeout would let a hung push service block the sender")
 }
 
 func TestSendPush_NoVAPIDKeysSendsNothing(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	srv, hits := pushServer(t, http.StatusCreated)
 	user := makeUser(t, app, "player")
@@ -74,6 +76,7 @@ func TestSendPush_NoVAPIDKeysSendsNothing(t *testing.T) {
 }
 
 func TestSendPush_NoSubscriptionsSendsNothing(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	srv, hits := pushServer(t, http.StatusCreated)
 	priv, pub := vapidKeys(t)
@@ -88,6 +91,7 @@ func TestSendPush_NoSubscriptionsSendsNothing(t *testing.T) {
 }
 
 func TestSendPush_DeliversToSubscription(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	srv, hits := pushServer(t, http.StatusCreated)
 	priv, pub := vapidKeys(t)
@@ -104,6 +108,7 @@ func TestSendPush_DeliversToSubscription(t *testing.T) {
 // A push service reports a dead subscription with 410 Gone or 404 Not Found;
 // both must prune the record so we stop sending to it.
 func TestSendPush_PrunesDeadSubscriptions(t *testing.T) {
+	t.Parallel()
 	for name, status := range map[string]int{
 		"410 Gone":      http.StatusGone,
 		"404 Not Found": http.StatusNotFound,
@@ -125,6 +130,7 @@ func TestSendPush_PrunesDeadSubscriptions(t *testing.T) {
 }
 
 func TestSendPush_KeepsSubscriptionOnOtherErrors(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	srv, hits := pushServer(t, http.StatusInternalServerError)
 	priv, pub := vapidKeys(t)
@@ -139,6 +145,7 @@ func TestSendPush_KeepsSubscriptionOnOtherErrors(t *testing.T) {
 }
 
 func TestSendPush_UsesConfiguredSenderAsSubscriber(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	var gotAuth atomic.Value
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -9,6 +9,7 @@ import (
 )
 
 func TestAwards_Basic(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -37,6 +38,7 @@ func TestAwards_Basic(t *testing.T) {
 }
 
 func TestAwards_NoMatches(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -50,6 +52,7 @@ func TestAwards_NoMatches(t *testing.T) {
 }
 
 func TestAwards_InvalidCompetition(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -58,6 +61,7 @@ func TestAwards_InvalidCompetition(t *testing.T) {
 }
 
 func TestAwards_NoStreak(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -98,6 +102,7 @@ func awardByTitle(t *testing.T, awards []Award, title string) Award {
 // "Más partidos" must name the pair that actually played most, even when that
 // pair sits last in the standings.
 func TestAwards_MostPlayedIsNotTheLeader(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -133,6 +138,7 @@ func TestAwards_MostPlayedIsNotTheLeader(t *testing.T) {
 // On a tie for most played the first pair in standings order keeps the award;
 // a >= comparison would hand it to the last one scanned instead.
 func TestAwards_MostPlayedTieKeepsStandingsLeader(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -167,6 +173,7 @@ func TestAwards_MostPlayedTieKeepsStandingsLeader(t *testing.T) {
 
 // The streak must be credited to the winner, not the loser.
 func TestAwards_StreakBelongsToWinner(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -196,6 +203,7 @@ func TestAwards_StreakBelongsToWinner(t *testing.T) {
 // Two pairs on an equal longest streak must award the better placed one, and
 // must do so on every call — iterating the streaks map made this random.
 func TestAwards_StreakTieIsDeterministic(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 

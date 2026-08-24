@@ -7,6 +7,7 @@ import (
 )
 
 func TestParseScore(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		score   string
@@ -66,12 +67,14 @@ func TestParseScore(t *testing.T) {
 }
 
 func TestDetermineWinner_WalkoverError(t *testing.T) {
+	t.Parallel()
 	_, err := DetermineWinner(nil, "WO")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "walkover")
 }
 
 func TestDetermineWinner_InvalidScore(t *testing.T) {
+	t.Parallel()
 	_, err := DetermineWinner(nil, "invalid")
 	assert.Error(t, err)
 }

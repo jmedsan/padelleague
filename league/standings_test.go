@@ -9,6 +9,7 @@ import (
 )
 
 func TestComputeStandings_Basic(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -39,6 +40,7 @@ func TestComputeStandings_Basic(t *testing.T) {
 }
 
 func TestComputeStandings_Walkover(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -58,6 +60,7 @@ func TestComputeStandings_Walkover(t *testing.T) {
 }
 
 func TestComputeStandings_Penalties(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -80,6 +83,7 @@ func TestComputeStandings_Penalties(t *testing.T) {
 }
 
 func TestComputeStandings_Tiebreakers(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -116,6 +120,7 @@ func TestComputeStandings_Tiebreakers(t *testing.T) {
 }
 
 func TestComputeStandings_WalkoverPair2Wins(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -140,6 +145,7 @@ func TestComputeStandings_WalkoverPair2Wins(t *testing.T) {
 }
 
 func TestComputeStandings_PenaltyStoredAsJSONText(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -169,6 +175,7 @@ func TestComputeStandings_PenaltyStoredAsJSONText(t *testing.T) {
 }
 
 func TestComputeStandings_SetDiffTiebreaker(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -197,6 +204,7 @@ func TestComputeStandings_SetDiffTiebreaker(t *testing.T) {
 }
 
 func TestComputeStandings_GameDiffTiebreaker(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -225,6 +233,7 @@ func TestComputeStandings_GameDiffTiebreaker(t *testing.T) {
 }
 
 func TestComputeStandings_InvalidCompetition(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -233,6 +242,7 @@ func TestComputeStandings_InvalidCompetition(t *testing.T) {
 }
 
 func TestComputeStandings_ThreeSets(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -277,6 +287,7 @@ func rowByName(t *testing.T, rows []StandingRowFull, name string) StandingRowFul
 // Head-to-head is the last tiebreaker: two pairs level on points, set
 // difference and game difference must be split by who beat whom.
 func TestComputeStandings_HeadToHeadBreaksFullTie(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -318,6 +329,7 @@ func TestComputeStandings_HeadToHeadBreaksFullTie(t *testing.T) {
 
 // Set difference outranks game difference, and is computed as won minus lost.
 func TestComputeStandings_SetDiffOutranksGameDiff(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -351,6 +363,7 @@ func TestComputeStandings_SetDiffOutranksGameDiff(t *testing.T) {
 // Win and loss counters must be credited to the right side, in both the
 // normal and the walkover path.
 func TestComputeStandings_WinLossCounters(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -384,6 +397,7 @@ func TestComputeStandings_WinLossCounters(t *testing.T) {
 // A head-to-head that is level (one win each) resolves nothing, so the two
 // pairs must keep their existing order rather than being reshuffled.
 func TestComputeStandings_SplitHeadToHeadLeavesOrderAlone(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -414,6 +428,7 @@ func TestComputeStandings_SplitHeadToHeadLeavesOrderAlone(t *testing.T) {
 // the loser. A comparator that treats them as equal would leave the input
 // order untouched and silently rank the wrong pair first.
 func TestComputeStandings_HeadToHeadOverridesInputOrder(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 

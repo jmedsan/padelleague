@@ -40,6 +40,7 @@ func makeMatchRound(t *testing.T, app core.App, compID, p1ID, p2ID string, round
 }
 
 func TestAdvancePlayoff_AdvancesWinners(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -81,6 +82,7 @@ func TestAdvancePlayoff_AdvancesWinners(t *testing.T) {
 }
 
 func TestAdvancePlayoff_NotAllFinished(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -112,6 +114,7 @@ func TestAdvancePlayoff_NotAllFinished(t *testing.T) {
 }
 
 func TestAdvancePlayoff_LeagueIgnored(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -129,6 +132,7 @@ func TestAdvancePlayoff_LeagueIgnored(t *testing.T) {
 }
 
 func TestAdvancePlayoff_NoNextRound(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -151,6 +155,7 @@ func TestAdvancePlayoff_NoNextRound(t *testing.T) {
 // first semi, winners 2 and 3 the second. Indexing the winners by anything
 // other than i*2 / i*2+1 puts the wrong pair through.
 func TestAdvancePlayoff_PairsWinnersTwoPerNextMatch(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -190,6 +195,7 @@ func TestAdvancePlayoff_PairsWinnersTwoPerNextMatch(t *testing.T) {
 // has no winner to take, so the bounds check must stop it rather than read
 // past the end of the winners slice.
 func TestAdvancePlayoff_StopsAtEndOfWinners(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -238,6 +244,7 @@ func mustMatch(t *testing.T, app core.App, compID string, round int) *core.Recor
 // all. p1Idx lands exactly on len(roundWinners), so the bounds check is the
 // only thing stopping a read past the end.
 func TestAdvancePlayoff_SecondNextMatchHasNoWinnersLeft(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
 

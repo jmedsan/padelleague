@@ -14,6 +14,7 @@ import (
 )
 
 func TestRegisterWithValidToken(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /register?token=valid shows form with email",
 		Method:          http.MethodGet,
@@ -30,6 +31,7 @@ func TestRegisterWithValidToken(t *testing.T) {
 }
 
 func TestRegisterWithExpiredToken(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /register?token=expired shows invalid",
 		Method:          http.MethodGet,
@@ -46,6 +48,7 @@ func TestRegisterWithExpiredToken(t *testing.T) {
 }
 
 func TestPlayerProfileWithMatches(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /player/{id} with match history shows stats",
 		Method:          http.MethodGet,
@@ -91,6 +94,7 @@ func TestPlayerProfileWithMatches(t *testing.T) {
 }
 
 func TestThreadWithMessages(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /match/{id}/thread with messages renders them",
 		Method:          http.MethodGet,
@@ -135,6 +139,7 @@ func TestThreadWithMessages(t *testing.T) {
 }
 
 func TestThreadMessagesWithData(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /match/{id}/thread-messages with messages",
 		Method:          http.MethodGet,
@@ -175,6 +180,7 @@ func TestThreadMessagesWithData(t *testing.T) {
 }
 
 func TestProposalChangeDecision(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST change-decision reverts accepted to rejected",
 		Method:         http.MethodPost,
@@ -213,6 +219,7 @@ func TestProposalChangeDecision(t *testing.T) {
 }
 
 func TestHomeWithScheduledMatch(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET / with pending proposal and scheduled match",
 		Method:          http.MethodGet,
@@ -252,6 +259,7 @@ func TestHomeWithScheduledMatch(t *testing.T) {
 }
 
 func TestRegisterSubmitPasswordMismatch(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /register with mismatched passwords",
 		Method:          http.MethodPost,
@@ -271,6 +279,7 @@ func TestRegisterSubmitPasswordMismatch(t *testing.T) {
 }
 
 func TestAdminCompetitionDetailWithData(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /admin/competitions/{id} with matches and disputes",
 		Method:          http.MethodGet,

@@ -12,6 +12,7 @@ import (
 )
 
 func TestAdminCompDetailWithPenalties(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /admin/competitions/{id} with penalties/seeding/payment",
 		Method:          http.MethodGet,
@@ -51,6 +52,7 @@ func TestAdminCompDetailWithPenalties(t *testing.T) {
 }
 
 func TestAdminOverrideWithDateChange(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /match/{id}/admin-override changes date and time",
 		Method:         http.MethodPost,
@@ -88,6 +90,7 @@ func TestAdminOverrideWithDateChange(t *testing.T) {
 }
 
 func TestAdminOverrideNoChanges(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /match/{id}/admin-override with no changes warns",
 		Method:          http.MethodPost,
@@ -112,6 +115,7 @@ func TestAdminOverrideNoChanges(t *testing.T) {
 }
 
 func TestAdminOverrideNonAdmin(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /match/{id}/admin-override as player fails",
 		Method:          http.MethodPost,
@@ -136,6 +140,7 @@ func TestAdminOverrideNonAdmin(t *testing.T) {
 }
 
 func TestForgotPasswordSubmitWithUser(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /forgot-password with existing user",
 		Method:          http.MethodPost,
@@ -153,6 +158,7 @@ func TestForgotPasswordSubmitWithUser(t *testing.T) {
 }
 
 func TestMatchConfirmSameTeam(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /match/{id}/confirm by submitter team fails",
 		Method:          http.MethodPost,
@@ -178,6 +184,7 @@ func TestMatchConfirmSameTeam(t *testing.T) {
 }
 
 func TestMatchWalkoverWrongStatus(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /match/{id}/walkover on non-pending fails",
 		Method:          http.MethodPost,
@@ -202,6 +209,7 @@ func TestMatchWalkoverWrongStatus(t *testing.T) {
 }
 
 func TestGeneratePlayoffFixtures(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /admin/competitions/{id}/generate for playoff",
 		Method:         http.MethodPost,
@@ -231,6 +239,7 @@ func TestGeneratePlayoffFixtures(t *testing.T) {
 }
 
 func TestGenerateLeagueFixtures(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /admin/competitions/{id}/generate for league",
 		Method:         http.MethodPost,
@@ -259,6 +268,7 @@ func TestGenerateLeagueFixtures(t *testing.T) {
 }
 
 func TestGenerateFixturesRegenerate(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /admin/competitions/{id}/generate with existing matches warns",
 		Method:          http.MethodPost,
@@ -279,6 +289,7 @@ func TestGenerateFixturesRegenerate(t *testing.T) {
 }
 
 func TestMatchSubmitAlreadyScored(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /match/{id}/submit on non-pending fails",
 		Method:          http.MethodPost,
@@ -303,6 +314,7 @@ func TestMatchSubmitAlreadyScored(t *testing.T) {
 }
 
 func TestAdminOverrideCourtNumber(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /match/{id}/admin-override sets court_number",
 		Method:         http.MethodPost,

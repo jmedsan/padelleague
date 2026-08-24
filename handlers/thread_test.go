@@ -8,6 +8,7 @@ import (
 )
 
 func TestParseProposalData_ValidJSON(t *testing.T) {
+	t.Parallel()
 	raw := `{"date":"2026-10-15","time":"19:30","venue_id":"abc123","venue_name":"Padel 360","venue_text":""}`
 	pd := ParseProposalData(raw)
 	require.NotNil(t, pd)
@@ -18,6 +19,7 @@ func TestParseProposalData_ValidJSON(t *testing.T) {
 }
 
 func TestParseProposalData_Map(t *testing.T) {
+	t.Parallel()
 	raw := map[string]any{
 		"date":       "2026-11-01",
 		"time":       "20:00",
@@ -32,16 +34,19 @@ func TestParseProposalData_Map(t *testing.T) {
 }
 
 func TestParseProposalData_Nil(t *testing.T) {
+	t.Parallel()
 	pd := ParseProposalData(nil)
 	assert.Nil(t, pd)
 }
 
 func TestParseProposalData_EmptyString(t *testing.T) {
+	t.Parallel()
 	pd := ParseProposalData("")
 	assert.Nil(t, pd)
 }
 
 func TestParseProposalData_Malformed(t *testing.T) {
+	t.Parallel()
 	pd := ParseProposalData("not json")
 	assert.Nil(t, pd)
 }

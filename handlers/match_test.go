@@ -9,6 +9,7 @@ import (
 )
 
 func TestStatusLabel(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		status string
 		want   string
@@ -28,6 +29,7 @@ func TestStatusLabel(t *testing.T) {
 }
 
 func TestStatusClass(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		status string
 		want   string

@@ -10,6 +10,7 @@ import (
 )
 
 func TestComputeStandings_Points(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 
 	p1 := makePair(t, app, "Pair A")
@@ -37,6 +38,7 @@ func TestComputeStandings_Points(t *testing.T) {
 }
 
 func TestComputeStandings_SetDiffTiebreaker(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 
 	p1 := makePair(t, app, "Pair A")
@@ -60,6 +62,7 @@ func TestComputeStandings_SetDiffTiebreaker(t *testing.T) {
 }
 
 func TestComputeStandings_WO(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 
 	p1 := makePair(t, app, "Pair A")
@@ -87,6 +90,7 @@ func TestComputeStandings_WO(t *testing.T) {
 }
 
 func TestComputeStandings_Penalty(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 
 	p1 := makePair(t, app, "Pair A")

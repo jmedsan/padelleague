@@ -9,6 +9,7 @@ import (
 )
 
 func TestParseScore(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		score   string

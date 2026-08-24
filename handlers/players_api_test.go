@@ -15,6 +15,7 @@ import (
 )
 
 func TestPlayerPreCreate(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /admin/players/pre-create creates player with password link",
 		Method:          http.MethodPost,
@@ -34,6 +35,7 @@ func TestPlayerPreCreate(t *testing.T) {
 }
 
 func TestPlayerUpdate(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /admin/players/{id} updates player",
 		Method:         http.MethodPost,
@@ -60,6 +62,7 @@ func TestPlayerUpdate(t *testing.T) {
 }
 
 func TestPairsCreate(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /admin/pairs creates pair",
 		Method:         http.MethodPost,
@@ -80,6 +83,7 @@ func TestPairsCreate(t *testing.T) {
 }
 
 func TestPairsUpdate(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /admin/pairs/{id} updates pair",
 		Method:         http.MethodPost,
@@ -99,6 +103,7 @@ func TestPairsUpdate(t *testing.T) {
 }
 
 func TestVenuesCreate(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /admin/venues creates venue",
 		Method:         http.MethodPost,
@@ -117,6 +122,7 @@ func TestVenuesCreate(t *testing.T) {
 }
 
 func TestVenuesUpdate(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /admin/venues/{id} updates venue",
 		Method:         http.MethodPost,
@@ -136,6 +142,7 @@ func TestVenuesUpdate(t *testing.T) {
 }
 
 func TestVenuesDelete(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /admin/venues/{id}/delete removes venue",
 		Method:         http.MethodPost,
@@ -159,6 +166,7 @@ func TestVenuesDelete(t *testing.T) {
 }
 
 func TestInvitationsRevoke(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /admin/invitations/{id}/revoke removes invitation",
 		Method:         http.MethodPost,
@@ -182,6 +190,7 @@ func TestInvitationsRevoke(t *testing.T) {
 }
 
 func TestPlayerProfileCompetitionStatsSortedDeterministic(t *testing.T) {
+	t.Parallel()
 	names := []string{"Zebra Cup", "Alpha League", "Middle Tournament"}
 	sorted := []string{"Alpha League", "Middle Tournament", "Zebra Cup"}
 

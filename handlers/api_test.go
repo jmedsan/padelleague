@@ -12,6 +12,7 @@ import (
 )
 
 func TestLoginPage(t *testing.T) {
+	t.Parallel()
 	scenario := tests.ApiScenario{
 		Name:            "GET /login returns login page",
 		Method:          http.MethodGet,
@@ -24,6 +25,7 @@ func TestLoginPage(t *testing.T) {
 }
 
 func TestLoginWrongCreds(t *testing.T) {
+	t.Parallel()
 	scenario := tests.ApiScenario{
 		Name:            "POST /login with wrong creds shows error",
 		Method:          http.MethodPost,
@@ -38,6 +40,7 @@ func TestLoginWrongCreds(t *testing.T) {
 }
 
 func TestRegisterPage(t *testing.T) {
+	t.Parallel()
 	scenario := tests.ApiScenario{
 		Name:            "GET /register returns register page",
 		Method:          http.MethodGet,
@@ -50,6 +53,7 @@ func TestRegisterPage(t *testing.T) {
 }
 
 func TestLoginValidCreds(t *testing.T) {
+	t.Parallel()
 	scenario := tests.ApiScenario{
 		Name:   "POST /login with valid creds redirects to home",
 		Method: http.MethodPost,
@@ -71,6 +75,7 @@ func TestLoginValidCreds(t *testing.T) {
 }
 
 func TestHomeWithoutAuth(t *testing.T) {
+	t.Parallel()
 	scenario := tests.ApiScenario{
 		Name:           "GET / without auth redirects to login",
 		Method:         http.MethodGet,
@@ -87,6 +92,7 @@ func TestHomeWithoutAuth(t *testing.T) {
 }
 
 func TestNotificationCount(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:               "GET /notifications/count returns 200",
 		Method:             http.MethodGet,
@@ -103,6 +109,7 @@ func TestNotificationCount(t *testing.T) {
 }
 
 func TestNotificationList(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /notifications/list returns page",
 		Method:          http.MethodGet,
@@ -119,6 +126,7 @@ func TestNotificationList(t *testing.T) {
 }
 
 func TestMatchDetail(t *testing.T) {
+	t.Parallel()
 	var matchID string
 	s := &tests.ApiScenario{
 		Name:            "GET /match/{id} with auth returns match page",
@@ -141,6 +149,7 @@ func TestMatchDetail(t *testing.T) {
 }
 
 func TestMatchDetailWithoutAuth(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "GET /match/{id} without auth redirects to login",
 		Method:         http.MethodGet,
@@ -157,6 +166,7 @@ func TestMatchDetailWithoutAuth(t *testing.T) {
 }
 
 func TestAdminDashboard(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /admin with admin auth returns dashboard",
 		Method:          http.MethodGet,
@@ -173,6 +183,7 @@ func TestAdminDashboard(t *testing.T) {
 }
 
 func TestAdminDashboardNonAdmin(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "GET /admin with non-admin redirects to login",
 		Method:         http.MethodGet,
@@ -191,6 +202,7 @@ func TestAdminDashboardNonAdmin(t *testing.T) {
 }
 
 func TestAdminCompetitionDetail(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /admin/competitions/{id} returns detail",
 		Method:          http.MethodGet,
@@ -209,6 +221,7 @@ func TestAdminCompetitionDetail(t *testing.T) {
 }
 
 func TestPlayerProfile(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /player/{id} returns profile with display name",
 		Method:          http.MethodGet,
@@ -225,6 +238,7 @@ func TestPlayerProfile(t *testing.T) {
 }
 
 func TestMatchSubmitValidScore(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /match/{id}/submit with valid score",
 		Method:         http.MethodPost,
