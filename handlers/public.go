@@ -191,23 +191,27 @@ func (h *PublicHandler) buildNextMatch(m *core.Record, c *core.Record, playerPai
 		"match = {:mid} && type = 'scheduling_proposal' && proposal_status != 'rejected' && proposal_status != 'superseded'",
 		"-created", 1, 0, map[string]any{"mid": m.Id})
 	if len(proposals) > 0 {
-		prop := proposals[0]
-		pd := ParseProposalData(prop.GetString("proposal_data"))
-		if prop.GetString("proposal_status") == "accepted" {
-			nm.ScheduleStatus = "confirmed"
-		} else {
-			nm.ScheduleStatus = "proposed"
-		}
-		if pd != nil {
-			nm.ProposedDate = pd.Date + " " + pd.Time
-			if pd.VenueName != "" {
-				nm.ProposedVenue = pd.VenueName
-			} else if pd.VenueText != "" {
-				nm.ProposedVenue = pd.VenueText
-			}
-		}
+		applyProposalToNextMatch(nm, proposals[0])
 	}
 	return nm
+}
+
+func applyProposalToNextMatch(nm *NextMatch, prop *core.Record) {
+	pd := ParseProposalData(prop.GetString("proposal_data"))
+	if prop.GetString("proposal_status") == "accepted" {
+		nm.ScheduleStatus = "confirmed"
+	} else {
+		nm.ScheduleStatus = "proposed"
+	}
+	if pd == nil {
+		return
+	}
+	nm.ProposedDate = pd.Date + " " + pd.Time
+	if pd.VenueName != "" {
+		nm.ProposedVenue = pd.VenueName
+	} else if pd.VenueText != "" {
+		nm.ProposedVenue = pd.VenueText
+	}
 }
 
 func (h *PublicHandler) checkPendingProposal(m *core.Record, playerPairIDs map[string]bool) *PendingAction {
@@ -343,49 +347,8 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	}
 	pairNames := league.PairNames(h.app, pairIDSlice)
 
-	roundMap := map[int][]RoundMatchView{}
-	for _, m := range matches {
-		rn := int(m.GetFloat("round_number"))
-		p1 := m.GetString("pair1")
-		p2 := m.GetString("pair2")
-		roundMap[rn] = append(roundMap[rn], RoundMatchView{
-			Match:     m,
-			Pair1:     pairNames[p1],
-			Pair2:     pairNames[p2],
-			IsMyMatch: playerPairIDs[p1] || playerPairIDs[p2],
-		})
-	}
-
-	for rn, matches := range roundMap {
-		sort.SliceStable(matches, func(i, j int) bool {
-			return matches[i].IsMyMatch && !matches[j].IsMyMatch
-		})
-		roundMap[rn] = matches
-	}
-
-	roundNums := make([]int, 0, len(roundMap))
-	for rn := range roundMap {
-		roundNums = append(roundNums, rn)
-	}
-	sort.Ints(roundNums)
-
-	rounds := make([]RoundView, 0, len(roundNums))
-	for _, rn := range roundNums {
-		rounds = append(rounds, RoundView{RoundNumber: rn, Matches: roundMap[rn]})
-	}
-
-	autoExpandRound := 0
-	for _, rv := range rounds {
-		for _, mv := range rv.Matches {
-			if mv.Match.GetString("status") != league.StatusFinal {
-				autoExpandRound = rv.RoundNumber
-				break
-			}
-		}
-		if autoExpandRound > 0 {
-			break
-		}
-	}
+	rounds := buildRounds(matches, pairNames, playerPairIDs)
+	autoExpandRound := firstIncompleteRound(rounds)
 
 	var standings []league.StandingRowFull
 	hasPenalties := false
@@ -413,4 +376,46 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		"AutoExpandRound": autoExpandRound,
 		"HasPenalties":    hasPenalties,
 	})
+}
+
+func buildRounds(matches []*core.Record, pairNames map[string]string, playerPairIDs map[string]bool) []RoundView {
+	roundMap := map[int][]RoundMatchView{}
+	for _, m := range matches {
+		rn := int(m.GetFloat("round_number"))
+		p1 := m.GetString("pair1")
+		p2 := m.GetString("pair2")
+		roundMap[rn] = append(roundMap[rn], RoundMatchView{
+			Match:     m,
+			Pair1:     pairNames[p1],
+			Pair2:     pairNames[p2],
+			IsMyMatch: playerPairIDs[p1] || playerPairIDs[p2],
+		})
+	}
+	for rn, ms := range roundMap {
+		sort.SliceStable(ms, func(i, j int) bool {
+			return ms[i].IsMyMatch && !ms[j].IsMyMatch
+		})
+		roundMap[rn] = ms
+	}
+	roundNums := make([]int, 0, len(roundMap))
+	for rn := range roundMap {
+		roundNums = append(roundNums, rn)
+	}
+	sort.Ints(roundNums)
+	rounds := make([]RoundView, 0, len(roundNums))
+	for _, rn := range roundNums {
+		rounds = append(rounds, RoundView{RoundNumber: rn, Matches: roundMap[rn]})
+	}
+	return rounds
+}
+
+func firstIncompleteRound(rounds []RoundView) int {
+	for _, rv := range rounds {
+		for _, mv := range rv.Matches {
+			if mv.Match.GetString("status") != league.StatusFinal {
+				return rv.RoundNumber
+			}
+		}
+	}
+	return 0
 }

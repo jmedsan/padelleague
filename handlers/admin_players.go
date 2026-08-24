@@ -78,25 +78,7 @@ func (h *AdminHandler) PlayerPreCreate(e *core.RequestEvent) error {
 		return alertError(e, "Error al crear usuario")
 	}
 
-	inviteToken, err := generateInviteToken()
-	if err != nil {
-		return alertError(e, "Error al generar invitación")
-	}
-
-	invCol, err := h.app.FindCollectionByNameOrId("invitations")
-	if err != nil {
-		return alertError(e, "Error interno")
-	}
-
-	invite := core.NewRecord(invCol)
-	invite.Set("token", inviteToken)
-	invite.Set("email", email)
-	invite.Set("created_by", e.Auth.Id)
-	invite.Set("expires_at", time.Now().Add(2*24*time.Hour).UTC().Format("2006-01-02 15:04:05.000Z"))
-	invite.Set("status", "pending")
-
-	if err := h.app.Save(invite); err != nil {
-		slog.Error("create invitation failed", "err", err)
+	if err := h.createPlayerInvitation(email, e.Auth.Id); err != nil {
 		return alertError(e, "Error al crear invitación")
 	}
 
@@ -118,6 +100,28 @@ func (h *AdminHandler) PlayerPreCreate(e *core.RequestEvent) error {
 		</div>
 	</div>
 </div>`, html.EscapeString(email), html.EscapeString(resetURL)))
+}
+
+func (h *AdminHandler) createPlayerInvitation(email, createdBy string) error {
+	inviteToken, err := generateInviteToken()
+	if err != nil {
+		return fmt.Errorf("generate invite: %w", err)
+	}
+	invCol, err := h.app.FindCollectionByNameOrId("invitations")
+	if err != nil {
+		return fmt.Errorf("invitations collection: %w", err)
+	}
+	invite := core.NewRecord(invCol)
+	invite.Set("token", inviteToken)
+	invite.Set("email", email)
+	invite.Set("created_by", createdBy)
+	invite.Set("expires_at", time.Now().Add(2*24*time.Hour).UTC().Format("2006-01-02 15:04:05.000Z"))
+	invite.Set("status", "pending")
+	if err := h.app.Save(invite); err != nil {
+		slog.Error("create invitation failed", "err", err)
+		return fmt.Errorf("save invitation: %w", err)
+	}
+	return nil
 }
 
 func buildResetURL(e *core.RequestEvent, token string) string {
