@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -135,11 +136,8 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	if err != nil && !isAdmin {
 		return alertError(e, "No eres participante de este partido")
 	}
-	if !isAdmin {
-		submitterTeam, err := league.PlayerTeam(h.app, submittedByID, match)
-		if err != nil || myTeam != submitterTeam {
-			return alertError(e, "Solo el equipo que envió el resultado puede corregirlo")
-		}
+	if err := h.validateCorrectionPermission(isAdmin, myTeam, submittedByID, match); err != nil {
+		return alertError(e, err.Error())
 	}
 
 	submittedAt := match.GetString("submitted_at")
@@ -180,6 +178,17 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	h.notifier.NotifyPlayers(rivalPlayers, "quorum_request", "Resultado corregido", "El rival ha corregido el resultado. Confirma o disputa.", match.Id)
 
 	return redirectHX(e, "/match/"+id)
+}
+
+func (h *MatchHandler) validateCorrectionPermission(isAdmin bool, myTeam int, submittedByID string, match *core.Record) error {
+	if isAdmin {
+		return nil
+	}
+	submitterTeam, err := league.PlayerTeam(h.app, submittedByID, match)
+	if err != nil || myTeam != submitterTeam {
+		return fmt.Errorf("Solo el equipo que envió el resultado puede corregirlo")
+	}
+	return nil
 }
 
 // MatchWalkover records a walkover win when the opponent does not show up.
