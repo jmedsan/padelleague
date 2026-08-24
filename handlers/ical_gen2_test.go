@@ -63,7 +63,7 @@ func TestICalMatch_Duration2Hours(t *testing.T) {
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		s.Headers = authHeaders(tb, user)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events), "expected exactly one VEVENT")
@@ -99,7 +99,7 @@ func TestICalMatch_DefaultTime1900(t *testing.T) {
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		s.Headers = authHeaders(tb, user)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events))
@@ -133,7 +133,7 @@ func TestICalMatch_LocationFromClub(t *testing.T) {
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		s.Headers = authHeaders(tb, user)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events))
@@ -166,7 +166,7 @@ func TestICalMatch_NoLocationWhenNoClub(t *testing.T) {
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		s.Headers = authHeaders(tb, user)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		assert.NotContains(tb, body, "LOCATION:")
 	}
@@ -196,7 +196,7 @@ func TestICalMatch_DescriptionIncludesCompName(t *testing.T) {
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		s.Headers = authHeaders(tb, user)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events))
@@ -274,7 +274,7 @@ func TestICalCompetition_MatchAppearsOnceWhenPlayerInBothPairs(t *testing.T) {
 		s.URL = "/ical/competition/" + comp.Id
 		s.Headers = authHeaders(tb, user)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		events := parseVEvents(body)
 		assert.Equal(tb, 1, len(events), "match between player's two pairs should appear exactly once")
@@ -312,7 +312,7 @@ func TestICalCompetition_DatelessMatchExcluded(t *testing.T) {
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		s.Headers = authHeaders(tb, user)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		events := parseVEvents(body)
 		assert.Equal(tb, 1, len(events), "only the dated match should produce a VEVENT")
@@ -343,7 +343,7 @@ func TestICalMatch_TruncatesLongDate(t *testing.T) {
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		s.Headers = authHeaders(tb, user)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events))
