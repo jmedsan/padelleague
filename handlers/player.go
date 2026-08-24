@@ -304,6 +304,9 @@ func (h *PlayerHandler) computeCompetitionStats(results []matchResult) []Competi
 	for _, cs := range compStatsMap {
 		compStats = append(compStats, *cs)
 	}
+	sort.Slice(compStats, func(i, j int) bool {
+		return compStats[i].Name < compStats[j].Name
+	})
 	return compStats
 }
 
