@@ -42,6 +42,20 @@ test.describe('competition lifecycle', () => {
     expect(count).toBeGreaterThan(0);
   });
 
+  test('h2h comparison form navigates with pair params', async ({ page }) => {
+    const data = loadTestData();
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/competition/${data.competitionId}`);
+    await page.selectOption('select[name="p1"]', data.pair1Id);
+    await page.selectOption('select[name="p2"]', data.pair2Id);
+    await page.getByRole('button', { name: 'Comparar' }).click();
+    await page.waitForLoadState('networkidle');
+    await expect(page).toHaveURL(/\/h2h\?p1=.*&p2=.*/);
+    await expect(page.getByRole('heading', { name: 'Cara a cara' })).toBeVisible();
+    await expect(page.getByText('Pareja Alpha').first()).toBeVisible();
+    await expect(page.getByText('Pareja Beta').first()).toBeVisible();
+  });
+
   test('admin can view competition detail', async ({ page }) => {
     const data = loadTestData();
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
