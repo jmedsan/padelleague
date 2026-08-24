@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -450,23 +449,8 @@ func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 
 func (h *CompetitionHandler) getPenaltyMap(comp *core.Record) map[string]float64 {
 	penalties := make(map[string]float64)
-	raw := comp.Get("penalty_points")
-	if raw == nil {
-		return penalties
-	}
-	switch v := raw.(type) {
-	case string:
-		if v != "" {
-			if err := json.Unmarshal([]byte(v), &penalties); err != nil {
-				slog.Warn("unmarshal penalty_points", "err", err)
-			}
-		}
-	case map[string]any:
-		for k, val := range v {
-			if f, ok := val.(float64); ok {
-				penalties[k] = f
-			}
-		}
+	if err := comp.UnmarshalJSONField("penalty_points", &penalties); err != nil {
+		slog.Warn("unmarshal penalty_points", "err", err)
 	}
 	return penalties
 }
@@ -685,23 +669,8 @@ func (h *CompetitionHandler) TogglePaymentAll(e *core.RequestEvent) error {
 
 func (h *CompetitionHandler) getPaymentStatus(comp *core.Record) map[string]bool {
 	status := make(map[string]bool)
-	raw := comp.Get("payment_status")
-	if raw == nil {
-		return status
-	}
-	switch v := raw.(type) {
-	case string:
-		if v != "" {
-			if err := json.Unmarshal([]byte(v), &status); err != nil {
-				slog.Warn("unmarshal payment_status", "err", err)
-			}
-		}
-	case map[string]any:
-		for k, val := range v {
-			if b, ok := val.(bool); ok {
-				status[k] = b
-			}
-		}
+	if err := comp.UnmarshalJSONField("payment_status", &status); err != nil {
+		slog.Warn("unmarshal payment_status", "err", err)
 	}
 	return status
 }
