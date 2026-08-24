@@ -1,7 +1,11 @@
 package notify
 
 import (
+	"errors"
 	"testing"
+
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/mailer"
 
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
@@ -56,6 +60,26 @@ func TestEmailNotifyPlayers_InvalidUser(t *testing.T) {
 	EmailNotifyPlayers(app, []string{"nonexistent"}, "Test", "Body", "")
 
 	assert.Equal(t, 0, app.TestMailer.TotalSend())
+}
+
+// failingMailer replaces the TestMailer so the send-error branch runs.
+type failingMailer struct{}
+
+func (failingMailer) Send(*mailer.Message) error { return errors.New("smtp refused") }
+
+func TestSendEmail_SendFailureIsContained(t *testing.T) {
+	app := newTestApp(t)
+	enableSMTP(t, app)
+	app.OnMailerSend().BindFunc(func(e *core.MailerEvent) error {
+		e.Mailer = failingMailer{}
+		return e.Next()
+	})
+
+	// A failing transport must not panic or propagate; it is logged and dropped.
+	assert.NotPanics(t, func() {
+		SendEmail(app, "player@test.local", "Asunto", "<p>Cuerpo</p>")
+	})
+	assert.Equal(t, 0, app.TestMailer.TotalSend(), "the failing mailer replaced TestMailer")
 }
 
 func TestSendEmail_Sends(t *testing.T) {

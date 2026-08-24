@@ -141,6 +141,10 @@ func TestNotifyAdmins_CreatesNotification(t *testing.T) {
 		"user = {:uid}", "", 0, 0, map[string]any{"uid": admin.Id})
 	require.Len(t, notifs, 1)
 	assert.Equal(t, "Dispute", notifs[0].GetString("title"))
+	assert.Equal(t, "dispute", notifs[0].GetString("type"))
+	assert.Equal(t, "A dispute was filed", notifs[0].GetString("body"))
+	assert.Equal(t, match.Id, notifs[0].GetString("related_match"),
+		"the admin notification must link back to the match")
 }
 
 func TestGetNotificationPrefs_NilReturnsDefaults(t *testing.T) {
