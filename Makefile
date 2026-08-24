@@ -51,7 +51,25 @@ dead:
 	fi; \
 	echo "no dead code"
 
-ci: fmt-check lint dead test vuln
+invariants:
+	@fail=0; \
+	n=$$(grep -rn 'err\.Error()' handlers/ --include='*.go' | grep -v _test.go | wc -l); \
+	if [ "$$n" != "0" ]; then \
+		echo "FAIL: $$n use(s) of err.Error() in handlers/ — raw errors must not reach the UI (R-19)"; \
+		grep -rn 'err\.Error()' handlers/ --include='*.go' | grep -v _test.go; fail=1; \
+	fi; \
+	n=$$(grep -rln '^\t"log"$$' --include='*.go' . | grep -v '_test.go' | grep -v '^\./main\.go$$' | wc -l); \
+	if [ "$$n" != "0" ]; then \
+		echo "FAIL: standard log imported outside main.go — use log/slog (R-19)"; \
+		grep -rln '^\t"log"$$' --include='*.go' . | grep -v '_test.go' | grep -v '^\./main\.go$$'; fail=1; \
+	fi; \
+	if ! grep -q 'slog.Info("startup"' main.go; then \
+		echo "FAIL: startup config log line missing from main.go (R-19)"; fail=1; \
+	fi; \
+	if [ "$$fail" != "0" ]; then exit 1; fi; \
+	echo "invariants hold"
+
+ci: fmt-check lint dead invariants test vuln
 	@echo "CI gate passed"
 
 e2e:
