@@ -49,12 +49,20 @@ func TestMarkReadNotification(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var notifID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupNotifRoutes(tb, app, e)
 		user := makeUserTB(tb, app, "Notif Reader", "")
 		n := makeNotification(t, app, user.Id, "Test", "Body", false)
+		notifID = n.Id
 		s.URL = "/notifications/" + n.Id + "/read"
 		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		n, err := app.FindRecordById("notifications", notifID)
+		require.NoError(tb, err)
+		assert.Equal(tb, true, n.GetBool("read"))
+		assert.Equal(tb, "/", res.Header.Get("HX-Redirect"))
 	}
 	s.Test(t)
 }
@@ -66,23 +74,39 @@ func TestMarkAllReadNotifications(t *testing.T) {
 		URL:            "/notifications/read-all",
 		ExpectedStatus: 204,
 	}
+	var userID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupNotifRoutes(tb, app, e)
 		user := makeUserTB(tb, app, "Notif Bulk", "")
+		userID = user.Id
 		makeNotification(t, app, user.Id, "N1", "Body1", false)
 		makeNotification(t, app, user.Id, "N2", "Body2", false)
 		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		unread, err := app.FindRecordsByFilter("notifications",
+			"user = {:uid} && read = false", "", 0, 0,
+			map[string]any{"uid": userID})
+		require.NoError(tb, err)
+		assert.Equal(tb, 0, len(unread), "all notifications must be marked read")
+		assert.Equal(tb, "/", res.Header.Get("HX-Redirect"))
 	}
 	s.Test(t)
 }
 
 func TestNotificationPrefsPage(t *testing.T) {
 	s := &tests.ApiScenario{
-		Name:            "GET /profile/notifications returns prefs page",
-		Method:          http.MethodGet,
-		URL:             "/profile/notifications",
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		Name:           "GET /profile/notifications returns prefs page with toggles",
+		Method:         http.MethodGet,
+		URL:            "/profile/notifications",
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			`name="general"`,
+			`name="quorum_request"`,
+			`name="dispute"`,
+			`name="match_assigned"`,
+			`name="scheduling"`,
+		},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupNotifRoutes(tb, app, e)
@@ -158,12 +182,24 @@ func TestPushSubscribeHTTPS(t *testing.T) {
 		Body:           strings.NewReader(`{"endpoint":"https://push.example.com/sub","keys":{"p256dh":"key1","auth":"key2"}}`),
 		ExpectedStatus: 204,
 	}
+	var userID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupNotifRoutes(tb, app, e)
 		user := makeUserTB(tb, app, "Push User", "")
+		userID = user.Id
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/json"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		subs, err := app.FindRecordsByFilter("push_subscriptions",
+			"user = {:uid}", "", 0, 0,
+			map[string]any{"uid": userID})
+		require.NoError(tb, err)
+		require.Equal(tb, 1, len(subs))
+		assert.Equal(tb, "https://push.example.com/sub", subs[0].GetString("endpoint"))
+		assert.Equal(tb, "key1", subs[0].GetString("p256dh"))
+		assert.Equal(tb, "key2", subs[0].GetString("auth"))
 	}
 	s.Test(t)
 }
@@ -195,10 +231,11 @@ func TestPushUnsubscribe(t *testing.T) {
 		Body:           strings.NewReader(`{"endpoint":"https://push.example.com/sub"}`),
 		ExpectedStatus: 204,
 	}
+	var userID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupNotifRoutes(tb, app, e)
 		user := makeUserTB(tb, app, "Unsub User", "")
-		// Create a subscription first
+		userID = user.Id
 		col, err := app.FindCollectionByNameOrId("push_subscriptions")
 		require.NoError(tb, err)
 		rec := core.NewRecord(col)
@@ -211,6 +248,13 @@ func TestPushUnsubscribe(t *testing.T) {
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/json"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		subs, err := app.FindRecordsByFilter("push_subscriptions",
+			"user = {:uid}", "", 0, 0,
+			map[string]any{"uid": userID})
+		require.NoError(tb, err)
+		assert.Equal(tb, 0, len(subs), "subscription must be deleted")
 	}
 	s.Test(t)
 }
