@@ -31,6 +31,12 @@ linters:
         linters:
           - funlen
           - gocognit
+      # Scenario and table-driven tests are linear by design; complexity
+      # limits push toward indirection that hurts readability.
+      - path: _test\.go$
+        linters:
+          - funlen
+          - gocognit
 
 formatters:
   enable:
