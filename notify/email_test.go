@@ -3,8 +3,21 @@ package notify
 import (
 	"testing"
 
+	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+// enableSMTP flips the app into "mailer configured" mode. tests.TestApp binds
+// OnMailerSend to its TestMailer, so nothing leaves the process.
+func enableSMTP(t *testing.T, app *tests.TestApp) {
+	t.Helper()
+	app.Settings().SMTP.Enabled = true
+	app.Settings().SMTP.Host = "smtp.test.local"
+	app.Settings().SMTP.Port = 587
+	require.NoError(t, app.Save(app.Settings()))
+	require.True(t, IsMailerConfigured(app))
+}
 
 func TestBuildNotificationEmail_Basic(t *testing.T) {
 	html := BuildNotificationEmail("Juan", "Tu partido ha sido confirmado", "")
@@ -30,10 +43,72 @@ func TestBuildNotificationEmail_EscapesHTML(t *testing.T) {
 func TestEmailNotifyPlayers_NoSMTP(t *testing.T) {
 	app := newTestApp(t)
 	user := makeUser(t, app, "player")
+
 	EmailNotifyPlayers(app, []string{user.Id}, "Test", "Body", "")
+
+	assert.Equal(t, 0, app.TestMailer.TotalSend(), "nothing may be sent while SMTP is off")
 }
 
 func TestEmailNotifyPlayers_InvalidUser(t *testing.T) {
 	app := newTestApp(t)
+	enableSMTP(t, app)
+
 	EmailNotifyPlayers(app, []string{"nonexistent"}, "Test", "Body", "")
+
+	assert.Equal(t, 0, app.TestMailer.TotalSend())
+}
+
+func TestSendEmail_Sends(t *testing.T) {
+	app := newTestApp(t)
+	enableSMTP(t, app)
+
+	SendEmail(app, "player@test.local", "Asunto", "<p>Cuerpo</p>")
+
+	require.Equal(t, 1, app.TestMailer.TotalSend())
+	msg := app.TestMailer.LastMessage()
+	assert.Equal(t, "Asunto", msg.Subject)
+	assert.Equal(t, "<p>Cuerpo</p>", msg.HTML)
+	require.Len(t, msg.To, 1)
+	assert.Equal(t, "player@test.local", msg.To[0].Address)
+	assert.Equal(t, app.Settings().Meta.AppName, msg.From.Name)
+	assert.Equal(t, app.Settings().Meta.SenderAddress, msg.From.Address)
+}
+
+func TestEmailNotifyPlayers_SendsOnePerPlayer(t *testing.T) {
+	app := newTestApp(t)
+	enableSMTP(t, app)
+	one := makeUser(t, app, "player")
+	two := makeUser(t, app, "player")
+
+	EmailNotifyPlayers(app, []string{one.Id, two.Id}, "Partido confirmado", "Body", "https://example.com/match/1")
+
+	require.Equal(t, 2, app.TestMailer.TotalSend())
+
+	got := make(map[string]string, 2)
+	for _, msg := range app.TestMailer.Messages() {
+		require.Len(t, msg.To, 1)
+		assert.Equal(t, "Partido confirmado", msg.Subject)
+		got[msg.To[0].Address] = msg.HTML
+	}
+
+	require.Contains(t, got, one.Email())
+	require.Contains(t, got, two.Email())
+	// The body is personalized per recipient and carries the match link.
+	assert.Contains(t, got[one.Email()], one.GetString("display_name"))
+	assert.Contains(t, got[two.Email()], two.GetString("display_name"))
+	assert.Contains(t, got[one.Email()], "https://example.com/match/1")
+}
+
+func TestEmailNotifyPlayers_SkipsPlayerWithoutEmail(t *testing.T) {
+	app := newTestApp(t)
+	enableSMTP(t, app)
+	withEmail := makeUser(t, app, "player")
+	withoutEmail := makeUser(t, app, "player")
+	withoutEmail.Set("email", "")
+	require.NoError(t, app.Save(withoutEmail))
+
+	EmailNotifyPlayers(app, []string{withoutEmail.Id, withEmail.Id}, "Test", "Body", "")
+
+	require.Equal(t, 1, app.TestMailer.TotalSend())
+	assert.Equal(t, withEmail.Email(), app.TestMailer.LastMessage().To[0].Address)
 }

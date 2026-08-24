@@ -8,6 +8,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"padelleague/league"
@@ -92,6 +93,7 @@ func TestNotificationPrefsPage(t *testing.T) {
 }
 
 func TestNotificationPrefsSave(t *testing.T) {
+	var userID string
 	s := &tests.ApiScenario{
 		Name:            "POST /profile/notifications saves prefs",
 		Method:          http.MethodPost,
@@ -103,9 +105,47 @@ func TestNotificationPrefsSave(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupNotifRoutes(tb, app, e)
 		user := makeUserTB(tb, app, "Prefs Saver", "")
+		userID = user.Id
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		user, err := app.FindRecordById("users", userID)
+		require.NoError(tb, err)
+		prefs := notify.GetNotificationPrefs(user)
+		// Only the two checked boxes were submitted; the rest must be off.
+		assert.Equal(tb, true, prefs["quorum_request"])
+		assert.Equal(tb, true, prefs["dispute"])
+		assert.Equal(tb, false, prefs["general"])
+		assert.Equal(tb, false, prefs["match_assigned"])
+		assert.Equal(tb, false, prefs["scheduling"])
+	}
+	s.Test(t)
+}
+
+// The prefs page must render what was saved, not the all-on defaults.
+func TestNotificationPrefsPageReflectsSavedPrefs(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:               "GET /profile/notifications renders a disabled toggle unchecked",
+		Method:             http.MethodGet,
+		URL:                "/profile/notifications",
+		ExpectedStatus:     200,
+		ExpectedContent:    []string{`name="dispute" class="toggle toggle-primary" checked`},
+		NotExpectedContent: []string{`name="general" class="toggle toggle-primary" checked`},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupNotifRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Prefs Reader", "")
+		user.Set("notification_prefs", map[string]any{
+			"quorum_request": true,
+			"dispute":        true,
+			"match_assigned": true,
+			"general":        false,
+			"scheduling":     true,
+		})
+		require.NoError(tb, app.Save(user))
+		s.Headers = authHeaders(tb, user)
 	}
 	s.Test(t)
 }
