@@ -8,6 +8,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/pocketbase/pocketbase/tools/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -155,18 +156,87 @@ func TestGetNotificationPrefs_NilReturnsDefaults(t *testing.T) {
 func TestGetNotificationPrefs_WithPrefsSet(t *testing.T) {
 	app := newTestApp(t)
 	user := makeUser(t, app, "player")
-	// PocketBase JSONField stores as types.JSONRaw, not map[string]any.
-	// GetNotificationPrefs type-asserts map[string]any, so when the field
-	// goes through Set, it becomes JSONRaw and falls through to defaults.
-	// This test verifies the default-return path when prefs are set but
-	// type doesn't match map[string]any.
 	user.Set("notification_prefs", map[string]any{"general": false})
 
 	prefs := GetNotificationPrefs(user)
-	// All defaults returned (type assertion to map[string]any fails for JSONRaw)
-	assert.Equal(t, true, prefs["general"])
-	assert.Equal(t, true, prefs["dispute"])
+	assert.Equal(t, false, prefs["general"])
+	assert.Equal(t, true, prefs["dispute"], "unset keys fall back to the default")
 	assert.Equal(t, true, prefs["scheduling"])
+}
+
+// Regression: PocketBase returns a saved JSONField as types.JSONRaw, so a
+// stored preference has to survive the round-trip through the database.
+func TestGetNotificationPrefs_SurvivesRoundTrip(t *testing.T) {
+	app := newTestApp(t)
+	user := makeUser(t, app, "player")
+	user.Set("notification_prefs", map[string]any{"general": false, "dispute": false})
+	require.NoError(t, app.Save(user))
+
+	fresh, err := app.FindRecordById("users", user.Id)
+	require.NoError(t, err)
+	require.IsType(t, types.JSONRaw{}, fresh.Get("notification_prefs"))
+
+	prefs := GetNotificationPrefs(fresh)
+	assert.Equal(t, false, prefs["general"])
+	assert.Equal(t, false, prefs["dispute"])
+	assert.Equal(t, true, prefs["quorum_request"])
+	assert.Equal(t, true, prefs["match_assigned"])
+	assert.Equal(t, true, prefs["scheduling"])
+}
+
+func TestGetNotificationPrefs_MalformedFallsBackToDefaults(t *testing.T) {
+	app := newTestApp(t)
+	user := makeUser(t, app, "player")
+
+	for name, raw := range map[string]any{
+		"empty JSONRaw":   types.JSONRaw{},
+		"invalid JSON":    types.JSONRaw("{not json"),
+		"JSON null":       types.JSONRaw("null"),
+		"wrong JSON type": types.JSONRaw("[1,2,3]"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			user.Set("notification_prefs", raw)
+			prefs := GetNotificationPrefs(user)
+			assert.Equal(t, true, prefs["general"])
+			assert.Len(t, prefs, 5)
+		})
+	}
+}
+
+// A disabled preference must actually suppress the notification record.
+func TestNotifyPlayers_RespectsDisabledPref(t *testing.T) {
+	app := newTestApp(t)
+	notifier := NewNotifier(app, "", "")
+	user := makeUser(t, app, "player")
+	user.Set("notification_prefs", map[string]any{"general": false, "dispute": true})
+	require.NoError(t, app.Save(user))
+
+	notifier.NotifyPlayers([]string{user.Id}, "general", "Suppressed", "Body", "")
+	notifier.NotifyPlayers([]string{user.Id}, "dispute", "Delivered", "Body", "")
+
+	notifs, err := app.FindRecordsByFilter("notifications",
+		"user = {:uid}", "", 0, 0, map[string]any{"uid": user.Id})
+	require.NoError(t, err)
+	require.Len(t, notifs, 1)
+	assert.Equal(t, "dispute", notifs[0].GetString("type"))
+	assert.Equal(t, "Delivered", notifs[0].GetString("title"))
+}
+
+func TestPushEnabled(t *testing.T) {
+	tests := map[string]struct {
+		public, private string
+		want            bool
+	}{
+		"both keys set":   {"pub", "priv", true},
+		"public missing":  {"", "priv", false},
+		"private missing": {"pub", "", false},
+		"both missing":    {"", "", false},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tc.want, NewNotifier(nil, tc.public, tc.private).PushEnabled())
+		})
+	}
 }
 
 func TestIsMailerConfigured_Disabled(t *testing.T) {
@@ -176,7 +246,10 @@ func TestIsMailerConfigured_Disabled(t *testing.T) {
 
 func TestSendEmail_NoSMTP(t *testing.T) {
 	app := newTestApp(t)
+
 	SendEmail(app, "test@test.local", "Subject", "<p>Body</p>")
+
+	assert.Equal(t, 0, app.TestMailer.TotalSend(), "nothing may be sent while SMTP is off")
 }
 
 func TestNotifyPlayers_WithVAPIDNoSubs(t *testing.T) {
@@ -220,7 +293,10 @@ func TestEmailNotifyPlayers_NoEmail(t *testing.T) {
 	user := makeUser(t, app, "player")
 	user.Set("email", "")
 	require.NoError(t, app.Save(user))
+
 	EmailNotifyPlayers(app, []string{user.Id}, "Test", "Body", "link")
+
+	assert.Equal(t, 0, app.TestMailer.TotalSend())
 }
 
 func TestNotifyAdmins_NoMatchID(t *testing.T) {

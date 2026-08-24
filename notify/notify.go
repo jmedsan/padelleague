@@ -8,6 +8,7 @@ import (
 
 	webpush "github.com/SherClockHolmes/webpush-go"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/types"
 )
 
 type Notifier struct {
@@ -154,11 +155,7 @@ func GetNotificationPrefs(user *core.Record) map[string]any {
 		"general":        true,
 		"scheduling":     true,
 	}
-	raw := user.Get("notification_prefs")
-	if raw == nil {
-		return defaults
-	}
-	prefs, ok := raw.(map[string]any)
+	prefs, ok := decodePrefs(user.Get("notification_prefs"))
 	if !ok {
 		return defaults
 	}
@@ -168,4 +165,26 @@ func GetNotificationPrefs(user *core.Record) map[string]any {
 		}
 	}
 	return prefs
+}
+
+// decodePrefs reads the notification_prefs record value. PocketBase stores a
+// JSONField as types.JSONRaw, so the stored bytes have to be unmarshaled; a
+// plain map only shows up for a record set in memory and not yet saved.
+func decodePrefs(raw any) (map[string]any, bool) {
+	switch v := raw.(type) {
+	case map[string]any:
+		return v, true
+	case types.JSONRaw:
+		if len(v) == 0 {
+			return nil, false
+		}
+		var prefs map[string]any
+		if err := json.Unmarshal(v, &prefs); err != nil {
+			slog.Error("decode notification prefs failed", "err", err)
+			return nil, false
+		}
+		return prefs, prefs != nil
+	default:
+		return nil, false
+	}
 }
