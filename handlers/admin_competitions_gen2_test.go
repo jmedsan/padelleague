@@ -50,7 +50,8 @@ func TestDashboardSummaryCounts(t *testing.T) {
 		body, err := io.ReadAll(res.Body)
 		require.NoError(tb, err)
 		b := string(body)
-		assert.Contains(tb, b, "1/2", "should show 1 played out of 2 total")
+		assert.Contains(tb, b, `value="1"`, "progress bar value must be exactly 1")
+		assert.Contains(tb, b, "1 disputa", "exactly 1 dispute expected")
 	}
 	s.Test(t)
 }
@@ -1001,6 +1002,37 @@ func TestDashboardAllMatchesFinal(t *testing.T) {
 		m2.Set("winner", p2.Id)
 		m2.Set("scores", "6-4 6-3")
 		require.NoError(tb, app.Save(m2))
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body, err := io.ReadAll(res.Body)
+		require.NoError(tb, err)
+		b := string(body)
+		assert.Contains(tb, b, `value="2"`, "progress bar value must be exactly 2")
+		assert.Contains(tb, b, "sin disputas", "no disputes when all matches final")
+	}
+	s.Test(t)
+}
+
+func TestDashboardNoDisputedMatches(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:     testAppFactory,
+		Name:               "GET /admin no disputes when no disputed matches",
+		Method:             http.MethodGet,
+		URL:                "/admin",
+		ExpectedStatus:     200,
+		ExpectedContent:    []string{"sin disputas"},
+		NotExpectedContent: []string{"en disputa"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "ND A")
+		p2 := makePairTB(tb, app, "ND B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		_ = m
 		s.Headers = authHeaders(tb, admin)
 	}
 	s.Test(t)
