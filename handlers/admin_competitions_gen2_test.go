@@ -971,3 +971,78 @@ func TestDetailPageHasUnpaid(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// Group 10: Dashboard played-count with all-final matches (lines 84-85)
+// Kills CONDITIONALS_NEGATION on "status == final" → playedMatches++
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestDashboardAllMatchesFinal(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin all-final matches shows correct played count",
+		Method:          http.MethodGet,
+		URL:             "/admin",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"2/2"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "AF A")
+		p2 := makePairTB(tb, app, "AF B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m1 := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+		m1.Set("winner", p1.Id)
+		m1.Set("scores", "6-3 6-4")
+		require.NoError(tb, app.Save(m1))
+		m2 := makeMatchTB(tb, app, comp.Id, p2.Id, p1.Id, "final")
+		m2.Set("winner", p2.Id)
+		m2.Set("scores", "6-4 6-3")
+		require.NoError(tb, app.Save(m2))
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Group 11: Detail page round sort order (line 337, NOT COVERED)
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestDetailRoundSortOrder(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/competitions/{id} rounds sorted ascending",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Jornada 1", "Jornada 2"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "RS A")
+		p2 := makePairTB(tb, app, "RS B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m1 := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		m1.Set("round_number", 2)
+		require.NoError(tb, app.Save(m1))
+		m2 := makeMatchTB(tb, app, comp.Id, p2.Id, p1.Id, "pending")
+		m2.Set("round_number", 1)
+		require.NoError(tb, app.Save(m2))
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body, err := io.ReadAll(res.Body)
+		require.NoError(tb, err)
+		b := string(body)
+		idx1 := strings.Index(b, "Jornada 1")
+		idx2 := strings.Index(b, "Jornada 2")
+		assert.Greater(tb, idx1, -1, "Jornada 1 must appear")
+		assert.Greater(tb, idx2, -1, "Jornada 2 must appear")
+		assert.Less(tb, idx1, idx2, "Jornada 1 must appear before Jornada 2")
+	}
+	s.Test(t)
+}
