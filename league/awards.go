@@ -1,6 +1,10 @@
 package league
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/pocketbase/pocketbase/core"
+)
 
 // Award represents a competition award (e.g. best pair, longest streak).
 type Award struct {
@@ -66,27 +70,44 @@ func (svc *Service) longestStreakAward(competitionID string, standings []Standin
 	}
 
 	for _, m := range matches {
-		p1 := m.GetString("pair1")
-		p2 := m.GetString("pair2")
-		winner := m.GetString("winner")
-		for _, pid := range []string{p1, p2} {
-			si, ok := streaks[pid]
-			if !ok {
-				continue
-			}
-			if pid == winner {
-				si.current++
-				if si.current > si.best {
-					si.best = si.current
-				}
-			} else {
-				si.current = 0
-			}
-		}
+		updateStreaks(streaks, m)
 	}
 
-	// Walk standings (not the map) for deterministic tie-breaking in favor
-	// of the better-placed pair.
+	longestPairID, longestStreak := findLongestStreak(standings, streaks)
+
+	if longestStreak <= 1 {
+		return nil
+	}
+	pairNames := PairNames(svc.app, []string{longestPairID})
+	return &Award{
+		Title:    "Mayor racha",
+		PairName: pairNames[longestPairID],
+		Value:    strconv.Itoa(longestStreak) + " victorias",
+	}
+}
+
+func updateStreaks(streaks map[string]*streakInfo, m *core.Record) {
+	p1 := m.GetString("pair1")
+	p2 := m.GetString("pair2")
+	winner := m.GetString("winner")
+	for _, pid := range []string{p1, p2} {
+		si, ok := streaks[pid]
+		if !ok {
+			continue
+		}
+		if pid == winner {
+			si.current++
+			if si.current > si.best {
+				si.best = si.current
+			}
+		} else {
+			si.current = 0
+		}
+	}
+}
+
+// Walk standings (not the map) for deterministic tie-breaking.
+func findLongestStreak(standings []StandingRowFull, streaks map[string]*streakInfo) (string, int) {
 	var longestPairID string
 	longestStreak := 0
 	for _, s := range standings {
@@ -99,14 +120,5 @@ func (svc *Service) longestStreakAward(competitionID string, standings []Standin
 			longestPairID = si.pairID
 		}
 	}
-
-	if longestStreak <= 1 {
-		return nil
-	}
-	pairNames := PairNames(svc.app, []string{longestPairID})
-	return &Award{
-		Title:    "Mayor racha",
-		PairName: pairNames[longestPairID],
-		Value:    strconv.Itoa(longestStreak) + " victorias",
-	}
+	return longestPairID, longestStreak
 }
