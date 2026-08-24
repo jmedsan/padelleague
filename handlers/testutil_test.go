@@ -41,7 +41,11 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, "temp dir:", err)
 		os.Exit(1)
 	}
-	os.RemoveAll(dir)
+	// CopyFS needs the destination absent; MkdirTemp already created it.
+	if err := os.RemoveAll(dir); err != nil {
+		fmt.Fprintln(os.Stderr, "clear temp dir:", err)
+		os.Exit(1)
+	}
 	if err := os.CopyFS(dir, os.DirFS(seed.DataDir())); err != nil {
 		fmt.Fprintln(os.Stderr, "copy template:", err)
 		os.Exit(1)
@@ -50,7 +54,9 @@ func TestMain(m *testing.M) {
 	tmplDataDir = dir
 
 	code := m.Run()
-	os.RemoveAll(dir)
+	if err := os.RemoveAll(dir); err != nil {
+		fmt.Fprintln(os.Stderr, "remove template:", err)
+	}
 	os.Exit(code)
 }
 
@@ -281,6 +287,8 @@ func setupAllRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.GET("", comp.Dashboard)
 	g.GET("/competitions/{id}", comp.Detail)
 	g.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
+	g.POST("/competitions/{id}/payment", comp.TogglePayment)
+	g.POST("/competitions/{id}/penalty", comp.ApplyPenalty)
 }
 
 func requireAuthTest(e *core.RequestEvent) error {
