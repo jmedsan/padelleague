@@ -41,8 +41,10 @@ test.describe('admin management', () => {
     await page.getByRole('button', { name: /nueva invitacion/i }).click();
     const invEmail = `inv-${Date.now()}@test.com`;
     await page.locator('#modal-create input[name="email"]').fill(invEmail);
-    await page.locator('#modal-create button[type="submit"]').click();
-    await page.waitForTimeout(2000);
+    await Promise.all([
+      page.waitForEvent('load', { timeout: 10000 }),
+      page.locator('#modal-create button[type="submit"]').click(),
+    ]);
     await page.goto('/admin/invitations');
     await expect(page.getByText(invEmail).first()).toBeVisible({ timeout: 5000 });
   });
@@ -53,8 +55,10 @@ test.describe('admin management', () => {
     const name = `Club ${Date.now()}`;
     await page.getByRole('button', { name: /nuevo club/i }).click();
     await page.locator('#modal-create-venue input[name="name"]').fill(name);
-    await page.locator('#modal-create-venue button[type="submit"]').click();
-    await page.waitForTimeout(2000);
+    await Promise.all([
+      page.waitForEvent('load', { timeout: 10000 }),
+      page.locator('#modal-create-venue button[type="submit"]').click(),
+    ]);
     await page.goto('/admin/venues');
     await expect(page.getByText(name)).toBeVisible({ timeout: 5000 });
   });
