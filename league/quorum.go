@@ -33,52 +33,50 @@ func (svc *Service) ConfirmStaleMatches() {
 		if comp == nil {
 			continue
 		}
+		svc.confirmIfExpired(m, comp)
+	}
+}
 
-		timeoutHours := int(comp.GetFloat("quorum_timeout_hours"))
-		if timeoutHours == 0 {
-			continue
-		}
+func (svc *Service) confirmIfExpired(m *core.Record, comp *core.Record) {
+	timeoutHours := int(comp.GetFloat("quorum_timeout_hours"))
+	if timeoutHours == 0 {
+		return
+	}
+	submittedAt := m.GetString("submitted_at")
+	if submittedAt == "" {
+		return
+	}
+	dt, err := types.ParseDateTime(submittedAt)
+	if err != nil {
+		return
+	}
+	if time.Since(dt.Time()) < time.Duration(timeoutHours)*time.Hour {
+		return
+	}
 
-		submittedAt := m.GetString("submitted_at")
-		if submittedAt == "" {
-			continue
-		}
-		dt, err := types.ParseDateTime(submittedAt)
-		if err != nil {
-			continue
-		}
-		t := dt.Time()
-		if time.Since(t) < time.Duration(timeoutHours)*time.Hour {
-			continue
-		}
+	fresh, err := svc.app.FindRecordById("matches", m.Id)
+	if err != nil || fresh.GetString("status") != "confirmed" {
+		return
+	}
+	winnerID, err := DetermineWinner(fresh, fresh.GetString("scores"))
+	if err != nil {
+		return
+	}
 
-		fresh, err := svc.app.FindRecordById("matches", m.Id)
-		if err != nil || fresh.GetString("status") != "confirmed" {
-			continue
-		}
+	fresh.Set("status", "final")
+	fresh.Set("winner", winnerID)
+	fresh.Set("confirmed_by", "")
+	fresh.Set("dispute_notes", "Auto-confirmado por tiempo de espera")
+	if err := svc.app.Save(fresh); err != nil {
+		slog.Error("save stale match confirmation", "match", m.Id, "err", err)
+		return
+	}
 
-		score := fresh.GetString("scores")
-		winnerID, err := DetermineWinner(fresh, score)
-		if err != nil {
-			continue
-		}
-
-		fresh.Set("status", "final")
-		fresh.Set("winner", winnerID)
-		fresh.Set("confirmed_by", "")
-		fresh.Set("dispute_notes", "Auto-confirmado por tiempo de espera")
-		if err := svc.app.Save(fresh); err != nil {
-			slog.Error("save stale match confirmation", "match", m.Id, "err", err)
-			continue
-		}
-
-		pairIDs := []string{fresh.GetString("pair1"), fresh.GetString("pair2")}
-		for _, pid := range pairIDs {
-			players := PlayersForPair(svc.app, pid)
-			svc.notifier.NotifyPlayers(players, "general",
-				"Resultado confirmado automaticamente",
-				"El resultado ha sido confirmado por tiempo de espera.",
-				fresh.Id)
-		}
+	for _, pid := range []string{fresh.GetString("pair1"), fresh.GetString("pair2")} {
+		players := PlayersForPair(svc.app, pid)
+		svc.notifier.NotifyPlayers(players, "general",
+			"Resultado confirmado automaticamente",
+			"El resultado ha sido confirmado por tiempo de espera.",
+			fresh.Id)
 	}
 }

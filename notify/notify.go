@@ -122,32 +122,34 @@ func (n *Notifier) sendPush(userID, title, body, relatedMatchID string) {
 	subscriber = "mailto:" + subscriber
 
 	for _, sub := range subs {
-		s := &webpush.Subscription{
-			Endpoint: sub.GetString("endpoint"),
-			Keys: webpush.Keys{
-				P256dh: sub.GetString("p256dh"),
-				Auth:   sub.GetString("auth"),
-			},
-		}
+		n.deliverPush(sub, payload, subscriber)
+	}
+}
 
-		resp, err := webpush.SendNotification(payload, s, &webpush.Options{
-			Subscriber:      subscriber,
-			VAPIDPublicKey:  n.vapidPublicKey,
-			VAPIDPrivateKey: n.vapidPrivateKey,
-			HTTPClient:      n.httpClient,
-		})
-		if err != nil {
-			slog.Error("push send failed", "endpoint", sub.GetString("endpoint"), "err", err)
-			continue
-		}
-		if err := resp.Body.Close(); err != nil {
-			slog.Warn("close push response", "err", err)
-		}
-
-		if resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusNotFound {
-			if err := n.app.Delete(sub); err != nil {
-				slog.Error("push delete subscription failed", "err", err)
-			}
+func (n *Notifier) deliverPush(sub *core.Record, payload []byte, subscriber string) {
+	s := &webpush.Subscription{
+		Endpoint: sub.GetString("endpoint"),
+		Keys: webpush.Keys{
+			P256dh: sub.GetString("p256dh"),
+			Auth:   sub.GetString("auth"),
+		},
+	}
+	resp, err := webpush.SendNotification(payload, s, &webpush.Options{
+		Subscriber:      subscriber,
+		VAPIDPublicKey:  n.vapidPublicKey,
+		VAPIDPrivateKey: n.vapidPrivateKey,
+		HTTPClient:      n.httpClient,
+	})
+	if err != nil {
+		slog.Error("push send failed", "endpoint", sub.GetString("endpoint"), "err", err)
+		return
+	}
+	if err := resp.Body.Close(); err != nil {
+		slog.Warn("close push response", "err", err)
+	}
+	if resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusNotFound {
+		if err := n.app.Delete(sub); err != nil {
+			slog.Error("push delete subscription failed", "err", err)
 		}
 	}
 }
