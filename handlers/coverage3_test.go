@@ -7,6 +7,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,7 +16,7 @@ func TestAdminCompDetailWithPenalties(t *testing.T) {
 		Name:            "GET /admin/competitions/{id} with penalties/seeding/payment",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Pen A", "Pen B"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -55,12 +56,14 @@ func TestAdminOverrideWithDateChange(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "OvrDate A")
 		p2 := makePairTB(tb, app, "OvrDate B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = m.Id
 		m.Set("date", "2026-09-01")
 		m.Set("time", "18:00")
 		m.Set("club", "Old Club")
@@ -74,6 +77,12 @@ func TestAdminOverrideWithDateChange(t *testing.T) {
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "20:00", m.GetString("time"))
+		assert.Equal(tb, "New Club", m.GetString("club"))
 	}
 	s.Test(t)
 }
@@ -198,6 +207,7 @@ func TestGeneratePlayoffFixtures(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "PO A")
@@ -205,9 +215,17 @@ func TestGeneratePlayoffFixtures(t *testing.T) {
 		p3 := makePairTB(tb, app, "PO C")
 		p4 := makePairTB(tb, app, "PO D")
 		comp := makeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2, p3, p4})
+		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
 		admin := makeAdminUserTB(tb, app)
 		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		matches, err := app.FindRecordsByFilter("matches",
+			"competition = {:comp}", "", 0, 0,
+			map[string]any{"comp": compID})
+		require.NoError(tb, err)
+		assert.Equal(tb, 3, len(matches))
 	}
 	s.Test(t)
 }
@@ -218,15 +236,24 @@ func TestGenerateLeagueFixtures(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "LG A")
 		p2 := makePairTB(tb, app, "LG B")
 		p3 := makePairTB(tb, app, "LG C")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3})
+		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
 		admin := makeAdminUserTB(tb, app)
 		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		matches, err := app.FindRecordsByFilter("matches",
+			"competition = {:comp}", "", 0, 0,
+			map[string]any{"comp": compID})
+		require.NoError(tb, err)
+		assert.Equal(tb, 3, len(matches))
 	}
 	s.Test(t)
 }
