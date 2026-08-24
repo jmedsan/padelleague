@@ -13,6 +13,7 @@ import (
 // --- MarkRead: notification with related_match redirects to /match/{id} (line 102) ---
 
 func TestMarkReadNotificationWithRelatedMatch(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /notifications/{id}/read with related_match redirects to match",
@@ -49,6 +50,7 @@ func TestMarkReadNotificationWithRelatedMatch(t *testing.T) {
 // --- MarkRead: notification without related_match redirects to / (existing but assert DB state) ---
 
 func TestMarkReadNotificationNoRelatedMatch(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /notifications/{id}/read without related_match redirects to /",
@@ -76,6 +78,7 @@ func TestMarkReadNotificationNoRelatedMatch(t *testing.T) {
 // --- Count: zero unread returns empty badge (line 37) ---
 
 func TestNotificationCountZero(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "GET /notifications/count with zero unread returns empty",
@@ -98,6 +101,7 @@ func TestNotificationCountZero(t *testing.T) {
 // --- Count: has unread returns badge with count (lines 33-34) ---
 
 func TestNotificationCountWithUnread(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "GET /notifications/count with unread returns badge",
@@ -120,6 +124,7 @@ func TestNotificationCountWithUnread(t *testing.T) {
 // --- List: notification with body text (line 70) ---
 
 func TestNotificationListWithBody(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "GET /notifications/list shows body text",
@@ -140,6 +145,7 @@ func TestNotificationListWithBody(t *testing.T) {
 // --- List: empty notification list (line 60) ---
 
 func TestNotificationListEmpty(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "GET /notifications/list with no notifications shows empty message",
@@ -159,6 +165,7 @@ func TestNotificationListEmpty(t *testing.T) {
 // --- MarkAllRead: asserts notifications actually marked read in DB ---
 
 func TestMarkAllReadVerifyDB(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /notifications/read-all marks all read in DB",
@@ -196,6 +203,7 @@ func TestMarkAllReadVerifyDB(t *testing.T) {
 // --- List: unread notification has highlight class, read does not ---
 
 func TestNotificationListReadVsUnread(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "GET /notifications/list distinguishes read/unread",

@@ -32,6 +32,7 @@ type matchViewCase struct {
 }
 
 func TestBuildMatchViewFlags(t *testing.T) {
+	t.Parallel()
 	cases := []matchViewCase{
 		// --- Pending ---
 		{

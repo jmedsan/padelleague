@@ -14,6 +14,7 @@ import (
 // --- Cluster 1: Home shows only player's competitions, sets nextMatch ---
 
 func TestHomeGen2_OnlyPlayerCompetitions(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "home shows only competitions the player is in",
@@ -49,6 +50,7 @@ func TestHomeGen2_OnlyPlayerCompetitions(t *testing.T) {
 }
 
 func TestHomeGen2_NextMatchFromFirstPending(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "home sets nextMatch from first pending match",
@@ -73,6 +75,7 @@ func TestHomeGen2_NextMatchFromFirstPending(t *testing.T) {
 // --- Cluster 2: Pending match counting and detail cap ---
 
 func TestHomeGen2_PendingCountAndDetailCap(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "home counts pending correctly and caps details at 5",
@@ -108,6 +111,7 @@ func TestHomeGen2_PendingCountAndDetailCap(t *testing.T) {
 // --- Cluster 3: Proposal schedule status ---
 
 func TestHomeGen2_AcceptedProposalShowsConfirmado(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "accepted proposal shows Confirmado with date",
@@ -133,6 +137,7 @@ func TestHomeGen2_AcceptedProposalShowsConfirmado(t *testing.T) {
 }
 
 func TestHomeGen2_PendingProposalShowsPropuestaEnviada(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "pending proposal shows Propuesta enviada with date",
@@ -160,6 +165,7 @@ func TestHomeGen2_PendingProposalShowsPropuestaEnviada(t *testing.T) {
 // --- Cluster 4: Proposer team check (respond_proposal action) ---
 
 func TestHomeGen2_OpponentProposalCreatesAction(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "opponent proposal creates respond action",
@@ -186,6 +192,7 @@ func TestHomeGen2_OpponentProposalCreatesAction(t *testing.T) {
 }
 
 func TestHomeGen2_OwnProposalNoAction(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "own proposal does not create respond action",
@@ -219,6 +226,7 @@ func TestHomeGen2_OwnProposalNoAction(t *testing.T) {
 // --- Cluster 5: Score confirm team check ---
 
 func TestHomeGen2_OpponentScoreShowsConfirmAction(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "opponent score shows confirm action",
@@ -248,6 +256,7 @@ func TestHomeGen2_OpponentScoreShowsConfirmAction(t *testing.T) {
 }
 
 func TestHomeGen2_OwnScoreNoConfirmAction(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "own score shows no confirm action",
@@ -284,6 +293,7 @@ func TestHomeGen2_OwnScoreNoConfirmAction(t *testing.T) {
 // --- Cluster 6: Penalty flag in competition page ---
 
 func TestCompetitionGen2_WithPenaltyShowsPenColumn(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "competition with penalty shows Pen column",
@@ -309,6 +319,7 @@ func TestCompetitionGen2_WithPenaltyShowsPenColumn(t *testing.T) {
 }
 
 func TestCompetitionGen2_NoPenaltyHidesPenColumn(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "competition without penalty hides Pen column",
@@ -337,6 +348,7 @@ func TestCompetitionGen2_NoPenaltyHidesPenColumn(t *testing.T) {
 // --- Cluster 7: firstIncompleteRound sets AutoExpandRound ---
 
 func TestCompetitionGen2_AutoExpandRound(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "auto-expand targets first incomplete round",
@@ -370,6 +382,7 @@ func TestCompetitionGen2_AutoExpandRound(t *testing.T) {
 // --- Cluster 8: buildCompPairs from playoff (no standings) ---
 
 func TestCompetitionGen2_CompPairsFromPlayoff(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "playoff competition populates CompPairs from match names",

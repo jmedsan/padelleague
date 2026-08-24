@@ -19,6 +19,7 @@ import (
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestDashboardSummaryCounts(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin dashboard shows correct summary counts",
@@ -59,6 +60,7 @@ func TestDashboardSummaryCounts(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestDashboardQuorumIssue(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin shows quorum issue for expired submission",
@@ -86,6 +88,7 @@ func TestDashboardQuorumIssue(t *testing.T) {
 }
 
 func TestDashboardQuorumNoIssueWhenFresh(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:     testAppFactory,
 		Name:               "GET /admin no quorum issue when submission is recent",
@@ -113,6 +116,7 @@ func TestDashboardQuorumNoIssueWhenFresh(t *testing.T) {
 }
 
 func TestDashboardQuorumZeroHoursNoIssue(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:     testAppFactory,
 		Name:               "GET /admin no quorum issue when quorum_timeout_hours is 0",
@@ -140,6 +144,7 @@ func TestDashboardQuorumZeroHoursNoIssue(t *testing.T) {
 }
 
 func TestDashboardQuorumShowsHoursWhenLessThanDay(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin quorum shows hours when less than 1 day",
@@ -172,6 +177,7 @@ func TestDashboardQuorumShowsHoursWhenLessThanDay(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestDashboardOverdueMatch(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin shows overdue issue for past-dated pending match",
@@ -195,6 +201,7 @@ func TestDashboardOverdueMatch(t *testing.T) {
 }
 
 func TestDashboardNotOverdueForFutureDate(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:     testAppFactory,
 		Name:               "GET /admin no overdue for future-dated pending match",
@@ -218,6 +225,7 @@ func TestDashboardNotOverdueForFutureDate(t *testing.T) {
 }
 
 func TestDashboardStaleMatch(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin shows stale issue for inactive pending match",
@@ -257,6 +265,7 @@ func TestDashboardStaleMatch(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestDetailPageLeagueVsPlayoff(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name     string
 		compType string
@@ -298,6 +307,7 @@ func TestDetailPageLeagueVsPlayoff(t *testing.T) {
 }
 
 func TestDetailPageHasFixtures(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "detail page with fixtures shows match data",
@@ -323,6 +333,7 @@ func TestDetailPageHasFixtures(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestDetailPageShowsDisputes(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "detail page shows disputed matches",
@@ -353,6 +364,7 @@ func TestDetailPageShowsDisputes(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestCreateCompetition(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions creates with all fields",
@@ -383,6 +395,7 @@ func TestCreateCompetition(t *testing.T) {
 }
 
 func TestCreateCompetitionInactive(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions without active=on creates inactive",
@@ -410,6 +423,7 @@ func TestCreateCompetitionInactive(t *testing.T) {
 }
 
 func TestUpdateCompetition(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions/{id} updates fields",
@@ -441,6 +455,7 @@ func TestUpdateCompetition(t *testing.T) {
 }
 
 func TestUpdateCompetitionPlayTwiceOff(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions/{id} without play_twice sets false",
@@ -474,6 +489,7 @@ func TestUpdateCompetitionPlayTwiceOff(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestToggleCompetition(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions/{id}/toggle flips active",
@@ -502,6 +518,7 @@ func TestToggleCompetition(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestAddPairWithSeed(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions/{id}/pairs adds pair with seed",
@@ -536,6 +553,7 @@ func TestAddPairWithSeed(t *testing.T) {
 }
 
 func TestAddPairWithSeedZero(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions/{id}/pairs seed=0 skips seeding",
@@ -571,6 +589,7 @@ func TestAddPairWithSeedZero(t *testing.T) {
 }
 
 func TestAddPairDuplicate(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST /admin/competitions/{id}/pairs rejects duplicate pair",
@@ -597,6 +616,7 @@ func TestAddPairDuplicate(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestRemovePairCleansUpSeedingAndPayment(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST remove-pair cleans up seeding and payment_status",
@@ -647,6 +667,7 @@ func TestRemovePairCleansUpSeedingAndPayment(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestCopyPairsWithSeeding(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST copy-pairs copies pairs and seeding for playoff",
@@ -685,6 +706,7 @@ func TestCopyPairsWithSeeding(t *testing.T) {
 }
 
 func TestCopyPairsLeagueSkipsSeeding(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST copy-pairs to league skips seeding",
@@ -723,6 +745,7 @@ func TestCopyPairsLeagueSkipsSeeding(t *testing.T) {
 }
 
 func TestCopyPairsSkipsDuplicates(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST copy-pairs skips already-enrolled pairs",
@@ -752,6 +775,7 @@ func TestCopyPairsSkipsDuplicates(t *testing.T) {
 }
 
 func TestCopyPairsEmptySource(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST copy-pairs with empty source_competition returns error",
@@ -777,6 +801,7 @@ func TestCopyPairsEmptySource(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestTogglePaymentAll(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST payment-all marks all pairs paid",
@@ -813,6 +838,7 @@ func TestTogglePaymentAll(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestPenaltyUsesDefaultAmount(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST penalty uses default_penalty from competition",
@@ -846,6 +872,7 @@ func TestPenaltyUsesDefaultAmount(t *testing.T) {
 }
 
 func TestPenaltyRemove(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST penalty action=remove deletes penalty",
@@ -884,6 +911,7 @@ func TestPenaltyRemove(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestAddPairPlayerOverlap(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST /admin/competitions/{id}/pairs rejects overlapping players",
@@ -924,6 +952,7 @@ func TestAddPairPlayerOverlap(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestDetailPageHasUnpaid(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "detail page shows unpaid indicator",
