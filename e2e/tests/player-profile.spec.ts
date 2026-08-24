@@ -17,8 +17,9 @@ test.describe('player profile and stats', () => {
   });
 
   test('player can view H2H page', async ({ page }) => {
+    const data = loadTestData();
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.goto('/h2h');
+    await page.goto(`/h2h?p1=${data.pair1Id}&p2=${data.pair2Id}`);
     await expect(page.getByRole('heading', { name: 'Cara a cara' })).toBeVisible();
   });
 
