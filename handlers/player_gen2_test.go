@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -249,25 +250,13 @@ func TestGen2_PlayerProfile_FullStats(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 
-		// Partner name: u1 is player1, so partner should be "Bob" (player2).
 		assert.Contains(tb, body, "Bob", "partner name should be Bob")
-
-		// Win rate: 1 win / 2 played = 50%.
-		assert.Contains(tb, body, "50", "win rate should show 50")
-
-		// Sets: match1 as pair1: won 2, lost 0. match2 as pair2: won 1(=Sets2 of 6-2 6-1? no).
-		// Match2 "6-2 6-1": pair1(opp) wins 2 sets, pair2(us) wins 0 sets.
-		// So total setsWon=2, setsLost=2.
-		// Games: match1 pair1: won 12, lost 7. match2 pair2: won 3 (2+1), lost 12 (6+6).
-		// Total gamesWon=15, gamesLost=19.
-
-		// Current streak: most recent by date is match2 (2026-01-15) which is a loss => "1D".
+		assert.Contains(tb, body, ">2</div>", "TotalPlayed should be 2")
+		assert.Contains(tb, body, "50%", "WinRate should be 50%")
+		assert.Contains(tb, body, "2/2", "SetsWon/SetsLost should be 2/2")
+		assert.Contains(tb, body, "15/19", "GamesWon/GamesLost should be 15/19")
 		assert.Contains(tb, body, "1D", "current streak should be 1D")
-
-		// Best streak: 1W and 1L => tie => "1V" (>= favors win).
 		assert.Contains(tb, body, "1V", "best streak should be 1V")
-
-		// Competition stats: "Gen2 League" with 2 played, 1 win, 1 loss.
 		assert.Contains(tb, body, "Gen2 League", "competition name")
 	}
 
@@ -499,11 +488,16 @@ func TestGen2_TallyH2H(t *testing.T) {
 
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		// Total matches: 7.
-		assert.Contains(tb, body, "7", "total should be 7")
-		// Wins: p1=4, p2=3.
-		assert.Contains(tb, body, "4", "p1 wins should be 4")
-		assert.Contains(tb, body, "3", "p2 wins should be 3")
+		// Template: <div class="stat-value text-2xl">N</div> for Wins1, Total, Wins2.
+		// 7 matches, p1 wins 4, p2 wins 3.
+		assert.Contains(tb, body, ">4</div>", "p1 wins stat-value should be 4")
+		assert.Contains(tb, body, ">7</div>", "total stat-value should be 7")
+		assert.Contains(tb, body, ">3</div>", "p2 wins stat-value should be 3")
+
+		// Recent is capped at 5: with 7 matches, only 5 rows should appear.
+		// Each row has H2HTalA as PairName1, which only appears in <td> cells.
+		rowCount := strings.Count(body, "<td>H2HTalA</td>")
+		assert.Equal(tb, 5, rowCount, "recent should be capped at 5 entries")
 	}
 
 	s.Test(t)
@@ -581,6 +575,50 @@ func TestGen2_PlayerProfile_CompetitionStats(t *testing.T) {
 		body := readBody(tb, res)
 		assert.Contains(tb, body, "Liga Alfa", "comp1 name")
 		assert.Contains(tb, body, "Liga Beta", "comp2 name")
+
+		// Liga Alfa: 2 played, 2 wins, 0 losses.
+		// Liga Beta: 1 played, 0 wins, 1 loss.
+		// Template renders: <td class="text-center">N</td> for each.
+		// Total played across both: 3.
+		assert.Contains(tb, body, ">3</div>", "TotalPlayed should be 3")
+		assert.Contains(tb, body, "67%", "WinRate: 2/3 = 67%")
+	}
+
+	s.Test(t)
+}
+
+func countOccurrences(s, sub string) int {
+	count := 0
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			count++
+		}
+	}
+	return count
+}
+
+// --- Player profile: zero matches → winRate stays 0, no division by zero ---
+
+func TestGen2_PlayerProfile_ZeroMatches(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "player with no matches shows 0% win rate",
+		Method:         http.MethodGet,
+		ExpectedStatus: 200,
+	}
+
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "NoMatches", "")
+		s.URL = "/player/" + user.Id
+		s.Headers = authHeaders(tb, user)
+	}
+
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "0%", "zero matches should show 0% win rate")
+		assert.Contains(tb, body, ">0</div>", "TotalPlayed should be 0")
 	}
 
 	s.Test(t)
