@@ -260,7 +260,7 @@ func TestMatchThreadPostMessage(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		msgs, err := app.FindRecordsByFilter("match_messages",
 			"match = {:mid} && type = 'chat'", "", 0, 0,
 			map[string]any{"mid": matchID})

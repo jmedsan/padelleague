@@ -53,7 +53,7 @@ func TestThreadPostProposal(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		msgs, err := app.FindRecordsByFilter("match_messages",
 			"match = {:mid} && type = 'scheduling_proposal'", "", 0, 0,
 			map[string]any{"mid": matchID})
@@ -97,7 +97,7 @@ func TestThreadRespondProposal(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		msg, err := app.FindRecordById("match_messages", msgID)
 		require.NoError(tb, err)
 		assert.Equal(tb, "accepted", msg.GetString("proposal_status"))

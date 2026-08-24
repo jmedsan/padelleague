@@ -78,7 +78,7 @@ func TestAdminOverrideWithDateChange(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		m, err := app.FindRecordById("matches", matchID)
 		require.NoError(tb, err)
 		assert.Equal(tb, "20:00", m.GetString("time"))
@@ -220,7 +220,7 @@ func TestGeneratePlayoffFixtures(t *testing.T) {
 		admin := makeAdminUserTB(tb, app)
 		s.Headers = authHeaders(tb, admin)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		matches, err := app.FindRecordsByFilter("matches",
 			"competition = {:comp}", "", 0, 0,
 			map[string]any{"comp": compID})
@@ -248,7 +248,7 @@ func TestGenerateLeagueFixtures(t *testing.T) {
 		admin := makeAdminUserTB(tb, app)
 		s.Headers = authHeaders(tb, admin)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		matches, err := app.FindRecordsByFilter("matches",
 			"competition = {:comp}", "", 0, 0,
 			map[string]any{"comp": compID})

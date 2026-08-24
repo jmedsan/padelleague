@@ -14,7 +14,7 @@ func TestComputeStandings_Points(t *testing.T) {
 
 	p1 := makePair(t, app, "Pair A")
 	p2 := makePair(t, app, "Pair B")
-	comp := makeCompetition(t, app, "league", nil)
+	comp := makeCompetition(t, app, nil)
 	comp.Set("pairs", []string{p1.Id, p2.Id})
 	require.NoError(t, app.Save(comp))
 
@@ -42,7 +42,7 @@ func TestComputeStandings_SetDiffTiebreaker(t *testing.T) {
 	p1 := makePair(t, app, "Pair A")
 	p2 := makePair(t, app, "Pair B")
 	p3 := makePair(t, app, "Pair C")
-	comp := makeCompetition(t, app, "league", nil)
+	comp := makeCompetition(t, app, nil)
 	comp.Set("pairs", []string{p1.Id, p2.Id, p3.Id})
 	require.NoError(t, app.Save(comp))
 
@@ -64,7 +64,7 @@ func TestComputeStandings_WO(t *testing.T) {
 
 	p1 := makePair(t, app, "Pair A")
 	p2 := makePair(t, app, "Pair B")
-	comp := makeCompetition(t, app, "league", nil)
+	comp := makeCompetition(t, app, nil)
 	comp.Set("pairs", []string{p1.Id, p2.Id})
 	require.NoError(t, app.Save(comp))
 
@@ -91,7 +91,7 @@ func TestComputeStandings_Penalty(t *testing.T) {
 
 	p1 := makePair(t, app, "Pair A")
 	p2 := makePair(t, app, "Pair B")
-	comp := makeCompetition(t, app, "league", nil)
+	comp := makeCompetition(t, app, nil)
 	comp.Set("pairs", []string{p1.Id, p2.Id})
 	require.NoError(t, app.Save(comp))
 

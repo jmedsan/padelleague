@@ -134,7 +134,7 @@ func TestNotificationPrefsSave(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		user, err := app.FindRecordById("users", userID)
 		require.NoError(tb, err)
 		prefs := notify.GetNotificationPrefs(user)
@@ -191,7 +191,7 @@ func TestPushSubscribeHTTPS(t *testing.T) {
 		hdrs["Content-Type"] = "application/json"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		subs, err := app.FindRecordsByFilter("push_subscriptions",
 			"user = {:uid}", "", 0, 0,
 			map[string]any{"uid": userID})
@@ -249,7 +249,7 @@ func TestPushUnsubscribe(t *testing.T) {
 		hdrs["Content-Type"] = "application/json"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		subs, err := app.FindRecordsByFilter("push_subscriptions",
 			"user = {:uid}", "", 0, 0,
 			map[string]any{"uid": userID})

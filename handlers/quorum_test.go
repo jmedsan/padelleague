@@ -17,7 +17,7 @@ func TestCheckQuorumTimeout_Expired(t *testing.T) {
 	p1 := makePair(t, app, "Pair A")
 	p2 := makePair(t, app, "Pair B")
 	user := makeUser(t, app, "Test Player", "")
-	comp := makeCompetition(t, app, "league", []*core.Record{p1, p2})
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
 	comp.Set("quorum_timeout_hours", 1)
 	require.NoError(t, app.Save(comp))
 
@@ -46,7 +46,7 @@ func TestCheckQuorumTimeout_NotExpired(t *testing.T) {
 	p1 := makePair(t, app, "Pair C")
 	p2 := makePair(t, app, "Pair D")
 	user := makeUser(t, app, "Test Player 2", "")
-	comp := makeCompetition(t, app, "league", []*core.Record{p1, p2})
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
 	comp.Set("quorum_timeout_hours", 1)
 	require.NoError(t, app.Save(comp))
 

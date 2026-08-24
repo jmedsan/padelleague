@@ -82,13 +82,13 @@ func makePair(t *testing.T, app core.App, name string) *core.Record {
 	return record
 }
 
-func makeCompetition(t *testing.T, app core.App, compType string, pairs []*core.Record) *core.Record {
+func makeCompetition(t *testing.T, app core.App, pairs []*core.Record) *core.Record {
 	t.Helper()
 	col, err := app.FindCollectionByNameOrId("competitions")
 	require.NoError(t, err)
 	record := core.NewRecord(col)
 	record.Set("name", "Test Competition")
-	record.Set("type", compType)
+	record.Set("type", "league")
 	record.Set("active", true)
 	pairIDs := make([]string, len(pairs))
 	for i, p := range pairs {
@@ -113,7 +113,7 @@ func makeMatch(t *testing.T, app core.App, compID, p1ID, p2ID, status string) *c
 	return record
 }
 
-func makeFinalMatch(t *testing.T, app core.App, compID, p1ID, p2ID, score, winnerID string) *core.Record {
+func makeFinalMatch(t *testing.T, app core.App, compID, p1ID, p2ID, score, winnerID string) {
 	t.Helper()
 	col, err := app.FindCollectionByNameOrId("matches")
 	require.NoError(t, err)
@@ -126,7 +126,6 @@ func makeFinalMatch(t *testing.T, app core.App, compID, p1ID, p2ID, score, winne
 	record.Set("winner", winnerID)
 	record.Set("round_number", 1)
 	require.NoError(t, app.Save(record))
-	return record
 }
 
 func makeInvitation(t *testing.T, app core.App, expiresAt time.Time) *core.Record {

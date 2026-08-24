@@ -204,7 +204,7 @@ func TestProposalChangeDecision(t *testing.T) {
 		opponent, _ := app.FindRecordById("users", p2.GetString("player1"))
 		s.Headers = authHeaders(tb, opponent)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		m, err := app.FindRecordById("match_messages", msgID)
 		require.NoError(tb, err)
 		assert.Equal(tb, "rejected", m.GetString("proposal_status"))

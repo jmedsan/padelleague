@@ -19,7 +19,7 @@ type notifyCall struct {
 	title     string
 }
 
-func (f *fakeNotifier) NotifyPlayers(playerUserIDs []string, notifType, title, body, relatedMatchID string) {
+func (f *fakeNotifier) NotifyPlayers(playerUserIDs []string, notifType, title, _, _ string) {
 	f.calls = append(f.calls, notifyCall{
 		playerIDs: playerUserIDs,
 		notifType: notifType,
