@@ -92,64 +92,68 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 	pair2Players := league.PlayersForPair(h.app, match.GetString("pair2"))
 	nameCache := make(map[string]string)
 
-	authorTeamOf := func(uid string) int {
-		for _, p := range pair1Players {
-			if p == uid {
-				return 1
-			}
-		}
-		for _, p := range pair2Players {
-			if p == uid {
-				return 2
-			}
-		}
-		return 0
-	}
-
-	cachedName := func(uid string) string {
-		if n, ok := nameCache[uid]; ok {
-			return n
-		}
-		n := league.PlayerName(h.app, uid)
-		nameCache[uid] = n
-		return n
-	}
-
 	var threadMessages []ThreadMessage
 	for _, msg := range messages {
 		authorID := msg.GetString("author")
-		authorTeam := authorTeamOf(authorID)
-
-		msgType := msg.GetString("type")
-		var pd *ProposalData
-		if msgType == "scheduling_proposal" {
-			pd = ParseProposalData(msg.GetString("proposal_data"))
-		}
-
-		status := msg.GetString("proposal_status")
-		canAct := msgType == "scheduling_proposal" &&
-			match.GetString("status") == league.StatusPending &&
-			myTeam != 0 && authorTeam != myTeam
-		canRespond := canAct && status == "pending"
-		canChangeDecision := canAct && (status == "accepted" || status == "rejected")
-
-		threadMessages = append(threadMessages, ThreadMessage{
-			Record:            msg,
-			AuthorName:        cachedName(authorID),
-			AuthorTeam:        authorTeam,
-			IsMyTeam:          myTeam != 0 && authorTeam == myTeam,
-			Type:              msgType,
-			Content:           msg.GetString("content"),
-			ProposalData:      pd,
-			Status:            status,
-			RejectionReason:   msg.GetString("rejection_reason"),
-			RejectionText:     msg.GetString("rejection_text"),
-			CanRespond:        canRespond,
-			CanChangeDecision: canChangeDecision,
-			CreatedAt:         msg.GetDateTime("created").Time().Format("02/01 15:04"),
-		})
+		authorTeam := playerTeamOf(authorID, pair1Players, pair2Players)
+		tm := toThreadMessage(msg, h.resolvePlayerName(nameCache, authorID), authorTeam, myTeam, match)
+		threadMessages = append(threadMessages, tm)
 	}
 	return threadMessages
+}
+
+func playerTeamOf(uid string, pair1Players, pair2Players []string) int {
+	for _, p := range pair1Players {
+		if p == uid {
+			return 1
+		}
+	}
+	for _, p := range pair2Players {
+		if p == uid {
+			return 2
+		}
+	}
+	return 0
+}
+
+func (h *ThreadHandler) resolvePlayerName(cache map[string]string, uid string) string {
+	if n, ok := cache[uid]; ok {
+		return n
+	}
+	n := league.PlayerName(h.app, uid)
+	cache[uid] = n
+	return n
+}
+
+func toThreadMessage(msg *core.Record, authorName string, authorTeam, myTeam int, match *core.Record) ThreadMessage {
+	msgType := msg.GetString("type")
+	var pd *ProposalData
+	if msgType == "scheduling_proposal" {
+		pd = ParseProposalData(msg.GetString("proposal_data"))
+	}
+
+	status := msg.GetString("proposal_status")
+	canAct := msgType == "scheduling_proposal" &&
+		match.GetString("status") == league.StatusPending &&
+		myTeam != 0 && authorTeam != myTeam
+	canRespond := canAct && status == "pending"
+	canChangeDecision := canAct && (status == "accepted" || status == "rejected")
+
+	return ThreadMessage{
+		Record:            msg,
+		AuthorName:        authorName,
+		AuthorTeam:        authorTeam,
+		IsMyTeam:          myTeam != 0 && authorTeam == myTeam,
+		Type:              msgType,
+		Content:           msg.GetString("content"),
+		ProposalData:      pd,
+		Status:            status,
+		RejectionReason:   msg.GetString("rejection_reason"),
+		RejectionText:     msg.GetString("rejection_text"),
+		CanRespond:        canRespond,
+		CanChangeDecision: canChangeDecision,
+		CreatedAt:         msg.GetDateTime("created").Time().Format("02/01 15:04"),
+	}
 }
 
 // Thread renders the full match thread page with messages and proposals.
@@ -266,6 +270,7 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 	return redirectHX(e, "/match/"+matchID)
 }
 
+// PostProposal creates a scheduling proposal message in the match thread.
 func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", matchID)
@@ -324,20 +329,24 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 		return alertError(e, "Error al crear propuesta")
 	}
 
+	h.notifyProposal(match, myTeam, e.Auth.Id, date, time, venueName, matchID)
+	return redirectHX(e, "/match/"+matchID)
+}
+
+func (h *ThreadHandler) notifyProposal(match *core.Record, myTeam int, authorID, date, time, venueName, matchID string) {
 	rivalPairID := match.GetString("pair1")
 	if myTeam == 1 {
 		rivalPairID = match.GetString("pair2")
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	authorName := league.PlayerName(h.app, e.Auth.Id)
+	authorName := league.PlayerName(h.app, authorID)
 	h.notifier.NotifyPlayers(rivalPlayers, "scheduling",
 		"Propuesta de fecha",
 		fmt.Sprintf("%s propone jugar el %s a las %s en %s", authorName, date, time, venueName),
 		matchID)
-
-	return redirectHX(e, "/match/"+matchID)
 }
 
+// RespondProposal records a player's accept or reject on a scheduling proposal.
 func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
 	msgID := e.Request.PathValue("msgId")
@@ -539,6 +548,7 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 	return nil
 }
 
+// ProposalChangeDecision lets a player revoke or change their proposal response.
 func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
 	msgID := e.Request.PathValue("msgId")

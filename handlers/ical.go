@@ -105,6 +105,7 @@ func (h *ICalHandler) Match(e *core.RequestEvent) error {
 	return e.String(http.StatusOK, ics)
 }
 
+// Competition generates an iCal feed with all matches for a competition.
 func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	comp, err := h.app.FindRecordById("competitions", id)
@@ -122,6 +123,32 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 		"", 0, 0,
 		map[string]any{"cid": id})
 
+	datedMatches, pairNames := h.filterDatedMatches(allMatches, compPairIDs)
+
+	var events strings.Builder
+	for _, m := range datedMatches {
+		dtStart, dtEnd := formatICalDate(m.GetString("date"), m.GetString("time"))
+		if dtStart == "" {
+			continue
+		}
+
+		summary := pairNames[m.GetString("pair1")] + " vs " + pairNames[m.GetString("pair2")]
+		location := m.GetString("club")
+
+		description := fmt.Sprintf("Jornada %d", int(m.GetFloat("round_number")))
+
+		events.WriteString(buildVEvent(m.Id+"@padelleague", dtStart, dtEnd, summary, location, description))
+	}
+
+	ics := wrapVCalendar(events.String())
+
+	filename := fmt.Sprintf("%s.ics", comp.GetString("name"))
+	e.Response.Header().Set("Content-Type", "text/calendar")
+	e.Response.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	return e.String(http.StatusOK, ics)
+}
+
+func (h *ICalHandler) filterDatedMatches(allMatches []*core.Record, compPairIDs map[string]bool) ([]*core.Record, map[string]string) {
 	seen := make(map[string]bool)
 	pairIDSet := make(map[string]bool)
 	var datedMatches []*core.Record
@@ -145,28 +172,7 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 		pairIDSlice = append(pairIDSlice, pid)
 	}
 	pairNames := league.PairNames(h.app, pairIDSlice)
-
-	var events strings.Builder
-	for _, m := range datedMatches {
-		dtStart, dtEnd := formatICalDate(m.GetString("date"), m.GetString("time"))
-		if dtStart == "" {
-			continue
-		}
-
-		summary := pairNames[m.GetString("pair1")] + " vs " + pairNames[m.GetString("pair2")]
-		location := m.GetString("club")
-
-		description := fmt.Sprintf("Jornada %d", int(m.GetFloat("round_number")))
-
-		events.WriteString(buildVEvent(m.Id+"@padelleague", dtStart, dtEnd, summary, location, description))
-	}
-
-	ics := wrapVCalendar(events.String())
-
-	filename := fmt.Sprintf("%s.ics", comp.GetString("name"))
-	e.Response.Header().Set("Content-Type", "text/calendar")
-	e.Response.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
-	return e.String(http.StatusOK, ics)
+	return datedMatches, pairNames
 }
 
 func (h *ICalHandler) playerCompPairIDs(userID string, comp *core.Record) map[string]bool {
