@@ -9,6 +9,3 @@ formatters:
   settings:
     gofmt:
       simplify: true
-
-issues:
-  new-from-rev: 37e07b3

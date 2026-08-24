@@ -316,9 +316,10 @@ func (h *PlayerHandler) H2H(e *core.RequestEvent) error {
 	for _, m := range matches {
 		winner := m.GetString("winner")
 		won := winner == p1
-		if winner == p1 {
+		switch winner {
+		case p1:
 			wins1++
-		} else if winner == p2 {
+		case p2:
 			wins2++
 		}
 
