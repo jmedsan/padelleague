@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -114,6 +113,7 @@ func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 	return redirectHX(e, "/match/"+id)
 }
 
+// MatchCorrect allows the submitting team to correct a confirmed score.
 func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
@@ -136,8 +136,8 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	if err != nil && !isAdmin {
 		return alertError(e, "No eres participante de este partido")
 	}
-	if err := h.validateCorrectionPermission(isAdmin, myTeam, submittedByID, match); err != nil {
-		return alertError(e, err.Error())
+	if msg := h.validateCorrectionPermission(isAdmin, myTeam, submittedByID, match); msg != "" {
+		return alertError(e, msg)
 	}
 
 	submittedAt := match.GetString("submitted_at")
@@ -170,25 +170,28 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 		return alertError(e, "Error al corregir el resultado")
 	}
 
+	h.notifyCorrectionToRival(match, myTeam)
+	return redirectHX(e, "/match/"+id)
+}
+
+func (h *MatchHandler) notifyCorrectionToRival(match *core.Record, myTeam int) {
 	rivalPairID := match.GetString("pair2")
 	if myTeam == 2 {
 		rivalPairID = match.GetString("pair1")
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
 	h.notifier.NotifyPlayers(rivalPlayers, "quorum_request", "Resultado corregido", "El rival ha corregido el resultado. Confirma o disputa.", match.Id)
-
-	return redirectHX(e, "/match/"+id)
 }
 
-func (h *MatchHandler) validateCorrectionPermission(isAdmin bool, myTeam int, submittedByID string, match *core.Record) error {
+func (h *MatchHandler) validateCorrectionPermission(isAdmin bool, myTeam int, submittedByID string, match *core.Record) string {
 	if isAdmin {
-		return nil
+		return ""
 	}
 	submitterTeam, err := league.PlayerTeam(h.app, submittedByID, match)
 	if err != nil || myTeam != submitterTeam {
-		return fmt.Errorf("Solo el equipo que envió el resultado puede corregirlo")
+		return "Solo el equipo que envió el resultado puede corregirlo"
 	}
-	return nil
+	return ""
 }
 
 // MatchWalkover records a walkover win when the opponent does not show up.

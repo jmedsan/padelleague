@@ -316,6 +316,7 @@ type RoundMatchView struct {
 	IsMyMatch bool
 }
 
+// Competition renders the public competition page with standings and fixtures.
 func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	comp, err := h.app.FindRecordById("competitions", id)

@@ -90,6 +90,7 @@ func (h *AuthHandler) Register(e *core.RequestEvent) error {
 	})
 }
 
+// RegisterSubmit processes the registration form and creates the user account.
 func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 	token := e.Request.FormValue("token")
 	displayName := e.Request.FormValue("display_name")
