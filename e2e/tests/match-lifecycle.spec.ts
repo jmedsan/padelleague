@@ -19,7 +19,9 @@ test.describe('match lifecycle', () => {
     if (await scoreInput.isVisible({ timeout: 3000 }).catch(() => false)) {
       await scoreInput.fill('6-3 6-4');
       await page.getByRole('button', { name: 'Enviar resultado' }).click();
-      await expect(page.locator('.alert-success, .alert-info, .card')).toBeVisible({ timeout: 5000 });
+      await page.waitForLoadState('networkidle');
+      await expect(page.getByText('6-3 6-4')).toBeVisible({ timeout: 5000 });
+      await expect(page.getByText(/esperando confirmaci[oó]n/i)).toBeVisible({ timeout: 5000 });
     }
   });
 
@@ -32,8 +34,7 @@ test.describe('match lifecycle', () => {
   test('player cannot access match of another competition', async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto('/match/nonexistent-id');
-    const body = await page.locator('body').textContent();
-    const isError = body?.includes('no encontrado') || body?.includes('error') || page.url().includes('/login');
-    expect(isError).toBeTruthy();
+    await expect(page.getByText('no encontrado')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('link', { name: 'Volver al inicio' })).toBeVisible();
   });
 });
