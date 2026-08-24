@@ -8,6 +8,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"padelleague/league"
@@ -44,11 +45,11 @@ func setupPublicRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 
 func TestHomeWithAuth(t *testing.T) {
 	s := &tests.ApiScenario{
-		Name:            "GET / with auth returns home page",
+		Name:            "GET / with auth returns home with player name",
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Home Player"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -60,10 +61,10 @@ func TestHomeWithAuth(t *testing.T) {
 
 func TestCompetitionPage(t *testing.T) {
 	s := &tests.ApiScenario{
-		Name:            "GET /competition/{id} with auth returns 200",
+		Name:            "GET /competition/{id} shows pair names",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"CompA", "CompB"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -79,10 +80,10 @@ func TestCompetitionPage(t *testing.T) {
 
 func TestPlayerProfilePage(t *testing.T) {
 	s := &tests.ApiScenario{
-		Name:            "GET /player/{id} with auth returns 200",
+		Name:            "GET /player/{id} shows display name",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Profile Viewer"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -95,17 +96,18 @@ func TestPlayerProfilePage(t *testing.T) {
 
 func TestH2HPage(t *testing.T) {
 	s := &tests.ApiScenario{
-		Name:            "GET /h2h with two players returns 200",
+		Name:            "GET /h2h shows both player names",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"H2H P1", "H2H P2"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
-		u1 := makeUserTB(tb, app, "H2H P1", "")
-		u2 := makeUserTB(tb, app, "H2H P2", "")
-		s.URL = "/h2h?p1=" + u1.Id + "&p2=" + u2.Id
-		s.Headers = authHeaders(tb, u1)
+		p1 := makePairTB(tb, app, "H2H P1")
+		p2 := makePairTB(tb, app, "H2H P2")
+		s.URL = "/h2h?p1=" + p1.Id + "&p2=" + p2.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -158,11 +160,11 @@ func TestICalCompetition(t *testing.T) {
 
 func TestProfileCompletePage(t *testing.T) {
 	s := &tests.ApiScenario{
-		Name:            "GET /profile/complete with auth returns 200",
+		Name:            "GET /profile/complete shows name form",
 		Method:          http.MethodGet,
 		URL:             "/profile/complete",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"display_name"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -180,12 +182,20 @@ func TestProfileCompleteSubmit(t *testing.T) {
 		Body:           strings.NewReader("display_name=NuevoNombre"),
 		ExpectedStatus: 302,
 	}
+	var userID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
 		user := makeUserTB(tb, app, "Old Name", "")
+		userID = user.Id
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		u, err := app.FindRecordById("users", userID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "NuevoNombre", u.GetString("display_name"))
+		assert.Equal(tb, "/", res.Header.Get("Location"))
 	}
 	s.Test(t)
 }
