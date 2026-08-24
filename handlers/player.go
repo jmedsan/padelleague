@@ -116,7 +116,7 @@ type matchResult struct {
 }
 
 type playerTotals struct {
-	wins, played                         int
+	wins, played                           int
 	setsWon, setsLost, gamesWon, gamesLost int
 }
 
@@ -304,6 +304,9 @@ func (h *PlayerHandler) computeCompetitionStats(results []matchResult) []Competi
 	for _, cs := range compStatsMap {
 		compStats = append(compStats, *cs)
 	}
+	// Sort by name: compStatsMap is a map, and Go randomises map iteration
+	// order, so without this the profile table reordered on every page load.
+	// Do not remove this as redundant — it is the fix for that bug.
 	sort.Slice(compStats, func(i, j int) bool {
 		return compStats[i].Name < compStats[j].Name
 	})
