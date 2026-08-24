@@ -16,6 +16,17 @@ function urlBase64ToUint8Array(base64String) {
         return;
     }
 
+    function showPushError(msg) {
+        var existing = document.getElementById('push-error-toast');
+        if (existing) existing.remove();
+        var toast = document.createElement('div');
+        toast.id = 'push-error-toast';
+        toast.className = 'toast toast-center z-50';
+        toast.innerHTML = '<div class="alert alert-error">' + msg + '</div>';
+        document.body.appendChild(toast);
+        setTimeout(function() { toast.remove(); }, 3000);
+    }
+
     navigator.serviceWorker.ready.then(function(reg) {
         reg.pushManager.getSubscription().then(function(sub) {
             toggle.checked = !!sub;
@@ -38,9 +49,20 @@ function urlBase64ToUint8Array(base64String) {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(sub.toJSON())
+                        }).then(function(response) {
+                            if (!response.ok) {
+                                sub.unsubscribe();
+                                toggle.checked = false;
+                                showPushError('No se pudieron activar las notificaciones. Inténtalo de nuevo.');
+                            }
+                        }).catch(function() {
+                            sub.unsubscribe();
+                            toggle.checked = false;
+                            showPushError('No se pudieron activar las notificaciones. Inténtalo de nuevo.');
                         });
                     }).catch(function() {
                         toggle.checked = false;
+                        showPushError('No se pudieron activar las notificaciones. Inténtalo de nuevo.');
                     });
                 });
             });
@@ -48,12 +70,17 @@ function urlBase64ToUint8Array(base64String) {
             navigator.serviceWorker.ready.then(function(reg) {
                 reg.pushManager.getSubscription().then(function(sub) {
                     if (sub) {
+                        sub.unsubscribe();
                         fetch('/push/unsubscribe', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ endpoint: sub.endpoint })
-                        }).then(function() {
-                            sub.unsubscribe();
+                        }).then(function(response) {
+                            if (!response.ok) {
+                                showPushError('Las notificaciones se desactivaron localmente, pero el servidor no respondió.');
+                            }
+                        }).catch(function() {
+                            showPushError('Las notificaciones se desactivaron localmente, pero el servidor no respondió.');
                         });
                     }
                 });
