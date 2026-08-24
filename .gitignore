@@ -6,3 +6,4 @@ node_modules/
 .claude
 screenshots/
 .env
+*.test
