@@ -46,6 +46,7 @@ func setupNotifRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 func TestMarkReadNotification(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /notifications/{id}/read marks read and redirects",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -71,6 +72,7 @@ func TestMarkReadNotification(t *testing.T) {
 func TestMarkAllReadNotifications(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /notifications/read-all marks all read",
 		Method:         http.MethodPost,
 		URL:            "/notifications/read-all",
@@ -99,6 +101,7 @@ func TestMarkAllReadNotifications(t *testing.T) {
 func TestNotificationPrefsPage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "GET /profile/notifications returns prefs page with toggles",
 		Method:         http.MethodGet,
 		URL:            "/profile/notifications",
@@ -123,6 +126,7 @@ func TestNotificationPrefsSave(t *testing.T) {
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "POST /profile/notifications saves prefs",
 		Method:          http.MethodPost,
 		URL:             "/profile/notifications",
@@ -156,6 +160,7 @@ func TestNotificationPrefsSave(t *testing.T) {
 func TestNotificationPrefsPageReflectsSavedPrefs(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:     testAppFactory,
 		Name:               "GET /profile/notifications renders a disabled toggle unchecked",
 		Method:             http.MethodGet,
 		URL:                "/profile/notifications",
@@ -182,6 +187,7 @@ func TestNotificationPrefsPageReflectsSavedPrefs(t *testing.T) {
 func TestPushSubscribeHTTPS(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /push/subscribe with https endpoint succeeds",
 		Method:         http.MethodPost,
 		URL:            "/push/subscribe",
@@ -213,6 +219,7 @@ func TestPushSubscribeHTTPS(t *testing.T) {
 func TestPushSubscribeHTTPRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "POST /push/subscribe with http endpoint fails",
 		Method:          http.MethodPost,
 		URL:             "/push/subscribe",
@@ -233,6 +240,7 @@ func TestPushSubscribeHTTPRejected(t *testing.T) {
 func TestPushUnsubscribe(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /push/unsubscribe removes subscription",
 		Method:         http.MethodPost,
 		URL:            "/push/unsubscribe",

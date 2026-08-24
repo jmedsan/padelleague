@@ -17,6 +17,7 @@ import (
 func TestPlayerPreCreate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "POST /admin/players/pre-create creates player with password link",
 		Method:          http.MethodPost,
 		URL:             "/admin/players/pre-create",
@@ -37,6 +38,7 @@ func TestPlayerPreCreate(t *testing.T) {
 func TestPlayerUpdate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/players/{id} updates player",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -64,6 +66,7 @@ func TestPlayerUpdate(t *testing.T) {
 func TestPairsCreate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/pairs creates pair",
 		Method:         http.MethodPost,
 		URL:            "/admin/pairs",
@@ -85,6 +88,7 @@ func TestPairsCreate(t *testing.T) {
 func TestPairsUpdate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/pairs/{id} updates pair",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -105,6 +109,7 @@ func TestPairsUpdate(t *testing.T) {
 func TestVenuesCreate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/venues creates venue",
 		Method:         http.MethodPost,
 		URL:            "/admin/venues",
@@ -124,6 +129,7 @@ func TestVenuesCreate(t *testing.T) {
 func TestVenuesUpdate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/venues/{id} updates venue",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -144,6 +150,7 @@ func TestVenuesUpdate(t *testing.T) {
 func TestVenuesDelete(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/venues/{id}/delete removes venue",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -168,6 +175,7 @@ func TestVenuesDelete(t *testing.T) {
 func TestInvitationsRevoke(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/invitations/{id}/revoke removes invitation",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -196,6 +204,7 @@ func TestPlayerProfileCompetitionStatsSortedDeterministic(t *testing.T) {
 
 	for iter := 0; iter < 20; iter++ {
 		s := &tests.ApiScenario{
+			TestAppFactory:  testAppFactory,
 			Name:            fmt.Sprintf("GET /player/{id} competition stats sorted (iter %d)", iter),
 			Method:          http.MethodGet,
 			ExpectedStatus:  200,

@@ -94,6 +94,7 @@ func TestHomeWithoutAuth(t *testing.T) {
 func TestNotificationCount(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:     testAppFactory,
 		Name:               "GET /notifications/count returns 200",
 		Method:             http.MethodGet,
 		URL:                "/notifications/count",
@@ -111,6 +112,7 @@ func TestNotificationCount(t *testing.T) {
 func TestNotificationList(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /notifications/list returns page",
 		Method:          http.MethodGet,
 		URL:             "/notifications/list",
@@ -129,6 +131,7 @@ func TestMatchDetail(t *testing.T) {
 	t.Parallel()
 	var matchID string
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /match/{id} with auth returns match page",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -151,6 +154,7 @@ func TestMatchDetail(t *testing.T) {
 func TestMatchDetailWithoutAuth(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "GET /match/{id} without auth redirects to login",
 		Method:         http.MethodGet,
 		URL:            "/match/fakeid",
@@ -168,6 +172,7 @@ func TestMatchDetailWithoutAuth(t *testing.T) {
 func TestAdminDashboard(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin with admin auth returns dashboard",
 		Method:          http.MethodGet,
 		URL:             "/admin",
@@ -185,6 +190,7 @@ func TestAdminDashboard(t *testing.T) {
 func TestAdminDashboardNonAdmin(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "GET /admin with non-admin redirects to login",
 		Method:         http.MethodGet,
 		URL:            "/admin",
@@ -204,6 +210,7 @@ func TestAdminDashboardNonAdmin(t *testing.T) {
 func TestAdminCompetitionDetail(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin/competitions/{id} returns detail",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -223,6 +230,7 @@ func TestAdminCompetitionDetail(t *testing.T) {
 func TestPlayerProfile(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /player/{id} returns profile with display name",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -240,6 +248,7 @@ func TestPlayerProfile(t *testing.T) {
 func TestMatchSubmitValidScore(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /match/{id}/submit with valid score",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,

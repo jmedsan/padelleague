@@ -16,6 +16,7 @@ import (
 func TestRegisterWithValidToken(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /register?token=valid shows form with email",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -33,6 +34,7 @@ func TestRegisterWithValidToken(t *testing.T) {
 func TestRegisterWithExpiredToken(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /register?token=expired shows invalid",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -50,6 +52,7 @@ func TestRegisterWithExpiredToken(t *testing.T) {
 func TestPlayerProfileWithMatches(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /player/{id} with match history shows stats",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -96,6 +99,7 @@ func TestPlayerProfileWithMatches(t *testing.T) {
 func TestThreadWithMessages(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /match/{id}/thread with messages renders them",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -141,6 +145,7 @@ func TestThreadWithMessages(t *testing.T) {
 func TestThreadMessagesWithData(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /match/{id}/thread-messages with messages",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -182,6 +187,7 @@ func TestThreadMessagesWithData(t *testing.T) {
 func TestProposalChangeDecision(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST change-decision reverts accepted to rejected",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -221,6 +227,7 @@ func TestProposalChangeDecision(t *testing.T) {
 func TestHomeWithScheduledMatch(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET / with pending proposal and scheduled match",
 		Method:          http.MethodGet,
 		URL:             "/",
@@ -261,6 +268,7 @@ func TestHomeWithScheduledMatch(t *testing.T) {
 func TestRegisterSubmitPasswordMismatch(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "POST /register with mismatched passwords",
 		Method:          http.MethodPost,
 		URL:             "/register",
@@ -281,6 +289,7 @@ func TestRegisterSubmitPasswordMismatch(t *testing.T) {
 func TestAdminCompetitionDetailWithData(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin/competitions/{id} with matches and disputes",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
