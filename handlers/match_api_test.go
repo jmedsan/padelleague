@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -37,6 +38,8 @@ func TestMatchSubmitScore(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "confirmed", m.GetString("status"))
 		assert.Equal(tb, "6-3 6-4", m.GetString("scores"))
+		assert.NotEmpty(tb, m.GetString("submitted_by"), "submitted_by must be set")
+		assert.Equal(tb, "/", res.Header.Get("HX-Redirect"))
 	}
 	s.Test(t)
 }
@@ -47,7 +50,7 @@ func TestMatchConfirm(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID string
+	var matchID, opponentID, p1ID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Confirm A")
@@ -55,18 +58,23 @@ func TestMatchConfirm(t *testing.T) {
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
 		matchID = match.Id
+		p1ID = p1.Id
 		submitter := p1.GetString("player1")
 		match.Set("scores", "6-3 6-4")
 		match.Set("submitted_by", submitter)
 		require.NoError(tb, app.Save(match))
 		s.URL = "/match/" + match.Id + "/confirm"
 		opponent, _ := app.FindRecordById("users", p2.GetString("player1"))
+		opponentID = opponent.Id
 		s.Headers = authHeaders(tb, opponent)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
 		m, err := app.FindRecordById("matches", matchID)
 		require.NoError(tb, err)
 		assert.Equal(tb, "final", m.GetString("status"))
+		assert.Equal(tb, opponentID, m.GetString("confirmed_by"))
+		assert.Equal(tb, p1ID, m.GetString("winner"))
+		assert.Equal(tb, "/match/"+matchID, res.Header.Get("HX-Redirect"))
 	}
 	s.Test(t)
 }
@@ -77,7 +85,7 @@ func TestMatchDispute(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID string
+	var matchID, opponentID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Dispute A")
@@ -92,6 +100,7 @@ func TestMatchDispute(t *testing.T) {
 		s.URL = "/match/" + match.Id + "/dispute"
 		s.Body = strings.NewReader("dispute_notes=El+marcador+es+incorrecto")
 		opponent, _ := app.FindRecordById("users", p2.GetString("player1"))
+		opponentID = opponent.Id
 		hdrs := authHeaders(tb, opponent)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -101,6 +110,8 @@ func TestMatchDispute(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "disputed", m.GetString("status"))
 		assert.Equal(tb, "El marcador es incorrecto", m.GetString("dispute_notes"))
+		assert.Equal(tb, opponentID, m.GetString("disputed_by"))
+		assert.Equal(tb, "/match/"+matchID, res.Header.Get("HX-Redirect"))
 	}
 	s.Test(t)
 }
@@ -133,6 +144,8 @@ func TestMatchWalkover(t *testing.T) {
 		assert.Equal(tb, "final", m.GetString("status"))
 		assert.Equal(tb, "WO", m.GetString("scores"))
 		assert.Equal(tb, p1ID, m.GetString("winner"))
+		assert.NotEmpty(tb, m.GetString("submitted_by"), "submitted_by must be set on walkover")
+		assert.Equal(tb, "/match/"+matchID, res.Header.Get("HX-Redirect"))
 	}
 	s.Test(t)
 }
@@ -154,6 +167,7 @@ func TestMatchCorrect(t *testing.T) {
 		submitter := p1.GetString("player1")
 		match.Set("scores", "6-3 6-4")
 		match.Set("submitted_by", submitter)
+		match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
 		require.NoError(tb, app.Save(match))
 		s.URL = "/match/" + match.Id + "/correct"
 		s.Body = strings.NewReader("scores=6-4+6-3")
@@ -167,6 +181,9 @@ func TestMatchCorrect(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "confirmed", m.GetString("status"))
 		assert.Equal(tb, "6-4 6-3", m.GetString("scores"))
+		assert.Empty(tb, m.GetString("confirmed_by"), "confirmed_by must be cleared on correction")
+		assert.NotEmpty(tb, m.GetString("submitted_at"), "submitted_at must be refreshed")
+		assert.Equal(tb, "/match/"+matchID, res.Header.Get("HX-Redirect"))
 	}
 	s.Test(t)
 }
@@ -197,6 +214,7 @@ func TestMatchEdit(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Contains(tb, m.GetString("date"), "2026-09-15")
 		assert.Equal(tb, "18:00", m.GetString("time"))
+		assert.Equal(tb, "/match/"+matchID, res.Header.Get("HX-Redirect"))
 	}
 	s.Test(t)
 }
