@@ -209,7 +209,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	}
 
 	if _, err := league.ParseScore(scores); err != nil {
-		return alertError(e, "Marcador no valido")
+		return alertError(e, "Marcador no válido")
 	}
 
 	match.Set("scores", scores)
@@ -305,7 +305,7 @@ func (h *MatchHandler) detectScoreChange(e *core.RequestEvent, match *core.Recor
 		return nil, nil
 	}
 	if _, err := league.ParseScore(scores); err != nil {
-		return nil, alertError(e, "Marcador no valido")
+		return nil, alertError(e, "Marcador no válido")
 	}
 	winner, err := league.DetermineWinner(match, scores)
 	if err != nil {

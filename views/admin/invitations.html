@@ -1,12 +1,12 @@
 {{define "content"}}
 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
     <div>
-        <a href="/admin" class="link link-hover text-sm opacity-60">&larr; Panel de administracion</a>
+        <a href="/admin" class="link link-hover text-sm opacity-60">&larr; Panel de administración</a>
         <h1 class="text-2xl font-bold mt-1">Invitaciones</h1>
     </div>
     <button class="btn btn-primary btn-sm sm:btn-md" onclick="document.getElementById('modal-create').showModal()">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-        Nueva invitacion
+        Nueva invitación
     </button>
 </div>
 
@@ -16,7 +16,7 @@
             <thead>
                 <tr>
                     <th>Destinatario</th>
-                    <th class="hidden sm:table-cell">Competicion</th>
+                    <th class="hidden sm:table-cell">Competición</th>
                     <th>Estado</th>
                     <th>Usos</th>
                     <th class="hidden md:table-cell">Expira</th>
@@ -28,7 +28,7 @@
                 {{range .Invitations}}
                 <tr class="hover">
                     <td>
-                        <span class="text-sm">{{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="badge badge-info badge-sm">Enlace generico</span>{{end}}</span>
+                        <span class="text-sm">{{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="badge badge-info badge-sm">Enlace genérico</span>{{end}}</span>
                     </td>
                     <td class="hidden sm:table-cell text-sm opacity-60">
                         {{if .GetString "competition"}}Asignada{{else}}-{{end}}
@@ -60,7 +60,7 @@
                     </td>
                     <td>
                         {{if eq (.GetString "status") "pending"}}
-                        <form hx-post="/admin/invitations/{{.Id}}/revoke" hx-confirm="Revocar esta invitacion?">
+                        <form hx-post="/admin/invitations/{{.Id}}/revoke" hx-confirm="¿Revocar esta invitación?">
                             <button type="submit" class="btn btn-ghost btn-xs text-error">Revocar</button>
                         </form>
                         {{end}}
@@ -79,26 +79,26 @@
 <dialog id="modal-create" class="modal modal-bottom sm:modal-middle">
     <div class="modal-box">
         <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">&times;</button></form>
-        <h3 class="text-lg font-bold mb-4">Nueva invitacion</h3>
+        <h3 class="text-lg font-bold mb-4">Nueva invitación</h3>
         <div id="create-error" class="mb-2"></div>
         <form hx-post="/admin/invitations" hx-target="#create-error">
             <div class="form-control w-full">
                 <label class="label"><span class="label-text font-medium">Email (opcional)</span></label>
                 <input type="email" name="email" id="invite-email" class="input input-bordered w-full" placeholder="jugador@email.com" oninput="toggleGenericFields()">
-                <label class="label"><span class="label-text-alt opacity-50">Vacio = enlace generico que cualquiera puede usar</span></label>
+                <label class="label"><span class="label-text-alt opacity-50">Vacío = enlace genérico que cualquiera puede usar</span></label>
             </div>
             <div id="generic-fields">
                 <div class="form-control w-full mt-3">
-                    <label class="label"><span class="label-text font-medium">Usos maximos</span></label>
+                    <label class="label"><span class="label-text font-medium">Usos máximos</span></label>
                     <input type="number" name="max_uses" class="input input-bordered w-full" value="10" min="1">
                 </div>
             </div>
             <div class="form-control w-full mt-3">
-                <label class="label"><span class="label-text font-medium">Dias de validez</span></label>
+                <label class="label"><span class="label-text font-medium">Días de validez</span></label>
                 <input type="number" name="expiration_days" class="input input-bordered w-full" value="7" min="1">
             </div>
             <div class="form-control w-full mt-3">
-                <label class="label"><span class="label-text font-medium">Competicion (opcional)</span></label>
+                <label class="label"><span class="label-text font-medium">Competición (opcional)</span></label>
                 <select name="competition" class="select select-bordered w-full">
                     <option value="">Sin asignar</option>
                     {{range .Competitions}}
@@ -107,7 +107,7 @@
                 </select>
             </div>
             <div class="modal-action">
-                <button type="submit" class="btn btn-primary">Crear invitacion</button>
+                <button type="submit" class="btn btn-primary">Crear invitación</button>
             </div>
         </form>
     </div>
@@ -124,7 +124,7 @@ function copyInviteLink(token, btn) {
     var url = window.location.origin + '/register?token=' + token;
     navigator.clipboard.writeText(url).then(function() {
         var orig = btn.innerHTML;
-        btn.innerHTML = '<span class="text-success text-xs">Copiado!</span>';
+        btn.innerHTML = '<span class="text-success text-xs">¡Copiado!</span>';
         setTimeout(function() { btn.innerHTML = orig; }, 2000);
     });
 }

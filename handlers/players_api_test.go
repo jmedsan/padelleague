@@ -234,7 +234,7 @@ func TestPlayerProfileCompetitionStatsSortedDeterministic(t *testing.T) {
 			body, err := io.ReadAll(res.Body)
 			require.NoError(tb, err)
 			html := string(body)
-			statsStart := strings.Index(html, "Por competicion")
+			statsStart := strings.Index(html, "Por competición")
 			require.NotEqual(tb, -1, statsStart, "expected competition stats section")
 			statsSection := html[statsStart:]
 			prev := -1

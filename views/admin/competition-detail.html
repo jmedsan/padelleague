@@ -55,12 +55,12 @@
                 <input type="text" name="category" value="{{.Competition.GetString "category"}}" class="input input-bordered">
             </div>
             <div class="form-control mb-3">
-                <label class="label"><span class="label-text">Tiempo de espera para confirmacion (horas)</span></label>
+                <label class="label"><span class="label-text">Tiempo de espera para confirmación (horas)</span></label>
                 <input type="number" name="quorum_timeout_hours" value="{{.Competition.GetFloat "quorum_timeout_hours"}}" min="0" class="input input-bordered" placeholder="0 = desactivado">
                 <label class="label"><span class="label-text-alt opacity-50">0 = desactivado</span></label>
             </div>
             <div class="form-control mb-3">
-                <label class="label"><span class="label-text">Penalizacion por defecto (puntos)</span></label>
+                <label class="label"><span class="label-text">Penalización por defecto (puntos)</span></label>
                 <input type="number" name="default_penalty" value="{{or (.Competition.GetFloat "default_penalty") 3}}" min="1" class="input input-bordered">
             </div>
             <div class="form-control">
@@ -104,8 +104,8 @@
                         <th>Pareja</th>
                         {{if not .IsLeague}}<th>Cabeza de serie</th>{{end}}
                         <th>Pagado</th>
-                        <th>Penalizacion</th>
-                        <th class="text-right">Accion</th>
+                        <th>Penalización</th>
+                        <th class="text-right">Acción</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -226,7 +226,7 @@
                 Calendario
             </h2>
             {{if .HasFixtures}}
-                <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" hx-confirm="¿Regenerar el calendario? Se perderan todos los partidos y resultados existentes." class="btn btn-warning btn-sm">Regenerar</button>
+                <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" hx-confirm="¿Regenerar el calendario? Se perderán todos los partidos y resultados existentes." class="btn btn-warning btn-sm">Regenerar</button>
             {{else if .Entries}}
                 <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" class="btn btn-primary btn-sm">Generar calendario</button>
             {{end}}

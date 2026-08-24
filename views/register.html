@@ -5,23 +5,23 @@
             <div class="text-center mb-4">
                 
                 {{if .NoInvite}}
-                <h2 class="text-2xl font-bold mt-2">Registro por invitacion</h2>
-                <p class="text-sm opacity-50 mt-3">Necesitas una invitacion para registrarte en PadelLeague.</p>
-                <p class="text-sm opacity-50 mt-1">Pide a un administrador que te envie un enlace de invitacion.</p>
+                <h2 class="text-2xl font-bold mt-2">Registro por invitación</h2>
+                <p class="text-sm opacity-50 mt-3">Necesitas una invitación para registrarte en PadelLeague.</p>
+                <p class="text-sm opacity-50 mt-1">Pide a un administrador que te envíe un enlace de invitación.</p>
                 <div class="mt-6">
-                    <a href="/login" class="btn btn-primary btn-sm">Volver a inicio de sesion</a>
+                    <a href="/login" class="btn btn-primary btn-sm">Volver a inicio de sesión</a>
                 </div>
                 {{else if .InvalidInvite}}
-                <h2 class="text-2xl font-bold mt-2">Invitacion no valida</h2>
+                <h2 class="text-2xl font-bold mt-2">Invitación no válida</h2>
                 <div class="alert alert-error mt-4 text-sm">
-                    Esta invitacion ha expirado o ya fue utilizada.
+                    Esta invitación ha expirado o ya fue utilizada.
                 </div>
                 <div class="mt-4">
-                    <a href="/login" class="btn btn-primary btn-sm">Volver a inicio de sesion</a>
+                    <a href="/login" class="btn btn-primary btn-sm">Volver a inicio de sesión</a>
                 </div>
                 {{else}}
                 <h2 class="text-2xl font-bold mt-2">Crear cuenta</h2>
-                <p class="text-sm opacity-50 mt-1">Unete a PadelLeague</p>
+                <p class="text-sm opacity-50 mt-1">Únete a PadelLeague</p>
             </div>
             <div id="error"></div>
             <form hx-post="/register" hx-target="#error">
@@ -44,13 +44,13 @@
                 </div>
                 <div class="form-control mt-3">
                     <label class="label" for="password">
-                        <span class="label-text text-xs font-medium">Contrasena</span>
+                        <span class="label-text text-xs font-medium">Contraseña</span>
                     </label>
                     <input type="password" id="password" name="password" class="input input-bordered w-full" placeholder="********" required>
                 </div>
                 <div class="form-control mt-3">
                     <label class="label" for="password_confirm">
-                        <span class="label-text text-xs font-medium">Confirmar contrasena</span>
+                        <span class="label-text text-xs font-medium">Confirmar contraseña</span>
                     </label>
                     <input type="password" id="password_confirm" name="password_confirm" class="input input-bordered w-full" placeholder="********" required>
                 </div>
@@ -60,7 +60,7 @@
             </form>
             <div class="divider text-xs opacity-40 my-3">O</div>
             <p class="text-center text-sm">
-                Ya tienes cuenta? <a href="/login" class="link link-primary font-medium">Inicia sesion</a>
+                ¿Ya tienes cuenta? <a href="/login" class="link link-primary font-medium">Inicia sesión</a>
             </p>
                 {{end}}
             </div>

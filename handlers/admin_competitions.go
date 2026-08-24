@@ -137,7 +137,7 @@ func (h *CompetitionHandler) classifyMatchIssues(m *core.Record, compName string
 		issue.Type = "dispute"
 		issue.TypeLabel = "Disputa"
 		issue.BadgeClass = "badge-error"
-		issue.Detail = "pendiente de resolucion"
+		issue.Detail = "pendiente de resolución"
 		return []AdminIssue{issue}
 	case league.StatusConfirmed:
 		return h.checkQuorumIssue(m, base, quorumHours, now)
@@ -422,7 +422,7 @@ func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	comp, err := h.app.FindRecordById("competitions", id)
 	if err != nil {
-		return alertError(e, "Competicion no encontrada")
+		return alertError(e, "Competición no encontrada")
 	}
 
 	pairID := e.Request.FormValue("pair_id")
@@ -646,7 +646,7 @@ func (h *CompetitionHandler) TogglePayment(e *core.RequestEvent) error {
 
 	comp, err := h.app.FindRecordById("competitions", compID)
 	if err != nil {
-		return alertError(e, "Competicion no encontrada")
+		return alertError(e, "Competición no encontrada")
 	}
 
 	paymentStatus := h.getPaymentStatus(comp)
@@ -666,7 +666,7 @@ func (h *CompetitionHandler) TogglePaymentAll(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	comp, err := h.app.FindRecordById("competitions", id)
 	if err != nil {
-		return alertError(e, "Competicion no encontrada")
+		return alertError(e, "Competición no encontrada")
 	}
 
 	pairIDs := comp.GetStringSlice("pairs")

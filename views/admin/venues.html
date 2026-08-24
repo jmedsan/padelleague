@@ -1,7 +1,7 @@
 {{define "content"}}
 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
     <div>
-        <a href="/admin" class="link link-hover text-sm opacity-60">&larr; Panel de administracion</a>
+        <a href="/admin" class="link link-hover text-sm opacity-60">&larr; Panel de administración</a>
         <h1 class="text-2xl font-bold mt-1">Pistas</h1>
     </div>
     <button class="btn btn-primary btn-sm sm:btn-md" onclick="document.getElementById('modal-create-venue').showModal()">
@@ -29,7 +29,7 @@
                     <td>{{if .GetFloat "courts"}}<span class="badge badge-outline badge-sm">{{.GetFloat "courts"}}</span>{{else}}<span class="opacity-40">—</span>{{end}}</td>
                     <td class="text-right">
                         <button class="btn btn-ghost btn-xs" onclick="document.getElementById('modal-edit-venue-{{.Id}}').showModal()">Editar</button>
-                        <form hx-post="/admin/venues/{{.Id}}/delete" hx-confirm="Eliminar este club?">
+                        <form hx-post="/admin/venues/{{.Id}}/delete" hx-confirm="¿Eliminar este club?">
                             <button type="submit" class="btn btn-ghost btn-xs text-error">Eliminar</button>
                         </form>
                     </td>

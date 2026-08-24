@@ -96,7 +96,7 @@ func TestForgotPasswordPage(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/forgot-password",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Restablecer contrasena"},
+		ExpectedContent: []string{"Restablecer contraseña"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)

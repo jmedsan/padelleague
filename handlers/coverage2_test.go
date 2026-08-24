@@ -34,7 +34,7 @@ func TestRegisterWithExpiredToken(t *testing.T) {
 		Name:            "GET /register?token=expired shows invalid",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Invitacion no valida"},
+		ExpectedContent: []string{"Invitación no válida"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)

@@ -17,7 +17,7 @@ func TestLoginPage(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/login",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Contrasena"},
+		ExpectedContent: []string{"Contraseña"},
 		BeforeTestFunc:  setupAuthRoutes,
 	}
 	scenario.Test(t)
