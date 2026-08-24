@@ -9,7 +9,6 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 
 	"padelleague/league"
-	"padelleague/notify"
 )
 
 var validTransitions = map[string][]string{
@@ -19,7 +18,7 @@ var validTransitions = map[string][]string{
 }
 
 // Register wires all PocketBase event hooks and cron jobs onto the given app.
-func Register(app core.App, notifier *notify.Notifier, svc *league.Service) {
+func Register(app core.App, svc *league.Service) {
 
 	app.OnRecordCreate("users").BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.GetString("role") == "" {
