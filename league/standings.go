@@ -151,9 +151,10 @@ func (svc *Service) ComputeStandings(competitionID string) ([]StandingRowFull, e
 			p2 := m.GetString("pair2")
 			winner := m.GetString("winner")
 			if (p1 == rows[i].PairID && p2 == rows[j].PairID) || (p1 == rows[j].PairID && p2 == rows[i].PairID) {
-				if winner == rows[i].PairID {
+				switch winner {
+				case rows[i].PairID:
 					h2hI++
-				} else if winner == rows[j].PairID {
+				case rows[j].PairID:
 					h2hJ++
 				}
 			}

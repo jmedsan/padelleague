@@ -42,7 +42,10 @@ vuln:
 fmt-check:
 	@test -z "$$(gofmt -l .)" || (echo "gofmt needed:" && gofmt -l . && exit 1)
 
-ci: fmt-check lint test vuln
+dead:
+	@deadcode ./... | tee /dev/stderr | (! grep -q .)
+
+ci: fmt-check lint dead test vuln
 	@echo "CI gate passed"
 
 e2e:
