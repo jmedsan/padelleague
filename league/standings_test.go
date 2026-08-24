@@ -251,3 +251,160 @@ func TestComputeStandings_ThreeSets(t *testing.T) {
 	assert.Equal(t, 16, rows[0].GamesWon)
 	assert.Equal(t, 14, rows[0].GamesLost)
 }
+
+// finalMatch records a completed match with an explicit score and winner.
+func finalMatch(t *testing.T, app core.App, compID string, p1, p2, winner *core.Record, scores string, round int) {
+	t.Helper()
+	m := makeMatch(t, app, compID, p1.Id, p2.Id, "final")
+	m.Set("scores", scores)
+	m.Set("winner", winner.Id)
+	m.Set("round_number", round)
+	require.NoError(t, app.Save(m))
+}
+
+func rowByName(t *testing.T, rows []StandingRowFull, name string) StandingRowFull {
+	t.Helper()
+	for _, r := range rows {
+		if r.PairName == name {
+			return r
+		}
+	}
+	t.Fatalf("pair %q not in standings", name)
+	return StandingRowFull{}
+}
+
+// Head-to-head is the last tiebreaker: two pairs level on points, set
+// difference and game difference must be split by who beat whom.
+func TestComputeStandings_HeadToHeadBreaksFullTie(t *testing.T) {
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	a := makePair(t, app, "H2H A")
+	b := makePair(t, app, "H2H B")
+	c := makePair(t, app, "H2H C")
+	d := makePair(t, app, "H2H D")
+	comp := makeCompetition(t, app, []*core.Record{a, b, c, d})
+
+	// a and b end level: one win and one loss each, identical set and game
+	// difference. a's win is the head-to-head against b.
+	finalMatch(t, app, comp.Id, a, b, a, "6-3 6-3", 1)
+	finalMatch(t, app, comp.Id, b, c, b, "6-3 6-3", 2)
+	finalMatch(t, app, comp.Id, d, a, d, "6-3 6-3", 3)
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	require.Len(t, rows, 4)
+
+	rowA := rowByName(t, rows, "H2H A")
+	rowB := rowByName(t, rows, "H2H B")
+	require.Equal(t, rowB.Points, rowA.Points, "precondition: level on points")
+	require.Equal(t, rowA.SetsWon-rowA.SetsLost, rowB.SetsWon-rowB.SetsLost,
+		"precondition: level on set difference")
+	require.Equal(t, rowA.GamesWon-rowA.GamesLost, rowB.GamesWon-rowB.GamesLost,
+		"precondition: level on game difference")
+
+	assert.Less(t, rowA.Position, rowB.Position,
+		"a beat b head-to-head, so a must rank above b")
+
+	// Positions are 1-based and dense.
+	var order []string
+	for i, r := range rows {
+		assert.Equal(t, i+1, r.Position)
+		order = append(order, r.PairName)
+	}
+	assert.Equal(t, []string{"H2H D", "H2H A", "H2H B", "H2H C"}, order)
+}
+
+// Set difference outranks game difference, and is computed as won minus lost.
+func TestComputeStandings_SetDiffOutranksGameDiff(t *testing.T) {
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	sweep := makePair(t, app, "SD Sweep")
+	grind := makePair(t, app, "SD Grind")
+	foil1 := makePair(t, app, "SD Foil1")
+	foil2 := makePair(t, app, "SD Foil2")
+	comp := makeCompetition(t, app, []*core.Record{sweep, grind, foil1, foil2})
+
+	// Both win once (3 points each).
+	// sweep wins in straight sets: set diff +2, game diff +4.
+	finalMatch(t, app, comp.Id, sweep, foil1, sweep, "6-4 6-4", 1)
+	// grind wins in three: set diff +1, but a larger game diff (+6).
+	finalMatch(t, app, comp.Id, grind, foil2, grind, "6-0 0-6 6-0", 2)
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+
+	rowSweep := rowByName(t, rows, "SD Sweep")
+	rowGrind := rowByName(t, rows, "SD Grind")
+	require.Equal(t, rowGrind.Points, rowSweep.Points, "precondition: level on points")
+	require.Equal(t, 2, rowSweep.SetsWon-rowSweep.SetsLost)
+	require.Equal(t, 1, rowGrind.SetsWon-rowGrind.SetsLost)
+	require.Greater(t, rowGrind.GamesWon-rowGrind.GamesLost, rowSweep.GamesWon-rowSweep.GamesLost,
+		"precondition: grind has the better game difference")
+
+	assert.Less(t, rowSweep.Position, rowGrind.Position,
+		"set difference is checked before game difference")
+}
+
+// Win and loss counters must be credited to the right side, in both the
+// normal and the walkover path.
+func TestComputeStandings_WinLossCounters(t *testing.T) {
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	a := makePair(t, app, "WL A")
+	b := makePair(t, app, "WL B")
+	comp := makeCompetition(t, app, []*core.Record{a, b})
+
+	finalMatch(t, app, comp.Id, a, b, a, "6-3 6-4", 1)
+	finalMatch(t, app, comp.Id, a, b, b, "WO", 2)
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+
+	rowA := rowByName(t, rows, "WL A")
+	rowB := rowByName(t, rows, "WL B")
+
+	assert.Equal(t, 1, rowA.Wins)
+	assert.Equal(t, 1, rowA.Losses)
+	assert.Equal(t, 2, rowA.Played)
+	assert.Equal(t, 1, rowB.Wins)
+	assert.Equal(t, 1, rowB.Losses)
+	assert.Equal(t, 2, rowB.Played)
+	assert.Equal(t, 3, rowA.Points)
+	assert.Equal(t, 3, rowB.Points)
+}
+
+// Same full tie as above, but the head-to-head winner is registered *after*
+// the loser. A comparator that treats them as equal would leave the input
+// order untouched and silently rank the wrong pair first.
+func TestComputeStandings_HeadToHeadOverridesInputOrder(t *testing.T) {
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	loser := makePair(t, app, "HO Loser")
+	winner := makePair(t, app, "HO Winner")
+	c := makePair(t, app, "HO C")
+	d := makePair(t, app, "HO D")
+	// loser is registered first, so it starts ahead of winner.
+	comp := makeCompetition(t, app, []*core.Record{loser, winner, c, d})
+
+	finalMatch(t, app, comp.Id, winner, loser, winner, "6-3 6-3", 1)
+	finalMatch(t, app, comp.Id, loser, c, loser, "6-3 6-3", 2)
+	finalMatch(t, app, comp.Id, d, winner, d, "6-3 6-3", 3)
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+
+	rowWinner := rowByName(t, rows, "HO Winner")
+	rowLoser := rowByName(t, rows, "HO Loser")
+	require.Equal(t, rowLoser.Points, rowWinner.Points, "precondition: level on points")
+	require.Equal(t, rowWinner.SetsWon-rowWinner.SetsLost, rowLoser.SetsWon-rowLoser.SetsLost,
+		"precondition: level on set difference")
+	require.Equal(t, rowWinner.GamesWon-rowWinner.GamesLost, rowLoser.GamesWon-rowLoser.GamesLost,
+		"precondition: level on game difference")
+
+	assert.Less(t, rowWinner.Position, rowLoser.Position,
+		"head-to-head must promote the winner above its registration order")
+}
