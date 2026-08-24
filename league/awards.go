@@ -75,9 +75,17 @@ func (svc *Service) Awards(competitionID string) []Award {
 		}
 	}
 
+	// Walk the standings rather than the streaks map: map iteration order is
+	// random, so a tie on the longest streak would otherwise award a different
+	// pair on each call. Standings order breaks the tie in favor of the better
+	// placed pair, deterministically.
 	var longestPairID string
 	longestStreak := 0
-	for _, si := range streaks {
+	for _, s := range standings {
+		si, ok := streaks[s.PairID]
+		if !ok {
+			continue
+		}
 		if si.best > longestStreak {
 			longestStreak = si.best
 			longestPairID = si.pairID
