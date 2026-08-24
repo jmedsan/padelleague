@@ -3,6 +3,34 @@ version: "2"
 run:
   timeout: 5m
 
+linters:
+  enable:
+    - gocognit
+    - funlen
+    - nestif
+    - unparam
+    - revive
+    - errorlint
+    - bodyclose
+  settings:
+    gocognit:
+      min-complexity: 15
+    funlen:
+      lines: 60
+      statements: 40
+    nestif:
+      min-complexity: 5
+    revive:
+      rules:
+        - name: exported
+        - name: package-comments
+        - name: unused-parameter
+  exclusions:
+    rules:
+      - path: migrations/
+        linters:
+          - funlen
+
 formatters:
   enable:
     - gofmt
