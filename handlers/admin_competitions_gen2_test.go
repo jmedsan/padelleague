@@ -81,8 +81,11 @@ func TestDashboardQuorumIssue(t *testing.T) {
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
 		m.Set("scores", "6-3 6-4")
 		m.Set("submitted_by", p1.GetString("player1"))
-		m.SetRaw("submitted_at", time.Now().Add(-48*time.Hour).UTC().Format(time.RFC3339))
 		require.NoError(tb, app.Save(m))
+		sa := time.Now().Add(-48 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
+		_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:sa} WHERE id = {:id}").
+			Bind(map[string]any{"sa": sa, "id": m.Id}).Execute()
+		require.NoError(tb, err)
 		s.Headers = authHeaders(tb, admin)
 	}
 	s.Test(t)
@@ -109,8 +112,11 @@ func TestDashboardQuorumNoIssueWhenFresh(t *testing.T) {
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
 		m.Set("scores", "6-3 6-4")
 		m.Set("submitted_by", p1.GetString("player1"))
-		m.SetRaw("submitted_at", time.Now().Add(-1*time.Hour).UTC().Format(time.RFC3339))
 		require.NoError(tb, app.Save(m))
+		sa := time.Now().Add(-1 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
+		_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:sa} WHERE id = {:id}").
+			Bind(map[string]any{"sa": sa, "id": m.Id}).Execute()
+		require.NoError(tb, err)
 		s.Headers = authHeaders(tb, admin)
 	}
 	s.Test(t)
@@ -137,8 +143,11 @@ func TestDashboardQuorumZeroHoursNoIssue(t *testing.T) {
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
 		m.Set("scores", "6-3 6-4")
 		m.Set("submitted_by", p1.GetString("player1"))
-		m.SetRaw("submitted_at", time.Now().Add(-48*time.Hour).UTC().Format(time.RFC3339))
 		require.NoError(tb, app.Save(m))
+		sa := time.Now().Add(-48 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
+		_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:sa} WHERE id = {:id}").
+			Bind(map[string]any{"sa": sa, "id": m.Id}).Execute()
+		require.NoError(tb, err)
 		s.Headers = authHeaders(tb, admin)
 	}
 	s.Test(t)
@@ -152,7 +161,7 @@ func TestDashboardQuorumShowsHoursWhenLessThanDay(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/admin",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"enviado hace", "horas"},
+		ExpectedContent: []string{"Quorum"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -165,9 +174,19 @@ func TestDashboardQuorumShowsHoursWhenLessThanDay(t *testing.T) {
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
 		m.Set("scores", "6-3 6-4")
 		m.Set("submitted_by", p1.GetString("player1"))
-		m.SetRaw("submitted_at", time.Now().Add(-6*time.Hour).UTC().Format(time.RFC3339))
 		require.NoError(tb, app.Save(m))
+		sa := time.Now().Add(-6 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
+		_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:sa} WHERE id = {:id}").
+			Bind(map[string]any{"sa": sa, "id": m.Id}).Execute()
+		require.NoError(tb, err)
 		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body, err := io.ReadAll(res.Body)
+		require.NoError(tb, err)
+		b := string(body)
+		assert.Contains(tb, b, "enviado hace 6 horas",
+			"quorum issue must show hours not days when elapsed < 24h")
 	}
 	s.Test(t)
 }
@@ -974,7 +993,33 @@ func TestDetailPageHasUnpaid(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Group 10: Dashboard played-count with all-final matches (lines 84-85)
+// Group 10a: Detail page HasFixtures=false shows "Generar" not "Regenerar" (line 265)
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestDetailPageNoFixturesShowsGenerateButton(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:     testAppFactory,
+		Name:               "detail page with no matches shows Generar not Regenerar",
+		Method:             http.MethodGet,
+		ExpectedStatus:     200,
+		ExpectedContent:    []string{"Generar calendario"},
+		NotExpectedContent: []string{"Regenerar"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "NF A")
+		p2 := makePairTB(tb, app, "NF B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Group 10b: Dashboard played-count with all-final matches (lines 84-85)
 // Kills CONDITIONALS_NEGATION on "status == final" → playedMatches++
 // ═══════════════════════════════════════════════════════════════════════
 
