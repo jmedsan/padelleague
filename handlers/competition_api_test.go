@@ -66,7 +66,7 @@ func TestCompUpdate(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		c, err := app.FindRecordById("competitions", compID)
 		require.NoError(tb, err)
 		assert.Equal(tb, "Updated", c.GetString("name"))
@@ -89,7 +89,7 @@ func TestCompToggle(t *testing.T) {
 		s.URL = "/admin/competitions/" + comp.Id + "/toggle"
 		s.Headers = authHeaders(tb, admin)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		c, err := app.FindRecordById("competitions", compID)
 		require.NoError(tb, err)
 		assert.Equal(tb, false, c.GetBool("active"))
@@ -117,7 +117,7 @@ func TestCompAddPair(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		c, err := app.FindRecordById("competitions", compID)
 		require.NoError(tb, err)
 		pairs := c.GetStringSlice("pairs")
@@ -146,7 +146,7 @@ func TestCompRemovePair(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		c, err := app.FindRecordById("competitions", compID)
 		require.NoError(tb, err)
 		pairs := c.GetStringSlice("pairs")
@@ -214,7 +214,7 @@ func TestCompGenerateFixtures(t *testing.T) {
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
 		s.Headers = authHeaders(tb, admin)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		matches, err := app.FindRecordsByFilter("matches",
 			"competition = {:cid}", "", 0, 0,
 			map[string]any{"cid": compID})
@@ -246,7 +246,7 @@ func TestDisputeResolve(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		m, err := app.FindRecordById("matches", matchID)
 		require.NoError(tb, err)
 		assert.Equal(tb, "final", m.GetString("status"))

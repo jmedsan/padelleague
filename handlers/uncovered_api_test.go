@@ -120,7 +120,7 @@ func TestAdminPairsCreate(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		pairs, err := app.FindRecordsByFilter("pairs", "name = 'NuevaPair'", "", 0, 0, nil)
 		require.NoError(tb, err)
 		require.Equal(tb, 1, len(pairs))
@@ -148,7 +148,7 @@ func TestAdminPairsUpdate(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		p, err := app.FindRecordById("pairs", pairID)
 		require.NoError(tb, err)
 		assert.Equal(tb, "Renamed", p.GetString("name"))
@@ -212,7 +212,7 @@ func TestAdminInvitationsRevoke(t *testing.T) {
 		s.URL = "/admin/invitations/" + inv.Id + "/revoke"
 		s.Headers = authHeaders(tb, admin)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		_, err := app.FindRecordById("invitations", invID)
 		assert.Error(tb, err, "invitation should be deleted")
 	}

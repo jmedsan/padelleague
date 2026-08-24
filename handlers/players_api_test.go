@@ -51,7 +51,7 @@ func TestPlayerUpdate(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		p, err := app.FindRecordById("users", playerID)
 		require.NoError(tb, err)
 		assert.Equal(tb, "New Name", p.GetString("display_name"))
@@ -151,7 +151,7 @@ func TestVenuesDelete(t *testing.T) {
 		hdrs := authHeaders(tb, admin)
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		_, err := app.FindRecordById("venues", venueID)
 		assert.Error(tb, err)
 	}
@@ -174,7 +174,7 @@ func TestInvitationsRevoke(t *testing.T) {
 		hdrs := authHeaders(tb, admin)
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		_, err := app.FindRecordById("invitations", inviteID)
 		assert.Error(tb, err)
 	}
@@ -230,7 +230,7 @@ func TestPlayerProfileCompetitionStatsSortedDeterministic(t *testing.T) {
 			s.URL = "/player/" + user.Id
 			s.Headers = authHeaders(tb, user)
 		}
-		s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 			body, err := io.ReadAll(res.Body)
 			require.NoError(tb, err)
 			html := string(body)

@@ -75,7 +75,7 @@ func TestAdminNoAuth(t *testing.T) {
 		URL:            "/admin",
 		ExpectedStatus: 302,
 		BeforeTestFunc: setupAdminRoutes,
-		AfterTestFunc: func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		AfterTestFunc: func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 			assert.Equal(tb, "/login", res.Header.Get("Location"))
 		},
 	}
@@ -94,7 +94,7 @@ func TestAdminPlayerAuth(t *testing.T) {
 		player := makeUserTB(tb, app, "Player", "")
 		s.Headers = authHeaders(tb, player)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		assert.Equal(tb, "/login", res.Header.Get("Location"))
 	}
 	s.Test(t)
@@ -178,7 +178,7 @@ func TestAdminCreateCompetition(t *testing.T) {
 		s.Headers = authHeaders(tb, admin)
 		s.Headers["Content-Type"] = "application/x-www-form-urlencoded"
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		comps, err := app.FindRecordsByFilter("competitions",
 			"name = 'TestComp'", "", 0, 0, nil)
 		require.NoError(tb, err)
@@ -202,7 +202,7 @@ func TestAdminCreateInvitation(t *testing.T) {
 		s.Headers = authHeaders(tb, admin)
 		s.Headers["Content-Type"] = "application/x-www-form-urlencoded"
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		invites, err := app.FindRecordsByFilter("invitations",
 			"status = 'pending'", "", 0, 0, nil)
 		require.NoError(tb, err)
