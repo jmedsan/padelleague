@@ -160,30 +160,10 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		}
 	}
 
-	submittedByName := ""
-	if sbID := match.GetString("submitted_by"); sbID != "" {
-		submittedByName = league.PlayerName(h.app, sbID)
-	}
-	confirmedByName := ""
-	if cbID := match.GetString("confirmed_by"); cbID != "" {
-		confirmedByName = league.PlayerName(h.app, cbID)
-	}
-	disputedByName := ""
-	if dbID := match.GetString("disputed_by"); dbID != "" {
-		disputedByName = league.PlayerName(h.app, dbID)
-	}
-
-	shareText := ""
-	if match.GetString("status") == league.StatusFinal {
-		p1Name := pairNames[match.GetString("pair1")]
-		p2Name := pairNames[match.GetString("pair2")]
-		score := match.GetString("scores")
-		winnerName := p2Name
-		if match.GetString("winner") == match.GetString("pair1") {
-			winnerName = p1Name
-		}
-		shareText = url.QueryEscape(fmt.Sprintf("Resultado: %s %s %s. Ganador: %s!", p1Name, score, p2Name, winnerName))
-	}
+	submittedByName := playerNameIfSet(h.app, match.GetString("submitted_by"))
+	confirmedByName := playerNameIfSet(h.app, match.GetString("confirmed_by"))
+	disputedByName := playerNameIfSet(h.app, match.GetString("disputed_by"))
+	shareText := buildShareText(match, pairNames)
 
 	venues, _ := h.app.FindRecordsByFilter("venues", "", "name", 0, 0, nil)
 
@@ -345,64 +325,93 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 func (h *MatchHandler) detectChanges(e *core.RequestEvent, match *core.Record) ([]string, error) {
 	var changes []string
 
-	if scores := e.Request.FormValue("scores"); scores != "" {
-		oldScores := match.GetString("scores")
-		if scores != oldScores {
-			if _, err := league.ParseScore(scores); err != nil {
-				return nil, alertError(e, "Marcador no valido")
-			}
-			winner, err := league.DetermineWinner(match, scores)
-			if err != nil {
-				return nil, alertError(e, "No se pudo determinar ganador")
-			}
-			match.Set("scores", scores)
-			match.Set("winner", winner)
-			if match.GetString("status") != league.StatusFinal {
-				match.Set("status", league.StatusFinal)
-			}
-			if oldScores == "" {
-				changes = append(changes, "Resultado establecido: "+scores)
-			} else {
-				changes = append(changes, "Resultado corregido: "+oldScores+" → "+scores)
-			}
-		}
+	scoreChange, err := h.detectScoreChange(e, match)
+	if err != nil {
+		return nil, err
 	}
-
-	if date := e.Request.FormValue("date"); date != "" && date != match.GetString("date") {
-		old := match.GetString("date")
-		match.Set("date", date)
-		if old == "" {
-			changes = append(changes, "Fecha establecida: "+date)
-		} else {
-			changes = append(changes, "Fecha cambiada: "+old+" → "+date)
-		}
-	}
-
-	if t := e.Request.FormValue("time"); t != "" && t != match.GetString("time") {
-		old := match.GetString("time")
-		match.Set("time", t)
-		if old == "" {
-			changes = append(changes, "Hora establecida: "+t)
-		} else {
-			changes = append(changes, "Hora cambiada: "+old+" → "+t)
-		}
-	}
-
-	if venueID := e.Request.FormValue("venue_id"); venueID != "" {
-		venueName := venueID
-		if v, err := h.app.FindRecordById("venues", venueID); err == nil {
-			venueName = v.GetString("name")
-		}
-		old := match.GetString("club")
-		if venueName != old {
-			match.Set("club", venueName)
-			if old == "" {
-				changes = append(changes, "Club establecido: "+venueName)
-			} else {
-				changes = append(changes, "Club cambiado: "+old+" → "+venueName)
-			}
-		}
-	}
+	changes = append(changes, scoreChange...)
+	changes = append(changes, detectFieldChange(match, "date", e.Request.FormValue("date"), "Fecha")...)
+	changes = append(changes, detectFieldChange(match, "time", e.Request.FormValue("time"), "Hora")...)
+	changes = append(changes, h.detectVenueChange(match, e.Request.FormValue("venue_id"))...)
 
 	return changes, nil
+}
+
+func (h *MatchHandler) detectScoreChange(e *core.RequestEvent, match *core.Record) ([]string, error) {
+	scores := e.Request.FormValue("scores")
+	if scores == "" {
+		return nil, nil
+	}
+	oldScores := match.GetString("scores")
+	if scores == oldScores {
+		return nil, nil
+	}
+	if _, err := league.ParseScore(scores); err != nil {
+		return nil, alertError(e, "Marcador no valido")
+	}
+	winner, err := league.DetermineWinner(match, scores)
+	if err != nil {
+		return nil, alertError(e, "No se pudo determinar ganador")
+	}
+	match.Set("scores", scores)
+	match.Set("winner", winner)
+	if match.GetString("status") != league.StatusFinal {
+		match.Set("status", league.StatusFinal)
+	}
+	if oldScores == "" {
+		return []string{"Resultado establecido: " + scores}, nil
+	}
+	return []string{"Resultado corregido: " + oldScores + " → " + scores}, nil
+}
+
+func detectFieldChange(match *core.Record, field, newVal, label string) []string {
+	if newVal == "" || newVal == match.GetString(field) {
+		return nil
+	}
+	old := match.GetString(field)
+	match.Set(field, newVal)
+	if old == "" {
+		return []string{label + " establecida: " + newVal}
+	}
+	return []string{label + " cambiada: " + old + " → " + newVal}
+}
+
+func (h *MatchHandler) detectVenueChange(match *core.Record, venueID string) []string {
+	if venueID == "" {
+		return nil
+	}
+	venueName := venueID
+	if v, err := h.app.FindRecordById("venues", venueID); err == nil {
+		venueName = v.GetString("name")
+	}
+	old := match.GetString("club")
+	if venueName == old {
+		return nil
+	}
+	match.Set("club", venueName)
+	if old == "" {
+		return []string{"Club establecido: " + venueName}
+	}
+	return []string{"Club cambiado: " + old + " → " + venueName}
+}
+
+func playerNameIfSet(app core.App, userID string) string {
+	if userID == "" {
+		return ""
+	}
+	return league.PlayerName(app, userID)
+}
+
+func buildShareText(match *core.Record, pairNames map[string]string) string {
+	if match.GetString("status") != league.StatusFinal {
+		return ""
+	}
+	p1Name := pairNames[match.GetString("pair1")]
+	p2Name := pairNames[match.GetString("pair2")]
+	score := match.GetString("scores")
+	winnerName := p2Name
+	if match.GetString("winner") == match.GetString("pair1") {
+		winnerName = p1Name
+	}
+	return url.QueryEscape(fmt.Sprintf("Resultado: %s %s %s. Ganador: %s!", p1Name, score, p2Name, winnerName))
 }

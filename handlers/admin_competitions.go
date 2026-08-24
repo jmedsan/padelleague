@@ -124,65 +124,89 @@ func (h *CompetitionHandler) buildAdminIssues(active []CompetitionSummary) []Adm
 
 func (h *CompetitionHandler) classifyMatchIssues(m *core.Record, compName string, quorumHours float64, pairNames map[string]string, now time.Time) []AdminIssue {
 	status := m.GetString("status")
-	p1 := pairNames[m.GetString("pair1")]
-	p2 := pairNames[m.GetString("pair2")]
-	var issues []AdminIssue
+	base := AdminIssue{
+		CompetitionName: compName,
+		Pair1Name:       pairNames[m.GetString("pair1")],
+		Pair2Name:       pairNames[m.GetString("pair2")],
+		MatchID:         m.Id,
+	}
 
 	switch status {
 	case league.StatusDisputed:
-		issues = append(issues, AdminIssue{
-			Type: "dispute", TypeLabel: "Disputa", BadgeClass: "badge-error",
-			CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
-			MatchID: m.Id, Detail: "pendiente de resolucion",
-		})
+		issue := base
+		issue.Type = "dispute"
+		issue.TypeLabel = "Disputa"
+		issue.BadgeClass = "badge-error"
+		issue.Detail = "pendiente de resolucion"
+		return []AdminIssue{issue}
 	case league.StatusConfirmed:
-		if quorumHours > 0 {
-			if sa := m.GetString("submitted_at"); sa != "" {
-				if dt, err := types.ParseDateTime(sa); err == nil {
-					elapsed := now.Sub(dt.Time())
-					if elapsed > time.Duration(quorumHours)*time.Hour {
-						days := int(elapsed.Hours() / 24)
-						detail := fmt.Sprintf("enviado hace %d dias", days)
-						if days == 0 {
-							detail = fmt.Sprintf("enviado hace %d horas", int(elapsed.Hours()))
-						}
-						issues = append(issues, AdminIssue{
-							Type: "quorum", TypeLabel: "Quorum", BadgeClass: "badge-warning",
-							CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
-							MatchID: m.Id, Detail: detail,
-						})
-					}
-				}
-			}
-		}
+		return h.checkQuorumIssue(m, base, quorumHours, now)
 	case league.StatusPending:
-		if d := m.GetString("date"); d != "" {
-			if matchDate, err := time.Parse("2006-01-02", d); err == nil {
-				if matchDate.Before(now) {
-					issues = append(issues, AdminIssue{
-						Type: "overdue", TypeLabel: "Vencido", BadgeClass: "badge-ghost",
-						CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
-						MatchID: m.Id, Detail: "fecha: " + d,
-					})
-				}
-			}
+		return h.checkPendingIssues(m, base, now)
+	}
+	return nil
+}
+
+func (h *CompetitionHandler) checkQuorumIssue(m *core.Record, base AdminIssue, quorumHours float64, now time.Time) []AdminIssue {
+	if quorumHours <= 0 {
+		return nil
+	}
+	sa := m.GetString("submitted_at")
+	if sa == "" {
+		return nil
+	}
+	dt, err := types.ParseDateTime(sa)
+	if err != nil {
+		return nil
+	}
+	elapsed := now.Sub(dt.Time())
+	if elapsed <= time.Duration(quorumHours)*time.Hour {
+		return nil
+	}
+	days := int(elapsed.Hours() / 24)
+	detail := fmt.Sprintf("enviado hace %d dias", days)
+	if days == 0 {
+		detail = fmt.Sprintf("enviado hace %d horas", int(elapsed.Hours()))
+	}
+	issue := base
+	issue.Type = "quorum"
+	issue.TypeLabel = "Quorum"
+	issue.BadgeClass = "badge-warning"
+	issue.Detail = detail
+	return []AdminIssue{issue}
+}
+
+func (h *CompetitionHandler) checkPendingIssues(m *core.Record, base AdminIssue, now time.Time) []AdminIssue {
+	var issues []AdminIssue
+	if d := m.GetString("date"); d != "" {
+		if matchDate, err := time.Parse("2006-01-02", d); err == nil && matchDate.Before(now) {
+			issue := base
+			issue.Type = "overdue"
+			issue.TypeLabel = "Vencido"
+			issue.BadgeClass = "badge-ghost"
+			issue.Detail = "fecha: " + d
+			issues = append(issues, issue)
 		}
-		lastMsg, _ := h.app.FindRecordsByFilter("match_messages",
-			"match = {:mid}", "-created", 1, 0,
-			map[string]any{"mid": m.Id})
-		if len(lastMsg) > 0 {
-			created := lastMsg[0].GetString("created")
-			if t, err := time.Parse("2006-01-02 15:04:05.000Z", created); err == nil {
-				if now.Sub(t) > 14*24*time.Hour {
-					days := int(now.Sub(t).Hours() / 24)
-					issues = append(issues, AdminIssue{
-						Type: "stale", TypeLabel: "Inactivo", BadgeClass: "badge-info",
-						CompetitionName: compName, Pair1Name: p1, Pair2Name: p2,
-						MatchID: m.Id, Detail: fmt.Sprintf("sin actividad en %d dias", days),
-					})
-				}
-			}
-		}
+	}
+	lastMsg, _ := h.app.FindRecordsByFilter("match_messages",
+		"match = {:mid}", "-created", 1, 0,
+		map[string]any{"mid": m.Id})
+	if len(lastMsg) == 0 {
+		return issues
+	}
+	created := lastMsg[0].GetString("created")
+	t, err := time.Parse("2006-01-02 15:04:05.000Z", created)
+	if err != nil {
+		return issues
+	}
+	if now.Sub(t) > 14*24*time.Hour {
+		days := int(now.Sub(t).Hours() / 24)
+		issue := base
+		issue.Type = "stale"
+		issue.TypeLabel = "Inactivo"
+		issue.BadgeClass = "badge-info"
+		issue.Detail = fmt.Sprintf("sin actividad en %d dias", days)
+		issues = append(issues, issue)
 	}
 	return issues
 }
@@ -200,37 +224,8 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 	paymentStatus := h.getPaymentStatus(comp)
 	penaltyMap := h.getPenaltyMap(comp)
 
-	type pairEntry struct {
-		PairID   string
-		PairName string
-		Seed     int
-		Paid     bool
-	}
-	var pairEntries []pairEntry
-	for _, pid := range pairIDs {
-		pair, err := h.app.FindRecordById("pairs", pid)
-		if err != nil {
-			continue
-		}
-		pairEntries = append(pairEntries, pairEntry{
-			PairID:   pid,
-			PairName: pair.GetString("name"),
-			Seed:     seeding[pid],
-			Paid:     paymentStatus[pid],
-		})
-	}
-
-	allPairsRaw, _ := h.app.FindAllRecords("pairs")
-	enrolledSet := map[string]bool{}
-	for _, pid := range pairIDs {
-		enrolledSet[pid] = true
-	}
-	var allPairs []*core.Record
-	for _, p := range allPairsRaw {
-		if !enrolledSet[p.Id] {
-			allPairs = append(allPairs, p)
-		}
-	}
+	pairEntries := h.buildPairEntries(pairIDs, seeding, paymentStatus)
+	allPairs := h.availablePairs(pairIDs)
 	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != {:cid}", "", 0, 0, map[string]any{"cid": id})
 
 	matches, _ := h.app.FindRecordsByFilter("matches",
@@ -271,6 +266,45 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"HasFixtures":     len(matches) > 0,
 		"HasUnpaid":       hasUnpaid,
 	})
+}
+
+type pairEntry struct {
+	PairID   string
+	PairName string
+	Seed     int
+	Paid     bool
+}
+
+func (h *CompetitionHandler) buildPairEntries(pairIDs []string, seeding map[string]int, paymentStatus map[string]bool) []pairEntry {
+	var entries []pairEntry
+	for _, pid := range pairIDs {
+		pair, err := h.app.FindRecordById("pairs", pid)
+		if err != nil {
+			continue
+		}
+		entries = append(entries, pairEntry{
+			PairID:   pid,
+			PairName: pair.GetString("name"),
+			Seed:     seeding[pid],
+			Paid:     paymentStatus[pid],
+		})
+	}
+	return entries
+}
+
+func (h *CompetitionHandler) availablePairs(enrolledIDs []string) []*core.Record {
+	allPairsRaw, _ := h.app.FindAllRecords("pairs")
+	enrolled := map[string]bool{}
+	for _, pid := range enrolledIDs {
+		enrolled[pid] = true
+	}
+	var available []*core.Record
+	for _, p := range allPairsRaw {
+		if !enrolled[p.Id] {
+			available = append(available, p)
+		}
+	}
+	return available
 }
 
 type matchEntry struct {
@@ -567,25 +601,15 @@ func (h *CompetitionHandler) CopyPairs(e *core.RequestEvent) error {
 
 	copied := 0
 	skipped := 0
+	isPlayoff := target.GetString("type") == "playoff"
 	for _, pairID := range sourcePairIDs {
-		if existingSet[pairID] {
+		if !h.canCopyPair(pairID, existingSet, existingPairIDs) {
 			skipped++
 			continue
 		}
-
-		pair, err := h.app.FindRecordById("pairs", pairID)
-		if err != nil {
-			skipped++
-			continue
-		}
-		if err := h.validatePlayerUniqueness(existingPairIDs, pair, ""); err != nil {
-			skipped++
-			continue
-		}
-
 		existingPairIDs = append(existingPairIDs, pairID)
 		existingSet[pairID] = true
-		if target.GetString("type") == "playoff" {
+		if isPlayoff {
 			if s, ok := sourceSeeding[pairID]; ok {
 				targetSeeding[pairID] = s
 			}
@@ -602,6 +626,17 @@ func (h *CompetitionHandler) CopyPairs(e *core.RequestEvent) error {
 	}
 
 	return alertSuccess(e, fmt.Sprintf("%d parejas copiadas, %d omitidas", copied, skipped))
+}
+
+func (h *CompetitionHandler) canCopyPair(pairID string, existingSet map[string]bool, existingPairIDs []string) bool {
+	if existingSet[pairID] {
+		return false
+	}
+	pair, err := h.app.FindRecordById("pairs", pairID)
+	if err != nil {
+		return false
+	}
+	return h.validatePlayerUniqueness(existingPairIDs, pair, "") == nil
 }
 
 // TogglePayment marks a single pair's payment status as paid or unpaid.

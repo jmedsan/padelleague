@@ -105,12 +105,29 @@ func (h *FixtureHandler) generatePlayoff(txApp core.App, compID string, pairIDs 
 	numRounds := int(math.Ceil(math.Log2(float64(n))))
 	bracketSize := 1 << numRounds
 
+	slots := h.seedSlots(pairIDs, bracketSize, comp)
+
+	matchCol, err := txApp.FindCollectionByNameOrId("matches")
+	if err != nil {
+		return err
+	}
+
+	advancers, err := h.createFirstRound(txApp, matchCol, compID, slots, bracketSize)
+	if err != nil {
+		return err
+	}
+
+	return h.createLaterRounds(txApp, matchCol, compID, advancers, numRounds)
+}
+
+type seededPair struct {
+	id   string
+	seed int
+}
+
+func (h *FixtureHandler) seedSlots(pairIDs []string, bracketSize int, comp *core.Record) []string {
 	seeding := NewCompetitionHandler(h.app, h.leagueSvc, h.renderPage).getSeeding(comp)
 
-	type seededPair struct {
-		id   string
-		seed int
-	}
 	sp := make([]seededPair, len(pairIDs))
 	for i, pid := range pairIDs {
 		sp[i] = seededPair{id: pid, seed: seeding[pid]}
@@ -133,58 +150,45 @@ func (h *FixtureHandler) generatePlayoff(txApp core.App, compID string, pairIDs 
 	for i, p := range sp {
 		slots[i] = p.id
 	}
+	return slots
+}
 
-	matchCol, err := txApp.FindCollectionByNameOrId("matches")
-	if err != nil {
-		return err
-	}
-
-	type bracketSlot struct {
-		pair1 string
-		pair2 string
-	}
-
-	firstRound := make([]bracketSlot, bracketSize/2)
-	for i := 0; i < bracketSize/2; i++ {
-		firstRound[i] = bracketSlot{
-			pair1: slots[i],
-			pair2: slots[bracketSize-1-i],
-		}
-	}
-
+func (h *FixtureHandler) createFirstRound(txApp core.App, matchCol *core.Collection, compID string, slots []string, bracketSize int) ([]string, error) {
 	advancers := make([]string, bracketSize/2)
-	for i, bs := range firstRound {
-		if bs.pair1 == "" && bs.pair2 == "" {
+	for i := 0; i < bracketSize/2; i++ {
+		p1, p2 := slots[i], slots[bracketSize-1-i]
+		if p1 == "" && p2 == "" {
 			continue
 		}
-		if bs.pair2 == "" {
-			advancers[i] = bs.pair1
+		if p2 == "" {
+			advancers[i] = p1
 			continue
 		}
-		if bs.pair1 == "" {
-			advancers[i] = bs.pair2
+		if p1 == "" {
+			advancers[i] = p2
 			continue
 		}
 		match := core.NewRecord(matchCol)
 		match.Set("competition", compID)
 		match.Set("round_number", 1)
 		match.Set("matches_to_win", 1)
-		match.Set("pair1", bs.pair1)
-		match.Set("pair2", bs.pair2)
+		match.Set("pair1", p1)
+		match.Set("pair2", p2)
 		match.Set("status", league.StatusPending)
 		if err := txApp.Save(match); err != nil {
-			return err
+			return nil, err
 		}
 	}
+	return advancers, nil
+}
 
-	currentAdvancers := advancers
+func (h *FixtureHandler) createLaterRounds(txApp core.App, matchCol *core.Collection, compID string, currentAdvancers []string, numRounds int) error {
 	for r := 2; r <= numRounds; r++ {
 		numMatches := len(currentAdvancers) / 2
 		nextAdvancers := make([]string, numMatches)
 		for i := 0; i < numMatches; i++ {
 			p1 := currentAdvancers[i*2]
 			p2 := currentAdvancers[i*2+1]
-
 			match := core.NewRecord(matchCol)
 			match.Set("competition", compID)
 			match.Set("round_number", r)
@@ -202,6 +206,5 @@ func (h *FixtureHandler) generatePlayoff(txApp core.App, compID string, pairIDs 
 		}
 		currentAdvancers = nextAdvancers
 	}
-
 	return nil
 }
