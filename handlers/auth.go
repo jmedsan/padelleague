@@ -128,10 +128,25 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 		return alertError(e, fmt.Sprintf("Debes usar el email %s", inviteEmail))
 	}
 
+	_, authToken, err := h.registerUser(invite.Id, email, displayName, password)
+
+	if err != nil {
+		return alertError(e, "Error al crear la cuenta. Verifica los datos e intenta de nuevo.")
+	}
+
+	middleware.SetAuthCookie(e, authToken)
+
+	if e.Request.Header.Get("HX-Request") == "true" {
+		return redirectHX(e, "/")
+	}
+	return e.Redirect(http.StatusFound, "/")
+}
+
+func (h *AuthHandler) registerUser(inviteID, email, displayName, password string) (*core.Record, string, error) {
 	var userRecord *core.Record
 	var authToken string
 
-	err = h.app.RunInTransaction(func(txApp core.App) error {
+	err := h.app.RunInTransaction(func(txApp core.App) error {
 		collection, err := txApp.FindCollectionByNameOrId("users")
 		if err != nil {
 			return err
@@ -147,42 +162,36 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 			return err
 		}
 
-		freshInvite, err := txApp.FindRecordById("invitations", invite.Id)
-		if err != nil {
-			return fmt.Errorf("invitation not found")
-		}
-		maxUses := int(freshInvite.GetFloat("max_uses"))
-		if maxUses < 1 {
-			maxUses = 1
-		}
-		currentCount := int(freshInvite.GetFloat("use_count"))
-		if currentCount >= maxUses {
-			return fmt.Errorf("invitation exhausted")
-		}
-		freshInvite.Set("use_count", currentCount+1)
-		freshInvite.Set("used_by", userRecord.Id)
-		freshInvite.Set("used_at", time.Now().UTC().Format("2006-01-02 15:04:05.000Z"))
-		if currentCount+1 >= maxUses {
-			freshInvite.Set("status", "used")
-		}
-		if err := txApp.Save(freshInvite); err != nil {
+		if err := consumeInvite(txApp, inviteID, userRecord.Id); err != nil {
 			return err
 		}
 
 		authToken, err = userRecord.NewAuthToken()
 		return err
 	})
+	return userRecord, authToken, err
+}
 
+func consumeInvite(txApp core.App, inviteID, userID string) error {
+	freshInvite, err := txApp.FindRecordById("invitations", inviteID)
 	if err != nil {
-		return alertError(e, "Error al crear la cuenta. Verifica los datos e intenta de nuevo.")
+		return fmt.Errorf("invitation not found")
 	}
-
-	middleware.SetAuthCookie(e, authToken)
-
-	if e.Request.Header.Get("HX-Request") == "true" {
-		return redirectHX(e, "/")
+	maxUses := int(freshInvite.GetFloat("max_uses"))
+	if maxUses < 1 {
+		maxUses = 1
 	}
-	return e.Redirect(http.StatusFound, "/")
+	currentCount := int(freshInvite.GetFloat("use_count"))
+	if currentCount >= maxUses {
+		return fmt.Errorf("invitation exhausted")
+	}
+	freshInvite.Set("use_count", currentCount+1)
+	freshInvite.Set("used_by", userID)
+	freshInvite.Set("used_at", time.Now().UTC().Format("2006-01-02 15:04:05.000Z"))
+	if currentCount+1 >= maxUses {
+		freshInvite.Set("status", "used")
+	}
+	return txApp.Save(freshInvite)
 }
 
 // ProfileComplete renders the display-name form for new users.

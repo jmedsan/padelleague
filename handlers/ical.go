@@ -112,22 +112,7 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 		return e.String(http.StatusNotFound, "Competición no encontrada")
 	}
 
-	pairs, _ := league.PairsForPlayer(h.app, e.Auth.Id)
-	if len(pairs) == 0 {
-		return e.String(http.StatusOK, "No tienes parejas en esta competición")
-	}
-
-	playerPairIDs := make(map[string]bool)
-	for _, p := range pairs {
-		playerPairIDs[p.Id] = true
-	}
-	compPairIDs := make(map[string]bool)
-	for _, pid := range comp.GetStringSlice("pairs") {
-		if playerPairIDs[pid] {
-			compPairIDs[pid] = true
-		}
-	}
-
+	compPairIDs := h.playerCompPairIDs(e.Auth.Id, comp)
 	if len(compPairIDs) == 0 {
 		return e.String(http.StatusOK, "No tienes parejas en esta competición")
 	}
@@ -182,4 +167,22 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 	e.Response.Header().Set("Content-Type", "text/calendar")
 	e.Response.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	return e.String(http.StatusOK, ics)
+}
+
+func (h *ICalHandler) playerCompPairIDs(userID string, comp *core.Record) map[string]bool {
+	pairs, _ := league.PairsForPlayer(h.app, userID)
+	if len(pairs) == 0 {
+		return nil
+	}
+	playerPairIDs := make(map[string]bool, len(pairs))
+	for _, p := range pairs {
+		playerPairIDs[p.Id] = true
+	}
+	compPairIDs := make(map[string]bool)
+	for _, pid := range comp.GetStringSlice("pairs") {
+		if playerPairIDs[pid] {
+			compPairIDs[pid] = true
+		}
+	}
+	return compPairIDs
 }
