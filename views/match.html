@@ -219,7 +219,7 @@
             <div class="card bg-warning/5 border border-warning/20 rounded-xl mb-4">
                 <div class="collapse collapse-arrow">
                     <input type="checkbox" class="peer">
-                    <div class="collapse-title font-bold text-sm uppercase tracking-wider opacity-50">Override de administrador</div>
+                    <div class="collapse-title font-bold text-sm uppercase tracking-wider opacity-50">Corrección de administrador</div>
                     <div class="collapse-content">
                         <form hx-post="/match/{{.Match.Record.Id}}/admin-override" hx-target="body">
                             <div class="form-control mb-3">
@@ -244,6 +244,10 @@
                                     <option value="{{.Id}}">{{.GetString "name"}}</option>
                                     {{end}}
                                 </select>
+                            </div>
+                            <div class="form-control mb-3">
+                                <label class="label py-1"><span class="label-text text-xs">Pista</span></label>
+                                <input type="text" name="court_number" class="input input-bordered input-sm" placeholder="Ej: 3" value="{{.Match.Record.GetString "court_number"}}">
                             </div>
                             <button type="submit" class="btn btn-warning btn-sm w-full">Aplicar cambios</button>
                         </form>
