@@ -25,11 +25,10 @@ func newTestApp(t *testing.T) *tests.TestApp {
 	return app
 }
 
-func registerHooks(t *testing.T, app *tests.TestApp) *league.Service {
+func registerHooks(t *testing.T, app *tests.TestApp) {
 	t.Helper()
 	svc := league.New(app, nil)
 	Register(app, svc)
-	return svc
 }
 
 func makeUser(t *testing.T, app core.App, role string) *core.Record {
@@ -249,7 +248,7 @@ func TestTransition_SameStatus_Allowed(t *testing.T) {
 	p1 := makePair(t, app, "TrSSA")
 	p2 := makePair(t, app, "TrSSB")
 	comp := makePlayoffComp(t, app, []*core.Record{p1, p2})
-	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 2)
 
 	fm := freshMatch(t, app, m.Id)
 	fm.Set("scores", "6-3 6-4")
