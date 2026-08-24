@@ -708,26 +708,8 @@ func (h *CompetitionHandler) getPaymentStatus(comp *core.Record) map[string]bool
 
 func (h *CompetitionHandler) getSeeding(comp *core.Record) map[string]int {
 	seeding := make(map[string]int)
-	raw := comp.Get("seeding")
-	if raw == nil {
-		return seeding
-	}
-	switch v := raw.(type) {
-	case string:
-		if v != "" {
-			if err := json.Unmarshal([]byte(v), &seeding); err != nil {
-				slog.Warn("unmarshal seeding", "err", err)
-			}
-		}
-	case map[string]any:
-		for k, val := range v {
-			switch n := val.(type) {
-			case float64:
-				seeding[k] = int(n)
-			case int:
-				seeding[k] = n
-			}
-		}
+	if err := comp.UnmarshalJSONField("seeding", &seeding); err != nil {
+		slog.Warn("unmarshal seeding", "err", err)
 	}
 	return seeding
 }
