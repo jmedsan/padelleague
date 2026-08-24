@@ -80,10 +80,10 @@ func TestHomeWithoutAuth(t *testing.T) {
 
 func TestNotificationCount(t *testing.T) {
 	s := &tests.ApiScenario{
-		Name:           "GET /notifications/count returns 200",
-		Method:         http.MethodGet,
-		URL:            "/notifications/count",
-		ExpectedStatus: 200,
+		Name:               "GET /notifications/count returns 200",
+		Method:             http.MethodGet,
+		URL:                "/notifications/count",
+		ExpectedStatus:     200,
 		NotExpectedContent: []string{"error"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
