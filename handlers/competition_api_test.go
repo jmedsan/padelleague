@@ -340,6 +340,68 @@ func TestCompGenerateFixtures(t *testing.T) {
 	s.Test(t)
 }
 
+func TestGenerateFixturesTooFewPairs(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "POST /admin/competitions/{id}/generate with 1 pair rejected",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"al menos 2"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "FewA")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1})
+		s.URL = "/admin/competitions/" + comp.Id + "/generate"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestGeneratePlayoffWithByes(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:           "POST /admin/competitions/{id}/generate playoff with 3 teams creates byes",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "ByeA")
+		p2 := makePairTB(tb, app, "ByeB")
+		p3 := makePairTB(tb, app, "ByeC")
+		comp := makeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2, p3})
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/generate"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		matches, err := app.FindRecordsByFilter("matches",
+			"competition = {:cid}", "", 0, 0,
+			map[string]any{"cid": compID})
+		require.NoError(tb, err)
+		r1 := 0
+		r2 := 0
+		for _, m := range matches {
+			switch m.GetInt("round_number") {
+			case 1:
+				r1++
+			case 2:
+				r2++
+			}
+		}
+		assert.Equal(tb, 1, r1, "round 1 should have 1 match (top seed gets bye)")
+		assert.Equal(tb, 1, r2, "round 2 (final) should have 1 match")
+		for _, m := range matches {
+			if m.GetInt("round_number") == 2 {
+				assert.NotEmpty(tb, m.GetString("pair1"), "final round pair1 must be pre-set from bye")
+			}
+		}
+	}
+	s.Test(t)
+}
+
 func TestDisputeResolve(t *testing.T) {
 	s := &tests.ApiScenario{
 		Name:           "POST /admin/disputes/{id}/resolve resolves dispute",
