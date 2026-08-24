@@ -39,6 +39,7 @@ func (h *PasswordResetHandler) ForgotPasswordSubmit(e *core.RequestEvent) error 
 		if err == nil && record != nil {
 			if err := mails.SendRecordPasswordReset(h.app, record); err != nil {
 				slog.Error("password reset email failed", "err", err)
+				return alertError(e, "No se pudo enviar el correo. Contacta al administrador.")
 			}
 		}
 	}

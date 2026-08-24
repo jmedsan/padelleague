@@ -37,7 +37,7 @@ func main() {
 	notifier := notify.NewNotifier(app, cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey)
 	leagueSvc := league.New(app, notifier)
 
-	hooks.Register(app, leagueSvc)
+	hooks.Register(app, leagueSvc, notifier)
 
 	slog.Info("startup",
 		"app_env", cfg.AppEnv,

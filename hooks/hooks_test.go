@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"padelleague/league"
+	"padelleague/notify"
 
 	_ "padelleague/migrations"
 )
@@ -28,7 +29,28 @@ func newTestApp(t *testing.T) *tests.TestApp {
 func registerHooks(t *testing.T, app *tests.TestApp) {
 	t.Helper()
 	svc := league.New(app, nil)
-	Register(app, svc)
+	Register(app, svc, nil)
+}
+
+func registerHooksWithNotifier(t *testing.T, app *tests.TestApp) {
+	t.Helper()
+	svc := league.New(app, nil)
+	notifier := notify.NewNotifier(app, "", "")
+	Register(app, svc, notifier)
+}
+
+func makeAdminUser(t *testing.T, app core.App) {
+	t.Helper()
+	n := userSeq.Add(1)
+	col, err := app.FindCollectionByNameOrId("users")
+	require.NoError(t, err)
+	r := core.NewRecord(col)
+	r.Set("email", fmt.Sprintf("hookadmin%d@test.local", n))
+	r.Set("display_name", fmt.Sprintf("Hook Admin %d", n))
+	r.SetPassword("testpass123456")
+	r.SetVerified(true)
+	r.Set("role", "admin")
+	require.NoError(t, app.Save(r))
 }
 
 func makeUser(t *testing.T, app core.App, role string) *core.Record {
@@ -310,4 +332,74 @@ func TestCronRegistration_QuorumTimeout(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "quorum-timeout cron job must be registered")
+}
+
+// --- Playoff advance notification tests (S-3) ---
+
+func TestAdvancePlayoffFailure_NotifiesAdmins(t *testing.T) {
+	app := newTestApp(t)
+	makeAdminUser(t, app)
+	registerHooksWithNotifier(t, app)
+
+	p1 := makePair(t, app, "HkA")
+	p2 := makePair(t, app, "HkB")
+	p3 := makePair(t, app, "HkC")
+	p4 := makePair(t, app, "HkD")
+	comp := makePlayoffComp(t, app, []*core.Record{p1, p2, p3, p4})
+
+	m1 := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+	m2 := makeMatch(t, app, comp.Id, p3.Id, p4.Id, 1)
+	_ = makeMatch(t, app, comp.Id, "", "", 2)
+
+	require.NoError(t, transitionMatch(t, app, m1.Id, league.StatusFinal,
+		map[string]any{"scores": "6-3 6-4", "winner": p1.Id}))
+
+	app.OnRecordUpdate("matches").BindFunc(func(e *core.RecordEvent) error {
+		if int(e.Record.GetFloat("round_number")) == 2 {
+			return fmt.Errorf("injected failure for round-2 seeding")
+		}
+		return e.Next()
+	})
+
+	require.NoError(t, transitionMatch(t, app, m2.Id, league.StatusFinal,
+		map[string]any{"scores": "6-1 6-2", "winner": p4.Id}))
+
+	notifs, err := app.FindRecordsByFilter("notifications",
+		"type = 'admin_message' && title = 'Error en avance de playoff'",
+		"", 0, 0, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(notifs), "expected exactly one admin notification for playoff failure")
+	assert.Contains(t, notifs[0].GetString("body"), m2.Id)
+}
+
+func TestAdvancePlayoffSuccess_NoNotification(t *testing.T) {
+	app := newTestApp(t)
+	makeAdminUser(t, app)
+	registerHooksWithNotifier(t, app)
+
+	p1 := makePair(t, app, "HkOkA")
+	p2 := makePair(t, app, "HkOkB")
+	p3 := makePair(t, app, "HkOkC")
+	p4 := makePair(t, app, "HkOkD")
+	comp := makePlayoffComp(t, app, []*core.Record{p1, p2, p3, p4})
+
+	m1 := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+	m2 := makeMatch(t, app, comp.Id, p3.Id, p4.Id, 1)
+	finalMatch := makeMatch(t, app, comp.Id, "", "", 2)
+
+	require.NoError(t, transitionMatch(t, app, m1.Id, league.StatusFinal,
+		map[string]any{"scores": "6-3 6-4", "winner": p1.Id}))
+
+	require.NoError(t, transitionMatch(t, app, m2.Id, league.StatusFinal,
+		map[string]any{"scores": "6-1 6-2", "winner": p4.Id}))
+
+	notifs, _ := app.FindRecordsByFilter("notifications",
+		"type = 'admin_message' && title = 'Error en avance de playoff'",
+		"", 0, 0, nil)
+	assert.Empty(t, notifs, "no admin notification on successful advance")
+
+	updated, err := app.FindRecordById("matches", finalMatch.Id)
+	require.NoError(t, err)
+	assert.Equal(t, p1.Id, updated.GetString("pair1"))
+	assert.Equal(t, p4.Id, updated.GetString("pair2"))
 }
