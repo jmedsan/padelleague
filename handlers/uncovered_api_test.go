@@ -9,6 +9,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"padelleague/league"
@@ -70,7 +71,7 @@ func TestAdminDisputesPage(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/admin/disputes",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Disputas"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupFullAdminRoutes(tb, app, e)
@@ -86,11 +87,11 @@ func TestAdminDisputesPage(t *testing.T) {
 
 func TestAdminPairsPage(t *testing.T) {
 	s := &tests.ApiScenario{
-		Name:            "GET /admin/pairs returns 200",
+		Name:            "GET /admin/pairs returns pair list",
 		Method:          http.MethodGet,
 		URL:             "/admin/pairs",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Parejas"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupFullAdminRoutes(tb, app, e)
@@ -107,34 +108,50 @@ func TestAdminPairsCreate(t *testing.T) {
 		URL:            "/admin/pairs",
 		ExpectedStatus: 204,
 	}
+	var u1ID, u2ID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupFullAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		u1 := makeUserTB(tb, app, "PairP1", "")
 		u2 := makeUserTB(tb, app, "PairP2", "")
+		u1ID, u2ID = u1.Id, u2.Id
 		s.Body = strings.NewReader("name=NuevaPair&player1=" + u1.Id + "&player2=" + u2.Id)
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		pairs, err := app.FindRecordsByFilter("pairs", "name = 'NuevaPair'", "", 0, 0, nil)
+		require.NoError(tb, err)
+		require.Equal(tb, 1, len(pairs))
+		assert.Equal(tb, u1ID, pairs[0].GetString("player1"))
+		assert.Equal(tb, u2ID, pairs[0].GetString("player2"))
 	}
 	s.Test(t)
 }
 
 func TestAdminPairsUpdate(t *testing.T) {
 	s := &tests.ApiScenario{
-		Name:           "POST /admin/pairs/{id} updates pair",
+		Name:           "POST /admin/pairs/{id} updates pair name",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var pairID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupFullAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		pair := makePairTB(tb, app, "UpdPair")
+		pairID = pair.Id
 		s.URL = "/admin/pairs/" + pair.Id
 		s.Body = strings.NewReader("name=Renamed")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		p, err := app.FindRecordById("pairs", pairID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "Renamed", p.GetString("name"))
 	}
 	s.Test(t)
 }
@@ -182,16 +199,22 @@ func TestAdminTogglePaymentAll(t *testing.T) {
 
 func TestAdminInvitationsRevoke(t *testing.T) {
 	s := &tests.ApiScenario{
-		Name:           "POST /admin/invitations/{id}/revoke revokes invite",
+		Name:           "POST /admin/invitations/{id}/revoke changes status",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var invID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupFullAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		inv := makeInvitation(t, app, time.Time{})
+		invID = inv.Id
 		s.URL = "/admin/invitations/" + inv.Id + "/revoke"
 		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		_, err := app.FindRecordById("invitations", invID)
+		assert.Error(tb, err, "invitation should be deleted")
 	}
 	s.Test(t)
 }
@@ -202,7 +225,7 @@ func TestDashboardWithIssues(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/admin",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Competiciones"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupFullAdminRoutes(tb, app, e)
