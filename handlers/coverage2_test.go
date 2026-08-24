@@ -9,6 +9,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,7 +18,7 @@ func TestRegisterWithValidToken(t *testing.T) {
 		Name:            "GET /register?token=valid shows form with email",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Crear cuenta"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -33,7 +34,7 @@ func TestRegisterWithExpiredToken(t *testing.T) {
 		Name:            "GET /register?token=expired shows invalid",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Invitacion no valida"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -49,7 +50,7 @@ func TestPlayerProfileWithMatches(t *testing.T) {
 		Name:            "GET /player/{id} with match history shows stats",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Stats A"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -179,6 +180,7 @@ func TestProposalChangeDecision(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var msgID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "ChgDec A")
@@ -196,10 +198,16 @@ func TestProposalChangeDecision(t *testing.T) {
 		})
 		msg.Set("proposal_status", "accepted")
 		require.NoError(tb, app.Save(msg))
+		msgID = msg.Id
 
 		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/change-decision", match.Id, msg.Id)
 		opponent, _ := app.FindRecordById("users", p2.GetString("player1"))
 		s.Headers = authHeaders(tb, opponent)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		m, err := app.FindRecordById("match_messages", msgID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "rejected", m.GetString("proposal_status"))
 	}
 	s.Test(t)
 }
@@ -210,7 +218,7 @@ func TestHomeWithScheduledMatch(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Sched A"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -267,7 +275,7 @@ func TestAdminCompetitionDetailWithData(t *testing.T) {
 		Name:            "GET /admin/competitions/{id} with matches and disputes",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Detail A", "Detail B"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
