@@ -7,6 +7,8 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoginPage(t *testing.T) {
@@ -49,7 +51,7 @@ func TestRegisterPage(t *testing.T) {
 
 func TestLoginValidCreds(t *testing.T) {
 	scenario := tests.ApiScenario{
-		Name:   "POST /login with valid creds redirects",
+		Name:   "POST /login with valid creds redirects to home",
 		Method: http.MethodPost,
 		URL:    "/login",
 		Body:   strings.NewReader("email=testlogin@test.local&password=testpass123456"),
@@ -60,6 +62,9 @@ func TestLoginValidCreds(t *testing.T) {
 		BeforeTestFunc: func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 			setupAuthRoutes(tb, app, e)
 			makeUserTB(tb, app, "Login Test", "testlogin@test.local")
+		},
+		AfterTestFunc: func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+			assert.Equal(tb, "/", res.Header.Get("Location"))
 		},
 	}
 	scenario.Test(t)
@@ -73,6 +78,9 @@ func TestHomeWithoutAuth(t *testing.T) {
 		ExpectedStatus: 302,
 		BeforeTestFunc: func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 			setupAllRoutes(tb, app, e)
+		},
+		AfterTestFunc: func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+			assert.Equal(tb, "/login", res.Header.Get("Location"))
 		},
 	}
 	scenario.Test(t)
@@ -116,7 +124,7 @@ func TestMatchDetail(t *testing.T) {
 		Name:            "GET /match/{id} with auth returns match page",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Equipo A", "Equipo B"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -134,13 +142,16 @@ func TestMatchDetail(t *testing.T) {
 
 func TestMatchDetailWithoutAuth(t *testing.T) {
 	s := &tests.ApiScenario{
-		Name:           "GET /match/{id} without auth redirects",
+		Name:           "GET /match/{id} without auth redirects to login",
 		Method:         http.MethodGet,
 		URL:            "/match/fakeid",
 		ExpectedStatus: 302,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/login", res.Header.Get("Location"))
 	}
 	s.Test(t)
 }
@@ -163,7 +174,7 @@ func TestAdminDashboard(t *testing.T) {
 
 func TestAdminDashboardNonAdmin(t *testing.T) {
 	s := &tests.ApiScenario{
-		Name:           "GET /admin with non-admin redirects",
+		Name:           "GET /admin with non-admin redirects to login",
 		Method:         http.MethodGet,
 		URL:            "/admin",
 		ExpectedStatus: 302,
@@ -172,6 +183,9 @@ func TestAdminDashboardNonAdmin(t *testing.T) {
 		setupAllRoutes(tb, app, e)
 		user := makeUserTB(tb, app, "Regular", "")
 		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/login", res.Header.Get("Location"))
 	}
 	s.Test(t)
 }
@@ -188,6 +202,7 @@ func TestAdminCompetitionDetail(t *testing.T) {
 		admin := makeAdminUserTB(tb, app)
 		comp := makeCompetitionTB(tb, app, "league", nil)
 		s.URL = "/admin/competitions/" + comp.Id
+		s.ExpectedContent = []string{"Test Competition"}
 		s.Headers = authHeaders(tb, admin)
 	}
 	s.Test(t)
@@ -195,10 +210,10 @@ func TestAdminCompetitionDetail(t *testing.T) {
 
 func TestPlayerProfile(t *testing.T) {
 	s := &tests.ApiScenario{
-		Name:            "GET /player/{id} returns profile page",
+		Name:            "GET /player/{id} returns profile with display name",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Profile Player"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -215,18 +230,28 @@ func TestMatchSubmitValidScore(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var matchID, submitterID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Submit A")
 		p2 := makePairTB(tb, app, "Submit B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
 		s.URL = "/match/" + match.Id + "/submit"
 		s.Body = strings.NewReader("scores=6-3+6-4")
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		submitterID = user.Id
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "confirmed", m.GetString("status"))
+		assert.Equal(tb, "6-3 6-4", m.GetString("scores"))
+		assert.Equal(tb, submitterID, m.GetString("submitted_by"))
 	}
 	s.Test(t)
 }
