@@ -349,6 +349,7 @@ func makeInvitationTB(t testing.TB, app core.App, creatorID string, expiresAt ti
 }
 
 func TestNewTestApp(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 
 	_, err := app.FindCollectionByNameOrId("pairs")

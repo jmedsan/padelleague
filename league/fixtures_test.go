@@ -9,6 +9,7 @@ import (
 )
 
 func TestRoundRobin_AllPairsPlayOnce(t *testing.T) {
+	t.Parallel()
 	for n := 2; n <= 8; n++ {
 		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
 			pairIDs := make([]string, n)
@@ -41,6 +42,7 @@ func TestRoundRobin_AllPairsPlayOnce(t *testing.T) {
 }
 
 func TestRoundRobin_Double(t *testing.T) {
+	t.Parallel()
 	pairIDs := []string{"p1", "p2", "p3", "p4"}
 
 	rounds := RoundRobin(pairIDs, true)
@@ -79,6 +81,7 @@ func TestRoundRobin_Double(t *testing.T) {
 }
 
 func TestRoundRobin_NoPairTwicePerRound(t *testing.T) {
+	t.Parallel()
 	for n := 2; n <= 8; n++ {
 		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
 			pairIDs := make([]string, n)
@@ -102,6 +105,7 @@ func TestRoundRobin_NoPairTwicePerRound(t *testing.T) {
 }
 
 func TestRoundRobin_TwoPairs(t *testing.T) {
+	t.Parallel()
 	rounds := RoundRobin([]string{"a", "b"}, false)
 	require.Len(t, rounds, 1)
 	require.Len(t, rounds[0].Matches, 1)
@@ -109,6 +113,7 @@ func TestRoundRobin_TwoPairs(t *testing.T) {
 }
 
 func TestRoundRobin_OddNumber(t *testing.T) {
+	t.Parallel()
 	rounds := RoundRobin([]string{"a", "b", "c"}, false)
 	require.NotEmpty(t, rounds)
 

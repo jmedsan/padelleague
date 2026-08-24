@@ -66,6 +66,7 @@ func setupFullAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) 
 }
 
 func TestAdminDisputesPage(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /admin/disputes with disputed match",
 		Method:          http.MethodGet,
@@ -86,6 +87,7 @@ func TestAdminDisputesPage(t *testing.T) {
 }
 
 func TestAdminPairsPage(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /admin/pairs returns pair list",
 		Method:          http.MethodGet,
@@ -102,6 +104,7 @@ func TestAdminPairsPage(t *testing.T) {
 }
 
 func TestAdminPairsCreate(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /admin/pairs creates pair",
 		Method:         http.MethodPost,
@@ -131,6 +134,7 @@ func TestAdminPairsCreate(t *testing.T) {
 }
 
 func TestAdminPairsUpdate(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /admin/pairs/{id} updates pair name",
 		Method:         http.MethodPost,
@@ -157,6 +161,7 @@ func TestAdminPairsUpdate(t *testing.T) {
 }
 
 func TestAdminCopyPairs(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /admin/competitions/{id}/copy-pairs copies pairs",
 		Method:          http.MethodPost,
@@ -180,6 +185,7 @@ func TestAdminCopyPairs(t *testing.T) {
 }
 
 func TestAdminTogglePaymentAll(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /admin/competitions/{id}/payment-all marks all paid",
 		Method:         http.MethodPost,
@@ -198,6 +204,7 @@ func TestAdminTogglePaymentAll(t *testing.T) {
 }
 
 func TestAdminInvitationsRevoke(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /admin/invitations/{id}/revoke changes status",
 		Method:         http.MethodPost,
@@ -220,6 +227,7 @@ func TestAdminInvitationsRevoke(t *testing.T) {
 }
 
 func TestDashboardWithIssues(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /admin dashboard exercises issue classification",
 		Method:          http.MethodGet,

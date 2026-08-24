@@ -28,6 +28,7 @@ func (f *fakeNotifier) NotifyPlayers(playerUserIDs []string, notifType, title, _
 }
 
 func TestConfirmStaleMatches_Finalizes(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	p1 := makePair(t, app, "Pair A")
 	p2 := makePair(t, app, "Pair B")
@@ -60,6 +61,7 @@ func TestConfirmStaleMatches_Finalizes(t *testing.T) {
 }
 
 func TestConfirmStaleMatches_NotExpired(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	p1 := makePair(t, app, "Pair C")
 	p2 := makePair(t, app, "Pair D")
@@ -88,6 +90,7 @@ func TestConfirmStaleMatches_NotExpired(t *testing.T) {
 }
 
 func TestConfirmStaleMatches_NoTimeout(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	p1 := makePair(t, app, "Pair E")
 	p2 := makePair(t, app, "Pair F")

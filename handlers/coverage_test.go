@@ -14,6 +14,7 @@ import (
 )
 
 func TestHomeWithCompetitionData(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET / with active competition shows home data",
 		Method:          http.MethodGet,
@@ -55,6 +56,7 @@ func TestHomeWithCompetitionData(t *testing.T) {
 }
 
 func TestCompetitionPageWithMatches(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /competition/{id} with matches shows pair names",
 		Method:          http.MethodGet,
@@ -75,6 +77,7 @@ func TestCompetitionPageWithMatches(t *testing.T) {
 }
 
 func TestLogout(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /logout redirects to login",
 		Method:         http.MethodPost,
@@ -91,6 +94,7 @@ func TestLogout(t *testing.T) {
 }
 
 func TestForgotPasswordPage(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /forgot-password returns form",
 		Method:          http.MethodGet,
@@ -105,6 +109,7 @@ func TestForgotPasswordPage(t *testing.T) {
 }
 
 func TestForgotPasswordSubmit(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /forgot-password shows success",
 		Method:          http.MethodPost,
@@ -121,6 +126,7 @@ func TestForgotPasswordSubmit(t *testing.T) {
 }
 
 func TestResetPasswordPage(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /reset-password returns form",
 		Method:          http.MethodGet,
@@ -135,6 +141,7 @@ func TestResetPasswordPage(t *testing.T) {
 }
 
 func TestResetPasswordSubmitInvalidToken(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /reset-password with bad token shows error",
 		Method:          http.MethodPost,
@@ -151,6 +158,7 @@ func TestResetPasswordSubmitInvalidToken(t *testing.T) {
 }
 
 func TestResetPasswordSubmitMismatch(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /reset-password with mismatched passwords",
 		Method:          http.MethodPost,
@@ -167,6 +175,7 @@ func TestResetPasswordSubmitMismatch(t *testing.T) {
 }
 
 func TestRegisterSubmitNoToken(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /register without token shows error",
 		Method:          http.MethodPost,
@@ -183,6 +192,7 @@ func TestRegisterSubmitNoToken(t *testing.T) {
 }
 
 func TestRegisterSubmitValidInvite(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /register with valid invite creates user",
 		Method:         http.MethodPost,
@@ -220,6 +230,7 @@ func TestRegisterSubmitValidInvite(t *testing.T) {
 }
 
 func TestAdminOverride(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /match/{id}/admin-override changes score and finalizes",
 		Method:         http.MethodPost,

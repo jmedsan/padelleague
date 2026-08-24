@@ -24,6 +24,7 @@ func enableSMTP(t *testing.T, app *tests.TestApp) {
 }
 
 func TestBuildNotificationEmail_Basic(t *testing.T) {
+	t.Parallel()
 	html := BuildNotificationEmail("Juan", "Tu partido ha sido confirmado", "")
 	assert.Contains(t, html, "Juan")
 	assert.Contains(t, html, "Tu partido ha sido confirmado")
@@ -32,6 +33,7 @@ func TestBuildNotificationEmail_Basic(t *testing.T) {
 }
 
 func TestBuildNotificationEmail_WithLink(t *testing.T) {
+	t.Parallel()
 	html := BuildNotificationEmail("Ana", "Resultado enviado", "https://example.com/match/123")
 	assert.Contains(t, html, "Ana")
 	assert.Contains(t, html, "Ver partido")
@@ -39,12 +41,14 @@ func TestBuildNotificationEmail_WithLink(t *testing.T) {
 }
 
 func TestBuildNotificationEmail_EscapesHTML(t *testing.T) {
+	t.Parallel()
 	html := BuildNotificationEmail("<script>alert(1)</script>", "Body", "")
 	assert.NotContains(t, html, "<script>")
 	assert.Contains(t, html, "&lt;script&gt;")
 }
 
 func TestEmailNotifyPlayers_NoSMTP(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	user := makeUser(t, app, "player")
 
@@ -54,6 +58,7 @@ func TestEmailNotifyPlayers_NoSMTP(t *testing.T) {
 }
 
 func TestEmailNotifyPlayers_InvalidUser(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	enableSMTP(t, app)
 
@@ -68,6 +73,7 @@ type failingMailer struct{}
 func (failingMailer) Send(*mailer.Message) error { return errors.New("smtp refused") }
 
 func TestSendEmail_SendFailureIsContained(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	enableSMTP(t, app)
 	app.OnMailerSend().BindFunc(func(e *core.MailerEvent) error {
@@ -83,6 +89,7 @@ func TestSendEmail_SendFailureIsContained(t *testing.T) {
 }
 
 func TestSendEmail_Sends(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	enableSMTP(t, app)
 
@@ -99,6 +106,7 @@ func TestSendEmail_Sends(t *testing.T) {
 }
 
 func TestEmailNotifyPlayers_SendsOnePerPlayer(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	enableSMTP(t, app)
 	one := makeUser(t, app, "player")
@@ -124,6 +132,7 @@ func TestEmailNotifyPlayers_SendsOnePerPlayer(t *testing.T) {
 }
 
 func TestEmailNotifyPlayers_SkipsPlayerWithoutEmail(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	enableSMTP(t, app)
 	withEmail := makeUser(t, app, "player")

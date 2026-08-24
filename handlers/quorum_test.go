@@ -13,6 +13,7 @@ import (
 )
 
 func TestCheckQuorumTimeout_Expired(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	p1 := makePair(t, app, "Pair A")
 	p2 := makePair(t, app, "Pair B")
@@ -42,6 +43,7 @@ func TestCheckQuorumTimeout_Expired(t *testing.T) {
 }
 
 func TestCheckQuorumTimeout_NotExpired(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	p1 := makePair(t, app, "Pair C")
 	p2 := makePair(t, app, "Pair D")

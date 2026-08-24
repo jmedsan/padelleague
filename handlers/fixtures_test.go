@@ -11,6 +11,7 @@ import (
 )
 
 func TestGenerateRoundRobin_AllPairsPlayOnce(t *testing.T) {
+	t.Parallel()
 	for n := 2; n <= 8; n++ {
 		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
 			pairIDs := make([]string, n)
@@ -43,6 +44,7 @@ func TestGenerateRoundRobin_AllPairsPlayOnce(t *testing.T) {
 }
 
 func TestGenerateRoundRobin_Double(t *testing.T) {
+	t.Parallel()
 	pairIDs := []string{"p1", "p2", "p3", "p4"}
 
 	rounds := league.RoundRobin(pairIDs, true)
@@ -68,6 +70,7 @@ func TestGenerateRoundRobin_Double(t *testing.T) {
 }
 
 func TestGenerateRoundRobin_NoPairTwicePerRound(t *testing.T) {
+	t.Parallel()
 	for n := 2; n <= 8; n++ {
 		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
 			pairIDs := make([]string, n)

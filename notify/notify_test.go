@@ -41,6 +41,7 @@ func makeUser(t *testing.T, app core.App, role string) *core.Record {
 }
 
 func TestNotifyPlayers_CreatesNotification(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	notifier := NewNotifier(app, "", "")
 
@@ -93,6 +94,7 @@ func makeMatch(t *testing.T, app core.App) *core.Record {
 }
 
 func TestNotifyPlayers_WithMatchID(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	notifier := NewNotifier(app, "", "")
 
@@ -107,6 +109,7 @@ func TestNotifyPlayers_WithMatchID(t *testing.T) {
 }
 
 func TestNotifyPlayers_MultipleUsers(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	notifier := NewNotifier(app, "", "")
 
@@ -121,6 +124,7 @@ func TestNotifyPlayers_MultipleUsers(t *testing.T) {
 }
 
 func TestNotifyPlayers_InvalidUser(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	notifier := NewNotifier(app, "", "")
 
@@ -131,6 +135,7 @@ func TestNotifyPlayers_InvalidUser(t *testing.T) {
 }
 
 func TestNotifyAdmins_CreatesNotification(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	notifier := NewNotifier(app, "", "")
 
@@ -151,6 +156,7 @@ func TestNotifyAdmins_CreatesNotification(t *testing.T) {
 }
 
 func TestGetNotificationPrefs_NilReturnsDefaults(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	user := makeUser(t, app, "player")
 
@@ -161,6 +167,7 @@ func TestGetNotificationPrefs_NilReturnsDefaults(t *testing.T) {
 }
 
 func TestGetNotificationPrefs_WithPrefsSet(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	user := makeUser(t, app, "player")
 	user.Set("notification_prefs", map[string]any{"general": false})
@@ -174,6 +181,7 @@ func TestGetNotificationPrefs_WithPrefsSet(t *testing.T) {
 // Regression: PocketBase returns a saved JSONField as types.JSONRaw, so a
 // stored preference has to survive the round-trip through the database.
 func TestGetNotificationPrefs_SurvivesRoundTrip(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	user := makeUser(t, app, "player")
 	user.Set("notification_prefs", map[string]any{"general": false, "dispute": false})
@@ -192,6 +200,7 @@ func TestGetNotificationPrefs_SurvivesRoundTrip(t *testing.T) {
 }
 
 func TestGetNotificationPrefs_MalformedFallsBackToDefaults(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	user := makeUser(t, app, "player")
 
@@ -212,6 +221,7 @@ func TestGetNotificationPrefs_MalformedFallsBackToDefaults(t *testing.T) {
 
 // A disabled preference must actually suppress the notification record.
 func TestNotifyPlayers_RespectsDisabledPref(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	notifier := NewNotifier(app, "", "")
 	user := makeUser(t, app, "player")
@@ -230,6 +240,7 @@ func TestNotifyPlayers_RespectsDisabledPref(t *testing.T) {
 }
 
 func TestPushEnabled(t *testing.T) {
+	t.Parallel()
 	tests := map[string]struct {
 		public, private string
 		want            bool
@@ -247,11 +258,13 @@ func TestPushEnabled(t *testing.T) {
 }
 
 func TestIsMailerConfigured_Disabled(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	assert.False(t, IsMailerConfigured(app))
 }
 
 func TestSendEmail_NoSMTP(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 
 	SendEmail(app, "test@test.local", "Subject", "<p>Body</p>")
@@ -260,6 +273,7 @@ func TestSendEmail_NoSMTP(t *testing.T) {
 }
 
 func TestNotifyPlayers_WithVAPIDNoSubs(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	notifier := NewNotifier(app, "BFakePublicKey123456789012345678901234567890123", "fakeprivatekey")
 
@@ -274,6 +288,7 @@ func TestNotifyPlayers_WithVAPIDNoSubs(t *testing.T) {
 }
 
 func TestNotifyPlayers_WithPushSub(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	notifier := NewNotifier(app, "BFakePublicKey123456789012345678901234567890123", "fakeprivatekey")
 
@@ -296,6 +311,7 @@ func TestNotifyPlayers_WithPushSub(t *testing.T) {
 }
 
 func TestEmailNotifyPlayers_NoEmail(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	user := makeUser(t, app, "player")
 	user.Set("email", "")
@@ -307,6 +323,7 @@ func TestEmailNotifyPlayers_NoEmail(t *testing.T) {
 }
 
 func TestNotifyAdmins_NoMatchID(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	notifier := NewNotifier(app, "", "")
 	admin := makeUser(t, app, "admin")

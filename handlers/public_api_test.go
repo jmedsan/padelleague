@@ -44,6 +44,7 @@ func setupPublicRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 }
 
 func TestHomeWithAuth(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET / with auth returns home with player name",
 		Method:          http.MethodGet,
@@ -60,6 +61,7 @@ func TestHomeWithAuth(t *testing.T) {
 }
 
 func TestCompetitionPage(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /competition/{id} shows pair names",
 		Method:          http.MethodGet,
@@ -79,6 +81,7 @@ func TestCompetitionPage(t *testing.T) {
 }
 
 func TestPlayerProfilePage(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /player/{id} shows display name",
 		Method:          http.MethodGet,
@@ -95,6 +98,7 @@ func TestPlayerProfilePage(t *testing.T) {
 }
 
 func TestH2HPage(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /h2h shows both player names",
 		Method:          http.MethodGet,
@@ -113,6 +117,7 @@ func TestH2HPage(t *testing.T) {
 }
 
 func TestH2HSamePairReturnsError(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /h2h with same pair returns error",
 		Method:          http.MethodGet,
@@ -130,6 +135,7 @@ func TestH2HSamePairReturnsError(t *testing.T) {
 }
 
 func TestICalMatch(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /ical/match/{id} with date returns ics",
 		Method:          http.MethodGet,
@@ -153,6 +159,7 @@ func TestICalMatch(t *testing.T) {
 }
 
 func TestICalCompetition(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /ical/competition/{id} with auth returns ics",
 		Method:          http.MethodGet,
@@ -176,6 +183,7 @@ func TestICalCompetition(t *testing.T) {
 }
 
 func TestProfileCompletePage(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /profile/complete shows name form",
 		Method:          http.MethodGet,
@@ -192,6 +200,7 @@ func TestProfileCompletePage(t *testing.T) {
 }
 
 func TestProfileCompleteSubmit(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /profile/complete sets display name",
 		Method:         http.MethodPost,
@@ -218,6 +227,7 @@ func TestProfileCompleteSubmit(t *testing.T) {
 }
 
 func TestCompetitionNotFound(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /competition/{id} with bad ID returns error",
 		Method:          http.MethodGet,
@@ -234,6 +244,7 @@ func TestCompetitionNotFound(t *testing.T) {
 }
 
 func TestCompetitionPlayoffNoStandings(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /competition/{id} playoff has no standings",
 		Method:          http.MethodGet,
@@ -253,6 +264,7 @@ func TestCompetitionPlayoffNoStandings(t *testing.T) {
 }
 
 func TestCompetitionArchivedShowsAwards(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /competition/{id} archived shows awards section",
 		Method:          http.MethodGet,

@@ -13,6 +13,7 @@ import (
 )
 
 func TestThreadMessages(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /match/{id}/thread-messages returns partial",
 		Method:          http.MethodGet,
@@ -33,6 +34,7 @@ func TestThreadMessages(t *testing.T) {
 }
 
 func TestThreadPostProposal(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /match/{id}/thread/proposal creates proposal",
 		Method:         http.MethodPost,
@@ -65,6 +67,7 @@ func TestThreadPostProposal(t *testing.T) {
 }
 
 func TestThreadRespondProposal(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /match/{id}/thread/proposal/{msgId}/respond accepts",
 		Method:         http.MethodPost,
@@ -106,6 +109,7 @@ func TestThreadRespondProposal(t *testing.T) {
 }
 
 func TestThreadRespondProposalReject(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /match/{id}/thread/proposal/{msgId}/respond rejects",
 		Method:         http.MethodPost,
@@ -149,6 +153,7 @@ func TestThreadRespondProposalReject(t *testing.T) {
 }
 
 func TestThreadRespondOwnProposalRejected(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST respond to own proposal returns error",
 		Method:          http.MethodPost,
@@ -184,6 +189,7 @@ func TestThreadRespondOwnProposalRejected(t *testing.T) {
 }
 
 func TestThreadEmptyPairsShowsMessage(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /match/{id}/thread with empty pairs shows pending message",
 		Method:          http.MethodGet,
@@ -210,6 +216,7 @@ func TestThreadEmptyPairsShowsMessage(t *testing.T) {
 }
 
 func TestPostMessageEmptyContentRejected(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /match/{id}/thread/message with empty content rejected",
 		Method:          http.MethodPost,
@@ -233,6 +240,7 @@ func TestPostMessageEmptyContentRejected(t *testing.T) {
 }
 
 func TestPostProposalMissingDateRejected(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /match/{id}/thread/proposal without date rejected",
 		Method:          http.MethodPost,

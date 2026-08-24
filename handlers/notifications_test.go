@@ -8,6 +8,7 @@ import (
 )
 
 func TestNotificationCount_UnreadOnly(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	user := makeUser(t, app, "Notif User", "")
 
@@ -24,6 +25,7 @@ func TestNotificationCount_UnreadOnly(t *testing.T) {
 }
 
 func TestNotificationList_OrderAndLimit(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	user := makeUser(t, app, "List User", "")
 
@@ -40,6 +42,7 @@ func TestNotificationList_OrderAndLimit(t *testing.T) {
 }
 
 func TestNotificationCount_OtherUserExcluded(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 	user1 := makeUser(t, app, "User 1", "")
 	user2 := makeUser(t, app, "User 2", "")

@@ -69,6 +69,7 @@ func makeAdminUser(t testing.TB, app core.App) *core.Record {
 }
 
 func TestAdminNoAuth(t *testing.T) {
+	t.Parallel()
 	scenario := tests.ApiScenario{
 		Name:           "GET /admin without auth redirects to login",
 		Method:         http.MethodGet,
@@ -83,6 +84,7 @@ func TestAdminNoAuth(t *testing.T) {
 }
 
 func TestAdminPlayerAuth(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "GET /admin with player auth redirects to login",
 		Method:         http.MethodGet,
@@ -101,6 +103,7 @@ func TestAdminPlayerAuth(t *testing.T) {
 }
 
 func TestAdminWithAdminAuth(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /admin with admin auth returns dashboard",
 		Method:          http.MethodGet,
@@ -117,6 +120,7 @@ func TestAdminWithAdminAuth(t *testing.T) {
 }
 
 func TestAdminPlayersPage(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /admin/players returns player list",
 		Method:          http.MethodGet,
@@ -133,6 +137,7 @@ func TestAdminPlayersPage(t *testing.T) {
 }
 
 func TestAdminInvitationsPage(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /admin/invitations returns invitation list",
 		Method:          http.MethodGet,
@@ -149,6 +154,7 @@ func TestAdminInvitationsPage(t *testing.T) {
 }
 
 func TestAdminVenuesPage(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /admin/venues returns venue list",
 		Method:          http.MethodGet,
@@ -165,6 +171,7 @@ func TestAdminVenuesPage(t *testing.T) {
 }
 
 func TestAdminCreateCompetition(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /admin/competitions creates and redirects",
 		Method:         http.MethodPost,
@@ -189,6 +196,7 @@ func TestAdminCreateCompetition(t *testing.T) {
 }
 
 func TestAdminCreateInvitation(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /admin/invitations creates invite",
 		Method:         http.MethodPost,

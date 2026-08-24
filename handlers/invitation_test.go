@@ -11,6 +11,7 @@ import (
 )
 
 func TestGenerateInviteToken(t *testing.T) {
+	t.Parallel()
 	token, err := generateInviteToken()
 	require.NoError(t, err)
 	assert.Len(t, token, 32)
@@ -22,6 +23,7 @@ func TestGenerateInviteToken(t *testing.T) {
 }
 
 func TestIsInviteExpired(t *testing.T) {
+	t.Parallel()
 	col := &core.Collection{}
 	col.Fields.Add(
 		&core.DateField{Name: "expires_at"},
@@ -37,6 +39,7 @@ func TestIsInviteExpired(t *testing.T) {
 }
 
 func TestInvitationMaxUses(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 
 	admin := makeUser(t, app, "Admin", "")

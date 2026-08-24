@@ -13,6 +13,7 @@ import (
 )
 
 func TestMatchSubmitScore(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /match/{id}/submit with valid score returns 204 + HX-Redirect",
 		Method:         http.MethodPost,
@@ -45,6 +46,7 @@ func TestMatchSubmitScore(t *testing.T) {
 }
 
 func TestMatchConfirm(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /match/{id}/confirm by opponent returns 204",
 		Method:         http.MethodPost,
@@ -80,6 +82,7 @@ func TestMatchConfirm(t *testing.T) {
 }
 
 func TestMatchDispute(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /match/{id}/dispute with notes returns 204",
 		Method:         http.MethodPost,
@@ -117,6 +120,7 @@ func TestMatchDispute(t *testing.T) {
 }
 
 func TestMatchWalkover(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /match/{id}/walkover returns 204",
 		Method:         http.MethodPost,
@@ -151,6 +155,7 @@ func TestMatchWalkover(t *testing.T) {
 }
 
 func TestMatchCorrect(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /match/{id}/correct within 24h returns 204",
 		Method:         http.MethodPost,
@@ -189,6 +194,7 @@ func TestMatchCorrect(t *testing.T) {
 }
 
 func TestMatchThread(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "GET /match/{id}/thread with auth returns thread",
 		Method:          http.MethodGet,
@@ -209,6 +215,7 @@ func TestMatchThread(t *testing.T) {
 }
 
 func TestMatchThreadPostMessage(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /match/{id}/thread/message sends a message",
 		Method:         http.MethodPost,
@@ -241,6 +248,7 @@ func TestMatchThreadPostMessage(t *testing.T) {
 }
 
 func TestMatchSubmitWORejected(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /match/{id}/submit with WO score rejected",
 		Method:          http.MethodPost,
@@ -264,6 +272,7 @@ func TestMatchSubmitWORejected(t *testing.T) {
 }
 
 func TestMatchConfirmOwnResultRejected(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /match/{id}/confirm by submitter rejected",
 		Method:          http.MethodPost,
@@ -288,6 +297,7 @@ func TestMatchConfirmOwnResultRejected(t *testing.T) {
 }
 
 func TestMatchDisputeOwnResultRejected(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /match/{id}/dispute by submitter rejected",
 		Method:          http.MethodPost,
@@ -315,6 +325,7 @@ func TestMatchDisputeOwnResultRejected(t *testing.T) {
 }
 
 func TestMatchCorrectExpired(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /match/{id}/correct after 24h rejected",
 		Method:          http.MethodPost,
@@ -343,6 +354,7 @@ func TestMatchCorrectExpired(t *testing.T) {
 }
 
 func TestMatchWalkoverAbsentTeam1(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:           "POST /match/{id}/walkover absent_team=1 pair2 wins",
 		Method:         http.MethodPost,
@@ -375,6 +387,7 @@ func TestMatchWalkoverAbsentTeam1(t *testing.T) {
 }
 
 func TestMatchCorrectWORejected(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		Name:            "POST /match/{id}/correct with WO score rejected",
 		Method:          http.MethodPost,
