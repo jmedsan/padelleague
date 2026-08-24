@@ -246,7 +246,7 @@ func TestPostMessageClampsType(t *testing.T) {
 				hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 				s.Headers = hdrs
 			}
-			s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+			s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 				msgs, err := app.FindRecordsByFilter("match_messages",
 					"match = {:m}", "", 0, 0, map[string]any{"m": matchID})
 				require.NoError(tb, err)
