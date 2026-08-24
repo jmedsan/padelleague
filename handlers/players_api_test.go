@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -178,4 +179,72 @@ func TestInvitationsRevoke(t *testing.T) {
 		assert.Error(tb, err)
 	}
 	s.Test(t)
+}
+
+func TestPlayerProfileCompetitionStatsSortedDeterministic(t *testing.T) {
+	names := []string{"Zebra Cup", "Alpha League", "Middle Tournament"}
+	sorted := []string{"Alpha League", "Middle Tournament", "Zebra Cup"}
+
+	for iter := 0; iter < 20; iter++ {
+		s := &tests.ApiScenario{
+			Name:            fmt.Sprintf("GET /player/{id} competition stats sorted (iter %d)", iter),
+			Method:          http.MethodGet,
+			ExpectedStatus:  200,
+			ExpectedContent: sorted,
+		}
+		s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+			setupPublicRoutes(tb, app, e)
+			user := makeUserTB(tb, app, "Sort Player", "")
+			partner := makeUserTB(tb, app, "Sort Partner", "")
+
+			pairCol, _ := app.FindCollectionByNameOrId("pairs")
+			matchCol, _ := app.FindCollectionByNameOrId("matches")
+
+			compCol, _ := app.FindCollectionByNameOrId("competitions")
+			for i, name := range names {
+				pair := core.NewRecord(pairCol)
+				pair.Set("name", fmt.Sprintf("SortPair%d", i))
+				pair.Set("player1", user.Id)
+				pair.Set("player2", partner.Id)
+				require.NoError(tb, app.Save(pair))
+
+				opponent := makePairTB(tb, app, fmt.Sprintf("SortOpp%d", i))
+
+				comp := core.NewRecord(compCol)
+				comp.Set("name", name)
+				comp.Set("type", "league")
+				comp.Set("active", true)
+				comp.Set("pairs", []string{pair.Id, opponent.Id})
+				require.NoError(tb, app.Save(comp))
+
+				m := core.NewRecord(matchCol)
+				m.Set("competition", comp.Id)
+				m.Set("pair1", pair.Id)
+				m.Set("pair2", opponent.Id)
+				m.Set("status", "final")
+				m.Set("scores", "6-3 6-4")
+				m.Set("winner", pair.Id)
+				m.Set("round_number", 1)
+				require.NoError(tb, app.Save(m))
+			}
+			s.URL = "/player/" + user.Id
+			s.Headers = authHeaders(tb, user)
+		}
+		s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+			body, err := io.ReadAll(res.Body)
+			require.NoError(tb, err)
+			html := string(body)
+			statsStart := strings.Index(html, "Por competicion")
+			require.NotEqual(tb, -1, statsStart, "expected competition stats section")
+			statsSection := html[statsStart:]
+			prev := -1
+			for _, name := range sorted {
+				pos := strings.Index(statsSection, name)
+				require.NotEqual(tb, -1, pos, "expected %q in stats section", name)
+				assert.Greater(tb, pos, prev, "competition %q should appear after previous", name)
+				prev = pos
+			}
+		}
+		s.Test(t)
+	}
 }
