@@ -72,6 +72,13 @@ invariants:
 ci: fmt-check lint dead invariants test vuln
 	@echo "CI gate passed"
 
+# Push notification error paths. Needs system Chrome with the Push API and a
+# display, so it cannot run headless in CI alongside `make e2e`. Kept as a
+# named target so it is discoverable and runnable in one command rather than
+# a script someone has to find.
+e2e-push:
+	cd e2e/manual && DISPLAY=$${DISPLAY:-:0} node push-error-handling.mjs
+
 e2e:
 	cd e2e && npx playwright test
 
