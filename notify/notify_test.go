@@ -125,6 +125,9 @@ func TestNotifyPlayers_InvalidUser(t *testing.T) {
 	notifier := NewNotifier(app, "", "")
 
 	notifier.NotifyPlayers([]string{"nonexistent"}, "general", "Title", "Body", "")
+
+	notifs, _ := app.FindRecordsByFilter("notifications", "title = 'Title'", "", 0, 0, nil)
+	assert.Empty(t, notifs, "no notification should be created for a nonexistent user")
 }
 
 func TestNotifyAdmins_CreatesNotification(t *testing.T) {
