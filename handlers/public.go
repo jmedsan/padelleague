@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"net/http"
 	"sort"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -9,13 +10,14 @@ import (
 )
 
 type PublicHandler struct {
-	app        core.App
-	leagueSvc  *league.Service
-	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
+	app             core.App
+	leagueSvc       *league.Service
+	renderPage      func(e *core.RequestEvent, page string, data map[string]any) error
+	renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error
 }
 
-func NewPublicHandler(app core.App, leagueSvc *league.Service, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *PublicHandler {
-	return &PublicHandler{app: app, leagueSvc: leagueSvc, renderPage: renderPage}
+func NewPublicHandler(app core.App, leagueSvc *league.Service, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error) *PublicHandler {
+	return &PublicHandler{app: app, leagueSvc: leagueSvc, renderPage: renderPage, renderErrorPage: renderErrorPage}
 }
 
 type PendingMatchDetail struct {
@@ -304,7 +306,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	comp, err := h.app.FindRecordById("competitions", id)
 	if err != nil {
-		return e.Redirect(302, "/")
+		return h.renderErrorPage(e, http.StatusNotFound, "Competición no encontrada")
 	}
 
 	userID := e.Auth.Id
