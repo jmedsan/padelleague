@@ -30,11 +30,10 @@ test.describe('match thread', () => {
     const data = loadTestData();
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${data.matchIds[0]}`);
-    await page.waitForLoadState('networkidle');
-    const proposalBtn = page.getByRole('button', { name: /proponer fecha/i });
-    if (await proposalBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await proposalBtn.click();
-      await expect(page.locator('input[type="date"]')).toBeVisible({ timeout: 3000 });
-    }
+    const collapseTitle = page.locator('.collapse-title', { hasText: /proponer fecha/i });
+    await expect(collapseTitle).toBeVisible({ timeout: 10000 });
+    await collapseTitle.locator('..').locator('input[type="checkbox"]').click();
+    await expect(page.locator('input[type="date"]')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('input[type="time"]')).toBeVisible({ timeout: 3000 });
   });
 });

@@ -14,7 +14,6 @@ test.describe('responsive - no horizontal overflow', () => {
   test('login page', async ({ page }) => {
     await page.setViewportSize(MOBILE);
     await page.goto('/login');
-    await expect(page.locator('body')).toBeVisible();
     await checkNoOverflow(page);
   });
 
@@ -28,7 +27,6 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin');
-    await expect(page.locator('body')).toBeVisible();
     await checkNoOverflow(page);
   });
 
@@ -37,7 +35,6 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/competition/${data.competitionId}`);
-    await expect(page.locator('body')).toBeVisible();
     await checkNoOverflow(page);
   });
 
@@ -46,7 +43,6 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${data.matchIds[0]}`);
-    await expect(page.locator('body')).toBeVisible();
     await checkNoOverflow(page);
   });
 
@@ -55,7 +51,6 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${data.matchIds[0]}`);
-    await expect(page.locator('body')).toBeVisible();
     await checkNoOverflow(page);
   });
 
@@ -63,7 +58,6 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin/pairs');
-    await expect(page.locator('body')).toBeVisible();
     await checkNoOverflow(page);
   });
 
@@ -71,7 +65,6 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin/players');
-    await expect(page.locator('body')).toBeVisible();
     await checkNoOverflow(page);
   });
 
@@ -79,7 +72,6 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin/venues');
-    await expect(page.locator('body')).toBeVisible();
     await checkNoOverflow(page);
   });
 
@@ -87,7 +79,6 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin/invitations');
-    await expect(page.locator('body')).toBeVisible();
     await checkNoOverflow(page);
   });
 
@@ -95,7 +86,6 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin/disputes');
-    await expect(page.locator('body')).toBeVisible();
     await checkNoOverflow(page);
   });
 
@@ -104,7 +94,6 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/player/${data.player1.id}`);
-    await expect(page.locator('body')).toBeVisible();
     await checkNoOverflow(page);
   });
 
@@ -112,7 +101,6 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto('/profile/notifications');
-    await expect(page.locator('body')).toBeVisible();
     await checkNoOverflow(page);
   });
 });

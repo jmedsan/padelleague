@@ -6,7 +6,6 @@ test.describe('match lifecycle', () => {
     const data = loadTestData();
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${data.matchIds[0]}`);
-    await expect(page.locator('main')).toBeVisible();
     await expect(page.getByText('Pareja Alpha').first()).toBeVisible();
     await expect(page.getByText('Pareja Beta').first()).toBeVisible();
   });
