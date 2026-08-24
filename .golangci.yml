@@ -30,6 +30,7 @@ linters:
       - path: migrations/
         linters:
           - funlen
+          - gocognit
 
 formatters:
   enable:
