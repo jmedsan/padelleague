@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"padelleague/league"
+	"padelleague/notify"
 )
 
 // canRespondToProposal decides whether the accept/reject buttons and the
@@ -135,4 +136,68 @@ func TestResolveVenue(t *testing.T) {
 		assert.Empty(t, id)
 		assert.Equal(t, "Respaldo", name)
 	})
+}
+
+// A scheduling proposal must notify the opposing pair, never the proposer's
+// own partner. Getting the side wrong means the person who needs to respond
+// is never told, and the proposal sits unanswered.
+func TestProposalNotifiesOpposingPair(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+
+	p1 := makePairTB(t, app, "Notif P1")
+	p2 := makePairTB(t, app, "Notif P2")
+	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
+	match := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
+
+	notifier := notify.NewNotifier(app, "", "")
+	h := &ThreadHandler{app: app, notifier: notifier}
+
+	// A member of pair 1 proposes; pair 2 must hear about it.
+	author := p1.GetString("player1")
+	h.notifyProposal(match, 1, author, "2026-09-20", "19:00", "Club Test", match.Id)
+
+	notifs, err := app.FindRecordsByFilter("notifications",
+		"type = 'scheduling'", "", 0, 0, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, notifs, "a scheduling notification should exist")
+
+	got := map[string]bool{}
+	for _, n := range notifs {
+		got[n.GetString("user")] = true
+	}
+
+	for _, uid := range league.PlayersForPair(app, p2.Id) {
+		assert.True(t, got[uid], "opposing pair member %s should be notified", uid)
+	}
+	for _, uid := range league.PlayersForPair(app, p1.Id) {
+		assert.False(t, got[uid], "proposer's own pair member %s must not be notified", uid)
+	}
+}
+
+// The mirror case: a member of pair 2 proposes, so pair 1 is notified.
+func TestProposalFromPairTwoNotifiesPairOne(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+
+	p1 := makePairTB(t, app, "Mirror P1")
+	p2 := makePairTB(t, app, "Mirror P2")
+	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
+	match := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
+
+	h := &ThreadHandler{app: app, notifier: notify.NewNotifier(app, "", "")}
+	h.notifyProposal(match, 2, p2.GetString("player1"), "2026-09-20", "19:00", "Club Test", match.Id)
+
+	notifs, err := app.FindRecordsByFilter("notifications", "type = 'scheduling'", "", 0, 0, nil)
+	require.NoError(t, err)
+	got := map[string]bool{}
+	for _, n := range notifs {
+		got[n.GetString("user")] = true
+	}
+	for _, uid := range league.PlayersForPair(app, p1.Id) {
+		assert.True(t, got[uid], "pair 1 member %s should be notified", uid)
+	}
+	for _, uid := range league.PlayersForPair(app, p2.Id) {
+		assert.False(t, got[uid], "proposer's own pair member %s must not be notified", uid)
+	}
 }
