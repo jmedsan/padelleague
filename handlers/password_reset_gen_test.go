@@ -36,6 +36,7 @@ func enableSMTP(t testing.TB, app *tests.TestApp) {
 // --- ForgotPasswordSubmit: SMTP configured, valid email → mail sent ---
 
 func TestForgotPasswordSubmitSMTPValid(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST /forgot-password SMTP on + known email sends reset mail",
@@ -62,6 +63,7 @@ func TestForgotPasswordSubmitSMTPValid(t *testing.T) {
 // --- ForgotPasswordSubmit: SMTP configured, unknown email → no mail, non-disclosure ---
 
 func TestForgotPasswordSubmitSMTPUnknown(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST /forgot-password SMTP on + unknown email sends no mail",
@@ -85,6 +87,7 @@ func TestForgotPasswordSubmitSMTPUnknown(t *testing.T) {
 // --- ForgotPasswordSubmit: SMTP unconfigured → info message, no mail ---
 
 func TestForgotPasswordSubmitNoSMTP(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST /forgot-password SMTP off shows info message",
@@ -107,6 +110,7 @@ func TestForgotPasswordSubmitNoSMTP(t *testing.T) {
 // --- ResetPasswordSubmit: token not found ---
 
 func TestResetPasswordSubmitTokenNotFound(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST /reset-password with nonexistent token shows error",
@@ -126,6 +130,7 @@ func TestResetPasswordSubmitTokenNotFound(t *testing.T) {
 // --- ResetPasswordSubmit: token empty ---
 
 func TestResetPasswordSubmitTokenEmpty(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST /reset-password with empty token shows error",
@@ -144,6 +149,7 @@ func TestResetPasswordSubmitTokenEmpty(t *testing.T) {
 
 // --- ResetPasswordSubmit: valid token + matching passwords → success redirect ---
 func TestResetPasswordSubmitValidToken(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /reset-password with valid token redirects to login",
@@ -168,6 +174,7 @@ func TestResetPasswordSubmitValidToken(t *testing.T) {
 // --- ForgotPasswordSubmit: SMTP configured, empty email → no mail, still success ---
 
 func TestForgotPasswordSubmitSMTPEmptyEmail(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST /forgot-password SMTP on + empty email sends no mail",
@@ -196,6 +203,7 @@ func TestForgotPasswordSubmitSMTPEmptyEmail(t *testing.T) {
 // the leader should deduplicate — keep one copy in the test file.
 
 func TestForgotPasswordSubmitSendFailure(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST /forgot-password send failure returns error",

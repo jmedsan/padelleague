@@ -30,6 +30,7 @@ func makeProposal(tb testing.TB, app core.App, matchID, authorID string) *core.R
 // --- Normal case: accepting a proposal supersedes the others, no admin notification ---
 
 func TestAcceptProposalSupersedesOthers(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "accepting proposal supersedes other pending proposals",
@@ -87,6 +88,7 @@ func TestAcceptProposalSupersedesOthers(t *testing.T) {
 // not for the acceptance save.
 
 func TestAcceptProposalSupersedeFailureNotifiesAdmin(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "supersede failure still accepts and notifies admin",
@@ -158,6 +160,7 @@ func TestAcceptProposalSupersedeFailureNotifiesAdmin(t *testing.T) {
 // --- Multiple proposals: only non-accepted ones are superseded ---
 
 func TestAcceptProposalOnlySupersedesPending(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "accepting proposal only supersedes pending, not rejected ones",

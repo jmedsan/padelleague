@@ -14,6 +14,7 @@ import (
 // --- Dispute resolve with manual winner = pair2 ---
 
 func TestDisputeResolveManualWinnerPair2(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/disputes/{id}/resolve manual winner pair2",
@@ -49,6 +50,7 @@ func TestDisputeResolveManualWinnerPair2(t *testing.T) {
 // --- Dispute resolve with manual winner = invalid pair (not in match) ---
 
 func TestDisputeResolveManualWinnerInvalid(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST /admin/disputes/{id}/resolve rejects winner not in match",
@@ -77,6 +79,7 @@ func TestDisputeResolveManualWinnerInvalid(t *testing.T) {
 // Covers the else branch at line 71-77 where DetermineWinner is called.
 
 func TestDisputeResolveAutoWinner(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/disputes/{id}/resolve auto-determines winner from score",

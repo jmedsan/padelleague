@@ -17,6 +17,7 @@ import (
 // handle types.JSONRaw, so after a DB round-trip the payment map was
 // always empty.
 func TestPaymentStatusSurvivesDBRoundTrip(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions/{id}/payment persists after DB round-trip",
@@ -53,6 +54,7 @@ func TestPaymentStatusSurvivesDBRoundTrip(t *testing.T) {
 // TestPenaltyMapSurvivesDBRoundTrip sets a penalty, re-reads from DB,
 // verifies getPenaltyMap returns the correct value.
 func TestPenaltyMapSurvivesDBRoundTrip(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions/{id}/penalty persists after DB round-trip",

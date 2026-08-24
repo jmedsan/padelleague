@@ -37,6 +37,7 @@ func countUsers(tb testing.TB, app core.App) int {
 
 // Single-use invite, use_count=0 → page renders the registration form (Token present)
 func TestRegisterPage_SingleUse_Count0_ShowsForm(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "GET register single-use count=0 shows form",
@@ -54,6 +55,7 @@ func TestRegisterPage_SingleUse_Count0_ShowsForm(t *testing.T) {
 
 // Single-use invite, use_count=1 → page shows invalid
 func TestRegisterPage_SingleUse_Count1_Refused(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "GET register single-use count=1 refused",
@@ -71,6 +73,7 @@ func TestRegisterPage_SingleUse_Count1_Refused(t *testing.T) {
 
 // 5-use invite, use_count=4 → shows form
 func TestRegisterPage_FiveUse_Count4_ShowsForm(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "GET register 5-use count=4 shows form",
@@ -88,6 +91,7 @@ func TestRegisterPage_FiveUse_Count4_ShowsForm(t *testing.T) {
 
 // 5-use invite, use_count=5 → refused
 func TestRegisterPage_FiveUse_Count5_Refused(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "GET register 5-use count=5 refused",
@@ -105,6 +109,7 @@ func TestRegisterPage_FiveUse_Count5_Refused(t *testing.T) {
 
 // max_uses=0 in DB → clamped to 1, so use_count=0 should still show form
 func TestRegisterPage_MaxUses0_ClampedTo1_ShowsForm(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "GET register max_uses=0 clamped to 1 shows form",
@@ -122,6 +127,7 @@ func TestRegisterPage_MaxUses0_ClampedTo1_ShowsForm(t *testing.T) {
 
 // max_uses=0, use_count=1 → clamped to 1, so refused
 func TestRegisterPage_MaxUses0_Count1_Refused(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "GET register max_uses=0 count=1 clamped refused",
@@ -143,6 +149,7 @@ func TestRegisterPage_MaxUses0_Count1_Refused(t *testing.T) {
 
 // Single-use invite, use_count=0 → registration succeeds, use_count becomes 1
 func TestRegisterSubmit_SingleUse_Count0_Succeeds(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST register single-use count=0 succeeds",
@@ -175,6 +182,7 @@ func TestRegisterSubmit_SingleUse_Count0_Succeeds(t *testing.T) {
 
 // Single-use invite, use_count=1 → registration refused, no user created
 func TestRegisterSubmit_SingleUse_Count1_Refused(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST register single-use count=1 refused",
@@ -201,6 +209,7 @@ func TestRegisterSubmit_SingleUse_Count1_Refused(t *testing.T) {
 
 // 5-use invite, use_count=4 → succeeds, becomes 5
 func TestRegisterSubmit_FiveUse_Count4_Succeeds(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST register 5-use count=4 succeeds",
@@ -228,6 +237,7 @@ func TestRegisterSubmit_FiveUse_Count4_Succeeds(t *testing.T) {
 
 // 5-use invite, use_count=5 → refused
 func TestRegisterSubmit_FiveUse_Count5_Refused(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST register 5-use count=5 refused",
@@ -254,6 +264,7 @@ func TestRegisterSubmit_FiveUse_Count5_Refused(t *testing.T) {
 
 // max_uses=0, use_count=0 → clamped to 1, so POST succeeds
 func TestRegisterSubmit_MaxUses0_Count0_Succeeds(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST register max_uses=0 clamped to 1 succeeds",
@@ -280,6 +291,7 @@ func TestRegisterSubmit_MaxUses0_Count0_Succeeds(t *testing.T) {
 
 // max_uses=0, use_count=1 → clamped to 1, so POST refused
 func TestRegisterSubmit_MaxUses0_Count1_Refused(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST register max_uses=0 count=1 refused",

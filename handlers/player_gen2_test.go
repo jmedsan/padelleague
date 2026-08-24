@@ -13,6 +13,7 @@ import (
 // --- tallyScore: isPair1 flag controls which side of the score counts ---
 
 func TestGen2_TallyScore_IsPair1(t *testing.T) {
+	t.Parallel()
 	// Score "6-3 6-4": pair1 wins 2 sets, pair2 wins 0 sets.
 	// Games: pair1 = 6+6=12, pair2 = 3+4=7.
 	var got playerTotals
@@ -24,6 +25,7 @@ func TestGen2_TallyScore_IsPair1(t *testing.T) {
 }
 
 func TestGen2_TallyScore_IsPair2(t *testing.T) {
+	t.Parallel()
 	// Same score but isPair1=false: sides are swapped.
 	var got playerTotals
 	tallyScore(&got, "6-3 6-4", false)
@@ -34,6 +36,7 @@ func TestGen2_TallyScore_IsPair2(t *testing.T) {
 }
 
 func TestGen2_TallyScore_ThreeSets(t *testing.T) {
+	t.Parallel()
 	// "6-4 3-6 7-5": pair1 wins sets 1,3; pair2 wins set 2. Games: 16 vs 15.
 	var got playerTotals
 	tallyScore(&got, "6-4 3-6 7-5", true)
@@ -44,12 +47,14 @@ func TestGen2_TallyScore_ThreeSets(t *testing.T) {
 }
 
 func TestGen2_TallyScore_WO_NoEffect(t *testing.T) {
+	t.Parallel()
 	var got playerTotals
 	tallyScore(&got, "WO", true)
 	assert.Equal(t, playerTotals{}, got)
 }
 
 func TestGen2_TallyScore_Accumulates(t *testing.T) {
+	t.Parallel()
 	var got playerTotals
 	tallyScore(&got, "6-3 6-4", true)
 	tallyScore(&got, "6-2 6-1", false) // as pair2: won 0 sets, lost 2
@@ -62,6 +67,7 @@ func TestGen2_TallyScore_Accumulates(t *testing.T) {
 // --- computeCurrentStreak ---
 
 func TestGen2_CurrentStreak(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		results []matchResult
@@ -84,6 +90,7 @@ func TestGen2_CurrentStreak(t *testing.T) {
 // --- computeBestStreak ---
 
 func TestGen2_BestStreak(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		results []matchResult
@@ -133,6 +140,7 @@ func TestGen2_BestStreak(t *testing.T) {
 // --- buildRecentMatches: limit and field mapping ---
 
 func TestGen2_BuildRecentMatches(t *testing.T) {
+	t.Parallel()
 	results := make([]matchResult, 25)
 	for i := range results {
 		results[i] = matchResult{
@@ -170,6 +178,7 @@ func TestGen2_BuildRecentMatches(t *testing.T) {
 // --- Player profile page: partner name, stats, win rate, streaks, comp stats ---
 
 func TestGen2_PlayerProfile_FullStats(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "player profile shows correct partner, stats, streak, comp stats",
@@ -282,6 +291,7 @@ func readBody(tb testing.TB, res *http.Response) string {
 // --- Player profile: date ordering of recent matches ---
 
 func TestGen2_PlayerProfile_DateOrdering(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "player profile recent matches sorted by date descending",
@@ -354,6 +364,7 @@ func indexOf(s, sub string) int {
 // --- H2H: only p2 set redirects to player page (followed by test runner) ---
 
 func TestGen2_H2H_OnlyP2_ShowsPlayerPage(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "GET /h2h with only p2 redirects to player page",
@@ -382,6 +393,7 @@ func TestGen2_H2H_OnlyP2_ShowsPlayerPage(t *testing.T) {
 // --- H2H: only p1 set redirects to player page ---
 
 func TestGen2_H2H_OnlyP1_ShowsPlayerPage(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "GET /h2h with only p1 redirects to player page",
@@ -410,6 +422,7 @@ func TestGen2_H2H_OnlyP1_ShowsPlayerPage(t *testing.T) {
 // --- H2H: both empty redirects to home ---
 
 func TestGen2_H2H_BothEmpty_ShowsHome(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "GET /h2h with no params redirects to home",
@@ -435,6 +448,7 @@ func TestGen2_H2H_BothEmpty_ShowsHome(t *testing.T) {
 // --- tallyH2H: wins counting and recent limit ---
 
 func TestGen2_TallyH2H(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "h2h tallies wins correctly and limits recent to 5",
@@ -498,6 +512,7 @@ func TestGen2_TallyH2H(t *testing.T) {
 // --- Competition stats: per-comp played/wins/losses ---
 
 func TestGen2_PlayerProfile_CompetitionStats(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "player profile shows correct per-competition stats",

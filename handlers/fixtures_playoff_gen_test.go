@@ -52,6 +52,7 @@ func hasMatchup(matches [][2]string, a, b string) bool {
 // --- All unseeded: order matches input order ---
 
 func TestPlayoffAllUnseeded_KeepsInputOrder(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "playoff all unseeded keeps input order",
@@ -91,6 +92,7 @@ func TestPlayoffAllUnseeded_KeepsInputOrder(t *testing.T) {
 // --- All seeded: strict seed order ---
 
 func TestPlayoffAllSeeded_SeedOrder(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "playoff all seeded sorts by seed",
@@ -138,6 +140,7 @@ func TestPlayoffAllSeeded_SeedOrder(t *testing.T) {
 // --- Mixed seeded/unseeded: seeded first, then unseeded ---
 
 func TestPlayoffMixedSeeding_SeededFirst(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "playoff seeded pairs outrank unseeded",
@@ -182,6 +185,7 @@ func TestPlayoffMixedSeeding_SeededFirst(t *testing.T) {
 // --- Advancer pairing: 8 pairs → 4 first-round matches + 2 second-round + 1 final ---
 
 func TestPlayoffAdvancerPairing_LaterRoundsExist(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "playoff 8 pairs creates correct bracket structure",
@@ -216,6 +220,7 @@ func TestPlayoffAdvancerPairing_LaterRoundsExist(t *testing.T) {
 // --- Fewer than 2 pairs guard ---
 
 func TestPlayoffFewerThan2Pairs(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "playoff fewer than 2 pairs returns error",

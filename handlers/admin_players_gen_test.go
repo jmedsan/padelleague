@@ -16,6 +16,7 @@ import (
 // --- buildResetURL: X-Forwarded-Proto: https → https:// link ---
 
 func TestPreCreateResetURLWithForwardedProto(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST /admin/players/pre-create with X-Forwarded-Proto: https produces https link",
@@ -53,6 +54,7 @@ func TestPreCreateResetURLWithForwardedProto(t *testing.T) {
 // (killed by the forwarded-proto test asserting https).
 
 func TestPreCreateResetURLNoTLS(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST /admin/players/pre-create without TLS produces http link",
@@ -82,6 +84,7 @@ func TestPreCreateResetURLNoTLS(t *testing.T) {
 // --- PlayerUpdate: invalid role "superadmin" → rejected, user unchanged ---
 
 func TestPlayerUpdateInvalidRole(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST /admin/players/{id} rejects invalid role",
@@ -113,6 +116,7 @@ func TestPlayerUpdateInvalidRole(t *testing.T) {
 // --- PlayerUpdate: empty role → rejected, user unchanged ---
 
 func TestPlayerUpdateEmptyRole(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST /admin/players/{id} rejects empty role",
@@ -144,6 +148,7 @@ func TestPlayerUpdateEmptyRole(t *testing.T) {
 // --- createPlayerInvitation: expiry is ~48h (2*24*time.Hour) ---
 
 func TestPreCreateInvitationExpiry48h(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "POST /admin/players/pre-create invitation expires in ~48h",

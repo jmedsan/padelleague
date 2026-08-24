@@ -17,6 +17,7 @@ import (
 // ========================
 
 func TestMatchConfirmAdminNonParticipant_Succeeds(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "admin non-participant can confirm",
@@ -48,6 +49,7 @@ func TestMatchConfirmAdminNonParticipant_Succeeds(t *testing.T) {
 }
 
 func TestMatchConfirmNonParticipantPlayer_Refused(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "non-participant player cannot confirm",
@@ -77,6 +79,7 @@ func TestMatchConfirmNonParticipantPlayer_Refused(t *testing.T) {
 // ========================
 
 func TestMatchDisputeAdminNonParticipant_Succeeds(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "admin non-participant can dispute",
@@ -111,6 +114,7 @@ func TestMatchDisputeAdminNonParticipant_Succeeds(t *testing.T) {
 }
 
 func TestMatchDisputeNonParticipantPlayer_Refused(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "non-participant player cannot dispute",
@@ -143,6 +147,7 @@ func TestMatchDisputeNonParticipantPlayer_Refused(t *testing.T) {
 // ========================
 
 func TestMatchWalkoverAdminNonParticipant_Succeeds(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "admin non-participant can walkover",
@@ -175,6 +180,7 @@ func TestMatchWalkoverAdminNonParticipant_Succeeds(t *testing.T) {
 }
 
 func TestMatchWalkoverNonParticipantPlayer_Refused(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "non-participant player cannot walkover",
@@ -204,6 +210,7 @@ func TestMatchWalkoverNonParticipantPlayer_Refused(t *testing.T) {
 
 // Just under 24h → correction allowed
 func TestMatchCorrectBoundary_Under24h_Allowed(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "correction at 23h59m allowed",
@@ -241,6 +248,7 @@ func TestMatchCorrectBoundary_Under24h_Allowed(t *testing.T) {
 
 // Just over 24h → correction refused
 func TestMatchCorrectBoundary_Over24h_Refused(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "correction at 24h01m refused",
@@ -272,6 +280,7 @@ func TestMatchCorrectBoundary_Over24h_Refused(t *testing.T) {
 
 // Exactly 24h → refused (>= means equal is refused)
 func TestMatchCorrectBoundary_Exact24h_Refused(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
 		Name:            "correction at exactly 24h refused",

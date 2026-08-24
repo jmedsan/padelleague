@@ -25,6 +25,7 @@ func findLatestInvitation(tb testing.TB, app *tests.TestApp) *core.Record {
 // --- Link invitation with max_uses=5 → stored as 5 ---
 
 func TestInvitationLinkMaxUses5(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/invitations link with max_uses=5",
@@ -50,6 +51,7 @@ func TestInvitationLinkMaxUses5(t *testing.T) {
 // --- Link invitation with max_uses=0 → clamped to 1 ---
 
 func TestInvitationLinkMaxUses0Clamped(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/invitations link with max_uses=0 clamps to 1",
@@ -75,6 +77,7 @@ func TestInvitationLinkMaxUses0Clamped(t *testing.T) {
 // --- Link invitation with max_uses=-3 → clamped to 1 ---
 
 func TestInvitationLinkMaxUsesNegativeClamped(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/invitations link with max_uses=-3 clamps to 1",
@@ -100,6 +103,7 @@ func TestInvitationLinkMaxUsesNegativeClamped(t *testing.T) {
 // --- Email invitation ignores max_uses (stays 1) ---
 
 func TestInvitationEmailIgnoresMaxUses(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/invitations email ignores max_uses",
@@ -126,6 +130,7 @@ func TestInvitationEmailIgnoresMaxUses(t *testing.T) {
 // --- expiration_days=3 → expires_at ~72h from now ---
 
 func TestInvitationExpiration3Days(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/invitations expiration_days=3 sets ~72h expiry",
@@ -159,6 +164,7 @@ func TestInvitationExpiration3Days(t *testing.T) {
 // --- expiration_days=0 → clamped to 1 day ---
 
 func TestInvitationExpiration0Clamped(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/invitations expiration_days=0 clamps to 1 day",
@@ -192,6 +198,7 @@ func TestInvitationExpiration0Clamped(t *testing.T) {
 // --- expiration_days=-5 → clamped to 1 day ---
 
 func TestInvitationExpirationNegativeClamped(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/invitations expiration_days=-5 clamps to 1 day",
@@ -225,6 +232,7 @@ func TestInvitationExpirationNegativeClamped(t *testing.T) {
 // --- omit expiration_days → default 7 days ---
 
 func TestInvitationExpirationDefault7Days(t *testing.T) {
+	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/invitations default expiration is 7 days",
