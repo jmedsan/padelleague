@@ -44,7 +44,7 @@ func (h *NotificationHandler) Count(e *core.RequestEvent) error {
 func (h *NotificationHandler) List(e *core.RequestEvent) error {
 	records, err := h.app.FindRecordsByFilter("notifications",
 		"user = {:uid}",
-		"-created", 10, 0,
+		"", 10, 0,
 		map[string]any{"uid": e.Auth.Id})
 	if err != nil {
 		records = []*core.Record{}
