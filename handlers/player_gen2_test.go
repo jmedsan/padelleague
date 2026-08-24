@@ -578,23 +578,21 @@ func TestGen2_PlayerProfile_CompetitionStats(t *testing.T) {
 
 		// Liga Alfa: 2 played, 2 wins, 0 losses.
 		// Liga Beta: 1 played, 0 wins, 1 loss.
-		// Template renders: <td class="text-center">N</td> for each.
-		// Total played across both: 3.
 		assert.Contains(tb, body, ">3</div>", "TotalPlayed should be 3")
 		assert.Contains(tb, body, "67%", "WinRate: 2/3 = 67%")
+		// Collapse whitespace so we can match across template line breaks.
+		compact := strings.Join(strings.Fields(body), " ")
+		// Liga Alfa row: name, then PJ=2, PG=2, PP=0.
+		assert.Contains(tb, compact,
+			`Liga Alfa</td> <td class="text-center">2</td> <td class="text-center text-success">2</td> <td class="text-center text-error">0</td>`,
+			"Liga Alfa row: 2 played, 2 wins, 0 losses")
+		// Liga Beta row: name, then PJ=1, PG=0, PP=1.
+		assert.Contains(tb, compact,
+			`Liga Beta</td> <td class="text-center">1</td> <td class="text-center text-success">0</td> <td class="text-center text-error">1</td>`,
+			"Liga Beta row: 1 played, 0 wins, 1 loss")
 	}
 
 	s.Test(t)
-}
-
-func countOccurrences(s, sub string) int {
-	count := 0
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			count++
-		}
-	}
-	return count
 }
 
 // --- Player profile: zero matches → winRate stays 0, no division by zero ---
@@ -602,10 +600,11 @@ func countOccurrences(s, sub string) int {
 func TestGen2_PlayerProfile_ZeroMatches(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "player with no matches shows 0% win rate",
-		Method:         http.MethodGet,
-		ExpectedStatus: 200,
+		TestAppFactory:  testAppFactory,
+		Name:            "player with no matches shows 0% win rate",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"PadelLeague"},
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
