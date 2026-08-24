@@ -431,7 +431,13 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 		return alertError(e, "Error al marcar la propuesta como aceptada")
 	}
 
-	h.supersedePending(matchID, msgID)
+	if err := h.supersedePending(matchID, msgID); err != nil {
+		slog.Error("supersede pending proposals", "match", matchID, "err", err)
+		_ = h.notifier.NotifyAdmins("admin_message",
+			"Propuestas pendientes no actualizadas",
+			fmt.Sprintf("El partido %s tiene propuestas que no se pudieron marcar como superadas. Revisa el hilo.", matchID),
+			matchID)
+	}
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	responderName := league.PlayerName(h.app, e.Auth.Id)
@@ -473,17 +479,23 @@ func (h *ThreadHandler) resolveVenue(venueID, venueText string) (string, string)
 	return venueID, venue.GetString("name")
 }
 
-func (h *ThreadHandler) supersedePending(matchID, excludeMsgID string) {
+func (h *ThreadHandler) supersedePending(matchID, excludeMsgID string) error {
 	otherPending, _ := h.app.FindRecordsByFilter("match_messages",
 		"match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'pending' && id != {:msgid}",
 		"", 0, 0,
 		map[string]any{"mid": matchID, "msgid": excludeMsgID})
+	var failedIDs []string
 	for _, other := range otherPending {
 		other.Set("proposal_status", "superseded")
 		if err := h.app.Save(other); err != nil {
 			slog.Error("supersede proposal", "id", other.Id, "err", err)
+			failedIDs = append(failedIDs, other.Id)
 		}
 	}
+	if len(failedIDs) > 0 {
+		return fmt.Errorf("failed to supersede proposals: %v", failedIDs)
+	}
+	return nil
 }
 
 func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.Record, matchID, proposerPairID string) error {
@@ -533,7 +545,13 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 		slog.Error("save match after acceptance", "match", matchID, "err", err)
 		return alertError(e, "Error al actualizar el partido")
 	}
-	h.supersedePending(matchID, msgID)
+	if err := h.supersedePending(matchID, msgID); err != nil {
+		slog.Error("supersede pending proposals", "match", matchID, "err", err)
+		_ = h.notifier.NotifyAdmins("admin_message",
+			"Propuestas pendientes no actualizadas",
+			fmt.Sprintf("El partido %s tiene propuestas que no se pudieron marcar como superadas. Revisa el hilo.", matchID),
+			matchID)
+	}
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	responderName := league.PlayerName(h.app, e.Auth.Id)
 	h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
