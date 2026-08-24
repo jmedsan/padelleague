@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head><title>Push Test</title></head>
+<body>
+<div class="form-control">
+    <label><input type="checkbox" id="push-toggle"> Push notifications</label>
+</div>
+<script>
+window.VAPID_PUBLIC_KEY = 'BJYmCL7GdmYj4HYIxRHhQOaaG4iE-4ZPJEPkbLLWO4uAD1CyTAfY0UPuDC2c44pkRejTOTTPqzZxDJRTDMxxwBk';
+
+// Configurable fetch mock — test sets window._fetchMode before clicking toggle
+window._fetchMode = 'ok';
+window._fetchLog = [];
+var _realFetch = window.fetch;
+window.fetch = function(url, opts) {
+    window._fetchLog.push({ url: url, method: (opts||{}).method });
+    if (window._fetchMode === 'fail-status') {
+        return Promise.resolve({ ok: false, status: 500, text: function() { return Promise.resolve('error'); } });
+    }
+    if (window._fetchMode === 'network-error') {
+        return Promise.reject(new TypeError('Failed to fetch'));
+    }
+    return Promise.resolve({ ok: true, status: 200, text: function() { return Promise.resolve('{}'); } });
+};
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/test-sw.js');
+}
+</script>
+<script src="/push.js"></script>
+</body>
+</html>
