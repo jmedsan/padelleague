@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -199,5 +202,58 @@ func TestProposalFromPairTwoNotifiesPairOne(t *testing.T) {
 	}
 	for _, uid := range league.PlayersForPair(app, p2.Id) {
 		assert.False(t, got[uid], "proposer's own pair member %s must not be notified", uid)
+	}
+}
+
+// PostMessage accepts only chat and score_discussion; anything else falls
+// back to chat. Without that clamp a caller could post a message typed as a
+// scheduling proposal, which would render accept/reject buttons on something
+// carrying no proposal data.
+func TestPostMessageClampsType(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name, sent, want string
+	}{
+		{"chat is kept", "chat", "chat"},
+		{"score discussion is kept", "score_discussion", "score_discussion"},
+		{"proposal type is refused and becomes chat", "scheduling_proposal", "chat"},
+		{"unknown type becomes chat", "banana", "chat"},
+		{"empty type becomes chat", "", "chat"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var matchID string
+			s := &tests.ApiScenario{
+				TestAppFactory: testAppFactory,
+				Name:           "POST thread message type=" + tc.sent,
+				Method:         http.MethodPost,
+				Body:           strings.NewReader("content=hola&type=" + tc.sent),
+				ExpectedStatus: 204,
+			}
+			s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+				setupAllRoutes(tb, app, e)
+				p1 := makePairTB(tb, app, "Clamp A "+tc.sent)
+				p2 := makePairTB(tb, app, "Clamp B "+tc.sent)
+				comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+				match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+				matchID = match.Id
+				s.URL = "/match/" + match.Id + "/thread/message"
+				author, _ := app.FindRecordById("users", p1.GetString("player1"))
+				hdrs := authHeaders(tb, author)
+				hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+				s.Headers = hdrs
+			}
+			s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+				msgs, err := app.FindRecordsByFilter("match_messages",
+					"match = {:m}", "", 0, 0, map[string]any{"m": matchID})
+				require.NoError(tb, err)
+				require.Len(tb, msgs, 1)
+				assert.Equal(tb, tc.want, msgs[0].GetString("type"))
+			}
+			s.Test(t)
+		})
 	}
 }
