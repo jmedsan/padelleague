@@ -63,6 +63,19 @@ func TestRoundRobin_Double(t *testing.T) {
 	for key, count := range matchups {
 		assert.Equal(t, 2, count, "pair %s should play exactly twice", key)
 	}
+
+	// Round numbers must run 1..N with no gaps or repeats: the return leg
+	// continues the numbering rather than restarting or colliding with the
+	// first leg, which would scramble the fixture order.
+	var numbers []int
+	for _, r := range rounds {
+		numbers = append(numbers, r.Number)
+	}
+	expected := make([]int, len(rounds))
+	for i := range expected {
+		expected[i] = i + 1
+	}
+	assert.Equal(t, expected, numbers)
 }
 
 func TestRoundRobin_NoPairTwicePerRound(t *testing.T) {

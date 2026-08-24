@@ -146,3 +146,127 @@ func TestAdvancePlayoff_NoNextRound(t *testing.T) {
 	err := svc.AdvancePlayoff(m)
 	require.NoError(t, err)
 }
+
+// A quarter-final round feeding two semi-finals: winner 0 and 1 fill the
+// first semi, winners 2 and 3 the second. Indexing the winners by anything
+// other than i*2 / i*2+1 puts the wrong pair through.
+func TestAdvancePlayoff_PairsWinnersTwoPerNextMatch(t *testing.T) {
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	pairs := make([]*core.Record, 8)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "QF "+string(rune('A'+i)))
+	}
+	comp := makePlayoffCompetition(t, app, pairs)
+
+	// Round 1: four matches. The first pair of each wins.
+	winners := []*core.Record{pairs[0], pairs[2], pairs[4], pairs[6]}
+	for i := 0; i < 4; i++ {
+		m := makeMatchRound(t, app, comp.Id, pairs[i*2].Id, pairs[i*2+1].Id, 1)
+		m.Set("status", "final")
+		m.Set("scores", "6-3 6-4")
+		m.Set("winner", winners[i].Id)
+		require.NoError(t, app.Save(m))
+	}
+	// Round 2: two empty semi-finals waiting to be filled.
+	semi1 := makeMatchRound(t, app, comp.Id, "", "", 2)
+	semi2 := makeMatchRound(t, app, comp.Id, "", "", 2)
+
+	require.NoError(t, svc.AdvancePlayoff(mustMatch(t, app, comp.Id, 1)))
+
+	got1, err := app.FindRecordById("matches", semi1.Id)
+	require.NoError(t, err)
+	got2, err := app.FindRecordById("matches", semi2.Id)
+	require.NoError(t, err)
+
+	assert.Equal(t, winners[0].Id, got1.GetString("pair1"))
+	assert.Equal(t, winners[1].Id, got1.GetString("pair2"))
+	assert.Equal(t, winners[2].Id, got2.GetString("pair1"))
+	assert.Equal(t, winners[3].Id, got2.GetString("pair2"))
+}
+
+// Three winners feeding two next matches: the second slot of the second match
+// has no winner to take, so the bounds check must stop it rather than read
+// past the end of the winners slice.
+func TestAdvancePlayoff_StopsAtEndOfWinners(t *testing.T) {
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	pairs := make([]*core.Record, 6)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "OD "+string(rune('A'+i)))
+	}
+	comp := makePlayoffCompetition(t, app, pairs)
+
+	winners := []*core.Record{pairs[0], pairs[2], pairs[4]}
+	for i := 0; i < 3; i++ {
+		m := makeMatchRound(t, app, comp.Id, pairs[i*2].Id, pairs[i*2+1].Id, 1)
+		m.Set("status", "final")
+		m.Set("scores", "6-3 6-4")
+		m.Set("winner", winners[i].Id)
+		require.NoError(t, app.Save(m))
+	}
+	next1 := makeMatchRound(t, app, comp.Id, "", "", 2)
+	next2 := makeMatchRound(t, app, comp.Id, "", "", 2)
+
+	require.NoError(t, svc.AdvancePlayoff(mustMatch(t, app, comp.Id, 1)))
+
+	got1, err := app.FindRecordById("matches", next1.Id)
+	require.NoError(t, err)
+	got2, err := app.FindRecordById("matches", next2.Id)
+	require.NoError(t, err)
+
+	assert.Equal(t, winners[0].Id, got1.GetString("pair1"))
+	assert.Equal(t, winners[1].Id, got1.GetString("pair2"))
+	assert.Equal(t, winners[2].Id, got2.GetString("pair1"))
+	assert.Empty(t, got2.GetString("pair2"), "no fourth winner exists to fill this slot")
+}
+
+// mustMatch returns any match of the competition in the given round.
+func mustMatch(t *testing.T, app core.App, compID string, round int) *core.Record {
+	t.Helper()
+	recs, err := app.FindRecordsByFilter("matches",
+		"competition = {:cid} && round_number = {:rn}", "", 1, 0,
+		map[string]any{"cid": compID, "rn": round})
+	require.NoError(t, err)
+	require.NotEmpty(t, recs)
+	return recs[0]
+}
+
+// Two winners but two next matches: the second one has no winners left at
+// all. p1Idx lands exactly on len(roundWinners), so the bounds check is the
+// only thing stopping a read past the end.
+func TestAdvancePlayoff_SecondNextMatchHasNoWinnersLeft(t *testing.T) {
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	pairs := make([]*core.Record, 4)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "EX "+string(rune('A'+i)))
+	}
+	comp := makePlayoffCompetition(t, app, pairs)
+
+	winners := []*core.Record{pairs[0], pairs[2]}
+	for i := 0; i < 2; i++ {
+		m := makeMatchRound(t, app, comp.Id, pairs[i*2].Id, pairs[i*2+1].Id, 1)
+		m.Set("status", "final")
+		m.Set("scores", "6-3 6-4")
+		m.Set("winner", winners[i].Id)
+		require.NoError(t, app.Save(m))
+	}
+	next1 := makeMatchRound(t, app, comp.Id, "", "", 2)
+	next2 := makeMatchRound(t, app, comp.Id, "", "", 2)
+
+	require.NoError(t, svc.AdvancePlayoff(mustMatch(t, app, comp.Id, 1)))
+
+	got1, err := app.FindRecordById("matches", next1.Id)
+	require.NoError(t, err)
+	got2, err := app.FindRecordById("matches", next2.Id)
+	require.NoError(t, err)
+
+	assert.Equal(t, winners[0].Id, got1.GetString("pair1"))
+	assert.Equal(t, winners[1].Id, got1.GetString("pair2"))
+	assert.Empty(t, got2.GetString("pair1"), "no winners remain for the second match")
+	assert.Empty(t, got2.GetString("pair2"))
+}
