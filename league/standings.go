@@ -104,12 +104,6 @@ func (svc *Service) ComputeStandings(competitionID string) ([]StandingRowFull, e
 				slog.Warn("unmarshal penalty_points", "err", err)
 			}
 		}
-	case string:
-		if v != "" {
-			if err := json.Unmarshal([]byte(v), &penaltyMap); err != nil {
-				slog.Warn("unmarshal penalty_points", "err", err)
-			}
-		}
 	case map[string]any:
 		for k, val := range v {
 			if f, ok := val.(float64); ok {

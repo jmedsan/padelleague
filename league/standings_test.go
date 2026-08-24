@@ -139,7 +139,7 @@ func TestComputeStandings_WalkoverPair2Wins(t *testing.T) {
 	assert.Equal(t, 1, rows[1].Losses)
 }
 
-func TestComputeStandings_PenaltyAsString(t *testing.T) {
+func TestComputeStandings_PenaltyStoredAsJSONText(t *testing.T) {
 	app := newTestApp(t)
 	svc := New(app, nil)
 
@@ -152,7 +152,8 @@ func TestComputeStandings_PenaltyAsString(t *testing.T) {
 	m.Set("winner", p1.Id)
 	require.NoError(t, app.Save(m))
 
-	// Set penalty_points as a raw JSON string via direct DB update
+	// Written straight to SQLite as JSON text; PocketBase still reads a
+	// JSONField back as types.JSONRaw, which is the branch under test.
 	_, err := app.DB().NewQuery(
 		"UPDATE competitions SET penalty_points = {:pp} WHERE id = {:id}",
 	).Bind(map[string]any{
@@ -357,8 +358,12 @@ func TestComputeStandings_WinLossCounters(t *testing.T) {
 	b := makePair(t, app, "WL B")
 	comp := makeCompetition(t, app, []*core.Record{a, b})
 
+	// a is always pair1, so this covers all four credit paths: a normal win
+	// for each side, and a walkover for each side.
 	finalMatch(t, app, comp.Id, a, b, a, "6-3 6-4", 1)
-	finalMatch(t, app, comp.Id, a, b, b, "WO", 2)
+	finalMatch(t, app, comp.Id, a, b, b, "6-3 6-4", 2)
+	finalMatch(t, app, comp.Id, a, b, a, "WO", 3)
+	finalMatch(t, app, comp.Id, a, b, b, "WO", 4)
 
 	rows, err := svc.ComputeStandings(comp.Id)
 	require.NoError(t, err)
@@ -366,14 +371,43 @@ func TestComputeStandings_WinLossCounters(t *testing.T) {
 	rowA := rowByName(t, rows, "WL A")
 	rowB := rowByName(t, rows, "WL B")
 
-	assert.Equal(t, 1, rowA.Wins)
-	assert.Equal(t, 1, rowA.Losses)
-	assert.Equal(t, 2, rowA.Played)
-	assert.Equal(t, 1, rowB.Wins)
-	assert.Equal(t, 1, rowB.Losses)
-	assert.Equal(t, 2, rowB.Played)
-	assert.Equal(t, 3, rowA.Points)
-	assert.Equal(t, 3, rowB.Points)
+	assert.Equal(t, 2, rowA.Wins)
+	assert.Equal(t, 2, rowA.Losses)
+	assert.Equal(t, 4, rowA.Played)
+	assert.Equal(t, 6, rowA.Points)
+	assert.Equal(t, 2, rowB.Wins)
+	assert.Equal(t, 2, rowB.Losses)
+	assert.Equal(t, 4, rowB.Played)
+	assert.Equal(t, 6, rowB.Points)
+}
+
+// A head-to-head that is level (one win each) resolves nothing, so the two
+// pairs must keep their existing order rather than being reshuffled.
+func TestComputeStandings_SplitHeadToHeadLeavesOrderAlone(t *testing.T) {
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	first := makePair(t, app, "SP First")
+	second := makePair(t, app, "SP Second")
+	comp := makeCompetition(t, app, []*core.Record{first, second})
+
+	// Mirrored results: level on points, sets and games, and 1-1 head-to-head.
+	finalMatch(t, app, comp.Id, first, second, first, "6-3 6-4", 1)
+	finalMatch(t, app, comp.Id, second, first, second, "6-3 6-4", 2)
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+
+	rowFirst := rowByName(t, rows, "SP First")
+	rowSecond := rowByName(t, rows, "SP Second")
+	require.Equal(t, rowSecond.Points, rowFirst.Points, "precondition: level on points")
+	require.Equal(t, rowFirst.SetsWon-rowFirst.SetsLost, rowSecond.SetsWon-rowSecond.SetsLost)
+	require.Equal(t, rowFirst.GamesWon-rowFirst.GamesLost, rowSecond.GamesWon-rowSecond.GamesLost)
+
+	assert.Equal(t, 1, rowFirst.Position,
+		"nothing separates them, so registration order stands")
+	assert.Equal(t, 2, rowSecond.Position)
 }
 
 // Same full tie as above, but the head-to-head winner is registered *after*
