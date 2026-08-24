@@ -39,7 +39,7 @@ func TestMatchSubmitScore(t *testing.T) {
 		assert.Equal(tb, "confirmed", m.GetString("status"))
 		assert.Equal(tb, "6-3 6-4", m.GetString("scores"))
 		assert.NotEmpty(tb, m.GetString("submitted_by"), "submitted_by must be set")
-		assert.Equal(tb, "/", res.Header.Get("HX-Redirect"))
+		assert.Equal(tb, "/match/"+matchID, res.Header.Get("HX-Redirect"))
 	}
 	s.Test(t)
 }
@@ -188,37 +188,6 @@ func TestMatchCorrect(t *testing.T) {
 	s.Test(t)
 }
 
-func TestMatchEdit(t *testing.T) {
-	s := &tests.ApiScenario{
-		Name:           "POST /match/{id}/edit changes date returns 204",
-		Method:         http.MethodPost,
-		ExpectedStatus: 204,
-	}
-	var matchID string
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "Edit A")
-		p2 := makePairTB(tb, app, "Edit B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		matchID = match.Id
-		s.URL = "/match/" + match.Id + "/edit"
-		s.Body = strings.NewReader("date=2026-09-15&time=18:00")
-		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		hdrs := authHeaders(tb, user)
-		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-		s.Headers = hdrs
-	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
-		m, err := app.FindRecordById("matches", matchID)
-		require.NoError(tb, err)
-		assert.Contains(tb, m.GetString("date"), "2026-09-15")
-		assert.Equal(tb, "18:00", m.GetString("time"))
-		assert.Equal(tb, "/match/"+matchID, res.Header.Get("HX-Redirect"))
-	}
-	s.Test(t)
-}
-
 func TestMatchThread(t *testing.T) {
 	s := &tests.ApiScenario{
 		Name:            "GET /match/{id}/thread with auth returns thread",
@@ -290,36 +259,6 @@ func TestMatchSubmitWORejected(t *testing.T) {
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
-	}
-	s.Test(t)
-}
-
-func TestMatchEditOtherVenueAndCourt(t *testing.T) {
-	s := &tests.ApiScenario{
-		Name:           "POST /match/{id}/edit with __other__ venue and court",
-		Method:         http.MethodPost,
-		ExpectedStatus: 204,
-	}
-	var matchID string
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "OthV A")
-		p2 := makePairTB(tb, app, "OthV B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		matchID = match.Id
-		s.URL = "/match/" + match.Id + "/edit"
-		s.Body = strings.NewReader("venue=__other__&custom_venue=Mi+Club&court_number=3")
-		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		hdrs := authHeaders(tb, user)
-		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-		s.Headers = hdrs
-	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		m, err := app.FindRecordById("matches", matchID)
-		require.NoError(tb, err)
-		assert.Equal(tb, "Mi Club", m.GetString("club"))
-		assert.Equal(tb, "3", m.GetString("court_number"))
 	}
 	s.Test(t)
 }

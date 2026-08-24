@@ -368,6 +368,23 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		awards = h.leagueSvc.Awards(id)
 	}
 
+	type pairOption struct {
+		ID   string
+		Name string
+	}
+	var compPairs []pairOption
+	if len(standings) > 0 {
+		for _, s := range standings {
+			compPairs = append(compPairs, pairOption{ID: s.PairID, Name: s.PairName})
+		}
+	} else {
+		for id, name := range pairNames {
+			if id != "" {
+				compPairs = append(compPairs, pairOption{ID: id, Name: name})
+			}
+		}
+	}
+
 	return h.renderPage(e, "competition.html", map[string]any{
 		"Competition":     comp,
 		"Rounds":          rounds,
@@ -376,6 +393,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		"IsArchived":      !comp.GetBool("active"),
 		"AutoExpandRound": autoExpandRound,
 		"HasPenalties":    hasPenalties,
+		"CompPairs":       compPairs,
 	})
 }
 

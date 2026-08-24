@@ -327,6 +327,9 @@ func (h *PlayerHandler) H2H(e *core.RequestEvent) error {
 	if p1 == "" {
 		return e.Redirect(http.StatusFound, "/player/"+p2)
 	}
+	if p1 == p2 {
+		return h.renderErrorPage(e, http.StatusBadRequest, "Debes elegir dos parejas distintas")
+	}
 
 	pairNames := league.PairNames(h.app, []string{p1, p2})
 

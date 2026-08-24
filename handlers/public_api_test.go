@@ -112,6 +112,23 @@ func TestH2HPage(t *testing.T) {
 	s.Test(t)
 }
 
+func TestH2HSamePairReturnsError(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "GET /h2h with same pair returns error",
+		Method:          http.MethodGet,
+		ExpectedStatus:  400,
+		ExpectedContent: []string{"distintas"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "SameP")
+		s.URL = "/h2h?p1=" + p1.Id + "&p2=" + p1.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
 func TestICalMatch(t *testing.T) {
 	s := &tests.ApiScenario{
 		Name:            "GET /ical/match/{id} with date returns ics",
