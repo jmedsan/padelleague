@@ -36,7 +36,7 @@ export async function loginAs(page: Page, email: string, password: string) {
       data: { identity: email, password },
     });
     if (resp.status() === 429) {
-      await page.waitForTimeout(15000);
+      await new Promise(r => setTimeout(r, 15000));
       continue;
     }
     if (!resp.ok()) {

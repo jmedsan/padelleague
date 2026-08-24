@@ -16,8 +16,10 @@ test.describe('competition lifecycle', () => {
     await page.getByRole('button', { name: /crear competición/i }).first().click();
     await page.fill('input[name="name"]', name);
     await page.selectOption('select[name="type"]', 'league');
-    await page.locator('dialog button[type="submit"]').click();
-    await page.waitForTimeout(2000);
+    await Promise.all([
+      page.waitForResponse(resp => resp.url().includes('/admin') && resp.status() < 400),
+      page.locator('dialog button[type="submit"]').click(),
+    ]);
     await page.goto('/admin');
     await expect(page.getByText(name)).toBeVisible({ timeout: 10000 });
   });
