@@ -68,6 +68,7 @@ func setupFullAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) 
 func TestAdminDisputesPage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin/disputes with disputed match",
 		Method:          http.MethodGet,
 		URL:             "/admin/disputes",
@@ -89,6 +90,7 @@ func TestAdminDisputesPage(t *testing.T) {
 func TestAdminPairsPage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin/pairs returns pair list",
 		Method:          http.MethodGet,
 		URL:             "/admin/pairs",
@@ -106,6 +108,7 @@ func TestAdminPairsPage(t *testing.T) {
 func TestAdminPairsCreate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/pairs creates pair",
 		Method:         http.MethodPost,
 		URL:            "/admin/pairs",
@@ -136,6 +139,7 @@ func TestAdminPairsCreate(t *testing.T) {
 func TestAdminPairsUpdate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/pairs/{id} updates pair name",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -163,6 +167,7 @@ func TestAdminPairsUpdate(t *testing.T) {
 func TestAdminCopyPairs(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "POST /admin/competitions/{id}/copy-pairs copies pairs",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
@@ -187,6 +192,7 @@ func TestAdminCopyPairs(t *testing.T) {
 func TestAdminTogglePaymentAll(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions/{id}/payment-all marks all paid",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -206,6 +212,7 @@ func TestAdminTogglePaymentAll(t *testing.T) {
 func TestAdminInvitationsRevoke(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/invitations/{id}/revoke changes status",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -229,6 +236,7 @@ func TestAdminInvitationsRevoke(t *testing.T) {
 func TestDashboardWithIssues(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin dashboard exercises issue classification",
 		Method:          http.MethodGet,
 		URL:             "/admin",

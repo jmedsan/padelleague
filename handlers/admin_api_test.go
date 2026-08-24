@@ -86,6 +86,7 @@ func TestAdminNoAuth(t *testing.T) {
 func TestAdminPlayerAuth(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "GET /admin with player auth redirects to login",
 		Method:         http.MethodGet,
 		URL:            "/admin",
@@ -105,6 +106,7 @@ func TestAdminPlayerAuth(t *testing.T) {
 func TestAdminWithAdminAuth(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin with admin auth returns dashboard",
 		Method:          http.MethodGet,
 		URL:             "/admin",
@@ -122,6 +124,7 @@ func TestAdminWithAdminAuth(t *testing.T) {
 func TestAdminPlayersPage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin/players returns player list",
 		Method:          http.MethodGet,
 		URL:             "/admin/players",
@@ -139,6 +142,7 @@ func TestAdminPlayersPage(t *testing.T) {
 func TestAdminInvitationsPage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin/invitations returns invitation list",
 		Method:          http.MethodGet,
 		URL:             "/admin/invitations",
@@ -156,6 +160,7 @@ func TestAdminInvitationsPage(t *testing.T) {
 func TestAdminVenuesPage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin/venues returns venue list",
 		Method:          http.MethodGet,
 		URL:             "/admin/venues",
@@ -173,6 +178,7 @@ func TestAdminVenuesPage(t *testing.T) {
 func TestAdminCreateCompetition(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions creates and redirects",
 		Method:         http.MethodPost,
 		URL:            "/admin/competitions",
@@ -198,6 +204,7 @@ func TestAdminCreateCompetition(t *testing.T) {
 func TestAdminCreateInvitation(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/invitations creates invite",
 		Method:         http.MethodPost,
 		URL:            "/admin/invitations",

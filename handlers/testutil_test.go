@@ -23,6 +23,37 @@ var (
 	userSeq atomic.Int64
 )
 
+// tmplDataDir holds a data directory with all migrations already applied.
+// tests.NewTestApp() re-runs every migration on each call, which costs ~240ms
+// a test; copying an already-migrated directory costs ~10ms. With ~150 tests
+// in this package that is the difference between a 23s suite and a 3s one,
+// and mutation testing multiplies it by the mutant count.
+var tmplDataDir string
+
+func TestMain(m *testing.M) {
+	seed, err := tests.NewTestApp()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "build test template:", err)
+		os.Exit(1)
+	}
+	dir, err := os.MkdirTemp("", "pbtmpl-*")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "temp dir:", err)
+		os.Exit(1)
+	}
+	os.RemoveAll(dir)
+	if err := os.CopyFS(dir, os.DirFS(seed.DataDir())); err != nil {
+		fmt.Fprintln(os.Stderr, "copy template:", err)
+		os.Exit(1)
+	}
+	seed.Cleanup()
+	tmplDataDir = dir
+
+	code := m.Run()
+	os.RemoveAll(dir)
+	os.Exit(code)
+}
+
 func makeUserTB(t testing.TB, app core.App, displayName, email string) *core.Record {
 	t.Helper()
 	col, err := app.FindCollectionByNameOrId("users")
@@ -59,9 +90,18 @@ func makeUser(t *testing.T, app core.App, displayName, email string) *core.Recor
 	return record
 }
 
+// testAppFactory gives an ApiScenario an app built from the pre-migrated
+// template. Without it ApiScenario calls tests.NewTestApp() itself and pays
+// the full migration cost on every scenario.
+func testAppFactory(t testing.TB) *tests.TestApp {
+	app, err := tests.NewTestApp(tmplDataDir)
+	require.NoError(t, err)
+	return app
+}
+
 func newTestApp(t *testing.T) core.App {
 	t.Helper()
-	app, err := tests.NewTestApp()
+	app, err := tests.NewTestApp(tmplDataDir)
 	require.NoError(t, err)
 	t.Cleanup(app.Cleanup)
 	return app

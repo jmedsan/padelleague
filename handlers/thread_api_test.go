@@ -15,6 +15,7 @@ import (
 func TestThreadMessages(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /match/{id}/thread-messages returns partial",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -36,6 +37,7 @@ func TestThreadMessages(t *testing.T) {
 func TestThreadPostProposal(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /match/{id}/thread/proposal creates proposal",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -69,6 +71,7 @@ func TestThreadPostProposal(t *testing.T) {
 func TestThreadRespondProposal(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /match/{id}/thread/proposal/{msgId}/respond accepts",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -111,6 +114,7 @@ func TestThreadRespondProposal(t *testing.T) {
 func TestThreadRespondProposalReject(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /match/{id}/thread/proposal/{msgId}/respond rejects",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -155,6 +159,7 @@ func TestThreadRespondProposalReject(t *testing.T) {
 func TestThreadRespondOwnProposalRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "POST respond to own proposal returns error",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
@@ -191,6 +196,7 @@ func TestThreadRespondOwnProposalRejected(t *testing.T) {
 func TestThreadEmptyPairsShowsMessage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /match/{id}/thread with empty pairs shows pending message",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -218,6 +224,7 @@ func TestThreadEmptyPairsShowsMessage(t *testing.T) {
 func TestPostMessageEmptyContentRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "POST /match/{id}/thread/message with empty content rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
@@ -242,6 +249,7 @@ func TestPostMessageEmptyContentRejected(t *testing.T) {
 func TestPostProposalMissingDateRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "POST /match/{id}/thread/proposal without date rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,

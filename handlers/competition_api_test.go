@@ -52,6 +52,7 @@ func setupCompRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 func TestCompUpdate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions/{id} updates competition",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -79,6 +80,7 @@ func TestCompUpdate(t *testing.T) {
 func TestCompToggle(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions/{id}/toggle toggles active",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -103,6 +105,7 @@ func TestCompToggle(t *testing.T) {
 func TestCompAddPair(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions/{id}/pairs adds pair",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -133,6 +136,7 @@ func TestCompAddPair(t *testing.T) {
 func TestCompRemovePair(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions/{id}/remove-pair removes pair",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -163,6 +167,7 @@ func TestCompRemovePair(t *testing.T) {
 func TestCompTogglePayment(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions/{id}/payment toggles payment",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -196,6 +201,7 @@ func TestCompTogglePayment(t *testing.T) {
 func TestCompApplyPenalty(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions/{id}/penalty applies penalty",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -229,6 +235,7 @@ func TestCompApplyPenalty(t *testing.T) {
 func TestCompAddPairDuplicateRejectedByUniqueness(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "POST /admin/competitions/{id}/pairs rejects re-adding same pair",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
@@ -251,6 +258,7 @@ func TestCompAddPairDuplicateRejectedByUniqueness(t *testing.T) {
 func TestCompAddPairOverlappingPlayer(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "POST /admin/competitions/{id}/pairs rejects overlapping player",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
@@ -291,6 +299,7 @@ func TestCompAddPairOverlappingPlayer(t *testing.T) {
 func TestCompRemovePairCleansUpMetadata(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions/{id}/remove-pair cleans seeding and payment",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -323,6 +332,7 @@ func TestCompRemovePairCleansUpMetadata(t *testing.T) {
 func TestCompGenerateFixtures(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions/{id}/generate creates fixtures",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -353,6 +363,7 @@ func TestCompGenerateFixtures(t *testing.T) {
 func TestGenerateFixturesTooFewPairs(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "POST /admin/competitions/{id}/generate with 1 pair rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
@@ -372,6 +383,7 @@ func TestGenerateFixturesTooFewPairs(t *testing.T) {
 func TestGeneratePlayoffWithByes(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/competitions/{id}/generate playoff with 3 teams creates byes",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -417,6 +429,7 @@ func TestGeneratePlayoffWithByes(t *testing.T) {
 func TestDisputeResolve(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "POST /admin/disputes/{id}/resolve resolves dispute",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
