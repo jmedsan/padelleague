@@ -8,6 +8,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/types"
 )
 
+// ConfirmStaleMatches auto-finalizes matches past the quorum timeout.
 func (svc *Service) ConfirmStaleMatches() {
 	stale, err := svc.app.FindRecordsByFilter("matches",
 		"status = 'confirmed'", "", 0, 0, nil)
