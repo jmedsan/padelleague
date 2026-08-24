@@ -70,7 +70,7 @@ func registerAuthRoutes(se *core.ServeEvent, deps Deps) {
 }
 
 func registerPublicRoutes(se *core.ServeEvent, deps Deps) {
-	pub := handlers.NewPublicHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page)
+	pub := handlers.NewPublicHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page, deps.Renderer.ErrorPage)
 	se.Router.GET("/", pub.Home).BindFunc(requireAuth)
 	se.Router.GET("/competition/{id}", pub.Competition).BindFunc(requireAuth)
 
