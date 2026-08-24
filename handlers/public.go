@@ -336,17 +336,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		"", 0, 0,
 		map[string]any{"cid": id})
 
-	allPairIDs := make(map[string]bool)
-	for _, m := range matches {
-		allPairIDs[m.GetString("pair1")] = true
-		allPairIDs[m.GetString("pair2")] = true
-	}
-
-	pairIDSlice := make([]string, 0, len(allPairIDs))
-	for pid := range allPairIDs {
-		pairIDSlice = append(pairIDSlice, pid)
-	}
-	pairNames := league.PairNames(h.app, pairIDSlice)
+	pairNames := collectPairNames(h.app, matches)
 
 	rounds := buildRounds(matches, pairNames, playerPairIDs)
 	autoExpandRound := firstIncompleteRound(rounds)
@@ -368,22 +358,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		awards = h.leagueSvc.Awards(id)
 	}
 
-	type pairOption struct {
-		ID   string
-		Name string
-	}
-	var compPairs []pairOption
-	if len(standings) > 0 {
-		for _, s := range standings {
-			compPairs = append(compPairs, pairOption{ID: s.PairID, Name: s.PairName})
-		}
-	} else {
-		for id, name := range pairNames {
-			if id != "" {
-				compPairs = append(compPairs, pairOption{ID: id, Name: name})
-			}
-		}
-	}
+	compPairs := buildCompPairs(standings, pairNames)
 
 	return h.renderPage(e, "competition.html", map[string]any{
 		"Competition":     comp,
@@ -395,6 +370,41 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		"HasPenalties":    hasPenalties,
 		"CompPairs":       compPairs,
 	})
+}
+
+type pairOption struct {
+	ID   string
+	Name string
+}
+
+func collectPairNames(app core.App, matches []*core.Record) map[string]string {
+	ids := make(map[string]bool)
+	for _, m := range matches {
+		ids[m.GetString("pair1")] = true
+		ids[m.GetString("pair2")] = true
+	}
+	slice := make([]string, 0, len(ids))
+	for pid := range ids {
+		slice = append(slice, pid)
+	}
+	return league.PairNames(app, slice)
+}
+
+func buildCompPairs(standings []league.StandingRowFull, pairNames map[string]string) []pairOption {
+	if len(standings) > 0 {
+		pairs := make([]pairOption, 0, len(standings))
+		for _, s := range standings {
+			pairs = append(pairs, pairOption{ID: s.PairID, Name: s.PairName})
+		}
+		return pairs
+	}
+	var pairs []pairOption
+	for id, name := range pairNames {
+		if id != "" {
+			pairs = append(pairs, pairOption{ID: id, Name: name})
+		}
+	}
+	return pairs
 }
 
 func buildRounds(matches []*core.Record, pairNames map[string]string, playerPairIDs map[string]bool) []RoundView {

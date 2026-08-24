@@ -338,33 +338,36 @@ func (h *PlayerHandler) H2H(e *core.RequestEvent) error {
 		"", 0, 0,
 		map[string]any{"p1": p1, "p2": p2})
 
-	wins1 := 0
-	wins2 := 0
-	var recent []RecentMatch
+	data := tallyH2H(p1, p2, matches, pairNames)
 
+	return h.renderPage(e, "h2h.html", map[string]any{
+		"Data": data,
+	})
+}
+
+func tallyH2H(p1, p2 string, matches []*core.Record, pairNames map[string]string) H2HData {
+	var wins1, wins2 int
+	var recent []RecentMatch
 	for _, m := range matches {
 		winner := m.GetString("winner")
-		won := winner == p1
 		switch winner {
 		case p1:
 			wins1++
 		case p2:
 			wins2++
 		}
-
 		if len(recent) < 5 {
 			recent = append(recent, RecentMatch{
 				MatchID:   m.Id,
 				PairName1: pairNames[m.GetString("pair1")],
 				PairName2: pairNames[m.GetString("pair2")],
 				Score:     m.GetString("scores"),
-				Won:       won,
+				Won:       winner == p1,
 				Date:      m.GetString("date"),
 			})
 		}
 	}
-
-	data := H2HData{
+	return H2HData{
 		Pair1Name: pairNames[p1],
 		Pair2Name: pairNames[p2],
 		Pair1ID:   p1,
@@ -374,8 +377,4 @@ func (h *PlayerHandler) H2H(e *core.RequestEvent) error {
 		Wins2:     wins2,
 		Recent:    recent,
 	}
-
-	return h.renderPage(e, "h2h.html", map[string]any{
-		"Data": data,
-	})
 }
