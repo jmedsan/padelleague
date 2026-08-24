@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"os"
 	"strings"
@@ -161,16 +162,28 @@ func TestCompTogglePayment(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var compID, pairID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupCompRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		pair := makePairTB(tb, app, "PayPair")
+		pairID = pair.Id
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair})
+		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/payment"
 		s.Body = strings.NewReader("pair_id=" + pair.Id)
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		raw := c.Get("payment_status")
+		b, _ := json.Marshal(raw)
+		var status map[string]bool
+		require.NoError(tb, json.Unmarshal(b, &status))
+		assert.Equal(tb, true, status[pairID], "pair must be marked as paid")
 	}
 	s.Test(t)
 }
@@ -181,16 +194,119 @@ func TestCompApplyPenalty(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
+	var compID, pairID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupCompRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		pair := makePairTB(tb, app, "PenPair")
+		pairID = pair.Id
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair})
+		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/penalty"
 		s.Body = strings.NewReader("pair_id=" + pair.Id + "&action=apply")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		raw := c.Get("penalty_points")
+		b, _ := json.Marshal(raw)
+		var penalties map[string]float64
+		require.NoError(tb, json.Unmarshal(b, &penalties))
+		assert.Equal(tb, float64(3), penalties[pairID], "default penalty must be 3")
+	}
+	s.Test(t)
+}
+
+func TestCompAddPairDuplicateRejectedByUniqueness(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "POST /admin/competitions/{id}/pairs rejects re-adding same pair",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"duplicados"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		pair := makePairTB(tb, app, "DupPair")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair})
+		s.URL = "/admin/competitions/" + comp.Id + "/pairs"
+		s.Body = strings.NewReader("pair=" + pair.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestCompAddPairOverlappingPlayer(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "POST /admin/competitions/{id}/pairs rejects overlapping player",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"duplicados"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+
+		u1 := makeUserTB(tb, app, "Overlap1", "")
+		u2 := makeUserTB(tb, app, "Overlap2", "")
+		u3 := makeUserTB(tb, app, "Overlap3", "")
+
+		col, err := app.FindCollectionByNameOrId("pairs")
+		require.NoError(tb, err)
+		pair1 := core.NewRecord(col)
+		pair1.Set("name", "PairA")
+		pair1.Set("player1", u1.Id)
+		pair1.Set("player2", u2.Id)
+		require.NoError(tb, app.Save(pair1))
+
+		pair2 := core.NewRecord(col)
+		pair2.Set("name", "PairB")
+		pair2.Set("player1", u1.Id)
+		pair2.Set("player2", u3.Id)
+		require.NoError(tb, app.Save(pair2))
+
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair1})
+		s.URL = "/admin/competitions/" + comp.Id + "/pairs"
+		s.Body = strings.NewReader("pair=" + pair2.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestCompRemovePairCleansUpMetadata(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:           "POST /admin/competitions/{id}/remove-pair cleans seeding and payment",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, pairID, p2ID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "RemMetaA")
+		p2 := makePairTB(tb, app, "RemMetaB")
+		pairID = p1.Id
+		p2ID = p2.Id
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/remove-pair"
+		s.Body = strings.NewReader("pair_id=" + p1.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.NotContains(tb, c.GetStringSlice("pairs"), pairID)
+		assert.Contains(tb, c.GetStringSlice("pairs"), p2ID, "other pair must remain")
 	}
 	s.Test(t)
 }
