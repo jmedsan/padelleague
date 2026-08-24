@@ -199,3 +199,59 @@ func TestProfileCompleteSubmit(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestCompetitionNotFound(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "GET /competition/{id} with bad ID returns error",
+		Method:          http.MethodGet,
+		ExpectedStatus:  404,
+		ExpectedContent: []string{"no encontrada"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "NotFound Viewer", "")
+		s.URL = "/competition/nonexistent_id"
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestCompetitionPlayoffNoStandings(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "GET /competition/{id} playoff has no standings",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"PlayA"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "PlayA")
+		p2 := makePairTB(tb, app, "PlayB")
+		comp := makeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2})
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestCompetitionArchivedShowsAwards(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "GET /competition/{id} archived shows awards section",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Archivada"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "ArcA")
+		p2 := makePairTB(tb, app, "ArcB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("active", false)
+		require.NoError(tb, app.Save(comp))
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
