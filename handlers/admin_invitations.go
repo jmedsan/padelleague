@@ -73,7 +73,7 @@ func (h *AdminHandler) InvitationsCreate(e *core.RequestEvent) error {
 	record.Set("expires_at", time.Now().Add(time.Duration(expirationDays)*24*time.Hour).UTC().Format(time.RFC3339))
 
 	if err := h.app.Save(record); err != nil {
-		return alertError(e, "Error al crear la invitacion")
+		return alertError(e, "Error al crear la invitación")
 	}
 
 	return redirectHX(e, "/admin/invitations")
@@ -84,7 +84,7 @@ func (h *AdminHandler) InvitationsRevoke(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	invitation, err := h.app.FindRecordById("invitations", id)
 	if err != nil {
-		return alertError(e, "Invitacion no encontrada")
+		return alertError(e, "Invitación no encontrada")
 	}
 
 	if invitation.GetString("status") != "pending" {
@@ -92,7 +92,7 @@ func (h *AdminHandler) InvitationsRevoke(e *core.RequestEvent) error {
 	}
 
 	if err := h.app.Delete(invitation); err != nil {
-		return alertError(e, "Error al revocar la invitacion")
+		return alertError(e, "Error al revocar la invitación")
 	}
 
 	return redirectHX(e, "/admin/invitations")

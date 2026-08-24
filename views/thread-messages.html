@@ -47,7 +47,7 @@
             {{if .CanChangeDecision}}
             <div class="mt-2">
                 <form hx-post="/match/{{$.MatchID}}/thread/proposal/{{.Record.Id}}/change-decision" hx-target="#thread-messages-list">
-                    <button type="submit" class="btn btn-ghost btn-xs">Cambiar decision</button>
+                    <button type="submit" class="btn btn-ghost btn-xs">Cambiar decisión</button>
                 </form>
             </div>
             {{end}}
@@ -64,7 +64,7 @@
                 <div class="form-control">
                     <select name="rejection_reason" class="select select-bordered select-sm w-full" required onchange="this.closest('form').querySelector('.rejection-text-wrap').classList.toggle('hidden', this.value !== 'Otro')">
                         <option value="">Motivo...</option>
-                        <option value="No puedo ese dia">No puedo ese dia</option>
+                        <option value="No puedo ese día">No puedo ese día</option>
                         <option value="Prefiero otro horario">Prefiero otro horario</option>
                         <option value="Prefiero otra pista">Prefiero otra pista</option>
                         <option value="Otro">Otro</option>

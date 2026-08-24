@@ -159,7 +159,7 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	}
 
 	if _, err := league.ParseScore(scores); err != nil {
-		return alertError(e, "Marcador no valido")
+		return alertError(e, "Marcador no válido")
 	}
 
 	match.Set("scores", scores)

@@ -214,7 +214,7 @@ func TestPostMessageEmptyContentRejected(t *testing.T) {
 		Name:            "POST /match/{id}/thread/message with empty content rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"vacio"},
+		ExpectedContent: []string{"vacío"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)

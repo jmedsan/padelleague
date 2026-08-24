@@ -228,7 +228,7 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 
 	content := e.Request.FormValue("content")
 	if content == "" {
-		return alertError(e, "El mensaje no puede estar vacio")
+		return alertError(e, "El mensaje no puede estar vacío")
 	}
 
 	msgType := e.Request.FormValue("type")
@@ -259,7 +259,7 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 	authorName := league.PlayerName(h.app, e.Auth.Id)
 	h.notifier.NotifyPlayers(rivalPlayers, "general",
 		"Nuevo mensaje",
-		fmt.Sprintf("%s escribio: %s", authorName, league.Truncate(content, 60)),
+		fmt.Sprintf("%s escribió: %s", authorName, league.Truncate(content, 60)),
 		matchID)
 
 	return redirectHX(e, "/match/"+matchID)
@@ -399,7 +399,7 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 			return err
 		}
 	default:
-		return alertError(e, "Accion no valida")
+		return alertError(e, "Acción no válida")
 	}
 
 	return redirectHX(e, "/match/"+matchID)
@@ -437,7 +437,7 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 	responderName := league.PlayerName(h.app, e.Auth.Id)
 	h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
 		"Propuesta aceptada",
-		fmt.Sprintf("%s acepto tu propuesta para el %s a las %s", responderName, pd.Date, pd.Time),
+		fmt.Sprintf("%s aceptó tu propuesta para el %s a las %s", responderName, pd.Date, pd.Time),
 		matchID)
 	return nil
 }
@@ -457,7 +457,7 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 	responderName := league.PlayerName(h.app, e.Auth.Id)
 	h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
 		"Propuesta rechazada",
-		fmt.Sprintf("%s rechazo tu propuesta: %s", responderName, reason),
+		fmt.Sprintf("%s rechazó tu propuesta: %s", responderName, reason),
 		matchID)
 	return nil
 }
@@ -488,9 +488,9 @@ func (h *ThreadHandler) supersedePending(matchID, excludeMsgID string) {
 
 func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.Record, matchID, proposerPairID string) error {
 	msg.Set("proposal_status", "rejected")
-	msg.Set("rejection_reason", "Decision cambiada")
+	msg.Set("rejection_reason", "Decisión cambiada")
 	if err := h.app.Save(msg); err != nil {
-		return alertError(e, "Error al cambiar la decision")
+		return alertError(e, "Error al cambiar la decisión")
 	}
 	match.Set("date", "")
 	match.Set("time", "")
@@ -502,8 +502,8 @@ func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	responderName := league.PlayerName(h.app, e.Auth.Id)
 	h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
-		"Decision cambiada",
-		fmt.Sprintf("%s cambio su decision: propuesta ahora rechazada", responderName),
+		"Decisión cambiada",
+		fmt.Sprintf("%s cambió su decisión: propuesta ahora rechazada", responderName),
 		matchID)
 	return nil
 }
@@ -524,7 +524,7 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 	msg.Set("rejection_reason", "")
 	msg.Set("rejection_text", "")
 	if err := h.app.Save(msg); err != nil {
-		return alertError(e, "Error al cambiar la decision")
+		return alertError(e, "Error al cambiar la decisión")
 	}
 	match.Set("date", pd.Date)
 	match.Set("time", pd.Time)
@@ -537,8 +537,8 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	responderName := league.PlayerName(h.app, e.Auth.Id)
 	h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
-		"Decision cambiada",
-		fmt.Sprintf("%s cambio su decision: propuesta ahora aceptada para el %s a las %s", responderName, pd.Date, pd.Time),
+		"Decisión cambiada",
+		fmt.Sprintf("%s cambió su decisión: propuesta ahora aceptada para el %s a las %s", responderName, pd.Date, pd.Time),
 		matchID)
 	return nil
 }
@@ -573,7 +573,7 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 
 	authorTeam, _ := league.PlayerTeam(h.app, msg.GetString("author"), match)
 	if authorTeam == myTeam {
-		return alertError(e, "No puedes cambiar la decision de tu propia propuesta")
+		return alertError(e, "No puedes cambiar la decisión de tu propia propuesta")
 	}
 
 	currentStatus := msg.GetString("proposal_status")
