@@ -1,3 +1,4 @@
+// Package config provides environment-based configuration for the application.
 package config
 
 import "github.com/caarlos0/env/v11"

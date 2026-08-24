@@ -1,3 +1,4 @@
+// Package notify handles notification delivery via push, in-app, and email.
 package notify
 
 import (

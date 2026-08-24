@@ -1,3 +1,4 @@
+// Package hooks registers PocketBase event hooks and cron jobs.
 package hooks
 
 import (
