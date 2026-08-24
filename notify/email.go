@@ -11,10 +11,12 @@ import (
 	"github.com/pocketbase/pocketbase/tools/mailer"
 )
 
+// IsMailerConfigured reports whether SMTP is enabled and configured.
 func IsMailerConfigured(app core.App) bool {
 	return app.Settings().SMTP.Enabled && app.Settings().SMTP.Host != ""
 }
 
+// SendEmail sends an HTML email via the configured SMTP mailer.
 func SendEmail(app core.App, to, subject, htmlBody string) {
 	if !IsMailerConfigured(app) {
 		return
@@ -35,6 +37,7 @@ func SendEmail(app core.App, to, subject, htmlBody string) {
 	}
 }
 
+// EmailNotifyPlayers sends a notification email to each player in the list.
 func EmailNotifyPlayers(app core.App, playerUserIDs []string, subject, body, matchLink string) {
 	if !IsMailerConfigured(app) {
 		return
@@ -57,6 +60,7 @@ func EmailNotifyPlayers(app core.App, playerUserIDs []string, subject, body, mat
 	}
 }
 
+// BuildNotificationEmail returns the HTML body for a notification email.
 func BuildNotificationEmail(displayName, body, matchLink string) string {
 	linkHTML := ""
 	if matchLink != "" {

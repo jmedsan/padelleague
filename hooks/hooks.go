@@ -18,6 +18,7 @@ var validTransitions = map[string][]string{
 	league.StatusDisputed:  {league.StatusFinal},
 }
 
+// Register wires all PocketBase event hooks and cron jobs onto the given app.
 func Register(app core.App, notifier *notify.Notifier, svc *league.Service) {
 
 	app.OnRecordCreate("users").BindFunc(func(e *core.RecordEvent) error {

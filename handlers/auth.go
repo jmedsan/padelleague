@@ -11,15 +11,18 @@ import (
 	"padelleague/middleware"
 )
 
+// AuthHandler handles login, registration, and profile completion.
 type AuthHandler struct {
 	app        core.App
 	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
 }
 
+// NewAuthHandler creates an AuthHandler with the given dependencies.
 func NewAuthHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *AuthHandler {
 	return &AuthHandler{app: app, renderPage: renderPage}
 }
 
+// Login renders the login page, redirecting authenticated users to home.
 func (h *AuthHandler) Login(e *core.RequestEvent) error {
 	if e.Auth != nil {
 		return e.Redirect(http.StatusFound, "/")
@@ -27,6 +30,7 @@ func (h *AuthHandler) Login(e *core.RequestEvent) error {
 	return h.renderPage(e, "login.html", map[string]any{})
 }
 
+// LoginSubmit processes the login form and sets the auth cookie on success.
 func (h *AuthHandler) LoginSubmit(e *core.RequestEvent) error {
 	email := e.Request.FormValue("email")
 	password := e.Request.FormValue("password")
@@ -49,6 +53,7 @@ func (h *AuthHandler) LoginSubmit(e *core.RequestEvent) error {
 	return e.Redirect(http.StatusFound, "/")
 }
 
+// Register renders the registration form after validating the invitation token.
 func (h *AuthHandler) Register(e *core.RequestEvent) error {
 	token := e.Request.URL.Query().Get("token")
 	if token == "" {
@@ -180,10 +185,12 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 	return e.Redirect(http.StatusFound, "/")
 }
 
+// ProfileComplete renders the display-name form for new users.
 func (h *AuthHandler) ProfileComplete(e *core.RequestEvent) error {
 	return h.renderPage(e, "profile-complete.html", map[string]any{})
 }
 
+// ProfileCompleteSubmit saves the display name and redirects to home.
 func (h *AuthHandler) ProfileCompleteSubmit(e *core.RequestEvent) error {
 	displayName := strings.TrimSpace(e.Request.FormValue("display_name"))
 	if displayName == "" {
@@ -201,6 +208,7 @@ func (h *AuthHandler) ProfileCompleteSubmit(e *core.RequestEvent) error {
 	return e.Redirect(http.StatusFound, "/")
 }
 
+// Logout clears the auth cookie and redirects to login.
 func (h *AuthHandler) Logout(e *core.RequestEvent) error {
 	middleware.ClearAuthCookie(e)
 

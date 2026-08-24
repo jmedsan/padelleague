@@ -6,6 +6,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// PlayerTeam returns 1 or 2 indicating which pair the user belongs to in the match.
 func PlayerTeam(app core.App, userID string, match *core.Record) (int, error) {
 	pair1, err := app.FindRecordById("pairs", match.GetString("pair1"))
 	if err != nil {
@@ -24,6 +25,7 @@ func PlayerTeam(app core.App, userID string, match *core.Record) (int, error) {
 	return 0, fmt.Errorf("user %s is not a participant", userID)
 }
 
+// PairNames resolves pair IDs to their display names.
 func PairNames(app core.App, pairIDs []string) map[string]string {
 	names := make(map[string]string, len(pairIDs))
 	for _, id := range pairIDs {
@@ -40,6 +42,7 @@ func PairNames(app core.App, pairIDs []string) map[string]string {
 	return names
 }
 
+// PlayerName returns the display name for a user, or "?" if not found.
 func PlayerName(app core.App, userID string) string {
 	if userID == "" {
 		return "?"
@@ -51,6 +54,7 @@ func PlayerName(app core.App, userID string) string {
 	return user.GetString("display_name")
 }
 
+// PlayersForPair returns the user IDs of both players in a pair.
 func PlayersForPair(app core.App, pairID string) []string {
 	pair, err := app.FindRecordById("pairs", pairID)
 	if err != nil {
@@ -66,6 +70,7 @@ func PlayersForPair(app core.App, pairID string) []string {
 	return userIDs
 }
 
+// PairsForPlayer returns all pairs that include the given user.
 func PairsForPlayer(app core.App, userID string) ([]*core.Record, error) {
 	return app.FindRecordsByFilter("pairs",
 		"player1 = {:uid} || player2 = {:uid}",
@@ -73,6 +78,7 @@ func PairsForPlayer(app core.App, userID string) ([]*core.Record, error) {
 		map[string]any{"uid": userID})
 }
 
+// Truncate shortens s to max runes, appending "..." if truncated.
 func Truncate(s string, max int) string {
 	r := []rune(s)
 	if len(r) <= max {

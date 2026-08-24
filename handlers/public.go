@@ -9,6 +9,7 @@ import (
 	"padelleague/league"
 )
 
+// PublicHandler serves player-facing pages like the dashboard and competition views.
 type PublicHandler struct {
 	app             core.App
 	leagueSvc       *league.Service
@@ -16,22 +17,26 @@ type PublicHandler struct {
 	renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error
 }
 
+// NewPublicHandler creates a PublicHandler with the given dependencies.
 func NewPublicHandler(app core.App, leagueSvc *league.Service, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error) *PublicHandler {
 	return &PublicHandler{app: app, leagueSvc: leagueSvc, renderPage: renderPage, renderErrorPage: renderErrorPage}
 }
 
+// PendingMatchDetail holds summary info for a pending match on the dashboard.
 type PendingMatchDetail struct {
 	MatchID     string
 	Opponent    string
 	RoundNumber int
 }
 
+// HomeCompetition groups a competition with its pending-match count for the dashboard.
 type HomeCompetition struct {
 	Competition    *core.Record
 	PendingMatches int
 	PendingDetails []PendingMatchDetail
 }
 
+// NextMatch holds the player's next upcoming match details for the dashboard.
 type NextMatch struct {
 	MatchID         string
 	Opponent        string
@@ -42,6 +47,7 @@ type NextMatch struct {
 	ProposedVenue   string
 }
 
+// PendingAction represents an action the player needs to take on a match.
 type PendingAction struct {
 	MatchID     string
 	Opponent    string
@@ -49,6 +55,7 @@ type PendingAction struct {
 	Description string
 }
 
+// RecentResult holds a finalized match result for the dashboard feed.
 type RecentResult struct {
 	MatchID         string
 	Pair1Name       string
@@ -59,6 +66,7 @@ type RecentResult struct {
 	UpdatedAt       string
 }
 
+// Home renders the player's dashboard with competitions, next match, and actions.
 func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	userID := e.Auth.Id
 
@@ -290,11 +298,13 @@ func (h *PublicHandler) findRecentResults(c *core.Record) []RecentResult {
 	return results
 }
 
+// RoundView groups matches by round number for the competition page.
 type RoundView struct {
 	RoundNumber int
 	Matches     []RoundMatchView
 }
 
+// RoundMatchView holds a match record with resolved pair names for display.
 type RoundMatchView struct {
 	Match     *core.Record
 	Pair1     string

@@ -13,6 +13,7 @@ import (
 	"padelleague/notify"
 )
 
+// ThreadHandler handles the match thread: messages, scheduling proposals, and responses.
 type ThreadHandler struct {
 	app           core.App
 	notifier      *notify.Notifier
@@ -20,10 +21,12 @@ type ThreadHandler struct {
 	renderPartial func(e *core.RequestEvent, page string, data map[string]any) error
 }
 
+// NewThreadHandler creates a ThreadHandler with the given dependencies.
 func NewThreadHandler(app core.App, notifier *notify.Notifier, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderPartial func(e *core.RequestEvent, page string, data map[string]any) error) *ThreadHandler {
 	return &ThreadHandler{app: app, notifier: notifier, renderPage: renderPage, renderPartial: renderPartial}
 }
 
+// ThreadMessage holds a thread message record with display-ready fields.
 type ThreadMessage struct {
 	Record            *core.Record
 	AuthorName        string
@@ -40,6 +43,7 @@ type ThreadMessage struct {
 	CreatedAt         string
 }
 
+// ProposalData holds parsed scheduling proposal details from a thread message.
 type ProposalData struct {
 	Date      string `json:"date"`
 	Time      string `json:"time"`
@@ -48,6 +52,7 @@ type ProposalData struct {
 	VenueText string `json:"venue_text"`
 }
 
+// ParseProposalData decodes a proposal from a raw JSON field value.
 func ParseProposalData(raw any) *ProposalData {
 	if raw == nil {
 		return nil
@@ -154,6 +159,7 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 	return threadMessages
 }
 
+// Thread renders the full match thread page with messages and proposals.
 func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", matchID)
@@ -193,6 +199,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	})
 }
 
+// ThreadMessages returns the HTMX partial with updated thread messages.
 func (h *ThreadHandler) ThreadMessages(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", matchID)
@@ -214,6 +221,7 @@ func (h *ThreadHandler) ThreadMessages(e *core.RequestEvent) error {
 	})
 }
 
+// PostMessage handles POST to add a new chat message to the match thread.
 func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", matchID)

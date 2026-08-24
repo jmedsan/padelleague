@@ -16,6 +16,7 @@ import (
 	"padelleague/render"
 )
 
+// Deps holds the shared dependencies injected into all route groups.
 type Deps struct {
 	App       core.App
 	Renderer  *render.Renderer
@@ -24,6 +25,7 @@ type Deps struct {
 	StaticFS  fs.FS
 }
 
+// Register wires all application routes onto the given serve event.
 func Register(se *core.ServeEvent, deps Deps) {
 	se.Router.Bind(&hook.Handler[*core.RequestEvent]{
 		Func:     middleware.CookieAuth,

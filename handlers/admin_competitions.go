@@ -14,6 +14,7 @@ import (
 	"padelleague/league"
 )
 
+// AdminIssue represents a problem detected in competition state for the admin dashboard.
 type AdminIssue struct {
 	Type            string
 	TypeLabel       string
@@ -25,16 +26,19 @@ type AdminIssue struct {
 	Detail          string
 }
 
+// CompetitionHandler handles admin CRUD and management operations for competitions.
 type CompetitionHandler struct {
 	app        core.App
 	leagueSvc  *league.Service
 	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
 }
 
+// NewCompetitionHandler creates a CompetitionHandler with the given dependencies.
 func NewCompetitionHandler(app core.App, leagueSvc *league.Service, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *CompetitionHandler {
 	return &CompetitionHandler{app: app, leagueSvc: leagueSvc, renderPage: renderPage}
 }
 
+// CompetitionSummary holds aggregate stats for a competition on the dashboard.
 type CompetitionSummary struct {
 	Competition   *core.Record
 	PairsCount    int
@@ -43,6 +47,7 @@ type CompetitionSummary struct {
 	DisputeCount  int
 }
 
+// Dashboard renders the admin competitions overview with active/inactive lists and issues.
 func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
 	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != ''", "", 0, 0, nil)
 
@@ -182,6 +187,7 @@ func (h *CompetitionHandler) classifyMatchIssues(m *core.Record, compName string
 	return issues
 }
 
+// Detail renders the admin detail page for a single competition.
 func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	comp, err := h.app.FindRecordById("competitions", id)
@@ -318,6 +324,7 @@ func (h *CompetitionHandler) buildDisputeViews(matches []*core.Record, pairNames
 	return disputes
 }
 
+// Create handles POST to create a new competition.
 func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 	col, err := h.app.FindCollectionByNameOrId("competitions")
 	if err != nil {
@@ -344,6 +351,7 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions")
 }
 
+// Update handles POST to modify an existing competition's settings.
 func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	record, err := h.app.FindRecordById("competitions", id)
@@ -375,6 +383,7 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions")
 }
 
+// ApplyPenalty adds or removes a point penalty for a pair in a competition.
 func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	comp, err := h.app.FindRecordById("competitions", id)
@@ -428,6 +437,7 @@ func (h *CompetitionHandler) getPenaltyMap(comp *core.Record) map[string]float64
 	return penalties
 }
 
+// Toggle switches a competition between active and inactive states.
 func (h *CompetitionHandler) Toggle(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	record, err := h.app.FindRecordById("competitions", id)
@@ -444,6 +454,7 @@ func (h *CompetitionHandler) Toggle(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions")
 }
 
+// AddPair enrolls a pair in a competition, validating player uniqueness.
 func (h *CompetitionHandler) AddPair(e *core.RequestEvent) error {
 	compID := e.Request.PathValue("id")
 	pairID := e.Request.FormValue("pair")
@@ -490,6 +501,7 @@ func (h *CompetitionHandler) AddPair(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
+// RemovePair removes a pair from a competition and deletes its pending matches.
 func (h *CompetitionHandler) RemovePair(e *core.RequestEvent) error {
 	compID := e.Request.PathValue("id")
 	pairID := e.Request.FormValue("pair_id")
@@ -524,6 +536,7 @@ func (h *CompetitionHandler) RemovePair(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
+// CopyPairs imports pairs from a source competition into the target.
 func (h *CompetitionHandler) CopyPairs(e *core.RequestEvent) error {
 	targetID := e.Request.PathValue("id")
 	sourceID := e.Request.FormValue("source_competition")
@@ -591,6 +604,7 @@ func (h *CompetitionHandler) CopyPairs(e *core.RequestEvent) error {
 	return alertSuccess(e, fmt.Sprintf("%d parejas copiadas, %d omitidas", copied, skipped))
 }
 
+// TogglePayment marks a single pair's payment status as paid or unpaid.
 func (h *CompetitionHandler) TogglePayment(e *core.RequestEvent) error {
 	compID := e.Request.PathValue("id")
 	pairID := e.Request.FormValue("pair_id")
@@ -612,6 +626,7 @@ func (h *CompetitionHandler) TogglePayment(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
+// TogglePaymentAll sets all pairs in a competition to paid or unpaid.
 func (h *CompetitionHandler) TogglePaymentAll(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	comp, err := h.app.FindRecordById("competitions", id)

@@ -11,10 +11,12 @@ import (
 	"padelleague/league"
 )
 
+// ICalHandler serves iCalendar downloads for matches and competitions.
 type ICalHandler struct {
 	app core.App
 }
 
+// NewICalHandler creates an ICalHandler with the given app.
 func NewICalHandler(app core.App) *ICalHandler {
 	return &ICalHandler{app: app}
 }
@@ -61,6 +63,7 @@ func wrapVCalendar(events string) string {
 	return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//PadelLeague//ES\r\n" + events + "END:VCALENDAR\r\n"
 }
 
+// Match serves an iCalendar file for a single match event.
 func (h *ICalHandler) Match(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)

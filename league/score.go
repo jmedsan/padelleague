@@ -9,6 +9,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// Score holds parsed set and game totals for a padel match.
 type Score struct {
 	Sets1  int
 	Sets2  int
@@ -18,6 +19,7 @@ type Score struct {
 
 var tiebreakRe = regexp.MustCompile(`\(\d+\)`)
 
+// ParseScore parses a padel score string into set and game totals.
 func ParseScore(score string) (Score, error) {
 	score = strings.TrimSpace(score)
 	if score == "" {
@@ -80,6 +82,7 @@ func ParseScore(score string) (Score, error) {
 	return s, nil
 }
 
+// DetermineWinner returns the pair ID of the match winner based on the score.
 func DetermineWinner(match *core.Record, score string) (string, error) {
 	if strings.EqualFold(strings.TrimSpace(score), "WO") {
 		return "", fmt.Errorf("walkover requires manual winner selection")

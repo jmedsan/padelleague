@@ -12,15 +12,18 @@ import (
 	"padelleague/notify"
 )
 
+// NotificationHandler handles notification listing, reading, and preferences.
 type NotificationHandler struct {
 	app        core.App
 	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
 }
 
+// NewNotificationHandler creates a NotificationHandler with the given dependencies.
 func NewNotificationHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *NotificationHandler {
 	return &NotificationHandler{app: app, renderPage: renderPage}
 }
 
+// Count returns the number of unread notifications as an HTMX badge fragment.
 func (h *NotificationHandler) Count(e *core.RequestEvent) error {
 	count := 0
 	records, err := h.app.FindRecordsByFilter("notifications",
@@ -37,6 +40,7 @@ func (h *NotificationHandler) Count(e *core.RequestEvent) error {
 	return e.HTML(http.StatusOK, fmt.Sprintf(`<span class="badge badge-sm indicator-item badge-primary">%d</span>`, count))
 }
 
+// List renders the notification dropdown with recent notifications.
 func (h *NotificationHandler) List(e *core.RequestEvent) error {
 	records, err := h.app.FindRecordsByFilter("notifications",
 		"user = {:uid}",
@@ -76,6 +80,7 @@ func (h *NotificationHandler) List(e *core.RequestEvent) error {
 	return e.HTML(http.StatusOK, out)
 }
 
+// MarkRead marks a single notification as read.
 func (h *NotificationHandler) MarkRead(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	record, err := h.app.FindRecordById("notifications", id)
@@ -100,6 +105,7 @@ func (h *NotificationHandler) MarkRead(e *core.RequestEvent) error {
 	return redirectHX(e, redirect)
 }
 
+// MarkAllRead marks all of the user's notifications as read.
 func (h *NotificationHandler) MarkAllRead(e *core.RequestEvent) error {
 	records, _ := h.app.FindRecordsByFilter("notifications",
 		"user = {:uid} && read = false",
@@ -116,6 +122,7 @@ func (h *NotificationHandler) MarkAllRead(e *core.RequestEvent) error {
 	return redirectHX(e, "/")
 }
 
+// Prefs renders the notification preferences page.
 func (h *NotificationHandler) Prefs(e *core.RequestEvent) error {
 	prefs := notify.GetNotificationPrefs(e.Auth)
 
@@ -124,6 +131,7 @@ func (h *NotificationHandler) Prefs(e *core.RequestEvent) error {
 	})
 }
 
+// PrefsSave handles POST to update the user's notification preferences.
 func (h *NotificationHandler) PrefsSave(e *core.RequestEvent) error {
 	prefs := map[string]any{
 		"quorum_request": e.Request.FormValue("quorum_request") == "on",

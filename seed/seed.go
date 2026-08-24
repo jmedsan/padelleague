@@ -7,6 +7,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// User describes a user to seed into the database.
 type User struct {
 	Email       string
 	Password    string
@@ -15,6 +16,7 @@ type User struct {
 	DisplayName string
 }
 
+// Run creates any users that do not already exist in the database.
 func Run(app core.App, users []User) {
 	for _, u := range users {
 		if u.Email == "" || u.Password == "" {

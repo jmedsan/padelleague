@@ -6,12 +6,14 @@ import (
 	"padelleague/league"
 )
 
+// PairView holds a pair record with resolved player names for display.
 type PairView struct {
 	Record  *core.Record
 	Player1 string
 	Player2 string
 }
 
+// Pairs renders the admin pairs management page.
 func (h *AdminHandler) Pairs(e *core.RequestEvent) error {
 	pairs, _ := h.app.FindAllRecords("pairs")
 
@@ -32,6 +34,7 @@ func (h *AdminHandler) Pairs(e *core.RequestEvent) error {
 	})
 }
 
+// PairsCreate handles POST to create a new pair from two players.
 func (h *AdminHandler) PairsCreate(e *core.RequestEvent) error {
 	name := e.Request.FormValue("name")
 	player1 := e.Request.FormValue("player1")
@@ -64,6 +67,7 @@ func (h *AdminHandler) PairsCreate(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/pairs")
 }
 
+// PairsUpdate handles POST to change the players in an existing pair.
 func (h *AdminHandler) PairsUpdate(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	pair, err := h.app.FindRecordById("pairs", id)
