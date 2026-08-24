@@ -26,19 +26,20 @@ test.describe('admin management', () => {
   test('admin can view invitations page', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin/invitations');
-    await expect(page.locator('body')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Invitaciones' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /nueva invitaci[oó]n/i })).toBeVisible();
   });
 
   test('admin can view disputes page', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin/disputes');
-    await expect(page).toHaveURL('/admin/disputes');
+    await expect(page.getByRole('heading', { name: 'Disputas pendientes' })).toBeVisible();
   });
 
   test('admin can create invitation', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin/invitations');
-    await page.getByRole('button', { name: /nueva invitacion/i }).click();
+    await page.getByRole('button', { name: /nueva invitaci[oó]n/i }).click();
     const invEmail = `inv-${Date.now()}@test.com`;
     await page.locator('#modal-create input[name="email"]').fill(invEmail);
     await Promise.all([

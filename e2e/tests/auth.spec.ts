@@ -9,7 +9,8 @@ test('unauthenticated access redirects to login', async ({ page }) => {
 test('login with valid credentials via form', async ({ page }) => {
   await loginViaForm(page, ADMIN_EMAIL, ADMIN_PASSWORD);
   await expect(page).toHaveURL('/');
-  await expect(page.locator('body')).toBeVisible();
+  await expect(page.locator('.navbar')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Inicio' })).toBeVisible();
 });
 
 test('login with invalid credentials shows error', async ({ page }) => {
@@ -22,13 +23,8 @@ test('login with invalid credentials shows error', async ({ page }) => {
 
 test('player cannot access admin page', async ({ page }) => {
   await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-  const resp = await page.request.get('/admin');
-  expect([302, 403, 200]).toContain(resp.status());
   await page.goto('/admin');
-  const url = page.url();
-  const bodyText = await page.locator('body').textContent();
-  const isForbidden = url.includes('/login') || bodyText?.includes('no tienes') || bodyText?.includes('acceso');
-  expect(isForbidden || !url.includes('/admin')).toBeTruthy();
+  await expect(page.getByText('Panel de administración')).not.toBeVisible({ timeout: 3000 });
 });
 
 test('logout redirects to login', async ({ page }) => {

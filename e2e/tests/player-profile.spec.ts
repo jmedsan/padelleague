@@ -19,13 +19,13 @@ test.describe('player profile and stats', () => {
   test('player can view H2H page', async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto('/h2h');
-    await expect(page.locator('body')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Cara a cara' })).toBeVisible();
   });
 
   test('player can view notification preferences', async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto('/profile/notifications');
-    await expect(page.locator('body')).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Preferencias de notificaciones/i })).toBeVisible();
   });
 
   test('notification count loads', async ({ page }) => {
