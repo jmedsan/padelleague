@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"sort"
 
@@ -316,6 +317,39 @@ type RoundMatchView struct {
 	IsMyMatch bool
 }
 
+// BracketRound holds one round of a single-elimination bracket for display.
+type BracketRound struct {
+	Name    string
+	Matches []RoundMatchView
+}
+
+func buildBracket(rounds []RoundView, maxRound int) []BracketRound {
+	var bracket []BracketRound
+	for _, r := range rounds {
+		bracket = append(bracket, BracketRound{
+			Name:    bracketRoundName(r.RoundNumber, maxRound),
+			Matches: r.Matches,
+		})
+	}
+	return bracket
+}
+
+func bracketRoundName(round, maxRound int) string {
+	remaining := maxRound - round
+	switch remaining {
+	case 0:
+		return "Final"
+	case 1:
+		return "Semifinal"
+	case 2:
+		return "Cuartos"
+	case 3:
+		return "Octavos"
+	default:
+		return fmt.Sprintf("Ronda %d", round)
+	}
+}
+
 // Competition renders the public competition page with standings and fixtures.
 func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
@@ -341,6 +375,11 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	rounds := buildRounds(matches, pairNames, playerPairIDs)
 	autoExpandRound := firstIncompleteRound(rounds)
 
+	data := h.buildCompetitionData(comp, id, rounds, pairNames, autoExpandRound)
+	return h.renderPage(e, "competition.html", data)
+}
+
+func (h *PublicHandler) buildCompetitionData(comp *core.Record, id string, rounds []RoundView, pairNames map[string]string, autoExpandRound int) map[string]any {
 	var standings []league.StandingRowFull
 	hasPenalties := false
 	if comp.GetString("type") == "league" {
@@ -360,7 +399,14 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 
 	compPairs := buildCompPairs(standings, pairNames)
 
-	return h.renderPage(e, "competition.html", map[string]any{
+	isPlayoff := league.IsPlayoff(comp)
+	var bracket []BracketRound
+	if isPlayoff && len(rounds) > 0 {
+		maxRound := rounds[len(rounds)-1].RoundNumber
+		bracket = buildBracket(rounds, maxRound)
+	}
+
+	return map[string]any{
 		"Competition":     comp,
 		"Rounds":          rounds,
 		"Standings":       standings,
@@ -369,7 +415,9 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		"AutoExpandRound": autoExpandRound,
 		"HasPenalties":    hasPenalties,
 		"CompPairs":       compPairs,
-	})
+		"IsPlayoff":       isPlayoff,
+		"Bracket":         bracket,
+	}
 }
 
 type pairOption struct {
