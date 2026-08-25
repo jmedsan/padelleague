@@ -67,6 +67,9 @@ func (h *AdminHandler) DisputesResolve(e *core.RequestEvent) error {
 		if manualWinner != match.GetString("pair1") && manualWinner != match.GetString("pair2") {
 			return alertError(e, "El ganador debe ser una de las dos parejas")
 		}
+		if _, err := league.ParseScore(score); err != nil {
+			return alertError(e, "Marcador inválido")
+		}
 		winnerID = manualWinner
 	} else {
 		var err error
