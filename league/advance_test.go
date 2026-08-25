@@ -2,6 +2,7 @@ package league
 
 import (
 	"testing"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/assert"
@@ -276,4 +277,56 @@ func TestAdvancePlayoff_SecondNextMatchHasNoWinnersLeft(t *testing.T) {
 	assert.Equal(t, winners[1].Id, got1.GetString("pair2"))
 	assert.Empty(t, got2.GetString("pair1"), "no winners remain for the second match")
 	assert.Empty(t, got2.GetString("pair2"))
+}
+
+// Matches finalized in reverse creation order must still map winners to the
+// correct next-round slots. Before the "created" sort fix, the query could
+// return matches ordered by last-update time, swapping winners across slots.
+func TestAdvancePlayoff_OutOfOrderFinalization(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	pairs := make([]*core.Record, 8)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "OOF "+string(rune('A'+i)))
+	}
+	comp := makePlayoffCompetition(t, app, pairs)
+
+	// Create round-1 matches in slot order (0-3).
+	r1 := make([]*core.Record, 4)
+	for i := 0; i < 4; i++ {
+		r1[i] = makeMatchRound(t, app, comp.Id, pairs[i*2].Id, pairs[i*2+1].Id, 1)
+	}
+
+	// Create round-2 matches (semis) in slot order.
+	semi1 := makeMatchRound(t, app, comp.Id, "", "", 2)
+	semi2 := makeMatchRound(t, app, comp.Id, "", "", 2)
+
+	// Finalize in REVERSE creation order: match 3 first, then 2, 1, 0.
+	// Each gets a different submitted_at so any "submitted_at" sort would
+	// return them in the wrong order.
+	winners := []*core.Record{pairs[0], pairs[2], pairs[4], pairs[6]}
+	for _, idx := range []int{3, 2, 1, 0} {
+		m, err := app.FindRecordById("matches", r1[idx].Id)
+		require.NoError(t, err)
+		m.Set("status", "final")
+		m.Set("scores", "6-3 6-4")
+		m.Set("winner", winners[idx].Id)
+		m.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
+		require.NoError(t, app.Save(m))
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	require.NoError(t, svc.AdvancePlayoff(r1[0]))
+
+	got1, err := app.FindRecordById("matches", semi1.Id)
+	require.NoError(t, err)
+	got2, err := app.FindRecordById("matches", semi2.Id)
+	require.NoError(t, err)
+
+	assert.Equal(t, winners[0].Id, got1.GetString("pair1"), "semi1 pair1 = winner of match 0")
+	assert.Equal(t, winners[1].Id, got1.GetString("pair2"), "semi1 pair2 = winner of match 1")
+	assert.Equal(t, winners[2].Id, got2.GetString("pair1"), "semi2 pair1 = winner of match 2")
+	assert.Equal(t, winners[3].Id, got2.GetString("pair2"), "semi2 pair2 = winner of match 3")
 }

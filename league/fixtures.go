@@ -69,8 +69,9 @@ func (svc *Service) AdvancePlayoff(matchRecord *core.Record) error {
 
 	currentRound := int(matchRecord.GetFloat("round_number"))
 
+	// NOTE: bye handling assumes power-of-2 brackets; non-power-of-2 pair counts with byes may misalign roundWinners.
 	roundMatches, _ := svc.app.FindRecordsByFilter("matches",
-		"competition = {:cid} && round_number = {:rn}", "", 0, 0,
+		"competition = {:cid} && round_number = {:rn}", "created", 0, 0,
 		map[string]any{"cid": compID, "rn": currentRound})
 
 	for _, m := range roundMatches {
@@ -81,7 +82,7 @@ func (svc *Service) AdvancePlayoff(matchRecord *core.Record) error {
 
 	nextRound := currentRound + 1
 	nextMatches, _ := svc.app.FindRecordsByFilter("matches",
-		"competition = {:cid} && round_number = {:rn}", "", 0, 0,
+		"competition = {:cid} && round_number = {:rn}", "created", 0, 0,
 		map[string]any{"cid": compID, "rn": nextRound})
 
 	if len(nextMatches) == 0 {
