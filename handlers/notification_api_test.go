@@ -50,7 +50,7 @@ func setupNotifRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 func TestNotificationListReturnsNewestFirst(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory:     testAppFactory,
 		Name:               "GET /notifications/list returns newest 10 of 11",
 		Method:             http.MethodGet,
 		URL:                "/notifications/list",
