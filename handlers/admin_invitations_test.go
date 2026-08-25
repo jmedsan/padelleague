@@ -262,3 +262,27 @@ func TestInvitationExpirationDefault7Days(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestAdminInvitationsRevoke(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/invitations/{id}/revoke changes status",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var invID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupFullAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		inv := makeInvitation(t, app, time.Time{})
+		invID = inv.Id
+		s.URL = "/admin/invitations/" + inv.Id + "/revoke"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		_, err := app.FindRecordById("invitations", invID)
+		assert.Error(tb, err, "invitation should be deleted")
+	}
+	s.Test(t)
+}

@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -222,6 +223,43 @@ func TestAdminCreateInvitation(t *testing.T) {
 			"status = 'pending'", "", 0, 0, nil)
 		require.NoError(tb, err)
 		assert.GreaterOrEqual(tb, len(invites), 1, "invitation must be created")
+	}
+	s.Test(t)
+}
+
+func TestDashboardWithIssues(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin dashboard exercises issue classification",
+		Method:          http.MethodGet,
+		URL:             "/admin",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Competiciones"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupFullAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "IssueA")
+		p2 := makePairTB(tb, app, "IssueB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("quorum_timeout_hours", 24)
+		require.NoError(tb, app.Save(comp))
+
+		// Disputed match → dispute issue
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+
+		// Confirmed match with old submitted_at → quorum issue
+		qm := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
+		qm.Set("submitted_at", time.Now().Add(-72*time.Hour).UTC().Format("2006-01-02 15:04:05.000Z"))
+		require.NoError(tb, app.Save(qm))
+
+		// Pending match with past date → overdue issue
+		om := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		om.Set("date", "2020-01-01")
+		require.NoError(tb, app.Save(om))
+
+		s.Headers = authHeaders(tb, admin)
 	}
 	s.Test(t)
 }

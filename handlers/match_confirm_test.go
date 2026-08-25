@@ -309,3 +309,30 @@ func TestMatchCorrectBoundary_Exact24h_Refused(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestMatchConfirmSameTeam(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /match/{id}/confirm by submitter team fails",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"No puedes confirmar"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "SameConf A")
+		p2 := makePairTB(tb, app, "SameConf B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
+		submitter := p1.GetString("player1")
+		m.Set("scores", "6-3 6-4")
+		m.Set("submitted_by", submitter)
+		require.NoError(tb, app.Save(m))
+
+		s.URL = "/match/" + m.Id + "/confirm"
+		user, _ := app.FindRecordById("users", submitter)
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
