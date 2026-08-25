@@ -299,3 +299,31 @@ func TestCookieAuth_EmptyCookieValue_PassesThrough(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestClearAuthCookie(t *testing.T) {
+	s := tests.ApiScenario{
+		Name:            "ClearAuthCookie sets expired pb_auth cookie",
+		Method:          http.MethodGet,
+		URL:             "/clear-cookie-test",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"OK"},
+	}
+	s.BeforeTestFunc = func(_ testing.TB, _ *tests.TestApp, e *core.ServeEvent) {
+		e.Router.GET("/clear-cookie-test", func(e *core.RequestEvent) error {
+			ClearAuthCookie(e)
+			return e.String(200, "OK")
+		})
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		cookies := res.Cookies()
+		require.Len(tb, cookies, 1)
+		c := cookies[0]
+		assert.Equal(tb, "pb_auth", c.Name)
+		assert.Equal(tb, "", c.Value)
+		assert.Equal(tb, "/", c.Path)
+		assert.Equal(tb, -1, c.MaxAge)
+		assert.True(tb, c.HttpOnly)
+		assert.True(tb, c.Secure)
+	}
+	s.Test(t)
+}
