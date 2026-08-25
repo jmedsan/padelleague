@@ -158,7 +158,7 @@ func TestProposalNotifiesOpposingPair(t *testing.T) {
 
 	// A member of pair 1 proposes; pair 2 must hear about it.
 	author := p1.GetString("player1")
-	h.notifyProposal(match, 1, author, "2026-09-20", "19:00", "Club Test", match.Id)
+	h.notifyProposal(match, 1, proposalNotice{AuthorID: author, Date: "2026-09-20", Time: "19:00", VenueName: "Club Test"})
 
 	notifs, err := app.FindRecordsByFilter("notifications",
 		"type = 'scheduling'", "", 0, 0, nil)
@@ -189,7 +189,7 @@ func TestProposalFromPairTwoNotifiesPairOne(t *testing.T) {
 	match := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
 
 	h := &ThreadHandler{app: app, notifier: notify.NewNotifier(app, "", "")}
-	h.notifyProposal(match, 2, p2.GetString("player1"), "2026-09-20", "19:00", "Club Test", match.Id)
+	h.notifyProposal(match, 2, proposalNotice{AuthorID: p2.GetString("player1"), Date: "2026-09-20", Time: "19:00", VenueName: "Club Test"})
 
 	notifs, err := app.FindRecordsByFilter("notifications", "type = 'scheduling'", "", 0, 0, nil)
 	require.NoError(t, err)
