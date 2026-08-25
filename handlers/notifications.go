@@ -15,11 +15,11 @@ import (
 // NotificationHandler handles notification listing, reading, and preferences.
 type NotificationHandler struct {
 	app        core.App
-	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
+	renderPage RenderFunc
 }
 
 // NewNotificationHandler creates a NotificationHandler with the given dependencies.
-func NewNotificationHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *NotificationHandler {
+func NewNotificationHandler(app core.App, renderPage RenderFunc) *NotificationHandler {
 	return &NotificationHandler{app: app, renderPage: renderPage}
 }
 

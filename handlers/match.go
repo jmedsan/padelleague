@@ -19,12 +19,12 @@ import (
 type MatchHandler struct {
 	app             core.App
 	notifier        *notify.Notifier
-	renderPage      func(e *core.RequestEvent, page string, data map[string]any) error
-	renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error
+	renderPage      RenderFunc
+	renderErrorPage RenderErrorFunc
 }
 
 // NewMatchHandler creates a MatchHandler with the given dependencies.
-func NewMatchHandler(app core.App, notifier *notify.Notifier, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error) *MatchHandler {
+func NewMatchHandler(app core.App, notifier *notify.Notifier, renderPage RenderFunc, renderErrorPage RenderErrorFunc) *MatchHandler {
 	return &MatchHandler{app: app, notifier: notifier, renderPage: renderPage, renderErrorPage: renderErrorPage}
 }
 

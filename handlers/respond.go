@@ -7,6 +7,12 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// RenderFunc renders a full page template.
+type RenderFunc func(e *core.RequestEvent, page string, data map[string]any) error
+
+// RenderErrorFunc renders an error page with a status code and message.
+type RenderErrorFunc func(e *core.RequestEvent, statusCode int, message string) error
+
 func alertError(e *core.RequestEvent, msg string) error {
 	return e.HTML(http.StatusOK, `<div class="alert alert-error">`+html.EscapeString(msg)+`</div>`)
 }

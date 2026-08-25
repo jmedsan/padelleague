@@ -11,10 +11,10 @@ import (
 type AdminHandler struct {
 	app        core.App
 	notifier   *notify.Notifier
-	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
+	renderPage RenderFunc
 }
 
 // NewAdminHandler creates an AdminHandler with the given dependencies.
-func NewAdminHandler(app core.App, notifier *notify.Notifier, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *AdminHandler {
+func NewAdminHandler(app core.App, notifier *notify.Notifier, renderPage RenderFunc) *AdminHandler {
 	return &AdminHandler{app: app, notifier: notifier, renderPage: renderPage}
 }

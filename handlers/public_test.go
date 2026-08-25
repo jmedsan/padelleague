@@ -543,11 +543,11 @@ func TestHomeWithScheduledMatch(t *testing.T) {
 func TestHome_RecentResultsNonEmpty(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "home page shows recent results for final matches newest-first",
-		Method:         http.MethodGet,
-		URL:            "/",
-		ExpectedStatus: 200,
+		TestAppFactory:  testAppFactory,
+		Name:            "home page shows recent results for final matches newest-first",
+		Method:          http.MethodGet,
+		URL:             "/",
+		ExpectedStatus:  200,
 		ExpectedContent: []string{"Últimos resultados", "6-1 6-2", "6-3 6-4"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {

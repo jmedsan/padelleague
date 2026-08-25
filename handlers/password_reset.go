@@ -13,11 +13,11 @@ import (
 // PasswordResetHandler handles forgot-password and reset-password flows.
 type PasswordResetHandler struct {
 	app        core.App
-	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
+	renderPage RenderFunc
 }
 
 // NewPasswordResetHandler creates a PasswordResetHandler with the given dependencies.
-func NewPasswordResetHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *PasswordResetHandler {
+func NewPasswordResetHandler(app core.App, renderPage RenderFunc) *PasswordResetHandler {
 	return &PasswordResetHandler{app: app, renderPage: renderPage}
 }
 

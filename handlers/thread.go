@@ -17,12 +17,12 @@ import (
 type ThreadHandler struct {
 	app           core.App
 	notifier      *notify.Notifier
-	renderPage    func(e *core.RequestEvent, page string, data map[string]any) error
-	renderPartial func(e *core.RequestEvent, page string, data map[string]any) error
+	renderPage    RenderFunc
+	renderPartial RenderFunc
 }
 
 // NewThreadHandler creates a ThreadHandler with the given dependencies.
-func NewThreadHandler(app core.App, notifier *notify.Notifier, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderPartial func(e *core.RequestEvent, page string, data map[string]any) error) *ThreadHandler {
+func NewThreadHandler(app core.App, notifier *notify.Notifier, renderPage RenderFunc, renderPartial RenderFunc) *ThreadHandler {
 	return &ThreadHandler{app: app, notifier: notifier, renderPage: renderPage, renderPartial: renderPartial}
 }
 

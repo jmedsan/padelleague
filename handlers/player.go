@@ -14,12 +14,12 @@ import (
 // PlayerHandler serves player profile and head-to-head comparison pages.
 type PlayerHandler struct {
 	app             core.App
-	renderPage      func(e *core.RequestEvent, page string, data map[string]any) error
-	renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error
+	renderPage      RenderFunc
+	renderErrorPage RenderErrorFunc
 }
 
 // NewPlayerHandler creates a PlayerHandler with the given dependencies.
-func NewPlayerHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error) *PlayerHandler {
+func NewPlayerHandler(app core.App, renderPage RenderFunc, renderErrorPage RenderErrorFunc) *PlayerHandler {
 	return &PlayerHandler{app: app, renderPage: renderPage, renderErrorPage: renderErrorPage}
 }
 

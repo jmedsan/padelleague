@@ -16,11 +16,11 @@ import (
 type FixtureHandler struct {
 	app        core.App
 	leagueSvc  *league.Service
-	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
+	renderPage RenderFunc
 }
 
 // NewFixtureHandler creates a FixtureHandler with the given dependencies.
-func NewFixtureHandler(app core.App, leagueSvc *league.Service, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *FixtureHandler {
+func NewFixtureHandler(app core.App, leagueSvc *league.Service, renderPage RenderFunc) *FixtureHandler {
 	return &FixtureHandler{app: app, leagueSvc: leagueSvc, renderPage: renderPage}
 }
 
