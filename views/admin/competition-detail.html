@@ -59,15 +59,45 @@
                 <input type="number" name="quorum_timeout_hours" value="{{.Competition.GetFloat "quorum_timeout_hours"}}" min="0" class="input input-bordered" placeholder="0 = desactivado">
                 <label class="label"><span class="label-text-alt opacity-50">0 = desactivado</span></label>
             </div>
-            <div class="form-control mb-3">
-                <label class="label"><span class="label-text">Penalización por defecto (puntos)</span></label>
-                <input type="number" name="default_penalty" value="{{or (.Competition.GetFloat "default_penalty") 3}}" min="1" class="input input-bordered">
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Fecha inicio</span></label>
+                    <input type="date" name="start_date" value="{{printf "%.10s" (.Competition.GetString "start_date")}}" class="input input-bordered">
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Fecha fin</span></label>
+                    <input type="date" name="end_date" value="{{printf "%.10s" (.Competition.GetString "end_date")}}" class="input input-bordered">
+                </div>
             </div>
             <div class="form-control">
                 <label class="cursor-pointer label justify-start gap-3">
                     <input type="checkbox" name="play_twice" class="checkbox" {{if .Competition.GetBool "play_twice"}}checked{{end}}>
                     <span class="label-text">Ida y vuelta</span>
                 </label>
+            </div>
+            <div class="collapse collapse-arrow bg-base-200 mt-3 mb-3">
+                <input type="checkbox">
+                <div class="collapse-title text-sm font-medium">Opciones avanzadas</div>
+                <div class="collapse-content">
+                    <div class="form-control mb-3">
+                        <label class="label"><span class="label-text">Días de gracia para organizar</span></label>
+                        <input type="number" name="arrange_grace_days" value="{{or (.Competition.GetFloat "arrange_grace_days") 3}}" min="0" class="input input-bordered input-sm">
+                    </div>
+                    <div class="form-control mb-3">
+                        <label class="label cursor-pointer justify-start gap-3">
+                            <input type="checkbox" name="auto_flag" class="checkbox checkbox-sm" {{if .Competition.GetBool "auto_flag"}}checked{{end}}>
+                            <span class="label-text">Marcado automático de partidos</span>
+                        </label>
+                    </div>
+                    <div class="form-control mb-3">
+                        <label class="label"><span class="label-text">Marcador walkover</span></label>
+                        <input type="text" name="walkover_score" value="{{or (.Competition.GetString "walkover_score") "6-0 6-0"}}" class="input input-bordered input-sm">
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Penalización por defecto (puntos)</span></label>
+                        <input type="number" name="default_penalty" value="{{or (.Competition.GetFloat "default_penalty") 3}}" min="0" class="input input-bordered input-sm">
+                    </div>
+                </div>
             </div>
             <div class="modal-action">
                 <label for="edit-modal" class="btn btn-ghost">Cancelar</label>

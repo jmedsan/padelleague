@@ -78,6 +78,101 @@ func TestCompUpdate(t *testing.T) {
 	s.Test(t)
 }
 
+func TestCompCreateSchedulingFields(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions persists scheduling fields",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.URL = "/admin/competitions"
+		s.Body = strings.NewReader("name=SchedTest&type=league&start_date=2026-09-01&end_date=2026-12-15&arrange_grace_days=5&auto_flag=on&walkover_score=6-1+6-1&default_penalty=7")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		comps, err := app.FindRecordsByFilter("competitions", "name = 'SchedTest'", "", 1, 0, nil)
+		require.NoError(tb, err)
+		require.Len(tb, comps, 1)
+		c := comps[0]
+		assert.Contains(tb, c.GetString("start_date"), "2026-09-01")
+		assert.Contains(tb, c.GetString("end_date"), "2026-12-15")
+		assert.Equal(tb, 5.0, c.GetFloat("arrange_grace_days"))
+		assert.Equal(tb, true, c.GetBool("auto_flag"))
+		assert.Equal(tb, "6-1 6-1", c.GetString("walkover_score"))
+		assert.Equal(tb, 7.0, c.GetFloat("default_penalty"))
+	}
+	s.Test(t)
+}
+
+func TestCompCreateSchedulingDefaults(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions applies scheduling defaults",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.URL = "/admin/competitions"
+		s.Body = strings.NewReader("name=DefTest&type=league")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		comps, err := app.FindRecordsByFilter("competitions", "name = 'DefTest'", "", 1, 0, nil)
+		require.NoError(tb, err)
+		require.Len(tb, comps, 1)
+		c := comps[0]
+		assert.Equal(tb, 3.0, c.GetFloat("arrange_grace_days"))
+		assert.Equal(tb, false, c.GetBool("auto_flag"))
+		assert.Equal(tb, "6-0 6-0", c.GetString("walkover_score"))
+		assert.Equal(tb, 3.0, c.GetFloat("default_penalty"))
+	}
+	s.Test(t)
+}
+
+func TestCompUpdateSchedulingFields(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id} updates scheduling fields",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Body = strings.NewReader("name=Sched&type=league&start_date=2026-10-01&end_date=2026-11-30&arrange_grace_days=2&auto_flag=on&walkover_score=6-2+6-2&default_penalty=4")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Contains(tb, c.GetString("start_date"), "2026-10-01")
+		assert.Contains(tb, c.GetString("end_date"), "2026-11-30")
+		assert.Equal(tb, 2.0, c.GetFloat("arrange_grace_days"))
+		assert.Equal(tb, true, c.GetBool("auto_flag"))
+		assert.Equal(tb, "6-2 6-2", c.GetString("walkover_score"))
+		assert.Equal(tb, 4.0, c.GetFloat("default_penalty"))
+	}
+	s.Test(t)
+}
+
 func TestCompToggle(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

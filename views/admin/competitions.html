@@ -160,6 +160,16 @@
                 <input type="number" name="quorum_timeout_hours" value="48" min="0" class="input input-bordered w-full" placeholder="0 = desactivado">
                 <label class="label"><span class="label-text-alt opacity-50">0 = desactivado</span></label>
             </div>
+            <div class="grid grid-cols-2 gap-3 mt-3">
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Fecha inicio</span></label>
+                    <input type="date" name="start_date" class="input input-bordered w-full">
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">Fecha fin</span></label>
+                    <input type="date" name="end_date" class="input input-bordered w-full">
+                </div>
+            </div>
             <div class="divider my-3"></div>
             <div class="form-control">
                 <label class="label cursor-pointer justify-start gap-3">
@@ -172,6 +182,30 @@
                     <input type="checkbox" name="active" class="checkbox checkbox-sm" checked>
                     <span class="label-text">Activa desde el inicio</span>
                 </label>
+            </div>
+            <div class="collapse collapse-arrow bg-base-200 mt-3">
+                <input type="checkbox">
+                <div class="collapse-title text-sm font-medium">Opciones avanzadas</div>
+                <div class="collapse-content">
+                    <div class="form-control mb-3">
+                        <label class="label"><span class="label-text">Días de gracia para organizar</span></label>
+                        <input type="number" name="arrange_grace_days" value="3" min="0" class="input input-bordered input-sm">
+                    </div>
+                    <div class="form-control mb-3">
+                        <label class="label cursor-pointer justify-start gap-3">
+                            <input type="checkbox" name="auto_flag" class="checkbox checkbox-sm">
+                            <span class="label-text">Marcado automático de partidos</span>
+                        </label>
+                    </div>
+                    <div class="form-control mb-3">
+                        <label class="label"><span class="label-text">Marcador walkover</span></label>
+                        <input type="text" name="walkover_score" value="6-0 6-0" class="input input-bordered input-sm" placeholder="6-0 6-0">
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Penalización por defecto (puntos)</span></label>
+                        <input type="number" name="default_penalty" value="3" min="0" class="input input-bordered input-sm">
+                    </div>
+                </div>
             </div>
             <div class="modal-action">
                 <button type="submit" class="btn btn-primary">Crear competición</button>
