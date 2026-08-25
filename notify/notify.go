@@ -141,7 +141,7 @@ func (n *Notifier) deliverPush(sub *core.Record, payload []byte, subscriber stri
 		HTTPClient:      n.httpClient,
 	})
 	if err != nil {
-		slog.Error("push send failed", "endpoint", sub.GetString("endpoint"), "err", err)
+		slog.Error("push send failed", "user", sub.GetString("user"), "err", err)
 		return
 	}
 	if err := resp.Body.Close(); err != nil {
