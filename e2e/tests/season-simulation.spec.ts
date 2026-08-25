@@ -53,7 +53,7 @@ test.describe('season simulation', () => {
   test.describe.configure({ retries: 0 });
 
   test('league standings are exact after a full ida y vuelta', async ({ page }) => {
-    test.setTimeout(480000);
+    test.setTimeout(240000);
 
     await buildSeason(page);
 
@@ -74,7 +74,7 @@ test.describe('season simulation', () => {
   });
 
   test('playoff seeds from the league, advances, and crowns the expected champion', async ({ page }) => {
-    test.setTimeout(480000);
+    test.setTimeout(240000);
     test.skip(true, 'not implemented yet');
   });
 });
@@ -320,63 +320,44 @@ async function adminResolveDispute(page: Page, matchId: string, score: string) {
   await clickAndWaitForHxRedirect(page, row.locator('button:has-text("Resolver")'));
 }
 
+// Thread actions must run on the FULL match page: the `/match/{id}/thread`
+// fragment is served without the HTMX runtime (it lives only in layout.html),
+// so its forms never fire when that URL is opened directly. On `/match/{id}`
+// the thread lazy-loads via hx-get (match.html) with HTMX active.
+async function gotoMatchThread(page: Page, matchId: string) {
+  await page.goto(`/match/${matchId}`);
+  await page.locator('form[hx-post$="/thread/message"]').waitFor({ state: 'visible', timeout: 15000 });
+}
+
 async function postProposal(page: Page, matchId: string) {
-  await page.goto(`/match/${matchId}/thread`);
-  const chatForm = page.locator('form[hx-post$="/thread/message"]');
-  await chatForm.locator('input[name="content"]').fill('Shall we play?');
+  await gotoMatchThread(page, matchId);
+  await page.locator('form[hx-post$="/thread/message"] input[name="content"]').fill('Shall we play?');
+  await clickAndWaitForHxRedirect(page, page.locator('form[hx-post$="/thread/message"] button[type="submit"]'));
 
-  // Wait for the XHR response to verify it's 204
-  const chatResp = await Promise.all([
-    page.waitForResponse(r => r.url().includes('/thread/message')),
-    chatForm.locator('button[type="submit"]').click(),
-  ]);
-  const chatStatus = chatResp[0].status();
-  if (chatStatus !== 204) {
-    const body = await chatResp[0].text().catch(() => '');
-    throw new Error(`Chat POST returned ${chatStatus}, expected 204. Body: ${body.slice(0, 200)}`);
-  }
-  await page.waitForLoadState('load');
-
-  await page.goto(`/match/${matchId}/thread`);
-  await page.locator('.collapse-title:has-text("Proponer fecha")').click();
+  await gotoMatchThread(page, matchId);
+  // DaisyUI collapse: the peer checkbox overlays the title and intercepts clicks —
+  // toggle the checkbox directly to expand the proposal form.
+  await page.locator('.collapse', { has: page.locator('.collapse-title:has-text("Proponer fecha")') })
+    .locator('input[type="checkbox"]').check();
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-  await page.fill('input[name="date"]', tomorrow);
-  await page.fill('input[name="time"]', '18:00');
-  await page.selectOption('select[name="venue_id"]', 'otro');
-  await page.fill('input[name="venue_text"]', 'Test Club');
-
-  const propResp = await Promise.all([
-    page.waitForResponse(r => r.url().includes('/thread/proposal')),
-    page.locator('button:has-text("Proponer fecha")').click(),
-  ]);
-  const propStatus = propResp[0].status();
-  if (propStatus !== 204) {
-    const body = await propResp[0].text().catch(() => '');
-    throw new Error(`Proposal POST returned ${propStatus}, expected 204. Body: ${body.slice(0, 200)}`);
-  }
-  await page.waitForLoadState('load');
+  await page.fill('#proposal-form input[name="date"]', tomorrow);
+  await page.fill('#proposal-form input[name="time"]', '18:00');
+  await page.selectOption('#proposal-form select[name="venue_id"]', 'otro');
+  await page.fill('#proposal-form input[name="venue_text"]', 'Test Club');
+  await clickAndWaitForHxRedirect(page, page.locator('#proposal-form button:has-text("Proponer fecha")'));
 }
 
 async function acceptProposal(page: Page, matchId: string) {
-  await page.goto(`/match/${matchId}/thread`);
-  // Debug: take screenshot + dump page content
-  await page.waitForTimeout(3000); // Give HTMX time to load messages
-  await page.screenshot({ path: '/tmp/claude-1000/-mnt-data-Dev-PadelLeague/fe4649b0-356e-4e7f-b9ac-5cf7e5fcc6f7/scratchpad/accept-debug.png' });
-  const bodyText = await page.locator('body').textContent();
-  const msgHtml = await page.locator('#thread-messages-list').innerHTML().catch(() => 'NOT FOUND');
-  const url = page.url();
-  const acceptBtn = page.locator('button:has-text("Aceptar")');
-  const acceptCount = await acceptBtn.count();
-  if (acceptCount === 0) {
-    throw new Error(`No Aceptar button. URL: ${url}, MsgHTML len: ${msgHtml.length}, Body excerpt: ${bodyText?.slice(0, 300)}`);
-  }
+  await page.goto(`/match/${matchId}`);
+  const acceptBtn = page.locator('button:has-text("Aceptar")').first();
+  await acceptBtn.waitFor({ state: 'visible', timeout: 15000 });
   await clickAndWaitForHxRedirect(page, acceptBtn);
 }
 
 async function rejectProposal(page: Page, matchId: string) {
-  await page.goto(`/match/${matchId}/thread`);
-  const rejectBtn = page.locator('button:has-text("Rechazar")');
-  await rejectBtn.waitFor({ state: 'visible', timeout: 20000 });
+  await page.goto(`/match/${matchId}`);
+  const rejectBtn = page.locator('button:has-text("Rechazar")').first();
+  await rejectBtn.waitFor({ state: 'visible', timeout: 15000 });
   await rejectBtn.click();
   await page.locator('select[name="rejection_reason"]').selectOption({ index: 1 });
   await clickAndWaitForHxRedirect(page, page.locator('form.reject-form button[type="submit"]'));
