@@ -108,13 +108,21 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 
 	urgentTasks, _ := league.PlayerTasks(h.app, userID, time.Now())
 
-	return h.renderPage(e, "home.html", map[string]any{
+	data := map[string]any{
 		"Competitions":   comps,
 		"NextMatch":      nextMatch,
 		"PendingActions": pendingActions,
 		"RecentResults":  recentResults,
 		"UrgentTasks":    urgentTasks,
-	})
+	}
+
+	if e.Auth.GetString("role") == "admin" {
+		setups, alerts, _ := league.AdminDashboard(h.app, time.Now())
+		data["AdminSetups"] = setups
+		data["AdminAlerts"] = alerts
+	}
+
+	return h.renderPage(e, "home.html", data)
 }
 
 func (h *PublicHandler) playerInCompetition(c *core.Record, playerPairIDs map[string]bool) bool {

@@ -677,6 +677,117 @@ func TestHome_OrganizeWarningBadges(t *testing.T) {
 	s.Test(t)
 }
 
+// --- Cluster: Admin dashboard (T4) ---
+
+func TestHome_AdminSetupChecklist(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "admin sees setup checklist for inactive competition",
+		Method:         http.MethodGet,
+		URL:            "/",
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			"Preparar competiciones",
+			"SetupComp",
+			"Parejas añadidas",
+			"Jornadas generadas",
+			"Fechas configuradas",
+		},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "SetupP1")
+		p2 := makePairTB(tb, app, "SetupP2")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("active", false)
+		comp.Set("name", "SetupComp")
+		require.NoError(tb, app.Save(comp))
+
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.NotContains(tb, body, "Activar", "not ready — missing fixtures and dates")
+	}
+	s.Test(t)
+}
+
+func TestHome_AdminSetupReady(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "admin sees Activar when setup complete",
+		Method:          http.MethodGet,
+		URL:             "/",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Activar", "ReadyComp"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "ReadyP1")
+		p2 := makePairTB(tb, app, "ReadyP2")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("active", false)
+		comp.Set("name", "ReadyComp")
+		comp.Set("start_date", "2026-09-01 00:00:00.000Z")
+		comp.Set("end_date", "2026-12-01 00:00:00.000Z")
+		require.NoError(tb, app.Save(comp))
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestHome_AdminAlerts(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "admin sees alerts: dispute ranked first, then overdue",
+		Method:         http.MethodGet,
+		URL:            "/",
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			"Alertas",
+			"Disputa abierta",
+			"AlertDispP1",
+			"Vencido",
+			"AlertOvdP1",
+		},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+
+		dispP1 := makePairTB(tb, app, "AlertDispP1")
+		dispP2 := makePairTB(tb, app, "AlertDispP2")
+		ovdP1 := makePairTB(tb, app, "AlertOvdP1")
+		ovdP2 := makePairTB(tb, app, "AlertOvdP2")
+
+		allPairs := []*core.Record{dispP1, dispP2, ovdP1, ovdP2}
+		comp := makeCompetitionTB(tb, app, "league", allPairs)
+		comp.Set("start_date", "2026-05-01 00:00:00.000Z")
+		comp.Set("end_date", "2026-06-01 00:00:00.000Z")
+		comp.Set("arrange_grace_days", 3)
+		require.NoError(tb, app.Save(comp))
+
+		makeMatchTB(tb, app, comp.Id, dispP1.Id, dispP2.Id, "disputed")
+		makeMatchTB(tb, app, comp.Id, ovdP1.Id, ovdP2.Id, "pending")
+
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		dispIdx := indexOf(body, "Disputa abierta")
+		ovdIdx := indexOf(body, "Vencido")
+		assert.Greater(tb, ovdIdx, dispIdx, "dispute must appear before overdue")
+	}
+	s.Test(t)
+}
+
 func TestHome_NoDatesGracefulDegradation(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
