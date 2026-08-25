@@ -269,6 +269,12 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 		return alertWarning(e, "No se detectaron cambios")
 	}
 
+	if e.Request.FormValue("date") != "" {
+		if err := h.validatePlayoffDates(match); err != nil {
+			return alertError(e, err.Error())
+		}
+	}
+
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al guardar")
 	}
@@ -320,6 +326,26 @@ func (h *MatchHandler) detectScoreChange(e *core.RequestEvent, match *core.Recor
 		return []string{"Resultado establecido: " + scores}, nil
 	}
 	return []string{"Resultado corregido: " + oldScores + " → " + scores}, nil
+}
+
+func (h *MatchHandler) validatePlayoffDates(match *core.Record) error {
+	comp, err := h.app.FindRecordById("competitions", match.GetString("competition"))
+	if err != nil || !league.IsPlayoff(comp) {
+		return nil
+	}
+	allMatches, err := h.app.FindRecordsByFilter("matches",
+		"competition = {:comp}", "", 0, 0,
+		map[string]any{"comp": comp.Id})
+	if err != nil {
+		return nil
+	}
+	for i, m := range allMatches {
+		if m.Id == match.Id {
+			allMatches[i] = match
+			break
+		}
+	}
+	return league.ValidatePlayoffDates(allMatches)
 }
 
 func detectFieldChange(match *core.Record, field, newVal, label string) []string {

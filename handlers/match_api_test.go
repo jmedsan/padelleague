@@ -400,6 +400,138 @@ func TestMatchWalkoverAbsentTeam1(t *testing.T) {
 	s.Test(t)
 }
 
+// --- Playoff date validation (T6a) ---
+
+func makeMatchWithRound(t testing.TB, app core.App, compID, p1ID, p2ID, status string, round int) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("matches")
+	require.NoError(t, err)
+	r := core.NewRecord(col)
+	r.Set("competition", compID)
+	r.Set("pair1", p1ID)
+	r.Set("pair2", p2ID)
+	r.Set("status", status)
+	r.Set("round_number", round)
+	require.NoError(t, app.Save(r))
+	return r
+}
+
+func TestAdminOverride_PlayoffDateOrderRejected(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /match/{id}/admin-override rejects invalid playoff date order",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"las fechas de la ronda"},
+	}
+	var semifinalID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "PoA")
+		p2 := makePairTB(tb, app, "PoB")
+		p3 := makePairTB(tb, app, "PoC")
+		p4 := makePairTB(tb, app, "PoD")
+		comp := makeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2, p3, p4})
+
+		qf := makeMatchWithRound(tb, app, comp.Id, p1.Id, p2.Id, "pending", 1)
+		qf.Set("date", "2026-10-15")
+		require.NoError(tb, app.Save(qf))
+
+		sf := makeMatchWithRound(tb, app, comp.Id, p3.Id, p4.Id, "pending", 2)
+		semifinalID = sf.Id
+
+		s.URL = "/match/" + sf.Id + "/admin-override"
+		s.Body = strings.NewReader("date=2026-10-10")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		m, err := app.FindRecordById("matches", semifinalID)
+		require.NoError(tb, err)
+		assert.Empty(tb, m.GetString("date"), "date must not be persisted on rejection")
+	}
+	s.Test(t)
+}
+
+func TestAdminOverride_PlayoffDateOrderAccepted(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /match/{id}/admin-override accepts valid playoff date order",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var semifinalID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "PvA")
+		p2 := makePairTB(tb, app, "PvB")
+		p3 := makePairTB(tb, app, "PvC")
+		p4 := makePairTB(tb, app, "PvD")
+		comp := makeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2, p3, p4})
+
+		qf := makeMatchWithRound(tb, app, comp.Id, p1.Id, p2.Id, "pending", 1)
+		qf.Set("date", "2026-10-15")
+		require.NoError(tb, app.Save(qf))
+
+		sf := makeMatchWithRound(tb, app, comp.Id, p3.Id, p4.Id, "pending", 2)
+		semifinalID = sf.Id
+
+		s.URL = "/match/" + sf.Id + "/admin-override"
+		s.Body = strings.NewReader("date=2026-10-20")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		m, err := app.FindRecordById("matches", semifinalID)
+		require.NoError(tb, err)
+		assert.Contains(tb, m.GetString("date"), "2026-10-20")
+	}
+	s.Test(t)
+}
+
+func TestAdminOverride_LeagueDateNoValidation(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /match/{id}/admin-override league ignores date order",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "LgA")
+		p2 := makePairTB(tb, app, "LgB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		m1 := makeMatchWithRound(tb, app, comp.Id, p1.Id, p2.Id, "pending", 1)
+		m1.Set("date", "2026-10-20")
+		require.NoError(tb, app.Save(m1))
+
+		m2 := makeMatchWithRound(tb, app, comp.Id, p1.Id, p2.Id, "pending", 2)
+		matchID = m2.Id
+
+		s.URL = "/match/" + m2.Id + "/admin-override"
+		s.Body = strings.NewReader("date=2026-10-10")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Contains(tb, m.GetString("date"), "2026-10-10")
+	}
+	s.Test(t)
+}
+
 func TestMatchCorrectWORejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
