@@ -270,7 +270,7 @@ func (h *PublicHandler) findUnconfirmedScores(c *core.Record, playerPairIDs map[
 func (h *PublicHandler) findRecentResults(c *core.Record) []RecentResult {
 	finals, _ := h.app.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'final'",
-		"-updated", 5, 0, map[string]any{"cid": c.Id})
+		"-created", 5, 0, map[string]any{"cid": c.Id})
 	var results []RecentResult
 	for _, m := range finals {
 		p1 := m.GetString("pair1")
@@ -296,7 +296,7 @@ func (h *PublicHandler) findRecentResults(c *core.Record) []RecentResult {
 			Score:           m.GetString("scores"),
 			WinnerName:      winnerName,
 			CompetitionName: c.GetString("name"),
-			UpdatedAt:       m.GetString("updated"),
+			UpdatedAt:       m.GetString("created"),
 		})
 	}
 	return results
