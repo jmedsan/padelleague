@@ -75,7 +75,46 @@ test.describe('season simulation', () => {
 
   test('playoff seeds from the league, advances, and crowns the expected champion', async ({ page }) => {
     test.setTimeout(240000);
-    test.skip(true, 'not implemented yet');
+    // Reuses the players/pairs created by test 1 (same worker + DB). Re-auth superuser
+    // in case the token from test 1 has aged.
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    const authResp = await page.request.post('/api/collections/_superusers/auth-with-password', {
+      data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+    });
+    suToken = (await authResp.json()).token;
+
+    const playoffId = await createPlayoffCompetition(page);
+    // Seed by league finish (no penalty): A=1, B=2, C=3, D=4.
+    for (let i = 0; i < 4; i++) {
+      await addPairToCompetition(page, playoffId, pairIds[i], i + 1);
+    }
+    await generateFixtures(page, playoffId);
+
+    // Round 1: seed1 v seed4 and seed2 v seed3 → {A,D} and {B,C}.
+    const r1 = await getRoundMatches(page.request, playoffId, 1);
+    expect(r1.length).toBe(2);
+    const r1Pairings = r1.map(m => [idToLabel(m.pair1), idToLabel(m.pair2)].sort().join(''));
+    expect(r1Pairings).toContain('AD');
+    expect(r1Pairings).toContain('BC');
+
+    // Play the semis: A beats D, B beats C.
+    for (const m of r1) {
+      const labels = [idToLabel(m.pair1), idToLabel(m.pair2)];
+      if (labels.includes('A')) await playPlayoffMatch(page, m, 'A', '6-3 6-4');
+      else await playPlayoffMatch(page, m, 'B', '6-4 6-3');
+    }
+
+    // Auto-advance (R-50/R-51): round 2 populates with the two winners in slot order.
+    const r2 = await getRoundMatches(page.request, playoffId, 2);
+    expect(r2.length).toBe(1);
+    const final = r2[0];
+    expect(idToLabel(final.pair1)).toBe('A');
+    expect(idToLabel(final.pair2)).toBe('B');
+
+    // Final: A beats B → champion A.
+    await playPlayoffMatch(page, final, 'A', '6-2 6-3');
+    const finalDone = await getMatchById(page.request, final.id);
+    expect(idToLabel(finalDone.winner)).toBe('A');
   });
 });
 
@@ -191,14 +230,65 @@ async function createPair(page: Page, name: string, player1Id: string, player2Id
   return id;
 }
 
-async function addPairToCompetition(page: Page, compId: string, pairId: string) {
+async function addPairToCompetition(page: Page, compId: string, pairId: string, seed?: number) {
   await page.goto(`/admin/competitions/${compId}`);
   await page.selectOption('select[name="pair"]', pairId);
-
+  if (seed !== undefined) {
+    await page.fill('input[name="seed"]', String(seed));
+  }
   await Promise.all([
     page.waitForResponse(resp => resp.url().includes(`/admin/competitions/${compId}/pairs`) && resp.status() < 400),
     page.locator('button:has-text("Añadir")').click(),
   ]);
+}
+
+async function createPlayoffCompetition(page: Page): Promise<string> {
+  const name = `Playoff ${RUN_ID}`;
+  await page.goto('/admin/competitions');
+  await page.getByRole('button', { name: /crear competición/i }).first().click();
+  const dialog = page.locator('dialog#modal-create');
+  await dialog.locator('input[name="name"]').fill(name);
+  await dialog.locator('select[name="type"]').selectOption('playoff');
+  await dialog.locator('input[name="active"]').check();
+  await Promise.all([
+    page.waitForResponse(resp => resp.url().includes('/admin/competitions') && resp.status() < 400),
+    dialog.locator('button[type="submit"]').click(),
+  ]);
+  await page.goto('/admin/competitions');
+  await expect(page.getByText(name).first()).toBeVisible({ timeout: 10000 });
+  const href = await page.locator(`a:has-text("${name}")`).first().getAttribute('href');
+  if (!href) throw new Error('Playoff competition link not found');
+  const id = href.split('/').pop();
+  if (!id) throw new Error('Playoff competition id not found');
+  return id;
+}
+
+async function getRoundMatches(request: APIRequestContext, compId: string, round: number): Promise<any[]> {
+  const resp = await request.get(
+    `/api/collections/matches/records?filter=competition='${compId}'&sort=created&perPage=50`,
+    { headers: { Authorization: suToken } },
+  );
+  const items = (await resp.json()).items;
+  return items.filter((m: any) => Number(m.round_number) === round);
+}
+
+async function getMatchById(request: APIRequestContext, id: string): Promise<any> {
+  const resp = await request.get(`/api/collections/matches/records/${id}`, { headers: { Authorization: suToken } });
+  return await resp.json();
+}
+
+function playerEmailForPairId(pairId: string, idx: 0 | 1): string {
+  return playerEmailForPair(idToLabel(pairId), idx);
+}
+
+// Play a playoff match: pair1's player submits the winner-oriented score, pair2's player confirms.
+async function playPlayoffMatch(page: Page, match: any, winnerLabel: PairId, winnerScore: string) {
+  const p1Label = idToLabel(match.pair1);
+  const oriented = p1Label === winnerLabel ? winnerScore : orientScore(winnerScore, true);
+  await loginAs(page, playerEmailForPairId(match.pair1, 0), PLAYER_PASSWORD);
+  await submitScore(page, match.id, oriented);
+  await loginAs(page, playerEmailForPairId(match.pair2, 0), PLAYER_PASSWORD);
+  await confirmScore(page, match.id);
 }
 
 async function generateFixtures(page: Page, compId: string) {
@@ -471,19 +561,13 @@ async function assertStandings(
 async function applyPenalty(page: Page, compId: string, pairId: string) {
   await page.goto(`/admin/competitions/${compId}`);
   const row = page.locator(`tr:has(input[value="${pairId}"])`).filter({ hasText: 'Penalizar' });
-  await Promise.all([
-    page.waitForResponse(r => r.url().includes('/penalty') && r.status() < 400),
-    row.locator('button:has-text("Penalizar")').click(),
-  ]);
-  await page.waitForLoadState('load');
+  // Penalty returns redirectHX (204 → window.location); await the full redirect so it
+  // does not race the next navigation.
+  await clickAndWaitForHxRedirect(page, row.locator('button:has-text("Penalizar")'));
 }
 
 async function togglePayment(page: Page, compId: string, pairId: string) {
   await page.goto(`/admin/competitions/${compId}`);
   const checkbox = page.locator(`tr:has(input[value="${pairId}"]) input[type="checkbox"]`).first();
-  await Promise.all([
-    page.waitForResponse(r => r.url().includes('/payment') && r.status() < 400),
-    checkbox.check(),
-  ]);
-  await page.waitForLoadState('load');
+  await clickAndWaitForHxRedirect(page, checkbox);
 }
