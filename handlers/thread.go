@@ -324,21 +324,25 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 		return alertError(e, "Error al crear propuesta")
 	}
 
-	h.notifyProposal(match, myTeam, e.Auth.Id, date, time, venueName, matchID)
+	h.notifyProposal(match, myTeam, proposalNotice{AuthorID: e.Auth.Id, Date: date, Time: time, VenueName: venueName})
 	return redirectHX(e, "/match/"+matchID)
 }
 
-func (h *ThreadHandler) notifyProposal(match *core.Record, myTeam int, authorID, date, time, venueName, matchID string) {
+type proposalNotice struct {
+	AuthorID, Date, Time, VenueName string
+}
+
+func (h *ThreadHandler) notifyProposal(match *core.Record, myTeam int, n proposalNotice) {
 	rivalPairID := match.GetString("pair1")
 	if myTeam == 1 {
 		rivalPairID = match.GetString("pair2")
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	authorName := league.PlayerName(h.app, authorID)
+	authorName := league.PlayerName(h.app, n.AuthorID)
 	h.notifier.NotifyPlayers(rivalPlayers, "scheduling",
 		"Propuesta de fecha",
-		fmt.Sprintf("%s propone jugar el %s a las %s en %s", authorName, date, time, venueName),
-		matchID)
+		fmt.Sprintf("%s propone jugar el %s a las %s en %s", authorName, n.Date, n.Time, n.VenueName),
+		match.Id)
 }
 
 // RespondProposal records a player's accept or reject on a scheduling proposal.
@@ -391,7 +395,7 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 
 	switch action {
 	case "accept":
-		if err := h.acceptProposal(e, match, msg, matchID, msgID, proposerPairID); err != nil {
+		if err := h.acceptProposal(e, match, msg, proposerPairID); err != nil {
 			return err
 		}
 	case "reject":
@@ -405,11 +409,11 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 	return redirectHX(e, "/match/"+matchID)
 }
 
-func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Record, matchID, msgID, proposerPairID string) error {
+func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
 	existing, _ := h.app.FindRecordsByFilter("match_messages",
 		"match = {:mid} && proposal_status = 'accepted'",
 		"", 0, 1,
-		map[string]any{"mid": matchID})
+		map[string]any{"mid": match.Id})
 	if len(existing) > 0 {
 		return alertError(e, "Ya hay una propuesta aceptada para este partido")
 	}
@@ -431,12 +435,12 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 		return alertError(e, "Error al marcar la propuesta como aceptada")
 	}
 
-	if err := h.supersedePending(matchID, msgID); err != nil {
-		slog.Error("supersede pending proposals", "match", matchID, "err", err)
+	if err := h.supersedePending(match.Id, msg.Id); err != nil {
+		slog.Error("supersede pending proposals", "match", match.Id, "err", err)
 		_ = h.notifier.NotifyAdmins("admin_message",
 			"Propuestas pendientes no actualizadas",
-			fmt.Sprintf("El partido %s tiene propuestas que no se pudieron marcar como superadas. Revisa el hilo.", matchID),
-			matchID)
+			fmt.Sprintf("El partido %s tiene propuestas que no se pudieron marcar como superadas. Revisa el hilo.", match.Id),
+			match.Id)
 	}
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
@@ -444,7 +448,7 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 	h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
 		"Propuesta aceptada",
 		fmt.Sprintf("%s aceptó tu propuesta para el %s a las %s", responderName, pd.Date, pd.Time),
-		matchID)
+		match.Id)
 	return nil
 }
 
@@ -498,7 +502,7 @@ func (h *ThreadHandler) supersedePending(matchID, excludeMsgID string) error {
 	return nil
 }
 
-func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.Record, matchID, proposerPairID string) error {
+func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
 	msg.Set("proposal_status", "rejected")
 	msg.Set("rejection_reason", "Decisión cambiada")
 	if err := h.app.Save(msg); err != nil {
@@ -508,7 +512,7 @@ func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.
 	match.Set("time", "")
 	match.Set("club", "")
 	if err := h.app.Save(match); err != nil {
-		slog.Error("save match after rejection", "match", matchID, "err", err)
+		slog.Error("save match after rejection", "match", match.Id, "err", err)
 		return alertError(e, "Error al actualizar el partido")
 	}
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
@@ -516,15 +520,15 @@ func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.
 	h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
 		"Decisión cambiada",
 		fmt.Sprintf("%s cambió su decisión: propuesta ahora rechazada", responderName),
-		matchID)
+		match.Id)
 	return nil
 }
 
-func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.Record, matchID, msgID, proposerPairID string) error {
+func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
 	existing, _ := h.app.FindRecordsByFilter("match_messages",
 		"match = {:mid} && proposal_status = 'accepted'",
 		"", 0, 1,
-		map[string]any{"mid": matchID})
+		map[string]any{"mid": match.Id})
 	if len(existing) > 0 {
 		return alertError(e, "Ya hay otra propuesta aceptada")
 	}
@@ -542,22 +546,22 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 	match.Set("time", pd.Time)
 	match.Set("club", pd.VenueName)
 	if err := h.app.Save(match); err != nil {
-		slog.Error("save match after acceptance", "match", matchID, "err", err)
+		slog.Error("save match after acceptance", "match", match.Id, "err", err)
 		return alertError(e, "Error al actualizar el partido")
 	}
-	if err := h.supersedePending(matchID, msgID); err != nil {
-		slog.Error("supersede pending proposals", "match", matchID, "err", err)
+	if err := h.supersedePending(match.Id, msg.Id); err != nil {
+		slog.Error("supersede pending proposals", "match", match.Id, "err", err)
 		_ = h.notifier.NotifyAdmins("admin_message",
 			"Propuestas pendientes no actualizadas",
-			fmt.Sprintf("El partido %s tiene propuestas que no se pudieron marcar como superadas. Revisa el hilo.", matchID),
-			matchID)
+			fmt.Sprintf("El partido %s tiene propuestas que no se pudieron marcar como superadas. Revisa el hilo.", match.Id),
+			match.Id)
 	}
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	responderName := league.PlayerName(h.app, e.Auth.Id)
 	h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
 		"Decisión cambiada",
 		fmt.Sprintf("%s cambió su decisión: propuesta ahora aceptada para el %s a las %s", responderName, pd.Date, pd.Time),
-		matchID)
+		match.Id)
 	return nil
 }
 
@@ -605,11 +609,11 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 	}
 
 	if currentStatus == "accepted" {
-		if err := h.revokeAcceptance(e, match, msg, matchID, proposerPairID); err != nil {
+		if err := h.revokeAcceptance(e, match, msg, proposerPairID); err != nil {
 			return err
 		}
 	} else {
-		if err := h.changeToAccepted(e, match, msg, matchID, msgID, proposerPairID); err != nil {
+		if err := h.changeToAccepted(e, match, msg, proposerPairID); err != nil {
 			return err
 		}
 	}
