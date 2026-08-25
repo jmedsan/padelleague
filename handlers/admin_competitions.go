@@ -427,32 +427,25 @@ func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 	pairID := e.Request.FormValue("pair_id")
 	action := e.Request.FormValue("action")
 
-	penalties := h.getPenaltyMap(comp)
-
 	if action == "apply" {
 		amount := comp.GetFloat("default_penalty")
 		if amount == 0 {
 			amount = 3
 		}
-		penalties[pairID] = amount
+		if err := league.ApplyPenalty(h.app, comp, pairID, amount, false); err != nil {
+			return alertError(e, "Error al guardar")
+		}
 	} else {
-		delete(penalties, pairID)
-	}
-
-	comp.Set("penalty_points", penalties)
-	if err := h.app.Save(comp); err != nil {
-		return alertError(e, "Error al guardar")
+		if err := league.RemovePenalty(h.app, comp, pairID); err != nil {
+			return alertError(e, "Error al guardar")
+		}
 	}
 
 	return redirectHX(e, "/admin/competitions/"+id)
 }
 
 func (h *CompetitionHandler) getPenaltyMap(comp *core.Record) map[string]float64 {
-	penalties := make(map[string]float64)
-	if err := comp.UnmarshalJSONField("penalty_points", &penalties); err != nil {
-		slog.Warn("unmarshal penalty_points", "err", err)
-	}
-	return penalties
+	return league.PenaltyMap(comp)
 }
 
 // Toggle switches a competition between active and inactive states.
