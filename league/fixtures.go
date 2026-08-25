@@ -95,6 +95,9 @@ func (svc *Service) AdvancePlayoff(matchRecord *core.Record) error {
 	}
 
 	for i, nm := range nextMatches {
+		if nm.GetString("status") != StatusPending {
+			continue
+		}
 		seedNextMatch(nm, roundWinners, i)
 		if err := svc.app.Save(nm); err != nil {
 			return err
