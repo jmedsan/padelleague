@@ -394,6 +394,9 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 		return alertError(e, "Competición no encontrada")
 	}
 
+	oldStart := record.GetString("start_date")
+	oldEnd := record.GetString("end_date")
+
 	record.Set("name", e.Request.FormValue("name"))
 	record.Set("type", e.Request.FormValue("type"))
 	record.Set("category", e.Request.FormValue("category"))
@@ -409,6 +412,10 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 	if err := h.app.Save(record); err != nil {
 		slog.Error("update competition failed", "err", err)
 		return alertError(e, "Error al guardar la competición")
+	}
+
+	if record.GetString("start_date") != oldStart || record.GetString("end_date") != oldEnd {
+		resetWarnLevels(h.app, id)
 	}
 
 	return redirectHX(e, "/admin/competitions")
@@ -440,6 +447,24 @@ func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 	}
 
 	return redirectHX(e, "/admin/competitions/"+id)
+}
+
+func resetWarnLevels(app core.App, compID string) {
+	matches, err := app.FindRecordsByFilter("matches",
+		"competition = {:comp}", "", 0, 0, map[string]any{"comp": compID})
+	if err != nil {
+		slog.Error("reset warn levels: list matches", "comp", compID, "err", err)
+		return
+	}
+	for _, m := range matches {
+		if m.GetInt("last_warn_level") == 0 {
+			continue
+		}
+		m.Set("last_warn_level", 0)
+		if err := app.Save(m); err != nil {
+			slog.Error("reset warn level", "match", m.Id, "err", err)
+		}
+	}
 }
 
 func setSchedulingFields(record *core.Record, e *core.RequestEvent) {
