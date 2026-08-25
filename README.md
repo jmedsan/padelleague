@@ -98,12 +98,14 @@ seed/                # Dev/test data seeding
 views/               # Go HTML templates (layout + pages + partials)
 static/              # CSS, JS, images, manifest.json, sw.js (PWA)
 frontend/            # Tailwind config + input CSS (build only)
-e2e/                 # Playwright end-to-end tests
+e2e/                 # Playwright end-to-end tests (includes full-season simulation)
 ```
 
 ## CI
 
 `make ci` runs the full gate — six checks: format check (`fmt-check`), lint, dead-code (`dead`), invariants, tests, and vulnerability scan (`vuln`). Any CI provider (GitHub Actions, GitLab CI, Northflank, etc.) just calls `make ci`.
+
+`make e2e` runs the Playwright end-to-end suite, which includes a full-season simulation: an admin creates a competition, players, and pairs through the UI; a complete double round-robin league is played (12 matches with scheduling, disputes, and penalties); standings are asserted against an independent computation covering all tiebreakers (points, set diff, game diff, head-to-head); and a playoff bracket is seeded, played, and resolved to a champion.
 
 ## UI language
 
