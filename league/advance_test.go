@@ -330,3 +330,61 @@ func TestAdvancePlayoff_OutOfOrderFinalization(t *testing.T) {
 	assert.Equal(t, winners[2].Id, got2.GetString("pair1"), "semi2 pair1 = winner of match 2")
 	assert.Equal(t, winners[3].Id, got2.GetString("pair2"), "semi2 pair2 = winner of match 3")
 }
+
+// Re-calling AdvancePlayoff after the next round has already left pending
+// must NOT overwrite its pair slots. This guards against admin overrides on
+// already-final matches re-seeding a match that is in progress or played.
+func TestAdvancePlayoff_SkipsNonPendingNextRound(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	p1 := makePair(t, app, "Guard A")
+	p2 := makePair(t, app, "Guard B")
+	p3 := makePair(t, app, "Guard C")
+	p4 := makePair(t, app, "Guard D")
+	comp := makePlayoffCompetition(t, app, []*core.Record{p1, p2, p3, p4})
+
+	// Round 1: two matches, both final.
+	m1 := makeMatchRound(t, app, comp.Id, p1.Id, p2.Id, 1)
+	m1.Set("status", "final")
+	m1.Set("scores", "6-3 6-4")
+	m1.Set("winner", p1.Id)
+	require.NoError(t, app.Save(m1))
+
+	m2 := makeMatchRound(t, app, comp.Id, p3.Id, p4.Id, 1)
+	m2.Set("status", "final")
+	m2.Set("scores", "6-3 6-4")
+	m2.Set("winner", p3.Id)
+	require.NoError(t, app.Save(m2))
+
+	// Round 2: final match, initially pending.
+	finalMatch := makeMatchRound(t, app, comp.Id, "", "", 2)
+
+	// First advance seeds the final correctly.
+	require.NoError(t, svc.AdvancePlayoff(m2))
+	seeded, err := app.FindRecordById("matches", finalMatch.Id)
+	require.NoError(t, err)
+	assert.Equal(t, p1.Id, seeded.GetString("pair1"))
+	assert.Equal(t, p3.Id, seeded.GetString("pair2"))
+
+	// Simulate: the final match has advanced past pending (score submitted).
+	seeded.Set("status", StatusConfirmed)
+	seeded.Set("scores", "6-2 6-1")
+	require.NoError(t, app.Save(seeded))
+
+	// Admin overrides round 1 match, swapping the winner to p2.
+	m1fresh, err := app.FindRecordById("matches", m1.Id)
+	require.NoError(t, err)
+	m1fresh.Set("winner", p2.Id)
+	require.NoError(t, app.Save(m1fresh))
+
+	// AdvancePlayoff re-fires — must NOT overwrite the confirmed final.
+	require.NoError(t, svc.AdvancePlayoff(m1fresh))
+
+	after, err := app.FindRecordById("matches", finalMatch.Id)
+	require.NoError(t, err)
+	assert.Equal(t, p1.Id, after.GetString("pair1"), "pair1 must not be overwritten")
+	assert.Equal(t, p3.Id, after.GetString("pair2"), "pair2 must not be overwritten")
+	assert.Equal(t, StatusConfirmed, after.GetString("status"), "status must remain confirmed")
+}
