@@ -376,6 +376,8 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 		record.Set("quorum_timeout_hours", hours)
 	}
 
+	setSchedulingFields(record, e)
+
 	if err := h.app.Save(record); err != nil {
 		slog.Error("create competition failed", "err", err)
 		return alertError(e, "Error al crear la competición")
@@ -402,11 +404,7 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 		record.Set("quorum_timeout_hours", hours)
 	}
 
-	if dp := e.Request.FormValue("default_penalty"); dp != "" {
-		if v, err := strconv.Atoi(dp); err == nil {
-			record.Set("default_penalty", v)
-		}
-	}
+	setSchedulingFields(record, e)
 
 	if err := h.app.Save(record); err != nil {
 		slog.Error("update competition failed", "err", err)
@@ -442,6 +440,39 @@ func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 	}
 
 	return redirectHX(e, "/admin/competitions/"+id)
+}
+
+func setSchedulingFields(record *core.Record, e *core.RequestEvent) {
+	if v := e.Request.FormValue("start_date"); v != "" {
+		record.Set("start_date", v)
+	}
+	if v := e.Request.FormValue("end_date"); v != "" {
+		record.Set("end_date", v)
+	}
+
+	grace := 3
+	if v := e.Request.FormValue("arrange_grace_days"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			grace = n
+		}
+	}
+	record.Set("arrange_grace_days", grace)
+
+	record.Set("auto_flag", e.Request.FormValue("auto_flag") == "on")
+
+	ws := e.Request.FormValue("walkover_score")
+	if ws == "" {
+		ws = "6-0 6-0"
+	}
+	record.Set("walkover_score", ws)
+
+	dp := 3
+	if v := e.Request.FormValue("default_penalty"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			dp = n
+		}
+	}
+	record.Set("default_penalty", dp)
 }
 
 func (h *CompetitionHandler) getPenaltyMap(comp *core.Record) map[string]float64 {
