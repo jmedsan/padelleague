@@ -29,11 +29,11 @@ type AdminIssue struct {
 type CompetitionHandler struct {
 	app        core.App
 	leagueSvc  *league.Service
-	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
+	renderPage RenderFunc
 }
 
 // NewCompetitionHandler creates a CompetitionHandler with the given dependencies.
-func NewCompetitionHandler(app core.App, leagueSvc *league.Service, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *CompetitionHandler {
+func NewCompetitionHandler(app core.App, leagueSvc *league.Service, renderPage RenderFunc) *CompetitionHandler {
 	return &CompetitionHandler{app: app, leagueSvc: leagueSvc, renderPage: renderPage}
 }
 

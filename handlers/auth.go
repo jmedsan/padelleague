@@ -14,11 +14,11 @@ import (
 // AuthHandler handles login, registration, and profile completion.
 type AuthHandler struct {
 	app        core.App
-	renderPage func(e *core.RequestEvent, page string, data map[string]any) error
+	renderPage RenderFunc
 }
 
 // NewAuthHandler creates an AuthHandler with the given dependencies.
-func NewAuthHandler(app core.App, renderPage func(e *core.RequestEvent, page string, data map[string]any) error) *AuthHandler {
+func NewAuthHandler(app core.App, renderPage RenderFunc) *AuthHandler {
 	return &AuthHandler{app: app, renderPage: renderPage}
 }
 

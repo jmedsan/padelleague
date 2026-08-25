@@ -13,12 +13,12 @@ import (
 type PublicHandler struct {
 	app             core.App
 	leagueSvc       *league.Service
-	renderPage      func(e *core.RequestEvent, page string, data map[string]any) error
-	renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error
+	renderPage      RenderFunc
+	renderErrorPage RenderErrorFunc
 }
 
 // NewPublicHandler creates a PublicHandler with the given dependencies.
-func NewPublicHandler(app core.App, leagueSvc *league.Service, renderPage func(e *core.RequestEvent, page string, data map[string]any) error, renderErrorPage func(e *core.RequestEvent, statusCode int, message string) error) *PublicHandler {
+func NewPublicHandler(app core.App, leagueSvc *league.Service, renderPage RenderFunc, renderErrorPage RenderErrorFunc) *PublicHandler {
 	return &PublicHandler{app: app, leagueSvc: leagueSvc, renderPage: renderPage, renderErrorPage: renderErrorPage}
 }
 
