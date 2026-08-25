@@ -1,13 +1,17 @@
 package handlers
 
 import (
+	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/pocketbase/pocketbase/tools/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -41,6 +45,50 @@ func setupNotifRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	push := NewPushHandler(app, notifier)
 	e.Router.POST("/push/subscribe", push.Subscribe).BindFunc(requireAuthTest)
 	e.Router.POST("/push/unsubscribe", push.Unsubscribe).BindFunc(requireAuthTest)
+}
+
+func TestNotificationListReturnsNewestFirst(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:               "GET /notifications/list returns newest 10 of 11",
+		Method:             http.MethodGet,
+		URL:                "/notifications/list",
+		ExpectedStatus:     200,
+		ExpectedContent:    []string{"Notif-10", "Notif-01"},
+		NotExpectedContent: []string{"Notif-00"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupNotifRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Order User", "")
+		s.Headers = authHeaders(tb, user)
+
+		base := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+		for i := 0; i < 11; i++ {
+			col, err := app.FindCollectionByNameOrId("notifications")
+			require.NoError(tb, err)
+			n := core.NewRecord(col)
+			n.Set("user", user.Id)
+			n.Set("type", "general")
+			n.Set("title", fmt.Sprintf("Notif-%02d", i))
+			n.Set("body", "body")
+			n.Set("read", false)
+			ts, _ := types.ParseDateTime(base.Add(time.Duration(i) * time.Minute))
+			n.SetRaw("created", ts)
+			require.NoError(tb, app.Save(n))
+		}
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body, err := io.ReadAll(res.Body)
+		require.NoError(tb, err)
+		html := string(body)
+		idx10 := strings.Index(html, "Notif-10")
+		idx01 := strings.Index(html, "Notif-01")
+		assert.Greater(tb, idx10, -1, "newest notification must be present")
+		assert.Greater(tb, idx01, -1, "second oldest must be present")
+		assert.Less(tb, idx10, idx01, "newest (Notif-10) must appear before oldest kept (Notif-01)")
+	}
+	s.Test(t)
 }
 
 func TestMarkReadNotification(t *testing.T) {
