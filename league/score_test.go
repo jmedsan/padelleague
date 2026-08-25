@@ -69,8 +69,7 @@ func TestParseScore(t *testing.T) {
 func TestDetermineWinner_WalkoverError(t *testing.T) {
 	t.Parallel()
 	_, err := DetermineWinner(nil, "WO")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "walkover")
+	assert.ErrorContains(t, err, "walkover")
 }
 
 func TestDetermineWinner_InvalidScore(t *testing.T) {

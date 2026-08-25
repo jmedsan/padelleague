@@ -167,7 +167,7 @@ func TestRequireAppAdmin_UnexpectedRole_Redirects(t *testing.T) {
 // --- CookieAuth ---
 
 func TestCookieAuth_CopiesCookieToHeader(t *testing.T) {
-	var gotHeader string
+	var gotHeader, wantToken string
 	s := tests.ApiScenario{
 		Name:            "cookie value copied to Authorization header",
 		Method:          http.MethodGet,
@@ -182,10 +182,11 @@ func TestCookieAuth_CopiesCookieToHeader(t *testing.T) {
 			return e.String(200, "OK")
 		})
 		player := makeUser(tb, app, "player")
-		s.Headers = map[string]string{"Cookie": "pb_auth=" + authToken(tb, player)}
+		wantToken = authToken(tb, player)
+		s.Headers = map[string]string{"Cookie": "pb_auth=" + wantToken}
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, _ *http.Response) {
-		assert.NotEmpty(tb, gotHeader, "Authorization header must be set from cookie")
+		assert.Equal(tb, wantToken, gotHeader, "Authorization header must equal the cookie token")
 	}
 	s.Test(t)
 }

@@ -213,8 +213,7 @@ func TestTransition_PendingToDisputed_Rejected(t *testing.T) {
 	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
 
 	err := transitionMatch(t, app, m.Id, league.StatusDisputed, nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid transition")
+	assert.ErrorContains(t, err, "invalid transition")
 }
 
 func TestTransition_FinalToAnything_Rejected(t *testing.T) {
@@ -229,8 +228,7 @@ func TestTransition_FinalToAnything_Rejected(t *testing.T) {
 		map[string]any{"scores": "6-3 6-4", "winner": p1.Id}))
 
 	err := transitionMatch(t, app, m.Id, league.StatusPending, nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid transition")
+	assert.ErrorContains(t, err, "invalid transition")
 }
 
 func TestTransition_DisputedToPending_Rejected(t *testing.T) {
@@ -245,8 +243,7 @@ func TestTransition_DisputedToPending_Rejected(t *testing.T) {
 	require.NoError(t, transitionMatch(t, app, m.Id, league.StatusDisputed, nil))
 
 	err := transitionMatch(t, app, m.Id, league.StatusPending, nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid transition")
+	assert.ErrorContains(t, err, "invalid transition")
 }
 
 func TestTransition_ConfirmedToPending_Rejected(t *testing.T) {
@@ -260,8 +257,7 @@ func TestTransition_ConfirmedToPending_Rejected(t *testing.T) {
 	require.NoError(t, transitionMatch(t, app, m.Id, league.StatusConfirmed, nil))
 
 	err := transitionMatch(t, app, m.Id, league.StatusPending, nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid transition")
+	assert.ErrorContains(t, err, "invalid transition")
 }
 
 func TestTransition_SameStatus_Allowed(t *testing.T) {

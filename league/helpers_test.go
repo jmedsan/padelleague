@@ -87,8 +87,7 @@ func TestPlayerTeam_NotParticipant(t *testing.T) {
 
 	outsider := makeUser(t, app, "Outsider", "")
 	_, err := PlayerTeam(app, outsider.Id, match)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not a participant")
+	assert.ErrorContains(t, err, "not a participant")
 }
 
 func TestPlayerName(t *testing.T) {

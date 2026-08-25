@@ -20,7 +20,7 @@ func TestMatchSubmitScore(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID string
+	var matchID, submitterID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Submit A")
@@ -28,9 +28,10 @@ func TestMatchSubmitScore(t *testing.T) {
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		matchID = match.Id
+		submitterID = p1.GetString("player1")
 		s.URL = "/match/" + match.Id + "/submit"
 		s.Body = strings.NewReader("scores=6-3+6-4")
-		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		user, _ := app.FindRecordById("users", submitterID)
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -40,7 +41,7 @@ func TestMatchSubmitScore(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "confirmed", m.GetString("status"))
 		assert.Equal(tb, "6-3 6-4", m.GetString("scores"))
-		assert.NotEmpty(tb, m.GetString("submitted_by"), "submitted_by must be set")
+		assert.Equal(tb, submitterID, m.GetString("submitted_by"))
 		assert.Equal(tb, "/match/"+matchID, res.Header.Get("HX-Redirect"))
 	}
 	s.Test(t)
@@ -130,7 +131,7 @@ func TestMatchWalkover(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID, p1ID string
+	var matchID, p1ID, submitterID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "WO A")
@@ -139,9 +140,10 @@ func TestMatchWalkover(t *testing.T) {
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		matchID = match.Id
 		p1ID = p1.Id
+		submitterID = p1.GetString("player1")
 		s.URL = "/match/" + match.Id + "/walkover"
 		s.Body = strings.NewReader("absent_team=2")
-		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		user, _ := app.FindRecordById("users", submitterID)
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -152,7 +154,7 @@ func TestMatchWalkover(t *testing.T) {
 		assert.Equal(tb, "final", m.GetString("status"))
 		assert.Equal(tb, "WO", m.GetString("scores"))
 		assert.Equal(tb, p1ID, m.GetString("winner"))
-		assert.NotEmpty(tb, m.GetString("submitted_by"), "submitted_by must be set on walkover")
+		assert.Equal(tb, submitterID, m.GetString("submitted_by"))
 		assert.Equal(tb, "/match/"+matchID, res.Header.Get("HX-Redirect"))
 	}
 	s.Test(t)
