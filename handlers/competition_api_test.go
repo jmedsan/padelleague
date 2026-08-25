@@ -47,6 +47,7 @@ func setupCompRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.POST("/competitions/{id}/penalty", comp.ApplyPenalty)
 	g.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
 	g.POST("/disputes/{id}/resolve", admin.DisputesResolve)
+	g.POST("/disputes/{id}/walkover-approve", admin.WalkoverApprove)
 }
 
 func TestCompUpdate(t *testing.T) {

@@ -147,6 +147,138 @@ func TestDisputeResolveAutoWinner(t *testing.T) {
 	s.Test(t)
 }
 
+// --- Report unplayed (walkover request) ---
+
+func TestReportUnplayed(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /match/{id}/report-unplayed sets walkover review",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID, userID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "RptA")
+		p2 := makePairTB(tb, app, "RptB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		userID = user.Id
+		s.URL = "/match/" + match.Id + "/report-unplayed"
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "disputed", m.GetString("status"))
+		assert.Equal(tb, "walkover", m.GetString("review_type"))
+		assert.Equal(tb, userID, m.GetString("walkover_requested_by"))
+		assert.Contains(tb, m.GetString("dispute_notes"), "[No jugado]")
+	}
+	s.Test(t)
+}
+
+func TestReportUnplayed_Idempotent(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /match/{id}/report-unplayed is idempotent",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "IdpA")
+		p2 := makePairTB(tb, app, "IdpB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match.Set("review_type", "walkover")
+		match.Set("status", "disputed")
+		require.NoError(tb, app.Save(match))
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.URL = "/match/" + match.Id + "/report-unplayed"
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+// --- Walkover approve ---
+
+func TestWalkoverApprove(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/disputes/{id}/walkover-approve finalizes match with penalty",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID, p1ID, p2ID, compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "WoApA")
+		p2 := makePairTB(tb, app, "WoApB")
+		p1ID = p1.Id
+		p2ID = p2.Id
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("default_penalty", 5)
+		comp.Set("walkover_score", "6-0 6-0")
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		match.Set("review_type", "walkover")
+		require.NoError(tb, app.Save(match))
+		matchID = match.Id
+		s.URL = "/admin/disputes/" + match.Id + "/walkover-approve"
+		s.Body = strings.NewReader("winner=" + p1.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "final", m.GetString("status"))
+		assert.Equal(tb, "6-0 6-0", m.GetString("scores"))
+		assert.Equal(tb, p1ID, m.GetString("winner"))
+
+		comp, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		penalties := make(map[string]float64)
+		require.NoError(tb, comp.UnmarshalJSONField("penalty_points", &penalties))
+		assert.Equal(tb, 5.0, penalties[p2ID], "losing pair must have penalty applied")
+	}
+	s.Test(t)
+}
+
+func TestWalkoverApprove_NotWalkover(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/disputes/{id}/walkover-approve rejects non-walkover",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"no es una solicitud de walkover"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "WoNonA")
+		p2 := makePairTB(tb, app, "WoNonB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		s.URL = "/admin/disputes/" + match.Id + "/walkover-approve"
+		s.Body = strings.NewReader("winner=" + p1.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
 func TestAdminDisputesPage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

@@ -17,6 +17,8 @@ type DisputeView struct {
 	SubmittedBy  string
 	DisputedBy   string
 	DisputeNotes string
+	ReviewType   string
+	RequestedBy  string
 }
 
 // Disputes renders the admin disputes page listing all disputed matches.
@@ -36,12 +38,74 @@ func (h *AdminHandler) Disputes(e *core.RequestEvent) error {
 			SubmittedBy:  league.PlayerName(h.app, m.GetString("submitted_by")),
 			DisputedBy:   league.PlayerName(h.app, m.GetString("disputed_by")),
 			DisputeNotes: m.GetString("dispute_notes"),
+			ReviewType:   m.GetString("review_type"),
+			RequestedBy:  league.PlayerName(h.app, m.GetString("walkover_requested_by")),
 		})
 	}
 
 	return h.renderPage(e, "admin/disputes.html", map[string]any{
 		"Disputes": views,
 	})
+}
+
+// WalkoverApprove handles POST to approve a walkover request, finalizing the match.
+func (h *AdminHandler) WalkoverApprove(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	match, err := h.app.FindRecordById("matches", id)
+	if err != nil {
+		return alertError(e, "Partido no encontrado")
+	}
+
+	if match.GetString("review_type") != "walkover" {
+		return alertError(e, "Este partido no es una solicitud de walkover")
+	}
+
+	winnerID := e.Request.FormValue("winner")
+	if winnerID != match.GetString("pair1") && winnerID != match.GetString("pair2") {
+		return alertError(e, "El ganador debe ser una de las dos parejas")
+	}
+
+	compID := match.GetString("competition")
+	comp, err := h.app.FindRecordById("competitions", compID)
+	if err != nil {
+		return alertError(e, "Competición no encontrada")
+	}
+
+	woScore := comp.GetString("walkover_score")
+	if woScore == "" {
+		woScore = "6-0 6-0"
+	}
+	if _, err := league.ParseScore(woScore); err != nil {
+		return alertError(e, "El marcador de walkover configurado no es válido: "+woScore)
+	}
+
+	loserID := match.GetString("pair2")
+	if winnerID == loserID {
+		loserID = match.GetString("pair1")
+	}
+
+	match.Set("scores", woScore)
+	match.Set("winner", winnerID)
+	match.Set("status", league.StatusFinal)
+
+	if err := h.app.Save(match); err != nil {
+		return alertError(e, "Error al aprobar el walkover")
+	}
+
+	penalty := comp.GetFloat("default_penalty")
+	if penalty == 0 {
+		penalty = 3
+	}
+	if err := league.ApplyPenalty(h.app, comp, loserID, penalty, true); err != nil {
+		slog.Error("apply walkover penalty", "comp", compID, "pair", loserID, "err", err)
+	}
+
+	allPlayers := append(league.PlayersForPair(h.app, match.GetString("pair1")),
+		league.PlayersForPair(h.app, match.GetString("pair2"))...)
+	h.notifier.NotifyPlayers(allPlayers, "general", "Walkover aprobado", "Un administrador ha resuelto el partido como walkover.", match.Id)
+	notify.EmailNotifyPlayers(h.app, allPlayers, "Walkover aprobado", "Un administrador ha resuelto el partido como walkover.", "/match/"+match.Id)
+
+	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
 // DisputesResolve handles POST to resolve a disputed match with the admin's chosen score.

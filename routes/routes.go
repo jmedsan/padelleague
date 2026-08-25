@@ -123,6 +123,7 @@ func registerAdminRoutes(se *core.ServeEvent, deps Deps) {
 
 	g.GET("/disputes", admin.Disputes)
 	g.POST("/disputes/{id}/resolve", admin.DisputesResolve)
+	g.POST("/disputes/{id}/walkover-approve", admin.WalkoverApprove)
 
 	g.GET("/venues", admin.Venues)
 	g.POST("/venues", admin.VenuesCreate)
@@ -139,6 +140,7 @@ func registerMatchRoutes(se *core.ServeEvent, deps Deps) {
 	se.Router.POST("/match/{id}/walkover", match.MatchWalkover).BindFunc(requireAuth)
 	se.Router.POST("/match/{id}/correct", match.MatchCorrect).BindFunc(requireAuth)
 	se.Router.POST("/match/{id}/admin-override", match.AdminOverride).BindFunc(requireAuth)
+	se.Router.POST("/match/{id}/report-unplayed", match.ReportUnplayed).BindFunc(requireAuth)
 
 	thread := handlers.NewThreadHandler(deps.App, deps.Notifier, deps.Renderer.Page, deps.Renderer.Partial)
 	se.Router.GET("/match/{id}/thread", thread.Thread).BindFunc(requireAuth)

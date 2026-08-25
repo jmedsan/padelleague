@@ -266,6 +266,7 @@ func setupAllRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	e.Router.POST("/match/{id}/walkover", match.MatchWalkover).BindFunc(requireAuthTest)
 	e.Router.POST("/match/{id}/correct", match.MatchCorrect).BindFunc(requireAuthTest)
 	e.Router.POST("/match/{id}/admin-override", match.AdminOverride).BindFunc(requireAuthTest)
+	e.Router.POST("/match/{id}/report-unplayed", match.ReportUnplayed).BindFunc(requireAuthTest)
 
 	thread := NewThreadHandler(app, notifier, r.Page, r.Partial)
 	e.Router.GET("/match/{id}/thread", thread.Thread).BindFunc(requireAuthTest)

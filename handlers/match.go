@@ -353,6 +353,46 @@ func (h *MatchHandler) detectVenueChange(match *core.Record, venueID string) []s
 	return []string{"Club cambiado: " + old + " → " + venueName}
 }
 
+// ReportUnplayed lets a participant report a match as unplayed (walkover request).
+// The match moves to disputed with review_type=walkover for admin approval.
+func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	match, err := h.app.FindRecordById("matches", id)
+	if err != nil {
+		return alertError(e, "Partido no encontrado")
+	}
+
+	userID := e.Auth.Id
+	if _, err := league.PlayerTeam(h.app, userID, match); err != nil {
+		return alertError(e, "No eres participante de este partido")
+	}
+
+	if match.GetString("review_type") == "walkover" {
+		return redirectHX(e, "/match/"+id)
+	}
+
+	status := match.GetString("status")
+	if status != league.StatusPending && status != league.StatusConfirmed {
+		return alertError(e, "Este partido no puede reportarse como no jugado")
+	}
+
+	notes := match.GetString("dispute_notes")
+	match.Set("review_type", "walkover")
+	match.Set("walkover_requested_by", userID)
+	match.Set("status", league.StatusDisputed)
+	match.Set("dispute_notes", "[No jugado] "+notes)
+
+	if err := h.app.Save(match); err != nil {
+		return alertError(e, "Error al reportar")
+	}
+
+	if err := h.notifier.NotifyAdmins("dispute", "Partido no jugado", "Un jugador ha reportado un partido como no jugado.", id); err != nil {
+		slog.Error("notify admins walkover report", "match", id, "err", err)
+	}
+
+	return redirectHX(e, "/match/"+id)
+}
+
 func playerNameIfSet(app core.App, userID string) string {
 	if userID == "" {
 		return ""
