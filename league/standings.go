@@ -1,13 +1,11 @@
 package league
 
 import (
-	"encoding/json"
 	"log/slog"
 	"sort"
 	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/types"
 )
 
 // StandingRowFull holds a pair's full standings row including all tiebreaker fields.
@@ -111,20 +109,8 @@ func creditWin(s1, s2 *pairStats, winner, p1, p2 string) {
 
 func parsePenalties(comp *core.Record) map[string]float64 {
 	penaltyMap := map[string]float64{}
-	rawPen := comp.Get("penalty_points")
-	switch v := rawPen.(type) {
-	case types.JSONRaw:
-		if len(v) > 0 {
-			if err := json.Unmarshal(v, &penaltyMap); err != nil {
-				slog.Warn("unmarshal penalty_points", "err", err)
-			}
-		}
-	case map[string]any:
-		for k, val := range v {
-			if f, ok := val.(float64); ok {
-				penaltyMap[k] = f
-			}
-		}
+	if err := comp.UnmarshalJSONField("penalty_points", &penaltyMap); err != nil {
+		slog.Warn("unmarshal penalty_points", "err", err)
 	}
 	return penaltyMap
 }
