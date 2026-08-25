@@ -100,6 +100,29 @@ async function seedTestData() {
   const matchesData = await matchesResp.json();
   const matches = matchesData.items || [];
 
+  // Two pairs produce exactly one round-robin match, and the desktop and
+  // mobile projects share one database. Tests that submit a score or accept a
+  // proposal mutate that match, so whichever project ran second found it
+  // already played and failed. Add one scratch match per project so those
+  // tests get an untouched match each. Two mutating tests across two projects
+  // means four, since a test that confirms a match leaves nothing pending for
+  // the next one.
+  for (let i = 0; i < 4; i++) {
+    const extra = await fetch(`${BASE_URL}/api/collections/matches/records`, {
+      method: 'POST',
+      headers: { 'Authorization': adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        competition: compId,
+        pair1: pair1Id,
+        pair2: pair2Id,
+        status: 'pending',
+        round_number: i + 2,
+      }),
+    });
+    if (!extra.ok) throw new Error(`scratch match ${i}: ${extra.status} ${await extra.text()}`);
+    matches.push(await extra.json());
+  }
+
   // Create a venue
   const venueId = await createVenue('Pista Central', adminToken);
 

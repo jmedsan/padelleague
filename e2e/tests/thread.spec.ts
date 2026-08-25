@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginAs, loadTestData, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
+import { loginAs, scratchMatchId, loadTestData, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 test.describe('match thread', () => {
   test('player can view match thread', async ({ page }) => {
@@ -26,10 +26,11 @@ test.describe('match thread', () => {
     );
   });
 
-  test('player can propose a schedule', async ({ page }) => {
-    const data = loadTestData();
+  test('player can propose a schedule', async ({ page }, testInfo) => {
+    // Needs a match still pending: the proposal form disappears once a score
+    // is submitted, and another test submits one to the shared match.
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.goto(`/match/${data.matchIds[0]}`);
+    await page.goto(`/match/${scratchMatchId("propose-schedule", testInfo.project.name)}`);
     const collapseTitle = page.locator('.collapse-title', { hasText: /proponer fecha/i });
     await expect(collapseTitle).toBeVisible({ timeout: 10000 });
     await collapseTitle.locator('..').locator('input[type="checkbox"]').click();
