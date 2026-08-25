@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginAs, loadTestData, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, scratchMatchId, loadTestData, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 
 test.describe('match lifecycle', () => {
   test('player can view match detail', async ({ page }) => {
@@ -10,10 +10,9 @@ test.describe('match lifecycle', () => {
     await expect(page.getByText('Pareja Beta').first()).toBeVisible();
   });
 
-  test('player can submit score', async ({ page }) => {
-    const data = loadTestData();
+  test('player can submit score', async ({ page }, testInfo) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.goto(`/match/${data.matchIds[0]}`);
+    await page.goto(`/match/${scratchMatchId("submit-score", testInfo.project.name)}`);
     await expect(page.locator('select[name="s1a"]')).toBeVisible({ timeout: 5000 });
     await page.selectOption('select[name="s1a"]', '6');
     await page.selectOption('select[name="s1b"]', '3');
