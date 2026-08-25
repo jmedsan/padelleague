@@ -433,3 +433,109 @@ func makeFinalMatchTB(tb testing.TB, app core.App, compID, p1ID, p2ID, score, wi
 	record.Set("round_number", 1)
 	require.NoError(tb, app.Save(record))
 }
+
+func TestHomeWithCompetitionData(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET / with active competition shows home data",
+		Method:          http.MethodGet,
+		URL:             "/",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Home A", "Home B"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Home A")
+		p2 := makePairTB(tb, app, "Home B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		// Pending match — triggers buildNextMatch, buildHomeCompetition
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		// Confirmed match — triggers findUnconfirmedScores
+		confirmed := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
+		confirmed.Set("scores", "6-3 6-4")
+		confirmed.Set("submitted_by", p1.GetString("player1"))
+		require.NoError(tb, app.Save(confirmed))
+
+		// Final match — triggers findRecentResults
+		col, _ := app.FindCollectionByNameOrId("matches")
+		final := core.NewRecord(col)
+		final.Set("competition", comp.Id)
+		final.Set("pair1", p1.Id)
+		final.Set("pair2", p2.Id)
+		final.Set("status", "final")
+		final.Set("scores", "6-2 6-1")
+		final.Set("winner", p1.Id)
+		final.Set("round_number", 1)
+		require.NoError(tb, app.Save(final))
+
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestCompetitionPageWithMatches(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /competition/{id} with matches shows pair names",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Comp A", "Comp B"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Comp A")
+		p2 := makePairTB(tb, app, "Comp B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestHomeWithScheduledMatch(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET / with pending proposal and scheduled match",
+		Method:          http.MethodGet,
+		URL:             "/",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Sched A"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Sched A")
+		p2 := makePairTB(tb, app, "Sched B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		// Match with scheduled date and a pending proposal
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match.Set("date", "2026-09-20 19:00:00.000Z")
+		match.Set("time", "19:00")
+		match.Set("club", "Padel 360")
+		require.NoError(tb, app.Save(match))
+
+		// Add a pending proposal from opponent
+		col, _ := app.FindCollectionByNameOrId("match_messages")
+		msg := core.NewRecord(col)
+		msg.Set("match", match.Id)
+		msg.Set("author", p2.GetString("player1"))
+		msg.Set("type", "scheduling_proposal")
+		msg.Set("proposal_data", map[string]any{
+			"date": "2026-09-25", "time": "20:00", "venue_name": "Wurko",
+		})
+		msg.Set("proposal_status", "pending")
+		require.NoError(tb, app.Save(msg))
+
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}

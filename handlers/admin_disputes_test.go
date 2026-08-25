@@ -146,3 +146,25 @@ func TestDisputeResolveAutoWinner(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestAdminDisputesPage(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/disputes with disputed match",
+		Method:          http.MethodGet,
+		URL:             "/admin/disputes",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Disputas"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupFullAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "DispPageA")
+		p2 := makePairTB(tb, app, "DispPageB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}

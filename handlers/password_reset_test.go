@@ -228,3 +228,108 @@ func TestForgotPasswordSubmitSendFailure(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestForgotPasswordPage(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /forgot-password returns form",
+		Method:          http.MethodGet,
+		URL:             "/forgot-password",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Restablecer contraseña"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+	}
+	s.Test(t)
+}
+
+func TestForgotPasswordSubmit(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /forgot-password shows success",
+		Method:          http.MethodPost,
+		URL:             "/forgot-password",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"alert-"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		s.Body = strings.NewReader("email=test@test.local")
+		s.Headers = map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
+	}
+	s.Test(t)
+}
+
+func TestResetPasswordPage(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /reset-password returns form",
+		Method:          http.MethodGet,
+		URL:             "/reset-password?token=test",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Nueva contrase"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+	}
+	s.Test(t)
+}
+
+func TestResetPasswordSubmitInvalidToken(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /reset-password with bad token shows error",
+		Method:          http.MethodPost,
+		URL:             "/reset-password",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"alert-error"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		s.Body = strings.NewReader("token=invalid&password=newpass123456&passwordConfirm=newpass123456")
+		s.Headers = map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
+	}
+	s.Test(t)
+}
+
+func TestResetPasswordSubmitMismatch(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /reset-password with mismatched passwords",
+		Method:          http.MethodPost,
+		URL:             "/reset-password",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"no coinciden"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		s.Body = strings.NewReader("token=test&password=abc&passwordConfirm=xyz")
+		s.Headers = map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
+	}
+	s.Test(t)
+}
+
+func TestForgotPasswordSubmitWithUser(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /forgot-password with existing user",
+		Method:          http.MethodPost,
+		URL:             "/forgot-password",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"alert-"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		makeUserTB(tb, app, "Reset User", "resetuser@test.local")
+		s.Body = strings.NewReader("email=resetuser@test.local")
+		s.Headers = map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
+	}
+	s.Test(t)
+}

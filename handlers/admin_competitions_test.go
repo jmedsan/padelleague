@@ -1123,3 +1123,215 @@ func TestDetailRoundSortOrder(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+// TestPaymentStatusSurvivesDBRoundTrip toggles a pair's payment, then
+// re-reads the competition from the database and verifies the status
+// persists. The bug: getPaymentStatus used a type switch that didn't
+// handle types.JSONRaw, so after a DB round-trip the payment map was
+// always empty.
+func TestPaymentStatusSurvivesDBRoundTrip(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/payment persists after DB round-trip",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, pairID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "Pay A")
+		p2 := makePairTB(tb, app, "Pay B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		compID = comp.Id
+		pairID = p1.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/payment"
+		s.Body = strings.NewReader("pair_id=" + p1.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		comp, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+
+		var status map[string]bool
+		require.NoError(tb, comp.UnmarshalJSONField("payment_status", &status))
+		assert.True(tb, status[pairID],
+			"pair must be marked paid after toggle and DB round-trip")
+	}
+	s.Test(t)
+}
+
+// TestPenaltyMapSurvivesDBRoundTrip sets a penalty, re-reads from DB,
+// verifies getPenaltyMap returns the correct value.
+func TestPenaltyMapSurvivesDBRoundTrip(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/penalty persists after DB round-trip",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, pairID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "Pen A")
+		p2 := makePairTB(tb, app, "Pen B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		compID = comp.Id
+		pairID = p1.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/penalty"
+		s.Body = strings.NewReader("pair_id=" + p1.Id + "&action=apply")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		comp, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+
+		var penalties map[string]float64
+		require.NoError(tb, comp.UnmarshalJSONField("penalty_points", &penalties))
+		assert.Equal(tb, float64(3), penalties[pairID],
+			"penalty must persist after DB round-trip")
+	}
+	s.Test(t)
+}
+
+func TestAdminCompetitionDetailWithData(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/competitions/{id} with matches and disputes",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Detail A", "Detail B"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "Detail A")
+		p2 := makePairTB(tb, app, "Detail B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		// Pending match
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		// Confirmed match (stale)
+		confirmed := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
+		confirmed.Set("scores", "6-3 6-4")
+		confirmed.Set("submitted_by", p1.GetString("player1"))
+		require.NoError(tb, app.Save(confirmed))
+
+		// Disputed match
+		disputed := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		disputed.Set("scores", "6-3 6-4")
+		disputed.Set("dispute_notes", "Score wrong")
+		require.NoError(tb, app.Save(disputed))
+
+		// Final match
+		col, _ := app.FindCollectionByNameOrId("matches")
+		final := core.NewRecord(col)
+		final.Set("competition", comp.Id)
+		final.Set("pair1", p1.Id)
+		final.Set("pair2", p2.Id)
+		final.Set("status", "final")
+		final.Set("scores", "6-2 6-1")
+		final.Set("winner", p1.Id)
+		final.Set("round_number", 1)
+		require.NoError(tb, app.Save(final))
+
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestAdminCompDetailWithPenalties(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/competitions/{id} with penalties/seeding/payment",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Pen A", "Pen B"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "Pen A")
+		p2 := makePairTB(tb, app, "Pen B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		comp.Set("penalty_points", map[string]any{p1.Id: 1.0})
+		comp.Set("payment_status", map[string]any{p1.Id: true, p2.Id: false})
+		comp.Set("seeding", map[string]any{p1.Id: 1, p2.Id: 2})
+		comp.Set("quorum_timeout_hours", 48)
+		require.NoError(tb, app.Save(comp))
+
+		// Add matches at different statuses to cover classifyMatchIssues
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		confirmed := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
+		confirmed.Set("scores", "6-3 6-4")
+		confirmed.Set("submitted_by", p1.GetString("player1"))
+		require.NoError(tb, app.Save(confirmed))
+
+		disputed := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		disputed.Set("scores", "6-3 6-4")
+		disputed.Set("dispute_notes", "Wrong score")
+		require.NoError(tb, app.Save(disputed))
+
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestAdminCopyPairs(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/competitions/{id}/copy-pairs copies pairs",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"copiadas"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupFullAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "CopyA")
+		p2 := makePairTB(tb, app, "CopyB")
+		source := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		target := makeCompetitionTB(tb, app, "league", nil)
+		s.URL = "/admin/competitions/" + target.Id + "/copy-pairs"
+		s.Body = strings.NewReader("source_competition=" + source.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestAdminTogglePaymentAll(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/payment-all marks all paid",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupFullAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "PayAllA")
+		p2 := makePairTB(tb, app, "PayAllB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		s.URL = "/admin/competitions/" + comp.Id + "/payment-all"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}

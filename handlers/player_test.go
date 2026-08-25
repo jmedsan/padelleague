@@ -622,3 +622,50 @@ func TestGen2_PlayerProfile_ZeroMatches(t *testing.T) {
 
 	s.Test(t)
 }
+
+func TestPlayerProfileWithMatches(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /player/{id} with match history shows stats",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Stats A"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Stats A")
+		p2 := makePairTB(tb, app, "Stats B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		// Create several final matches with winners for streak calculations
+		for i := 0; i < 3; i++ {
+			col, _ := app.FindCollectionByNameOrId("matches")
+			m := core.NewRecord(col)
+			m.Set("competition", comp.Id)
+			m.Set("pair1", p1.Id)
+			m.Set("pair2", p2.Id)
+			m.Set("status", "final")
+			m.Set("scores", "6-3 6-4")
+			m.Set("winner", p1.Id)
+			m.Set("round_number", i+1)
+			require.NoError(tb, app.Save(m))
+		}
+		// One loss
+		col, _ := app.FindCollectionByNameOrId("matches")
+		m := core.NewRecord(col)
+		m.Set("competition", comp.Id)
+		m.Set("pair1", p1.Id)
+		m.Set("pair2", p2.Id)
+		m.Set("status", "final")
+		m.Set("scores", "3-6 4-6")
+		m.Set("winner", p2.Id)
+		m.Set("round_number", 4)
+		require.NoError(tb, app.Save(m))
+
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.URL = "/player/" + user.Id
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
