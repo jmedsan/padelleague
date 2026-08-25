@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/pocketbase/pocketbase/tools/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -398,4 +400,130 @@ func TestAdvancePlayoffSuccess_NoNotification(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, p1.Id, updated.GetString("pair1"))
 	assert.Equal(t, p4.Id, updated.GetString("pair2"))
+}
+
+// --- Scheduling reminder cron tests ---
+
+func makeLeagueComp(t *testing.T, app core.App, pairs []*core.Record, start, end time.Time, rounds int) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("competitions")
+	require.NoError(t, err)
+	r := core.NewRecord(col)
+	r.Set("name", "Sched Test League")
+	r.Set("type", "league")
+	r.Set("active", true)
+	r.Set("rounds", rounds)
+	r.Set("arrange_grace_days", 3)
+	ids := make([]string, len(pairs))
+	for i, p := range pairs {
+		ids[i] = p.Id
+	}
+	r.Set("pairs", ids)
+	sd, _ := types.ParseDateTime(start)
+	r.Set("start_date", sd)
+	ed, _ := types.ParseDateTime(end)
+	r.Set("end_date", ed)
+	require.NoError(t, app.Save(r))
+	return r
+}
+
+func TestSchedulingReminder_SendsAndEscalates(t *testing.T) {
+	app := newTestApp(t)
+	notifier := notify.NewNotifier(app, "", "")
+
+	p1 := makePair(t, app, "ScA")
+	p2 := makePair(t, app, "ScB")
+
+	start := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	comp := makeLeagueComp(t, app, []*core.Record{p1, p2}, start, end, 1)
+
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+
+	// RecommendedArrangeBy for round 1/1 = end = Sep 1
+	// With grace=3, overdue after Sep 4
+	// WarnUrgent starts at end - 1 day = Aug 31
+	// Simulate "now" as Sep 2 (between deadline and overdue) → WarnUrgent
+	// But checkSchedulingReminders uses time.Now() — we can't easily fake it.
+	// Instead, set dates so that NOW is past overdue.
+
+	// Set dates so that now is past the overdue window.
+	// recommendedBy = end (round 1/1), overdue = end + 3 days
+	// If end is 20 days ago, now is well past overdue.
+	pastEnd := time.Now().AddDate(0, 0, -20)
+	pastStart := pastEnd.AddDate(0, -1, 0)
+	compRec, err := app.FindRecordById("competitions", comp.Id)
+	require.NoError(t, err)
+	sd, _ := types.ParseDateTime(pastStart)
+	compRec.Set("start_date", sd)
+	ed, _ := types.ParseDateTime(pastEnd)
+	compRec.Set("end_date", ed)
+	require.NoError(t, app.Save(compRec))
+
+	// Run the cron function
+	checkSchedulingReminders(app, notifier)
+
+	// Check notification was sent
+	notifs, err := app.FindRecordsByFilter("notifications",
+		"type = 'scheduling'", "", 0, 0, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, notifs, "should send at least one scheduling reminder")
+
+	// Check last_warn_level was bumped
+	updated := freshMatch(t, app, m.Id)
+	assert.Equal(t, int(league.WarnOverdue), updated.GetInt("last_warn_level"))
+
+	// Count notifications
+	firstCount := len(notifs)
+
+	// Run again — should NOT send another notification (escalation guard)
+	checkSchedulingReminders(app, notifier)
+
+	notifs2, err := app.FindRecordsByFilter("notifications",
+		"type = 'scheduling'", "", 0, 0, nil)
+	require.NoError(t, err)
+	assert.Equal(t, firstCount, len(notifs2), "second run must not send duplicate reminders")
+}
+
+func TestSchedulingReminder_SkipsNoDateComp(t *testing.T) {
+	app := newTestApp(t)
+	notifier := notify.NewNotifier(app, "", "")
+
+	p1 := makePair(t, app, "NdA")
+	p2 := makePair(t, app, "NdB")
+
+	col, err := app.FindCollectionByNameOrId("competitions")
+	require.NoError(t, err)
+	r := core.NewRecord(col)
+	r.Set("name", "No Date League")
+	r.Set("type", "league")
+	r.Set("active", true)
+	r.Set("rounds", 1)
+	r.Set("pairs", []string{p1.Id, p2.Id})
+	require.NoError(t, app.Save(r))
+
+	makeMatch(t, app, r.Id, p1.Id, p2.Id, 1)
+
+	checkSchedulingReminders(app, notifier)
+
+	notifs, err := app.FindRecordsByFilter("notifications",
+		"type = 'scheduling'", "", 0, 0, nil)
+	require.NoError(t, err)
+	assert.Empty(t, notifs, "no reminders for competition without dates")
+}
+
+func TestCronRegistration_SchedulingReminders(t *testing.T) {
+	app := newTestApp(t)
+	registerHooksWithNotifier(t, app)
+
+	jobs := app.Cron().Jobs()
+	var found bool
+	for _, j := range jobs {
+		if j.Id() == "scheduling-reminders" {
+			found = true
+			assert.Equal(t, "0 9 * * *", j.Expression())
+			break
+		}
+	}
+	assert.True(t, found, "scheduling-reminders cron job must be registered")
 }

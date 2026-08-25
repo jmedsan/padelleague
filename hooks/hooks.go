@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 
@@ -47,6 +48,63 @@ func handleAdvance(svc *league.Service, notifier *notify.Notifier, rec *core.Rec
 	}
 }
 
+func checkSchedulingReminders(app core.App, notifier *notify.Notifier) {
+	comps, err := app.FindRecordsByFilter("competitions", "active = true", "", 0, 0, nil)
+	if err != nil {
+		slog.Error("scheduling reminders: list competitions", "err", err)
+		return
+	}
+
+	now := time.Now()
+	for _, comp := range comps {
+		start := comp.GetDateTime("start_date").Time()
+		end := comp.GetDateTime("end_date").Time()
+		if start.IsZero() || end.IsZero() {
+			continue
+		}
+		rounds := comp.GetInt("rounds")
+		if rounds == 0 {
+			continue
+		}
+		graceDays := comp.GetInt("arrange_grace_days")
+
+		matches, err := app.FindRecordsByFilter("matches",
+			"competition = {:comp} && status = 'pending'",
+			"", 0, 0, map[string]any{"comp": comp.Id})
+		if err != nil {
+			slog.Error("scheduling reminders: list matches", "comp", comp.Id, "err", err)
+			continue
+		}
+
+		for _, m := range matches {
+			roundNum := m.GetInt("round_number")
+			recommendedBy, ok := league.RecommendedArrangeBy(start, end, rounds, roundNum)
+			if !ok {
+				continue
+			}
+
+			level := league.WarningLevel(recommendedBy, graceDays, now)
+			lastLevel := m.GetInt("last_warn_level")
+			if int(level) <= lastLevel {
+				continue
+			}
+
+			playerIDs := append(
+				league.PlayersForPair(app, m.GetString("pair1")),
+				league.PlayersForPair(app, m.GetString("pair2"))...,
+			)
+
+			body := fmt.Sprintf("Tu partido está %s. Organízalo antes de que venza el plazo.", level.Label())
+			notifier.NotifyPlayers(playerIDs, "scheduling", "Recordatorio: organiza tu partido", body, m.Id)
+
+			m.Set("last_warn_level", int(level))
+			if err := app.Save(m); err != nil {
+				slog.Error("scheduling reminder save last_warn_level", "match", m.Id, "err", err)
+			}
+		}
+	}
+}
+
 // Register wires all PocketBase event hooks and cron jobs onto the given app.
 func Register(app core.App, svc *league.Service, notifier *notify.Notifier) {
 	app.OnRecordCreate("users").BindFunc(func(e *core.RecordEvent) error {
@@ -71,5 +129,9 @@ func Register(app core.App, svc *league.Service, notifier *notify.Notifier) {
 
 	app.Cron().MustAdd("quorum-timeout", "*/5 * * * *", func() {
 		svc.ConfirmStaleMatches()
+	})
+
+	app.Cron().MustAdd("scheduling-reminders", "0 9 * * *", func() {
+		checkSchedulingReminders(app, notifier)
 	})
 }
