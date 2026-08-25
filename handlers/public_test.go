@@ -539,3 +539,44 @@ func TestHomeWithScheduledMatch(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestHome_RecentResultsNonEmpty(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "home page shows recent results for final matches newest-first",
+		Method:         http.MethodGet,
+		URL:            "/",
+		ExpectedStatus: 200,
+		ExpectedContent: []string{"Últimos resultados", "6-1 6-2", "6-3 6-4"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Result A")
+		p2 := makePairTB(tb, app, "Result B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		col, _ := app.FindCollectionByNameOrId("matches")
+		for i, score := range []string{"6-1 6-2", "6-3 6-4"} {
+			m := core.NewRecord(col)
+			m.Set("competition", comp.Id)
+			m.Set("pair1", p1.Id)
+			m.Set("pair2", p2.Id)
+			m.Set("status", "final")
+			m.Set("scores", score)
+			m.Set("winner", p1.Id)
+			m.Set("round_number", i+1)
+			require.NoError(tb, app.Save(m))
+		}
+
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "6-1 6-2", "first final match score must appear")
+		assert.Contains(tb, body, "6-3 6-4", "second final match score must appear")
+		assert.Contains(tb, body, "Últimos resultados", "recent results heading must appear")
+	}
+	s.Test(t)
+}
