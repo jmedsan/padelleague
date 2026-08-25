@@ -42,18 +42,27 @@ func formatICalDate(dateStr, timeStr string) (string, string) {
 	return start.Format(icalFmt), end.Format(icalFmt)
 }
 
-func buildVEvent(uid, dtStart, dtEnd, summary, location, description string) string {
+type vEvent struct {
+	UID         string
+	DTStart     string
+	DTEnd       string
+	Summary     string
+	Location    string
+	Description string
+}
+
+func buildVEvent(ev vEvent) string {
 	var b strings.Builder
 	b.WriteString("BEGIN:VEVENT\r\n")
-	b.WriteString("UID:" + uid + "\r\n")
-	b.WriteString("DTSTART:" + dtStart + "\r\n")
-	b.WriteString("DTEND:" + dtEnd + "\r\n")
-	b.WriteString("SUMMARY:" + summary + "\r\n")
-	if location != "" {
-		b.WriteString("LOCATION:" + location + "\r\n")
+	b.WriteString("UID:" + ev.UID + "\r\n")
+	b.WriteString("DTSTART:" + ev.DTStart + "\r\n")
+	b.WriteString("DTEND:" + ev.DTEnd + "\r\n")
+	b.WriteString("SUMMARY:" + ev.Summary + "\r\n")
+	if ev.Location != "" {
+		b.WriteString("LOCATION:" + ev.Location + "\r\n")
 	}
-	if description != "" {
-		b.WriteString("DESCRIPTION:" + description + "\r\n")
+	if ev.Description != "" {
+		b.WriteString("DESCRIPTION:" + ev.Description + "\r\n")
 	}
 	b.WriteString("END:VEVENT\r\n")
 	return b.String()
@@ -97,7 +106,14 @@ func (h *ICalHandler) Match(e *core.RequestEvent) error {
 		}
 	}
 
-	event := buildVEvent(match.Id+"@padelleague", dtStart, dtEnd, summary, location, description)
+	event := buildVEvent(vEvent{
+		UID:         match.Id + "@padelleague",
+		DTStart:     dtStart,
+		DTEnd:       dtEnd,
+		Summary:     summary,
+		Location:    location,
+		Description: description,
+	})
 	ics := wrapVCalendar(event)
 
 	e.Response.Header().Set("Content-Type", "text/calendar")
@@ -137,7 +153,14 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 
 		description := fmt.Sprintf("Jornada %d", int(m.GetFloat("round_number")))
 
-		events.WriteString(buildVEvent(m.Id+"@padelleague", dtStart, dtEnd, summary, location, description))
+		events.WriteString(buildVEvent(vEvent{
+			UID:         m.Id + "@padelleague",
+			DTStart:     dtStart,
+			DTEnd:       dtEnd,
+			Summary:     summary,
+			Location:    location,
+			Description: description,
+		}))
 	}
 
 	ics := wrapVCalendar(events.String())
