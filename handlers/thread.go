@@ -80,7 +80,7 @@ func ParseProposalData(raw any) *ProposalData {
 
 func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, myTeam int) []ThreadMessage {
 	messages, _ := h.app.FindRecordsByFilter("match_messages",
-		"match = {:mid}", "", 0, 0,
+		"match = {:mid}", "created", 0, 0,
 		map[string]any{"mid": matchID})
 
 	sort.Slice(messages, func(i, j int) bool {
