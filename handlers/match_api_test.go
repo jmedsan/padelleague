@@ -402,7 +402,7 @@ func TestMatchWalkoverAbsentTeam1(t *testing.T) {
 
 // --- Playoff date validation (T6a) ---
 
-func makeMatchWithRound(t testing.TB, app core.App, compID, p1ID, p2ID, status string, round int) *core.Record {
+func makeMatchWithRound(t testing.TB, app core.App, compID, p1ID, p2ID string, round int) *core.Record {
 	t.Helper()
 	col, err := app.FindCollectionByNameOrId("matches")
 	require.NoError(t, err)
@@ -410,7 +410,7 @@ func makeMatchWithRound(t testing.TB, app core.App, compID, p1ID, p2ID, status s
 	r.Set("competition", compID)
 	r.Set("pair1", p1ID)
 	r.Set("pair2", p2ID)
-	r.Set("status", status)
+	r.Set("status", "pending")
 	r.Set("round_number", round)
 	require.NoError(t, app.Save(r))
 	return r
@@ -435,11 +435,11 @@ func TestAdminOverride_PlayoffDateOrderRejected(t *testing.T) {
 		p4 := makePairTB(tb, app, "PoD")
 		comp := makeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2, p3, p4})
 
-		qf := makeMatchWithRound(tb, app, comp.Id, p1.Id, p2.Id, "pending", 1)
+		qf := makeMatchWithRound(tb, app, comp.Id, p1.Id, p2.Id, 1)
 		qf.Set("date", "2026-10-15")
 		require.NoError(tb, app.Save(qf))
 
-		sf := makeMatchWithRound(tb, app, comp.Id, p3.Id, p4.Id, "pending", 2)
+		sf := makeMatchWithRound(tb, app, comp.Id, p3.Id, p4.Id, 2)
 		semifinalID = sf.Id
 
 		s.URL = "/match/" + sf.Id + "/admin-override"
@@ -474,11 +474,11 @@ func TestAdminOverride_PlayoffDateOrderAccepted(t *testing.T) {
 		p4 := makePairTB(tb, app, "PvD")
 		comp := makeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2, p3, p4})
 
-		qf := makeMatchWithRound(tb, app, comp.Id, p1.Id, p2.Id, "pending", 1)
+		qf := makeMatchWithRound(tb, app, comp.Id, p1.Id, p2.Id, 1)
 		qf.Set("date", "2026-10-15")
 		require.NoError(tb, app.Save(qf))
 
-		sf := makeMatchWithRound(tb, app, comp.Id, p3.Id, p4.Id, "pending", 2)
+		sf := makeMatchWithRound(tb, app, comp.Id, p3.Id, p4.Id, 2)
 		semifinalID = sf.Id
 
 		s.URL = "/match/" + sf.Id + "/admin-override"
@@ -511,11 +511,11 @@ func TestAdminOverride_LeagueDateNoValidation(t *testing.T) {
 		p2 := makePairTB(tb, app, "LgB")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 
-		m1 := makeMatchWithRound(tb, app, comp.Id, p1.Id, p2.Id, "pending", 1)
+		m1 := makeMatchWithRound(tb, app, comp.Id, p1.Id, p2.Id, 1)
 		m1.Set("date", "2026-10-20")
 		require.NoError(tb, app.Save(m1))
 
-		m2 := makeMatchWithRound(tb, app, comp.Id, p1.Id, p2.Id, "pending", 2)
+		m2 := makeMatchWithRound(tb, app, comp.Id, p1.Id, p2.Id, 2)
 		matchID = m2.Id
 
 		s.URL = "/match/" + m2.Id + "/admin-override"
