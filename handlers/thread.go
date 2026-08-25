@@ -288,23 +288,9 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 		return alertError(e, "No eres participante de este partido")
 	}
 
-	date := e.Request.FormValue("date")
-	time := e.Request.FormValue("time")
-	venueID := e.Request.FormValue("venue_id")
-	venueText := e.Request.FormValue("venue_text")
-
-	if date == "" || time == "" {
-		return alertError(e, "Fecha y hora son obligatorias")
-	}
-
-	venueID, venueName := h.resolveVenue(venueID, venueText)
-
-	pd := ProposalData{
-		Date:      date,
-		Time:      time,
-		VenueID:   venueID,
-		VenueName: venueName,
-		VenueText: venueText,
+	pd, err := h.parseProposalForm(e)
+	if err != nil {
+		return err
 	}
 	pdJSON, _ := json.Marshal(pd)
 
@@ -324,7 +310,7 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 		return alertError(e, "Error al crear propuesta")
 	}
 
-	h.notifyProposal(match, myTeam, proposalNotice{AuthorID: e.Auth.Id, Date: date, Time: time, VenueName: venueName})
+	h.notifyProposal(match, myTeam, proposalNotice{AuthorID: e.Auth.Id, Date: pd.Date, Time: pd.Time, VenueName: pd.VenueName})
 	return redirectHX(e, "/match/"+matchID)
 }
 
@@ -343,6 +329,26 @@ func (h *ThreadHandler) notifyProposal(match *core.Record, myTeam int, n proposa
 		"Propuesta de fecha",
 		fmt.Sprintf("%s propone jugar el %s a las %s en %s", authorName, n.Date, n.Time, n.VenueName),
 		match.Id)
+}
+
+func (h *ThreadHandler) parseProposalForm(e *core.RequestEvent) (ProposalData, error) {
+	date := e.Request.FormValue("date")
+	timeVal := e.Request.FormValue("time")
+	venueID := e.Request.FormValue("venue_id")
+	venueText := e.Request.FormValue("venue_text")
+
+	if date == "" || timeVal == "" {
+		return ProposalData{}, alertError(e, "Fecha y hora son obligatorias")
+	}
+
+	venueID, venueName := h.resolveVenue(venueID, venueText)
+	return ProposalData{
+		Date:      date,
+		Time:      timeVal,
+		VenueID:   venueID,
+		VenueName: venueName,
+		VenueText: venueText,
+	}, nil
 }
 
 // RespondProposal records a player's accept or reject on a scheduling proposal.
@@ -386,27 +392,26 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 		return alertError(e, "No puedes responder a tu propia propuesta")
 	}
 
+	if err := h.dispatchProposalAction(e, match, msg, authorTeam); err != nil {
+		return err
+	}
+	return redirectHX(e, "/match/"+matchID)
+}
+
+func (h *ThreadHandler) dispatchProposalAction(e *core.RequestEvent, match, msg *core.Record, authorTeam int) error {
 	proposerPairID := match.GetString("pair1")
 	if authorTeam == 2 {
 		proposerPairID = match.GetString("pair2")
 	}
-
 	action := e.Request.FormValue("action")
-
 	switch action {
 	case "accept":
-		if err := h.acceptProposal(e, match, msg, proposerPairID); err != nil {
-			return err
-		}
+		return h.acceptProposal(e, match, msg, proposerPairID)
 	case "reject":
-		if err := h.rejectProposal(e, msg, matchID, proposerPairID); err != nil {
-			return err
-		}
+		return h.rejectProposal(e, msg, match.Id, proposerPairID)
 	default:
 		return alertError(e, "Acción no válida")
 	}
-
-	return redirectHX(e, "/match/"+matchID)
 }
 
 func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
