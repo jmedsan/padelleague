@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 
@@ -105,11 +106,14 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 		recentResults = recentResults[:5]
 	}
 
+	urgentTasks, _ := league.PlayerTasks(h.app, userID, time.Now())
+
 	return h.renderPage(e, "home.html", map[string]any{
 		"Competitions":   comps,
 		"NextMatch":      nextMatch,
 		"PendingActions": pendingActions,
 		"RecentResults":  recentResults,
+		"UrgentTasks":    urgentTasks,
 	})
 }
 

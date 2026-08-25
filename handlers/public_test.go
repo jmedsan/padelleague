@@ -580,3 +580,128 @@ func TestHome_RecentResultsNonEmpty(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+// --- Cluster: Player urgent tasks ranking (T3) ---
+
+func TestHome_UrgentTasksRanking(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "urgent tasks: dispute hero > play > organize in También",
+		Method:         http.MethodGet,
+		URL:            "/",
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			"Disputa abierta",
+			"DisputeOpp",
+			"También",
+		},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		myPair := makePairTB(tb, app, "UrgPair")
+		disputeOpp := makePairTB(tb, app, "DisputeOpp")
+		playOpp := makePairTB(tb, app, "PlayOpp")
+		orgOpp := makePairTB(tb, app, "OrgOpp")
+
+		allPairs := []*core.Record{myPair, disputeOpp, playOpp, orgOpp}
+		comp := makeCompetitionTB(tb, app, "league", allPairs)
+		comp.Set("start_date", "2026-06-01 00:00:00.000Z")
+		comp.Set("end_date", "2026-07-01 00:00:00.000Z")
+		comp.Set("arrange_grace_days", 3)
+		require.NoError(tb, app.Save(comp))
+
+		// Disputed match (should be hero)
+		disputeMatch := makeMatchTB(tb, app, comp.Id, myPair.Id, disputeOpp.Id, "disputed")
+		_ = disputeMatch
+
+		// Match with accepted proposal (play task)
+		playMatch := makeMatchTB(tb, app, comp.Id, myPair.Id, playOpp.Id, "pending")
+		user, _ := app.FindRecordById("users", myPair.GetString("player1"))
+		createProposal(tb, app, playMatch.Id, user.Id, "accepted",
+			`{"date":"2026-08-20","time":"19:00","venue_name":"Padel 360"}`)
+
+		// Pending match with no proposal (organize task — deadline well past)
+		orgMatch := makeMatchTB(tb, app, comp.Id, myPair.Id, orgOpp.Id, "pending")
+		orgMatch.Set("round_number", 1)
+		require.NoError(tb, app.Save(orgMatch))
+
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		// Hero card is the dispute (bg-error)
+		assert.Contains(tb, body, "bg-error text-error-content", "hero card must be dispute (error color)")
+		// También section has play and organize
+		assert.Contains(tb, body, "PlayOpp", "play task must appear")
+		assert.Contains(tb, body, "Próximo partido", "play task description")
+		assert.Contains(tb, body, "OrgOpp", "organize task must appear")
+		assert.Contains(tb, body, "Organiza antes del", "organize deadline")
+	}
+	s.Test(t)
+}
+
+func TestHome_OrganizeWarningBadges(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "organize tasks show correct warning badges",
+		Method:          http.MethodGet,
+		URL:             "/",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Vencido"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		myPair := makePairTB(tb, app, "WarnPair")
+		opp := makePairTB(tb, app, "WarnOpp")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{myPair, opp})
+		comp.Set("start_date", "2026-06-01 00:00:00.000Z")
+		comp.Set("end_date", "2026-07-01 00:00:00.000Z")
+		comp.Set("arrange_grace_days", 3)
+		require.NoError(tb, app.Save(comp))
+
+		// Round 1 of 1 — deadline is end_date (2026-07-01), well past
+		match := makeMatchTB(tb, app, comp.Id, myPair.Id, opp.Id, "pending")
+		match.Set("round_number", 1)
+		require.NoError(tb, app.Save(match))
+
+		user, _ := app.FindRecordById("users", myPair.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "bg-warning text-warning-content", "overdue hero card must use warning color")
+		assert.Contains(tb, body, "Organiza antes del", "deadline text must appear")
+	}
+	s.Test(t)
+}
+
+func TestHome_NoDatesGracefulDegradation(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "no competition dates = no organize tasks, graceful",
+		Method:          http.MethodGet,
+		URL:             "/",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"NoDtPair"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		myPair := makePairTB(tb, app, "NoDtPair")
+		opp := makePairTB(tb, app, "NoDtOpp")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{myPair, opp})
+		// No start_date/end_date set
+		makeMatchTB(tb, app, comp.Id, myPair.Id, opp.Id, "pending")
+
+		user, _ := app.FindRecordById("users", myPair.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.NotContains(tb, body, "Organiza antes del", "no deadline without dates")
+		assert.NotContains(tb, body, "Vencido", "no warning without dates")
+	}
+	s.Test(t)
+}

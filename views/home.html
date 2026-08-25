@@ -1,5 +1,48 @@
 {{define "content"}}
-{{if .NextMatch}}
+{{if .UrgentTasks}}
+{{with index .UrgentTasks 0}}
+<div class="card shadow-lg mb-6 {{if eq .Kind 1}}bg-error text-error-content{{else if eq .Kind 2}}bg-primary text-primary-content{{else}}bg-warning text-warning-content{{end}}">
+    <div class="card-body">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm opacity-70">{{.Description}}</p>
+                <h2 class="card-title text-2xl">vs {{.Opponent}}</h2>
+                <p class="text-sm opacity-70 mt-1">{{.CompetitionName}} — Jornada {{.RoundNumber}}</p>
+            </div>
+            <div class="text-right">
+                {{if .ArrangeBy}}<span class="badge bg-white/20 border-0">{{.Warning.Label}}</span>
+                {{else if eq .ScheduleStatus "confirmed"}}<span class="badge bg-white/20 border-0">Confirmado</span>
+                {{if .ProposedDate}}<p class="text-sm mt-1">{{.ProposedDate}}</p>{{end}}
+                {{if .ProposedVenue}}<p class="text-sm opacity-70">{{.ProposedVenue}}</p>{{end}}
+                {{else if eq .ScheduleStatus "proposed"}}<span class="badge bg-white/20 border-0">Propuesta enviada</span>
+                {{if .ProposedDate}}<p class="text-sm mt-1">{{.ProposedDate}}</p>{{end}}
+                {{end}}
+            </div>
+        </div>
+        <div class="card-actions mt-2">
+            <a href="/match/{{.MatchID}}" class="btn btn-sm bg-white/20 border-0 hover:bg-white/30">Ver partido</a>
+        </div>
+    </div>
+</div>
+{{end}}
+{{if gt (len .UrgentTasks) 1}}
+<div class="mb-6">
+    <h2 class="text-lg font-bold mb-3">También</h2>
+    <div class="space-y-2">
+        {{range $i, $t := .UrgentTasks}}{{if gt $i 0}}
+        <a href="/match/{{$t.MatchID}}" class="flex items-center gap-3 p-3 rounded-xl {{if eq $t.Kind 1}}bg-error/10 hover:bg-error/20{{else if eq $t.Kind 3}}bg-warning/10 hover:bg-warning/20{{else}}bg-primary/10 hover:bg-primary/20{{end}} transition-colors">
+            <div class="flex-1 min-w-0">
+                <p class="font-medium text-sm">vs {{$t.Opponent}}</p>
+                <p class="text-xs opacity-60">{{$t.Description}} — {{$t.CompetitionName}}</p>
+            </div>
+            {{if $t.ArrangeBy}}<span class="badge badge-sm {{if eq $t.Warning.String "overdue"}}badge-error{{else if eq $t.Warning.String "urgent"}}badge-warning{{else}}badge-info{{end}}">{{$t.Warning.Label}}</span>{{end}}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 opacity-40 flex-none"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+        </a>
+        {{end}}{{end}}
+    </div>
+</div>
+{{end}}
+{{else if .NextMatch}}
 <div class="card bg-primary text-primary-content shadow-lg mb-6">
     <div class="card-body">
         <div class="flex items-center justify-between">
