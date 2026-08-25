@@ -6,6 +6,7 @@ import (
 	"html"
 	"log/slog"
 	"net/mail"
+	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/mailer"
@@ -33,7 +34,7 @@ func SendEmail(app core.App, to, subject, htmlBody string) {
 		HTML:    htmlBody,
 	}
 	if err := client.Send(msg); err != nil {
-		slog.Error("send email failed", "to", to, "err", err)
+		slog.Error("send email failed", "to", maskEmail(to), "err", err)
 	}
 }
 
@@ -58,6 +59,18 @@ func EmailNotifyPlayers(app core.App, playerUserIDs []string, subject, body, mat
 		htmlBody := BuildNotificationEmail(displayName, body, matchLink)
 		SendEmail(app, email, subject, htmlBody)
 	}
+}
+
+func maskEmail(email string) string {
+	at := strings.Index(email, "@")
+	if at <= 0 {
+		return "***"
+	}
+	prefix := email[:1]
+	if at > 1 {
+		prefix = email[:2]
+	}
+	return prefix + "***" + email[at:]
 }
 
 // BuildNotificationEmail returns the HTML body for a notification email.
