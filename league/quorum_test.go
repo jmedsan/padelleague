@@ -57,7 +57,9 @@ func TestConfirmStaleMatches_Finalizes(t *testing.T) {
 	assert.Equal(t, "final", updated.GetString("status"))
 	assert.Equal(t, p1.Id, updated.GetString("winner"))
 	assert.Contains(t, updated.GetString("dispute_notes"), "Auto-confirmado")
-	assert.NotEmpty(t, notifier.calls)
+	require.Len(t, notifier.calls, 2)
+	assert.Equal(t, "general", notifier.calls[0].notifType)
+	assert.Equal(t, "general", notifier.calls[1].notifType)
 }
 
 func TestConfirmStaleMatches_NotExpired(t *testing.T) {
