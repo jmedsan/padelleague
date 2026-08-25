@@ -103,7 +103,7 @@ e2e/                 # Playwright end-to-end tests
 
 ## CI
 
-`make ci` runs the full gate: format check, lint, tests, and vulnerability scan. Any CI provider (GitHub Actions, GitLab CI, Northflank, etc.) just calls `make ci`.
+`make ci` runs the full gate — six checks: format check (`fmt-check`), lint, dead-code (`dead`), invariants, tests, and vulnerability scan (`vuln`). Any CI provider (GitHub Actions, GitLab CI, Northflank, etc.) just calls `make ci`.
 
 ## UI language
 
