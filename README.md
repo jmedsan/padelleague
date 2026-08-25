@@ -8,15 +8,20 @@ A web app for organizing padel leagues. An admin creates competitions, assigns p
 
 ### For players
 
-- **Home dashboard** — next match, pending actions, recent results
-- **Match thread** — schedule proposals, chat, score discussion in one place
-- **Structured score entry** — set-by-set dropdowns, venue selection
-- **Player profile** — win rate, streaks, per-competition stats
-- **Notifications** — bell icon with unread count, email notifications
+- **Urgent-tasks home** — the single most important next action first: an open dispute, your next confirmed match to play, or a match to organize before its deadline
+- **Scheduling deadlines** — each league round shows a recommended "organize by" date; matches surface escalating warnings (próximo → urgente → vencido) with at most one reminder per step
+- **Match thread** — schedule proposals, chat, and score discussion in one place
+- **Structured score entry** — set-by-set input with valid padel scores, venue selection
+- **Player profile** — win rate, per-competition stats
+- **Notifications** — bell icon with unread count, email, and web push
 
 ### For admins
 
 - **Competition management** — create leagues/playoffs, assign pairs, generate fixtures
+- **League scheduling** — set start/end dates; the app recommends per-round arrange windows and flags overdue matches
+- **Admin-approved walkovers** — when a team reports a match unplayed, the admin approves a walkover with a configurable default score (6-0 6-0) and points penalty; nothing is ever penalized automatically
+- **Playoff brackets** — admin-set fixed dates enforced in bracket order (quarters → semis → final), with a mobile-friendly bracket view
+- **Home dashboard** — a setup checklist before a league starts, and dispute/overdue/walkover alerts once it is active
 - **Invite-only registration** — admin generates invite links, no open signup
 - **Dispute resolution** — review and resolve score disagreements
 - **Penalty system** — apply/remove point penalties per pair
