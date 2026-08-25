@@ -178,7 +178,11 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 
 	isParticipant := myTeam != 0
 	canPost := isParticipant
-	canPropose := canPost && match.GetString("status") == league.StatusPending
+	isPlayoff := false
+	if comp, err := h.app.FindRecordById("competitions", match.GetString("competition")); err == nil {
+		isPlayoff = league.IsPlayoff(comp)
+	}
+	canPropose := canPost && match.GetString("status") == league.StatusPending && !isPlayoff
 
 	return h.renderPartial(e, "thread.html", map[string]any{
 		"MatchID":       matchID,
@@ -188,6 +192,8 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		"CanPropose":    canPropose,
 		"IsAdmin":       isAdmin,
 		"IsParticipant": isParticipant,
+		"IsPlayoff":     isPlayoff,
+		"Match":         match,
 	})
 }
 

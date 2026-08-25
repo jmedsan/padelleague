@@ -626,3 +626,69 @@ func TestProposalChangeDecision(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+// --- Cluster: Playoff thread (T6b) ---
+
+func TestThread_PlayoffHidesProposal(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "playoff thread hides propose-date and shows admin-set date",
+		Method:         http.MethodGet,
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			"Fecha:",
+			"2026-10-15",
+			"20:00",
+			"Padel 360",
+		},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "POThr1")
+		p2 := makePairTB(tb, app, "POThr2")
+		comp := makeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match.Set("date", "2026-10-15")
+		match.Set("time", "20:00")
+		match.Set("club", "Padel 360")
+		require.NoError(tb, app.Save(match))
+
+		s.URL = "/match/" + match.Id + "/thread"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.NotContains(tb, body, "Proponer fecha", "playoff must not show propose-date form")
+		assert.Contains(tb, body, "Fecha:", "playoff must show admin-set date")
+	}
+	s.Test(t)
+}
+
+func TestThread_PlayoffNoDateShowsPending(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "playoff thread with no date shows pending message",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"pendiente de asignación"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "PONoDt1")
+		p2 := makePairTB(tb, app, "PONoDt2")
+		comp := makeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		s.URL = "/match/" + match.Id + "/thread"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.NotContains(tb, body, "Proponer fecha", "playoff must not show propose-date form")
+	}
+	s.Test(t)
+}
