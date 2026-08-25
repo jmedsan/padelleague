@@ -57,50 +57,52 @@ func checkSchedulingReminders(app core.App, notifier *notify.Notifier) {
 
 	now := time.Now()
 	for _, comp := range comps {
-		start := comp.GetDateTime("start_date").Time()
-		end := comp.GetDateTime("end_date").Time()
-		if start.IsZero() || end.IsZero() {
+		remindCompetitionMatches(app, notifier, comp, now)
+	}
+}
+
+func remindCompetitionMatches(app core.App, notifier *notify.Notifier, comp *core.Record, now time.Time) {
+	start := comp.GetDateTime("start_date").Time()
+	end := comp.GetDateTime("end_date").Time()
+	if start.IsZero() || end.IsZero() {
+		return
+	}
+	rounds := comp.GetInt("rounds")
+	if rounds == 0 {
+		return
+	}
+	graceDays := comp.GetInt("arrange_grace_days")
+
+	matches, err := app.FindRecordsByFilter("matches",
+		"competition = {:comp} && status = 'pending'",
+		"", 0, 0, map[string]any{"comp": comp.Id})
+	if err != nil {
+		slog.Error("scheduling reminders: list matches", "comp", comp.Id, "err", err)
+		return
+	}
+
+	for _, m := range matches {
+		recommendedBy, ok := league.RecommendedArrangeBy(start, end, rounds, m.GetInt("round_number"))
+		if !ok {
 			continue
 		}
-		rounds := comp.GetInt("rounds")
-		if rounds == 0 {
-			continue
-		}
-		graceDays := comp.GetInt("arrange_grace_days")
 
-		matches, err := app.FindRecordsByFilter("matches",
-			"competition = {:comp} && status = 'pending'",
-			"", 0, 0, map[string]any{"comp": comp.Id})
-		if err != nil {
-			slog.Error("scheduling reminders: list matches", "comp", comp.Id, "err", err)
+		level := league.WarningLevel(recommendedBy, graceDays, now)
+		if int(level) <= m.GetInt("last_warn_level") {
 			continue
 		}
 
-		for _, m := range matches {
-			roundNum := m.GetInt("round_number")
-			recommendedBy, ok := league.RecommendedArrangeBy(start, end, rounds, roundNum)
-			if !ok {
-				continue
-			}
+		playerIDs := append(
+			league.PlayersForPair(app, m.GetString("pair1")),
+			league.PlayersForPair(app, m.GetString("pair2"))...,
+		)
 
-			level := league.WarningLevel(recommendedBy, graceDays, now)
-			lastLevel := m.GetInt("last_warn_level")
-			if int(level) <= lastLevel {
-				continue
-			}
+		body := fmt.Sprintf("Tu partido está %s. Organízalo antes de que venza el plazo.", level.Label())
+		notifier.NotifyPlayers(playerIDs, "scheduling", "Recordatorio: organiza tu partido", body, m.Id)
 
-			playerIDs := append(
-				league.PlayersForPair(app, m.GetString("pair1")),
-				league.PlayersForPair(app, m.GetString("pair2"))...,
-			)
-
-			body := fmt.Sprintf("Tu partido está %s. Organízalo antes de que venza el plazo.", level.Label())
-			notifier.NotifyPlayers(playerIDs, "scheduling", "Recordatorio: organiza tu partido", body, m.Id)
-
-			m.Set("last_warn_level", int(level))
-			if err := app.Save(m); err != nil {
-				slog.Error("scheduling reminder save last_warn_level", "match", m.Id, "err", err)
-			}
+		m.Set("last_warn_level", int(level))
+		if err := app.Save(m); err != nil {
+			slog.Error("scheduling reminder save last_warn_level", "match", m.Id, "err", err)
 		}
 	}
 }
