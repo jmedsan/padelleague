@@ -1,6 +1,9 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, Page, APIRequestContext } from '@playwright/test';
 import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
-import { setPlayerPassword, uniqueSuffix } from '../season-helpers';
+import {
+  setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,
+  computeExpected, PlannedMatch, PairId,
+} from '../season-helpers';
 
 const RUN_ID = uniqueSuffix();
 const PLAYER_PASSWORD = 'TestPass123456';
@@ -28,6 +31,19 @@ const COMP_NAME = `Season Sim ${RUN_ID}`;
 let playerIds: string[] = [];
 let pairIds: string[] = [];
 let competitionId = '';
+let suToken = '';
+
+const LABEL_TO_INDEX: Record<PairId, number> = { A: 0, B: 1, C: 2, D: 3 };
+
+interface MatchFixture {
+  id: string;
+  pair1: string;
+  pair2: string;
+  pair1Label: PairId;
+  pair2Label: PairId;
+  planned: PlannedMatch;
+  orientedScore: string;
+}
 
 test.describe('season simulation', () => {
   test.beforeEach(({}, testInfo) => {
@@ -37,24 +53,28 @@ test.describe('season simulation', () => {
   test.describe.configure({ retries: 0 });
 
   test('league standings are exact after a full ida y vuelta', async ({ page }) => {
-    test.setTimeout(240000);
+    test.setTimeout(480000);
 
     await buildSeason(page);
 
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto(`/admin/competitions/${competitionId}`);
-    for (const pair of PAIRS) {
-      await expect(page.getByText(pair.name).first()).toBeVisible({ timeout: 5000 });
-    }
-    await page.goto(`/competition/${competitionId}`);
-    const matchLinks = page.locator('a[href^="/match/"]');
-    await expect(matchLinks).toHaveCount(12, { timeout: 10000 });
+    // Step A: map fixtures to scores
+    const fixtures = await mapFixturesToScores(page.request);
 
-    // TODO: Task 3 — play all 12 matches and assert standings
+    // Step B: play all 12 matches with varied interactions
+    await playAllMatches(page, fixtures);
+
+    // Step C: Phase A assertion — no penalty yet
+    await assertStandings(page, computeExpected(SCORE_MATRIX, {}), false);
+
+    // Step D: Phase B — apply penalty to Pair A, mark one pair paid
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await applyPenalty(page, competitionId, pairIds[0]);
+    await togglePayment(page, competitionId, pairIds[1]);
+    await assertStandings(page, computeExpected(SCORE_MATRIX, PENALTIES), true);
   });
 
   test('playoff seeds from the league, advances, and crowns the expected champion', async ({ page }) => {
-    test.setTimeout(240000);
+    test.setTimeout(480000);
     test.skip(true, 'not implemented yet');
   });
 });
@@ -68,6 +88,7 @@ async function buildSeason(page: Page) {
   });
   if (!authResp.ok()) throw new Error(`Superuser auth failed: ${authResp.status()}`);
   const { token: superuserToken } = await authResp.json();
+  suToken = superuserToken;
 
   // Step 1: Pre-create 8 players via admin UI
   playerIds = [];
@@ -159,11 +180,7 @@ async function createPair(page: Page, name: string, player1Id: string, player2Id
   await dialog.locator('select[name="player1"]').selectOption(player1Id);
   await dialog.locator('select[name="player2"]').selectOption(player2Id);
 
-  await Promise.all([
-    page.waitForResponse(resp => resp.url().includes('/admin/pairs') && resp.status() < 400),
-    dialog.locator('button[type="submit"]').click(),
-  ]);
-  await page.waitForLoadState('load');
+  await clickAndWaitForHxRedirect(page, dialog.locator('button[type="submit"]'));
 
   const resp = await page.request.get(`/api/collections/pairs/records?filter=name='${name}'`, {
     headers: { Authorization: token },
@@ -191,4 +208,301 @@ async function generateFixtures(page: Page, compId: string) {
     page.waitForResponse(resp => resp.url().includes(`/admin/competitions/${compId}/generate`) && resp.status() < 400),
     page.locator('button:has-text("Generar calendario")').click(),
   ]);
+}
+
+// HTMX + redirectHX: click triggers XHR → 204 + HX-Redirect → window.location.href.
+// Must wait for the full page load after the redirect completes.
+async function clickAndWaitForHxRedirect(page: Page, locator: ReturnType<Page['locator']>) {
+  const navPromise = page.waitForEvent('framenavigated', { timeout: 15000 });
+  await locator.click();
+  await navPromise;
+  await page.waitForLoadState('domcontentloaded');
+}
+
+// --- T3: Map fixtures to scores ---
+
+function idToLabel(pairId: string): PairId {
+  const idx = pairIds.indexOf(pairId);
+  if (idx < 0) throw new Error(`Unknown pair ID: ${pairId}`);
+  return (['A', 'B', 'C', 'D'] as PairId[])[idx];
+}
+
+function orientScore(score: string, flip: boolean): string {
+  if (!flip) return score;
+  return score.split(/\s+/).map(s => {
+    const [a, b] = s.split('-');
+    return `${b}-${a}`;
+  }).join(' ');
+}
+
+async function mapFixturesToScores(request: APIRequestContext): Promise<MatchFixture[]> {
+  const resp = await request.get(
+    `/api/collections/matches/records?filter=competition='${competitionId}'&perPage=50&sort=round_number,created`,
+    { headers: { Authorization: suToken } },
+  );
+  const data = await resp.json();
+  if (data.items.length !== 12) {
+    throw new Error(`Expected 12 matches, got ${data.items.length}`);
+  }
+
+  const fixtures: MatchFixture[] = [];
+  for (const m of data.items) {
+    const p1Label = idToLabel(m.pair1);
+    const p2Label = idToLabel(m.pair2);
+    const planned = SCORE_MATRIX.find(
+      s => s.home === p1Label && s.away === p2Label,
+    );
+    const plannedFlipped = SCORE_MATRIX.find(
+      s => s.home === p2Label && s.away === p1Label,
+    );
+    if (!planned && !plannedFlipped) {
+      throw new Error(`No SCORE_MATRIX entry for ${p1Label} vs ${p2Label}`);
+    }
+    const flip = !planned;
+    const entry = (planned || plannedFlipped)!;
+    fixtures.push({
+      id: m.id,
+      pair1: m.pair1,
+      pair2: m.pair2,
+      pair1Label: p1Label,
+      pair2Label: p2Label,
+      planned: entry,
+      orientedScore: orientScore(entry.score, flip),
+    });
+  }
+  return fixtures;
+}
+
+// --- T3: Play matches ---
+
+function parseScoreSets(score: string): string[][] {
+  return score.split(/\s+/).map(s => s.split('-'));
+}
+
+function playerEmailForPair(pairLabel: PairId, playerIndex: 0 | 1): string {
+  const pairIdx = LABEL_TO_INDEX[pairLabel];
+  const playerGlobalIdx = PAIRS[pairIdx][playerIndex === 0 ? 'p1' : 'p2'];
+  return PLAYERS[playerGlobalIdx].email;
+}
+
+async function submitScore(page: Page, matchId: string, score: string) {
+  await page.goto(`/match/${matchId}`);
+  const sets = parseScoreSets(score);
+  await page.selectOption('select[name="s1a"]', sets[0][0]);
+  await page.selectOption('select[name="s1b"]', sets[0][1]);
+  await page.selectOption('select[name="s2a"]', sets[1][0]);
+  await page.selectOption('select[name="s2b"]', sets[1][1]);
+  if (sets.length === 3) {
+    await page.waitForSelector('#set3-row:not(.hidden)', { timeout: 3000 });
+    await page.selectOption('select[name="s3a"]', sets[2][0]);
+    await page.selectOption('select[name="s3b"]', sets[2][1]);
+  }
+  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
+}
+
+async function confirmScore(page: Page, matchId: string) {
+  await page.goto(`/match/${matchId}`);
+  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Confirmar")'));
+}
+
+async function disputeScore(page: Page, matchId: string) {
+  await page.goto(`/match/${matchId}`);
+  await page.locator('button:has-text("Disputar")').click();
+  await page.locator('textarea[name="dispute_notes"]').fill('Score is wrong');
+  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar disputa")'));
+}
+
+async function adminResolveDispute(page: Page, matchId: string, score: string) {
+  await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+  await page.goto('/admin/disputes');
+  const row = page.locator(`form[hx-post*="/admin/disputes/${matchId}/resolve"]`).first();
+  await row.locator('input[name="score"]').fill(score);
+  await clickAndWaitForHxRedirect(page, row.locator('button:has-text("Resolver")'));
+}
+
+async function postProposal(page: Page, matchId: string) {
+  await page.goto(`/match/${matchId}/thread`);
+  const chatForm = page.locator('form[hx-post$="/thread/message"]');
+  await chatForm.locator('input[name="content"]').fill('Shall we play?');
+
+  // Wait for the XHR response to verify it's 204
+  const chatResp = await Promise.all([
+    page.waitForResponse(r => r.url().includes('/thread/message')),
+    chatForm.locator('button[type="submit"]').click(),
+  ]);
+  const chatStatus = chatResp[0].status();
+  if (chatStatus !== 204) {
+    const body = await chatResp[0].text().catch(() => '');
+    throw new Error(`Chat POST returned ${chatStatus}, expected 204. Body: ${body.slice(0, 200)}`);
+  }
+  await page.waitForLoadState('load');
+
+  await page.goto(`/match/${matchId}/thread`);
+  await page.locator('.collapse-title:has-text("Proponer fecha")').click();
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  await page.fill('input[name="date"]', tomorrow);
+  await page.fill('input[name="time"]', '18:00');
+  await page.selectOption('select[name="venue_id"]', 'otro');
+  await page.fill('input[name="venue_text"]', 'Test Club');
+
+  const propResp = await Promise.all([
+    page.waitForResponse(r => r.url().includes('/thread/proposal')),
+    page.locator('button:has-text("Proponer fecha")').click(),
+  ]);
+  const propStatus = propResp[0].status();
+  if (propStatus !== 204) {
+    const body = await propResp[0].text().catch(() => '');
+    throw new Error(`Proposal POST returned ${propStatus}, expected 204. Body: ${body.slice(0, 200)}`);
+  }
+  await page.waitForLoadState('load');
+}
+
+async function acceptProposal(page: Page, matchId: string) {
+  await page.goto(`/match/${matchId}/thread`);
+  // Debug: take screenshot + dump page content
+  await page.waitForTimeout(3000); // Give HTMX time to load messages
+  await page.screenshot({ path: '/tmp/claude-1000/-mnt-data-Dev-PadelLeague/fe4649b0-356e-4e7f-b9ac-5cf7e5fcc6f7/scratchpad/accept-debug.png' });
+  const bodyText = await page.locator('body').textContent();
+  const msgHtml = await page.locator('#thread-messages-list').innerHTML().catch(() => 'NOT FOUND');
+  const url = page.url();
+  const acceptBtn = page.locator('button:has-text("Aceptar")');
+  const acceptCount = await acceptBtn.count();
+  if (acceptCount === 0) {
+    throw new Error(`No Aceptar button. URL: ${url}, MsgHTML len: ${msgHtml.length}, Body excerpt: ${bodyText?.slice(0, 300)}`);
+  }
+  await clickAndWaitForHxRedirect(page, acceptBtn);
+}
+
+async function rejectProposal(page: Page, matchId: string) {
+  await page.goto(`/match/${matchId}/thread`);
+  const rejectBtn = page.locator('button:has-text("Rechazar")');
+  await rejectBtn.waitFor({ state: 'visible', timeout: 20000 });
+  await rejectBtn.click();
+  await page.locator('select[name="rejection_reason"]').selectOption({ index: 1 });
+  await clickAndWaitForHxRedirect(page, page.locator('form.reject-form button[type="submit"]'));
+}
+
+async function playAllMatches(page: Page, fixtures: MatchFixture[]) {
+  for (let i = 0; i < fixtures.length; i++) {
+    const f = fixtures[i];
+    const submitterEmail = playerEmailForPair(f.pair1Label, 0);
+    const confirmerEmail = playerEmailForPair(f.pair2Label, 0);
+
+    if (i < 4) {
+      // Matches 0-3: scheduling proposal + accept, then submit + confirm
+      await loginAs(page, submitterEmail, PLAYER_PASSWORD);
+      await postProposal(page, f.id);
+      await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
+      await acceptProposal(page, f.id);
+      await loginAs(page, submitterEmail, PLAYER_PASSWORD);
+      await submitScore(page, f.id, f.orientedScore);
+      await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
+      await confirmScore(page, f.id);
+    } else if (i >= 4 && i <= 7) {
+      // Matches 4-7: straightforward submit + confirm
+      await loginAs(page, submitterEmail, PLAYER_PASSWORD);
+      await submitScore(page, f.id, f.orientedScore);
+      await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
+      await confirmScore(page, f.id);
+    } else if (i === 8 || i === 9) {
+      // Matches 8-9: submit + dispute + admin resolve
+      await loginAs(page, submitterEmail, PLAYER_PASSWORD);
+      await submitScore(page, f.id, f.orientedScore);
+      await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
+      await disputeScore(page, f.id);
+      await adminResolveDispute(page, f.id, f.orientedScore);
+    } else if (i === 10) {
+      // Match 10: proposal rejected, second proposal accepted, then submit + confirm
+      await loginAs(page, submitterEmail, PLAYER_PASSWORD);
+      await postProposal(page, f.id);
+      await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
+      await rejectProposal(page, f.id);
+      await loginAs(page, submitterEmail, PLAYER_PASSWORD);
+      await postProposal(page, f.id);
+      await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
+      await acceptProposal(page, f.id);
+      await loginAs(page, submitterEmail, PLAYER_PASSWORD);
+      await submitScore(page, f.id, f.orientedScore);
+      await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
+      await confirmScore(page, f.id);
+    } else {
+      // Match 11: straightforward
+      await loginAs(page, submitterEmail, PLAYER_PASSWORD);
+      await submitScore(page, f.id, f.orientedScore);
+      await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
+      await confirmScore(page, f.id);
+    }
+
+    // Verify match reached final status
+    const matchResp = await page.request.get(
+      `/api/collections/matches/records/${f.id}`,
+      { headers: { Authorization: suToken } },
+    );
+    const matchData = await matchResp.json();
+    if (matchData.status !== 'final') {
+      throw new Error(`Match ${i} (${f.pair1Label} vs ${f.pair2Label}) status is '${matchData.status}', expected 'final'`);
+    }
+  }
+}
+
+// --- T3: Standings assertions ---
+
+async function assertStandings(
+  page: Page,
+  expected: ReturnType<typeof computeExpected>,
+  hasPenalties: boolean,
+) {
+  await loginAs(page, PLAYERS[0].email, PLAYER_PASSWORD);
+  await page.goto(`/competition/${competitionId}`);
+  // Click the Clasificación tab
+  await page.locator('input[aria-label="Clasificación"]').click();
+  await page.waitForSelector('table.table-zebra tbody tr', { timeout: 5000 });
+
+  const rows = page.locator('table.table-zebra tbody tr');
+  const count = await rows.count();
+  if (count !== 4) throw new Error(`Expected 4 standings rows, got ${count}`);
+
+  for (let i = 0; i < expected.length; i++) {
+    const row = rows.nth(i);
+    const cells = row.locator('td');
+    const exp = expected[i];
+    const pairName = PAIRS[LABEL_TO_INDEX[exp.pair]].name;
+
+    await expect(cells.nth(0)).toContainText(String(exp.position));
+    await expect(cells.nth(1)).toContainText(pairName);
+    await expect(cells.nth(2)).toContainText(String(exp.played));
+    await expect(cells.nth(3)).toContainText(String(exp.wins));
+    await expect(cells.nth(4)).toContainText(String(exp.losses));
+    await expect(cells.nth(5)).toContainText(`${exp.setsWon}/${exp.setsLost}`);
+    await expect(cells.nth(6)).toContainText(`${exp.gamesWon}/${exp.gamesLost}`);
+    await expect(cells.nth(7)).toContainText(String(exp.points));
+
+    if (hasPenalties) {
+      if (exp.penalty > 0) {
+        await expect(cells.nth(8)).toContainText(`-${exp.penalty}`);
+      }
+    }
+  }
+}
+
+// --- T3: Penalty and payment ---
+
+async function applyPenalty(page: Page, compId: string, pairId: string) {
+  await page.goto(`/admin/competitions/${compId}`);
+  const row = page.locator(`tr:has(input[value="${pairId}"])`).filter({ hasText: 'Penalizar' });
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/penalty') && r.status() < 400),
+    row.locator('button:has-text("Penalizar")').click(),
+  ]);
+  await page.waitForLoadState('load');
+}
+
+async function togglePayment(page: Page, compId: string, pairId: string) {
+  await page.goto(`/admin/competitions/${compId}`);
+  const checkbox = page.locator(`tr:has(input[value="${pairId}"]) input[type="checkbox"]`).first();
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/payment') && r.status() < 400),
+    checkbox.check(),
+  ]);
+  await page.waitForLoadState('load');
 }
