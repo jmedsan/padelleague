@@ -16,6 +16,24 @@
                 {{end}}
             </div>
             <div class="divider my-2"></div>
+            {{if eq .ReviewType "walkover"}}
+            <div class="alert alert-warning mb-3">
+                <span>Solicitud de walkover por {{.RequestedBy}}</span>
+            </div>
+            <form hx-post="/admin/disputes/{{.Match.Id}}/walkover-approve" hx-target="closest .card" hx-swap="outerHTML">
+                <div class="flex flex-wrap gap-3 items-end">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Ganador</span></label>
+                        <select name="winner" class="select select-bordered select-sm" required>
+                            <option value="">Seleccionar</option>
+                            <option value="{{.Match.GetString "pair1"}}">{{.Pair1Name}}</option>
+                            <option value="{{.Match.GetString "pair2"}}">{{.Pair2Name}}</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-warning btn-sm">Aprobar walkover</button>
+                </div>
+            </form>
+            {{else}}
             <form hx-post="/admin/disputes/{{.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
                 <div class="flex flex-wrap gap-3 items-end">
                     <div class="form-control">
@@ -33,6 +51,7 @@
                     <button type="submit" class="btn btn-primary btn-sm">Resolver</button>
                 </div>
             </form>
+            {{end}}
         </div>
     </div>
     {{end}}
