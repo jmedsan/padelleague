@@ -236,10 +236,9 @@ async function addPairToCompetition(page: Page, compId: string, pairId: string, 
   if (seed !== undefined) {
     await page.fill('input[name="seed"]', String(seed));
   }
-  await Promise.all([
-    page.waitForResponse(resp => resp.url().includes(`/admin/competitions/${compId}/pairs`) && resp.status() < 400),
-    page.locator('button:has-text("Añadir")').click(),
-  ]);
+  // AddPair returns redirectHX (204 → window.location); await the redirect so it
+  // does not race the next navigation.
+  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Añadir")'));
 }
 
 async function createPlayoffCompetition(page: Page): Promise<string> {
@@ -293,11 +292,7 @@ async function playPlayoffMatch(page: Page, match: any, winnerLabel: PairId, win
 
 async function generateFixtures(page: Page, compId: string) {
   await page.goto(`/admin/competitions/${compId}`);
-
-  await Promise.all([
-    page.waitForResponse(resp => resp.url().includes(`/admin/competitions/${compId}/generate`) && resp.status() < 400),
-    page.locator('button:has-text("Generar calendario")').click(),
-  ]);
+  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Generar calendario")'));
 }
 
 // HTMX + redirectHX: click triggers XHR → 204 + HX-Redirect → window.location.href.
