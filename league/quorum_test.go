@@ -27,6 +27,14 @@ func (f *fakeNotifier) NotifyPlayers(playerUserIDs []string, notifType, title, _
 	})
 }
 
+func (f *fakeNotifier) EmailPlayers(playerUserIDs []string, subject, _, _ string) {
+	f.calls = append(f.calls, notifyCall{
+		playerIDs: playerUserIDs,
+		notifType: "email",
+		title:     subject,
+	})
+}
+
 func TestConfirmStaleMatches_Finalizes(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
