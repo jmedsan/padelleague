@@ -78,7 +78,7 @@ func (svc *Service) confirmIfExpired(m *core.Record, comp *core.Record) {
 		players := PlayersForPair(svc.app, pid)
 		svc.notifier.NotifyPlayers(players, Notification{
 			Type:    "general",
-			Title:   "Resultado confirmado automaticamente",
+			Title:   "Resultado confirmado automáticamente",
 			Body:    "El resultado ha sido confirmado por tiempo de espera.",
 			MatchID: fresh.Id,
 		})
