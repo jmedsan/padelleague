@@ -1,6 +1,7 @@
 package league
 
 import (
+	"sort"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -107,7 +108,7 @@ func buildAlerts(app core.App, c *core.Record, now time.Time) []AdminAlert {
 		"competition = {:cid} && status = 'pending'",
 		"round_number", 0, 0,
 		map[string]any{"cid": c.Id})
-	alerts = append(alerts, pendingAlerts(app, c, compName, pending, now)...)
+	alerts = append(alerts, pendingAlerts(app, c, pending, now)...)
 
 	return alerts
 }
@@ -115,7 +116,8 @@ func buildAlerts(app core.App, c *core.Record, now time.Time) []AdminAlert {
 // pendingAlerts builds walkover-approval and overdue alerts for a
 // competition's pending matches. A walkover approval is always surfaced; an
 // overdue nudge is skipped once the competition has finished.
-func pendingAlerts(app core.App, c *core.Record, compName string, pending []*core.Record, now time.Time) []AdminAlert {
+func pendingAlerts(app core.App, c *core.Record, pending []*core.Record, now time.Time) []AdminAlert {
+	compName := c.GetString("name")
 	graceDays := c.GetInt("arrange_grace_days")
 
 	phase := PhaseOf(c, now)
@@ -157,6 +159,97 @@ func pendingAlerts(app core.App, c *core.Record, compName string, pending []*cor
 		}
 	}
 	return alerts
+}
+
+// OutstandingMatch is one non-final match decorated with its deadline and
+// warning level for the admin outstanding-matches view.
+type OutstandingMatch struct {
+	MatchID         string
+	CompetitionName string
+	RoundNumber     int
+	Pair1, Pair2    string
+	Status          string
+	ArrangeBy       string // "DD/MM", or "" when no schedule (e.g. playoffs)
+	Warning         Warning
+	deadline        time.Time // sort key backing ArrangeBy; zero when unset
+}
+
+// OutstandingMatches returns every non-final match in an active competition,
+// decorated with its stored deadline and warning level, ordered most-urgent
+// first. Playoff matches show status only — their dates are fixed, not
+// scheduled against a deadline.
+func OutstandingMatches(app core.App, now time.Time) []OutstandingMatch {
+	comps, err := app.FindRecordsByFilter("competitions", "active = true", "", 0, 0, nil)
+	if err != nil {
+		return nil
+	}
+
+	var out []OutstandingMatch
+	for _, c := range comps {
+		out = append(out, outstandingForComp(app, c, now)...)
+	}
+
+	sortOutstanding(out)
+	return out
+}
+
+func outstandingForComp(app core.App, c *core.Record, now time.Time) []OutstandingMatch {
+	compName := c.GetString("name")
+	graceDays := c.GetInt("arrange_grace_days")
+	isPlayoff := IsPlayoff(c)
+
+	matches, _ := app.FindRecordsByFilter("matches",
+		"competition = {:cid} && status != 'final'", "", 0, 0,
+		map[string]any{"cid": c.Id})
+
+	out := make([]OutstandingMatch, 0, len(matches))
+	for _, m := range matches {
+		p1, p2 := pairNamesForMatch(app, m)
+		om := OutstandingMatch{
+			MatchID:         m.Id,
+			CompetitionName: compName,
+			RoundNumber:     m.GetInt("round_number"),
+			Pair1:           p1,
+			Pair2:           p2,
+			Status:          m.GetString("status"),
+		}
+		if !isPlayoff {
+			if deadline, ok := RoundArrangeDate(c, om.RoundNumber); ok {
+				om.deadline = deadline
+				om.ArrangeBy = deadline.Format("02/01")
+				om.Warning = WarningLevel(deadline, graceDays, now)
+			}
+		}
+		out = append(out, om)
+	}
+	return out
+}
+
+// sortOutstanding orders most-urgent first: warning desc, deadline asc (a
+// missing deadline sorts last), competition name, round number, match ID.
+func sortOutstanding(out []OutstandingMatch) {
+	sort.SliceStable(out, func(i, j int) bool {
+		a, b := out[i], out[j]
+		if a.Warning != b.Warning {
+			return a.Warning > b.Warning
+		}
+		if !a.deadline.Equal(b.deadline) {
+			if a.deadline.IsZero() {
+				return false
+			}
+			if b.deadline.IsZero() {
+				return true
+			}
+			return a.deadline.Before(b.deadline)
+		}
+		if a.CompetitionName != b.CompetitionName {
+			return a.CompetitionName < b.CompetitionName
+		}
+		if a.RoundNumber != b.RoundNumber {
+			return a.RoundNumber < b.RoundNumber
+		}
+		return a.MatchID < b.MatchID
+	})
 }
 
 func pairNamesForMatch(app core.App, m *core.Record) (string, string) {
