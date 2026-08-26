@@ -467,11 +467,24 @@ func TestSchedulingReminder_SendsAndEscalates(t *testing.T) {
 	// Run the cron function
 	checkSchedulingReminders(app, notifier)
 
-	// Check notification was sent
+	// Check notification was sent — 4 players (2 pairs × 2 players each)
 	notifs, err := app.FindRecordsByFilter("notifications",
 		"type = 'scheduling'", "", 0, 0, nil)
 	require.NoError(t, err)
-	require.NotEmpty(t, notifs, "should send at least one scheduling reminder")
+	require.Len(t, notifs, 4, "should send one scheduling reminder per player (2 pairs × 2)")
+	for _, n := range notifs {
+		assert.Equal(t, "Recordatorio: organiza tu partido", n.GetString("title"))
+		assert.Contains(t, n.GetString("body"), "Vencido")
+	}
+	allPlayerIDs := append(
+		league.PlayersForPair(app, p1.Id),
+		league.PlayersForPair(app, p2.Id)...,
+	)
+	notifUserIDs := make([]string, len(notifs))
+	for i, n := range notifs {
+		notifUserIDs[i] = n.GetString("user")
+	}
+	assert.ElementsMatch(t, allPlayerIDs, notifUserIDs, "all 4 players must be notified")
 
 	// Check last_warn_level was bumped
 	updated := freshMatch(t, app, m.Id)
@@ -580,10 +593,15 @@ func TestSchedulingReminder_DenominatorDrift(t *testing.T) {
 	// Round 1's stored deadline uses rounds=3 (full denominator), not
 	// countRounds(pending)=1. With the full denominator the deadline is at
 	// start + 1/3*(end-start), which is well past → reminder fires.
+	// 3 pairs → match involves p1+p2 → 4 players notified.
 	notifs, err := app.FindRecordsByFilter("notifications",
 		"type = 'scheduling'", "", 0, 0, nil)
 	require.NoError(t, err)
-	assert.NotEmpty(t, notifs, "round 1 deadline must use stored rounds=3, not pending count")
+	require.Len(t, notifs, 4, "round 1 deadline must use stored rounds=3 — all 4 players notified")
+	for _, n := range notifs {
+		assert.Equal(t, "Recordatorio: organiza tu partido", n.GetString("title"))
+		assert.Contains(t, n.GetString("body"), "Vencido")
+	}
 
 	updated := freshMatch(t, app, m2.Id)
 	assert.Equal(t, 0, updated.GetInt("last_warn_level"), "final match must not be reminded")
@@ -611,7 +629,11 @@ func TestSchedulingReminder_RecoveryPhase_StillReminds(t *testing.T) {
 	notifs, err := app.FindRecordsByFilter("notifications",
 		"type = 'scheduling'", "", 0, 0, nil)
 	require.NoError(t, err)
-	assert.NotEmpty(t, notifs, "a recovery-phase competition must still remind")
+	require.Len(t, notifs, 4, "recovery-phase must still remind — 4 players (2 pairs × 2)")
+	for _, n := range notifs {
+		assert.Equal(t, "Recordatorio: organiza tu partido", n.GetString("title"))
+		assert.Contains(t, n.GetString("body"), "Vencido")
+	}
 }
 
 func TestSchedulingReminder_FinishedByDate_NoReminder(t *testing.T) {
