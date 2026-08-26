@@ -395,9 +395,9 @@ func (h *MatchHandler) detectVenueChange(match *core.Record, venueID string) []s
 // The match moves to disputed with review_type=walkover for admin approval.
 func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	match, err := h.app.FindRecordById("matches", id)
+	match, err := findMatchOr404(h.app, e, id)
 	if err != nil {
-		return alertError(e, "Partido no encontrado")
+		return err
 	}
 
 	userID := e.Auth.Id

@@ -154,9 +154,9 @@ func proposalActions(msgType, matchStatus string, sameTeamOrOutsider bool, propo
 // Thread renders the full match thread page with messages and proposals.
 func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
-	match, err := h.app.FindRecordById("matches", matchID)
+	match, err := findMatchOr404(h.app, e, matchID)
 	if err != nil {
-		return alertError(e, "Partido no encontrado")
+		return err
 	}
 
 	pair1ID := match.GetString("pair1")
@@ -200,9 +200,9 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 // ThreadMessages returns the HTMX partial with updated thread messages.
 func (h *ThreadHandler) ThreadMessages(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
-	match, err := h.app.FindRecordById("matches", matchID)
+	match, err := findMatchOr404(h.app, e, matchID)
 	if err != nil {
-		return alertError(e, "Partido no encontrado")
+		return err
 	}
 
 	isAdmin := e.Auth.GetString("role") == "admin"
@@ -222,9 +222,9 @@ func (h *ThreadHandler) ThreadMessages(e *core.RequestEvent) error {
 // PostMessage handles POST to add a new chat message to the match thread.
 func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
-	match, err := h.app.FindRecordById("matches", matchID)
+	match, err := findMatchOr404(h.app, e, matchID)
 	if err != nil {
-		return alertError(e, "Partido no encontrado")
+		return err
 	}
 
 	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
@@ -274,9 +274,9 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 // PostProposal creates a scheduling proposal message in the match thread.
 func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
-	match, err := h.app.FindRecordById("matches", matchID)
+	match, err := findMatchOr404(h.app, e, matchID)
 	if err != nil {
-		return alertError(e, "Partido no encontrado")
+		return err
 	}
 
 	if match.GetString("status") != league.StatusPending {
@@ -362,9 +362,9 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
 	msgID := e.Request.PathValue("msgId")
 
-	match, err := h.app.FindRecordById("matches", matchID)
+	match, err := findMatchOr404(h.app, e, matchID)
 	if err != nil {
-		return alertError(e, "Partido no encontrado")
+		return err
 	}
 
 	if match.GetString("status") != league.StatusPending {
@@ -581,9 +581,9 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
 	msgID := e.Request.PathValue("msgId")
 
-	match, err := h.app.FindRecordById("matches", matchID)
+	match, err := findMatchOr404(h.app, e, matchID)
 	if err != nil {
-		return alertError(e, "Partido no encontrado")
+		return err
 	}
 
 	if match.GetString("status") != league.StatusPending {
@@ -635,9 +635,9 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 // PostAvailability posts a quick availability message to the match thread.
 func (h *ThreadHandler) PostAvailability(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
-	match, err := h.app.FindRecordById("matches", matchID)
+	match, err := findMatchOr404(h.app, e, matchID)
 	if err != nil {
-		return alertError(e, "Partido no encontrado")
+		return err
 	}
 
 	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
