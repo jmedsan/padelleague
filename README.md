@@ -25,6 +25,7 @@ A web app for organizing padel leagues. An admin creates competitions, assigns p
 - **Admin-approved walkovers** — when a team reports a match unplayed, the admin approves a walkover with a configurable default score (6-0 6-0) and points penalty; nothing is ever penalized automatically
 - **Playoff brackets** — admin-set fixed dates enforced in bracket order (quarters → semis → final), with a mobile-friendly bracket view
 - **Home dashboard** — a setup checklist before a league starts, and dispute/overdue/walkover alerts once it is active
+- **Outstanding matches** — one view of every unresolved match across active competitions with its deadline and urgency, most-urgent first
 - **Invite-only registration** — admin generates invite links, no open signup
 - **Dispute resolution** — review and resolve score disagreements
 - **Penalty system** — apply/remove point penalties per pair
