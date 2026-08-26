@@ -1,0 +1,72 @@
+{{define "content"}}
+<h1 class="text-2xl font-bold mb-6">Partidos pendientes</h1>
+
+{{if .Matches}}
+<div data-testid="outstanding-list">
+    <!-- Desktop table -->
+    <div class="hidden md:block overflow-x-auto">
+        <table class="table table-zebra">
+            <thead>
+                <tr>
+                    <th>Competición</th>
+                    <th>Jornada</th>
+                    <th>Pareja 1</th>
+                    <th>Pareja 2</th>
+                    <th>Estado</th>
+                    <th>Fecha límite</th>
+                    <th>Urgencia</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Matches}}
+                <tr>
+                    <td>{{.CompetitionName}}</td>
+                    <td>{{.RoundNumber}}</td>
+                    <td>{{.Pair1}}</td>
+                    <td>{{.Pair2}}</td>
+                    <td>{{.Status}}</td>
+                    <td>{{if .ArrangeBy}}{{.ArrangeBy}}{{else}}—{{end}}</td>
+                    <td>
+                        {{if .ArrangeBy}}
+                        <span class="badge badge-sm {{if eq .Warning.String "overdue"}}badge-error{{else if eq .Warning.String "urgent"}}badge-warning{{else if eq .Warning.String "heads_up"}}badge-info{{else}}badge-ghost{{end}}">
+                            {{if .Warning.Label}}{{.Warning.Label}}{{else}}Sin urgencia{{end}}
+                        </span>
+                        {{end}}
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Phone cards -->
+    <div class="md:hidden space-y-3">
+        {{range .Matches}}
+        <div class="card bg-base-100 shadow">
+            <div class="card-body p-4">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="font-medium">{{.Pair1}} vs {{.Pair2}}</p>
+                        <p class="text-sm opacity-60">{{.CompetitionName}} — Jornada {{.RoundNumber}}</p>
+                    </div>
+                    {{if .ArrangeBy}}
+                    <span class="badge badge-sm {{if eq .Warning.String "overdue"}}badge-error{{else if eq .Warning.String "urgent"}}badge-warning{{else if eq .Warning.String "heads_up"}}badge-info{{else}}badge-ghost{{end}}">
+                        {{if .Warning.Label}}{{.Warning.Label}}{{else}}Sin urgencia{{end}}
+                    </span>
+                    {{end}}
+                </div>
+                <div class="text-sm opacity-60 mt-2">
+                    <p>Estado: {{.Status}}</p>
+                    <p>Fecha límite: {{if .ArrangeBy}}{{.ArrangeBy}}{{else}}—{{end}}</p>
+                </div>
+            </div>
+        </div>
+        {{end}}
+    </div>
+</div>
+{{else}}
+<div data-testid="outstanding-list">
+    <p class="text-sm text-base-content/50 text-center py-8">No hay partidos pendientes</p>
+</div>
+{{end}}
+{{end}}

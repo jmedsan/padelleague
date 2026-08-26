@@ -124,6 +124,8 @@ func registerAdminRoutes(se *core.ServeEvent, deps Deps) {
 	g.POST("/invitations", admin.InvitationsCreate)
 	g.POST("/invitations/{id}/revoke", admin.InvitationsRevoke)
 
+	g.GET("/outstanding", admin.Outstanding)
+
 	g.GET("/disputes", admin.Disputes)
 	g.POST("/disputes/{id}/resolve", admin.DisputesResolve)
 	g.POST("/disputes/{id}/walkover-approve", admin.WalkoverApprove)
