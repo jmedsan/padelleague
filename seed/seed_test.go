@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"testing"
 
+	"padelleague/hooks"
 	"padelleague/league"
+	"padelleague/notify"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -225,6 +227,10 @@ func TestWipe(t *testing.T) {
 func TestSampleLeague(t *testing.T) {
 	app := newTestApp(t)
 
+	notifier := notify.NewNotifier(app, "", "")
+	svc := league.New(app, notifier)
+	hooks.Register(app, svc, notifier)
+
 	require.NoError(t, SampleLeague(app))
 
 	players, err := app.FindRecordsByFilter("users", "role = 'player'", "", 0, 0)
@@ -254,7 +260,7 @@ func TestSampleLeague(t *testing.T) {
 	assert.Equal(t, 8, finalCount, "rounds 1-4 should have 2 matches each = 8 final")
 
 	// Standings should compute without error
-	svc := league.New(app, nil)
+	svc = league.New(app, nil)
 	standings, err := svc.ComputeStandings(comps[0].Id)
 	require.NoError(t, err)
 	assert.Equal(t, 4, len(standings))
