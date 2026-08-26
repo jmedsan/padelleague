@@ -62,14 +62,15 @@ func TestMain(m *testing.M) {
 
 func makeUserTB(t testing.TB, app core.App, displayName, email string) *core.Record {
 	t.Helper()
+	n := userSeq.Add(1)
 	col, err := app.FindCollectionByNameOrId("users")
 	require.NoError(t, err)
 	if email == "" {
-		n := userSeq.Add(1)
 		email = fmt.Sprintf("user%d@test.local", n)
 	}
 	record := core.NewRecord(col)
 	record.Set("email", email)
+	record.Set("username", fmt.Sprintf("huser%d", n))
 	record.Set("display_name", displayName)
 	record.Set("role", "player")
 	record.SetPassword("testpass123456")
@@ -80,14 +81,15 @@ func makeUserTB(t testing.TB, app core.App, displayName, email string) *core.Rec
 
 func makeUser(t *testing.T, app core.App, displayName, email string) *core.Record {
 	t.Helper()
+	n := userSeq.Add(1)
 	col, err := app.FindCollectionByNameOrId("users")
 	require.NoError(t, err)
 	if email == "" {
-		n := userSeq.Add(1)
 		email = fmt.Sprintf("user%d@test.local", n)
 	}
 	record := core.NewRecord(col)
 	record.Set("email", email)
+	record.Set("username", fmt.Sprintf("huser%d", n))
 	record.Set("display_name", displayName)
 	record.Set("role", "player")
 	record.SetPassword("testpass123456")
@@ -371,6 +373,7 @@ func makeAdminUserTB(t testing.TB, app core.App) *core.Record {
 	require.NoError(t, err)
 	record := core.NewRecord(col)
 	record.Set("email", fmt.Sprintf("admin%d@test.local", n))
+	record.Set("username", fmt.Sprintf("hadmin%d", n))
 	record.Set("display_name", "Admin")
 	record.Set("role", "admin")
 	record.SetPassword("testpass123456")
