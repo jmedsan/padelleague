@@ -1,7 +1,6 @@
 package seed
 
 import (
-	"fmt"
 	"testing"
 
 	"padelleague/hooks"
@@ -172,9 +171,7 @@ func seedVenue(t *testing.T, app core.App, name string) *core.Record {
 func countRecords(t *testing.T, app core.App, collection string) int {
 	t.Helper()
 	recs, err := app.FindRecordsByFilter(collection, "id != ''", "", 0, 0)
-	if err != nil {
-		return 0
-	}
+	require.NoError(t, err)
 	return len(recs)
 }
 
@@ -193,17 +190,13 @@ func TestWipe(t *testing.T) {
 
 	venuesBefore := countRecords(t, app, "venues")
 
-	keep := map[string]struct{}{
-		admin1.Id: {},
-		admin2.Id: {},
-	}
-	summary, err := Wipe(app, keep)
+	summary, err := Wipe(app)
 	require.NoError(t, err)
 
-	assert.GreaterOrEqual(t, summary.Competitions, 1)
-	assert.GreaterOrEqual(t, summary.Pairs, 1)
-	assert.GreaterOrEqual(t, summary.Players, 2)
-	assert.GreaterOrEqual(t, summary.Matches, 1)
+	assert.Equal(t, 1, summary.Competitions)
+	assert.Equal(t, 1, summary.Pairs)
+	assert.Equal(t, 5, summary.Players)
+	assert.Equal(t, 1, summary.Matches)
 
 	assert.Equal(t, 0, countRecords(t, app, "competitions"))
 	assert.Equal(t, 0, countRecords(t, app, "pairs"))
@@ -270,20 +263,3 @@ func TestSampleLeague(t *testing.T) {
 	}
 }
 
-func TestWipe_PreservesKeepUserIDs(t *testing.T) {
-	app := newTestApp(t)
-
-	kept := seedUser(t, app, "kept@test.local", "player", "Kept Player")
-	seedUser(t, app, "deleted@test.local", "player", "Deleted Player")
-
-	keep := map[string]struct{}{kept.Id: {}}
-	_, err := Wipe(app, keep)
-	require.NoError(t, err)
-
-	_, err = app.FindRecordById("users", kept.Id)
-	require.NoError(t, err, "kept user should survive")
-
-	users, err := app.FindRecordsByFilter("users", fmt.Sprintf("id != '%s'", kept.Id), "", 0, 0)
-	require.NoError(t, err)
-	assert.Equal(t, 0, len(users), "only kept user should remain")
-}
