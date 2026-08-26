@@ -38,12 +38,13 @@ func SendEmail(app core.App, to, subject, htmlBody string) {
 	}
 }
 
-// EmailNotifyPlayers sends a notification email to each player in the list.
-// EmailPlayers delegates to EmailNotifyPlayers using the Notifier's app.
+// EmailPlayers sends a notification email to each player in the list,
+// delegating to EmailNotifyPlayers using the Notifier's app.
 func (n *Notifier) EmailPlayers(playerUserIDs []string, subject, body, link string) {
 	EmailNotifyPlayers(n.app, playerUserIDs, subject, body, link)
 }
 
+// EmailNotifyPlayers sends a notification email to each configured player.
 func EmailNotifyPlayers(app core.App, playerUserIDs []string, subject, body, matchLink string) {
 	if !IsMailerConfigured(app) {
 		return
