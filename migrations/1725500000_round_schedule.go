@@ -20,11 +20,17 @@ func init() {
 			return err
 		}
 
-		allComps, _ := app.FindRecordsByFilter("competitions", "type != 'playoff'", "", 0, 0, nil)
+		allComps, err := app.FindRecordsByFilter("competitions", "type != 'playoff'", "", 0, 0, nil)
+		if err != nil {
+			return err
+		}
 		for _, c := range allComps {
-			matches, _ := app.FindRecordsByFilter("matches",
+			matches, err := app.FindRecordsByFilter("matches",
 				"competition = {:cid}", "", 0, 0,
 				map[string]any{"cid": c.Id})
+			if err != nil {
+				return err
+			}
 			if len(matches) == 0 {
 				continue
 			}
@@ -59,7 +65,7 @@ func init() {
 	}, func(app core.App) error {
 		comps, err := app.FindCollectionByNameOrId("competitions")
 		if err != nil {
-			return nil
+			return err
 		}
 		comps.Fields.RemoveByName("round_arrange_dates")
 		return app.Save(comps)
