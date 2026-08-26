@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -191,6 +192,106 @@ func TestAPINotificationCreateForbiddenForPlayer(t *testing.T) {
 		victim := makeUserTB(tb, app, "Victim", "")
 		s.Body = strings.NewReader(`{"user":"` + victim.Id + `","type":"general","title":"phish","body":"click here"}`)
 		s.Headers = jsonHeaders(authHeaders(tb, player))
+	}
+	s.Test(t)
+}
+
+func TestAPIInvitationListBlockedForPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot list invitations via the record API",
+		Method:          http.MethodGet,
+		URL:             "/api/collections/invitations/records",
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		creator := makeUserTB(tb, app, "Creator", "")
+		makeInvitationTB(tb, app, creator.Id, time.Time{})
+		player := makeUserTB(tb, app, "Player", "")
+		s.Headers = authHeaders(tb, player)
+	}
+	s.Test(t)
+}
+
+func TestAPIInvitationViewBlockedForPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot view an invitation via the record API",
+		Method:          http.MethodGet,
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		creator := makeUserTB(tb, app, "Creator", "")
+		inv := makeInvitationTB(tb, app, creator.Id, time.Time{})
+		s.URL = "/api/collections/invitations/records/" + inv.Id
+		player := makeUserTB(tb, app, "Player", "")
+		s.Headers = authHeaders(tb, player)
+	}
+	s.Test(t)
+}
+
+func TestAPIMatchMessageListBlockedForPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "non-participant player cannot list match_messages via the record API",
+		Method:          http.MethodGet,
+		URL:             "/api/collections/match_messages/records",
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		p1 := makePairTB(tb, app, "A")
+		p2 := makePairTB(tb, app, "B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		msgCol, err := app.FindCollectionByNameOrId("match_messages")
+		require.NoError(tb, err)
+		msg := core.NewRecord(msgCol)
+		msg.Set("match", match.Id)
+		msg.Set("type", "chat")
+		msg.Set("content", "secret chat")
+		author, _ := app.FindRecordById("users", p1.GetString("player1"))
+		msg.Set("author", author.Id)
+		require.NoError(tb, app.Save(msg))
+
+		outsider := makeUserTB(tb, app, "Outsider", "")
+		s.Headers = authHeaders(tb, outsider)
+	}
+	s.Test(t)
+}
+
+func TestAPIMatchMessageViewBlockedForPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "non-participant player cannot view a match_message via the record API",
+		Method:          http.MethodGet,
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		p1 := makePairTB(tb, app, "A")
+		p2 := makePairTB(tb, app, "B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		msgCol, err := app.FindCollectionByNameOrId("match_messages")
+		require.NoError(tb, err)
+		msg := core.NewRecord(msgCol)
+		msg.Set("match", match.Id)
+		msg.Set("type", "chat")
+		msg.Set("content", "secret chat")
+		author, _ := app.FindRecordById("users", p1.GetString("player1"))
+		msg.Set("author", author.Id)
+		require.NoError(tb, app.Save(msg))
+		s.URL = "/api/collections/match_messages/records/" + msg.Id
+
+		outsider := makeUserTB(tb, app, "Outsider", "")
+		s.Headers = authHeaders(tb, outsider)
 	}
 	s.Test(t)
 }
