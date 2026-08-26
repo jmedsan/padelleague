@@ -29,6 +29,7 @@ type AdminAlert struct {
 	CompName    string
 	RoundNumber int
 	Description string
+	Recovery    bool // true when the competition is in its recovery window
 }
 
 // AdminDashboard returns setup checklists and alerts for the admin home.
@@ -102,13 +103,28 @@ func buildAlerts(app core.App, c *core.Record, now time.Time) []AdminAlert {
 		})
 	}
 
-	graceDays := c.GetInt("arrange_grace_days")
-
 	pending, _ := app.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'pending'",
 		"round_number", 0, 0,
 		map[string]any{"cid": c.Id})
+	alerts = append(alerts, pendingAlerts(app, c, compName, pending, now)...)
 
+	return alerts
+}
+
+// pendingAlerts builds walkover-approval and overdue alerts for a
+// competition's pending matches. A walkover approval is always surfaced; an
+// overdue nudge is skipped once the competition has finished.
+func pendingAlerts(app core.App, c *core.Record, compName string, pending []*core.Record, now time.Time) []AdminAlert {
+	graceDays := c.GetInt("arrange_grace_days")
+
+	phase := PhaseUnknown
+	if !IsPlayoff(c) {
+		phase = CompetitionPhase(c, now)
+	}
+	recovery := phase == PhaseRecovery
+
+	var alerts []AdminAlert
 	for _, m := range pending {
 		rn := m.GetInt("round_number")
 
@@ -120,6 +136,10 @@ func buildAlerts(app core.App, c *core.Record, now time.Time) []AdminAlert {
 				CompName: compName, RoundNumber: rn,
 				Description: "Walkover pendiente de aprobación",
 			})
+			continue
+		}
+
+		if phase == PhaseFinished {
 			continue
 		}
 
@@ -135,10 +155,10 @@ func buildAlerts(app core.App, c *core.Record, now time.Time) []AdminAlert {
 				Pair1: p1, Pair2: p2,
 				CompName: compName, RoundNumber: rn,
 				Description: "Vencido — sin organizar",
+				Recovery:    recovery,
 			})
 		}
 	}
-
 	return alerts
 }
 

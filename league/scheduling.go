@@ -86,6 +86,76 @@ func IsPlayoff(comp *core.Record) bool {
 	return comp.GetString("type") == "playoff"
 }
 
+// Phase represents where a round-robin competition sits in its lifecycle.
+type Phase int
+
+// Competition lifecycle phases. PhaseUnknown is never a derived value; it
+// guards against an uncomputed zero value reading as an actionable phase.
+const (
+	PhaseUnknown Phase = iota
+	PhasePlaying
+	PhaseRecovery
+	PhaseFinished
+)
+
+const defaultRecoveryDays = 14
+
+func (p Phase) String() string {
+	switch p {
+	case PhasePlaying:
+		return "playing"
+	case PhaseRecovery:
+		return "recovery"
+	case PhaseFinished:
+		return "finished"
+	default:
+		return ""
+	}
+}
+
+// Label returns the Spanish UI label for the phase.
+func (p Phase) Label() string {
+	switch p {
+	case PhasePlaying:
+		return "En juego"
+	case PhaseRecovery:
+		return "En recuperación"
+	case PhaseFinished:
+		return "Finalizada"
+	default:
+		return ""
+	}
+}
+
+// RecoveryDays returns the competition's recovery window length, defaulting
+// to 14 when unset or explicitly 0.
+func RecoveryDays(comp *core.Record) int {
+	if days := comp.GetInt("recovery_days"); days > 0 {
+		return days
+	}
+	return defaultRecoveryDays
+}
+
+// CompetitionPhase derives a round-robin competition's lifecycle phase from
+// its finalized flag, end_date, and recovery window. Never stored; recomputed
+// on every read.
+func CompetitionPhase(comp *core.Record, now time.Time) Phase {
+	if comp.GetBool("finalized") {
+		return PhaseFinished
+	}
+	end := comp.GetDateTime("end_date").Time()
+	if end.IsZero() {
+		return PhasePlaying
+	}
+	if !now.After(end) {
+		return PhasePlaying
+	}
+	if !now.After(end.AddDate(0, 0, RecoveryDays(comp))) {
+		return PhaseRecovery
+	}
+	return PhaseFinished
+}
+
 // ValidatePlayoffDates checks that match dates in later rounds are not
 // earlier than dates in preceding rounds. Matches with no date are ignored.
 func ValidatePlayoffDates(matches []*core.Record) error {
