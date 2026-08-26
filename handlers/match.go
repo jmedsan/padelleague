@@ -271,7 +271,7 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 
 	if e.Request.FormValue("date") != "" {
 		if err := h.validatePlayoffDates(match); err != nil {
-			return alertError(e, err.Error())
+			return alertError(e, "Las fechas de playoff deben respetar el orden del cuadro (una ronda posterior no puede ir antes que una previa)")
 		}
 	}
 

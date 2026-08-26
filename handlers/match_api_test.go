@@ -423,7 +423,7 @@ func TestAdminOverride_PlayoffDateOrderRejected(t *testing.T) {
 		Name:            "POST /match/{id}/admin-override rejects invalid playoff date order",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"las fechas de la ronda"},
+		ExpectedContent: []string{"orden del cuadro"},
 	}
 	var semifinalID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
