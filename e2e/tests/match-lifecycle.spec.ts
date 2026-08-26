@@ -13,11 +13,10 @@ test.describe('match lifecycle', () => {
   test('player can submit score', async ({ page }, testInfo) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${scratchMatchId("submit-score", testInfo.project.name)}`);
-    await expect(page.locator('select[name="s1a"]')).toBeVisible({ timeout: 5000 });
-    await page.selectOption('select[name="s1a"]', '6');
-    await page.selectOption('select[name="s1b"]', '3');
-    await page.selectOption('select[name="s2a"]', '6');
-    await page.selectOption('select[name="s2b"]', '4');
+    await expect(page.locator('.score-btn').first()).toBeVisible({ timeout: 5000 });
+    for (const [f, v] of [['s1a','6'],['s1b','3'],['s2a','6'],['s2b','4']]) {
+      await page.$eval(`input[name="${f}"]`, (el, val) => { (el as HTMLInputElement).value = val; }, v);
+    }
     await page.getByRole('button', { name: 'Enviar resultado' }).click();
     await page.waitForLoadState('networkidle');
     await expect(page.getByText('6-3 6-4')).toBeVisible({ timeout: 5000 });
