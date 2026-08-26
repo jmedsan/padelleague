@@ -205,6 +205,51 @@ func TestReportUnplayed_Idempotent(t *testing.T) {
 	s.Test(t)
 }
 
+func TestReportUnplayedWrongStatus_Refused(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /match/{id}/report-unplayed on final fails",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"no puede reportarse"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "RptStatusA")
+		p2 := makePairTB(tb, app, "RptStatusB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+
+		s.URL = "/match/" + m.Id + "/report-unplayed"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestReportUnplayedNonParticipant_Refused(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "non-participant cannot report unplayed",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"No eres participante"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		outsider := makeUserTB(tb, app, "Outsider Rpt", "")
+		p1 := makePairTB(tb, app, "ORptA")
+		p2 := makePairTB(tb, app, "ORptB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + match.Id + "/report-unplayed"
+		s.Headers = authHeaders(tb, outsider)
+	}
+	s.Test(t)
+}
+
 // --- Walkover approve ---
 
 func TestWalkoverApprove(t *testing.T) {

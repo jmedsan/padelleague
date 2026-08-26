@@ -387,7 +387,7 @@ func TestPlayerNameIfSet(t *testing.T) {
 // HTML markers rendered when each flag is true.
 const (
 	markerCanSubmit   = "Registrar resultado"
-	markerCanWalkover = "Reportar incomparecencia"
+	markerCanWalkover = "Reportar partido no jugado"
 	markerCanConfirm  = "El rival ha enviado este resultado"
 	markerCanCorrect  = "Corregir marcador"
 	markerWaiting     = "Esperando confirmación del rival"
@@ -432,20 +432,20 @@ func TestBuildMatchViewFlags(t *testing.T) {
 		{
 			name: "confirmed/submitter/recent", status: "confirmed", viewer: "submitter",
 			submitted: true, recentSubmit: true,
-			want: []string{markerCanCorrect, markerWaiting},
-			deny: []string{markerCanSubmit, markerCanConfirm, markerCanWalkover},
+			want: []string{markerCanCorrect, markerWaiting, markerCanWalkover},
+			deny: []string{markerCanSubmit, markerCanConfirm},
 		},
 		{
 			name: "confirmed/submitter/expired", status: "confirmed", viewer: "submitter",
 			submitted: true, recentSubmit: false,
-			want: []string{markerWaiting},
-			deny: []string{markerCanSubmit, markerCanConfirm, markerCanCorrect, markerCanWalkover},
+			want: []string{markerWaiting, markerCanWalkover},
+			deny: []string{markerCanSubmit, markerCanConfirm, markerCanCorrect},
 		},
 		{
 			name: "confirmed/opponent", status: "confirmed", viewer: "opponent",
 			submitted: true,
-			want:      []string{markerCanConfirm},
-			deny:      []string{markerCanSubmit, markerCanCorrect, markerCanWalkover, markerWaiting},
+			want:      []string{markerCanConfirm, markerCanWalkover},
+			deny:      []string{markerCanSubmit, markerCanCorrect, markerWaiting},
 		},
 		{
 			name: "confirmed/outsider", status: "confirmed", viewer: "outsider",
@@ -462,8 +462,8 @@ func TestBuildMatchViewFlags(t *testing.T) {
 		{
 			name: "confirmed/no-submitter/opponent", status: "confirmed", viewer: "opponent",
 			submitted: false,
-			want:      []string{markerCanConfirm},
-			deny:      []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
+			want:      []string{markerCanConfirm, markerCanWalkover},
+			deny:      []string{markerCanSubmit, markerCanCorrect},
 		},
 
 		// --- Disputed ---
@@ -677,32 +677,6 @@ func TestAdminOverrideNonAdmin(t *testing.T) {
 
 		s.URL = "/match/" + m.Id + "/admin-override"
 		s.Body = strings.NewReader("scores=6-3+6-4")
-		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		hdrs := authHeaders(tb, user)
-		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-		s.Headers = hdrs
-	}
-	s.Test(t)
-}
-
-func TestMatchWalkoverWrongStatus(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "POST /match/{id}/walkover on non-pending fails",
-		Method:          http.MethodPost,
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"pendientes"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "WOStatus A")
-		p2 := makePairTB(tb, app, "WOStatus B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
-
-		s.URL = "/match/" + m.Id + "/walkover"
-		s.Body = strings.NewReader("absent_team=2")
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"

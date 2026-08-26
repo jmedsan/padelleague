@@ -206,7 +206,7 @@ func TestTransition_DisputedToFinal(t *testing.T) {
 
 // --- Status transition tests: rejected ---
 
-func TestTransition_PendingToDisputed_Rejected(t *testing.T) {
+func TestTransition_PendingToDisputed_Allowed(t *testing.T) {
 	app := newTestApp(t)
 	registerHooks(t, app)
 	p1 := makePair(t, app, "TrRjA")
@@ -214,8 +214,9 @@ func TestTransition_PendingToDisputed_Rejected(t *testing.T) {
 	comp := makePlayoffComp(t, app, []*core.Record{p1, p2})
 	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
 
-	err := transitionMatch(t, app, m.Id, league.StatusDisputed, nil)
-	assert.ErrorContains(t, err, "invalid transition")
+	// A pending match can move directly to disputed: this is the walkover-report
+	// path (ReportUnplayed), reported before any score is ever submitted.
+	require.NoError(t, transitionMatch(t, app, m.Id, league.StatusDisputed, nil))
 }
 
 func TestTransition_FinalToAnything_Rejected(t *testing.T) {

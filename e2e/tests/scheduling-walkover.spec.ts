@@ -92,15 +92,19 @@ test.describe('scheduling, walkover & bracket', () => {
       round_number: 1,
     });
 
-    // Transition match: pending → confirmed → disputed with walkover via API
-    // (ReportUnplayed has no UI button; the transition hook requires valid steps)
-    await apiPatch(page.request, 'matches', matchId, { status: 'confirmed' });
-    await apiPatch(page.request, 'matches', matchId, {
-      status: 'disputed',
-      review_type: 'walkover',
-      walkover_requested_by: data.player1.id,
-      dispute_notes: '[No jugado] Test walkover',
-    });
+    // Player reports the match as unplayed via the real UI form.
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await Promise.all([
+      page.waitForResponse(resp => resp.url().includes(`/match/${matchId}/report-unplayed`)),
+      page.locator('button:has-text("Reportar no jugado")').click(),
+    ]);
+    await page.waitForLoadState('networkidle');
+
+    const matchAfterReport = await apiGetRecord(page.request, 'matches', matchId);
+    expect(matchAfterReport.status).toBe('disputed');
+    expect(matchAfterReport.review_type).toBe('walkover');
+    expect(matchAfterReport.walkover_requested_by).toBe(data.player1.id);
 
     // Admin approves via disputes page
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
@@ -239,14 +243,6 @@ async function apiListRecords(request: APIRequestContext, collection: string, fi
   });
   if (!resp.ok()) throw new Error(`List ${collection} failed: ${resp.status()}`);
   return (await resp.json()).items || [];
-}
-
-async function apiPatch(request: APIRequestContext, collection: string, id: string, data: Record<string, any>) {
-  const resp = await request.patch(`/api/collections/${collection}/records/${id}`, {
-    headers: { Authorization: suToken, 'Content-Type': 'application/json' },
-    data,
-  });
-  if (!resp.ok()) throw new Error(`Patch ${collection}/${id} failed: ${resp.status()} ${await resp.text()}`);
 }
 
 async function apiDeleteRecord(request: APIRequestContext, collection: string, id: string) {

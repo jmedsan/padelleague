@@ -14,7 +14,7 @@ import (
 )
 
 var validTransitions = map[string][]string{
-	league.StatusPending:   {league.StatusConfirmed, league.StatusFinal},
+	league.StatusPending:   {league.StatusConfirmed, league.StatusFinal, league.StatusDisputed},
 	league.StatusConfirmed: {league.StatusFinal, league.StatusDisputed},
 	league.StatusDisputed:  {league.StatusFinal},
 }
