@@ -156,7 +156,7 @@ func (h *CompetitionHandler) checkQuorumIssue(m *core.Record, base AdminIssue, q
 		return nil
 	}
 	days := int(elapsed.Hours() / 24)
-	detail := fmt.Sprintf("enviado hace %d dias", days)
+	detail := fmt.Sprintf("enviado hace %d días", days)
 	if days == 0 {
 		detail = fmt.Sprintf("enviado hace %d horas", int(elapsed.Hours()))
 	}
@@ -197,7 +197,7 @@ func (h *CompetitionHandler) checkPendingIssues(m *core.Record, base AdminIssue,
 		issue.Type = "stale"
 		issue.TypeLabel = "Inactivo"
 		issue.BadgeClass = "badge-info"
-		issue.Detail = fmt.Sprintf("sin actividad en %d dias", days)
+		issue.Detail = fmt.Sprintf("sin actividad en %d días", days)
 		issues = append(issues, issue)
 	}
 	return issues
