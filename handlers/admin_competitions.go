@@ -207,7 +207,7 @@ func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 		if amount == 0 {
 			amount = 3
 		}
-		if err := league.ApplyPenalty(h.app, comp, pairID, amount, false); err != nil {
+		if err := league.SetPenalty(h.app, comp, pairID, amount); err != nil {
 			return alertError(e, "Error al guardar")
 		}
 	} else {

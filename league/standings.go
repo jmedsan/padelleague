@@ -77,7 +77,14 @@ func tallyMatch(stats map[string]*pairStats, m *core.Record) {
 		return
 	}
 
-	creditWin(s1, s2, winner, p1, p2)
+	switch winner {
+	case p1:
+		s1.wins++
+		s2.losses++
+	case p2:
+		s2.wins++
+		s1.losses++
+	}
 
 	if strings.EqualFold(strings.TrimSpace(score), "WO") {
 		return
@@ -94,17 +101,6 @@ func tallyMatch(stats map[string]*pairStats, m *core.Record) {
 	s2.setsLost += sc.Sets1
 	s2.gamesWon += sc.Games2
 	s2.gamesLost += sc.Games1
-}
-
-func creditWin(s1, s2 *pairStats, winner, p1, p2 string) {
-	switch winner {
-	case p1:
-		s1.wins++
-		s2.losses++
-	case p2:
-		s2.wins++
-		s1.losses++
-	}
 }
 
 func parsePenalties(comp *core.Record) map[string]float64 {

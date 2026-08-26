@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/league"
 	_ "padelleague/migrations"
 )
 
@@ -46,7 +47,7 @@ func TestNotifyPlayers_CreatesNotification(t *testing.T) {
 	notifier := NewNotifier(app, "", "")
 
 	user := makeUser(t, app, "player")
-	notifier.NotifyPlayers([]string{user.Id}, "general", "Test Title", "Test Body", "")
+	notifier.NotifyPlayers([]string{user.Id}, league.Notification{Type: "general", Title: "Test Title", Body: "Test Body"})
 
 	notifs, err := app.FindRecordsByFilter("notifications",
 		"user = {:uid}", "", 0, 0, map[string]any{"uid": user.Id})
@@ -100,7 +101,7 @@ func TestNotifyPlayers_WithMatchID(t *testing.T) {
 
 	user := makeUser(t, app, "player")
 	match := makeMatch(t, app)
-	notifier.NotifyPlayers([]string{user.Id}, "general", "Match", "Score submitted", match.Id)
+	notifier.NotifyPlayers([]string{user.Id}, league.Notification{Type: "general", Title: "Match", Body: "Score submitted", MatchID: match.Id})
 
 	notifs, _ := app.FindRecordsByFilter("notifications",
 		"user = {:uid}", "", 0, 0, map[string]any{"uid": user.Id})
@@ -115,7 +116,7 @@ func TestNotifyPlayers_MultipleUsers(t *testing.T) {
 
 	u1 := makeUser(t, app, "player")
 	u2 := makeUser(t, app, "player")
-	notifier.NotifyPlayers([]string{u1.Id, u2.Id}, "general", "Broadcast", "To all", "")
+	notifier.NotifyPlayers([]string{u1.Id, u2.Id}, league.Notification{Type: "general", Title: "Broadcast", Body: "To all"})
 
 	n1, _ := app.FindRecordsByFilter("notifications", "user = {:uid}", "", 0, 0, map[string]any{"uid": u1.Id})
 	n2, _ := app.FindRecordsByFilter("notifications", "user = {:uid}", "", 0, 0, map[string]any{"uid": u2.Id})
@@ -128,7 +129,7 @@ func TestNotifyPlayers_InvalidUser(t *testing.T) {
 	app := newTestApp(t)
 	notifier := NewNotifier(app, "", "")
 
-	notifier.NotifyPlayers([]string{"nonexistent"}, "general", "Title", "Body", "")
+	notifier.NotifyPlayers([]string{"nonexistent"}, league.Notification{Type: "general", Title: "Title", Body: "Body"})
 
 	notifs, _ := app.FindRecordsByFilter("notifications", "title = 'Title'", "", 0, 0, nil)
 	assert.Empty(t, notifs, "no notification should be created for a nonexistent user")
@@ -228,8 +229,8 @@ func TestNotifyPlayers_RespectsDisabledPref(t *testing.T) {
 	user.Set("notification_prefs", map[string]any{"general": false, "dispute": true})
 	require.NoError(t, app.Save(user))
 
-	notifier.NotifyPlayers([]string{user.Id}, "general", "Suppressed", "Body", "")
-	notifier.NotifyPlayers([]string{user.Id}, "dispute", "Delivered", "Body", "")
+	notifier.NotifyPlayers([]string{user.Id}, league.Notification{Type: "general", Title: "Suppressed", Body: "Body"})
+	notifier.NotifyPlayers([]string{user.Id}, league.Notification{Type: "dispute", Title: "Delivered", Body: "Body"})
 
 	notifs, err := app.FindRecordsByFilter("notifications",
 		"user = {:uid}", "", 0, 0, map[string]any{"uid": user.Id})
@@ -278,7 +279,7 @@ func TestNotifyPlayers_WithVAPIDNoSubs(t *testing.T) {
 	notifier := NewNotifier(app, "BFakePublicKey123456789012345678901234567890123", "fakeprivatekey")
 
 	user := makeUser(t, app, "player")
-	notifier.NotifyPlayers([]string{user.Id}, "general", "Push Test", "Body", "")
+	notifier.NotifyPlayers([]string{user.Id}, league.Notification{Type: "general", Title: "Push Test", Body: "Body"})
 
 	time.Sleep(200 * time.Millisecond)
 
@@ -302,7 +303,7 @@ func TestNotifyPlayers_WithPushSub(t *testing.T) {
 	sub.Set("auth", "fakeauthkey12345678")
 	require.NoError(t, app.Save(sub))
 
-	notifier.NotifyPlayers([]string{user.Id}, "general", "Push", "With sub", "")
+	notifier.NotifyPlayers([]string{user.Id}, league.Notification{Type: "general", Title: "Push", Body: "With sub"})
 	time.Sleep(500 * time.Millisecond)
 
 	notifs, _ := app.FindRecordsByFilter("notifications",
@@ -317,7 +318,7 @@ func TestEmailNotifyPlayers_NoEmail(t *testing.T) {
 	user.Set("email", "")
 	require.NoError(t, app.Save(user))
 
-	EmailNotifyPlayers(app, []string{user.Id}, "Test", "Body", "link")
+	NewNotifier(app, "", "").EmailPlayers([]string{user.Id}, "Test", "Body", "link")
 
 	assert.Equal(t, 0, app.TestMailer.TotalSend())
 }

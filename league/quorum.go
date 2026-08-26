@@ -76,10 +76,12 @@ func (svc *Service) confirmIfExpired(m *core.Record, comp *core.Record) {
 
 	for _, pid := range []string{fresh.GetString("pair1"), fresh.GetString("pair2")} {
 		players := PlayersForPair(svc.app, pid)
-		svc.notifier.NotifyPlayers(players, "general",
-			"Resultado confirmado automaticamente",
-			"El resultado ha sido confirmado por tiempo de espera.",
-			fresh.Id)
+		svc.notifier.NotifyPlayers(players, Notification{
+			Type:    "general",
+			Title:   "Resultado confirmado automaticamente",
+			Body:    "El resultado ha sido confirmado por tiempo de espera.",
+			MatchID: fresh.Id,
+		})
 	}
 }
 
@@ -168,7 +170,9 @@ func (svc *Service) remindIfDue(m *core.Record, comp *core.Record, now time.Time
 	body := fmt.Sprintf("Tu rival envió un resultado hace más de %d horas. Confirma o disputa.", threshold)
 	link := "/match/" + fresh.Id
 
-	svc.notifier.NotifyPlayers(players, "quorum_request", title, body, fresh.Id)
+	svc.notifier.NotifyPlayers(players, Notification{
+		Type: "quorum_request", Title: title, Body: body, MatchID: fresh.Id,
+	})
 	svc.notifier.EmailPlayers(players, title, body, link)
 
 	fresh.Set("confirm_reminded", true)

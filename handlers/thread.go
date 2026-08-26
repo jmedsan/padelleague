@@ -108,7 +108,7 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 		}
 
 		status := msg.GetString("proposal_status")
-		canRespond, canChangeDecision := canRespondToProposal(msgType, match.GetString("status"), authorTeam, myTeam, status)
+		canRespond, canChangeDecision := proposalActions(msgType, match.GetString("status"), authorTeam == myTeam || myTeam == 0, status)
 
 		threadMessages = append(threadMessages, ThreadMessage{
 			Record:            msg,
@@ -143,10 +143,10 @@ func playerTeamOf(uid string, pair1Players, pair2Players []string) int {
 	return 0
 }
 
-func canRespondToProposal(msgType, matchStatus string, authorTeam, myTeam int, proposalStatus string) (canRespond, canChange bool) {
+func proposalActions(msgType, matchStatus string, sameTeamOrOutsider bool, proposalStatus string) (canRespond, canChange bool) {
 	canAct := msgType == "scheduling_proposal" &&
 		matchStatus == league.StatusPending &&
-		myTeam != 0 && authorTeam != myTeam
+		!sameTeamOrOutsider
 	return canAct && proposalStatus == "pending",
 		canAct && (proposalStatus == "accepted" || proposalStatus == "rejected")
 }
@@ -263,10 +263,10 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
 	authorName := league.PlayerName(h.app, e.Auth.Id)
-	h.notifier.NotifyPlayers(rivalPlayers, "general",
-		"Nuevo mensaje",
-		fmt.Sprintf("%s escribió: %s", authorName, league.Truncate(content, 60)),
-		matchID)
+	h.notifier.NotifyPlayers(rivalPlayers, league.Notification{
+		Type: "general", Title: "Nuevo mensaje",
+		Body: fmt.Sprintf("%s escribió: %s", authorName, league.Truncate(content, 60)), MatchID: matchID,
+	})
 
 	return redirectHX(e, "/match/"+matchID)
 }
@@ -331,10 +331,10 @@ func (h *ThreadHandler) notifyProposal(match *core.Record, myTeam int, n proposa
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
 	authorName := league.PlayerName(h.app, n.AuthorID)
-	h.notifier.NotifyPlayers(rivalPlayers, "scheduling",
-		"Propuesta de fecha",
-		fmt.Sprintf("%s propone jugar el %s a las %s en %s", authorName, n.Date, n.Time, n.VenueName),
-		match.Id)
+	h.notifier.NotifyPlayers(rivalPlayers, league.Notification{
+		Type: "scheduling", Title: "Propuesta de fecha",
+		Body: fmt.Sprintf("%s propone jugar el %s a las %s en %s", authorName, n.Date, n.Time, n.VenueName), MatchID: match.Id,
+	})
 }
 
 func (h *ThreadHandler) parseProposalForm(e *core.RequestEvent) (ProposalData, error) {
@@ -456,10 +456,10 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	responderName := league.PlayerName(h.app, e.Auth.Id)
-	h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
-		"Propuesta aceptada",
-		fmt.Sprintf("%s aceptó tu propuesta para el %s a las %s", responderName, pd.Date, pd.Time),
-		match.Id)
+	h.notifier.NotifyPlayers(proposerPlayers, league.Notification{
+		Type: "scheduling", Title: "Propuesta aceptada",
+		Body: fmt.Sprintf("%s aceptó tu propuesta para el %s a las %s", responderName, pd.Date, pd.Time), MatchID: match.Id,
+	})
 	return nil
 }
 
@@ -476,10 +476,10 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	responderName := league.PlayerName(h.app, e.Auth.Id)
-	h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
-		"Propuesta rechazada",
-		fmt.Sprintf("%s rechazó tu propuesta: %s", responderName, reason),
-		matchID)
+	h.notifier.NotifyPlayers(proposerPlayers, league.Notification{
+		Type: "scheduling", Title: "Propuesta rechazada",
+		Body: fmt.Sprintf("%s rechazó tu propuesta: %s", responderName, reason), MatchID: matchID,
+	})
 	return nil
 }
 
@@ -528,10 +528,10 @@ func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.
 	}
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	responderName := league.PlayerName(h.app, e.Auth.Id)
-	h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
-		"Decisión cambiada",
-		fmt.Sprintf("%s cambió su decisión: propuesta ahora rechazada", responderName),
-		match.Id)
+	h.notifier.NotifyPlayers(proposerPlayers, league.Notification{
+		Type: "scheduling", Title: "Decisión cambiada",
+		Body: fmt.Sprintf("%s cambió su decisión: propuesta ahora rechazada", responderName), MatchID: match.Id,
+	})
 	return nil
 }
 
@@ -569,10 +569,10 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 	}
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	responderName := league.PlayerName(h.app, e.Auth.Id)
-	h.notifier.NotifyPlayers(proposerPlayers, "scheduling",
-		"Decisión cambiada",
-		fmt.Sprintf("%s cambió su decisión: propuesta ahora aceptada para el %s a las %s", responderName, pd.Date, pd.Time),
-		match.Id)
+	h.notifier.NotifyPlayers(proposerPlayers, league.Notification{
+		Type: "scheduling", Title: "Decisión cambiada",
+		Body: fmt.Sprintf("%s cambió su decisión: propuesta ahora aceptada para el %s a las %s", responderName, pd.Date, pd.Time), MatchID: match.Id,
+	})
 	return nil
 }
 
@@ -672,10 +672,10 @@ func (h *ThreadHandler) PostAvailability(e *core.RequestEvent) error {
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
 	authorName := league.PlayerName(h.app, e.Auth.Id)
-	h.notifier.NotifyPlayers(rivalPlayers, "general",
-		"Disponibilidad",
-		fmt.Sprintf("%s: %s", authorName, content),
-		matchID)
+	h.notifier.NotifyPlayers(rivalPlayers, league.Notification{
+		Type: "general", Title: "Disponibilidad",
+		Body: fmt.Sprintf("%s: %s", authorName, content), MatchID: matchID,
+	})
 
 	return redirectHX(e, "/match/"+matchID)
 }

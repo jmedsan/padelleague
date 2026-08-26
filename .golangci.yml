@@ -30,6 +30,8 @@ linters:
         - name: context-as-argument
         - name: max-control-nesting
           arguments: [3]
+        - name: argument-limit
+          arguments: [4]
   exclusions:
     rules:
       - path: migrations/
@@ -44,6 +46,10 @@ linters:
           - gocognit
       - path: _test\.go$
         text: "file-length-limit"
+        linters:
+          - revive
+      - path: _test\.go$
+        text: "argument-limit"
         linters:
           - revive
 

@@ -38,20 +38,14 @@ func SendEmail(app core.App, to, subject, htmlBody string) {
 	}
 }
 
-// EmailPlayers sends a notification email to each player in the list,
-// delegating to EmailNotifyPlayers using the Notifier's app.
+// EmailPlayers sends a notification email to each player in the list.
 func (n *Notifier) EmailPlayers(playerUserIDs []string, subject, body, link string) {
-	EmailNotifyPlayers(n.app, playerUserIDs, subject, body, link)
-}
-
-// EmailNotifyPlayers sends a notification email to each configured player.
-func EmailNotifyPlayers(app core.App, playerUserIDs []string, subject, body, matchLink string) {
-	if !IsMailerConfigured(app) {
+	if !IsMailerConfigured(n.app) {
 		return
 	}
 
 	for _, userID := range playerUserIDs {
-		user, err := app.FindRecordById("users", userID)
+		user, err := n.app.FindRecordById("users", userID)
 		if err != nil {
 			continue
 		}
@@ -62,8 +56,8 @@ func EmailNotifyPlayers(app core.App, playerUserIDs []string, subject, body, mat
 		}
 
 		displayName := user.GetString("display_name")
-		htmlBody := BuildNotificationEmail(displayName, body, matchLink)
-		SendEmail(app, email, subject, htmlBody)
+		htmlBody := BuildNotificationEmail(displayName, body, link)
+		SendEmail(n.app, email, subject, htmlBody)
 	}
 }
 

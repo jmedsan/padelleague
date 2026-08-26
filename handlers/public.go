@@ -387,11 +387,12 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	rounds := buildRounds(matches, pairNames, playerPairIDs)
 	autoExpandRound := firstIncompleteRound(rounds)
 
-	data := h.buildCompetitionData(comp, id, rounds, pairNames, autoExpandRound)
+	data := h.buildCompetitionData(comp, rounds, pairNames, autoExpandRound)
 	return h.renderPage(e, "competition.html", data)
 }
 
-func (h *PublicHandler) buildCompetitionData(comp *core.Record, id string, rounds []RoundView, pairNames map[string]string, autoExpandRound int) map[string]any {
+func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundView, pairNames map[string]string, autoExpandRound int) map[string]any {
+	id := comp.Id
 	var standings []league.StandingRowFull
 	hasPenalties := false
 	if comp.GetString("type") == "league" {

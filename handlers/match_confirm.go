@@ -9,7 +9,6 @@ import (
 	"github.com/pocketbase/pocketbase/tools/types"
 
 	"padelleague/league"
-	"padelleague/notify"
 )
 
 // MatchConfirm handles the opponent's confirmation of a submitted score.
@@ -64,8 +63,11 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 		submitterPairID = match.GetString("pair2")
 	}
 	submitterPlayers := league.PlayersForPair(h.app, submitterPairID)
-	h.notifier.NotifyPlayers(submitterPlayers, "general", "Resultado confirmado", "Tu rival ha confirmado el resultado del partido.", match.Id)
-	notify.EmailNotifyPlayers(h.app, submitterPlayers, "Resultado confirmado", "Tu rival ha confirmado el resultado del partido.", "/match/"+id)
+	h.notifier.NotifyPlayers(submitterPlayers, league.Notification{
+		Type: "general", Title: "Resultado confirmado",
+		Body: "Tu rival ha confirmado el resultado del partido.", MatchID: match.Id,
+	})
+	h.notifier.EmailPlayers(submitterPlayers, "Resultado confirmado", "Tu rival ha confirmado el resultado del partido.", "/match/"+id)
 
 	return redirectHX(e, "/match/"+id)
 }
@@ -181,7 +183,10 @@ func (h *MatchHandler) notifyCorrectionToRival(match *core.Record, myTeam int) {
 		rivalPairID = match.GetString("pair1")
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	h.notifier.NotifyPlayers(rivalPlayers, "quorum_request", "Resultado corregido", "El rival ha corregido el resultado. Confirma o disputa.", match.Id)
+	h.notifier.NotifyPlayers(rivalPlayers, league.Notification{
+		Type: "quorum_request", Title: "Resultado corregido",
+		Body: "El rival ha corregido el resultado. Confirma o disputa.", MatchID: match.Id,
+	})
 }
 
 func (h *MatchHandler) validateCorrectionPermission(isAdmin bool, myTeam int, submittedByID string, match *core.Record) string {
