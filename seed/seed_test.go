@@ -1,7 +1,10 @@
 package seed
 
 import (
+	"fmt"
 	"testing"
+
+	"padelleague/league"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -99,4 +102,182 @@ func TestRun_MissingRequiredFields_LogsAndContinues(t *testing.T) {
 	u, err := app.FindAuthRecordByEmail("users", "good@test.local")
 	require.NoError(t, err)
 	assert.Equal(t, "player", u.GetString("role"), "subsequent valid user should still be created")
+}
+
+func seedUser(t *testing.T, app core.App, email, role, displayName string) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("users")
+	require.NoError(t, err)
+	rec := core.NewRecord(col)
+	rec.Set("email", email)
+	rec.Set("role", role)
+	rec.Set("display_name", displayName)
+	rec.SetPassword("testpass123456")
+	rec.SetVerified(true)
+	require.NoError(t, app.Save(rec))
+	return rec
+}
+
+func seedPair(t *testing.T, app core.App, name string, p1, p2 *core.Record) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("pairs")
+	require.NoError(t, err)
+	rec := core.NewRecord(col)
+	rec.Set("name", name)
+	rec.Set("player1", p1.Id)
+	rec.Set("player2", p2.Id)
+	require.NoError(t, app.Save(rec))
+	return rec
+}
+
+func seedMatch(t *testing.T, app core.App, compID, p1ID, p2ID string) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("matches")
+	require.NoError(t, err)
+	rec := core.NewRecord(col)
+	rec.Set("competition", compID)
+	rec.Set("pair1", p1ID)
+	rec.Set("pair2", p2ID)
+	rec.Set("status", "pending")
+	rec.Set("round_number", 1)
+	require.NoError(t, app.Save(rec))
+	return rec
+}
+
+func seedCompetition(t *testing.T, app core.App, pairIDs []string) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("competitions")
+	require.NoError(t, err)
+	rec := core.NewRecord(col)
+	rec.Set("name", "Test Comp")
+	rec.Set("type", "league")
+	rec.Set("active", true)
+	rec.Set("pairs", pairIDs)
+	require.NoError(t, app.Save(rec))
+	return rec
+}
+
+func seedVenue(t *testing.T, app core.App, name string) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("venues")
+	require.NoError(t, err)
+	rec := core.NewRecord(col)
+	rec.Set("name", name)
+	require.NoError(t, app.Save(rec))
+	return rec
+}
+
+func countRecords(t *testing.T, app core.App, collection string) int {
+	t.Helper()
+	recs, err := app.FindRecordsByFilter(collection, "id != ''", "", 0, 0)
+	if err != nil {
+		return 0
+	}
+	return len(recs)
+}
+
+func TestWipe(t *testing.T) {
+	app := newTestApp(t)
+
+	admin1 := seedUser(t, app, "admin1@test.local", "admin", "Admin 1")
+	admin2 := seedUser(t, app, "admin2@test.local", "admin", "Admin 2")
+	p1 := seedUser(t, app, "player1@test.local", "player", "Player 1")
+	p2 := seedUser(t, app, "player2@test.local", "player", "Player 2")
+
+	pair := seedPair(t, app, "Test Pair", p1, p2)
+	comp := seedCompetition(t, app, []string{pair.Id})
+	seedMatch(t, app, comp.Id, pair.Id, pair.Id)
+	seedVenue(t, app, "Test Venue")
+
+	venuesBefore := countRecords(t, app, "venues")
+
+	keep := map[string]struct{}{
+		admin1.Id: {},
+		admin2.Id: {},
+	}
+	summary, err := Wipe(app, keep)
+	require.NoError(t, err)
+
+	assert.GreaterOrEqual(t, summary.Competitions, 1)
+	assert.GreaterOrEqual(t, summary.Pairs, 1)
+	assert.GreaterOrEqual(t, summary.Players, 2)
+	assert.GreaterOrEqual(t, summary.Matches, 1)
+
+	assert.Equal(t, 0, countRecords(t, app, "competitions"))
+	assert.Equal(t, 0, countRecords(t, app, "pairs"))
+	assert.Equal(t, 0, countRecords(t, app, "matches"))
+
+	// Admins survive
+	_, err = app.FindRecordById("users", admin1.Id)
+	require.NoError(t, err)
+	_, err = app.FindRecordById("users", admin2.Id)
+	require.NoError(t, err)
+
+	// No non-admin users remain
+	nonAdmins, err := app.FindRecordsByFilter("users", "role != 'admin'", "", 0, 0)
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(nonAdmins))
+
+	// Venues untouched
+	assert.Equal(t, venuesBefore, countRecords(t, app, "venues"))
+}
+
+func TestSampleLeague(t *testing.T) {
+	app := newTestApp(t)
+
+	require.NoError(t, SampleLeague(app))
+
+	players, err := app.FindRecordsByFilter("users", "role = 'player'", "", 0, 0)
+	require.NoError(t, err)
+	assert.Equal(t, 8, len(players))
+
+	pairs, err := app.FindRecordsByFilter("pairs", "id != ''", "", 0, 0)
+	require.NoError(t, err)
+	assert.Equal(t, 4, len(pairs))
+
+	comps, err := app.FindRecordsByFilter("competitions", "id != ''", "", 0, 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(comps))
+	assert.Equal(t, "Liga de ejemplo", comps[0].GetString("name"))
+	assert.Equal(t, 6, comps[0].GetInt("rounds"))
+
+	matches, err := app.FindRecordsByFilter("matches", "id != ''", "", 0, 0)
+	require.NoError(t, err)
+	assert.Equal(t, 12, len(matches))
+
+	finalCount := 0
+	for _, m := range matches {
+		if m.GetString("status") == league.StatusFinal {
+			finalCount++
+		}
+	}
+	assert.Equal(t, 8, finalCount, "rounds 1-4 should have 2 matches each = 8 final")
+
+	// Standings should compute without error
+	svc := league.New(app, nil)
+	standings, err := svc.ComputeStandings(comps[0].Id)
+	require.NoError(t, err)
+	assert.Equal(t, 4, len(standings))
+
+	for i, s := range standings {
+		t.Logf("standing %d: pair=%s pts=%d", i, s.PairName, s.Points)
+	}
+}
+
+func TestWipe_PreservesKeepUserIDs(t *testing.T) {
+	app := newTestApp(t)
+
+	kept := seedUser(t, app, "kept@test.local", "player", "Kept Player")
+	seedUser(t, app, "deleted@test.local", "player", "Deleted Player")
+
+	keep := map[string]struct{}{kept.Id: {}}
+	_, err := Wipe(app, keep)
+	require.NoError(t, err)
+
+	_, err = app.FindRecordById("users", kept.Id)
+	require.NoError(t, err, "kept user should survive")
+
+	users, err := app.FindRecordsByFilter("users", fmt.Sprintf("id != '%s'", kept.Id), "", 0, 0)
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(users), "only kept user should remain")
 }
