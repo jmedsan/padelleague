@@ -33,7 +33,7 @@ type CompetitionSummary struct {
 
 // Dashboard renders the admin competitions overview with active/inactive lists and issues.
 func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
-	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != ''", "", 0, 0, nil)
+	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != ''", "name", 0, 0, nil)
 
 	var active, inactive []CompetitionSummary
 	for _, comp := range allComps {
