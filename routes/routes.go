@@ -101,6 +101,7 @@ func registerAdminRoutes(se *core.ServeEvent, deps Deps) {
 	g.GET("/competitions/{id}", comp.Detail)
 	g.POST("/competitions/{id}", comp.Update)
 	g.POST("/competitions/{id}/toggle", comp.Toggle)
+	g.POST("/competitions/{id}/finalize", comp.FinalizeCompetition)
 	g.POST("/competitions/{id}/pairs", comp.AddPair)
 	g.POST("/competitions/{id}/copy-pairs", comp.CopyPairs)
 	g.POST("/competitions/{id}/remove-pair", comp.RemovePair)

@@ -17,6 +17,9 @@
                     {{if .Competition.GetString "category"}}
                         <span class="badge badge-outline">{{.Competition.GetString "category"}}</span>
                     {{end}}
+                    {{if and .IsLeague (ne .Phase.String "")}}
+                        <span class="badge {{if eq .Phase.String "recovery"}}badge-secondary{{else if eq .Phase.String "finished"}}badge-neutral{{else}}badge-outline{{end}}">{{.Phase.Label}}</span>
+                    {{end}}
                 </div>
             </div>
         </div>
@@ -25,6 +28,11 @@
                 <span class="label-text text-sm">{{if .Competition.GetBool "active"}}Activa{{else}}Inactiva{{end}}</span>
                 <input type="checkbox" class="toggle toggle-success" onchange="this.form.requestSubmit()" {{if .Competition.GetBool "active"}}checked{{end}}>
             </form>
+            {{if and .IsLeague (or (eq .Phase.String "playing") (eq .Phase.String "recovery"))}}
+            <form hx-post="/admin/competitions/{{.Competition.Id}}/finalize" onsubmit="return confirm('¿Finalizar esta liga ahora? Esta acción no se puede deshacer.')">
+                <button type="submit" class="btn btn-warning btn-sm" data-testid="finalize-league">Finalizar liga ahora</button>
+            </form>
+            {{end}}
             <label for="edit-modal" class="btn btn-ghost btn-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-4 w-4 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                 Editar
@@ -93,9 +101,13 @@
                         <label class="label"><span class="label-text">Marcador walkover</span></label>
                         <input type="text" name="walkover_score" value="{{or (.Competition.GetString "walkover_score") "6-0 6-0"}}" class="input input-bordered input-sm">
                     </div>
-                    <div class="form-control">
+                    <div class="form-control mb-3">
                         <label class="label"><span class="label-text">Penalización por defecto (puntos)</span></label>
                         <input type="number" name="default_penalty" value="{{or (.Competition.GetFloat "default_penalty") 3}}" min="0" class="input input-bordered input-sm">
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Días de recuperación</span></label>
+                        <input type="number" name="recovery_days" value="{{or (.Competition.GetFloat "recovery_days") 14}}" min="0" class="input input-bordered input-sm">
                     </div>
                 </div>
             </div>

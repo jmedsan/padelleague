@@ -57,18 +57,15 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 
 	allUsers, _ := h.app.FindRecordsByFilter("users", "role = 'player'", "", 0, 0, nil)
 
-	hasUnpaid := false
-	for _, pe := range pairEntries {
-		if !pe.Paid {
-			hasUnpaid = true
-			break
-		}
-	}
-
 	var roundDates []roundDate
 	isLeague := comp.GetString("type") == "league"
 	if isLeague && len(matches) > 0 {
 		roundDates = h.buildRoundDates(comp)
+	}
+
+	phase := league.PhaseUnknown
+	if isLeague {
+		phase = league.CompetitionPhase(comp, time.Now())
 	}
 
 	return h.renderPage(e, "admin/competition-detail.html", map[string]any{
@@ -83,9 +80,19 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"PenaltyMap":      penaltyMap,
 		"IsLeague":        isLeague,
 		"HasFixtures":     len(matches) > 0,
-		"HasUnpaid":       hasUnpaid,
+		"HasUnpaid":       anyUnpaid(pairEntries),
 		"RoundDates":      roundDates,
+		"Phase":           phase,
 	})
+}
+
+func anyUnpaid(entries []pairEntry) bool {
+	for _, pe := range entries {
+		if !pe.Paid {
+			return true
+		}
+	}
+	return false
 }
 
 // Create handles POST to create a new competition.
@@ -168,6 +175,23 @@ func (h *CompetitionHandler) Toggle(e *core.RequestEvent) error {
 	}
 
 	return redirectHX(e, "/admin/competitions")
+}
+
+// FinalizeCompetition ends a competition's recovery window immediately.
+func (h *CompetitionHandler) FinalizeCompetition(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	record, err := h.app.FindRecordById("competitions", id)
+	if err != nil {
+		return alertError(e, "Competición no encontrada")
+	}
+
+	record.Set("finalized", true)
+	if err := h.app.Save(record); err != nil {
+		slog.Error("finalize competition failed", "err", err)
+		return alertError(e, "Error al finalizar la competición")
+	}
+
+	return redirectHX(e, "/admin/competitions/"+id)
 }
 
 // ApplyPenalty adds or removes a point penalty for a pair in a competition.
@@ -421,4 +445,12 @@ func setSchedulingFields(record *core.Record, e *core.RequestEvent) {
 		}
 	}
 	record.Set("default_penalty", dp)
+
+	rd := 14
+	if v := e.Request.FormValue("recovery_days"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			rd = n
+		}
+	}
+	record.Set("recovery_days", rd)
 }
