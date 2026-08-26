@@ -6,6 +6,7 @@ import "github.com/pocketbase/pocketbase/core"
 // Notifier sends player notifications; implemented by notify.Notifier.
 type Notifier interface {
 	NotifyPlayers(playerUserIDs []string, notifType, title, body, relatedMatchID string)
+	EmailPlayers(playerUserIDs []string, subject, body, link string)
 }
 
 // Service provides domain operations for competitions, matches, and standings.
