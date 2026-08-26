@@ -58,7 +58,7 @@ func (h *NotificationHandler) List(e *core.RequestEvent) error {
 	out += `</div>`
 
 	if len(records) == 0 {
-		out += `<p class="text-sm text-base-content/50">Sin notificaciones</p>`
+		out += `<p class="text-sm text-base-content/50">No tienes notificaciones</p>`
 	} else {
 		for _, r := range records {
 			readClass := ""

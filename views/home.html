@@ -113,6 +113,10 @@
         {{end}}
     </div>
 </div>
+{{else if .Competitions}}
+<div class="mb-6">
+    <p class="text-sm text-base-content/50 text-center py-4">Aún no hay resultados — los partidos irán apareciendo aquí</p>
+</div>
 {{end}}
 
 {{if .Competitions}}
@@ -162,6 +166,7 @@
     <div class="card-body text-center py-12">
         <span class="text-5xl mb-4 opacity-60">🏅</span>
         <p class="text-lg opacity-60">No participas en ninguna competición activa</p>
+        <p class="text-sm opacity-40 mt-1">Pide a tu administrador que te añada a una competición</p>
     </div>
 </div>
 {{end}}
