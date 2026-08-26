@@ -110,10 +110,7 @@ func competitionTasks(app core.App, comp *core.Record, playerPairIDs map[string]
 }
 
 func pendingMatchTasks(app core.App, comp *core.Record, pending []*core.Record, playerPairIDs map[string]bool, compName string, now time.Time) []PlayerTask {
-	phase := PhaseUnknown
-	if !IsPlayoff(comp) {
-		phase = CompetitionPhase(comp, now)
-	}
+	phase := PhaseOf(comp, now)
 	if phase == PhaseFinished {
 		return nil
 	}

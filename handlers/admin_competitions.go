@@ -63,10 +63,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		roundDates = h.buildRoundDates(comp)
 	}
 
-	phase := league.PhaseUnknown
-	if isLeague {
-		phase = league.CompetitionPhase(comp, time.Now())
-	}
+	phase := league.PhaseOf(comp, time.Now())
 
 	return h.renderPage(e, "admin/competition-detail.html", map[string]any{
 		"Competition":     comp,
