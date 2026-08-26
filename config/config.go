@@ -11,8 +11,11 @@ type Config struct {
 	PBAdminEmail    string `env:"PB_ADMIN_EMAIL"`
 	PBAdminPassword string `env:"PB_ADMIN_PASSWORD"`
 
-	AppAdminEmail    string `env:"APP_ADMIN_EMAIL"`
-	AppAdminPassword string `env:"APP_ADMIN_PASSWORD"`
+	AppAdmin1Email    string `env:"APP_ADMIN1_EMAIL"`
+	AppAdmin1Password string `env:"APP_ADMIN1_PASSWORD"`
+
+	AppAdmin2Email    string `env:"APP_ADMIN2_EMAIL"`
+	AppAdmin2Password string `env:"APP_ADMIN2_PASSWORD"`
 
 	AppPlayerEmail    string `env:"APP_PLAYER_EMAIL"`
 	AppPlayerPassword string `env:"APP_PLAYER_PASSWORD"`

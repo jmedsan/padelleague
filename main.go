@@ -53,6 +53,7 @@ func main() {
 			Notifier:  notifier,
 			LeagueSvc: leagueSvc,
 			StaticFS:  staticFS,
+			AppEnv:    cfg.AppEnv,
 		})
 		return se.Next()
 	})
@@ -65,7 +66,10 @@ func main() {
 func seedUsers(cfg config.Config) []seed.User {
 	users := []seed.User{
 		{Email: cfg.PBAdminEmail, Password: cfg.PBAdminPassword, Collection: core.CollectionNameSuperusers},
-		{Email: cfg.AppAdminEmail, Password: cfg.AppAdminPassword, Collection: "users", Role: "admin", DisplayName: "Admin"},
+		{Email: cfg.AppAdmin1Email, Password: cfg.AppAdmin1Password, Collection: "users", Role: "admin", DisplayName: "Javi"},
+	}
+	if cfg.AppAdmin2Email != "" {
+		users = append(users, seed.User{Email: cfg.AppAdmin2Email, Password: cfg.AppAdmin2Password, Collection: "users", Role: "admin", DisplayName: "Luis"})
 	}
 	if cfg.AppEnv != "prod" {
 		users = append(users, seed.User{Email: cfg.AppPlayerEmail, Password: cfg.AppPlayerPassword, Collection: "users", Role: "player", DisplayName: "Javi"})

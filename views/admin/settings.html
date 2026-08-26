@@ -1,0 +1,64 @@
+{{define "title"}}Configuración{{end}}
+{{define "content"}}
+<h1 class="text-2xl font-bold mb-6">Configuración</h1>
+
+{{if .DevMode}}
+<div class="card bg-base-100 shadow-xl border border-error max-w-lg">
+    <div class="card-body">
+        <h2 class="card-title text-error">Zona de peligro</h2>
+        <p class="text-sm opacity-70 mb-4">Elimina todos los datos de jugadores, parejas, competiciones y partidos. Los administradores y las pistas se conservan.</p>
+
+        <form id="reset-form">
+            <div class="form-control mb-4">
+                <label class="label" for="confirm-input">
+                    <span class="label-text">Escribe <kbd class="kbd kbd-sm">DELETE</kbd> para confirmar</span>
+                </label>
+                <input type="text" id="confirm-input" name="confirm" placeholder="DELETE" autocomplete="off"
+                       class="input input-bordered input-error w-full" />
+            </div>
+
+            <div class="form-control mb-4">
+                <label class="label">
+                    <span class="label-text">Modo</span>
+                </label>
+                <div class="flex flex-col gap-2">
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="radio" name="mode" value="" class="radio radio-sm" checked />
+                        <span class="label-text">Solo borrar</span>
+                    </label>
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="radio" name="mode" value="sample" class="radio radio-sm" />
+                        <span class="label-text">Borrar y crear liga de ejemplo</span>
+                    </label>
+                </div>
+            </div>
+
+            <button id="reset-btn" type="button" disabled
+                    class="btn btn-error w-full"
+                    hx-post="/admin/settings/reset"
+                    hx-target="#reset-result"
+                    hx-include="#reset-form"
+                    hx-confirm="Esta acción eliminará todos los datos. ¿Continuar?">
+                Reiniciar base de datos
+            </button>
+        </form>
+
+        <div id="reset-result" class="mt-4"></div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var inp = document.getElementById('confirm-input');
+    var btn = document.getElementById('reset-btn');
+    inp.addEventListener('input', function() {
+        btn.disabled = inp.value !== 'DELETE';
+    });
+})();
+</script>
+{{else}}
+<div class="alert alert-info max-w-lg">
+    <span>No hay opciones de configuración disponibles en este entorno.</span>
+</div>
+{{end}}
+{{end}}

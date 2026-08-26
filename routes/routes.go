@@ -8,6 +8,7 @@ import (
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
+	"github.com/pocketbase/pocketbase/tools/router"
 
 	"padelleague/handlers"
 	"padelleague/league"
@@ -23,6 +24,7 @@ type Deps struct {
 	Notifier  *notify.Notifier
 	LeagueSvc *league.Service
 	StaticFS  fs.FS
+	AppEnv    string
 }
 
 // Register wires all application routes onto the given serve event.
@@ -134,6 +136,14 @@ func registerAdminRoutes(se *core.ServeEvent, deps Deps) {
 	g.POST("/venues", admin.VenuesCreate)
 	g.POST("/venues/{id}", admin.VenuesUpdate)
 	g.POST("/venues/{id}/delete", admin.VenuesDelete)
+
+	registerAdminSettingsRoutes(g, deps)
+}
+
+func registerAdminSettingsRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
+	settings := handlers.NewAdminSettingsHandler(deps.App, deps.AppEnv, deps.Renderer.Page)
+	g.GET("/settings", settings.Settings)
+	g.POST("/settings/reset", settings.Reset)
 }
 
 func registerMatchRoutes(se *core.ServeEvent, deps Deps) {
