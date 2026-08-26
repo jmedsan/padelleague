@@ -221,6 +221,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	match.Set("submitted_by", userID)
 	match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
 	match.Set("status", league.StatusConfirmed)
+	match.Set("confirm_reminded", false)
 
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al guardar el resultado")

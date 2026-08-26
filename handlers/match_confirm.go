@@ -165,6 +165,7 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	match.Set("scores", scores)
 	match.Set("confirmed_by", "")
 	match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
+	match.Set("confirm_reminded", false)
 
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al corregir el resultado")
