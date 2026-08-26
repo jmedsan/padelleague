@@ -138,6 +138,7 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 
 	if record.GetString("start_date") != oldStart || record.GetString("end_date") != oldEnd {
 		resetWarnLevels(h.app, id)
+		h.refreshRoundSchedule(record)
 	}
 
 	return redirectHX(e, "/admin/competitions")
@@ -266,6 +267,38 @@ func resetWarnLevels(app core.App, compID string) {
 		if err := app.Save(m); err != nil {
 			slog.Error("reset warn level", "match", m.Id, "err", err)
 		}
+	}
+}
+
+func (h *CompetitionHandler) refreshRoundSchedule(comp *core.Record) {
+	if league.IsPlayoff(comp) {
+		return
+	}
+	if comp.GetString("round_arrange_dates") != "" {
+		return
+	}
+	rounds := comp.GetInt("rounds")
+	if rounds == 0 {
+		matches, _ := h.app.FindRecordsByFilter("matches",
+			"competition = {:cid}", "", 0, 0,
+			map[string]any{"cid": comp.Id})
+		for _, m := range matches {
+			if rn := m.GetInt("round_number"); rn > rounds {
+				rounds = rn
+			}
+		}
+		if rounds > 0 {
+			comp.Set("rounds", rounds)
+		}
+	}
+	if rounds == 0 {
+		return
+	}
+	start := comp.GetDateTime("start_date").Time()
+	end := comp.GetDateTime("end_date").Time()
+	comp.Set("round_arrange_dates", league.StoreRoundSchedule(start, end, rounds))
+	if err := h.app.Save(comp); err != nil {
+		slog.Error("refresh round schedule failed", "competition", comp.Id, "err", err)
 	}
 }
 
