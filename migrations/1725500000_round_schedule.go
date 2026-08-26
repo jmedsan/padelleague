@@ -1,10 +1,11 @@
 package migrations
 
 import (
+	"encoding/json"
+	"time"
+
 	"github.com/pocketbase/pocketbase/core"
 	m "github.com/pocketbase/pocketbase/migrations"
-
-	"padelleague/league"
 )
 
 func init() {
@@ -38,8 +39,15 @@ func init() {
 
 			start := c.GetDateTime("start_date").Time()
 			end := c.GetDateTime("end_date").Time()
-			if !start.IsZero() && !end.IsZero() {
-				c.Set("round_arrange_dates", league.StoreRoundSchedule(start, end, maxRound))
+			if !start.IsZero() && !end.IsZero() && maxRound > 0 {
+				sched := make(map[int]time.Time, maxRound)
+				for r := 1; r <= maxRound; r++ {
+					frac := float64(r) / float64(maxRound)
+					sched[r] = start.Add(time.Duration(float64(end.Sub(start)) * frac))
+				}
+				if b, err := json.Marshal(sched); err == nil {
+					c.Set("round_arrange_dates", string(b))
+				}
 			}
 
 			if err := app.Save(c); err != nil {

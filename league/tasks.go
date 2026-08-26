@@ -109,10 +109,7 @@ func competitionTasks(app core.App, comp *core.Record, playerPairIDs map[string]
 }
 
 func pendingMatchTasks(app core.App, comp *core.Record, pending []*core.Record, playerPairIDs map[string]bool, compName string, now time.Time) []PlayerTask {
-	startDate := comp.GetDateTime("start_date").Time()
-	endDate := comp.GetDateTime("end_date").Time()
 	graceDays := comp.GetInt("arrange_grace_days")
-	totalRounds := countRounds(pending)
 
 	var tasks []PlayerTask
 	for _, m := range pending {
@@ -133,7 +130,7 @@ func pendingMatchTasks(app core.App, comp *core.Record, pending []*core.Record, 
 			continue
 		}
 
-		deadline, ok := RecommendedArrangeBy(startDate, endDate, totalRounds, roundNum)
+		deadline, ok := RoundArrangeDate(comp, roundNum)
 		if !ok {
 			continue
 		}
@@ -200,17 +197,6 @@ func hasAcceptedProposal(app core.App, matchID string) bool {
 		"match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'accepted'",
 		"", 1, 0, map[string]any{"mid": matchID})
 	return len(accepted) > 0
-}
-
-func countRounds(matches []*core.Record) int {
-	max := 0
-	for _, m := range matches {
-		rn := m.GetInt("round_number")
-		if rn > max {
-			max = rn
-		}
-	}
-	return max
 }
 
 func sortTasks(tasks []PlayerTask) {
