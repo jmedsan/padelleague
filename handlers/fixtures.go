@@ -54,6 +54,7 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 
 	compType := comp.GetString("type")
 
+	var roundCount int
 	err = h.app.RunInTransaction(func(txApp core.App) error {
 		for _, m := range existingMatches {
 			if err := txApp.Delete(m); err != nil {
@@ -62,7 +63,9 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 		}
 
 		if compType == "league" {
-			return h.generateLeague(txApp, compID, pairIDs, comp.GetBool("play_twice"))
+			n, genErr := h.generateLeague(txApp, compID, pairIDs, comp.GetBool("play_twice"))
+			roundCount = n
+			return genErr
 		}
 		return h.generatePlayoff(txApp, compID, pairIDs, comp)
 	})
@@ -72,15 +75,25 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 		return alertError(e, "Error al generar partidos")
 	}
 
+	if compType == "league" && roundCount > 0 {
+		comp.Set("rounds", roundCount)
+		start := comp.GetDateTime("start_date").Time()
+		end := comp.GetDateTime("end_date").Time()
+		comp.Set("round_arrange_dates", league.StoreRoundSchedule(start, end, roundCount))
+		if err := h.app.Save(comp); err != nil {
+			slog.Error("save round schedule failed", "competition", compID, "err", err)
+		}
+	}
+
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
-func (h *FixtureHandler) generateLeague(txApp core.App, compID string, pairIDs []string, double bool) error {
+func (h *FixtureHandler) generateLeague(txApp core.App, compID string, pairIDs []string, double bool) (int, error) {
 	rounds := league.RoundRobin(pairIDs, double)
 
 	matchCol, err := txApp.FindCollectionByNameOrId("matches")
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	for _, round := range rounds {
@@ -93,11 +106,11 @@ func (h *FixtureHandler) generateLeague(txApp core.App, compID string, pairIDs [
 			match.Set("pair2", m.Away)
 			match.Set("status", league.StatusPending)
 			if err := txApp.Save(match); err != nil {
-				return err
+				return 0, err
 			}
 		}
 	}
-	return nil
+	return len(rounds), nil
 }
 
 func (h *FixtureHandler) generatePlayoff(txApp core.App, compID string, pairIDs []string, comp *core.Record) error {
