@@ -340,3 +340,33 @@ func TestConfirmStaleMatches_NoTimeout(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "confirmed", updated.GetString("status"))
 }
+
+func TestRemindPendingConfirmations_ExactBoundary(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "Bound A")
+	p2 := makePair(t, app, "Bound B")
+
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	comp.Set("confirm_reminder_hours", 6)
+	comp.Set("quorum_timeout_hours", 24)
+	require.NoError(t, app.Save(comp))
+
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "confirmed")
+	match.Set("scores", "6-3 6-4")
+	match.Set("submitted_by", p1.GetString("player1"))
+	require.NoError(t, app.Save(match))
+
+	// Set submitted_at to exactly threshold hours ago (boundary).
+	// With `<` the elapsed equals threshold, so it does NOT return early → reminder fires.
+	// A `<=` mutant would return early → no reminder.
+	exactlyAt := time.Now().Add(-6 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
+	_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:sa} WHERE id = {:id}").
+		Bind(map[string]any{"sa": exactlyAt, "id": match.Id}).Execute()
+	require.NoError(t, err)
+
+	notifier := &fakeNotifier{}
+	svc := New(app, notifier)
+	svc.RemindPendingConfirmations(time.Now())
+	require.Len(t, notifier.calls, 2, "at exact threshold boundary, reminder must fire")
+}
