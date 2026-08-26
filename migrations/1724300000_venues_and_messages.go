@@ -9,7 +9,6 @@ import (
 
 func init() {
 	m.Register(func(app core.App) error {
-		// --- venues ---
 		venues := core.NewBaseCollection("venues")
 		venues.Fields.Add(
 			&core.TextField{Name: "name", Required: true, Max: 100},
@@ -30,7 +29,6 @@ func init() {
 			}
 		}
 
-		// --- match_messages ---
 		matches, err := app.FindCollectionByNameOrId("matches")
 		if err != nil {
 			return err
@@ -61,7 +59,6 @@ func init() {
 			return err
 		}
 
-		// --- add "scheduling" to notifications type field ---
 		notifications, err := app.FindCollectionByNameOrId("notifications")
 		if err != nil {
 			return err

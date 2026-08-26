@@ -7,7 +7,6 @@ import (
 
 func init() {
 	m.Register(func(app core.App) error {
-		// --- competitions: add scheduling fields ---
 		comps, err := app.FindCollectionByNameOrId("competitions")
 		if err != nil {
 			return err
@@ -40,7 +39,6 @@ func init() {
 			}
 		}
 
-		// --- matches: add scheduling fields ---
 		matches, err := app.FindCollectionByNameOrId("matches")
 		if err != nil {
 			return err
@@ -63,7 +61,6 @@ func init() {
 
 		return app.Save(matches)
 	}, func(app core.App) error {
-		// --- down: remove added fields ---
 		comps, err := app.FindCollectionByNameOrId("competitions")
 		if err != nil {
 			return nil
