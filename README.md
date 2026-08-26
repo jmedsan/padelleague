@@ -12,13 +12,16 @@ A web app for organizing padel leagues. An admin creates competitions, assigns p
 - **Scheduling deadlines** — each league round shows a recommended "organize by" date; matches surface escalating warnings (próximo → urgente → vencido) with at most one reminder per step
 - **Match thread** — schedule proposals, chat, and score discussion in one place
 - **Structured score entry** — set-by-set input with valid padel scores, venue selection
+- **Score confirmation with reminders** — one player submits a result, the opponent confirms or disputes; if it sits unconfirmed the app reminds the opponent before the quorum timeout resolves it
+- **Add to calendar** — one-tap "Añadir al calendario" (`.ics`) on a scheduled match
 - **Player profile** — win rate, per-competition stats
 - **Notifications** — bell icon with unread count, email, and web push
 
 ### For admins
 
 - **Competition management** — create leagues/playoffs, assign pairs, generate fixtures
-- **League scheduling** — set start/end dates; the app recommends per-round arrange windows and flags overdue matches
+- **League scheduling** — set start/end dates; the app computes and **stores a recommended arrange-by date per round** (admin-editable on the competition page, with a "regenerate" option), sends escalating reminders, and flags overdue matches
+- **End-of-league recovery window** — a per-competition grace period after the end date (default 14 days, editable) during which still-pending matches show an "En recuperación" state and stay organizable; the admin can finalize a league early
 - **Admin-approved walkovers** — when a team reports a match unplayed, the admin approves a walkover with a configurable default score (6-0 6-0) and points penalty; nothing is ever penalized automatically
 - **Playoff brackets** — admin-set fixed dates enforced in bracket order (quarters → semis → final), with a mobile-friendly bracket view
 - **Home dashboard** — a setup checklist before a league starts, and dispute/overdue/walkover alerts once it is active
