@@ -156,6 +156,15 @@ func CompetitionPhase(comp *core.Record, now time.Time) Phase {
 	return PhaseFinished
 }
 
+// PhaseOf derives the phase, exempting playoffs (which have no recovery
+// window) by always returning PhaseUnknown for them.
+func PhaseOf(comp *core.Record, now time.Time) Phase {
+	if IsPlayoff(comp) {
+		return PhaseUnknown
+	}
+	return CompetitionPhase(comp, now)
+}
+
 // ValidatePlayoffDates checks that match dates in later rounds are not
 // earlier than dates in preceding rounds. Matches with no date are ignored.
 func ValidatePlayoffDates(matches []*core.Record) error {

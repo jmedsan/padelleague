@@ -118,10 +118,7 @@ func buildAlerts(app core.App, c *core.Record, now time.Time) []AdminAlert {
 func pendingAlerts(app core.App, c *core.Record, compName string, pending []*core.Record, now time.Time) []AdminAlert {
 	graceDays := c.GetInt("arrange_grace_days")
 
-	phase := PhaseUnknown
-	if !IsPlayoff(c) {
-		phase = CompetitionPhase(c, now)
-	}
+	phase := PhaseOf(c, now)
 	recovery := phase == PhaseRecovery
 
 	var alerts []AdminAlert

@@ -59,7 +59,9 @@ test.describe('scheduling, walkover & bracket', () => {
     const organizeTask = page.locator('a').filter({ hasText: /Organiza antes del/ });
     await expect(organizeTask).toBeVisible({ timeout: 5000 });
     // Warning badge should be present
-    await expect(organizeTask.locator('.badge')).toBeVisible();
+    await expect(organizeTask.locator('.badge:not([data-testid="recovery-badge"])')).toBeVisible();
+    // end_date is 5 days ago, inside the default 14-day recovery window
+    await expect(organizeTask.locator('[data-testid="recovery-badge"]')).toBeVisible();
 
     await page.screenshot({ path: '/tmp/claude-1000/-mnt-data-Dev-PadelLeague/1bb535f8-6b3f-49b6-85d1-278927d6a279/scratchpad/urgent-tasks-desktop.png', fullPage: true });
 

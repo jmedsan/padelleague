@@ -21,7 +21,7 @@ func init() {
 	}, func(app core.App) error {
 		competitions, err := app.FindCollectionByNameOrId("competitions")
 		if err != nil {
-			return nil
+			return err
 		}
 		competitions.Fields.RemoveByName("recovery_days")
 		competitions.Fields.RemoveByName("finalized")
