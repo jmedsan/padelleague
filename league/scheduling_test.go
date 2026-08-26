@@ -177,6 +177,11 @@ func TestBuildRoundSchedule(t *testing.T) {
 	assert.Nil(t, BuildRoundSchedule(start, time.Time{}, 4))
 	assert.Nil(t, BuildRoundSchedule(start, end, 0))
 	assert.Nil(t, BuildRoundSchedule(start, end, -1))
+
+	// rounds==1 must produce a 1-entry schedule (kills <1 → <=1 mutant).
+	one := BuildRoundSchedule(start, end, 1)
+	require.Len(t, one, 1)
+	assert.Equal(t, end, one[1])
 }
 
 func TestStoreRoundSchedule(t *testing.T) {

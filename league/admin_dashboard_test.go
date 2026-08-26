@@ -148,3 +148,43 @@ func TestOutstandingMatches_OrderingAndFields(t *testing.T) {
 	assert.Equal(t, WarnNone, out[2].Warning)
 	assert.Empty(t, out[2].ArrangeBy, "playoff matches show status only, no deadline")
 }
+
+func TestSortOutstanding_SameWarning_TiebreakByDeadline(t *testing.T) {
+	t.Parallel()
+	early := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	late := time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC)
+
+	out := []OutstandingMatch{
+		{MatchID: "late-overdue", Warning: WarnOverdue, deadline: late},
+		{MatchID: "early-overdue", Warning: WarnOverdue, deadline: early},
+		{MatchID: "headsup", Warning: WarnHeadsUp, deadline: early},
+		{MatchID: "urgent", Warning: WarnUrgent, deadline: early},
+	}
+	sortOutstanding(out)
+
+	// Warning desc: overdue(3) > urgent(2) > headsup(1).
+	// Within same warning, deadline asc: early before late.
+	assert.Equal(t, "early-overdue", out[0].MatchID)
+	assert.Equal(t, "late-overdue", out[1].MatchID)
+	assert.Equal(t, "urgent", out[2].MatchID)
+	assert.Equal(t, "headsup", out[3].MatchID)
+}
+
+func TestSortAlerts_OrderByKind(t *testing.T) {
+	t.Parallel()
+	alerts := []AdminAlert{
+		{Kind: "overdue", MatchID: "a"},
+		{Kind: "dispute", MatchID: "b"},
+		{Kind: "walkover", MatchID: "c"},
+		{Kind: "dispute", MatchID: "d"},
+	}
+	sortAlerts(alerts)
+
+	assert.Equal(t, "dispute", alerts[0].Kind)
+	assert.Equal(t, "dispute", alerts[1].Kind)
+	assert.Equal(t, "walkover", alerts[2].Kind)
+	assert.Equal(t, "overdue", alerts[3].Kind)
+	// Verify stable sort preserves insertion order within same kind.
+	assert.Equal(t, "b", alerts[0].MatchID)
+	assert.Equal(t, "d", alerts[1].MatchID)
+}
