@@ -129,12 +129,12 @@ func (h *FixtureHandler) generatePlayoff(txApp core.App, compID string, pairIDs 
 		return err
 	}
 
-	advancers, err := h.createFirstRound(txApp, matchCol, compID, slots, bracketSize)
+	advancers, err := h.createFirstRound(txApp, matchCol, compID, slots)
 	if err != nil {
 		return err
 	}
 
-	return h.createLaterRounds(txApp, matchCol, compID, advancers, numRounds)
+	return h.createLaterRounds(txApp, matchCol, compID, advancers)
 }
 
 type seededPair struct {
@@ -170,7 +170,8 @@ func (h *FixtureHandler) seedSlots(pairIDs []string, bracketSize int, comp *core
 	return slots
 }
 
-func (h *FixtureHandler) createFirstRound(txApp core.App, matchCol *core.Collection, compID string, slots []string, bracketSize int) ([]string, error) {
+func (h *FixtureHandler) createFirstRound(txApp core.App, matchCol *core.Collection, compID string, slots []string) ([]string, error) {
+	bracketSize := len(slots)
 	advancers := make([]string, bracketSize/2)
 	for i := 0; i < bracketSize/2; i++ {
 		p1, p2 := slots[i], slots[bracketSize-1-i]
@@ -199,8 +200,8 @@ func (h *FixtureHandler) createFirstRound(txApp core.App, matchCol *core.Collect
 	return advancers, nil
 }
 
-func (h *FixtureHandler) createLaterRounds(txApp core.App, matchCol *core.Collection, compID string, currentAdvancers []string, numRounds int) error {
-	for r := 2; r <= numRounds; r++ {
+func (h *FixtureHandler) createLaterRounds(txApp core.App, matchCol *core.Collection, compID string, currentAdvancers []string) error {
+	for r := 2; len(currentAdvancers) >= 2; r++ {
 		numMatches := len(currentAdvancers) / 2
 		nextAdvancers := make([]string, numMatches)
 		for i := 0; i < numMatches; i++ {

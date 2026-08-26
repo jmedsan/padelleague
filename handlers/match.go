@@ -89,7 +89,10 @@ func canReportUnplayed(status string, team int) bool {
 	return team > 0 && (status == league.StatusPending || status == league.StatusConfirmed)
 }
 
-func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNames map[string]string, isAdmin, isParticipant bool) MatchView {
+func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNames map[string]string, auth *core.Record) MatchView {
+	isAdmin := auth.GetString("role") == "admin"
+	_, teamErr := league.PlayerTeam(h.app, userID, match)
+	isParticipant := teamErr == nil
 	status := match.GetString("status")
 	submittedBy := match.GetString("submitted_by")
 
@@ -154,7 +157,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		match.GetString("pair2"),
 	})
 
-	mv := h.buildMatchView(match, userID, pairNames, isAdmin, isParticipant)
+	mv := h.buildMatchView(match, userID, pairNames, e.Auth)
 
 	compName := ""
 	compID := match.GetString("competition")
@@ -233,8 +236,11 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 		rivalPairID = match.GetString("pair1")
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	h.notifier.NotifyPlayers(rivalPlayers, "quorum_request", "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", match.Id)
-	notify.EmailNotifyPlayers(h.app, rivalPlayers, "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", "/match/"+match.Id)
+	h.notifier.NotifyPlayers(rivalPlayers, league.Notification{
+		Type: "quorum_request", Title: "Resultado enviado",
+		Body: "Tu rival ha registrado un resultado. Confirma o disputa.", MatchID: match.Id,
+	})
+	h.notifier.EmailPlayers(rivalPlayers, "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", "/match/"+match.Id)
 
 	return redirectHX(e, "/match/"+match.Id)
 }

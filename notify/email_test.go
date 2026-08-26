@@ -52,7 +52,7 @@ func TestEmailNotifyPlayers_NoSMTP(t *testing.T) {
 	app := newTestApp(t)
 	user := makeUser(t, app, "player")
 
-	EmailNotifyPlayers(app, []string{user.Id}, "Test", "Body", "")
+	NewNotifier(app, "", "").EmailPlayers([]string{user.Id}, "Test", "Body", "")
 
 	assert.Equal(t, 0, app.TestMailer.TotalSend(), "nothing may be sent while SMTP is off")
 }
@@ -62,7 +62,7 @@ func TestEmailNotifyPlayers_InvalidUser(t *testing.T) {
 	app := newTestApp(t)
 	enableSMTP(t, app)
 
-	EmailNotifyPlayers(app, []string{"nonexistent"}, "Test", "Body", "")
+	NewNotifier(app, "", "").EmailPlayers([]string{"nonexistent"}, "Test", "Body", "")
 
 	assert.Equal(t, 0, app.TestMailer.TotalSend())
 }
@@ -112,7 +112,7 @@ func TestEmailNotifyPlayers_SendsOnePerPlayer(t *testing.T) {
 	one := makeUser(t, app, "player")
 	two := makeUser(t, app, "player")
 
-	EmailNotifyPlayers(app, []string{one.Id, two.Id}, "Partido confirmado", "Body", "https://example.com/match/1")
+	NewNotifier(app, "", "").EmailPlayers([]string{one.Id, two.Id}, "Partido confirmado", "Body", "https://example.com/match/1")
 
 	require.Equal(t, 2, app.TestMailer.TotalSend())
 
@@ -140,7 +140,7 @@ func TestEmailNotifyPlayers_SkipsPlayerWithoutEmail(t *testing.T) {
 	withoutEmail.Set("email", "")
 	require.NoError(t, app.Save(withoutEmail))
 
-	EmailNotifyPlayers(app, []string{withoutEmail.Id, withEmail.Id}, "Test", "Body", "")
+	NewNotifier(app, "", "").EmailPlayers([]string{withoutEmail.Id, withEmail.Id}, "Test", "Body", "")
 
 	require.Equal(t, 1, app.TestMailer.TotalSend())
 	assert.Equal(t, withEmail.Email(), app.TestMailer.LastMessage().To[0].Address)

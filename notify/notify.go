@@ -9,6 +9,8 @@ import (
 	webpush "github.com/SherClockHolmes/webpush-go"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/types"
+
+	"padelleague/league"
 )
 
 // Notifier delivers in-app and push notifications to players.
@@ -35,7 +37,7 @@ func (n *Notifier) PushEnabled() bool {
 }
 
 // NotifyPlayers creates an in-app notification and sends a push for each player.
-func (n *Notifier) NotifyPlayers(playerUserIDs []string, notifType, title, body, relatedMatchID string) {
+func (n *Notifier) NotifyPlayers(playerUserIDs []string, notif league.Notification) {
 	notifCol, err := n.app.FindCollectionByNameOrId("notifications")
 	if err != nil {
 		slog.Error("notifications collection not found", "err", err)
@@ -47,23 +49,23 @@ func (n *Notifier) NotifyPlayers(playerUserIDs []string, notifType, title, body,
 			continue
 		}
 		prefs := NotificationPrefs(user)
-		if enabled, ok := prefs[notifType]; ok {
+		if enabled, ok := prefs[notif.Type]; ok {
 			if b, ok := enabled.(bool); ok && !b {
 				continue
 			}
 		}
-		notif := core.NewRecord(notifCol)
-		notif.Set("user", userID)
-		notif.Set("type", notifType)
-		notif.Set("title", title)
-		notif.Set("body", body)
-		if relatedMatchID != "" {
-			notif.Set("related_match", relatedMatchID)
+		rec := core.NewRecord(notifCol)
+		rec.Set("user", userID)
+		rec.Set("type", notif.Type)
+		rec.Set("title", notif.Title)
+		rec.Set("body", notif.Body)
+		if notif.MatchID != "" {
+			rec.Set("related_match", notif.MatchID)
 		}
-		if err := n.app.Save(notif); err != nil {
+		if err := n.app.Save(rec); err != nil {
 			slog.Error("notify player failed", "user", userID, "err", err)
 		}
-		go n.sendPush(userID, title, body, relatedMatchID)
+		go n.sendPush(userID, notif.Title, notif.Body, notif.MatchID)
 	}
 }
 

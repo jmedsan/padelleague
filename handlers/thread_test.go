@@ -58,53 +58,38 @@ func TestParseProposalData_Malformed(t *testing.T) {
 	assert.Nil(t, pd)
 }
 
-// canRespondToProposal decides whether the accept/reject buttons and the
-// change-decision button appear on a scheduling proposal. Every clause is
-// load-bearing: getting any of them wrong either hides a legitimate action or
-// offers one that will be refused.
-func TestCanRespondToProposal(t *testing.T) {
+func TestProposalActions(t *testing.T) {
 	t.Parallel()
 
 	const prop = "scheduling_proposal"
 
 	cases := []struct {
-		name                 string
-		msgType, matchStatus string
-		authorTeam, myTeam   int
-		proposalStatus       string
-		wantRespond, wantChg bool
+		name                    string
+		msgType, matchStatus    string
+		sameTeamOrOutsider      bool
+		proposalStatus          string
+		wantRespond, wantChange bool
 	}{
-		// The ordinary case: opponent sees accept/reject on a pending proposal.
-		{"opponent, pending", prop, league.StatusPending, 1, 2, "pending", true, false},
-		{"opponent, accepted", prop, league.StatusPending, 1, 2, "accepted", false, true},
-		{"opponent, rejected", prop, league.StatusPending, 1, 2, "rejected", false, true},
-
-		// You cannot respond to your own proposal.
-		{"own proposal, pending", prop, league.StatusPending, 2, 2, "pending", false, false},
-		{"own proposal, accepted", prop, league.StatusPending, 2, 2, "accepted", false, false},
-
-		// Someone in neither pair has myTeam 0 and can do nothing.
-		{"outsider", prop, league.StatusPending, 1, 0, "pending", false, false},
-
-		// Scheduling is only actionable while the match is still pending.
-		{"confirmed match", prop, league.StatusConfirmed, 1, 2, "pending", false, false},
-		{"disputed match", prop, league.StatusDisputed, 1, 2, "pending", false, false},
-		{"final match", prop, league.StatusFinal, 1, 2, "pending", false, false},
-
-		// Only proposals are actionable, not chat or score messages.
-		{"chat message", "chat", league.StatusPending, 1, 2, "pending", false, false},
-		{"score discussion", "score_discussion", league.StatusPending, 1, 2, "pending", false, false},
-
-		// An unknown proposal status offers neither action.
-		{"superseded proposal", prop, league.StatusPending, 1, 2, "superseded", false, false},
+		{"opponent, pending", prop, league.StatusPending, false, "pending", true, false},
+		{"opponent, accepted", prop, league.StatusPending, false, "accepted", false, true},
+		{"opponent, rejected", prop, league.StatusPending, false, "rejected", false, true},
+		{"own proposal, pending", prop, league.StatusPending, true, "pending", false, false},
+		{"own proposal, accepted", prop, league.StatusPending, true, "accepted", false, false},
+		{"outsider", prop, league.StatusPending, true, "pending", false, false},
+		{"confirmed match", prop, league.StatusConfirmed, false, "pending", false, false},
+		{"disputed match", prop, league.StatusDisputed, false, "pending", false, false},
+		{"final match", prop, league.StatusFinal, false, "pending", false, false},
+		{"chat message", "chat", league.StatusPending, false, "pending", false, false},
+		{"score discussion", "score_discussion", league.StatusPending, false, "pending", false, false},
+		{"superseded proposal", prop, league.StatusPending, false, "superseded", false, false},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			respond, change := canRespondToProposal(tc.msgType, tc.matchStatus, tc.authorTeam, tc.myTeam, tc.proposalStatus)
+			respond, change := proposalActions(tc.msgType, tc.matchStatus, tc.sameTeamOrOutsider, tc.proposalStatus)
 			assert.Equal(t, tc.wantRespond, respond, "canRespond")
-			assert.Equal(t, tc.wantChg, change, "canChange")
+			assert.Equal(t, tc.wantChange, change, "canChange")
 		})
 	}
 }

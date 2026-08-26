@@ -15,16 +15,18 @@ func PenaltyMap(comp *core.Record) map[string]float64 {
 	return penalties
 }
 
-// ApplyPenalty sets or accumulates a penalty for a pair in a competition.
-// When accumulate is true the amount is added to any existing penalty;
-// when false the amount replaces it.
-func ApplyPenalty(app core.App, comp *core.Record, pairID string, amount float64, accumulate bool) error {
+// SetPenalty replaces the penalty for a pair in a competition.
+func SetPenalty(app core.App, comp *core.Record, pairID string, amount float64) error {
 	penalties := PenaltyMap(comp)
-	if accumulate {
-		penalties[pairID] += amount
-	} else {
-		penalties[pairID] = amount
-	}
+	penalties[pairID] = amount
+	comp.Set("penalty_points", penalties)
+	return app.Save(comp)
+}
+
+// AccumulatePenalty adds to any existing penalty for a pair in a competition.
+func AccumulatePenalty(app core.App, comp *core.Record, pairID string, amount float64) error {
+	penalties := PenaltyMap(comp)
+	penalties[pairID] += amount
 	comp.Set("penalty_points", penalties)
 	return app.Save(comp)
 }

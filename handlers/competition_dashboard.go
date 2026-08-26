@@ -99,19 +99,27 @@ func (h *CompetitionHandler) buildAdminIssues(active []CompetitionSummary) []Adm
 		}
 		pairNames := league.PairNames(h.app, pairIDs)
 
+		ictx := issueContext{compName: compName, quorumHours: quorumHours, pairNames: pairNames, now: now}
 		for _, m := range matches {
-			issues = append(issues, h.classifyMatchIssues(m, compName, quorumHours, pairNames, now)...)
+			issues = append(issues, h.classifyMatchIssues(m, ictx)...)
 		}
 	}
 	return issues
 }
 
-func (h *CompetitionHandler) classifyMatchIssues(m *core.Record, compName string, quorumHours float64, pairNames map[string]string, now time.Time) []AdminIssue {
+type issueContext struct {
+	compName    string
+	quorumHours float64
+	pairNames   map[string]string
+	now         time.Time
+}
+
+func (h *CompetitionHandler) classifyMatchIssues(m *core.Record, ctx issueContext) []AdminIssue {
 	status := m.GetString("status")
 	base := AdminIssue{
-		CompetitionName: compName,
-		Pair1Name:       pairNames[m.GetString("pair1")],
-		Pair2Name:       pairNames[m.GetString("pair2")],
+		CompetitionName: ctx.compName,
+		Pair1Name:       ctx.pairNames[m.GetString("pair1")],
+		Pair2Name:       ctx.pairNames[m.GetString("pair2")],
 		MatchID:         m.Id,
 	}
 
@@ -124,9 +132,9 @@ func (h *CompetitionHandler) classifyMatchIssues(m *core.Record, compName string
 		issue.Detail = "pendiente de resolución"
 		return []AdminIssue{issue}
 	case league.StatusConfirmed:
-		return h.checkQuorumIssue(m, base, quorumHours, now)
+		return h.checkQuorumIssue(m, base, ctx.quorumHours, ctx.now)
 	case league.StatusPending:
-		return h.checkPendingIssues(m, base, now)
+		return h.checkPendingIssues(m, base, ctx.now)
 	}
 	return nil
 }

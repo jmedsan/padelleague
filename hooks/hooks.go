@@ -93,7 +93,9 @@ func remindCompetitionMatches(app core.App, notifier *notify.Notifier, comp *cor
 		)
 
 		body := fmt.Sprintf("Tu partido está %s. Organízalo antes de que venza el plazo.", level.Label())
-		notifier.NotifyPlayers(playerIDs, "scheduling", "Recordatorio: organiza tu partido", body, m.Id)
+		notifier.NotifyPlayers(playerIDs, league.Notification{
+			Type: "scheduling", Title: "Recordatorio: organiza tu partido", Body: body, MatchID: m.Id,
+		})
 
 		m.Set("last_warn_level", int(level))
 		if err := app.Save(m); err != nil {

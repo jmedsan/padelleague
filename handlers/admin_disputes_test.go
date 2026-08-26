@@ -414,7 +414,7 @@ func TestWalkoverApprove_AlreadyFinal_RejectedNoDoublePenalty(t *testing.T) {
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("default_penalty", 5)
 		comp.Set("walkover_score", "6-0 6-0")
-		require.NoError(tb, league.ApplyPenalty(app, comp, p2.Id, 5, true))
+		require.NoError(tb, league.AccumulatePenalty(app, comp, p2.Id, 5))
 		compID = comp.Id
 		// Simulates the state right after a first, successful approval.
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
@@ -460,6 +460,28 @@ func TestWalkoverApprove_NotWalkover(t *testing.T) {
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestAdminOutstandingPage_NonEmpty(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/outstanding with a pending match",
+		Method:          http.MethodGet,
+		URL:             "/admin/outstanding",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"outstanding-list", "OutPageA", "OutPageB"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupFullAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "OutPageA")
+		p2 := makePairTB(tb, app, "OutPageB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.Headers = authHeaders(tb, admin)
 	}
 	s.Test(t)
 }

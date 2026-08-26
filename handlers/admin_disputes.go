@@ -6,7 +6,6 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 
 	"padelleague/league"
-	"padelleague/notify"
 )
 
 // DisputeView holds a disputed match with resolved pair and player names.
@@ -96,16 +95,14 @@ func (h *AdminHandler) WalkoverApprove(e *core.RequestEvent) error {
 	}
 
 	if penalty := comp.GetFloat("default_penalty"); penalty > 0 {
-		if err := league.ApplyPenalty(h.app, comp, loserID, penalty, true); err != nil {
+		if err := league.AccumulatePenalty(h.app, comp, loserID, penalty); err != nil {
 			slog.Error("apply walkover penalty", "comp", compID, "pair", loserID, "err", err)
 			return alertError(e, "Walkover aprobado, pero no se pudo aplicar la penalización. Aplícala manualmente.")
 		}
 	}
 
-	allPlayers := append(league.PlayersForPair(h.app, match.GetString("pair1")),
-		league.PlayersForPair(h.app, match.GetString("pair2"))...)
-	h.notifier.NotifyPlayers(allPlayers, "general", "Walkover aprobado", "Un administrador ha resuelto el partido como walkover.", match.Id)
-	notify.EmailNotifyPlayers(h.app, allPlayers, "Walkover aprobado", "Un administrador ha resuelto el partido como walkover.", "/match/"+match.Id)
+	h.notifyMatchPlayers(match, "general", "Walkover aprobado",
+		"Un administrador ha resuelto el partido como walkover.")
 
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
@@ -154,11 +151,18 @@ func (h *AdminHandler) DisputesResolve(e *core.RequestEvent) error {
 		return alertError(e, "Error al resolver la disputa")
 	}
 
-	allPlayers := append(league.PlayersForPair(h.app, match.GetString("pair1")),
-		league.PlayersForPair(h.app, match.GetString("pair2"))...)
-	h.notifier.NotifyPlayers(allPlayers, "dispute", "Disputa resuelta", "Un administrador ha resuelto la disputa de tu partido.", match.Id)
-	notify.EmailNotifyPlayers(h.app, allPlayers, "Disputa resuelta", "Un administrador ha resuelto la disputa de tu partido.", "/match/"+match.Id)
+	h.notifyMatchPlayers(match, "dispute", "Disputa resuelta",
+		"Un administrador ha resuelto la disputa de tu partido.")
 
 	compID := match.GetString("competition")
 	return redirectHX(e, "/admin/competitions/"+compID)
+}
+
+func (h *AdminHandler) notifyMatchPlayers(match *core.Record, notifType, title, body string) {
+	allPlayers := append(league.PlayersForPair(h.app, match.GetString("pair1")),
+		league.PlayersForPair(h.app, match.GetString("pair2"))...)
+	h.notifier.NotifyPlayers(allPlayers, league.Notification{
+		Type: notifType, Title: title, Body: body, MatchID: match.Id,
+	})
+	h.notifier.EmailPlayers(allPlayers, title, body, "/match/"+match.Id)
 }

@@ -99,17 +99,18 @@ func competitionTasks(app core.App, comp *core.Record, playerPairIDs map[string]
 		})
 	}
 
-	pending, _ := app.FindRecordsByFilter("matches",
-		"competition = {:cid} && status = 'pending'",
-		"round_number", 0, 0,
-		map[string]any{"cid": comp.Id})
-
-	pendingTasks := pendingMatchTasks(app, comp, pending, playerPairIDs, compName, now)
+	pendingTasks := pendingMatchTasks(app, comp, playerPairIDs, now)
 	tasks = append(tasks, pendingTasks...)
 	return tasks
 }
 
-func pendingMatchTasks(app core.App, comp *core.Record, pending []*core.Record, playerPairIDs map[string]bool, compName string, now time.Time) []PlayerTask {
+func pendingMatchTasks(app core.App, comp *core.Record, playerPairIDs map[string]bool, now time.Time) []PlayerTask {
+	compName := comp.GetString("name")
+
+	pending, _ := app.FindRecordsByFilter("matches",
+		"competition = {:cid} && status = 'pending'",
+		"round_number", 0, 0,
+		map[string]any{"cid": comp.Id})
 	phase := PhaseOf(comp, now)
 	if phase == PhaseFinished {
 		return nil
