@@ -477,6 +477,75 @@ func TestUpdateCompetition(t *testing.T) {
 	s.Test(t)
 }
 
+func TestUpdateCompetition_RecoveryDaysExactReadback(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id} persists recovery_days",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Body = strings.NewReader("name=Updated&type=league&recovery_days=21")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Equal(tb, float64(21), c.GetFloat("recovery_days"))
+	}
+	s.Test(t)
+}
+
+func TestFinalizeCompetition(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/finalize sets finalized",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, matchID, p1ID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "FzA")
+		p2 := makePairTB(tb, app, "FzB")
+		p1ID = p1.Id
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		compID = comp.Id
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = m.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/finalize"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.True(tb, c.GetBool("finalized"))
+
+		userID := "" // resolve p1's player1 to confirm the match stops surfacing
+		p1, err := app.FindRecordById("pairs", p1ID)
+		require.NoError(tb, err)
+		userID = p1.GetString("player1")
+
+		tasks, err := league.PlayerTasks(app, userID, time.Now())
+		require.NoError(tb, err)
+		for _, task := range tasks {
+			assert.NotEqual(tb, matchID, task.MatchID, "a finalized competition's match must stop surfacing as a task")
+		}
+	}
+	s.Test(t)
+}
+
 func TestUpdateCompetitionPlayTwiceOff(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
