@@ -131,4 +131,8 @@ func Register(app core.App, svc *league.Service, notifier *notify.Notifier) {
 	app.Cron().MustAdd("scheduling-reminders", "0 9 * * *", func() {
 		checkSchedulingReminders(app, notifier)
 	})
+
+	app.Cron().MustAdd("confirmation-reminders", "0 */6 * * *", func() {
+		svc.RemindPendingConfirmations(time.Now())
+	})
 }
