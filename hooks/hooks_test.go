@@ -424,6 +424,7 @@ func makeLeagueComp(t *testing.T, app core.App, pairs []*core.Record, start, end
 	r.Set("start_date", sd)
 	ed, _ := types.ParseDateTime(end)
 	r.Set("end_date", ed)
+	r.Set("round_arrange_dates", league.StoreRoundSchedule(start, end, rounds))
 	require.NoError(t, app.Save(r))
 	return r
 }
@@ -459,6 +460,7 @@ func TestSchedulingReminder_SendsAndEscalates(t *testing.T) {
 	compRec.Set("start_date", sd)
 	ed, _ := types.ParseDateTime(pastEnd)
 	compRec.Set("end_date", ed)
+	compRec.Set("round_arrange_dates", league.StoreRoundSchedule(pastStart, pastEnd, 1))
 	require.NoError(t, app.Save(compRec))
 
 	// Run the cron function
@@ -511,6 +513,75 @@ func TestSchedulingReminder_SkipsNoDateComp(t *testing.T) {
 		"type = 'scheduling'", "", 0, 0, nil)
 	require.NoError(t, err)
 	assert.Empty(t, notifs, "no reminders for competition without dates")
+}
+
+func TestSchedulingReminder_DivergentStoredDate(t *testing.T) {
+	app := newTestApp(t)
+	notifier := notify.NewNotifier(app, "", "")
+
+	p1 := makePair(t, app, "DivA")
+	p2 := makePair(t, app, "DivB")
+
+	// Start far in the past so interpolated deadline is also past.
+	start := time.Now().AddDate(0, -3, 0)
+	end := time.Now().AddDate(0, -1, 0)
+	comp := makeLeagueComp(t, app, []*core.Record{p1, p2}, start, end, 2)
+	makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+
+	// Overwrite round 1's date to far in the future — if the cron reads the
+	// stored value, no reminder fires; if it recomputes, the past interpolated
+	// date triggers a reminder.
+	futureDate := time.Now().AddDate(1, 0, 0)
+	schedule := fmt.Sprintf(`{"1":"%s","2":"%s"}`,
+		futureDate.Format(time.RFC3339),
+		end.Format(time.RFC3339))
+	compRec, err := app.FindRecordById("competitions", comp.Id)
+	require.NoError(t, err)
+	compRec.Set("round_arrange_dates", schedule)
+	require.NoError(t, app.Save(compRec))
+
+	checkSchedulingReminders(app, notifier)
+
+	notifs, err := app.FindRecordsByFilter("notifications",
+		"type = 'scheduling'", "", 0, 0, nil)
+	require.NoError(t, err)
+	assert.Empty(t, notifs, "stored future date must suppress reminder — proves stored read is used")
+}
+
+func TestSchedulingReminder_DenominatorDrift(t *testing.T) {
+	app := newTestApp(t)
+	notifier := notify.NewNotifier(app, "", "")
+
+	p1 := makePair(t, app, "DriftA")
+	p2 := makePair(t, app, "DriftB")
+	p3 := makePair(t, app, "DriftC")
+
+	// 3 rounds, start well in the past so round 1 deadline (1/3 of window) is past.
+	start := time.Now().AddDate(0, -6, 0)
+	end := time.Now().AddDate(0, -2, 0)
+	comp := makeLeagueComp(t, app, []*core.Record{p1, p2, p3}, start, end, 3)
+
+	// Round 1 pending, rounds 2+3 played (final).
+	makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+	m2 := makeMatch(t, app, comp.Id, p1.Id, p3.Id, 2)
+	m2.Set("status", "final")
+	require.NoError(t, app.Save(m2))
+	m3 := makeMatch(t, app, comp.Id, p2.Id, p3.Id, 3)
+	m3.Set("status", "final")
+	require.NoError(t, app.Save(m3))
+
+	checkSchedulingReminders(app, notifier)
+
+	// Round 1's stored deadline uses rounds=3 (full denominator), not
+	// countRounds(pending)=1. With the full denominator the deadline is at
+	// start + 1/3*(end-start), which is well past → reminder fires.
+	notifs, err := app.FindRecordsByFilter("notifications",
+		"type = 'scheduling'", "", 0, 0, nil)
+	require.NoError(t, err)
+	assert.NotEmpty(t, notifs, "round 1 deadline must use stored rounds=3, not pending count")
+
+	updated := freshMatch(t, app, m2.Id)
+	assert.Equal(t, 0, updated.GetInt("last_warn_level"), "final match must not be reminded")
 }
 
 func TestCronRegistration_SchedulingReminders(t *testing.T) {
