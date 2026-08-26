@@ -442,6 +442,9 @@ func TestCompGenerateFixtures(t *testing.T) {
 		p3 := makePairTB(tb, app, "GenC")
 		p4 := makePairTB(tb, app, "GenD")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3, p4})
+		comp.Set("start_date", "2026-06-01 00:00:00.000Z")
+		comp.Set("end_date", "2026-09-01 00:00:00.000Z")
+		require.NoError(tb, app.Save(comp))
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
 		s.Headers = authHeaders(tb, admin)
@@ -452,6 +455,11 @@ func TestCompGenerateFixtures(t *testing.T) {
 			map[string]any{"cid": compID})
 		require.NoError(tb, err)
 		assert.Greater(tb, len(matches), 0)
+
+		comp, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Greater(tb, comp.GetInt("rounds"), 0, "GenerateFixtures must persist rounds")
+		assert.NotEmpty(tb, comp.GetString("round_arrange_dates"), "GenerateFixtures must persist round schedule")
 	}
 	s.Test(t)
 }
