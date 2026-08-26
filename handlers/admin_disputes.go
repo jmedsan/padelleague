@@ -59,6 +59,9 @@ func (h *AdminHandler) WalkoverApprove(e *core.RequestEvent) error {
 	if match.GetString("review_type") != "walkover" {
 		return alertError(e, "Este partido no es una solicitud de walkover")
 	}
+	if match.GetString("status") == league.StatusFinal {
+		return alertError(e, "Este partido ya está resuelto")
+	}
 
 	winnerID := e.Request.FormValue("winner")
 	if winnerID != match.GetString("pair1") && winnerID != match.GetString("pair2") {
@@ -92,12 +95,11 @@ func (h *AdminHandler) WalkoverApprove(e *core.RequestEvent) error {
 		return alertError(e, "Error al aprobar el walkover")
 	}
 
-	penalty := comp.GetFloat("default_penalty")
-	if penalty == 0 {
-		penalty = 3
-	}
-	if err := league.ApplyPenalty(h.app, comp, loserID, penalty, true); err != nil {
-		slog.Error("apply walkover penalty", "comp", compID, "pair", loserID, "err", err)
+	if penalty := comp.GetFloat("default_penalty"); penalty > 0 {
+		if err := league.ApplyPenalty(h.app, comp, loserID, penalty, true); err != nil {
+			slog.Error("apply walkover penalty", "comp", compID, "pair", loserID, "err", err)
+			return alertError(e, "Walkover aprobado, pero no se pudo aplicar la penalización. Aplícala manualmente.")
+		}
 	}
 
 	allPlayers := append(league.PlayersForPair(h.app, match.GetString("pair1")),
