@@ -39,7 +39,6 @@ func authToken(t testing.TB, user *core.Record) string {
 	return token
 }
 
-
 func TestRequireAppAdmin_NilAuth_Redirects(t *testing.T) {
 	handlerReached := false
 	s := tests.ApiScenario{
@@ -162,7 +161,6 @@ func TestRequireAppAdmin_UnexpectedRole_Redirects(t *testing.T) {
 	}
 	s.Test(t)
 }
-
 
 func TestCookieAuth_CopiesCookieToHeader(t *testing.T) {
 	var gotHeader, wantToken string

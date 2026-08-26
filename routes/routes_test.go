@@ -175,7 +175,6 @@ func TestAuthRoutes_NoAuthRequired(t *testing.T) {
 	}
 }
 
-
 func TestRequireAuth_HXRequest_RedirectsViaHeader(t *testing.T) {
 	s := &tests.ApiScenario{
 		Name:           "GET / as HX-Request without auth returns HX-Redirect",
@@ -202,7 +201,6 @@ func TestRequireAuth_HXRequest_RedirectsViaHeader(t *testing.T) {
 	}
 	s.Test(t)
 }
-
 
 func TestStaticRoutes_ManifestJSON(t *testing.T) {
 	s := &tests.ApiScenario{
@@ -256,7 +254,6 @@ func TestStaticRoutes_ServiceWorker(t *testing.T) {
 	}
 	s.Test(t)
 }
-
 
 func makePlayer(tb testing.TB, app core.App) *core.Record {
 	tb.Helper()
