@@ -39,18 +39,7 @@ func (h *AdminSettingsHandler) Reset(e *core.RequestEvent) error {
 		return alertError(e, "Escribe DELETE para confirmar")
 	}
 
-	admins, err := h.app.FindRecordsByFilter("users", "role = 'admin'", "", 0, 0)
-	if err != nil {
-		slog.Error("reset: finding admins", "error", err)
-		return alertError(e, "Error interno al buscar administradores")
-	}
-
-	keep := make(map[string]struct{}, len(admins))
-	for _, a := range admins {
-		keep[a.Id] = struct{}{}
-	}
-
-	summary, err := seed.Wipe(h.app, keep)
+	summary, err := seed.Wipe(h.app)
 	if err != nil {
 		slog.Error("reset: wipe failed", "error", err)
 		return alertError(e, "Error al reiniciar la base de datos")
@@ -76,9 +65,7 @@ func (h *AdminSettingsHandler) Reset(e *core.RequestEvent) error {
 		slog.Info("reset: sample league created")
 	}
 
-	total := summary.Competitions + summary.Pairs + summary.Players +
-		summary.Matches + summary.Messages + summary.Notifications +
-		summary.Invitations + summary.Subscriptions
+	total := summary.Total()
 
 	msg := fmt.Sprintf("Base de datos reiniciada: %d registros eliminados.", total)
 	if mode == "sample" {

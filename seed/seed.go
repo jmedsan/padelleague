@@ -4,6 +4,7 @@ package seed
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"padelleague/league"
@@ -46,9 +47,9 @@ func Run(app core.App, users []User) {
 		}
 		record.SetVerified(true)
 		if err := app.Save(record); err != nil {
-			slog.Error("seed create failed", "email", u.Email, "collection", u.Collection, "err", err)
+			slog.Error("seed create failed", "email", maskEmail(u.Email), "collection", u.Collection, "err", err)
 		} else {
-			slog.Info("seed created", "email", u.Email, "collection", u.Collection)
+			slog.Info("seed created", "email", maskEmail(u.Email), "collection", u.Collection)
 		}
 	}
 }
@@ -65,9 +66,15 @@ type WipeSummary struct {
 	Subscriptions int
 }
 
+// Total returns the sum of all deleted records.
+func (s WipeSummary) Total() int {
+	return s.Competitions + s.Pairs + s.Players + s.Matches +
+		s.Messages + s.Notifications + s.Invitations + s.Subscriptions
+}
+
 // Wipe deletes all in-scope data inside a transaction, preserving admin users,
-// venues, and superusers. Records in keepUserIDs are also preserved.
-func Wipe(app core.App, keepUserIDs map[string]struct{}) (WipeSummary, error) {
+// venues, and superusers.
+func Wipe(app core.App) (WipeSummary, error) {
 	var summary WipeSummary
 
 	type target struct {
@@ -90,7 +97,7 @@ func Wipe(app core.App, keepUserIDs map[string]struct{}) (WipeSummary, error) {
 				return err
 			}
 		}
-		return wipeNonAdminUsers(txApp, keepUserIDs, &summary.Players)
+		return wipeNonAdminUsers(txApp, &summary.Players)
 	})
 
 	return summary, err
@@ -110,16 +117,13 @@ func wipeCollection(txApp core.App, name string, count *int) error {
 	return nil
 }
 
-func wipeNonAdminUsers(txApp core.App, keepUserIDs map[string]struct{}, count *int) error {
+func wipeNonAdminUsers(txApp core.App, count *int) error {
 	users, err := txApp.FindRecordsByFilter("users", "id != ''", "", 0, 0)
 	if err != nil {
 		return fmt.Errorf("find users: %w", err)
 	}
 	for _, u := range users {
 		if u.GetString("role") == "admin" {
-			continue
-		}
-		if _, keep := keepUserIDs[u.Id]; keep {
 			continue
 		}
 		if err := txApp.Delete(u); err != nil {
@@ -246,6 +250,18 @@ func createSampleFixtures(txApp core.App, comp *core.Record, pairIDs []string) e
 	}
 	comp.Set("rounds", len(rounds))
 	return nil
+}
+
+func maskEmail(email string) string {
+	at := strings.Index(email, "@")
+	if at <= 0 {
+		return "***"
+	}
+	prefix := email[:1]
+	if at > 1 {
+		prefix = email[:2]
+	}
+	return prefix + "***" + email[at:]
 }
 
 func saveSampleSchedule(txApp core.App, comp *core.Record) error {
