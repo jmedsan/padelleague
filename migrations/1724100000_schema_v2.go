@@ -8,14 +8,12 @@ import (
 
 func init() {
 	m.Register(func(app core.App) error {
-		// --- App branding ---
 		settings := app.Settings()
 		settings.Meta.AppName = "PadelLeague"
 		if err := app.Save(settings); err != nil {
 			return err
 		}
 
-		// --- users (extend built-in auth collection) ---
 		users, err := app.FindCollectionByNameOrId("users")
 		if err != nil {
 			users = core.NewAuthCollection("users")
@@ -32,7 +30,6 @@ func init() {
 			return err
 		}
 
-		// --- pairs ---
 		pairs := core.NewBaseCollection("pairs")
 		pairs.Fields.Add(
 			&core.TextField{Name: "name", Required: true},
@@ -45,7 +42,6 @@ func init() {
 			return err
 		}
 
-		// --- competitions ---
 		competitions := core.NewBaseCollection("competitions")
 		competitions.Fields.Add(
 			&core.TextField{Name: "name", Required: true},
@@ -62,7 +58,6 @@ func init() {
 			return err
 		}
 
-		// --- matches ---
 		matches := core.NewBaseCollection("matches")
 		matches.Fields.Add(
 			&core.RelationField{Name: "competition", CollectionId: competitions.Id, Required: true, MaxSelect: 1, CascadeDelete: true},
@@ -92,7 +87,6 @@ func init() {
 			return err
 		}
 
-		// --- notifications ---
 		notifications := core.NewBaseCollection("notifications")
 		notifications.Fields.Add(
 			&core.RelationField{Name: "user", CollectionId: users.Id, Required: true, MaxSelect: 1, CascadeDelete: true},
