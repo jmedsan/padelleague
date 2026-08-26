@@ -188,10 +188,10 @@ func (h *PlayerHandler) pairMatchResults(pairID string) []matchResult {
 		"", 0, 0,
 		map[string]any{"pid": pairID})
 
-	pairIDSet := make(map[string]bool)
+	pairIDSet := make(map[string]struct{})
 	for _, m := range matches {
-		pairIDSet[m.GetString("pair1")] = true
-		pairIDSet[m.GetString("pair2")] = true
+		pairIDSet[m.GetString("pair1")] = struct{}{}
+		pairIDSet[m.GetString("pair2")] = struct{}{}
 	}
 	pairIDSlice := make([]string, 0, len(pairIDSet))
 	for pid := range pairIDSet {

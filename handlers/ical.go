@@ -171,22 +171,24 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 	return e.String(http.StatusOK, ics)
 }
 
-func (h *ICalHandler) filterDatedMatches(allMatches []*core.Record, compPairIDs map[string]bool) ([]*core.Record, map[string]string) {
-	seen := make(map[string]bool)
-	pairIDSet := make(map[string]bool)
+func (h *ICalHandler) filterDatedMatches(allMatches []*core.Record, compPairIDs map[string]struct{}) ([]*core.Record, map[string]string) {
+	seen := make(map[string]struct{})
+	pairIDSet := make(map[string]struct{})
 	var datedMatches []*core.Record
 	for _, m := range allMatches {
 		p1 := m.GetString("pair1")
 		p2 := m.GetString("pair2")
-		if !compPairIDs[p1] && !compPairIDs[p2] {
+		_, hasP1 := compPairIDs[p1]
+		_, hasP2 := compPairIDs[p2]
+		if !hasP1 && !hasP2 {
 			continue
 		}
-		if seen[m.Id] || m.GetString("date") == "" {
+		if _, dup := seen[m.Id]; dup || m.GetString("date") == "" {
 			continue
 		}
-		seen[m.Id] = true
-		pairIDSet[p1] = true
-		pairIDSet[p2] = true
+		seen[m.Id] = struct{}{}
+		pairIDSet[p1] = struct{}{}
+		pairIDSet[p2] = struct{}{}
 		datedMatches = append(datedMatches, m)
 	}
 
@@ -198,19 +200,19 @@ func (h *ICalHandler) filterDatedMatches(allMatches []*core.Record, compPairIDs 
 	return datedMatches, pairNames
 }
 
-func (h *ICalHandler) playerCompPairIDs(userID string, comp *core.Record) map[string]bool {
+func (h *ICalHandler) playerCompPairIDs(userID string, comp *core.Record) map[string]struct{} {
 	pairs, _ := league.PairsForPlayer(h.app, userID)
 	if len(pairs) == 0 {
 		return nil
 	}
-	playerPairIDs := make(map[string]bool, len(pairs))
+	playerPairIDs := make(map[string]struct{}, len(pairs))
 	for _, p := range pairs {
-		playerPairIDs[p.Id] = true
+		playerPairIDs[p.Id] = struct{}{}
 	}
-	compPairIDs := make(map[string]bool)
+	compPairIDs := make(map[string]struct{})
 	for _, pid := range comp.GetStringSlice("pairs") {
-		if playerPairIDs[pid] {
-			compPairIDs[pid] = true
+		if _, ok := playerPairIDs[pid]; ok {
+			compPairIDs[pid] = struct{}{}
 		}
 	}
 	return compPairIDs

@@ -73,9 +73,9 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	userID := e.Auth.Id
 
 	pairs, _ := league.PairsForPlayer(h.app, userID)
-	playerPairIDs := make(map[string]bool, len(pairs))
+	playerPairIDs := make(map[string]struct{}, len(pairs))
 	for _, p := range pairs {
-		playerPairIDs[p.Id] = true
+		playerPairIDs[p.Id] = struct{}{}
 	}
 
 	allComps, _ := h.app.FindRecordsByFilter("competitions",
@@ -125,18 +125,18 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	return h.renderPage(e, "home.html", data)
 }
 
-func (h *PublicHandler) playerInCompetition(c *core.Record, playerPairIDs map[string]bool) bool {
+func (h *PublicHandler) playerInCompetition(c *core.Record, playerPairIDs map[string]struct{}) bool {
 	for _, pid := range c.GetStringSlice("pairs") {
-		if playerPairIDs[pid] {
+		if _, ok := playerPairIDs[pid]; ok {
 			return true
 		}
 	}
 	return false
 }
 
-func (h *PublicHandler) opponentName(m *core.Record, playerPairIDs map[string]bool) string {
+func (h *PublicHandler) opponentName(m *core.Record, playerPairIDs map[string]struct{}) string {
 	opponent := m.GetString("pair1")
-	if playerPairIDs[opponent] {
+	if _, ok := playerPairIDs[opponent]; ok {
 		opponent = m.GetString("pair2")
 	}
 	if pair, err := h.app.FindRecordById("pairs", opponent); err == nil {
@@ -145,7 +145,7 @@ func (h *PublicHandler) opponentName(m *core.Record, playerPairIDs map[string]bo
 	return "?"
 }
 
-func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[string]bool, needNext bool) (HomeCompetition, *NextMatch, []PendingAction, []RecentResult) {
+func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[string]struct{}, needNext bool) (HomeCompetition, *NextMatch, []PendingAction, []RecentResult) {
 	pending := 0
 	var pendingDetails []PendingMatchDetail
 	var nextMatch *NextMatch
@@ -159,7 +159,9 @@ func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[s
 	for _, m := range pendingMatches {
 		p1 := m.GetString("pair1")
 		p2 := m.GetString("pair2")
-		if !playerPairIDs[p1] && !playerPairIDs[p2] {
+		_, hasP1 := playerPairIDs[p1]
+		_, hasP2 := playerPairIDs[p2]
+		if !hasP1 && !hasP2 {
 			continue
 		}
 		pending++
@@ -192,7 +194,7 @@ func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[s
 	return hc, nextMatch, actions, results
 }
 
-func (h *PublicHandler) buildNextMatch(m *core.Record, c *core.Record, playerPairIDs map[string]bool) *NextMatch {
+func (h *PublicHandler) buildNextMatch(m *core.Record, c *core.Record, playerPairIDs map[string]struct{}) *NextMatch {
 	nm := &NextMatch{
 		MatchID:         m.Id,
 		Opponent:        h.opponentName(m, playerPairIDs),
@@ -227,7 +229,7 @@ func applyProposalToNextMatch(nm *NextMatch, prop *core.Record) {
 	}
 }
 
-func (h *PublicHandler) checkPendingProposal(m *core.Record, playerPairIDs map[string]bool) *PendingAction {
+func (h *PublicHandler) checkPendingProposal(m *core.Record, playerPairIDs map[string]struct{}) *PendingAction {
 	proposals, _ := h.app.FindRecordsByFilter("match_messages",
 		"match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'pending'",
 		"-created", 1, 0, map[string]any{"mid": m.Id})
@@ -237,7 +239,7 @@ func (h *PublicHandler) checkPendingProposal(m *core.Record, playerPairIDs map[s
 	prop := proposals[0]
 	proposerTeam, _ := league.PlayerTeam(h.app, prop.GetString("author"), m)
 	playerTeam := 1
-	if playerPairIDs[m.GetString("pair2")] {
+	if _, ok := playerPairIDs[m.GetString("pair2")]; ok {
 		playerTeam = 2
 	}
 	if proposerTeam == playerTeam {
@@ -251,7 +253,7 @@ func (h *PublicHandler) checkPendingProposal(m *core.Record, playerPairIDs map[s
 	}
 }
 
-func (h *PublicHandler) findUnconfirmedScores(c *core.Record, playerPairIDs map[string]bool) []PendingAction {
+func (h *PublicHandler) findUnconfirmedScores(c *core.Record, playerPairIDs map[string]struct{}) []PendingAction {
 	confirmed, _ := h.app.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'confirmed'",
 		"", 0, 0, map[string]any{"cid": c.Id})
@@ -259,12 +261,14 @@ func (h *PublicHandler) findUnconfirmedScores(c *core.Record, playerPairIDs map[
 	for _, m := range confirmed {
 		p1 := m.GetString("pair1")
 		p2 := m.GetString("pair2")
-		if !playerPairIDs[p1] && !playerPairIDs[p2] {
+		_, hasP1 := playerPairIDs[p1]
+		_, hasP2 := playerPairIDs[p2]
+		if !hasP1 && !hasP2 {
 			continue
 		}
 		submitterTeam, _ := league.PlayerTeam(h.app, m.GetString("submitted_by"), m)
 		playerTeam := 1
-		if playerPairIDs[p2] {
+		if hasP2 {
 			playerTeam = 2
 		}
 		if submitterTeam == playerTeam {
@@ -372,9 +376,9 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 
 	userID := e.Auth.Id
 	pairs, _ := league.PairsForPlayer(h.app, userID)
-	playerPairIDs := make(map[string]bool, len(pairs))
+	playerPairIDs := make(map[string]struct{}, len(pairs))
 	for _, p := range pairs {
-		playerPairIDs[p.Id] = true
+		playerPairIDs[p.Id] = struct{}{}
 	}
 
 	matches, _ := h.app.FindRecordsByFilter("matches",
@@ -439,10 +443,10 @@ type pairOption struct {
 }
 
 func collectPairNames(app core.App, matches []*core.Record) map[string]string {
-	ids := make(map[string]bool)
+	ids := make(map[string]struct{})
 	for _, m := range matches {
-		ids[m.GetString("pair1")] = true
-		ids[m.GetString("pair2")] = true
+		ids[m.GetString("pair1")] = struct{}{}
+		ids[m.GetString("pair2")] = struct{}{}
 	}
 	slice := make([]string, 0, len(ids))
 	for pid := range ids {
@@ -468,17 +472,19 @@ func buildCompPairs(standings []league.StandingRowFull, pairNames map[string]str
 	return pairs
 }
 
-func buildRounds(matches []*core.Record, pairNames map[string]string, playerPairIDs map[string]bool) []RoundView {
+func buildRounds(matches []*core.Record, pairNames map[string]string, playerPairIDs map[string]struct{}) []RoundView {
 	roundMap := map[int][]RoundMatchView{}
 	for _, m := range matches {
 		rn := int(m.GetFloat("round_number"))
 		p1 := m.GetString("pair1")
 		p2 := m.GetString("pair2")
+		_, myP1 := playerPairIDs[p1]
+		_, myP2 := playerPairIDs[p2]
 		roundMap[rn] = append(roundMap[rn], RoundMatchView{
 			Match:     m,
 			Pair1:     pairNames[p1],
 			Pair2:     pairNames[p2],
-			IsMyMatch: playerPairIDs[p1] || playerPairIDs[p2],
+			IsMyMatch: myP1 || myP2,
 		})
 	}
 	for rn, ms := range roundMap {
