@@ -120,8 +120,6 @@ func TestAdminRoutes_RejectPlayer(t *testing.T) {
 // The middleware itself is tested in middleware/auth_test.go (worker2).
 // The two reject tests above prove the middleware IS attached to every admin route.
 
-// --- Public routes require auth but not admin ---
-
 func TestPublicRoutes_RejectUnauthenticated(t *testing.T) {
 	s := &tests.ApiScenario{
 		Name:           "GET / without auth redirects to login",
@@ -177,7 +175,6 @@ func TestAuthRoutes_NoAuthRequired(t *testing.T) {
 	}
 }
 
-// --- requireAuth redirects HX requests with HX-Redirect header ---
 
 func TestRequireAuth_HXRequest_RedirectsViaHeader(t *testing.T) {
 	s := &tests.ApiScenario{
@@ -206,7 +203,6 @@ func TestRequireAuth_HXRequest_RedirectsViaHeader(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Static routes ---
 
 func TestStaticRoutes_ManifestJSON(t *testing.T) {
 	s := &tests.ApiScenario{
@@ -261,7 +257,6 @@ func TestStaticRoutes_ServiceWorker(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Helpers ---
 
 func makePlayer(tb testing.TB, app core.App) *core.Record {
 	tb.Helper()
