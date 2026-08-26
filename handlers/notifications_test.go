@@ -61,7 +61,7 @@ func TestNotificationCount_OtherUserExcluded(t *testing.T) {
 	assert.Equal(t, 1, len(unread))
 }
 
-// --- MarkRead: notification with related_match redirects to /match/{id} (line 102) ---
+// MarkRead: notification with related_match redirects to /match/{id} (line 102)
 
 func TestMarkReadNotificationWithRelatedMatch(t *testing.T) {
 	t.Parallel()
@@ -98,7 +98,7 @@ func TestMarkReadNotificationWithRelatedMatch(t *testing.T) {
 	s.Test(t)
 }
 
-// --- MarkRead: notification without related_match redirects to / (existing but assert DB state) ---
+// MarkRead: notification without related_match redirects to / (existing but assert DB state)
 
 func TestMarkReadNotificationNoRelatedMatch(t *testing.T) {
 	t.Parallel()
@@ -126,7 +126,7 @@ func TestMarkReadNotificationNoRelatedMatch(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Count: zero unread returns empty badge (line 37) ---
+// Count: zero unread returns empty badge (line 37)
 
 func TestNotificationCountZero(t *testing.T) {
 	t.Parallel()
@@ -149,7 +149,7 @@ func TestNotificationCountZero(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Count: has unread returns badge with count (lines 33-34) ---
+// Count: has unread returns badge with count (lines 33-34)
 
 func TestNotificationCountWithUnread(t *testing.T) {
 	t.Parallel()
@@ -172,7 +172,7 @@ func TestNotificationCountWithUnread(t *testing.T) {
 	s.Test(t)
 }
 
-// --- List: notification with body text (line 70) ---
+// List: notification with body text (line 70)
 
 func TestNotificationListWithBody(t *testing.T) {
 	t.Parallel()
@@ -193,7 +193,7 @@ func TestNotificationListWithBody(t *testing.T) {
 	s.Test(t)
 }
 
-// --- List: empty notification list (line 60) ---
+// List: empty notification list (line 60)
 
 func TestNotificationListEmpty(t *testing.T) {
 	t.Parallel()
@@ -213,7 +213,7 @@ func TestNotificationListEmpty(t *testing.T) {
 	s.Test(t)
 }
 
-// --- MarkAllRead: asserts notifications actually marked read in DB ---
+// MarkAllRead: asserts notifications actually marked read in DB
 
 func TestMarkAllReadVerifyDB(t *testing.T) {
 	t.Parallel()
@@ -251,7 +251,7 @@ func TestMarkAllReadVerifyDB(t *testing.T) {
 	s.Test(t)
 }
 
-// --- List: unread notification has highlight class, read does not ---
+// List: unread notification has highlight class, read does not
 
 func TestNotificationListReadVsUnread(t *testing.T) {
 	t.Parallel()

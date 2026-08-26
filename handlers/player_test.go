@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// --- tallyScore: isPair1 flag controls which side of the score counts ---
+// tallyScore: isPair1 flag controls which side of the score counts
 
 func TestGen2_TallyScore_IsPair1(t *testing.T) {
 	t.Parallel()
@@ -65,7 +65,7 @@ func TestGen2_TallyScore_Accumulates(t *testing.T) {
 	assert.Equal(t, 7+12, got.gamesLost, "accumulated gamesLost")
 }
 
-// --- computeCurrentStreak ---
+// computeCurrentStreak
 
 func TestGen2_CurrentStreak(t *testing.T) {
 	t.Parallel()
@@ -88,7 +88,7 @@ func TestGen2_CurrentStreak(t *testing.T) {
 	}
 }
 
-// --- computeBestStreak ---
+// computeBestStreak
 
 func TestGen2_BestStreak(t *testing.T) {
 	t.Parallel()
@@ -138,7 +138,7 @@ func TestGen2_BestStreak(t *testing.T) {
 	}
 }
 
-// --- buildRecentMatches: limit and field mapping ---
+// buildRecentMatches: limit and field mapping
 
 func TestGen2_BuildRecentMatches(t *testing.T) {
 	t.Parallel()
@@ -176,7 +176,7 @@ func TestGen2_BuildRecentMatches(t *testing.T) {
 	})
 }
 
-// --- Player profile page: partner name, stats, win rate, streaks, comp stats ---
+// Player profile page: partner name, stats, win rate, streaks, comp stats
 
 func TestGen2_PlayerProfile_FullStats(t *testing.T) {
 	t.Parallel()
@@ -277,7 +277,7 @@ func readBody(tb testing.TB, res *http.Response) string {
 	return string(buf)
 }
 
-// --- Player profile: date ordering of recent matches ---
+// Player profile: date ordering of recent matches
 
 func TestGen2_PlayerProfile_DateOrdering(t *testing.T) {
 	t.Parallel()
@@ -350,7 +350,7 @@ func indexOf(s, sub string) int {
 	return -1
 }
 
-// --- H2H: only p2 set redirects to player page (followed by test runner) ---
+// H2H: only p2 set redirects to player page (followed by test runner)
 
 func TestGen2_H2H_OnlyP2_ShowsPlayerPage(t *testing.T) {
 	t.Parallel()
@@ -379,7 +379,7 @@ func TestGen2_H2H_OnlyP2_ShowsPlayerPage(t *testing.T) {
 	s.Test(t)
 }
 
-// --- H2H: only p1 set redirects to player page ---
+// H2H: only p1 set redirects to player page
 
 func TestGen2_H2H_OnlyP1_ShowsPlayerPage(t *testing.T) {
 	t.Parallel()
@@ -408,7 +408,7 @@ func TestGen2_H2H_OnlyP1_ShowsPlayerPage(t *testing.T) {
 	s.Test(t)
 }
 
-// --- H2H: both empty redirects to home ---
+// H2H: both empty redirects to home
 
 func TestGen2_H2H_BothEmpty_ShowsHome(t *testing.T) {
 	t.Parallel()
@@ -434,7 +434,7 @@ func TestGen2_H2H_BothEmpty_ShowsHome(t *testing.T) {
 	s.Test(t)
 }
 
-// --- tallyH2H: wins counting and recent limit ---
+// tallyH2H: wins counting and recent limit
 
 func TestGen2_TallyH2H(t *testing.T) {
 	t.Parallel()
@@ -503,7 +503,7 @@ func TestGen2_TallyH2H(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Competition stats: per-comp played/wins/losses ---
+// Competition stats: per-comp played/wins/losses
 
 func TestGen2_PlayerProfile_CompetitionStats(t *testing.T) {
 	t.Parallel()
@@ -595,7 +595,7 @@ func TestGen2_PlayerProfile_CompetitionStats(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Player profile: zero matches → winRate stays 0, no division by zero ---
+// Player profile: zero matches → winRate stays 0, no division by zero
 
 func TestGen2_PlayerProfile_ZeroMatches(t *testing.T) {
 	t.Parallel()

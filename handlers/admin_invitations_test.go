@@ -22,7 +22,7 @@ func findLatestInvitation(tb testing.TB, app *tests.TestApp) *core.Record {
 	return invites[0]
 }
 
-// --- Link invitation with max_uses=5 → stored as 5 ---
+// Link invitation with max_uses=5 → stored as 5
 
 func TestInvitationLinkMaxUses5(t *testing.T) {
 	t.Parallel()
@@ -48,7 +48,7 @@ func TestInvitationLinkMaxUses5(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Link invitation with max_uses=0 → clamped to 1 ---
+// Link invitation with max_uses=0 → clamped to 1
 
 func TestInvitationLinkMaxUses0Clamped(t *testing.T) {
 	t.Parallel()
@@ -74,7 +74,7 @@ func TestInvitationLinkMaxUses0Clamped(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Link invitation with max_uses=-3 → clamped to 1 ---
+// Link invitation with max_uses=-3 → clamped to 1
 
 func TestInvitationLinkMaxUsesNegativeClamped(t *testing.T) {
 	t.Parallel()
@@ -100,7 +100,7 @@ func TestInvitationLinkMaxUsesNegativeClamped(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Email invitation ignores max_uses (stays 1) ---
+// Email invitation ignores max_uses (stays 1)
 
 func TestInvitationEmailIgnoresMaxUses(t *testing.T) {
 	t.Parallel()
@@ -127,7 +127,7 @@ func TestInvitationEmailIgnoresMaxUses(t *testing.T) {
 	s.Test(t)
 }
 
-// --- expiration_days=3 → expires_at ~72h from now ---
+// expiration_days=3 → expires_at ~72h from now
 
 func TestInvitationExpiration3Days(t *testing.T) {
 	t.Parallel()
@@ -161,7 +161,7 @@ func TestInvitationExpiration3Days(t *testing.T) {
 	s.Test(t)
 }
 
-// --- expiration_days=0 → clamped to 1 day ---
+// expiration_days=0 → clamped to 1 day
 
 func TestInvitationExpiration0Clamped(t *testing.T) {
 	t.Parallel()
@@ -195,7 +195,7 @@ func TestInvitationExpiration0Clamped(t *testing.T) {
 	s.Test(t)
 }
 
-// --- expiration_days=-5 → clamped to 1 day ---
+// expiration_days=-5 → clamped to 1 day
 
 func TestInvitationExpirationNegativeClamped(t *testing.T) {
 	t.Parallel()
@@ -229,7 +229,7 @@ func TestInvitationExpirationNegativeClamped(t *testing.T) {
 	s.Test(t)
 }
 
-// --- omit expiration_days → default 7 days ---
+// omit expiration_days → default 7 days
 
 func TestInvitationExpirationDefault7Days(t *testing.T) {
 	t.Parallel()

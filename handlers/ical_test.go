@@ -40,7 +40,7 @@ func parseVEvents(body string) []map[string]string {
 	return events
 }
 
-// --- Duration: DTSTART and DTEND are exactly 2 hours apart ---
+// Duration: DTSTART and DTEND are exactly 2 hours apart
 
 func TestICalMatch_Duration2Hours(t *testing.T) {
 	t.Parallel()
@@ -76,7 +76,7 @@ func TestICalMatch_Duration2Hours(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Default time (no time provided) → 19:00 start, 21:00 end ---
+// Default time (no time provided) → 19:00 start, 21:00 end
 
 func TestICalMatch_DefaultTime1900(t *testing.T) {
 	t.Parallel()
@@ -109,7 +109,7 @@ func TestICalMatch_DefaultTime1900(t *testing.T) {
 	s.Test(t)
 }
 
-// --- LOCATION carries the venue ---
+// LOCATION carries the venue
 
 func TestICalMatch_LocationFromClub(t *testing.T) {
 	t.Parallel()
@@ -142,7 +142,7 @@ func TestICalMatch_LocationFromClub(t *testing.T) {
 	s.Test(t)
 }
 
-// --- No venue → no LOCATION line ---
+// No venue → no LOCATION line
 
 func TestICalMatch_NoLocationWhenNoClub(t *testing.T) {
 	t.Parallel()
@@ -173,7 +173,7 @@ func TestICalMatch_NoLocationWhenNoClub(t *testing.T) {
 	s.Test(t)
 }
 
-// --- DESCRIPTION includes competition name ---
+// DESCRIPTION includes competition name
 
 func TestICalMatch_DescriptionIncludesCompName(t *testing.T) {
 	t.Parallel()
@@ -210,7 +210,7 @@ func TestICalMatch_DescriptionIncludesCompName(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Competition feed: dedup investigation ---
+// Competition feed: dedup investigation
 //
 // The `seen` map in filterDatedMatches guards against duplicate match records.
 // `allMatches` comes from a single FindRecordsByFilter("matches", "competition = {:cid}")
@@ -230,7 +230,7 @@ func TestICalMatch_DescriptionIncludesCompName(t *testing.T) {
 // The mutation survivor on line 161 is an equivalent mutant — killing it
 // would require a test that depends on impossible DB behavior.
 
-// --- Competition feed: match appears once even when player is in both pairs ---
+// Competition feed: match appears once even when player is in both pairs
 // This does NOT test the `seen` map (query doesn't duplicate). It tests that
 // the filter logic includes the match once when both pair1 and pair2 belong
 // to the requesting player's pairs.
@@ -282,7 +282,7 @@ func TestICalCompetition_MatchAppearsOnceWhenPlayerInBothPairs(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Competition feed: dateless matches excluded ---
+// Competition feed: dateless matches excluded
 
 func TestICalCompetition_DatelessMatchExcluded(t *testing.T) {
 	t.Parallel()
@@ -320,7 +320,7 @@ func TestICalCompetition_DatelessMatchExcluded(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Truncated date (ISO 8601 datetime instead of date-only) ---
+// Truncated date (ISO 8601 datetime instead of date-only)
 
 func TestICalMatch_TruncatesLongDate(t *testing.T) {
 	t.Parallel()
@@ -358,7 +358,7 @@ func TestICalMatch_TruncatesLongDate(t *testing.T) {
 // never from res.Body. res is recorder.Result(), which wraps recorder.Body.Bytes()
 // in a fresh bytes.NewReader — still at position 0 when AfterTestFunc runs.
 
-// --- Comment to add to handlers/ical.go line 161 when applying ---
+// Comment to add to handlers/ical.go line 161 when applying
 //
 // On the `seen[m.Id]` guard in filterDatedMatches:
 // Add this comment above `if seen[m.Id]`:

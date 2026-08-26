@@ -53,9 +53,7 @@ func countUsers(tb testing.TB, app core.App) int {
 	return len(users)
 }
 
-// ========================
 // GET /register boundary
-// ========================
 
 // Single-use invite, use_count=0 → page renders the registration form (Token present)
 func TestRegisterPage_SingleUse_Count0_ShowsForm(t *testing.T) {
@@ -165,9 +163,7 @@ func TestRegisterPage_MaxUses0_Count1_Refused(t *testing.T) {
 	s.Test(t)
 }
 
-// ========================
 // POST /register boundary
-// ========================
 
 // Single-use invite, use_count=0 → registration succeeds, use_count becomes 1
 func TestRegisterSubmit_SingleUse_Count0_Succeeds(t *testing.T) {

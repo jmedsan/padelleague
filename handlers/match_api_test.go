@@ -329,7 +329,7 @@ func TestMatchCorrectExpired(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Playoff date validation (T6a) ---
+// Playoff date validation (T6a)
 
 func makeMatchWithRound(t testing.TB, app core.App, compID, p1ID, p2ID string, round int) *core.Record {
 	t.Helper()

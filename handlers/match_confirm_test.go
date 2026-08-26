@@ -12,9 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ========================
 // Admin bypass: MatchConfirm
-// ========================
 
 func TestMatchConfirmAdminNonParticipant_Succeeds(t *testing.T) {
 	t.Parallel()
@@ -74,9 +72,7 @@ func TestMatchConfirmNonParticipantPlayer_Refused(t *testing.T) {
 	s.Test(t)
 }
 
-// ========================
 // Admin bypass: MatchDispute
-// ========================
 
 func TestMatchDisputeAdminNonParticipant_Succeeds(t *testing.T) {
 	t.Parallel()
@@ -142,9 +138,7 @@ func TestMatchDisputeNonParticipantPlayer_Refused(t *testing.T) {
 	s.Test(t)
 }
 
-// ========================
 // Correction window boundary (line 148)
-// ========================
 
 // Just under 24h → correction allowed
 func TestMatchCorrectBoundary_Under24h_Allowed(t *testing.T) {
