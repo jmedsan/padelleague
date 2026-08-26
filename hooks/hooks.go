@@ -42,7 +42,7 @@ func handleAdvance(svc *league.Service, notifier *notify.Notifier, rec *core.Rec
 		if notifier != nil {
 			_ = notifier.NotifyAdmins("admin_message",
 				"Error en avance de playoff",
-				fmt.Sprintf("El partido %s finalizó pero el bracket no avanzó automáticamente. Error: %v", rec.Id, err),
+				"El partido finalizó pero el bracket no avanzó automáticamente. Revisa el panel de administración.",
 				rec.Id)
 		}
 	}
