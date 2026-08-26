@@ -90,13 +90,13 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 		if !h.playerInCompetition(c, playerPairIDs) {
 			continue
 		}
-		hc, nm, actions, results := h.buildHomeCompetition(c, playerPairIDs, nextMatch == nil)
-		comps = append(comps, hc)
-		if nextMatch == nil && nm != nil {
-			nextMatch = nm
+		parts := h.buildHomeCompetition(c, playerPairIDs, nextMatch == nil)
+		comps = append(comps, parts.Comp)
+		if nextMatch == nil && parts.Next != nil {
+			nextMatch = parts.Next
 		}
-		pendingActions = append(pendingActions, actions...)
-		recentResults = append(recentResults, results...)
+		pendingActions = append(pendingActions, parts.Pending...)
+		recentResults = append(recentResults, parts.Recent...)
 	}
 
 	sort.Slice(recentResults, func(i, j int) bool {
@@ -145,7 +145,14 @@ func (h *PublicHandler) opponentName(m *core.Record, playerPairIDs map[string]st
 	return "?"
 }
 
-func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[string]struct{}, needNext bool) (HomeCompetition, *NextMatch, []PendingAction, []RecentResult) {
+type homeCompetitionParts struct {
+	Comp    HomeCompetition
+	Next    *NextMatch
+	Pending []PendingAction
+	Recent  []RecentResult
+}
+
+func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[string]struct{}, needNext bool) homeCompetitionParts {
 	pending := 0
 	var pendingDetails []PendingMatchDetail
 	var nextMatch *NextMatch
@@ -186,12 +193,16 @@ func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[s
 	actions = append(actions, h.findUnconfirmedScores(c, playerPairIDs)...)
 	results := h.findRecentResults(c)
 
-	hc := HomeCompetition{
-		Competition:    c,
-		PendingMatches: pending,
-		PendingDetails: pendingDetails,
+	return homeCompetitionParts{
+		Comp: HomeCompetition{
+			Competition:    c,
+			PendingMatches: pending,
+			PendingDetails: pendingDetails,
+		},
+		Next:    nextMatch,
+		Pending: actions,
+		Recent:  results,
 	}
-	return hc, nextMatch, actions, results
 }
 
 func (h *PublicHandler) buildNextMatch(m *core.Record, c *core.Record, playerPairIDs map[string]struct{}) *NextMatch {
@@ -383,7 +394,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 
 	matches, _ := h.app.FindRecordsByFilter("matches",
 		"competition = {:cid}",
-		"", 0, 0,
+		"round_number,created", 0, 0,
 		map[string]any{"cid": id})
 
 	pairNames := collectPairNames(h.app, matches)

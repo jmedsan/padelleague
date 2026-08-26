@@ -39,10 +39,10 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 
 	pairEntries := h.buildPairEntries(pairIDs, seeding, paymentStatus)
 	allPairs := h.availablePairs(pairIDs)
-	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != {:cid}", "", 0, 0, map[string]any{"cid": id})
+	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != {:cid}", "name", 0, 0, map[string]any{"cid": id})
 
 	matches, _ := h.app.FindRecordsByFilter("matches",
-		"competition = {:cid}", "", 0, 0,
+		"competition = {:cid}", "round_number,created", 0, 0,
 		map[string]any{"cid": id})
 
 	pairNameMap := league.PairNames(h.app, pairIDs)

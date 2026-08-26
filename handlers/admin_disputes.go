@@ -23,7 +23,7 @@ type DisputeView struct {
 // Disputes renders the admin disputes page listing all disputed matches.
 func (h *AdminHandler) Disputes(e *core.RequestEvent) error {
 	matches, _ := h.app.FindRecordsByFilter("matches",
-		"status = 'disputed'", "", 0, 0, nil)
+		"status = 'disputed'", "created", 0, 0, nil)
 
 	var views []DisputeView
 	for _, m := range matches {
