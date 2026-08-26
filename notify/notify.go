@@ -46,7 +46,7 @@ func (n *Notifier) NotifyPlayers(playerUserIDs []string, notifType, title, body,
 		if err != nil {
 			continue
 		}
-		prefs := GetNotificationPrefs(user)
+		prefs := NotificationPrefs(user)
 		if enabled, ok := prefs[notifType]; ok {
 			if b, ok := enabled.(bool); ok && !b {
 				continue
@@ -154,8 +154,8 @@ func (n *Notifier) deliverPush(sub *core.Record, payload []byte, subscriber stri
 	}
 }
 
-// GetNotificationPrefs returns the user's notification preferences with defaults applied.
-func GetNotificationPrefs(user *core.Record) map[string]any {
+// NotificationPrefs returns the user's notification preferences with defaults applied.
+func NotificationPrefs(user *core.Record) map[string]any {
 	defaults := map[string]any{
 		"quorum_request": true,
 		"dispute":        true,

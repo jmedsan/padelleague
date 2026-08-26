@@ -124,7 +124,7 @@ func (h *NotificationHandler) MarkAllRead(e *core.RequestEvent) error {
 
 // Prefs renders the notification preferences page.
 func (h *NotificationHandler) Prefs(e *core.RequestEvent) error {
-	prefs := notify.GetNotificationPrefs(e.Auth)
+	prefs := notify.NotificationPrefs(e.Auth)
 
 	return h.renderPage(e, "notification-prefs.html", map[string]any{
 		"Prefs": prefs,
