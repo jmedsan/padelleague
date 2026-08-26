@@ -302,7 +302,7 @@ func makeProposal(tb testing.TB, app core.App, matchID, authorID string) *core.R
 	return msg
 }
 
-// --- Normal case: accepting a proposal supersedes the others, no admin notification ---
+// Normal case: accepting a proposal supersedes the others, no admin notification
 
 func TestAcceptProposalSupersedesOthers(t *testing.T) {
 	t.Parallel()
@@ -355,7 +355,7 @@ func TestAcceptProposalSupersedesOthers(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Failure case: supersede save fails → acceptance succeeds, admin notified ---
+// Failure case: supersede save fails → acceptance succeeds, admin notified
 // Note: this test targets the S-4 fix. Before the fix, the error is swallowed
 // and no admin notification is created. After the fix, supersedePending returns
 // the failed IDs and the caller calls NotifyAdmins.
@@ -432,7 +432,7 @@ func TestAcceptProposalSupersedeFailureNotifiesAdmin(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Multiple proposals: only non-accepted ones are superseded ---
+// Multiple proposals: only non-accepted ones are superseded
 
 func TestAcceptProposalOnlySupersedesPending(t *testing.T) {
 	t.Parallel()
@@ -612,7 +612,7 @@ func TestProposalChangeDecision(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Cluster: Playoff thread (T6b) ---
+// Cluster: Playoff thread (T6b)
 
 func TestThread_PlayoffHidesProposal(t *testing.T) {
 	t.Parallel()
@@ -651,7 +651,7 @@ func TestThread_PlayoffHidesProposal(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Cluster: Availability buttons (T9a) ---
+// Cluster: Availability buttons (T9a)
 
 func TestThread_AvailabilityButtons(t *testing.T) {
 	t.Parallel()

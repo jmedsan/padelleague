@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// --- Cluster 1: Home shows only player's competitions, sets nextMatch ---
+// Cluster 1: Home shows only player's competitions, sets nextMatch
 
 func TestHomeGen2_OnlyPlayerCompetitions(t *testing.T) {
 	t.Parallel()
@@ -72,7 +72,7 @@ func TestHomeGen2_NextMatchFromFirstPending(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Cluster 2: Pending match counting and detail cap ---
+// Cluster 2: Pending match counting and detail cap
 
 func TestHomeGen2_PendingCountAndDetailCap(t *testing.T) {
 	t.Parallel()
@@ -108,7 +108,7 @@ func TestHomeGen2_PendingCountAndDetailCap(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Cluster 3: Proposal schedule status ---
+// Cluster 3: Proposal schedule status
 
 func TestHomeGen2_AcceptedProposalShowsConfirmado(t *testing.T) {
 	t.Parallel()
@@ -162,7 +162,7 @@ func TestHomeGen2_PendingProposalShowsPropuestaEnviada(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Cluster 4: Proposer team check (respond_proposal action) ---
+// Cluster 4: Proposer team check (respond_proposal action)
 
 func TestHomeGen2_OpponentProposalCreatesAction(t *testing.T) {
 	t.Parallel()
@@ -223,7 +223,7 @@ func TestHomeGen2_OwnProposalNoAction(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Cluster 5: Score confirm team check ---
+// Cluster 5: Score confirm team check
 
 func TestHomeGen2_OpponentScoreShowsConfirmAction(t *testing.T) {
 	t.Parallel()
@@ -290,7 +290,7 @@ func TestHomeGen2_OwnScoreNoConfirmAction(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Cluster 6: Penalty flag in competition page ---
+// Cluster 6: Penalty flag in competition page
 
 func TestCompetitionGen2_WithPenaltyShowsPenColumn(t *testing.T) {
 	t.Parallel()
@@ -345,7 +345,7 @@ func TestCompetitionGen2_NoPenaltyHidesPenColumn(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Cluster 7: firstIncompleteRound sets AutoExpandRound ---
+// Cluster 7: firstIncompleteRound sets AutoExpandRound
 
 func TestCompetitionGen2_AutoExpandRound(t *testing.T) {
 	t.Parallel()
@@ -379,7 +379,7 @@ func TestCompetitionGen2_AutoExpandRound(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Cluster 8: buildCompPairs from playoff (no standings) ---
+// Cluster 8: buildCompPairs from playoff (no standings)
 
 func TestCompetitionGen2_CompPairsFromPlayoff(t *testing.T) {
 	t.Parallel()
@@ -404,7 +404,7 @@ func TestCompetitionGen2_CompPairsFromPlayoff(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Helpers ---
+// Helpers
 
 func createProposal(tb testing.TB, app core.App, matchID, authorID, status, proposalData string) {
 	tb.Helper()
@@ -581,7 +581,7 @@ func TestHome_RecentResultsNonEmpty(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Cluster: Player urgent tasks ranking (T3) ---
+// Cluster: Player urgent tasks ranking (T3)
 
 func TestHome_UrgentTasksRanking(t *testing.T) {
 	t.Parallel()
@@ -681,7 +681,7 @@ func TestHome_OrganizeWarningBadges(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Cluster: Admin dashboard (T4) ---
+// Cluster: Admin dashboard (T4)
 
 func TestHome_AdminSetupChecklist(t *testing.T) {
 	t.Parallel()

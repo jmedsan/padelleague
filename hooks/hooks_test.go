@@ -142,7 +142,7 @@ func transitionMatch(t *testing.T, app core.App, id, newStatus string, extra map
 	return app.Save(m)
 }
 
-// --- Status transition tests: allowed ---
+// Status transition tests: allowed
 
 func TestTransition_PendingToConfirmed(t *testing.T) {
 	app := newTestApp(t)
@@ -206,7 +206,7 @@ func TestTransition_DisputedToFinal(t *testing.T) {
 		map[string]any{"scores": "6-3 6-4", "winner": p1.Id}))
 }
 
-// --- Status transition tests: rejected ---
+// Status transition tests: rejected
 
 func TestTransition_PendingToDisputed_Allowed(t *testing.T) {
 	app := newTestApp(t)
@@ -278,7 +278,7 @@ func TestTransition_SameStatus_Allowed(t *testing.T) {
 	assert.NoError(t, app.Save(fm), "updating without status change should succeed")
 }
 
-// --- Default role on user creation ---
+// Default role on user creation
 
 func TestDefaultRole_EmptyRole_SetsPlayer(t *testing.T) {
 	app := newTestApp(t)
@@ -317,7 +317,7 @@ func TestDefaultRole_ExplicitRole_Preserved(t *testing.T) {
 	assert.Equal(t, "admin", saved.GetString("role"))
 }
 
-// --- Cron registration ---
+// Cron registration
 
 func TestCronRegistration_QuorumTimeout(t *testing.T) {
 	app := newTestApp(t)
@@ -335,7 +335,7 @@ func TestCronRegistration_QuorumTimeout(t *testing.T) {
 	assert.True(t, found, "quorum-timeout cron job must be registered")
 }
 
-// --- Playoff advance notification tests (S-3) ---
+// Playoff advance notification tests (S-3)
 
 func TestAdvancePlayoffFailure_NotifiesAdmins(t *testing.T) {
 	app := newTestApp(t)
@@ -405,7 +405,7 @@ func TestAdvancePlayoffSuccess_NoNotification(t *testing.T) {
 	assert.Equal(t, p4.Id, updated.GetString("pair2"))
 }
 
-// --- Scheduling reminder cron tests ---
+// Scheduling reminder cron tests
 
 func makeLeagueComp(t *testing.T, app core.App, pairs []*core.Record, start, end time.Time, rounds int) *core.Record {
 	t.Helper()

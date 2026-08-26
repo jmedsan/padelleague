@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// --- buildResetURL: X-Forwarded-Proto: https → https:// link ---
+// buildResetURL: X-Forwarded-Proto: https → https:// link
 
 func TestPreCreateResetURLWithForwardedProto(t *testing.T) {
 	t.Parallel()
@@ -45,7 +45,7 @@ func TestPreCreateResetURLWithForwardedProto(t *testing.T) {
 	s.Test(t)
 }
 
-// --- buildResetURL: no header, no TLS → http:// link ---
+// buildResetURL: no header, no TLS → http:// link
 // Note: ApiScenario test client has no TLS, so e.Request.TLS==nil is always
 // true here. The TLS!=nil→https path is not reachable through ApiScenario.
 // However, both mutants on lines 129 and 131 are killed by these two tests:
@@ -81,7 +81,7 @@ func TestPreCreateResetURLNoTLS(t *testing.T) {
 	s.Test(t)
 }
 
-// --- PlayerUpdate: invalid role "superadmin" → rejected, user unchanged ---
+// PlayerUpdate: invalid role "superadmin" → rejected, user unchanged
 
 func TestPlayerUpdateInvalidRole(t *testing.T) {
 	t.Parallel()
@@ -113,7 +113,7 @@ func TestPlayerUpdateInvalidRole(t *testing.T) {
 	s.Test(t)
 }
 
-// --- PlayerUpdate: empty role → rejected, user unchanged ---
+// PlayerUpdate: empty role → rejected, user unchanged
 
 func TestPlayerUpdateEmptyRole(t *testing.T) {
 	t.Parallel()
@@ -145,7 +145,7 @@ func TestPlayerUpdateEmptyRole(t *testing.T) {
 	s.Test(t)
 }
 
-// --- createPlayerInvitation: expiry is ~48h (2*24*time.Hour) ---
+// createPlayerInvitation: expiry is ~48h (2*24*time.Hour)
 
 func TestPreCreateInvitationExpiry48h(t *testing.T) {
 	t.Parallel()

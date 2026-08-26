@@ -33,7 +33,7 @@ func enableSMTP(t testing.TB, app *tests.TestApp) {
 	require.True(t, notify.IsMailerConfigured(app))
 }
 
-// --- ForgotPasswordSubmit: SMTP configured, valid email → mail sent ---
+// ForgotPasswordSubmit: SMTP configured, valid email → mail sent
 
 func TestForgotPasswordSubmitSMTPValid(t *testing.T) {
 	t.Parallel()
@@ -60,7 +60,7 @@ func TestForgotPasswordSubmitSMTPValid(t *testing.T) {
 	s.Test(t)
 }
 
-// --- ForgotPasswordSubmit: SMTP configured, unknown email → no mail, non-disclosure ---
+// ForgotPasswordSubmit: SMTP configured, unknown email → no mail, non-disclosure
 
 func TestForgotPasswordSubmitSMTPUnknown(t *testing.T) {
 	t.Parallel()
@@ -84,7 +84,7 @@ func TestForgotPasswordSubmitSMTPUnknown(t *testing.T) {
 	s.Test(t)
 }
 
-// --- ForgotPasswordSubmit: SMTP unconfigured → info message, no mail ---
+// ForgotPasswordSubmit: SMTP unconfigured → info message, no mail
 
 func TestForgotPasswordSubmitNoSMTP(t *testing.T) {
 	t.Parallel()
@@ -107,7 +107,7 @@ func TestForgotPasswordSubmitNoSMTP(t *testing.T) {
 	s.Test(t)
 }
 
-// --- ResetPasswordSubmit: token not found ---
+// ResetPasswordSubmit: token not found
 
 func TestResetPasswordSubmitTokenNotFound(t *testing.T) {
 	t.Parallel()
@@ -127,7 +127,7 @@ func TestResetPasswordSubmitTokenNotFound(t *testing.T) {
 	s.Test(t)
 }
 
-// --- ResetPasswordSubmit: token empty ---
+// ResetPasswordSubmit: token empty
 
 func TestResetPasswordSubmitTokenEmpty(t *testing.T) {
 	t.Parallel()
@@ -147,7 +147,7 @@ func TestResetPasswordSubmitTokenEmpty(t *testing.T) {
 	s.Test(t)
 }
 
-// --- ResetPasswordSubmit: valid token + matching passwords → success redirect ---
+// ResetPasswordSubmit: valid token + matching passwords → success redirect
 func TestResetPasswordSubmitValidToken(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
@@ -171,7 +171,7 @@ func TestResetPasswordSubmitValidToken(t *testing.T) {
 	s.Test(t)
 }
 
-// --- ForgotPasswordSubmit: SMTP configured, empty email → no mail, still success ---
+// ForgotPasswordSubmit: SMTP configured, empty email → no mail, still success
 
 func TestForgotPasswordSubmitSMTPEmptyEmail(t *testing.T) {
 	t.Parallel()
@@ -195,7 +195,7 @@ func TestForgotPasswordSubmitSMTPEmptyEmail(t *testing.T) {
 	s.Test(t)
 }
 
-// --- ForgotPasswordSubmit: SMTP configured, valid email, send fails → error (S-2 fix) ---
+// ForgotPasswordSubmit: SMTP configured, valid email, send fails → error (S-2 fix)
 // Note: this test covers the S-2 fix where send failure returns alertError
 // instead of swallowing the error. If S-2 has not been applied yet, the
 // ExpectedContent assertion will need adjusting (current code shows success).

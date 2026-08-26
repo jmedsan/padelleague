@@ -14,7 +14,7 @@ import (
 	"padelleague/league"
 )
 
-// --- Dispute resolve with manual winner = pair2 ---
+// Dispute resolve with manual winner = pair2
 
 func TestDisputeResolveManualWinnerPair2(t *testing.T) {
 	t.Parallel()
@@ -50,7 +50,7 @@ func TestDisputeResolveManualWinnerPair2(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Dispute resolve with manual winner = invalid pair (not in match) ---
+// Dispute resolve with manual winner = invalid pair (not in match)
 
 func TestDisputeResolveManualWinnerInvalid(t *testing.T) {
 	t.Parallel()
@@ -78,7 +78,7 @@ func TestDisputeResolveManualWinnerInvalid(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Dispute resolve with manual winner + invalid score → rejected ---
+// Dispute resolve with manual winner + invalid score → rejected
 
 func TestDisputeResolveManualWinnerInvalidScore(t *testing.T) {
 	t.Parallel()
@@ -113,7 +113,7 @@ func TestDisputeResolveManualWinnerInvalidScore(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Dispute resolve without manual winner (auto-determine from score) ---
+// Dispute resolve without manual winner (auto-determine from score)
 // Covers the else branch at line 71-77 where DetermineWinner is called.
 
 func TestDisputeResolveAutoWinner(t *testing.T) {
@@ -150,7 +150,7 @@ func TestDisputeResolveAutoWinner(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Report unplayed (walkover request) ---
+// Report unplayed (walkover request)
 
 func TestReportUnplayed(t *testing.T) {
 	t.Parallel()
@@ -255,7 +255,7 @@ func TestReportUnplayedNonParticipant_Refused(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Walkover approve ---
+// Walkover approve
 
 func TestWalkoverApprove(t *testing.T) {
 	t.Parallel()

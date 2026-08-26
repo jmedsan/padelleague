@@ -96,7 +96,7 @@ func TestGenerateRoundRobin_NoPairTwicePerRound(t *testing.T) {
 	}
 }
 
-// --- Helper: create a playoff competition with optional seeding ---
+// Helper: create a playoff competition with optional seeding
 
 func makePlayoffComp(tb testing.TB, app core.App, pairs []*core.Record, seeding map[string]int) *core.Record {
 	tb.Helper()
@@ -133,7 +133,7 @@ func hasMatchup(matches [][2]string, a, b string) bool {
 	return false
 }
 
-// --- All unseeded: order matches input order ---
+// All unseeded: order matches input order
 
 func TestPlayoffAllUnseeded_KeepsInputOrder(t *testing.T) {
 	t.Parallel()
@@ -173,7 +173,7 @@ func TestPlayoffAllUnseeded_KeepsInputOrder(t *testing.T) {
 	s.Test(t)
 }
 
-// --- All seeded: strict seed order ---
+// All seeded: strict seed order
 
 func TestPlayoffAllSeeded_SeedOrder(t *testing.T) {
 	t.Parallel()
@@ -221,7 +221,7 @@ func TestPlayoffAllSeeded_SeedOrder(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Mixed seeded/unseeded: seeded first, then unseeded ---
+// Mixed seeded/unseeded: seeded first, then unseeded
 
 func TestPlayoffMixedSeeding_SeededFirst(t *testing.T) {
 	t.Parallel()
@@ -266,7 +266,7 @@ func TestPlayoffMixedSeeding_SeededFirst(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Advancer pairing: 8 pairs → 4 first-round matches + 2 second-round + 1 final ---
+// Advancer pairing: 8 pairs → 4 first-round matches + 2 second-round + 1 final
 
 func TestPlayoffAdvancerPairing_LaterRoundsExist(t *testing.T) {
 	t.Parallel()
@@ -301,7 +301,7 @@ func TestPlayoffAdvancerPairing_LaterRoundsExist(t *testing.T) {
 	s.Test(t)
 }
 
-// --- Fewer than 2 pairs guard ---
+// Fewer than 2 pairs guard
 
 func TestPlayoffFewerThan2Pairs(t *testing.T) {
 	t.Parallel()

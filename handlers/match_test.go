@@ -407,7 +407,7 @@ type matchViewCase struct {
 func TestBuildMatchViewFlags(t *testing.T) {
 	t.Parallel()
 	cases := []matchViewCase{
-		// --- Pending ---
+		// Pending
 		{
 			name: "pending/submitter-team", status: "pending", viewer: "submitter",
 			want: []string{markerCanSubmit, markerCanWalkover},
@@ -428,7 +428,7 @@ func TestBuildMatchViewFlags(t *testing.T) {
 			deny: []string{markerCanSubmit, markerCanWalkover, markerCanConfirm, markerCanCorrect},
 		},
 
-		// --- Confirmed with submitter set ---
+		// Confirmed with submitter set
 		{
 			name: "confirmed/submitter/recent", status: "confirmed", viewer: "submitter",
 			submitted: true, recentSubmit: true,
@@ -466,7 +466,7 @@ func TestBuildMatchViewFlags(t *testing.T) {
 			deny:      []string{markerCanSubmit, markerCanCorrect},
 		},
 
-		// --- Disputed ---
+		// Disputed
 		{
 			name: "disputed/submitter", status: "disputed", viewer: "submitter",
 			submitted: true,
@@ -478,7 +478,7 @@ func TestBuildMatchViewFlags(t *testing.T) {
 			deny:      []string{markerCanSubmit, markerCanConfirm, markerCanCorrect, markerCanWalkover},
 		},
 
-		// --- Final ---
+		// Final
 		{
 			name: "final/submitter", status: "final", viewer: "submitter",
 			submitted: true,
