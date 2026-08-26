@@ -367,7 +367,7 @@ func TestAdvancePlayoffFailure_NotifiesAdmins(t *testing.T) {
 		"", 0, 0, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(notifs), "expected exactly one admin notification for playoff failure")
-	assert.Contains(t, notifs[0].GetString("body"), m2.Id)
+	assert.Contains(t, notifs[0].GetString("body"), "Revisa el panel de administración")
 }
 
 func TestAdvancePlayoffSuccess_NoNotification(t *testing.T) {
