@@ -25,6 +25,11 @@ linters:
         - name: exported
         - name: package-comments
         - name: unused-parameter
+        - name: file-length-limit
+          arguments: [{max: 800, skipComments: true, skipBlankLines: true}]
+        - name: context-as-argument
+        - name: max-control-nesting
+          arguments: [3]
   exclusions:
     rules:
       - path: migrations/
@@ -37,6 +42,10 @@ linters:
         linters:
           - funlen
           - gocognit
+      - path: _test\.go$
+        text: "file-length-limit"
+        linters:
+          - revive
 
 formatters:
   enable:
