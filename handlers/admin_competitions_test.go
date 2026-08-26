@@ -1483,7 +1483,9 @@ func TestRegenerateRoundDates(t *testing.T) {
 		raw := comp.GetString("round_arrange_dates")
 		var stored map[string]time.Time
 		require.NoError(tb, json.Unmarshal([]byte(raw), &stored))
-		assert.False(tb, stored["1"].Year() == 2099, "regenerate must overwrite the old 2099 date")
+		// start=2026-06-01, end=2026-07-01, rounds=2 → round 1 = midpoint, round 2 = end
+		assert.Equal(tb, time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC), stored["1"].UTC())
+		assert.Equal(tb, time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), stored["2"].UTC())
 	}
 	s.Test(t)
 }
