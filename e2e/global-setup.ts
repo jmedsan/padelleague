@@ -9,10 +9,13 @@ const BINARY = '/tmp/padelleague-test';
 
 export const ADMIN_EMAIL = 'admin@test.com';
 export const ADMIN_PASSWORD = 'testpass123456';
+export const ADMIN_NAME = 'Test Admin';
 export const PLAYER1_EMAIL = 'player@test.com';
 export const PLAYER1_PASSWORD = 'testpass123456';
+export const PLAYER1_NAME = 'Test Player';
 export const PLAYER2_EMAIL = 'player2@test.com';
 export const PLAYER2_PASSWORD = 'testpass123456';
+export const PLAYER2_NAME = 'Test Player 2';
 
 let serverProcess: ChildProcess;
 
@@ -26,15 +29,20 @@ export default async function globalSetup() {
 
   serverProcess = spawn(BINARY, ['serve', `--http=0.0.0.0:${PORT}`, `--dir=${dataDir}`], {
     env: {
-      ...process.env,
+      PATH: process.env.PATH || '',
+      HOME: process.env.HOME || '',
       PB_ADMIN_EMAIL: ADMIN_EMAIL,
       PB_ADMIN_PASSWORD: ADMIN_PASSWORD,
-      APP_ADMIN_EMAIL: ADMIN_EMAIL,
-      APP_ADMIN_PASSWORD: ADMIN_PASSWORD,
+      APP_ADMIN1_EMAIL: ADMIN_EMAIL,
+      APP_ADMIN1_PASSWORD: ADMIN_PASSWORD,
+      APP_ADMIN1_NAME: ADMIN_NAME,
       APP_PLAYER_EMAIL: PLAYER1_EMAIL,
       APP_PLAYER_PASSWORD: PLAYER1_PASSWORD,
+      APP_PLAYER_NAME: PLAYER1_NAME,
       APP_PLAYER2_EMAIL: PLAYER2_EMAIL,
       APP_PLAYER2_PASSWORD: PLAYER2_PASSWORD,
+      APP_PLAYER2_NAME: PLAYER2_NAME,
+      APP_ENV: 'dev',
     },
     stdio: ['ignore', 'pipe', 'inherit'],
   });

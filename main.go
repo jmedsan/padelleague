@@ -66,15 +66,15 @@ func main() {
 func seedUsers(cfg config.Config) []seed.User {
 	users := []seed.User{
 		{Email: cfg.PBAdminEmail, Password: cfg.PBAdminPassword, Collection: core.CollectionNameSuperusers},
-		{Email: cfg.AppAdmin1Email, Password: cfg.AppAdmin1Password, Collection: "users", Role: "admin", DisplayName: "Javi"},
+		{Email: cfg.AppAdmin1Email, Password: cfg.AppAdmin1Password, Collection: "users", Role: "admin", DisplayName: cfg.AppAdmin1Name},
 	}
 	if cfg.AppAdmin2Email != "" {
-		users = append(users, seed.User{Email: cfg.AppAdmin2Email, Password: cfg.AppAdmin2Password, Collection: "users", Role: "admin", DisplayName: "Luis"})
+		users = append(users, seed.User{Email: cfg.AppAdmin2Email, Password: cfg.AppAdmin2Password, Collection: "users", Role: "admin", DisplayName: cfg.AppAdmin2Name})
 	}
 	if cfg.AppEnv != "prod" {
-		users = append(users, seed.User{Email: cfg.AppPlayerEmail, Password: cfg.AppPlayerPassword, Collection: "users", Role: "player", DisplayName: "Javi"})
+		users = append(users, seed.User{Email: cfg.AppPlayerEmail, Password: cfg.AppPlayerPassword, Collection: "users", Role: "player", DisplayName: cfg.AppPlayerName})
 		if cfg.AppPlayer2Email != "" {
-			users = append(users, seed.User{Email: cfg.AppPlayer2Email, Password: cfg.AppPlayer2Password, Collection: "users", Role: "player", DisplayName: "Carlos"})
+			users = append(users, seed.User{Email: cfg.AppPlayer2Email, Password: cfg.AppPlayer2Password, Collection: "users", Role: "player", DisplayName: cfg.AppPlayer2Name})
 		}
 	}
 	return users

@@ -12,8 +12,8 @@ test.describe('admin management', () => {
   test('admin can view players page', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin/players');
-    await expect(page.getByText('Javi')).toBeVisible();
-    await expect(page.getByText('Carlos')).toBeVisible();
+    await expect(page.getByText('Test Player')).toBeVisible();
+    await expect(page.getByText('Test Player 2')).toBeVisible();
   });
 
   test('admin can view venues page', async ({ page }) => {

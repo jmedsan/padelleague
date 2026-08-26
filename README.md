@@ -83,11 +83,16 @@ The `-v` flag persists the SQLite database between container restarts.
 | `PB_ADMIN_PASSWORD` | PocketBase superuser password |
 | `APP_ADMIN1_EMAIL` | First app-level admin user email |
 | `APP_ADMIN1_PASSWORD` | First app-level admin user password |
+| `APP_ADMIN1_NAME` | First admin display name (default: `Admin`) |
 | `APP_ADMIN2_EMAIL` | Second app-level admin user email (optional) |
 | `APP_ADMIN2_PASSWORD` | Second app-level admin user password (optional) |
+| `APP_ADMIN2_NAME` | Second admin display name (default: `Admin 2`) |
 | `APP_PLAYER_EMAIL` | Seed player email (dev/test) |
 | `APP_PLAYER_PASSWORD` | Seed player password (dev/test) |
-| `APP_PLAYER_NAME` | Seed player display name (dev/test) |
+| `APP_PLAYER_NAME` | Seed player display name (default: `Jugador`) |
+| `APP_PLAYER2_EMAIL` | Second seed player email (dev/test, optional) |
+| `APP_PLAYER2_PASSWORD` | Second seed player password (dev/test) |
+| `APP_PLAYER2_NAME` | Second seed player display name (default: `Jugador 2`) |
 | `APP_ENV` | Environment: `dev` (default) or `prod`. `prod` skips the player seed; the admin **database reset** tool (Configuración page) is enabled only when `APP_ENV` is exactly `dev` |
 | `VAPID_PUBLIC_KEY` | Web push VAPID public key |
 | `VAPID_PRIVATE_KEY` | Web push VAPID private key |

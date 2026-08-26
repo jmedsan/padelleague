@@ -13,15 +13,19 @@ type Config struct {
 
 	AppAdmin1Email    string `env:"APP_ADMIN1_EMAIL"`
 	AppAdmin1Password string `env:"APP_ADMIN1_PASSWORD"`
+	AppAdmin1Name     string `env:"APP_ADMIN1_NAME" envDefault:"Admin"`
 
 	AppAdmin2Email    string `env:"APP_ADMIN2_EMAIL"`
 	AppAdmin2Password string `env:"APP_ADMIN2_PASSWORD"`
+	AppAdmin2Name     string `env:"APP_ADMIN2_NAME" envDefault:"Admin 2"`
 
 	AppPlayerEmail    string `env:"APP_PLAYER_EMAIL"`
 	AppPlayerPassword string `env:"APP_PLAYER_PASSWORD"`
+	AppPlayerName     string `env:"APP_PLAYER_NAME" envDefault:"Jugador"`
 
 	AppPlayer2Email    string `env:"APP_PLAYER2_EMAIL"`
 	AppPlayer2Password string `env:"APP_PLAYER2_PASSWORD"`
+	AppPlayer2Name     string `env:"APP_PLAYER2_NAME" envDefault:"Jugador 2"`
 
 	AppEnv string `env:"APP_ENV" envDefault:"dev"`
 }
