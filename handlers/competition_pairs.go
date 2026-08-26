@@ -121,9 +121,9 @@ func (h *CompetitionHandler) CopyPairs(e *core.RequestEvent) error {
 	existingPairIDs := target.GetStringSlice("pairs")
 	targetSeeding := h.getSeeding(target)
 
-	existingSet := make(map[string]bool, len(existingPairIDs))
+	existingSet := make(map[string]struct{}, len(existingPairIDs))
 	for _, pid := range existingPairIDs {
-		existingSet[pid] = true
+		existingSet[pid] = struct{}{}
 	}
 
 	copied := 0
@@ -135,7 +135,7 @@ func (h *CompetitionHandler) CopyPairs(e *core.RequestEvent) error {
 			continue
 		}
 		existingPairIDs = append(existingPairIDs, pairID)
-		existingSet[pairID] = true
+		existingSet[pairID] = struct{}{}
 		if isPlayoff {
 			if s, ok := sourceSeeding[pairID]; ok {
 				targetSeeding[pairID] = s
@@ -155,8 +155,8 @@ func (h *CompetitionHandler) CopyPairs(e *core.RequestEvent) error {
 	return alertSuccess(e, fmt.Sprintf("%d parejas copiadas, %d omitidas", copied, skipped))
 }
 
-func (h *CompetitionHandler) canCopyPair(pairID string, existingSet map[string]bool, existingPairIDs []string) bool {
-	if existingSet[pairID] {
+func (h *CompetitionHandler) canCopyPair(pairID string, existingSet map[string]struct{}, existingPairIDs []string) bool {
+	if _, ok := existingSet[pairID]; ok {
 		return false
 	}
 	pair, err := h.app.FindRecordById("pairs", pairID)
@@ -185,13 +185,13 @@ func (h *CompetitionHandler) buildPairEntries(pairIDs []string, seeding map[stri
 
 func (h *CompetitionHandler) availablePairs(enrolledIDs []string) []*core.Record {
 	allPairsRaw, _ := h.app.FindAllRecords("pairs")
-	enrolled := map[string]bool{}
+	enrolled := map[string]struct{}{}
 	for _, pid := range enrolledIDs {
-		enrolled[pid] = true
+		enrolled[pid] = struct{}{}
 	}
 	var available []*core.Record
 	for _, p := range allPairsRaw {
-		if !enrolled[p.Id] {
+		if _, ok := enrolled[p.Id]; !ok {
 			available = append(available, p)
 		}
 	}

@@ -41,9 +41,9 @@ func PlayerTasks(app core.App, userID string, now time.Time) ([]PlayerTask, erro
 	if err != nil {
 		return nil, err
 	}
-	playerPairIDs := make(map[string]bool, len(pairs))
+	playerPairIDs := make(map[string]struct{}, len(pairs))
 	for _, p := range pairs {
-		playerPairIDs[p.Id] = true
+		playerPairIDs[p.Id] = struct{}{}
 	}
 
 	comps, err := app.FindRecordsByFilter("competitions",
@@ -58,7 +58,7 @@ func PlayerTasks(app core.App, userID string, now time.Time) ([]PlayerTask, erro
 		compPairs := c.GetStringSlice("pairs")
 		inComp := false
 		for _, pid := range compPairs {
-			if playerPairIDs[pid] {
+			if _, ok := playerPairIDs[pid]; ok {
 				inComp = true
 				break
 			}
@@ -75,7 +75,7 @@ func PlayerTasks(app core.App, userID string, now time.Time) ([]PlayerTask, erro
 	return tasks, nil
 }
 
-func competitionTasks(app core.App, comp *core.Record, playerPairIDs map[string]bool, now time.Time) []PlayerTask {
+func competitionTasks(app core.App, comp *core.Record, playerPairIDs map[string]struct{}, now time.Time) []PlayerTask {
 	compName := comp.GetString("name")
 
 	var tasks []PlayerTask
@@ -86,7 +86,9 @@ func competitionTasks(app core.App, comp *core.Record, playerPairIDs map[string]
 		"round_number", 0, 0,
 		map[string]any{"cid": comp.Id})
 	for _, m := range disputed {
-		if !playerPairIDs[m.GetString("pair1")] && !playerPairIDs[m.GetString("pair2")] {
+		_, hasP1 := playerPairIDs[m.GetString("pair1")]
+		_, hasP2 := playerPairIDs[m.GetString("pair2")]
+		if !hasP1 && !hasP2 {
 			continue
 		}
 		tasks = append(tasks, PlayerTask{
@@ -104,7 +106,7 @@ func competitionTasks(app core.App, comp *core.Record, playerPairIDs map[string]
 	return tasks
 }
 
-func pendingMatchTasks(app core.App, comp *core.Record, playerPairIDs map[string]bool, now time.Time) []PlayerTask {
+func pendingMatchTasks(app core.App, comp *core.Record, playerPairIDs map[string]struct{}, now time.Time) []PlayerTask {
 	compName := comp.GetString("name")
 
 	pending, _ := app.FindRecordsByFilter("matches",
@@ -121,7 +123,9 @@ func pendingMatchTasks(app core.App, comp *core.Record, playerPairIDs map[string
 
 	var tasks []PlayerTask
 	for _, m := range pending {
-		if !playerPairIDs[m.GetString("pair1")] && !playerPairIDs[m.GetString("pair2")] {
+		_, hasP1 := playerPairIDs[m.GetString("pair1")]
+		_, hasP2 := playerPairIDs[m.GetString("pair2")]
+		if !hasP1 && !hasP2 {
 			continue
 		}
 		roundNum := m.GetInt("round_number")
@@ -191,9 +195,9 @@ func enrichPlaySchedule(app core.App, matchID string, task *PlayerTask) {
 	}
 }
 
-func opponentName(app core.App, m *core.Record, playerPairIDs map[string]bool) string {
+func opponentName(app core.App, m *core.Record, playerPairIDs map[string]struct{}) string {
 	opponent := m.GetString("pair1")
-	if playerPairIDs[opponent] {
+	if _, ok := playerPairIDs[opponent]; ok {
 		opponent = m.GetString("pair2")
 	}
 	if pair, err := app.FindRecordById("pairs", opponent); err == nil {
