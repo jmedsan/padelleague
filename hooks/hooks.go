@@ -62,15 +62,6 @@ func checkSchedulingReminders(app core.App, notifier *notify.Notifier) {
 }
 
 func remindCompetitionMatches(app core.App, notifier *notify.Notifier, comp *core.Record, now time.Time) {
-	start := comp.GetDateTime("start_date").Time()
-	end := comp.GetDateTime("end_date").Time()
-	if start.IsZero() || end.IsZero() {
-		return
-	}
-	rounds := comp.GetInt("rounds")
-	if rounds == 0 {
-		return
-	}
 	graceDays := comp.GetInt("arrange_grace_days")
 
 	matches, err := app.FindRecordsByFilter("matches",
@@ -82,12 +73,12 @@ func remindCompetitionMatches(app core.App, notifier *notify.Notifier, comp *cor
 	}
 
 	for _, m := range matches {
-		recommendedBy, ok := league.RecommendedArrangeBy(start, end, rounds, m.GetInt("round_number"))
+		deadline, ok := league.RoundArrangeDate(comp, m.GetInt("round_number"))
 		if !ok {
 			continue
 		}
 
-		level := league.WarningLevel(recommendedBy, graceDays, now)
+		level := league.WarningLevel(deadline, graceDays, now)
 		if int(level) <= m.GetInt("last_warn_level") {
 			continue
 		}

@@ -102,8 +102,6 @@ func buildAlerts(app core.App, c *core.Record, now time.Time) []AdminAlert {
 		})
 	}
 
-	startDate := c.GetDateTime("start_date").Time()
-	endDate := c.GetDateTime("end_date").Time()
 	graceDays := c.GetInt("arrange_grace_days")
 
 	pending, _ := app.FindRecordsByFilter("matches",
@@ -111,7 +109,6 @@ func buildAlerts(app core.App, c *core.Record, now time.Time) []AdminAlert {
 		"round_number", 0, 0,
 		map[string]any{"cid": c.Id})
 
-	totalRounds := countRounds(pending)
 	for _, m := range pending {
 		rn := m.GetInt("round_number")
 
@@ -126,7 +123,7 @@ func buildAlerts(app core.App, c *core.Record, now time.Time) []AdminAlert {
 			continue
 		}
 
-		deadline, ok := RecommendedArrangeBy(startDate, endDate, totalRounds, rn)
+		deadline, ok := RoundArrangeDate(c, rn)
 		if !ok {
 			continue
 		}
