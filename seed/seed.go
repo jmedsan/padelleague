@@ -228,32 +228,23 @@ func createSampleFixtures(txApp core.App, comp *core.Record, pairIDs []string) e
 			match.Set("matches_to_win", 1)
 			match.Set("pair1", m.Home)
 			match.Set("pair2", m.Away)
-			match.Set("status", league.StatusPending)
+			if round.Number <= 4 {
+				winner, err := league.DetermineWinner(match, "6-3 6-3")
+				if err != nil {
+					return fmt.Errorf("determine winner round %d: %w", round.Number, err)
+				}
+				match.Set("scores", "6-3 6-3")
+				match.Set("winner", winner)
+				match.Set("status", league.StatusFinal)
+			} else {
+				match.Set("status", league.StatusPending)
+			}
 			if err := txApp.Save(match); err != nil {
 				return fmt.Errorf("create match round %d: %w", round.Number, err)
-			}
-			if round.Number <= 4 {
-				if err := finalizeMatch(txApp, match, round.Number); err != nil {
-					return err
-				}
 			}
 		}
 	}
 	comp.Set("rounds", len(rounds))
-	return nil
-}
-
-func finalizeMatch(txApp core.App, match *core.Record, roundNum int) error {
-	winner, err := league.DetermineWinner(match, "6-3 6-3")
-	if err != nil {
-		return fmt.Errorf("determine winner round %d: %w", roundNum, err)
-	}
-	match.Set("scores", "6-3 6-3")
-	match.Set("winner", winner)
-	match.Set("status", league.StatusFinal)
-	if err := txApp.Save(match); err != nil {
-		return fmt.Errorf("finalize match round %d: %w", roundNum, err)
-	}
 	return nil
 }
 
