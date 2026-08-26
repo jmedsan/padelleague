@@ -123,43 +123,6 @@ func TestMatchDispute(t *testing.T) {
 	s.Test(t)
 }
 
-func TestMatchWalkover(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "POST /match/{id}/walkover returns 204",
-		Method:         http.MethodPost,
-		ExpectedStatus: 204,
-	}
-	var matchID, p1ID, submitterID string
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "WO A")
-		p2 := makePairTB(tb, app, "WO B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		matchID = match.Id
-		p1ID = p1.Id
-		submitterID = p1.GetString("player1")
-		s.URL = "/match/" + match.Id + "/walkover"
-		s.Body = strings.NewReader("absent_team=2")
-		user, _ := app.FindRecordById("users", submitterID)
-		hdrs := authHeaders(tb, user)
-		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-		s.Headers = hdrs
-	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
-		m, err := app.FindRecordById("matches", matchID)
-		require.NoError(tb, err)
-		assert.Equal(tb, "final", m.GetString("status"))
-		assert.Equal(tb, "WO", m.GetString("scores"))
-		assert.Equal(tb, p1ID, m.GetString("winner"))
-		assert.Equal(tb, submitterID, m.GetString("submitted_by"))
-		assert.Equal(tb, "/match/"+matchID, res.Header.Get("HX-Redirect"))
-	}
-	s.Test(t)
-}
-
 func TestMatchCorrect(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
@@ -362,40 +325,6 @@ func TestMatchCorrectExpired(t *testing.T) {
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
-	}
-	s.Test(t)
-}
-
-func TestMatchWalkoverAbsentTeam1(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "POST /match/{id}/walkover absent_team=1 pair2 wins",
-		Method:         http.MethodPost,
-		ExpectedStatus: 204,
-	}
-	var matchID, p2ID string
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "WO1 A")
-		p2 := makePairTB(tb, app, "WO1 B")
-		p2ID = p2.Id
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		matchID = match.Id
-		s.URL = "/match/" + match.Id + "/walkover"
-		s.Body = strings.NewReader("absent_team=1")
-		user, _ := app.FindRecordById("users", p2.GetString("player1"))
-		hdrs := authHeaders(tb, user)
-		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-		s.Headers = hdrs
-	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		m, err := app.FindRecordById("matches", matchID)
-		require.NoError(tb, err)
-		assert.Equal(tb, "final", m.GetString("status"))
-		assert.Equal(tb, "WO", m.GetString("scores"))
-		assert.Equal(tb, p2ID, m.GetString("winner"))
 	}
 	s.Test(t)
 }

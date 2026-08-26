@@ -143,68 +143,6 @@ func TestMatchDisputeNonParticipantPlayer_Refused(t *testing.T) {
 }
 
 // ========================
-// Admin bypass: MatchWalkover
-// ========================
-
-func TestMatchWalkoverAdminNonParticipant_Succeeds(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "admin non-participant can walkover",
-		Method:         http.MethodPost,
-		ExpectedStatus: 204,
-	}
-	var matchID, p2ID string
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "AWo A")
-		p2 := makePairTB(tb, app, "AWo B")
-		p2ID = p2.Id
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		matchID = match.Id
-		s.URL = "/match/" + match.Id + "/walkover"
-		s.Body = strings.NewReader("absent_team=1")
-		hdrs := authHeaders(tb, admin)
-		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-		s.Headers = hdrs
-	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		m, err := app.FindRecordById("matches", matchID)
-		require.NoError(tb, err)
-		assert.Equal(tb, "final", m.GetString("status"))
-		assert.Equal(tb, p2ID, m.GetString("winner"))
-	}
-	s.Test(t)
-}
-
-func TestMatchWalkoverNonParticipantPlayer_Refused(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "non-participant player cannot walkover",
-		Method:          http.MethodPost,
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"No eres participante"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		outsider := makeUserTB(tb, app, "Outsider Wo", "")
-		p1 := makePairTB(tb, app, "OWo A")
-		p2 := makePairTB(tb, app, "OWo B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		s.URL = "/match/" + match.Id + "/walkover"
-		s.Body = strings.NewReader("absent_team=1")
-		hdrs := authHeaders(tb, outsider)
-		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-		s.Headers = hdrs
-	}
-	s.Test(t)
-}
-
-// ========================
 // Correction window boundary (line 148)
 // ========================
 

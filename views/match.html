@@ -109,17 +109,10 @@
             {{if .Match.CanWalkover}}
             <div class="card bg-base-200/50 rounded-xl mb-4">
                 <div class="card-body p-4">
-                    <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Reportar incomparecencia</h3>
-                    <form hx-post="/match/{{.Match.Record.Id}}/walkover" hx-target="#action-result">
-                        <div class="form-control">
-                            <label class="label py-1"><span class="label-text text-xs">Equipo que no se presento</span></label>
-                            <select name="absent_team" class="select select-bordered" required>
-                                <option value="">Seleccionar...</option>
-                                <option value="1">{{.Match.Pair1Name}}</option>
-                                <option value="2">{{.Match.Pair2Name}}</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-warning mt-3 w-full">Reportar incomparecencia</button>
+                    <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Reportar partido no jugado</h3>
+                    <p class="text-xs opacity-70 mb-3">El partido pasará a revisión y un administrador confirmará el resultado.</p>
+                    <form hx-post="/match/{{.Match.Record.Id}}/report-unplayed" hx-target="#action-result">
+                        <button type="submit" class="btn btn-warning mt-1 w-full">Reportar no jugado</button>
                     </form>
                 </div>
             </div>

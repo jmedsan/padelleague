@@ -84,6 +84,11 @@ func statusClass(status string) string {
 	return "badge-ghost"
 }
 
+// canReportUnplayed mirrors the status precondition ReportUnplayed enforces.
+func canReportUnplayed(status string, team int) bool {
+	return team > 0 && (status == league.StatusPending || status == league.StatusConfirmed)
+}
+
 func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNames map[string]string, isAdmin, isParticipant bool) MatchView {
 	status := match.GetString("status")
 	submittedBy := match.GetString("submitted_by")
@@ -118,7 +123,7 @@ func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNam
 		CanConfirm:    status == league.StatusConfirmed && team > 0 && !isSubmitter,
 		CanDispute:    status == league.StatusConfirmed && team > 0 && !isSubmitter,
 		CanEdit:       status == league.StatusPending && team > 0,
-		CanWalkover:   status == league.StatusPending && team > 0,
+		CanWalkover:   canReportUnplayed(status, team),
 		CanCorrect:    canCorrect,
 		IsAdmin:       isAdmin,
 		IsParticipant: isParticipant,
