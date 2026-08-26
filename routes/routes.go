@@ -108,6 +108,8 @@ func registerAdminRoutes(se *core.ServeEvent, deps Deps) {
 	g.POST("/competitions/{id}/payment-all", comp.TogglePaymentAll)
 	g.POST("/competitions/{id}/penalty", comp.ApplyPenalty)
 	g.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
+	g.POST("/competitions/{id}/round-dates", comp.UpdateRoundDates)
+	g.POST("/competitions/{id}/round-dates/regenerate", comp.RegenerateRoundDates)
 
 	g.GET("/pairs", admin.Pairs)
 	g.POST("/pairs", admin.PairsCreate)

@@ -609,6 +609,7 @@ func TestHome_UrgentTasksRanking(t *testing.T) {
 		comp.Set("start_date", "2026-06-01 00:00:00.000Z")
 		comp.Set("end_date", "2026-07-01 00:00:00.000Z")
 		comp.Set("arrange_grace_days", 3)
+		comp.Set("rounds", 1)
 		require.NoError(tb, app.Save(comp))
 
 		// Disputed match (should be hero)
@@ -659,6 +660,7 @@ func TestHome_OrganizeWarningBadges(t *testing.T) {
 		comp.Set("start_date", "2026-06-01 00:00:00.000Z")
 		comp.Set("end_date", "2026-07-01 00:00:00.000Z")
 		comp.Set("arrange_grace_days", 3)
+		comp.Set("rounds", 1)
 		require.NoError(tb, app.Save(comp))
 
 		// Round 1 of 1 — deadline is end_date (2026-07-01), well past
@@ -771,6 +773,7 @@ func TestHome_AdminAlerts(t *testing.T) {
 		comp.Set("start_date", "2026-05-01 00:00:00.000Z")
 		comp.Set("end_date", "2026-06-01 00:00:00.000Z")
 		comp.Set("arrange_grace_days", 3)
+		comp.Set("rounds", 1)
 		require.NoError(tb, app.Save(comp))
 
 		makeMatchTB(tb, app, comp.Id, dispP1.Id, dispP2.Id, "disputed")
