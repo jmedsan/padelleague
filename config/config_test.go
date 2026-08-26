@@ -12,8 +12,10 @@ func TestLoad_Defaults(t *testing.T) {
 	t.Setenv("VAPID_PRIVATE_KEY", "")
 	t.Setenv("PB_ADMIN_EMAIL", "")
 	t.Setenv("PB_ADMIN_PASSWORD", "")
-	t.Setenv("APP_ADMIN_EMAIL", "")
-	t.Setenv("APP_ADMIN_PASSWORD", "")
+	t.Setenv("APP_ADMIN1_EMAIL", "")
+	t.Setenv("APP_ADMIN1_PASSWORD", "")
+	t.Setenv("APP_ADMIN2_EMAIL", "")
+	t.Setenv("APP_ADMIN2_PASSWORD", "")
 	t.Setenv("APP_PLAYER_EMAIL", "")
 	t.Setenv("APP_PLAYER_PASSWORD", "")
 	t.Setenv("APP_PLAYER2_EMAIL", "")
@@ -41,4 +43,18 @@ func TestLoad_CustomValues(t *testing.T) {
 	assert.Equal(t, "pb@test.local", cfg.PBAdminEmail)
 	assert.Equal(t, "secret", cfg.PBAdminPassword)
 	assert.Equal(t, "production", cfg.AppEnv)
+}
+
+func TestLoad_BothAdmins(t *testing.T) {
+	t.Setenv("APP_ADMIN1_EMAIL", "admin1@test.local")
+	t.Setenv("APP_ADMIN1_PASSWORD", "pass1")
+	t.Setenv("APP_ADMIN2_EMAIL", "admin2@test.local")
+	t.Setenv("APP_ADMIN2_PASSWORD", "pass2")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, "admin1@test.local", cfg.AppAdmin1Email)
+	assert.Equal(t, "pass1", cfg.AppAdmin1Password)
+	assert.Equal(t, "admin2@test.local", cfg.AppAdmin2Email)
+	assert.Equal(t, "pass2", cfg.AppAdmin2Password)
 }
