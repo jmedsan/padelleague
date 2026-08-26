@@ -261,6 +261,7 @@ func makePlayer(tb testing.TB, app core.App) *core.Record {
 	require.NoError(tb, err)
 	r := core.NewRecord(col)
 	r.Set("email", "routeplayer@test.local")
+	r.Set("username", "routeplayer")
 	r.Set("display_name", "Route Player")
 	r.Set("role", "player")
 	r.SetPassword("testpass123456")

@@ -27,14 +27,15 @@ func newTestApp(t *testing.T) core.App {
 
 func makeUser(t *testing.T, app core.App, displayName, email string) *core.Record {
 	t.Helper()
+	n := userSeq.Add(1)
 	col, err := app.FindCollectionByNameOrId("users")
 	require.NoError(t, err)
 	if email == "" {
-		n := userSeq.Add(1)
 		email = fmt.Sprintf("leagueuser%d@test.local", n)
 	}
 	record := core.NewRecord(col)
 	record.Set("email", email)
+	record.Set("username", fmt.Sprintf("luser%d", n))
 	record.Set("display_name", displayName)
 	record.Set("role", "player")
 	record.SetPassword("testpass123456")
