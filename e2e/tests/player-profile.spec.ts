@@ -6,14 +6,14 @@ test.describe('player profile and stats', () => {
     const data = loadTestData();
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/player/${data.player1.id}`);
-    await expect(page.getByRole('heading', { name: 'Javi' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Test Player' })).toBeVisible();
   });
 
   test('player can view another player profile', async ({ page }) => {
     const data = loadTestData();
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/player/${data.player2.id}`);
-    await expect(page.getByRole('heading', { name: 'Carlos' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Test Player 2' })).toBeVisible();
   });
 
   test('player can view H2H page', async ({ page }) => {
