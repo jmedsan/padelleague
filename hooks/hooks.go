@@ -62,6 +62,10 @@ func checkSchedulingReminders(app core.App, notifier *notify.Notifier) {
 }
 
 func remindCompetitionMatches(app core.App, notifier *notify.Notifier, comp *core.Record, now time.Time) {
+	if league.CompetitionPhase(comp, now) == league.PhaseFinished {
+		return
+	}
+
 	graceDays := comp.GetInt("arrange_grace_days")
 
 	matches, err := app.FindRecordsByFilter("matches",

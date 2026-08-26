@@ -31,6 +31,7 @@ type PlayerTask struct {
 	ScheduleStatus  string // "confirmed"/"proposed"/"" for play tasks
 	ProposedDate    string
 	ProposedVenue   string
+	Recovery        bool // true when the competition is in its recovery window
 }
 
 // PlayerTasks returns the player's urgent tasks across all active competitions,
@@ -109,6 +110,15 @@ func competitionTasks(app core.App, comp *core.Record, playerPairIDs map[string]
 }
 
 func pendingMatchTasks(app core.App, comp *core.Record, pending []*core.Record, playerPairIDs map[string]bool, compName string, now time.Time) []PlayerTask {
+	phase := PhaseUnknown
+	if !IsPlayoff(comp) {
+		phase = CompetitionPhase(comp, now)
+	}
+	if phase == PhaseFinished {
+		return nil
+	}
+	recovery := phase == PhaseRecovery
+
 	graceDays := comp.GetInt("arrange_grace_days")
 
 	var tasks []PlayerTask
@@ -124,6 +134,7 @@ func pendingMatchTasks(app core.App, comp *core.Record, pending []*core.Record, 
 				Kind: TaskPlay, MatchID: m.Id, Opponent: opponent,
 				CompetitionName: compName, RoundNumber: roundNum,
 				Description: "Próximo partido", ScheduleStatus: "confirmed",
+				Recovery: recovery,
 			}
 			enrichPlaySchedule(app, m.Id, &task)
 			tasks = append(tasks, task)
@@ -141,6 +152,7 @@ func pendingMatchTasks(app core.App, comp *core.Record, pending []*core.Record, 
 				CompetitionName: compName, RoundNumber: roundNum,
 				Description: fmt.Sprintf("Organiza antes del %s", deadline.Format("02/01")),
 				ArrangeBy:   deadline.Format("02/01"), Warning: wl,
+				Recovery: recovery,
 			})
 		}
 	}

@@ -258,3 +258,67 @@ func TestRoundArrangeDate_ZeroRounds(t *testing.T) {
 	_, ok := RoundArrangeDate(comp, 1)
 	assert.False(t, ok)
 }
+
+func TestRecoveryDays(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+
+	unset := makeCompetition(t, app, nil)
+	assert.Equal(t, 14, RecoveryDays(unset))
+
+	set := makeCompetition(t, app, nil)
+	set.Set("recovery_days", 21)
+	require.NoError(t, app.Save(set))
+	assert.Equal(t, 21, RecoveryDays(set))
+}
+
+func TestCompetitionPhase(t *testing.T) {
+	t.Parallel()
+	end := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name      string
+		end       time.Time
+		recovery  int
+		finalized bool
+		now       time.Time
+		want      Phase
+	}{
+		{"finalized wins even with no end date", time.Time{}, 0, true, end, PhaseFinished},
+		{"zero end date never auto-finishes", time.Time{}, 0, false, end.AddDate(1, 0, 0), PhasePlaying},
+		{"before end date", end, 14, false, end.AddDate(0, 0, -1), PhasePlaying},
+		{"exactly at end date", end, 14, false, end, PhasePlaying},
+		{"just after end date enters recovery", end, 14, false, end.Add(time.Second), PhaseRecovery},
+		{"exactly at end+recovery is still recovery", end, 14, false, end.AddDate(0, 0, 14), PhaseRecovery},
+		{"one second past end+recovery finishes", end, 14, false, end.AddDate(0, 0, 14).Add(time.Second), PhaseFinished},
+		{"unset recovery_days uses default 14", end, 0, false, end.AddDate(0, 0, 14), PhaseRecovery},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			app := newTestApp(t)
+			comp := makeCompetition(t, app, nil)
+			if !tt.end.IsZero() {
+				comp.Set("end_date", tt.end.Format(time.RFC3339))
+			}
+			comp.Set("recovery_days", tt.recovery)
+			comp.Set("finalized", tt.finalized)
+			require.NoError(t, app.Save(comp))
+
+			assert.Equal(t, tt.want, CompetitionPhase(comp, tt.now))
+		})
+	}
+}
+
+func TestPhaseLabels(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "", PhaseUnknown.String())
+	assert.Equal(t, "", PhaseUnknown.Label())
+	assert.Equal(t, "playing", PhasePlaying.String())
+	assert.Equal(t, "En juego", PhasePlaying.Label())
+	assert.Equal(t, "recovery", PhaseRecovery.String())
+	assert.Equal(t, "En recuperación", PhaseRecovery.Label())
+	assert.Equal(t, "finished", PhaseFinished.String())
+	assert.Equal(t, "Finalizada", PhaseFinished.Label())
+}

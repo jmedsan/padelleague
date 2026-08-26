@@ -461,6 +461,7 @@ func TestSchedulingReminder_SendsAndEscalates(t *testing.T) {
 	ed, _ := types.ParseDateTime(pastEnd)
 	compRec.Set("end_date", ed)
 	compRec.Set("round_arrange_dates", league.StoreRoundSchedule(pastStart, pastEnd, 1))
+	compRec.Set("recovery_days", 60) // stay out of the finished-by-date phase
 	require.NoError(t, app.Save(compRec))
 
 	// Run the cron function
@@ -560,6 +561,10 @@ func TestSchedulingReminder_DenominatorDrift(t *testing.T) {
 	start := time.Now().AddDate(0, -6, 0)
 	end := time.Now().AddDate(0, -2, 0)
 	comp := makeLeagueComp(t, app, []*core.Record{p1, p2, p3}, start, end, 3)
+	compRec, err := app.FindRecordById("competitions", comp.Id)
+	require.NoError(t, err)
+	compRec.Set("recovery_days", 90) // stay out of the finished-by-date phase
+	require.NoError(t, app.Save(compRec))
 
 	// Round 1 pending, rounds 2+3 played (final).
 	makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
@@ -582,6 +587,56 @@ func TestSchedulingReminder_DenominatorDrift(t *testing.T) {
 
 	updated := freshMatch(t, app, m2.Id)
 	assert.Equal(t, 0, updated.GetInt("last_warn_level"), "final match must not be reminded")
+}
+
+func TestSchedulingReminder_RecoveryPhase_StillReminds(t *testing.T) {
+	app := newTestApp(t)
+	notifier := notify.NewNotifier(app, "", "")
+
+	p1 := makePair(t, app, "RecA")
+	p2 := makePair(t, app, "RecB")
+
+	start := time.Now().AddDate(0, 0, -40)
+	end := time.Now().AddDate(0, 0, -20)
+	comp := makeLeagueComp(t, app, []*core.Record{p1, p2}, start, end, 1)
+	compRec, err := app.FindRecordById("competitions", comp.Id)
+	require.NoError(t, err)
+	compRec.Set("recovery_days", 30) // now (end+20) is still inside end+30 -> recovery
+	require.NoError(t, app.Save(compRec))
+
+	makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+
+	checkSchedulingReminders(app, notifier)
+
+	notifs, err := app.FindRecordsByFilter("notifications",
+		"type = 'scheduling'", "", 0, 0, nil)
+	require.NoError(t, err)
+	assert.NotEmpty(t, notifs, "a recovery-phase competition must still remind")
+}
+
+func TestSchedulingReminder_FinishedByDate_NoReminder(t *testing.T) {
+	app := newTestApp(t)
+	notifier := notify.NewNotifier(app, "", "")
+
+	p1 := makePair(t, app, "FinA")
+	p2 := makePair(t, app, "FinB")
+
+	start := time.Now().AddDate(0, 0, -60)
+	end := time.Now().AddDate(0, 0, -30)
+	comp := makeLeagueComp(t, app, []*core.Record{p1, p2}, start, end, 1)
+	compRec, err := app.FindRecordById("competitions", comp.Id)
+	require.NoError(t, err)
+	compRec.Set("recovery_days", 14) // now (end+30) is past end+14 -> finished
+	require.NoError(t, app.Save(compRec))
+
+	makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+
+	checkSchedulingReminders(app, notifier)
+
+	notifs, err := app.FindRecordsByFilter("notifications",
+		"type = 'scheduling'", "", 0, 0, nil)
+	require.NoError(t, err)
+	assert.Empty(t, notifs, "a competition finished by date must not remind")
 }
 
 func TestCronRegistration_SchedulingReminders(t *testing.T) {
