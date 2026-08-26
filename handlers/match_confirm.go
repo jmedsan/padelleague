@@ -14,9 +14,9 @@ import (
 // MatchConfirm handles the opponent's confirmation of a submitted score.
 func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	match, err := h.app.FindRecordById("matches", id)
+	match, err := findMatchOr404(h.app, e, id)
 	if err != nil {
-		return alertError(e, "Partido no encontrado")
+		return err
 	}
 
 	if match.GetString("status") != league.StatusConfirmed {
@@ -75,9 +75,9 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 // MatchDispute handles the opponent disputing a submitted score.
 func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	match, err := h.app.FindRecordById("matches", id)
+	match, err := findMatchOr404(h.app, e, id)
 	if err != nil {
-		return alertError(e, "Partido no encontrado")
+		return err
 	}
 
 	if match.GetString("status") != league.StatusConfirmed {
@@ -118,9 +118,9 @@ func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 // MatchCorrect allows the submitting team to correct a confirmed score.
 func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	match, err := h.app.FindRecordById("matches", id)
+	match, err := findMatchOr404(h.app, e, id)
 	if err != nil {
-		return alertError(e, "Partido no encontrado")
+		return err
 	}
 
 	if match.GetString("status") != league.StatusConfirmed {

@@ -13,6 +13,14 @@ type RenderFunc func(e *core.RequestEvent, page string, data map[string]any) err
 // RenderErrorFunc renders an error page with a status code and message.
 type RenderErrorFunc func(e *core.RequestEvent, statusCode int, message string) error
 
+func findMatchOr404(app core.App, e *core.RequestEvent, id string) (*core.Record, error) {
+	match, err := app.FindRecordById("matches", id)
+	if err != nil {
+		return nil, alertError(e, "Partido no encontrado")
+	}
+	return match, nil
+}
+
 func alertError(e *core.RequestEvent, msg string) error {
 	return e.HTML(http.StatusOK, `<div class="alert alert-error">`+html.EscapeString(msg)+`</div>`)
 }
