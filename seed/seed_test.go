@@ -262,4 +262,3 @@ func TestSampleLeague(t *testing.T) {
 		t.Logf("standing %d: pair=%s pts=%d", i, s.PairName, s.Points)
 	}
 }
-
