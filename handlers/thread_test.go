@@ -666,6 +666,68 @@ func TestThread_PlayoffHidesProposal(t *testing.T) {
 	s.Test(t)
 }
 
+// --- Cluster: Availability buttons (T9a) ---
+
+func TestThread_AvailabilityButtons(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "thread shows availability buttons for participants",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Estoy libre", "No puedo"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "AvailA")
+		p2 := makePairTB(tb, app, "AvailB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		s.URL = "/match/" + match.Id + "/thread"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestPostAvailability_CreatesMessage(t *testing.T) {
+	t.Parallel()
+	var matchID string
+	var userID string
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST availability creates system message",
+		Method:         http.MethodPost,
+		Body:           strings.NewReader("available=1"),
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "AvPost1")
+		p2 := makePairTB(tb, app, "AvPost2")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
+
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		userID = user.Id
+		s.URL = "/match/" + match.Id + "/thread/availability"
+		s.Headers = authHeaders(tb, user)
+		s.Headers["Content-Type"] = "application/x-www-form-urlencoded"
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		msgs, err := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'availability'",
+			"", 0, 0, map[string]any{"mid": matchID})
+		require.NoError(tb, err)
+		require.Len(tb, msgs, 1)
+		assert.Equal(tb, "Estoy libre", msgs[0].GetString("content"))
+		assert.Equal(tb, userID, msgs[0].GetString("author"))
+	}
+	s.Test(t)
+}
+
 func TestThread_PlayoffNoDateShowsPending(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

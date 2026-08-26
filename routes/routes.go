@@ -149,6 +149,7 @@ func registerMatchRoutes(se *core.ServeEvent, deps Deps) {
 	se.Router.POST("/match/{id}/thread/proposal", thread.PostProposal).BindFunc(requireAuth)
 	se.Router.POST("/match/{id}/thread/proposal/{msgId}/respond", thread.RespondProposal).BindFunc(requireAuth)
 	se.Router.POST("/match/{id}/thread/proposal/{msgId}/change-decision", thread.ProposalChangeDecision).BindFunc(requireAuth)
+	se.Router.POST("/match/{id}/thread/availability", thread.PostAvailability).BindFunc(requireAuth)
 }
 
 func registerNotificationRoutes(se *core.ServeEvent, deps Deps) {

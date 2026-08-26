@@ -32,6 +32,11 @@
 
         {{if .CanPost}}
         <div class="border-t border-base-300 pt-4">
+            <div class="flex gap-2 mb-3">
+                <button hx-post="/match/{{.MatchID}}/thread/availability" hx-vals='{"available":"1"}' hx-target="body" class="btn btn-success btn-sm flex-1">Estoy libre</button>
+                <button hx-post="/match/{{.MatchID}}/thread/availability" hx-vals='{"available":"0"}' hx-target="body" class="btn btn-error btn-outline btn-sm flex-1">No puedo</button>
+            </div>
+
             <form hx-post="/match/{{.MatchID}}/thread/message" hx-target="body" class="flex gap-2 mb-3">
                 <input type="hidden" name="type" value="chat">
                 <input type="text" name="content" class="input input-bordered input-sm flex-1" placeholder="Escribe un mensaje..." required>
