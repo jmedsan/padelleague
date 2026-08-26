@@ -76,16 +76,20 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 	}
 
 	if compType == "league" && roundCount > 0 {
-		comp.Set("rounds", roundCount)
-		start := comp.GetDateTime("start_date").Time()
-		end := comp.GetDateTime("end_date").Time()
-		comp.Set("round_arrange_dates", league.StoreRoundSchedule(start, end, roundCount))
-		if err := h.app.Save(comp); err != nil {
-			slog.Error("save round schedule failed", "competition", compID, "err", err)
-		}
+		h.persistRoundSchedule(comp, roundCount)
 	}
 
 	return redirectHX(e, "/admin/competitions/"+compID)
+}
+
+func (h *FixtureHandler) persistRoundSchedule(comp *core.Record, roundCount int) {
+	comp.Set("rounds", roundCount)
+	start := comp.GetDateTime("start_date").Time()
+	end := comp.GetDateTime("end_date").Time()
+	comp.Set("round_arrange_dates", league.StoreRoundSchedule(start, end, roundCount))
+	if err := h.app.Save(comp); err != nil {
+		slog.Error("save round schedule failed", "competition", comp.Id, "err", err)
+	}
 }
 
 func (h *FixtureHandler) generateLeague(txApp core.App, compID string, pairIDs []string, double bool) (int, error) {

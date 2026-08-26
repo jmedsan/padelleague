@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"encoding/json"
 	"log/slog"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 
@@ -63,6 +65,12 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		}
 	}
 
+	var roundDates []roundDate
+	isLeague := comp.GetString("type") == "league"
+	if isLeague && len(matches) > 0 {
+		roundDates = h.buildRoundDates(comp)
+	}
+
 	return h.renderPage(e, "admin/competition-detail.html", map[string]any{
 		"Competition":     comp,
 		"Entries":         pairEntries,
@@ -73,9 +81,10 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"Disputes":        disputes,
 		"Standings":       standings,
 		"PenaltyMap":      penaltyMap,
-		"IsLeague":        comp.GetString("type") == "league",
+		"IsLeague":        isLeague,
 		"HasFixtures":     len(matches) > 0,
 		"HasUnpaid":       hasUnpaid,
+		"RoundDates":      roundDates,
 	})
 }
 
@@ -189,6 +198,11 @@ func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions/"+id)
 }
 
+type roundDate struct {
+	Number int
+	Date   string // "YYYY-MM-DD" for the input value
+}
+
 type matchEntry struct {
 	Match     *core.Record
 	Pair1Name string
@@ -199,6 +213,22 @@ type matchEntry struct {
 type roundGroup struct {
 	Number  int
 	Matches []matchEntry
+}
+
+func (h *CompetitionHandler) buildRoundDates(comp *core.Record) []roundDate {
+	rounds := comp.GetInt("rounds")
+	if rounds == 0 {
+		return nil
+	}
+	var dates []roundDate
+	for r := 1; r <= rounds; r++ {
+		d := roundDate{Number: r}
+		if t, ok := league.RoundArrangeDate(comp, r); ok {
+			d.Date = t.Format("2006-01-02")
+		}
+		dates = append(dates, d)
+	}
+	return dates
 }
 
 func (h *CompetitionHandler) buildRoundGroups(matches []*core.Record, pairNames map[string]string) []roundGroup {
@@ -300,6 +330,64 @@ func (h *CompetitionHandler) refreshRoundSchedule(comp *core.Record) {
 	if err := h.app.Save(comp); err != nil {
 		slog.Error("refresh round schedule failed", "competition", comp.Id, "err", err)
 	}
+}
+
+// UpdateRoundDates saves admin-edited per-round arrange-by dates.
+func (h *CompetitionHandler) UpdateRoundDates(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	comp, err := h.app.FindRecordById("competitions", id)
+	if err != nil {
+		return alertError(e, "Competición no encontrada")
+	}
+
+	rounds := comp.GetInt("rounds")
+	if rounds == 0 {
+		return alertError(e, "No hay jornadas generadas")
+	}
+
+	schedule := make(map[int]time.Time, rounds)
+	for r := 1; r <= rounds; r++ {
+		v := e.Request.FormValue("round_date_" + strconv.Itoa(r))
+		if v == "" {
+			continue
+		}
+		t, err := time.Parse("2006-01-02", v)
+		if err != nil {
+			return alertError(e, "Fecha inválida en jornada "+strconv.Itoa(r))
+		}
+		schedule[r] = t
+	}
+
+	b, _ := json.Marshal(schedule)
+	comp.Set("round_arrange_dates", string(b))
+	if err := h.app.Save(comp); err != nil {
+		slog.Error("update round dates failed", "competition", id, "err", err)
+		return alertError(e, "Error al guardar las fechas")
+	}
+
+	resetWarnLevels(h.app, id)
+	return redirectHX(e, "/admin/competitions/"+id)
+}
+
+// RegenerateRoundDates overwrites stored dates from the current start/end/rounds.
+func (h *CompetitionHandler) RegenerateRoundDates(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	comp, err := h.app.FindRecordById("competitions", id)
+	if err != nil {
+		return alertError(e, "Competición no encontrada")
+	}
+
+	rounds := comp.GetInt("rounds")
+	start := comp.GetDateTime("start_date").Time()
+	end := comp.GetDateTime("end_date").Time()
+	comp.Set("round_arrange_dates", league.StoreRoundSchedule(start, end, rounds))
+	if err := h.app.Save(comp); err != nil {
+		slog.Error("regenerate round dates failed", "competition", id, "err", err)
+		return alertError(e, "Error al regenerar las fechas")
+	}
+
+	resetWarnLevels(h.app, id)
+	return redirectHX(e, "/admin/competitions/"+id)
 }
 
 func setSchedulingFields(record *core.Record, e *core.RequestEvent) {
