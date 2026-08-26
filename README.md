@@ -119,3 +119,7 @@ e2e/                 # Playwright end-to-end tests (includes full-season simulat
 ## UI language
 
 All user-facing text is in Spanish. Code (Go, HTML, CSS classes) is in English.
+
+## Security
+
+The app is server-rendered and exposes no data API to clients — every read and write goes through a hand-written handler that enforces authorization (participant checks, opponent-only score confirmation, admin-only mutations). PocketBase still auto-serves a record REST API at `/api/collections/*`, so its write access rules are deliberately locked to superusers only (`create`/`update`/`delete` = `nil` on `matches`, `match_messages`, `users`, and `notifications.create`); server-side saves bypass those rules, so in-app flows are unaffected. **Do not relax these rules** — an empty-string rule (`""`) means *public* in PocketBase, which would let any client rewrite match results or self-escalate their role directly through the API. `handlers/api_security_test.go` guards this.
