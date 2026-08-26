@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -11,6 +12,8 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/league"
 )
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1332,6 +1335,86 @@ func TestAdminTogglePaymentAll(t *testing.T) {
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		s.URL = "/admin/competitions/" + comp.Id + "/payment-all"
 		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestUpdateRoundDates(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/round-dates saves edited dates",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupFullAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "RdA")
+		p2 := makePairTB(tb, app, "RdB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("start_date", "2026-06-01 00:00:00.000Z")
+		comp.Set("end_date", "2026-07-01 00:00:00.000Z")
+		comp.Set("rounds", 2)
+		comp.Set("round_arrange_dates", league.StoreRoundSchedule(
+			time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+			time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), 2))
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		s.URL = "/admin/competitions/" + comp.Id + "/round-dates"
+		s.Body = strings.NewReader("round_date_1=2026-06-20&round_date_2=2026-06-28")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		comp, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		raw := comp.GetString("round_arrange_dates")
+		var stored map[string]time.Time
+		require.NoError(tb, json.Unmarshal([]byte(raw), &stored))
+		assert.Equal(tb, time.Date(2026, 6, 20, 0, 0, 0, 0, time.UTC), stored["1"])
+		assert.Equal(tb, time.Date(2026, 6, 28, 0, 0, 0, 0, time.UTC), stored["2"])
+	}
+	s.Test(t)
+}
+
+func TestRegenerateRoundDates(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/round-dates/regenerate overwrites",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupFullAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "RgA")
+		p2 := makePairTB(tb, app, "RgB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("start_date", "2026-06-01 00:00:00.000Z")
+		comp.Set("end_date", "2026-07-01 00:00:00.000Z")
+		comp.Set("rounds", 2)
+		comp.Set("round_arrange_dates", `{"1":"2099-01-01T00:00:00Z","2":"2099-06-01T00:00:00Z"}`)
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+
+		s.URL = "/admin/competitions/" + comp.Id + "/round-dates/regenerate"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		comp, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		raw := comp.GetString("round_arrange_dates")
+		var stored map[string]time.Time
+		require.NoError(tb, json.Unmarshal([]byte(raw), &stored))
+		assert.False(tb, stored["1"].Year() == 2099, "regenerate must overwrite the old 2099 date")
 	}
 	s.Test(t)
 }
