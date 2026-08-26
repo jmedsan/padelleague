@@ -155,24 +155,24 @@ func TestNotifyAdmins_CreatesNotification(t *testing.T) {
 		"the admin notification must link back to the match")
 }
 
-func TestGetNotificationPrefs_NilReturnsDefaults(t *testing.T) {
+func TestNotificationPrefs_NilReturnsDefaults(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 	user := makeUser(t, app, "player")
 
-	prefs := GetNotificationPrefs(user)
+	prefs := NotificationPrefs(user)
 	assert.Equal(t, true, prefs["general"])
 	assert.Equal(t, true, prefs["dispute"])
 	assert.Equal(t, true, prefs["scheduling"])
 }
 
-func TestGetNotificationPrefs_WithPrefsSet(t *testing.T) {
+func TestNotificationPrefs_WithPrefsSet(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 	user := makeUser(t, app, "player")
 	user.Set("notification_prefs", map[string]any{"general": false})
 
-	prefs := GetNotificationPrefs(user)
+	prefs := NotificationPrefs(user)
 	assert.Equal(t, false, prefs["general"])
 	assert.Equal(t, true, prefs["dispute"], "unset keys fall back to the default")
 	assert.Equal(t, true, prefs["scheduling"])
@@ -180,7 +180,7 @@ func TestGetNotificationPrefs_WithPrefsSet(t *testing.T) {
 
 // Regression: PocketBase returns a saved JSONField as types.JSONRaw, so a
 // stored preference has to survive the round-trip through the database.
-func TestGetNotificationPrefs_SurvivesRoundTrip(t *testing.T) {
+func TestNotificationPrefs_SurvivesRoundTrip(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 	user := makeUser(t, app, "player")
@@ -191,7 +191,7 @@ func TestGetNotificationPrefs_SurvivesRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.IsType(t, types.JSONRaw{}, fresh.Get("notification_prefs"))
 
-	prefs := GetNotificationPrefs(fresh)
+	prefs := NotificationPrefs(fresh)
 	assert.Equal(t, false, prefs["general"])
 	assert.Equal(t, false, prefs["dispute"])
 	assert.Equal(t, true, prefs["quorum_request"])
@@ -199,7 +199,7 @@ func TestGetNotificationPrefs_SurvivesRoundTrip(t *testing.T) {
 	assert.Equal(t, true, prefs["scheduling"])
 }
 
-func TestGetNotificationPrefs_MalformedFallsBackToDefaults(t *testing.T) {
+func TestNotificationPrefs_MalformedFallsBackToDefaults(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 	user := makeUser(t, app, "player")
@@ -212,7 +212,7 @@ func TestGetNotificationPrefs_MalformedFallsBackToDefaults(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			user.Set("notification_prefs", raw)
-			prefs := GetNotificationPrefs(user)
+			prefs := NotificationPrefs(user)
 			assert.Equal(t, true, prefs["general"])
 			assert.Len(t, prefs, 5)
 		})

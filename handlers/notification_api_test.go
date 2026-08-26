@@ -193,7 +193,7 @@ func TestNotificationPrefsSave(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		user, err := app.FindRecordById("users", userID)
 		require.NoError(tb, err)
-		prefs := notify.GetNotificationPrefs(user)
+		prefs := notify.NotificationPrefs(user)
 		// Only the two checked boxes were submitted; the rest must be off.
 		assert.Equal(tb, true, prefs["quorum_request"])
 		assert.Equal(tb, true, prefs["dispute"])
