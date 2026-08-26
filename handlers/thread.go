@@ -631,3 +631,51 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 
 	return redirectHX(e, "/match/"+matchID)
 }
+
+// PostAvailability posts a quick availability message to the match thread.
+func (h *ThreadHandler) PostAvailability(e *core.RequestEvent) error {
+	matchID := e.Request.PathValue("id")
+	match, err := h.app.FindRecordById("matches", matchID)
+	if err != nil {
+		return alertError(e, "Partido no encontrado")
+	}
+
+	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
+	if err != nil || myTeam == 0 {
+		return alertError(e, "No eres participante de este partido")
+	}
+
+	available := e.Request.FormValue("available")
+	content := "No puedo"
+	if available == "1" {
+		content = "Estoy libre"
+	}
+
+	col, err := h.app.FindCollectionByNameOrId("match_messages")
+	if err != nil {
+		return alertError(e, "Error interno")
+	}
+
+	record := core.NewRecord(col)
+	record.Set("match", matchID)
+	record.Set("author", e.Auth.Id)
+	record.Set("type", "availability")
+	record.Set("content", content)
+
+	if err := h.app.Save(record); err != nil {
+		return alertError(e, "Error al enviar disponibilidad")
+	}
+
+	rivalPairID := match.GetString("pair1")
+	if myTeam == 1 {
+		rivalPairID = match.GetString("pair2")
+	}
+	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
+	authorName := league.PlayerName(h.app, e.Auth.Id)
+	h.notifier.NotifyPlayers(rivalPlayers, "general",
+		"Disponibilidad",
+		fmt.Sprintf("%s: %s", authorName, content),
+		matchID)
+
+	return redirectHX(e, "/match/"+matchID)
+}
