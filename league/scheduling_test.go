@@ -30,6 +30,8 @@ func TestRecommendedArrangeBy(t *testing.T) {
 		{"zero start", time.Time{}, end, 4, 1, time.Time{}, false},
 		{"zero end", start, time.Time{}, 4, 1, time.Time{}, false},
 		{"both zero", time.Time{}, time.Time{}, 4, 1, time.Time{}, false},
+		{"rounds zero", start, end, 0, 1, time.Time{}, false},
+		{"rounds negative", start, end, -1, 1, time.Time{}, false},
 	}
 
 	for _, tt := range tests {
@@ -157,4 +159,102 @@ func TestValidatePlayoffDates_NoDateIgnored(t *testing.T) {
 	require.NoError(t, app.Save(m2))
 
 	assert.NoError(t, ValidatePlayoffDates([]*core.Record{m1, m2}))
+}
+
+func TestBuildRoundSchedule(t *testing.T) {
+	t.Parallel()
+	start := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
+
+	sched := BuildRoundSchedule(start, end, 4)
+	require.Len(t, sched, 4)
+	assert.Equal(t, time.Date(2026, 9, 6, 0, 0, 0, 0, time.UTC), sched[1])
+	assert.Equal(t, time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC), sched[2])
+	assert.Equal(t, time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC), sched[3])
+	assert.Equal(t, end, sched[4])
+
+	assert.Nil(t, BuildRoundSchedule(time.Time{}, end, 4))
+	assert.Nil(t, BuildRoundSchedule(start, time.Time{}, 4))
+	assert.Nil(t, BuildRoundSchedule(start, end, 0))
+	assert.Nil(t, BuildRoundSchedule(start, end, -1))
+}
+
+func TestStoreRoundSchedule(t *testing.T) {
+	t.Parallel()
+	start := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
+
+	s := StoreRoundSchedule(start, end, 4)
+	assert.NotEmpty(t, s)
+	assert.Contains(t, s, "2026-09-06")
+
+	assert.Empty(t, StoreRoundSchedule(time.Time{}, end, 4))
+	assert.Empty(t, StoreRoundSchedule(start, end, 0))
+}
+
+func TestRoundArrangeDate_StoredHit(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	comp := makeCompetition(t, app, nil)
+
+	start := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
+	comp.Set("start_date", start.Format(time.RFC3339))
+	comp.Set("end_date", end.Format(time.RFC3339))
+	comp.Set("rounds", 4)
+	comp.Set("round_arrange_dates", StoreRoundSchedule(start, end, 4))
+	require.NoError(t, app.Save(comp))
+
+	got, ok := RoundArrangeDate(comp, 2)
+	require.True(t, ok)
+	assert.Equal(t, time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC), got)
+}
+
+func TestRoundArrangeDate_EmptyFallback(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	comp := makeCompetition(t, app, nil)
+
+	start := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
+	comp.Set("start_date", start.Format(time.RFC3339))
+	comp.Set("end_date", end.Format(time.RFC3339))
+	comp.Set("rounds", 4)
+	comp.Set("round_arrange_dates", "")
+	require.NoError(t, app.Save(comp))
+
+	got, ok := RoundArrangeDate(comp, 2)
+	require.True(t, ok)
+	assert.Equal(t, time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC), got)
+}
+
+func TestRoundArrangeDate_BadJSON(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	comp := makeCompetition(t, app, nil)
+
+	comp.Set("start_date", "2026-09-01")
+	comp.Set("end_date", "2026-09-21")
+	comp.Set("rounds", 4)
+	comp.Set("round_arrange_dates", "{invalid json")
+	require.NoError(t, app.Save(comp))
+
+	got, ok := RoundArrangeDate(comp, 1)
+	require.True(t, ok)
+	assert.Equal(t, time.Date(2026, 9, 6, 0, 0, 0, 0, time.UTC), got)
+}
+
+func TestRoundArrangeDate_ZeroRounds(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	comp := makeCompetition(t, app, nil)
+
+	comp.Set("start_date", "2026-09-01")
+	comp.Set("end_date", "2026-09-21")
+	comp.Set("rounds", 0)
+	comp.Set("round_arrange_dates", "")
+	require.NoError(t, app.Save(comp))
+
+	_, ok := RoundArrangeDate(comp, 1)
+	assert.False(t, ok)
 }

@@ -1,8 +1,10 @@
 package league
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -52,9 +54,9 @@ func (w Warning) Label() string {
 }
 
 // RecommendedArrangeBy returns the suggested deadline for a given round.
-// roundNumber is 1-based. Returns ok=false if start or end is zero.
+// roundNumber is 1-based. Returns ok=false if start/end is zero or rounds < 1.
 func RecommendedArrangeBy(start, end time.Time, rounds, roundNumber int) (time.Time, bool) {
-	if start.IsZero() || end.IsZero() {
+	if start.IsZero() || end.IsZero() || rounds < 1 {
 		return time.Time{}, false
 	}
 	fraction := float64(roundNumber) / float64(rounds)
@@ -129,4 +131,52 @@ func ValidatePlayoffDates(matches []*core.Record) error {
 	}
 
 	return nil
+}
+
+// BuildRoundSchedule returns round-number → arrange-by date for a round-robin
+// competition. Empty when start/end zero or rounds < 1.
+func BuildRoundSchedule(start, end time.Time, rounds int) map[int]time.Time {
+	if start.IsZero() || end.IsZero() || rounds < 1 {
+		return nil
+	}
+	schedule := make(map[int]time.Time, rounds)
+	for r := 1; r <= rounds; r++ {
+		d, _ := RecommendedArrangeBy(start, end, rounds, r)
+		schedule[r] = d
+	}
+	return schedule
+}
+
+// StoreRoundSchedule builds the schedule and marshals it to the JSON string
+// stored in competitions.round_arrange_dates. Empty string when nothing to store.
+func StoreRoundSchedule(start, end time.Time, rounds int) string {
+	sched := BuildRoundSchedule(start, end, rounds)
+	if len(sched) == 0 {
+		return ""
+	}
+	b, err := json.Marshal(sched)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+// RoundArrangeDate returns the stored arrange-by date for a round. Falls back
+// to RecommendedArrangeBy on empty/error/absent key. Returns ok=false when
+// neither stored nor valid fallback exists.
+func RoundArrangeDate(comp *core.Record, roundNumber int) (time.Time, bool) {
+	raw := comp.GetString("round_arrange_dates")
+	if raw != "" {
+		var stored map[string]time.Time
+		if json.Unmarshal([]byte(raw), &stored) == nil {
+			key := strconv.Itoa(roundNumber)
+			if t, ok := stored[key]; ok {
+				return t, true
+			}
+		}
+	}
+	start := comp.GetDateTime("start_date").Time()
+	end := comp.GetDateTime("end_date").Time()
+	rounds := comp.GetInt("rounds")
+	return RecommendedArrangeBy(start, end, rounds, roundNumber)
 }
