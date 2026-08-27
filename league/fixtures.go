@@ -30,9 +30,9 @@ func RoundRobin(pairIDs []string, double bool) []Round {
 	}
 
 	rounds := make([]Round, 0, n-1)
-	for r := 0; r < n-1; r++ {
+	for r := range n - 1 {
 		var matches []RoundMatch
-		for i := 0; i < n/2; i++ {
+		for i := range n / 2 {
 			home := pairs[i]
 			away := pairs[n-1-i]
 			if home != "" && away != "" {
@@ -47,7 +47,7 @@ func RoundRobin(pairIDs []string, double bool) []Round {
 
 	if double {
 		half := len(rounds)
-		for i := 0; i < half; i++ {
+		for i := range half {
 			var swapped []RoundMatch
 			for _, m := range rounds[i].Matches {
 				swapped = append(swapped, RoundMatch{Home: m.Away, Away: m.Home})

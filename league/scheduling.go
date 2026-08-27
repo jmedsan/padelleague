@@ -201,9 +201,9 @@ func ValidatePlayoffDates(matches []*core.Record) error {
 	}
 	sort.Ints(rounds)
 
-	for i := 1; i < len(rounds); i++ {
-		prev := rounds[i-1]
-		curr := rounds[i]
+	for i := range len(rounds) - 1 {
+		prev := rounds[i]
+		curr := rounds[i+1]
 		if maxByRound[prev].After(minByRound[curr]) {
 			return fmt.Errorf("las fechas de la ronda %d no pueden ser anteriores a las de la ronda %d", curr, prev)
 		}
