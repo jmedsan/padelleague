@@ -79,6 +79,7 @@ func registerPublicRoutes(se *core.ServeEvent, deps Deps) {
 	pub := handlers.NewPublicHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page, deps.Renderer.ErrorPage)
 	se.Router.GET("/", pub.Home).BindFunc(middleware.RequireAuth)
 	se.Router.GET("/competition/{id}", pub.Competition).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/competition/{id}/accept-docs", pub.AcceptDocs).BindFunc(middleware.RequireAuth)
 
 	player := handlers.NewPlayerHandler(deps.App, deps.Renderer.Page, deps.Renderer.ErrorPage)
 	se.Router.GET("/player/{id}", player.Player).BindFunc(middleware.RequireAuth)
@@ -103,7 +104,16 @@ func registerAdminRoutes(se *core.ServeEvent, deps Deps) {
 	registerAdminPairRoutes(g, deps)
 	registerAdminPlayerRoutes(g, deps)
 	registerAdminVenueRoutes(g, deps)
+	registerAdminDocumentRoutes(g, deps)
 	registerAdminSettingsRoutes(g, deps)
+}
+
+func registerAdminDocumentRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
+	doc := handlers.NewDocumentHandler(deps.App, deps.Renderer.Page)
+	g.GET("/documents", doc.Documents)
+	g.POST("/documents", doc.DocumentsCreate)
+	g.POST("/documents/{id}", doc.DocumentsUpdate)
+	g.POST("/documents/{id}/delete", doc.DocumentsDelete)
 }
 
 func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
@@ -115,6 +125,8 @@ func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], d
 	g.POST("/competitions", comp.Create)
 	g.GET("/competitions/{id}", comp.Detail)
 	g.POST("/competitions/{id}", comp.Update)
+	g.POST("/competitions/{id}/attach-doc", comp.AttachDocument)
+	g.POST("/competitions/{id}/detach-doc/{docId}", comp.DetachDocument)
 	g.POST("/competitions/{id}/toggle", comp.Toggle)
 	g.POST("/competitions/{id}/finalize", comp.FinalizeCompetition)
 	g.POST("/competitions/{id}/pairs", comp.AddPair)
