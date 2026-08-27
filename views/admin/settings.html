@@ -8,7 +8,7 @@
         <h2 class="card-title text-error">Zona de peligro</h2>
         <p class="text-sm opacity-70 mb-4">Selecciona qué datos eliminar. Los administradores y las pistas se conservan.</p>
 
-        <form id="reset-form">
+        <div id="reset-form">
             <div class="form-control mb-4">
                 <label class="label" for="confirm-input">
                     <span class="label-text">Escribe <kbd class="kbd kbd-sm">DELETE</kbd> para confirmar</span>
@@ -57,11 +57,10 @@
                     class="btn btn-error w-full"
                     hx-post="/admin/settings/reset"
                     hx-target="#reset-result"
-                    hx-include="#reset-form"
-                    hx-confirm="Esta acción eliminará los datos seleccionados. ¿Continuar?">
+                    hx-include="#reset-form">
                 Reiniciar base de datos
             </button>
-        </form>
+        </div>
 
         <div id="reset-result" class="mt-4"></div>
     </div>
@@ -81,11 +80,12 @@
 
     function updateState() {
         chks.pairs.disabled = !chks.players.checked;
-        chks.competitions.disabled = !chks.pairs.checked;
-        chks.matches.disabled = !chks.competitions.checked;
-
         if (chks.pairs.disabled) chks.pairs.checked = false;
+
+        chks.competitions.disabled = !chks.pairs.checked;
         if (chks.competitions.disabled) chks.competitions.checked = false;
+
+        chks.matches.disabled = !chks.competitions.checked;
         if (chks.matches.disabled) chks.matches.checked = false;
 
         var allChecked = chks.players.checked && chks.pairs.checked &&
