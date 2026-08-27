@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
-	"sort"
 
 	"github.com/pocketbase/pocketbase/core"
 
@@ -83,11 +82,6 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 	messages, _ := h.app.FindRecordsByFilter("match_messages",
 		"match = {:mid}", "created", 0, 0,
 		map[string]any{"mid": matchID})
-
-	sort.Slice(messages, func(i, j int) bool {
-		return messages[i].GetDateTime("created").Time().Before(
-			messages[j].GetDateTime("created").Time())
-	})
 
 	pair1Players := league.PlayersForPair(h.app, match.GetString("pair1"))
 	pair2Players := league.PlayersForPair(h.app, match.GetString("pair2"))
