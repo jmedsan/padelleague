@@ -73,8 +73,7 @@ func TestComputeStandings_Penalties(t *testing.T) {
 	m.Set("winner", p1.Id)
 	require.NoError(t, app.Save(m))
 
-	comp.Set("penalty_points", map[string]any{p1.Id: 2.0})
-	require.NoError(t, app.Save(comp))
+	makePenalty(t, app, comp.Id, p1.Id, 2, false)
 
 	rows, err := svc.ComputeStandings(comp.Id)
 	require.NoError(t, err)
@@ -158,15 +157,7 @@ func TestComputeStandings_PenaltyStoredAsJSONText(t *testing.T) {
 	m.Set("winner", p1.Id)
 	require.NoError(t, app.Save(m))
 
-	// Written straight to SQLite as JSON text; PocketBase still reads a
-	// JSONField back as types.JSONRaw, which is the branch under test.
-	_, err := app.DB().NewQuery(
-		"UPDATE competitions SET penalty_points = {:pp} WHERE id = {:id}",
-	).Bind(map[string]any{
-		"pp": `{"` + p1.Id + `": 1}`,
-		"id": comp.Id,
-	}).Execute()
-	require.NoError(t, err)
+	makePenalty(t, app, comp.Id, p1.Id, 1, false)
 
 	rows, err := svc.ComputeStandings(comp.Id)
 	require.NoError(t, err)

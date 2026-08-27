@@ -112,7 +112,7 @@ func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 	}
 
 	if penalty := comp.GetFloat("default_penalty"); penalty > 0 {
-		if err := league.AccumulatePenalty(h.app, comp, loserID, penalty); err != nil {
+		if err := league.ApplyPenalty(h.app, league.PenaltyInput{CompetitionID: compID, PairID: loserID, Reason: "Walkover aprobado", AdminID: e.Auth.Id, Amount: penalty}); err != nil {
 			slog.Error("apply walkover penalty", "comp", compID, "pair", loserID, "err", err)
 			return alertError(e, "Walkover aprobado, pero no se pudo aplicar la penalización. Aplícala manualmente.")
 		}

@@ -21,6 +21,7 @@ func Build(app core.App) []Entry {
 	entries = append(entries, buildMessages(app)...)
 	entries = append(entries, buildDocuments(app)...)
 	entries = append(entries, buildVenues(app)...)
+	entries = append(entries, buildPenalties(app)...)
 	return entries
 }
 
@@ -203,6 +204,43 @@ func buildVenues(app core.App) []Entry {
 			URL:      "/admin/venues",
 			Keywords: []string{"pista"},
 			Scope:    Scope{Admin: true},
+		}))
+	}
+	return entries
+}
+
+func buildPenalties(app core.App) []Entry {
+	penalties, err := app.FindRecordsByFilter("penalties", "voided = false", "", 0, 0, nil)
+	if err != nil {
+		slog.Error("search: build penalties", "err", err)
+		return nil
+	}
+
+	pairIDs := make([]string, 0, len(penalties))
+	competitionIDs := make(map[string]struct{}, len(penalties))
+	for _, penalty := range penalties {
+		pairIDs = append(pairIDs, penalty.GetString("pair"))
+		competitionIDs[penalty.GetString("competition")] = struct{}{}
+	}
+	pairNames := league.PairNames(app, pairIDs)
+	competitionNames := make(map[string]string, len(competitionIDs))
+	for competitionID := range competitionIDs {
+		competition, err := app.FindRecordById("competitions", competitionID)
+		if err == nil {
+			competitionNames[competitionID] = competition.GetString("name")
+		}
+	}
+
+	entries := make([]Entry, 0, len(penalties))
+	for _, penalty := range penalties {
+		competitionID := penalty.GetString("competition")
+		entries = append(entries, NewEntry(Entry{
+			Label:     penalty.GetString("reason"),
+			Secondary: fmt.Sprintf("%s · %s", pairNames[penalty.GetString("pair")], competitionNames[competitionID]),
+			Type:      "penalización",
+			URL:       "/admin/competitions/" + competitionID,
+			Keywords:  []string{competitionNames[competitionID]},
+			Scope:     Scope{Admin: true},
 		}))
 	}
 	return entries
