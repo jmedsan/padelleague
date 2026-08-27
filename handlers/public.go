@@ -568,4 +568,3 @@ func firstIncompleteRound(rounds []RoundView) int {
 	}
 	return 0
 }
-

@@ -743,10 +743,10 @@ func TestThread_PlayoffNoDateShowsPending(t *testing.T) {
 func TestAcceptProposalBlocksSecondAcceptance(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "accepting a second proposal is blocked when one is already accepted",
-		Method:         http.MethodPost,
-		ExpectedStatus: 200,
+		TestAppFactory:  testAppFactory,
+		Name:            "accepting a second proposal is blocked when one is already accepted",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
 		ExpectedContent: []string{"Ya hay una propuesta aceptada"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
