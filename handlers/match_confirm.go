@@ -100,8 +100,15 @@ func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 		}
 	}
 
+	disputedScores := e.Request.FormValue("disputed_scores")
+	if disputedScores != "" {
+		if _, err := league.ParseScore(disputedScores); err != nil {
+			return alertError(e, "El marcador que propones no es válido")
+		}
+	}
 	disputeNotes := e.Request.FormValue("dispute_notes")
 	match.Set("disputed_by", userID)
+	match.Set("disputed_scores", disputedScores)
 	match.Set("dispute_notes", disputeNotes)
 	match.Set("status", league.StatusDisputed)
 
@@ -113,7 +120,28 @@ func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 		slog.Error("notify admins failed", "err", err)
 	}
 
+	h.notifyDisputeToSubmitter(match, myTeam)
+
 	return redirectHX(e, "/match/"+id)
+}
+
+// notifyDisputeToSubmitter tells the pair whose score was disputed — they'd
+// otherwise only find out by noticing the status change.
+func (h *MatchHandler) notifyDisputeToSubmitter(match *core.Record, disputerTeam int) {
+	if disputerTeam <= 0 {
+		return
+	}
+	submitterPairID := match.GetString("pair1")
+	if disputerTeam == 1 {
+		submitterPairID = match.GetString("pair2")
+	}
+	submitterPlayers := league.PlayersForPair(h.app, submitterPairID)
+	h.notifier.NotifyPlayers(submitterPlayers, league.Notification{
+		Type: "general", Title: "Resultado disputado",
+		Body: "Tu rival ha disputado el resultado que enviaste.", MatchID: match.Id,
+	})
+	h.notifier.EmailPlayers(submitterPlayers, "Resultado disputado",
+		"Tu rival ha disputado el resultado que enviaste.", "/match/"+match.Id)
 }
 
 // MatchCorrect allows the submitting team to correct a confirmed score.

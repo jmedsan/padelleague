@@ -23,14 +23,16 @@ func NewDisputeHandler(app core.App, notifier *notify.Notifier, renderPage Rende
 
 // DisputeView holds a disputed match with resolved pair and player names.
 type DisputeView struct {
-	Match        *core.Record
-	Pair1Name    string
-	Pair2Name    string
-	SubmittedBy  string
-	DisputedBy   string
-	DisputeNotes string
-	ReviewType   string
-	RequestedBy  string
+	Match          *core.Record
+	Pair1Name      string
+	Pair2Name      string
+	SubmittedBy    string
+	SubmittedScore string
+	DisputedBy     string
+	DisputedScore  string
+	DisputeNotes   string
+	ReviewType     string
+	RequestedBy    string
 }
 
 // Disputes renders the admin disputes page listing all disputed matches.
@@ -44,14 +46,16 @@ func (h *DisputeHandler) Disputes(e *core.RequestEvent) error {
 		pairNames := league.PairNames(h.app, pairIDs)
 
 		views = append(views, DisputeView{
-			Match:        m,
-			Pair1Name:    pairNames[pairIDs[0]],
-			Pair2Name:    pairNames[pairIDs[1]],
-			SubmittedBy:  league.PlayerName(h.app, m.GetString("submitted_by")),
-			DisputedBy:   league.PlayerName(h.app, m.GetString("disputed_by")),
-			DisputeNotes: m.GetString("dispute_notes"),
-			ReviewType:   m.GetString("review_type"),
-			RequestedBy:  league.PlayerName(h.app, m.GetString("walkover_requested_by")),
+			Match:          m,
+			Pair1Name:      pairNames[pairIDs[0]],
+			Pair2Name:      pairNames[pairIDs[1]],
+			SubmittedBy:    league.PlayerName(h.app, m.GetString("submitted_by")),
+			SubmittedScore: m.GetString("scores"),
+			DisputedBy:     league.PlayerName(h.app, m.GetString("disputed_by")),
+			DisputedScore:  m.GetString("disputed_scores"),
+			DisputeNotes:   m.GetString("dispute_notes"),
+			ReviewType:     m.GetString("review_type"),
+			RequestedBy:    league.PlayerName(h.app, m.GetString("walkover_requested_by")),
 		})
 	}
 

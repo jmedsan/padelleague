@@ -6,13 +6,19 @@
     {{range .Disputes}}
     <div class="card bg-base-100 shadow">
         <div class="card-body">
-            <h2 class="card-title">{{.Pair1Name}} vs {{.Pair2Name}}</h2>
+            <div class="flex items-center justify-between">
+                <h2 class="card-title">{{.Pair1Name}} vs {{.Pair2Name}}</h2>
+                <a href="/match/{{.Match.Id}}" class="link link-primary text-xs">Ver partido completo →</a>
+            </div>
             <div class="grid grid-cols-2 gap-2 text-sm">
-                <span class="opacity-60">Marcador:</span><span>{{.Match.GetString "scores"}}</span>
-                <span class="opacity-60">Enviado por:</span><span>{{.SubmittedBy}}</span>
+                <span class="opacity-60">Marcador de {{.SubmittedBy}}:</span><span class="font-medium">{{.SubmittedScore}}</span>
+                {{if .DisputedScore}}
+                <span class="opacity-60">Marcador de {{.DisputedBy}}:</span><span class="font-medium">{{.DisputedScore}}</span>
+                {{else}}
                 <span class="opacity-60">Disputado por:</span><span>{{.DisputedBy}}</span>
+                {{end}}
                 {{if .DisputeNotes}}
-                <span class="opacity-60">Notas:</span><span>{{.DisputeNotes}}</span>
+                <span class="opacity-60">Motivo:</span><span>{{.DisputeNotes}}</span>
                 {{end}}
             </div>
             <div class="divider my-2"></div>
@@ -38,7 +44,13 @@
                 <div class="flex flex-wrap gap-3 items-end">
                     <div class="form-control">
                         <label class="label"><span class="label-text">Marcador final</span></label>
-                        <input type="text" name="score" value="{{.Match.GetString "scores"}}" class="input input-bordered input-sm w-40">
+                        <input type="text" name="score" id="final-{{.Match.Id}}" value="{{.SubmittedScore}}" class="input input-bordered input-sm w-40">
+                        <div class="flex gap-1 mt-1">
+                            <button type="button" onclick="document.getElementById('final-{{.Match.Id}}').value='{{.SubmittedScore}}'" class="btn btn-xs btn-outline">{{.SubmittedScore}}</button>
+                            {{if .DisputedScore}}
+                            <button type="button" onclick="document.getElementById('final-{{.Match.Id}}').value='{{.DisputedScore}}'" class="btn btn-xs btn-outline">{{.DisputedScore}}</button>
+                            {{end}}
+                        </div>
                     </div>
                     <div class="form-control">
                         <label class="label"><span class="label-text">Ganador</span></label>
