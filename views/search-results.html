@@ -1,14 +1,13 @@
-{{define "content"}}
-<div id="search-results">
+<div id="search-results" class="p-2">
     {{if .Query}}
         {{if .Empty}}
-        <div class="text-center py-8 text-base-content/50">
+        <div class="text-center py-4 text-base-content/50">
             <p class="text-sm">No se encontraron resultados para "{{.Query}}"</p>
         </div>
         {{else}}
         {{range .Grouped}}
-        <div class="mb-4">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2">{{.Type}}</h3>
+        <div class="mb-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-1 px-1">{{.Type}}</h3>
             {{range .Results}}
             <a href="{{.URL}}" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors">
                 <div class="flex-1 min-w-0">
@@ -23,24 +22,24 @@
         {{end}}
     {{else}}
         {{if .Recent}}
-        <div class="mb-4">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2">Búsquedas recientes</h3>
+        <div class="mb-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-1 px-1">Búsquedas recientes</h3>
             {{range .Recent}}
             <a href="/search?q={{.}}" class="block px-3 py-2 text-sm rounded-lg hover:bg-base-200 transition-colors">{{.}}</a>
             {{end}}
         </div>
         {{end}}
         {{if .PlayerTasks}}
-        <div class="mb-4">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2">Sugerencias</h3>
+        <div class="mb-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-1 px-1">Sugerencias</h3>
             {{range .PlayerTasks}}
             <div class="px-3 py-2 text-sm">{{.Title}}</div>
             {{end}}
         </div>
         {{end}}
         {{if .AdminAlerts}}
-        <div class="mb-4">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2">Alertas</h3>
+        <div class="mb-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-1 px-1">Alertas</h3>
             {{range .AdminAlerts}}
             <div class="px-3 py-2 text-sm">{{.Label}}</div>
             {{end}}
@@ -48,4 +47,3 @@
         {{end}}
     {{end}}
 </div>
-{{end}}
