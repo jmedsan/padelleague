@@ -739,3 +739,35 @@ func TestThread_PlayoffNoDateShowsPending(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestAcceptProposalBlocksSecondAcceptance(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "accepting a second proposal is blocked when one is already accepted",
+		Method:         http.MethodPost,
+		ExpectedStatus: 200,
+		ExpectedContent: []string{"Ya hay una propuesta aceptada"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Dup A")
+		p2 := makePairTB(tb, app, "Dup B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		prop1 := makeProposal(tb, app, match.Id, p1.GetString("player1"))
+		prop1.Set("proposal_status", "accepted")
+		require.NoError(tb, app.Save(prop1))
+
+		prop2 := makeProposal(tb, app, match.Id, p1.GetString("player1"))
+
+		respondent, _ := app.FindRecordById("users", p2.GetString("player1"))
+		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/respond", match.Id, prop2.Id)
+		s.Body = strings.NewReader("action=accept")
+		hdrs := authHeaders(tb, respondent)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}

@@ -418,7 +418,7 @@ func (h *ThreadHandler) dispatchProposalAction(e *core.RequestEvent, match, msg 
 func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
 	existing, _ := h.app.FindRecordsByFilter("match_messages",
 		"match = {:mid} && proposal_status = 'accepted'",
-		"", 0, 1,
+		"", 1, 0,
 		map[string]any{"mid": match.Id})
 	if len(existing) > 0 {
 		return alertError(e, "Ya hay una propuesta aceptada para este partido")
@@ -533,7 +533,7 @@ func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.
 func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
 	existing, _ := h.app.FindRecordsByFilter("match_messages",
 		"match = {:mid} && proposal_status = 'accepted'",
-		"", 0, 1,
+		"", 1, 0,
 		map[string]any{"mid": match.Id})
 	if len(existing) > 0 {
 		return alertError(e, "Ya hay otra propuesta aceptada")
