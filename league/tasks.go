@@ -1,8 +1,10 @@
 package league
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -214,21 +216,13 @@ func hasAcceptedProposal(app core.App, matchID string) bool {
 }
 
 func sortTasks(tasks []PlayerTask) {
-	for i := 1; i < len(tasks); i++ {
-		for j := i; j > 0; j-- {
-			if taskLess(tasks[j], tasks[j-1]) {
-				tasks[j], tasks[j-1] = tasks[j-1], tasks[j]
-			}
+	slices.SortStableFunc(tasks, func(a, b PlayerTask) int {
+		if c := cmp.Compare(a.Kind, b.Kind); c != 0 {
+			return c
 		}
-	}
-}
-
-func taskLess(a, b PlayerTask) bool {
-	if a.Kind != b.Kind {
-		return a.Kind < b.Kind
-	}
-	if a.Kind == TaskOrganize {
-		return a.Warning > b.Warning
-	}
-	return a.RoundNumber < b.RoundNumber
+		if a.Kind == TaskOrganize {
+			return cmp.Compare(b.Warning, a.Warning) // desc
+		}
+		return cmp.Compare(a.RoundNumber, b.RoundNumber)
+	})
 }
