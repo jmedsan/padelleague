@@ -41,7 +41,7 @@ func TestSettingsGET(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/admin/settings",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Zona de peligro"},
+		ExpectedContent: []string{"Reiniciar base de datos", "Datos de ejemplo a cargar"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupSettingsRoutes(tb, app, e, true)
@@ -60,7 +60,7 @@ func TestSettingsGET_DevToolsFalse(t *testing.T) {
 		URL:                "/admin/settings",
 		ExpectedStatus:     200,
 		ExpectedContent:    []string{"No hay opciones"},
-		NotExpectedContent: []string{"Zona de peligro"},
+		NotExpectedContent: []string{"Reiniciar base de datos"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupSettingsRoutes(tb, app, e, false)
@@ -99,43 +99,15 @@ func TestResetWrongConfirm(t *testing.T) {
 	s.Test(t)
 }
 
-func TestResetPlayersOnly(t *testing.T) {
+func TestResetFromScratch(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "POST reset players-only wipes users when no pairs reference them",
+		Name:            "POST reset with no example checkboxes wipes to a clean DB, admins survive",
 		Method:          http.MethodPost,
 		URL:             "/admin/settings/reset",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"reiniciada"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupSettingsRoutes(tb, app, e, true)
-		admin := makeAdminUser(tb, app)
-		makeUserTB(tb, app, "Player1", "")
-		makeUserTB(tb, app, "Player2", "")
-		s.Body = strings.NewReader("confirm=DELETE&players=on")
-		hdrs := authHeaders(tb, admin)
-		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-		s.Headers = hdrs
-	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		players, err := app.FindRecordsByFilter("users", "roles ~ 'player'", "", 0, 0)
-		require.NoError(tb, err)
-		assert.Empty(tb, players, "players should be wiped")
-	}
-	s.Test(t)
-}
-
-func TestResetFullWipe(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "POST reset all four categories wipes everything",
-		Method:          http.MethodPost,
-		URL:             "/admin/settings/reset",
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"reiniciada"},
+		ExpectedContent: []string{"reiniciada", "vacía"},
 	}
 	var admin1ID, admin2ID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -146,7 +118,7 @@ func TestResetFullWipe(t *testing.T) {
 		admin2ID = admin2.Id
 		makeUserTB(tb, app, "Player1", "")
 		makePairTB(tb, app, "TestPair")
-		s.Body = strings.NewReader("confirm=DELETE&players=on&pairs=on&competitions=on&matches=on")
+		s.Body = strings.NewReader("confirm=DELETE")
 		hdrs := authHeaders(tb, admin1)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -159,33 +131,68 @@ func TestResetFullWipe(t *testing.T) {
 
 		players, err := app.FindRecordsByFilter("users", "roles ~ 'player'", "", 0, 0)
 		require.NoError(tb, err)
-		assert.Empty(tb, players, "players should be wiped")
+		assert.Empty(tb, players, "players should be wiped and none loaded")
 
 		pairs, err := app.FindRecordsByFilter("pairs", "id != ''", "", 0, 0)
 		require.NoError(tb, err)
-		assert.Empty(tb, pairs, "pairs should be wiped")
+		assert.Empty(tb, pairs, "pairs should be wiped and none loaded")
 
 		comps, err := app.FindRecordsByFilter("competitions", "id != ''", "", 0, 0)
 		require.NoError(tb, err)
-		assert.Empty(tb, comps, "competitions should be wiped")
+		assert.Empty(tb, comps, "competitions should be wiped and none loaded")
 	}
 	s.Test(t)
 }
 
-func TestResetSampleMode(t *testing.T) {
+func TestResetLoadPlayersOnly(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "POST reset confirm=DELETE mode=sample creates sample competition",
+		Name:            "POST reset players=on wipes all then loads only sample players",
 		Method:          http.MethodPost,
 		URL:             "/admin/settings/reset",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Liga de ejemplo"},
+		ExpectedContent: []string{"reiniciada", "ejemplo"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupSettingsRoutes(tb, app, e, true)
 		admin := makeAdminUser(tb, app)
-		s.Body = strings.NewReader("confirm=DELETE&players=on&pairs=on&competitions=on&matches=on&mode=sample")
+		makeUserTB(tb, app, "OldPlayer", "")
+		s.Body = strings.NewReader("confirm=DELETE&players=on")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		players, err := app.FindRecordsByFilter("users", "roles ~ 'player'", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Len(tb, players, 8, "the 8 sample players should be loaded (old ones wiped)")
+
+		pairs, err := app.FindRecordsByFilter("pairs", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Empty(tb, pairs, "no pairs loaded when only players selected")
+
+		comps, err := app.FindRecordsByFilter("competitions", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Empty(tb, comps, "no competition loaded when only players selected")
+	}
+	s.Test(t)
+}
+
+func TestResetLoadFullSample(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST reset with all example categories loads the full sample league",
+		Method:          http.MethodPost,
+		URL:             "/admin/settings/reset",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"reiniciada", "ejemplo"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSettingsRoutes(tb, app, e, true)
+		admin := makeAdminUser(tb, app)
+		s.Body = strings.NewReader("confirm=DELETE&players=on&pairs=on&competitions=on&matches=on")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -198,6 +205,44 @@ func TestResetSampleMode(t *testing.T) {
 		players, err := app.FindRecordsByFilter("users", "roles ~ 'player'", "", 0, 0)
 		require.NoError(tb, err)
 		assert.Len(tb, players, 8, "should have 8 sample players")
+
+		finals, err := app.FindRecordsByFilter("matches", "status = 'final'", "", 0, 0)
+		require.NoError(tb, err)
+		assert.NotEmpty(tb, finals, "rounds 1-4 should be played (matches selected)")
+	}
+	s.Test(t)
+}
+
+func TestResetLoadCompetitionNotPlayed(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST reset competitions=on matches=off loads the competition with no played matches",
+		Method:          http.MethodPost,
+		URL:             "/admin/settings/reset",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"reiniciada", "ejemplo"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSettingsRoutes(tb, app, e, true)
+		admin := makeAdminUser(tb, app)
+		s.Body = strings.NewReader("confirm=DELETE&players=on&pairs=on&competitions=on")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		comps, err := app.FindRecordsByFilter("competitions", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Len(tb, comps, 1, "the sample competition should be loaded")
+
+		matches, err := app.FindRecordsByFilter("matches", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.NotEmpty(tb, matches, "rounds/fixtures should exist")
+
+		finals, err := app.FindRecordsByFilter("matches", "status = 'final'", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Empty(tb, finals, "no matches played when 'matches' not selected")
 	}
 	s.Test(t)
 }
@@ -228,42 +273,4 @@ func TestResetDevToolsFalseRejected(t *testing.T) {
 		assert.NoError(tb, err, "player should still exist when devTools=false")
 	}
 	s.Test(t)
-}
-
-func TestResetDependencyValidation(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name string
-		body string
-		msg  string
-	}{
-		{"pairs without players", "confirm=DELETE&pairs=on", "borrar parejas requiere borrar jugadores"},
-		{"competitions without pairs", "confirm=DELETE&competitions=on", "borrar competiciones requiere borrar parejas"},
-		{"matches without competitions", "confirm=DELETE&matches=on", "borrar partidos requiere borrar competiciones"},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			s := &tests.ApiScenario{
-				TestAppFactory:  testAppFactory,
-				Name:            "dependency: " + tc.name,
-				Method:          http.MethodPost,
-				URL:             "/admin/settings/reset",
-				ExpectedStatus:  200,
-				ExpectedContent: []string{tc.msg},
-			}
-			body := tc.body
-			s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-				setupSettingsRoutes(tb, app, e, true)
-				admin := makeAdminUser(tb, app)
-				s.Body = strings.NewReader(body)
-				hdrs := authHeaders(tb, admin)
-				hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-				s.Headers = hdrs
-			}
-			s.Test(t)
-		})
-	}
 }

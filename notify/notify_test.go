@@ -33,7 +33,7 @@ func (c *logCapture) Handle(_ context.Context, r slog.Record) error {
 	return nil
 }
 func (c *logCapture) WithAttrs([]slog.Attr) slog.Handler { return c }
-func (c *logCapture) WithGroup(string) slog.Handler       { return c }
+func (c *logCapture) WithGroup(string) slog.Handler      { return c }
 
 func (c *logCapture) hasMessage(msg string) bool {
 	c.mu.Lock()

@@ -7,19 +7,22 @@ test.describe('admin settings', () => {
     await page.goto('/admin/settings');
   });
 
-  test('shows reset form with checkboxes', async ({ page }) => {
-    await expect(page.getByText('Zona de peligro')).toBeVisible();
+  test('shows reset form with example checkboxes', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'Reiniciar base de datos' })).toBeVisible();
+    await expect(page.getByText('Datos de ejemplo a cargar', { exact: true })).toBeVisible();
     await expect(page.locator('#chk-players')).toBeVisible();
     await expect(page.locator('#chk-pairs')).toBeVisible();
     await expect(page.locator('#chk-competitions')).toBeVisible();
     await expect(page.locator('#chk-matches')).toBeVisible();
   });
 
-  test('DELETE gate rejects wrong confirmation', async ({ page }) => {
-    await page.locator('#chk-players').check();
-    await page.locator('#confirm-input').fill('WRONG');
-    // Button should be disabled with wrong text
+  test('DELETE gate: enabled on DELETE alone (from scratch), disabled otherwise', async ({ page }) => {
     await expect(page.locator('#reset-btn')).toBeDisabled();
+    await page.locator('#confirm-input').fill('WRONG');
+    await expect(page.locator('#reset-btn')).toBeDisabled();
+    // No checkbox required — an empty selection means "from scratch".
+    await page.locator('#confirm-input').fill('DELETE');
+    await expect(page.locator('#reset-btn')).toBeEnabled();
   });
 
   test('checkbox dependency chain', async ({ page }) => {
@@ -42,57 +45,25 @@ test.describe('admin settings', () => {
     await expect(page.locator('#chk-competitions')).toBeDisabled();
   });
 
-  test('mode section visible only when all checked', async ({ page }) => {
-    await expect(page.locator('#mode-section')).toBeHidden();
-
-    await page.locator('#chk-players').check();
-    await page.locator('#chk-pairs').check();
-    await page.locator('#chk-competitions').check();
-    await page.locator('#chk-matches').check();
-
-    await expect(page.locator('#mode-section')).toBeVisible();
-  });
-
-  test('players-only reset fails when pairs exist', async ({ page }) => {
-    await page.locator('#chk-players').check();
+  test('reset from scratch wipes to an empty database', async ({ page }) => {
     await page.locator('#confirm-input').fill('DELETE');
     await Promise.all([
       page.waitForResponse(resp => resp.url().includes('/admin/settings/reset')),
       page.locator('#reset-btn').click(),
     ]);
-
-    await expect(page.locator('#reset-result')).toContainText('Error al reiniciar');
+    await expect(page.locator('#reset-result')).toContainText('vacía');
   });
 
-  test('full reset with sample league', async ({ page }) => {
+  test('reset and load the full example league', async ({ page }) => {
     await page.locator('#chk-players').check();
     await page.locator('#chk-pairs').check();
     await page.locator('#chk-competitions').check();
     await page.locator('#chk-matches').check();
     await page.locator('#confirm-input').fill('DELETE');
-    await page.locator('input[name="mode"][value="sample"]').check();
     await Promise.all([
       page.waitForResponse(resp => resp.url().includes('/admin/settings/reset')),
       page.locator('#reset-btn').click(),
     ]);
-
-    await expect(page.locator('#reset-result')).toContainText('Liga de ejemplo creada');
-  });
-
-  test('dependency validation server-side', async ({ page }) => {
-    await page.locator('#confirm-input').fill('DELETE');
-    await page.evaluate(() => {
-      const chk = document.getElementById('chk-pairs') as HTMLInputElement;
-      chk.disabled = false;
-      chk.checked = true;
-      const btn = document.getElementById('reset-btn') as HTMLButtonElement;
-      btn.disabled = false;
-    });
-    await Promise.all([
-      page.waitForResponse(resp => resp.url().includes('/admin/settings/reset')),
-      page.locator('#reset-btn').click(),
-    ]);
-
-    await expect(page.locator('#reset-result')).toContainText('borrar parejas requiere borrar jugadores');
+    await expect(page.locator('#reset-result')).toContainText('ejemplo');
   });
 });
