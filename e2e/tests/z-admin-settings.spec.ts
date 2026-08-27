@@ -53,34 +53,33 @@ test.describe('admin settings', () => {
     await expect(page.locator('#mode-section')).toBeVisible();
   });
 
-  test('players-only reset succeeds', async ({ page }) => {
-    page.on('dialog', (dialog) => dialog.accept());
-
+  test('players-only reset fails when pairs exist', async ({ page }) => {
     await page.locator('#chk-players').check();
     await page.locator('#confirm-input').fill('DELETE');
-    await page.locator('#reset-btn').click();
+    await Promise.all([
+      page.waitForResponse(resp => resp.url().includes('/admin/settings/reset')),
+      page.locator('#reset-btn').click(),
+    ]);
 
-    await expect(page.locator('#reset-result')).toContainText('reiniciada');
+    await expect(page.locator('#reset-result')).toContainText('Error al reiniciar');
   });
 
   test('full reset with sample league', async ({ page }) => {
-    page.on('dialog', (dialog) => dialog.accept());
-
     await page.locator('#chk-players').check();
     await page.locator('#chk-pairs').check();
     await page.locator('#chk-competitions').check();
     await page.locator('#chk-matches').check();
     await page.locator('#confirm-input').fill('DELETE');
     await page.locator('input[name="mode"][value="sample"]').check();
-    await page.locator('#reset-btn').click();
+    await Promise.all([
+      page.waitForResponse(resp => resp.url().includes('/admin/settings/reset')),
+      page.locator('#reset-btn').click(),
+    ]);
 
     await expect(page.locator('#reset-result')).toContainText('Liga de ejemplo creada');
   });
 
   test('dependency validation server-side', async ({ page }) => {
-    page.on('dialog', (dialog) => dialog.accept());
-
-    // Force-enable pairs checkbox via JS to bypass client-side dependency
     await page.locator('#confirm-input').fill('DELETE');
     await page.evaluate(() => {
       const chk = document.getElementById('chk-pairs') as HTMLInputElement;
@@ -89,7 +88,10 @@ test.describe('admin settings', () => {
       const btn = document.getElementById('reset-btn') as HTMLButtonElement;
       btn.disabled = false;
     });
-    await page.locator('#reset-btn').click();
+    await Promise.all([
+      page.waitForResponse(resp => resp.url().includes('/admin/settings/reset')),
+      page.locator('#reset-btn').click(),
+    ]);
 
     await expect(page.locator('#reset-result')).toContainText('borrar parejas requiere borrar jugadores');
   });
