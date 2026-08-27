@@ -1,7 +1,8 @@
 package league
 
 import (
-	"sort"
+	"cmp"
+	"slices"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -228,27 +229,26 @@ func outstandingForComp(app core.App, c *core.Record, now time.Time) []Outstandi
 // sortOutstanding orders most-urgent first: warning desc, deadline asc (a
 // missing deadline sorts last), competition name, round number, match ID.
 func sortOutstanding(out []OutstandingMatch) {
-	sort.SliceStable(out, func(i, j int) bool {
-		a, b := out[i], out[j]
+	slices.SortStableFunc(out, func(a, b OutstandingMatch) int {
 		if a.Warning != b.Warning {
-			return a.Warning > b.Warning
+			return cmp.Compare(b.Warning, a.Warning) // desc
 		}
 		if !a.deadline.Equal(b.deadline) {
 			if a.deadline.IsZero() {
-				return false
+				return 1
 			}
 			if b.deadline.IsZero() {
-				return true
+				return -1
 			}
-			return a.deadline.Before(b.deadline)
+			return a.deadline.Compare(b.deadline)
 		}
-		if a.CompetitionName != b.CompetitionName {
-			return a.CompetitionName < b.CompetitionName
+		if c := cmp.Compare(a.CompetitionName, b.CompetitionName); c != 0 {
+			return c
 		}
-		if a.RoundNumber != b.RoundNumber {
-			return a.RoundNumber < b.RoundNumber
+		if c := cmp.Compare(a.RoundNumber, b.RoundNumber); c != 0 {
+			return c
 		}
-		return a.MatchID < b.MatchID
+		return cmp.Compare(a.MatchID, b.MatchID)
 	})
 }
 
@@ -265,11 +265,7 @@ func pairNamesForMatch(app core.App, m *core.Record) (string, string) {
 
 func sortAlerts(alerts []AdminAlert) {
 	kindOrder := map[string]int{"dispute": 0, "walkover": 1, "overdue": 2}
-	for i := 1; i < len(alerts); i++ {
-		for j := i; j > 0; j-- {
-			if kindOrder[alerts[j].Kind] < kindOrder[alerts[j-1].Kind] {
-				alerts[j], alerts[j-1] = alerts[j-1], alerts[j]
-			}
-		}
-	}
+	slices.SortStableFunc(alerts, func(a, b AdminAlert) int {
+		return cmp.Compare(kindOrder[a.Kind], kindOrder[b.Kind])
+	})
 }
