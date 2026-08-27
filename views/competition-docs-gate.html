@@ -1,0 +1,65 @@
+{{define "content"}}
+<div class="mb-2">
+    <a href="/" class="btn btn-ghost btn-sm gap-1 opacity-70">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+        Inicio
+    </a>
+</div>
+
+<div class="bg-primary text-primary-content rounded-2xl p-6 mb-6 shadow-lg">
+    <h1 class="text-3xl font-bold">{{.Competition.GetString "name"}}</h1>
+</div>
+
+<div class="card bg-base-100 shadow-sm rounded-xl">
+    <div class="card-body">
+        <h2 class="card-title text-lg">Documentos obligatorios</h2>
+        <p class="text-sm opacity-70 mb-4">Antes de acceder a la competición, debes revisar los siguientes documentos.</p>
+
+        <div class="space-y-3">
+            {{range .Documents}}
+            <div class="flex items-center justify-between gap-3 p-3 bg-base-200/50 rounded-lg">
+                <div class="flex-1 min-w-0">
+                    <p class="font-medium truncate">{{.GetString "title"}}</p>
+                    {{if .GetString "description"}}
+                    <p class="text-sm opacity-60 truncate">{{.GetString "description"}}</p>
+                    {{end}}
+                    {{if .GetBool "is_mandatory"}}
+                    <span class="badge badge-warning badge-sm mt-1">Obligatorio</span>
+                    {{end}}
+                </div>
+                <div class="flex-none">
+                    {{if .GetString "file"}}
+                    <a href="/api/files/documents/{{.Id}}/{{.GetString "file"}}" target="_blank" rel="noopener"
+                       class="btn btn-sm btn-outline"
+                       {{if .GetBool "is_mandatory"}}data-mandatory-id="{{.Id}}"{{end}}>Abrir</a>
+                    {{else}}
+                    <a href="{{.GetString "url"}}" target="_blank" rel="noopener"
+                       class="btn btn-sm btn-outline"
+                       {{if .GetBool "is_mandatory"}}data-mandatory-id="{{.Id}}"{{end}}>Abrir</a>
+                    {{end}}
+                </div>
+            </div>
+            {{end}}
+        </div>
+
+        <form action="/competition/{{.Competition.Id}}/accept-docs" method="POST" class="mt-6">
+            <button id="accept-btn" type="submit" class="btn btn-primary w-full" disabled>
+                He leído los documentos obligatorios
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+const need = new Set([{{range $i, $id := .MandatoryIDs}}{{if $i}},{{end}}"{{$id}}"{{end}}]);
+const opened = new Set();
+document.querySelectorAll('[data-mandatory-id]').forEach(function(a) {
+    a.addEventListener('click', function() {
+        opened.add(a.dataset.mandatoryId);
+        if ([...need].every(function(id) { return opened.has(id); })) {
+            document.getElementById('accept-btn').disabled = false;
+        }
+    });
+});
+</script>
+{{end}}

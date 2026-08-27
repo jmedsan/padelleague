@@ -132,6 +132,34 @@
         {{end}}
     </div>
 
+    {{if .Documents}}
+    <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Documentos">
+    <div role="tabpanel" class="tab-content pt-6">
+        <div class="space-y-3">
+            {{range .Documents}}
+            <div class="flex items-center justify-between gap-3 p-3 bg-base-200/50 rounded-lg">
+                <div class="flex-1 min-w-0">
+                    <p class="font-medium truncate">{{.GetString "title"}}</p>
+                    {{if .GetString "description"}}
+                    <p class="text-sm opacity-60 truncate">{{.GetString "description"}}</p>
+                    {{end}}
+                    {{if .GetBool "is_mandatory"}}
+                    <span class="badge badge-warning badge-sm mt-1">Obligatorio</span>
+                    {{end}}
+                </div>
+                <div class="flex-none">
+                    {{if .GetString "file"}}
+                    <a href="/api/files/documents/{{.Id}}/{{.GetString "file"}}" target="_blank" rel="noopener" class="btn btn-sm btn-outline">Abrir</a>
+                    {{else}}
+                    <a href="{{.GetString "url"}}" target="_blank" rel="noopener" class="btn btn-sm btn-outline">Abrir</a>
+                    {{end}}
+                </div>
+            </div>
+            {{end}}
+        </div>
+    </div>
+    {{end}}
+
     {{if .Standings}}
     <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Clasificación">
     <div role="tabpanel" class="tab-content pt-6">
