@@ -285,9 +285,11 @@
                         <td class="font-medium">{{.GetString "title"}}</td>
                         <td>
                             {{if .GetString "url"}}
-                                <a href="{{.GetString "url"}}" target="_blank" class="link link-primary text-sm">Enlace</a>
+                                <a href="{{.GetString "url"}}" target="_blank" rel="noopener" class="link link-primary text-sm">Enlace</a>
+                            {{else if .GetString "file"}}
+                                <a href="/api/files/documents/{{.Id}}/{{.GetString "file"}}" target="_blank" rel="noopener" class="link link-primary text-sm">Archivo</a>
                             {{else}}
-                                <span class="text-sm">Archivo</span>
+                                <span class="text-sm opacity-40">—</span>
                             {{end}}
                         </td>
                         <td>
