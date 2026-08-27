@@ -213,8 +213,10 @@ test.describe('reference navigation tour', () => {
     await navTo(page, 'Panel');
     await page.locator(`a:has-text("${COMP_NAME}")`).first().click();
     await page.waitForLoadState('domcontentloaded');
-    const penaltyRow = page.locator(`tr:has(input[value="${pairIds[0]}"])`).filter({ hasText: 'Penalizar' });
-    await clickAndWaitForHxRedirect(page, penaltyRow.locator('button:has-text("Penalizar")'));
+    const penaltyModal = page.locator(`#penalty-modal-${pairIds[0]}`).locator('..');
+    await page.locator(`label[for="penalty-modal-${pairIds[0]}"]`).click();
+    await penaltyModal.locator('textarea[name="reason"]').fill('Ajuste de clasificación');
+    await clickAndWaitForHxRedirect(page, penaltyModal.locator('button:has-text("Confirmar penalización")'));
 
     // Assert standings with penalty
     const expectedWithPenalty = computeExpected(SCORE_MATRIX, PENALTIES);

@@ -89,3 +89,16 @@ func makeCompetition(t *testing.T, app core.App, pairs []*core.Record) *core.Rec
 	require.NoError(t, app.Save(record))
 	return record
 }
+
+func makePenalty(t *testing.T, app core.App, competitionID, pairID string, amount float64, voided bool) {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("penalties")
+	require.NoError(t, err)
+	record := core.NewRecord(col)
+	record.Set("competition", competitionID)
+	record.Set("pair", pairID)
+	record.Set("amount", amount)
+	record.Set("reason", "Prueba")
+	record.Set("voided", voided)
+	require.NoError(t, app.Save(record))
+}

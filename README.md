@@ -28,7 +28,7 @@ A web app for organizing padel leagues. An admin creates competitions, assigns p
 - **Outstanding matches** — one view of every unresolved match across active competitions with its deadline and urgency, most-urgent first
 - **Invite-only registration** — admin generates invite links, no open signup
 - **Dispute resolution** — review and resolve score disagreements
-- **Penalty system** — apply/remove point penalties per pair
+- **Penalty system** — apply configurable, reasoned point penalties per pair; every application records its admin and timestamp, and removals retain the audit history
 - **Payment tracking** — per-pair payment status with batch toggle
 - **Venue management** — add/edit venues, used in dropdowns across the app
 

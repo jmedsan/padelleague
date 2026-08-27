@@ -560,11 +560,11 @@ async function assertStandings(
 // --- T3: Penalty and payment ---
 
 async function applyPenalty(page: Page, compId: string, pairId: string) {
-  await page.goto(`/admin/competitions/${compId}`);
-  const row = page.locator(`tr:has(input[value="${pairId}"])`).filter({ hasText: 'Penalizar' });
-  // Penalty returns redirectHX (204 → window.location); await the full redirect so it
-  // does not race the next navigation.
-  await clickAndWaitForHxRedirect(page, row.locator('button:has-text("Penalizar")'));
+	await page.goto(`/admin/competitions/${compId}`);
+	const modal = page.locator(`#penalty-modal-${pairId}`).locator('..');
+	await page.locator(`label[for="penalty-modal-${pairId}"]`).click();
+	await modal.locator('textarea[name="reason"]').fill('Ajuste de clasificación');
+	await clickAndWaitForHxRedirect(page, modal.locator('button:has-text("Confirmar penalización")'));
 }
 
 async function togglePayment(page: Page, compId: string, pairId: string) {

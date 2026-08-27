@@ -421,6 +421,20 @@ func makeDocumentTB(t testing.TB, app core.App, title string, mandatory bool, ur
 	return record
 }
 
+func makePenaltyTB(t testing.TB, app core.App, competitionID, pairID string, amount float64, reason, appliedBy string, voided bool) {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("penalties")
+	require.NoError(t, err)
+	record := core.NewRecord(col)
+	record.Set("competition", competitionID)
+	record.Set("pair", pairID)
+	record.Set("amount", amount)
+	record.Set("reason", reason)
+	record.Set("applied_by", appliedBy)
+	record.Set("voided", voided)
+	require.NoError(t, app.Save(record))
+}
+
 func TestNewTestApp(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)

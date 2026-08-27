@@ -10,8 +10,6 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"padelleague/league"
 )
 
 // Dispute resolve auto-determines winner from score (pair2 wins)
@@ -386,7 +384,7 @@ func TestWalkoverApprove_AlreadyFinal_RejectedNoDoublePenalty(t *testing.T) {
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("default_penalty", 5)
 		comp.Set("walkover_score", "6-0 6-0")
-		require.NoError(tb, league.AccumulatePenalty(app, comp, p2.Id, 5))
+		makePenaltyTB(tb, app, comp.Id, p2.Id, 5, "Walkover aprobado", admin.Id, false)
 		compID = comp.Id
 		// Simulates the state right after a first, successful approval.
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
