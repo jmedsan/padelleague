@@ -346,6 +346,8 @@ type RoundMatchView struct {
 	Match     *core.Record
 	Pair1     string
 	Pair2     string
+	Feeder1   string
+	Feeder2   string
 	IsMyMatch bool
 }
 
@@ -357,13 +359,29 @@ type BracketRound struct {
 
 func buildBracket(rounds []RoundView, maxRound int) []BracketRound {
 	var bracket []BracketRound
-	for _, r := range rounds {
+	for ri, r := range rounds {
+		matches := r.Matches
+		if ri > 0 {
+			prevRound := rounds[ri-1].RoundNumber
+			for mi := range matches {
+				populateFeeder(&matches[mi], prevRound, mi)
+			}
+		}
 		bracket = append(bracket, BracketRound{
 			Name:    bracketRoundName(r.RoundNumber, maxRound),
-			Matches: r.Matches,
+			Matches: matches,
 		})
 	}
 	return bracket
+}
+
+func populateFeeder(m *RoundMatchView, prevRound, matchIdx int) {
+	if m.Pair1 == "" {
+		m.Feeder1 = fmt.Sprintf("Ganador de J%d-%d", prevRound, matchIdx*2+1)
+	}
+	if m.Pair2 == "" {
+		m.Feeder2 = fmt.Sprintf("Ganador de J%d-%d", prevRound, matchIdx*2+2)
+	}
 }
 
 func bracketRoundName(round, maxRound int) string {
