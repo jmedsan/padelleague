@@ -14,13 +14,13 @@ import (
 	"padelleague/league"
 )
 
-// Dispute resolve with manual winner = pair2
+// Dispute resolve auto-determines winner from score (pair2 wins)
 
-func TestDisputeResolveManualWinnerPair2(t *testing.T) {
+func TestDisputeResolveAutoWinnerPair2(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "POST /admin/disputes/{id}/resolve manual winner pair2",
+		Name:           "POST /admin/disputes/{id}/resolve auto-determines pair2 as winner",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
@@ -35,7 +35,7 @@ func TestDisputeResolveManualWinnerPair2(t *testing.T) {
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
 		matchID = match.Id
 		s.URL = "/admin/disputes/" + match.Id + "/resolve"
-		s.Body = strings.NewReader("score=6-3+6-4&winner=" + p2.Id)
+		s.Body = strings.NewReader("score=3-6+4-6")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -44,50 +44,22 @@ func TestDisputeResolveManualWinnerPair2(t *testing.T) {
 		m, err := app.FindRecordById("matches", matchID)
 		require.NoError(tb, err)
 		assert.Equal(tb, "final", m.GetString("status"))
-		assert.Equal(tb, "6-3 6-4", m.GetString("scores"))
+		assert.Equal(tb, "3-6 4-6", m.GetString("scores"))
 		assert.Equal(tb, p2ID, m.GetString("winner"))
 	}
 	s.Test(t)
 }
 
-// Dispute resolve with manual winner = invalid pair (not in match)
+// Dispute resolve with invalid score → rejected
 
-func TestDisputeResolveManualWinnerInvalid(t *testing.T) {
+func TestDisputeResolveInvalidScore(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "POST /admin/disputes/{id}/resolve rejects winner not in match",
+		Name:            "POST /admin/disputes/{id}/resolve rejects invalid score",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"El ganador debe ser una de las dos parejas"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
-		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "DispInvA")
-		p2 := makePairTB(tb, app, "DispInvB")
-		outsider := makePairTB(tb, app, "Outsider")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, outsider})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
-		s.URL = "/admin/disputes/" + match.Id + "/resolve"
-		s.Body = strings.NewReader("score=6-3+6-4&winner=" + outsider.Id)
-		hdrs := authHeaders(tb, admin)
-		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-		s.Headers = hdrs
-	}
-	s.Test(t)
-}
-
-// Dispute resolve with manual winner + invalid score → rejected
-
-func TestDisputeResolveManualWinnerInvalidScore(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "POST /admin/disputes/{id}/resolve rejects invalid score with manual winner",
-		Method:          http.MethodPost,
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"Marcador inválido"},
+		ExpectedContent: []string{"Marcador no válido"},
 	}
 	var matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -99,7 +71,7 @@ func TestDisputeResolveManualWinnerInvalidScore(t *testing.T) {
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
 		matchID = match.Id
 		s.URL = "/admin/disputes/" + match.Id + "/resolve"
-		s.Body = strings.NewReader("score=99-99&winner=" + p1.Id)
+		s.Body = strings.NewReader("score=99-99")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs

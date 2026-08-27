@@ -141,23 +141,10 @@ func (h *DisputeHandler) DisputesResolve(e *core.RequestEvent) error {
 		return alertError(e, "Debes ingresar un marcador")
 	}
 
-	manualWinner := e.Request.FormValue("winner")
-	var winnerID string
-	if manualWinner != "" {
-		if manualWinner != match.GetString("pair1") && manualWinner != match.GetString("pair2") {
-			return alertError(e, "El ganador debe ser una de las dos parejas")
-		}
-		if _, err := league.ParseScore(score); err != nil {
-			return alertError(e, "Marcador inválido")
-		}
-		winnerID = manualWinner
-	} else {
-		var err error
-		winnerID, err = league.DetermineWinner(match, score)
-		if err != nil {
-			slog.Error("determine winner in dispute resolution", "match", match.Id, "err", err)
-			return alertError(e, "Marcador inválido. Selecciona el ganador manualmente.")
-		}
+	winnerID, err := league.DetermineWinner(match, score)
+	if err != nil {
+		slog.Error("determine winner in dispute resolution", "match", match.Id, "err", err)
+		return alertError(e, "Marcador no válido")
 	}
 
 	match.Set("scores", score)

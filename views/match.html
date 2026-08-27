@@ -133,12 +133,12 @@
                     </div>
                     <form id="dispute-form" class="hidden mt-3" hx-post="/match/{{.Match.Record.Id}}/dispute" hx-target="#action-result">
                         <div class="form-control">
-                            <label class="label py-1"><span class="label-text text-xs">Marcador correcto (según tú)</span></label>
-                            <input type="text" name="disputed_scores" class="input input-bordered input-sm" placeholder="6-4 4-6 5-7">
+                            <label class="label py-1"><span class="label-text text-xs">Marcador correcto (según tú) *</span></label>
+                            <input type="text" name="disputed_scores" class="input input-bordered input-sm" placeholder="6-4 4-6 5-7" required>
                         </div>
                         <div class="form-control mt-2">
-                            <label class="label py-1"><span class="label-text text-xs">Motivo de la disputa</span></label>
-                            <textarea name="dispute_notes" class="textarea textarea-bordered" placeholder="Describe el problema con el resultado..." required></textarea>
+                            <label class="label py-1"><span class="label-text text-xs">Comentario (opcional)</span></label>
+                            <textarea name="dispute_notes" class="textarea textarea-bordered" placeholder="Describe el problema con el resultado..."></textarea>
                         </div>
                         <button type="submit" class="btn btn-error mt-2 w-full">Enviar disputa</button>
                     </form>
