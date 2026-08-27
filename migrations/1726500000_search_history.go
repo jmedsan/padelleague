@@ -16,6 +16,7 @@ func init() {
 		col.Fields.Add(
 			&core.RelationField{Name: "user", CollectionId: users.Id, Required: true, MaxSelect: 1, CascadeDelete: true},
 			&core.TextField{Name: "query", Required: true, Max: 500},
+			&core.AutodateField{Name: "created", OnCreate: true},
 		)
 		col.ListRule = strPtr("user = @request.auth.id")
 		col.ViewRule = strPtr("user = @request.auth.id")

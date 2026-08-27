@@ -222,7 +222,7 @@ func TestSampleLeague(t *testing.T) {
 
 	notifier := notify.NewNotifier(app, "", "")
 	svc := league.New(app, notifier)
-	hooks.Register(app, svc, notifier)
+	hooks.Register(app, svc, notifier, nil)
 
 	require.NoError(t, SampleLeaguePartial(app, SampleOptions{Players: true, Pairs: true, Competitions: true, Matches: true}))
 

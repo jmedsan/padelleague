@@ -11,6 +11,7 @@ import (
 
 	"padelleague/league"
 	"padelleague/notify"
+	"padelleague/search"
 )
 
 var validTransitions = map[string][]string{
@@ -105,7 +106,7 @@ func remindCompetitionMatches(app core.App, notifier *notify.Notifier, comp *cor
 }
 
 // Register wires all PocketBase event hooks and cron jobs onto the given app.
-func Register(app core.App, svc *league.Service, notifier *notify.Notifier) {
+func Register(app core.App, svc *league.Service, notifier *notify.Notifier, searchIndex *search.Index) {
 	app.OnRecordCreate("users").BindFunc(func(e *core.RecordEvent) error {
 		if len(e.Record.GetStringSlice("roles")) == 0 {
 			e.Record.Set("roles", []string{"player"})
@@ -137,4 +138,21 @@ func Register(app core.App, svc *league.Service, notifier *notify.Notifier) {
 	app.Cron().MustAdd("confirmation-reminders", "0 */6 * * *", func() {
 		svc.RemindPendingConfirmations(time.Now())
 	})
+
+	if searchIndex != nil {
+		rebuildSearchIndex(app, searchIndex)
+		app.Cron().MustAdd("search-index-rebuild", "*/10 * * * *", func() {
+			rebuildSearchIndex(app, searchIndex)
+		})
+	}
+}
+
+func rebuildSearchIndex(app core.App, idx *search.Index) {
+	entries := search.Build(app)
+	if len(entries) == 0 {
+		slog.Error("search: rebuild produced zero entries, keeping previous index")
+		return
+	}
+	idx.Replace(entries)
+	slog.Info("search: index rebuilt", "entries", len(entries))
 }
