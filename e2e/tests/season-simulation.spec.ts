@@ -395,9 +395,10 @@ async function confirmScore(page: Page, matchId: string) {
   await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Confirmar")'));
 }
 
-async function disputeScore(page: Page, matchId: string) {
+async function disputeScore(page: Page, matchId: string, counterScore: string) {
   await page.goto(`/match/${matchId}`);
   await page.locator('button:has-text("Disputar")').click();
+  await page.locator('input[name="disputed_scores"]').fill(counterScore);
   await page.locator('textarea[name="dispute_notes"]').fill('Score is wrong');
   await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar disputa")'));
 }
@@ -480,7 +481,7 @@ async function playAllMatches(page: Page, fixtures: MatchFixture[]) {
       await loginAs(page, submitterEmail, PLAYER_PASSWORD);
       await submitScore(page, f.id, f.orientedScore);
       await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
-      await disputeScore(page, f.id);
+      await disputeScore(page, f.id, '6-0 6-0');
       await adminResolveDispute(page, f.id, f.orientedScore);
     } else if (i === 10) {
       // Match 10: proposal rejected, second proposal accepted, then submit + confirm

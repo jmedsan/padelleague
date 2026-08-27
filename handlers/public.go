@@ -359,17 +359,10 @@ type BracketRound struct {
 
 func buildBracket(rounds []RoundView, maxRound int) []BracketRound {
 	var bracket []BracketRound
-	for ri, r := range rounds {
-		matches := r.Matches
-		if ri > 0 {
-			prevRound := rounds[ri-1].RoundNumber
-			for mi := range matches {
-				populateFeeder(&matches[mi], prevRound, mi)
-			}
-		}
+	for _, r := range rounds {
 		bracket = append(bracket, BracketRound{
 			Name:    bracketRoundName(r.RoundNumber, maxRound),
-			Matches: matches,
+			Matches: r.Matches,
 		})
 	}
 	return bracket
@@ -572,6 +565,12 @@ func buildRounds(matches []*core.Record, pairNames map[string]string, playerPair
 	rounds := make([]RoundView, 0, len(roundNums))
 	for _, rn := range roundNums {
 		rounds = append(rounds, RoundView{RoundNumber: rn, Matches: roundMap[rn]})
+	}
+	for ri := 1; ri < len(rounds); ri++ {
+		prevRound := rounds[ri-1].RoundNumber
+		for mi := range rounds[ri].Matches {
+			populateFeeder(&rounds[ri].Matches[mi], prevRound, mi)
+		}
 	}
 	return rounds
 }
