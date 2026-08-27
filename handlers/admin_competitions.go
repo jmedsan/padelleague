@@ -65,6 +65,25 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 
 	phase := league.PhaseOf(comp, time.Now())
 
+	attachedIDs := comp.GetStringSlice("documents")
+	var attachedDocs []*core.Record
+	for _, did := range attachedIDs {
+		if doc, err2 := h.app.FindRecordById("documents", did); err2 == nil {
+			attachedDocs = append(attachedDocs, doc)
+		}
+	}
+	attachedSet := make(map[string]struct{}, len(attachedIDs))
+	for _, did := range attachedIDs {
+		attachedSet[did] = struct{}{}
+	}
+	allDocs, _ := h.app.FindRecordsByFilter("documents", "", "title", 0, 0, nil)
+	var unattachedDocs []*core.Record
+	for _, d := range allDocs {
+		if _, ok := attachedSet[d.Id]; !ok {
+			unattachedDocs = append(unattachedDocs, d)
+		}
+	}
+
 	return h.renderPage(e, "admin/competition-detail.html", map[string]any{
 		"Competition":     comp,
 		"Entries":         pairEntries,
@@ -80,6 +99,8 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"HasUnpaid":       anyUnpaid(pairEntries),
 		"RoundDates":      roundDates,
 		"Phase":           phase,
+		"AttachedDocs":    attachedDocs,
+		"UnattachedDocs":  unattachedDocs,
 	})
 }
 
