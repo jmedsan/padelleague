@@ -207,3 +207,15 @@ func buildVenues(app core.App) []Entry {
 	}
 	return entries
 }
+
+// Rebuild replaces the index from a fresh build, keeping the previous index when
+// the build yields nothing. Used at startup and by the rebuild cron.
+func (ix *Index) Rebuild(app core.App) {
+	entries := Build(app)
+	if len(entries) == 0 {
+		slog.Error("search: rebuild produced zero entries, keeping previous index")
+		return
+	}
+	ix.Replace(entries)
+	slog.Info("search: index rebuilt", "entries", len(entries))
+}
