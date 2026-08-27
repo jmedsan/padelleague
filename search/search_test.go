@@ -146,3 +146,68 @@ func TestVisibleTo(t *testing.T) {
 	assert.True(t, ownComp.visibleTo(admin))
 	assert.True(t, foreignComp.visibleTo(admin))
 }
+
+func TestKeywordSearch(t *testing.T) {
+	t.Parallel()
+	entries := []Entry{
+		NewEntry(Entry{Label: "A vs B (J1)", Type: "partido", URL: "/match/1", Keywords: []string{"partido", "jornada 1"}, Scope: Scope{Public: true}}),
+		NewEntry(Entry{Label: "Pendientes", Secondary: "Partidos pendientes", Type: "página", URL: "/admin/outstanding", Keywords: []string{"partido", "partidos", "jornada"}, Scope: Scope{Admin: true}}),
+		NewEntry(Entry{Label: "Penalizaciones", Secondary: "Gestión de penalizaciones", Type: "página", URL: "/admin", Keywords: []string{"penalización", "walkover"}, Scope: Scope{Admin: true}}),
+		NewEntry(Entry{Label: "Clasificación", Secondary: "Tabla de clasificación", Type: "página", URL: "/", Keywords: []string{"ranking", "tabla"}, Scope: Scope{Public: true}}),
+	}
+	ix := &Index{}
+	ix.Replace(entries)
+	admin := Viewer{IsAdmin: true, CompIDs: map[string]struct{}{}}
+
+	tests := []struct {
+		query string
+		want  string
+	}{
+		{"partidos", "Pendientes"},
+		{"jornada", "Pendientes"},
+		{"penalización", "Penalizaciones"},
+		{"walkover", "Penalizaciones"},
+		{"ranking", "Clasificación"},
+	}
+	for _, tc := range tests {
+		results := ix.Search(tc.query, admin, 10)
+		require.NotEmpty(t, results, "query %q must return results", tc.query)
+		found := false
+		for _, r := range results {
+			if r.Label == tc.want {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "query %q must find %q in results", tc.query, tc.want)
+	}
+}
+
+func TestSecondarySearch(t *testing.T) {
+	t.Parallel()
+	entries := []Entry{
+		NewEntry(Entry{Label: "Pendientes", Secondary: "Partidos pendientes", Type: "página", URL: "/admin/outstanding", Scope: Scope{Admin: true}}),
+	}
+	ix := &Index{}
+	ix.Replace(entries)
+	admin := Viewer{IsAdmin: true, CompIDs: map[string]struct{}{}}
+
+	results := ix.Search("partidos", admin, 10)
+	require.NotEmpty(t, results, "secondary text 'partidos' must match")
+	assert.Equal(t, "Pendientes", results[0].Label)
+}
+
+func TestLabelMatchOutranksKeyword(t *testing.T) {
+	t.Parallel()
+	entries := []Entry{
+		NewEntry(Entry{Label: "Partidos", Type: "página", URL: "/partidos", Keywords: []string{"partido"}, Scope: Scope{Public: true}}),
+		NewEntry(Entry{Label: "Pendientes", Type: "página", URL: "/admin/outstanding", Keywords: []string{"partido", "partidos"}, Scope: Scope{Admin: true}}),
+	}
+	ix := &Index{}
+	ix.Replace(entries)
+	admin := Viewer{IsAdmin: true, CompIDs: map[string]struct{}{}}
+
+	results := ix.Search("partidos", admin, 10)
+	require.Len(t, results, 2)
+	assert.Equal(t, "Partidos", results[0].Label, "label match must rank above keyword match")
+}

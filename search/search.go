@@ -22,12 +22,14 @@ type Scope struct {
 
 // Entry is a single searchable item in the index.
 type Entry struct {
-	Label     string
-	folded    string
-	Secondary string
-	Type      string
-	URL       string
-	Scope     Scope
+	Label      string
+	folded     string
+	searchText string
+	Secondary  string
+	Type       string
+	URL        string
+	Keywords   []string
+	Scope      Scope
 }
 
 // Index holds the search entries behind a read-write lock.
@@ -51,9 +53,20 @@ type Result struct {
 	Score     float64
 }
 
-// NewEntry computes the folded label for accent-insensitive matching.
+// NewEntry computes the folded label and searchable text for matching.
 func NewEntry(e Entry) Entry {
 	e.folded = fold(e.Label)
+	parts := []string{e.folded}
+	if e.Secondary != "" {
+		parts = append(parts, fold(e.Secondary))
+	}
+	if e.Type != "" {
+		parts = append(parts, fold(e.Type))
+	}
+	for _, kw := range e.Keywords {
+		parts = append(parts, fold(kw))
+	}
+	e.searchText = strings.Join(parts, " ")
 	return e
 }
 
@@ -106,27 +119,32 @@ type scored struct {
 }
 
 func rankEntries(fq string, visible []Entry) []scored {
-	labels := make([]string, len(visible))
+	labelTexts := make([]string, len(visible))
+	fullTexts := make([]string, len(visible))
 	for i, e := range visible {
-		labels[i] = e.folded
+		labelTexts[i] = e.folded
+		fullTexts[i] = e.searchText
 	}
-	fuzzyMatches := fuzzy.Find(fq, labels)
-	fuzzyHit := make(map[int]float64, len(fuzzyMatches))
-	for _, m := range fuzzyMatches {
-		s := float64(m.Score)
-		if len(m.Str) > 0 {
-			s /= float64(len(m.Str))
-		}
-		fuzzyHit[m.Index] = s
-	}
+
+	labelHit := fuzzyScoreMap(fq, labelTexts)
+	fullHit := fuzzyScoreMap(fq, fullTexts)
 
 	var hits []scored
 	for i, e := range visible {
-		if s, ok := fuzzyHit[i]; ok {
-			hits = append(hits, scored{e, s})
+		_, inLabel := labelHit[i]
+		_, inFull := fullHit[i]
+		if inLabel || inFull {
+			best := math.Inf(-1)
+			if inLabel {
+				best = labelHit[i] * 2.0
+			}
+			if inFull && fullHit[i] > best {
+				best = fullHit[i]
+			}
+			hits = append(hits, scored{e, best})
 			continue
 		}
-		if s := wordSimilarity(fq, e.folded); s >= 0.6 {
+		if s := wordSimilarity(fq, e.searchText); s >= 0.6 {
 			hits = append(hits, scored{e, s})
 		}
 	}
@@ -135,6 +153,19 @@ func rankEntries(fq string, visible []Entry) []scored {
 		return hits[i].score > hits[j].score
 	})
 	return hits
+}
+
+func fuzzyScoreMap(query string, targets []string) map[int]float64 {
+	matches := fuzzy.Find(query, targets)
+	result := make(map[int]float64, len(matches))
+	for _, m := range matches {
+		s := float64(m.Score)
+		if len(m.Str) > 0 {
+			s /= float64(len(m.Str))
+		}
+		result[m.Index] = s
+	}
+	return result
 }
 
 func (e Entry) visibleTo(v Viewer) bool {
