@@ -170,6 +170,89 @@ func TestSortOutstanding_SameWarning_TiebreakByDeadline(t *testing.T) {
 	assert.Equal(t, "headsup", out[3].MatchID)
 }
 
+func TestPlayoffPrompts(t *testing.T) {
+	t.Parallel()
+
+	finishedLeague := func(t *testing.T, app core.App, allFinal bool) *core.Record {
+		t.Helper()
+		p1 := makePair(t, app, "PPA")
+		p2 := makePair(t, app, "PPB")
+		comp := makeCompetition(t, app, []*core.Record{p1, p2})
+		comp.Set("finalized", true)
+		require.NoError(t, app.Save(comp))
+		status := StatusFinal
+		if !allFinal {
+			status = StatusPending
+		}
+		makeMatch(t, app, comp.Id, p1.Id, p2.Id, status)
+		return comp
+	}
+
+	tests := []struct {
+		name    string
+		setup   func(t *testing.T, app core.App) []*core.Record
+		wantLen int
+	}{
+		{
+			name: "returns finished league with all matches final",
+			setup: func(t *testing.T, app core.App) []*core.Record {
+				comp := finishedLeague(t, app, true)
+				return []*core.Record{comp}
+			},
+			wantLen: 1,
+		},
+		{
+			name: "empty when a non-final match exists",
+			setup: func(t *testing.T, app core.App) []*core.Record {
+				comp := finishedLeague(t, app, false)
+				return []*core.Record{comp}
+			},
+			wantLen: 0,
+		},
+		{
+			name: "empty when PhaseOf != PhaseFinished",
+			setup: func(t *testing.T, app core.App) []*core.Record {
+				p1 := makePair(t, app, "PPC")
+				p2 := makePair(t, app, "PPD")
+				comp := makeCompetition(t, app, []*core.Record{p1, p2})
+				makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusFinal)
+				return []*core.Record{comp}
+			},
+			wantLen: 0,
+		},
+		{
+			name: "empty when an active playoff exists",
+			setup: func(t *testing.T, app core.App) []*core.Record {
+				comp := finishedLeague(t, app, true)
+				col, err := app.FindCollectionByNameOrId("competitions")
+				require.NoError(t, err)
+				playoff := core.NewRecord(col)
+				playoff.Set("name", "Playoff")
+				playoff.Set("type", "playoff")
+				playoff.Set("active", true)
+				playoff.Set("pairs", comp.GetStringSlice("pairs"))
+				require.NoError(t, app.Save(playoff))
+				return []*core.Record{comp, playoff}
+			},
+			wantLen: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			app := newTestApp(t)
+			activeComps := tt.setup(t, app)
+			got := PlayoffPrompts(app, activeComps, time.Now())
+			assert.Len(t, got, tt.wantLen)
+			if tt.wantLen > 0 {
+				assert.Equal(t, activeComps[0].Id, got[0].CompID)
+				assert.Equal(t, activeComps[0].GetString("name"), got[0].CompName)
+			}
+		})
+	}
+}
+
 func TestSortAlerts_OrderByKind(t *testing.T) {
 	t.Parallel()
 	alerts := []AdminAlert{

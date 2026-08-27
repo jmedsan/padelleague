@@ -2,6 +2,7 @@ package league
 
 import (
 	"cmp"
+	"log/slog"
 	"slices"
 	"time"
 
@@ -261,6 +262,43 @@ func pairNamesForMatch(app core.App, m *core.Record) (string, string) {
 		p2Name = p.GetString("name")
 	}
 	return p1Name, p2Name
+}
+
+// PlayoffPrompt names a finished league that should prompt a playoff.
+type PlayoffPrompt struct {
+	CompID   string
+	CompName string
+}
+
+// PlayoffPrompts returns finished league competitions with no active playoff,
+// so the admin is prompted to create one. A running playoff suppresses all
+// prompts (see the single-competition limitation in Technical Decisions).
+func PlayoffPrompts(app core.App, activeComps []*core.Record, now time.Time) []PlayoffPrompt {
+	if slices.ContainsFunc(activeComps, IsPlayoff) {
+		return nil
+	}
+	var prompts []PlayoffPrompt
+	for _, c := range activeComps {
+		if IsPlayoff(c) || PhaseOf(c, now) != PhaseFinished {
+			continue
+		}
+		if !allMatchesFinal(app, c.Id) {
+			continue
+		}
+		prompts = append(prompts, PlayoffPrompt{CompID: c.Id, CompName: c.GetString("name")})
+	}
+	return prompts
+}
+
+func allMatchesFinal(app core.App, compID string) bool {
+	pending, err := app.FindRecordsByFilter("matches",
+		"competition = {:cid} && status != 'final'", "", 1, 0,
+		map[string]any{"cid": compID})
+	if err != nil {
+		slog.Error("playoff prompts: count non-final matches", "comp", compID, "err", err)
+		return false
+	}
+	return len(pending) == 0
 }
 
 func sortAlerts(alerts []AdminAlert) {
