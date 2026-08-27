@@ -470,28 +470,43 @@ func playersOfPair(txApp core.App, pairID string) []string {
 	return []string{pair.GetString("player1"), pair.GetString("player2")}
 }
 
+// createReglamentoPDFDoc creates the bundled sample reglamento as a file document
+// and returns its ID, or "" when no PDF is available (link docs still get added).
+func createReglamentoPDFDoc(txApp core.App, col *core.Collection, staticFS fs.FS) (string, error) {
+	if staticFS == nil {
+		return "", nil
+	}
+	b, err := fs.ReadFile(staticFS, "static/docs/reglamento-liga-amistosa.pdf")
+	if err != nil {
+		return "", nil
+	}
+	f, err := filesystem.NewFileFromBytes(b, "reglamento-liga-amistosa.pdf")
+	if err != nil {
+		return "", nil
+	}
+	rec := core.NewRecord(col)
+	rec.Set("title", "Reglamento de la liga (amistosa)")
+	rec.Set("is_mandatory", true)
+	rec.Set("is_default", true)
+	rec.Set("file", f)
+	if err := txApp.Save(rec); err != nil {
+		return "", fmt.Errorf("create document reglamento PDF: %w", err)
+	}
+	return rec.Id, nil
+}
+
 func createSampleDocuments(txApp core.App, comp *core.Record, staticFS fs.FS) error {
 	col, err := txApp.FindCollectionByNameOrId("documents")
 	if err != nil {
 		return fmt.Errorf("find documents collection: %w", err)
 	}
 	var docIDs []string
-	if staticFS != nil {
-		b, err := fs.ReadFile(staticFS, "static/docs/reglamento-liga-amistosa.pdf")
-		if err == nil {
-			f, err := filesystem.NewFileFromBytes(b, "reglamento-liga-amistosa.pdf")
-			if err == nil {
-				rec := core.NewRecord(col)
-				rec.Set("title", "Reglamento de la liga (amistosa)")
-				rec.Set("is_mandatory", true)
-				rec.Set("is_default", true)
-				rec.Set("file", f)
-				if err := txApp.Save(rec); err != nil {
-					return fmt.Errorf("create document reglamento PDF: %w", err)
-				}
-				docIDs = append(docIDs, rec.Id)
-			}
-		}
+	pdfID, err := createReglamentoPDFDoc(txApp, col, staticFS)
+	if err != nil {
+		return err
+	}
+	if pdfID != "" {
+		docIDs = append(docIDs, pdfID)
 	}
 	type docSpec struct {
 		title     string
