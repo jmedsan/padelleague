@@ -118,6 +118,18 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 		return alertError(e, "Error al crear la competición")
 	}
 
+	defaults, _ := h.app.FindRecordsByFilter("documents", "is_default = true", "", 0, 0, nil)
+	if len(defaults) > 0 {
+		ids := make([]string, len(defaults))
+		for i, d := range defaults {
+			ids[i] = d.Id
+		}
+		record.Set("documents", ids)
+		if err := h.app.Save(record); err != nil {
+			slog.Error("preload default documents", "comp", record.Id, "err", err)
+		}
+	}
+
 	return redirectHX(e, "/admin/competitions")
 }
 
@@ -450,4 +462,32 @@ func setSchedulingFields(record *core.Record, e *core.RequestEvent) {
 		}
 	}
 	record.Set("recovery_days", rd)
+}
+
+// AttachDocument adds a document to a competition's attached documents.
+func (h *CompetitionHandler) AttachDocument(e *core.RequestEvent) error {
+	comp, err := h.app.FindRecordById("competitions", e.Request.PathValue("id"))
+	if err != nil {
+		return alertError(e, "Competición no encontrada")
+	}
+	docID := e.Request.FormValue("document")
+	comp.Set("documents", league.AppendUnique(comp.GetStringSlice("documents"), docID))
+	if err := h.app.Save(comp); err != nil {
+		return alertError(e, "Error al adjuntar el documento")
+	}
+	return redirectHX(e, "/admin/competitions/"+comp.Id)
+}
+
+// DetachDocument removes a document from a competition without deleting it.
+func (h *CompetitionHandler) DetachDocument(e *core.RequestEvent) error {
+	comp, err := h.app.FindRecordById("competitions", e.Request.PathValue("id"))
+	if err != nil {
+		return alertError(e, "Competición no encontrada")
+	}
+	docID := e.Request.PathValue("docId")
+	comp.Set("documents", league.RemoveString(comp.GetStringSlice("documents"), docID))
+	if err := h.app.Save(comp); err != nil {
+		return alertError(e, "Error al quitar el documento")
+	}
+	return redirectHX(e, "/admin/competitions/"+comp.Id)
 }
