@@ -6,7 +6,20 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 
 	"padelleague/league"
+	"padelleague/notify"
 )
+
+// DisputeHandler handles admin dispute resolution and walkover approval.
+type DisputeHandler struct {
+	app        core.App
+	notifier   *notify.Notifier
+	renderPage RenderFunc
+}
+
+// NewDisputeHandler creates a DisputeHandler with the given dependencies.
+func NewDisputeHandler(app core.App, notifier *notify.Notifier, renderPage RenderFunc) *DisputeHandler {
+	return &DisputeHandler{app: app, notifier: notifier, renderPage: renderPage}
+}
 
 // DisputeView holds a disputed match with resolved pair and player names.
 type DisputeView struct {
@@ -21,7 +34,7 @@ type DisputeView struct {
 }
 
 // Disputes renders the admin disputes page listing all disputed matches.
-func (h *AdminHandler) Disputes(e *core.RequestEvent) error {
+func (h *DisputeHandler) Disputes(e *core.RequestEvent) error {
 	matches, _ := h.app.FindRecordsByFilter("matches",
 		"status = 'disputed'", "created", 0, 0, nil)
 
@@ -48,7 +61,7 @@ func (h *AdminHandler) Disputes(e *core.RequestEvent) error {
 }
 
 // WalkoverApprove handles POST to approve a walkover request, finalizing the match.
-func (h *AdminHandler) WalkoverApprove(e *core.RequestEvent) error {
+func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := findMatchOr404(h.app, e, id)
 	if err != nil {
@@ -108,7 +121,7 @@ func (h *AdminHandler) WalkoverApprove(e *core.RequestEvent) error {
 }
 
 // DisputesResolve handles POST to resolve a disputed match with the admin's chosen score.
-func (h *AdminHandler) DisputesResolve(e *core.RequestEvent) error {
+func (h *DisputeHandler) DisputesResolve(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := findMatchOr404(h.app, e, id)
 	if err != nil {
@@ -158,7 +171,7 @@ func (h *AdminHandler) DisputesResolve(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
-func (h *AdminHandler) notifyMatchPlayers(match *core.Record, notifType, title, body string) {
+func (h *DisputeHandler) notifyMatchPlayers(match *core.Record, notifType, title, body string) {
 	allPlayers := append(league.PlayersForPair(h.app, match.GetString("pair1")),
 		league.PlayersForPair(h.app, match.GetString("pair2"))...)
 	h.notifier.NotifyPlayers(allPlayers, league.Notification{
