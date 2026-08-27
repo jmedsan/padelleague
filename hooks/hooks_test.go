@@ -31,14 +31,14 @@ func newTestApp(t *testing.T) *tests.TestApp {
 func registerHooks(t *testing.T, app *tests.TestApp) {
 	t.Helper()
 	svc := league.New(app, nil)
-	Register(app, svc, nil)
+	Register(app, svc, nil, nil)
 }
 
 func registerHooksWithNotifier(t *testing.T, app *tests.TestApp) {
 	t.Helper()
 	svc := league.New(app, nil)
 	notifier := notify.NewNotifier(app, "", "")
-	Register(app, svc, notifier)
+	Register(app, svc, notifier, nil)
 }
 
 func makeAdminUser(t *testing.T, app core.App) {

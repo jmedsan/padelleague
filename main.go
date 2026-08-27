@@ -16,6 +16,7 @@ import (
 	"padelleague/notify"
 	"padelleague/render"
 	"padelleague/routes"
+	"padelleague/search"
 	"padelleague/seed"
 )
 
@@ -37,7 +38,8 @@ func main() {
 	notifier := notify.NewNotifier(app, cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey)
 	leagueSvc := league.New(app, notifier)
 
-	hooks.Register(app, leagueSvc, notifier)
+	searchIndex := &search.Index{}
+	hooks.Register(app, leagueSvc, notifier, searchIndex)
 
 	slog.Info("startup",
 		"app_env", cfg.AppEnv,
