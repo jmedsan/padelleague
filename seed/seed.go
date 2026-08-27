@@ -511,6 +511,14 @@ func createSamplePlayoff(txApp core.App, pairIDs []string) error {
 	comp.Set("type", "playoff")
 	comp.Set("active", true)
 	comp.Set("pairs", pairIDs)
+	defaults, _ := txApp.FindRecordsByFilter("documents", "is_default = true", "", 0, 0, nil)
+	if len(defaults) > 0 {
+		ids := make([]string, len(defaults))
+		for i, d := range defaults {
+			ids[i] = d.Id
+		}
+		comp.Set("documents", ids)
+	}
 	if err := txApp.Save(comp); err != nil {
 		return fmt.Errorf("create sample playoff: %w", err)
 	}
