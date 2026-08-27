@@ -149,14 +149,3 @@ func groupByType(results []search.Result) []groupedResults {
 	}
 	return groups
 }
-
-// RebuildIndex rebuilds the search index from the current database state.
-func RebuildIndex(app core.App, index *search.Index) {
-	entries := search.Build(app)
-	if len(entries) == 0 {
-		slog.Error("search: rebuild produced zero entries, keeping previous index")
-		return
-	}
-	index.Replace(entries)
-	slog.Info("search: index rebuilt", "entries", len(entries))
-}

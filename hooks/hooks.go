@@ -141,21 +141,11 @@ func Register(app core.App, svc *league.Service, notifier *notify.Notifier, sear
 
 	if searchIndex != nil {
 		app.OnServe().BindFunc(func(e *core.ServeEvent) error {
-			rebuildSearchIndex(app, searchIndex)
+			searchIndex.Rebuild(app)
 			return e.Next()
 		})
 		app.Cron().MustAdd("search-index-rebuild", "*/10 * * * *", func() {
-			rebuildSearchIndex(app, searchIndex)
+			searchIndex.Rebuild(app)
 		})
 	}
-}
-
-func rebuildSearchIndex(app core.App, idx *search.Index) {
-	entries := search.Build(app)
-	if len(entries) == 0 {
-		slog.Error("search: rebuild produced zero entries, keeping previous index")
-		return
-	}
-	idx.Replace(entries)
-	slog.Info("search: index rebuilt", "entries", len(entries))
 }
