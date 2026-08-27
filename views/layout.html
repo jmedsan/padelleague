@@ -58,7 +58,7 @@
                 <div class="hidden lg:flex items-center gap-1">
                     <ul class="menu menu-horizontal px-1 gap-1">
                         <li><a href="/" class="rounded-lg">Inicio</a></li>
-                        {{if .IsAdmin}}
+                        {{if .AdminView}}
                         <li>
                             <details>
                                 <summary class="rounded-lg">Gestión</summary>
@@ -71,6 +71,17 @@
                                     <li><a href="/admin/invitations">Invitaciones</a></li>
                                     <li><a href="/admin/venues">Pistas</a></li>
                                     <li><a href="/admin/settings">Configuración</a></li>
+                                </ul>
+                            </details>
+                        </li>
+                        {{end}}
+                        {{if .HasBothRoles}}
+                        <li>
+                            <details>
+                                <summary class="rounded-lg">Ver como: {{if eq .ViewAs "admin"}}Admin{{else}}Jugador{{end}}</summary>
+                                <ul class="bg-base-100 rounded-box shadow-lg p-2 z-30 w-40">
+                                    <li><a href="/view/admin">Admin</a></li>
+                                    <li><a href="/view/player">Jugador</a></li>
                                 </ul>
                             </details>
                         </li>
@@ -103,6 +114,9 @@
                     {{end}}
                 </div>
             </div>
+            {{if .AdminView}}
+            <div class="bg-error text-error-content text-center text-sm font-semibold py-1.5">Modo administrador</div>
+            {{end}}
             {{if and .DisplayName (not .Verified)}}
             <div id="verify-banner" class="alert alert-warning shadow-md mx-4 mt-4 max-w-[calc(100%-2rem)]">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
@@ -126,7 +140,7 @@
                 </div>
                 <ul class="menu p-4 gap-1">
                     <li><a href="/" class="rounded-lg font-medium">Inicio</a></li>
-                    {{if .IsAdmin}}
+                    {{if .AdminView}}
                     <li class="menu-title mt-4 text-xs uppercase tracking-wider opacity-60">Gestión</li>
                     <li><a href="/admin" class="rounded-lg">Panel</a></li>
                     <li><a href="/admin/pairs" class="rounded-lg">Parejas</a></li>
@@ -136,6 +150,11 @@
                     <li><a href="/admin/invitations" class="rounded-lg">Invitaciones</a></li>
                     <li><a href="/admin/venues" class="rounded-lg">Pistas</a></li>
                     <li><a href="/admin/settings" class="rounded-lg">Configuración</a></li>
+                    {{end}}
+                    {{if .HasBothRoles}}
+                    <li class="menu-title mt-4 text-xs uppercase tracking-wider opacity-60">Ver como</li>
+                    <li><a href="/view/admin" class="rounded-lg">Admin</a></li>
+                    <li><a href="/view/player" class="rounded-lg">Jugador</a></li>
                     {{end}}
                     <li class="mt-4">
                         <button onclick="toggleTheme()" class="rounded-lg">Cambiar tema</button>

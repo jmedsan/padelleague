@@ -87,6 +87,9 @@ func registerPublicRoutes(se *core.ServeEvent, deps Deps) {
 	ical := handlers.NewICalHandler(deps.App)
 	se.Router.GET("/ical/match/{id}", ical.Match).BindFunc(middleware.RequireAuth)
 	se.Router.GET("/ical/competition/{id}", ical.Competition).BindFunc(middleware.RequireAuth)
+
+	view := handlers.NewViewHandler()
+	se.Router.GET("/view/{mode}", view.Switch).BindFunc(middleware.RequireAuth)
 }
 
 func registerAdminRoutes(se *core.ServeEvent, deps Deps) {
