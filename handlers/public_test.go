@@ -9,6 +9,8 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/league"
 )
 
 // Cluster 1: Home shows only player's competitions, sets nextMatch
@@ -891,6 +893,204 @@ func TestHome_NoDatesGracefulDegradation(t *testing.T) {
 		body := readBody(tb, res)
 		assert.NotContains(tb, body, "Organiza antes del", "no deadline without dates")
 		assert.NotContains(tb, body, "Vencido", "no warning without dates")
+	}
+	s.Test(t)
+}
+
+// Cluster: Document gate + Documentos tab
+
+func TestCompetition_GateRendersForUnackedMandatory(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "competition page renders gate when mandatory doc unacked",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Documentos obligatorios"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "GateA")
+		p2 := makePairTB(tb, app, "GateB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		doc := makeDocumentTB(tb, app, "Reglamento", true, false, "https://example.com/regla")
+		comp.Set("documents", []string{doc.Id})
+		require.NoError(tb, app.Save(comp))
+
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "Reglamento")
+		assert.NotContains(tb, body, "Jornadas", "gate page must not show the normal tabs")
+	}
+	s.Test(t)
+}
+
+func TestCompetition_AcceptDocsThenNoGate(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST accept-docs records ack; next GET shows normal page",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, userID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "AckA")
+		p2 := makePairTB(tb, app, "AckB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		doc := makeDocumentTB(tb, app, "Reglamento", true, false, "https://example.com/regla")
+		comp.Set("documents", []string{doc.Id})
+		require.NoError(tb, app.Save(comp))
+
+		compID = comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		userID = user.Id
+		s.URL = "/competition/" + comp.Id + "/accept-docs"
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/competition/"+compID, res.Header.Get("HX-Redirect"))
+
+		acks, err := app.FindRecordsByFilter("document_acks",
+			"user = {:u} && competition = {:c}", "", 1, 0,
+			map[string]any{"u": userID, "c": compID})
+		require.NoError(tb, err)
+		require.Len(tb, acks, 1, "ack record must exist")
+		assert.NotEmpty(tb, acks[0].GetStringSlice("documents"), "acked docs must be recorded")
+	}
+	s.Test(t)
+}
+
+func TestCompetition_ReGateAfterNewMandatory(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "gate re-renders after a new mandatory doc is attached post-ack",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Documentos obligatorios"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "ReGateA")
+		p2 := makePairTB(tb, app, "ReGateB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		doc1 := makeDocumentTB(tb, app, "Reglamento", true, false, "https://example.com/r1")
+		comp.Set("documents", []string{doc1.Id})
+		require.NoError(tb, app.Save(comp))
+
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+
+		ack, err := league.FindOrNewAck(app, comp.Id, user.Id)
+		require.NoError(tb, err)
+		ack.Set("documents", []string{doc1.Id})
+		require.NoError(tb, app.Save(ack))
+
+		doc2 := makeDocumentTB(tb, app, "Tarifas", true, false, "https://example.com/t")
+		comp.Set("documents", []string{doc1.Id, doc2.Id})
+		require.NoError(tb, app.Save(comp))
+
+		s.URL = "/competition/" + comp.Id
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestCompetition_NoMandatoryNoGate(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "no mandatory docs means no gate — normal competition page",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Jornadas"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "NoGateA")
+		p2 := makePairTB(tb, app, "NoGateB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		doc := makeDocumentTB(tb, app, "Info", false, false, "https://example.com/info")
+		comp.Set("documents", []string{doc.Id})
+		require.NoError(tb, app.Save(comp))
+
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.NotContains(tb, body, "Documentos obligatorios", "no gate for non-mandatory docs")
+	}
+	s.Test(t)
+}
+
+func TestCompetition_DocumentosTabShown(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "competition page shows Documentos tab when docs attached",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Documentos"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "TabA")
+		p2 := makePairTB(tb, app, "TabB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		doc := makeDocumentTB(tb, app, "Info", false, false, "https://example.com/info")
+		comp.Set("documents", []string{doc.Id})
+		require.NoError(tb, app.Save(comp))
+
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "Documentos")
+		assert.Contains(tb, body, "Info")
+	}
+	s.Test(t)
+}
+
+func TestCompetition_NonParticipantNoGate(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "non-participant sees normal page even with mandatory docs",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Jornadas"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "PartA")
+		p2 := makePairTB(tb, app, "PartB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		doc := makeDocumentTB(tb, app, "Reglamento", true, false, "https://example.com/r")
+		comp.Set("documents", []string{doc.Id})
+		require.NoError(tb, app.Save(comp))
+
+		outsider := makeUserTB(tb, app, "Outsider", "")
+		s.URL = "/competition/" + comp.Id
+		s.Headers = authHeaders(tb, outsider)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.NotContains(tb, body, "Documentos obligatorios")
 	}
 	s.Test(t)
 }

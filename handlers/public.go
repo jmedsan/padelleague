@@ -397,6 +397,21 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		playerPairIDs[p.Id] = struct{}{}
 	}
 
+	if league.IsParticipant(comp, playerPairIDs) {
+		if pending := league.UnacknowledgedMandatory(h.app, comp, userID); len(pending) > 0 {
+			allDocs := league.AttachedDocuments(h.app, comp)
+			mandatoryIDs := make([]string, len(pending))
+			for i, d := range pending {
+				mandatoryIDs[i] = d.Id
+			}
+			return h.renderPage(e, "competition-docs-gate.html", map[string]any{
+				"Competition":  comp,
+				"Documents":    allDocs,
+				"MandatoryIDs": mandatoryIDs,
+			})
+		}
+	}
+
 	matches, _ := h.app.FindRecordsByFilter("matches",
 		"competition = {:cid}",
 		"round_number,created", 0, 0,
@@ -408,7 +423,29 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	autoExpandRound := firstIncompleteRound(rounds)
 
 	data := h.buildCompetitionData(comp, rounds, pairNames, autoExpandRound)
+	docs := league.AttachedDocuments(h.app, comp)
+	if len(docs) > 0 {
+		data["Documents"] = docs
+	}
 	return h.renderPage(e, "competition.html", data)
+}
+
+// AcceptDocs records that the player has read the competition's mandatory documents.
+func (h *PublicHandler) AcceptDocs(e *core.RequestEvent) error {
+	comp, err := h.app.FindRecordById("competitions", e.Request.PathValue("id"))
+	if err != nil {
+		return h.renderErrorPage(e, http.StatusNotFound, "Competición no encontrada")
+	}
+	mandatoryIDs := league.MandatoryDocIDs(h.app, comp)
+	ack, err := league.FindOrNewAck(h.app, comp.Id, e.Auth.Id)
+	if err != nil {
+		return alertError(e, "Error al registrar la lectura")
+	}
+	ack.Set("documents", mandatoryIDs)
+	if err := h.app.Save(ack); err != nil {
+		return alertError(e, "Error al registrar la lectura")
+	}
+	return redirectHX(e, "/competition/"+comp.Id)
 }
 
 func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundView, pairNames map[string]string, autoExpandRound int) map[string]any {
@@ -531,3 +568,4 @@ func firstIncompleteRound(rounds []RoundView) int {
 	}
 	return 0
 }
+

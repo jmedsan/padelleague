@@ -409,6 +409,19 @@ func makeInvitationTB(t testing.TB, app core.App, creatorID string, expiresAt ti
 	return record
 }
 
+func makeDocumentTB(t testing.TB, app core.App, title string, mandatory, isDefault bool, url string) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("documents")
+	require.NoError(t, err)
+	record := core.NewRecord(col)
+	record.Set("title", title)
+	record.Set("is_mandatory", mandatory)
+	record.Set("is_default", isDefault)
+	record.Set("url", url)
+	require.NoError(t, app.Save(record))
+	return record
+}
+
 func TestNewTestApp(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
