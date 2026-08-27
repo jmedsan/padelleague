@@ -93,7 +93,8 @@ The `-v` flag persists the SQLite database between container restarts.
 | `APP_PLAYER2_EMAIL` | Second seed player email (dev/test, optional) |
 | `APP_PLAYER2_PASSWORD` | Second seed player password (dev/test) |
 | `APP_PLAYER2_NAME` | Second seed player display name (default: `Jugador 2`) |
-| `APP_ENV` | Environment: `dev` (default) or `prod`. `prod` skips the player seed; the admin **database reset** tool (Configuración page) is enabled only when `APP_ENV` is exactly `dev` |
+| `APP_ENV` | Environment: `dev` (default) or `prod`. `prod` skips the player seed |
+| `APP_DEV_TOOLS` | `true` to enable the admin database reset tool (default: `false`) |
 | `VAPID_PUBLIC_KEY` | Web push VAPID public key |
 | `VAPID_PRIVATE_KEY` | Web push VAPID private key |
 

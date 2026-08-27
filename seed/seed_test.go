@@ -131,7 +131,7 @@ func seedPair(t *testing.T, app core.App, name string, p1, p2 *core.Record) *cor
 	return rec
 }
 
-func seedMatch(t *testing.T, app core.App, compID, p1ID, p2ID string) *core.Record {
+func seedMatch(t *testing.T, app core.App, compID, p1ID, p2ID string) {
 	t.Helper()
 	col, err := app.FindCollectionByNameOrId("matches")
 	require.NoError(t, err)
@@ -142,7 +142,6 @@ func seedMatch(t *testing.T, app core.App, compID, p1ID, p2ID string) *core.Reco
 	rec.Set("status", "pending")
 	rec.Set("round_number", 1)
 	require.NoError(t, app.Save(rec))
-	return rec
 }
 
 func seedCompetition(t *testing.T, app core.App, pairIDs []string) *core.Record {
@@ -190,7 +189,8 @@ func TestWipe(t *testing.T) {
 
 	venuesBefore := countRecords(t, app, "venues")
 
-	summary, err := Wipe(app)
+	allOpts := WipeOptions{Players: true, Pairs: true, Competitions: true, Matches: true}
+	summary, err := WipeSelective(app, allOpts)
 	require.NoError(t, err)
 
 	assert.Equal(t, 1, summary.Competitions)
@@ -261,4 +261,88 @@ func TestSampleLeague(t *testing.T) {
 	for i, s := range standings {
 		t.Logf("standing %d: pair=%s pts=%d", i, s.PairName, s.Points)
 	}
+}
+
+func TestWipeOptions_ValidationMessage(t *testing.T) {
+	cases := []struct {
+		name    string
+		opts    WipeOptions
+		wantMsg string
+	}{
+		{"all valid", WipeOptions{Players: true, Pairs: true, Competitions: true, Matches: true}, ""},
+		{"players only", WipeOptions{Players: true}, ""},
+		{"players+pairs", WipeOptions{Players: true, Pairs: true}, ""},
+		{"pairs without players", WipeOptions{Pairs: true}, "borrar parejas requiere borrar jugadores"},
+		{"competitions without pairs", WipeOptions{Competitions: true}, "borrar competiciones requiere borrar parejas"},
+		{"matches without competitions", WipeOptions{Matches: true}, "borrar partidos requiere borrar competiciones"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			msg := tc.opts.ValidationMessage()
+			if tc.wantMsg == "" {
+				assert.Empty(t, msg)
+			} else {
+				assert.Contains(t, msg, tc.wantMsg)
+			}
+		})
+	}
+}
+
+func TestWipeOptions_AllSelected(t *testing.T) {
+	assert.True(t, WipeOptions{Players: true, Pairs: true, Competitions: true, Matches: true}.AllSelected())
+	assert.False(t, WipeOptions{Players: true, Pairs: true, Competitions: true}.AllSelected())
+	assert.False(t, WipeOptions{}.AllSelected())
+}
+
+func TestWipeSelective_PlayersOnly(t *testing.T) {
+	app := newTestApp(t)
+
+	seedUser(t, app, "player1@test.local", "player", "Player 1")
+	seedUser(t, app, "player2@test.local", "player", "Player 2")
+	seedUser(t, app, "admin1@test.local", "admin", "Admin 1")
+
+	summary, err := WipeSelective(app, WipeOptions{Players: true})
+	require.NoError(t, err)
+
+	assert.True(t, summary.Players > 0, "should delete non-admin players")
+	assert.Equal(t, 0, summary.Pairs, "should not touch pairs")
+
+	_, err = app.FindAuthRecordByEmail("users", "admin1@test.local")
+	require.NoError(t, err, "admin should survive")
+}
+
+func TestWipeSelective_PlayersOnly_FailsWithPairs(t *testing.T) {
+	app := newTestApp(t)
+
+	p1 := seedUser(t, app, "player1@test.local", "player", "Player 1")
+	p2 := seedUser(t, app, "player2@test.local", "player", "Player 2")
+	seedPair(t, app, "Test Pair", p1, p2)
+
+	_, err := WipeSelective(app, WipeOptions{Players: true})
+	assert.Error(t, err, "should fail when pairs reference players")
+}
+
+func TestWipeSelective_AllEqualsWipe(t *testing.T) {
+	app := newTestApp(t)
+
+	p1 := seedUser(t, app, "player1@test.local", "player", "Player 1")
+	p2 := seedUser(t, app, "player2@test.local", "player", "Player 2")
+	pair := seedPair(t, app, "Test Pair", p1, p2)
+	comp := seedCompetition(t, app, []string{pair.Id})
+	seedMatch(t, app, comp.Id, pair.Id, pair.Id)
+
+	summary, err := WipeSelective(app, WipeOptions{
+		Players: true, Pairs: true,
+		Competitions: true, Matches: true,
+	})
+	require.NoError(t, err)
+
+	assert.True(t, summary.Players > 0)
+	assert.Equal(t, 1, summary.Pairs)
+	assert.Equal(t, 1, summary.Competitions)
+	assert.Equal(t, 1, summary.Matches)
+
+	assert.Equal(t, 0, countRecords(t, app, "pairs"))
+	assert.Equal(t, 0, countRecords(t, app, "competitions"))
+	assert.Equal(t, 0, countRecords(t, app, "matches"))
 }

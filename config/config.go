@@ -27,7 +27,8 @@ type Config struct {
 	AppPlayer2Password string `env:"APP_PLAYER2_PASSWORD"`
 	AppPlayer2Name     string `env:"APP_PLAYER2_NAME" envDefault:"Jugador 2"`
 
-	AppEnv string `env:"APP_ENV" envDefault:"dev"`
+	AppEnv      string `env:"APP_ENV" envDefault:"dev"`
+	AppDevTools bool   `env:"APP_DEV_TOOLS" envDefault:"false"`
 }
 
 // Load parses environment variables into a Config struct.

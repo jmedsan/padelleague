@@ -12,25 +12,25 @@ import (
 // AdminSettingsHandler handles the admin settings/reset page.
 type AdminSettingsHandler struct {
 	app        core.App
-	appEnv     string
+	devTools   bool
 	renderPage RenderFunc
 }
 
 // NewAdminSettingsHandler creates an AdminSettingsHandler with the given dependencies.
-func NewAdminSettingsHandler(app core.App, appEnv string, renderPage RenderFunc) *AdminSettingsHandler {
-	return &AdminSettingsHandler{app: app, appEnv: appEnv, renderPage: renderPage}
+func NewAdminSettingsHandler(app core.App, devTools bool, renderPage RenderFunc) *AdminSettingsHandler {
+	return &AdminSettingsHandler{app: app, devTools: devTools, renderPage: renderPage}
 }
 
 // Settings renders the admin settings page.
 func (h *AdminSettingsHandler) Settings(e *core.RequestEvent) error {
 	return h.renderPage(e, "admin/settings.html", map[string]any{
-		"DevMode": h.appEnv == "dev",
+		"DevMode": h.devTools,
 	})
 }
 
-// Reset wipes in-scope data and optionally seeds a sample league.
+// Reset wipes selected data categories and optionally seeds a sample league.
 func (h *AdminSettingsHandler) Reset(e *core.RequestEvent) error {
-	if h.appEnv != "dev" {
+	if !h.devTools {
 		return alertError(e, "No disponible en este entorno")
 	}
 
@@ -39,25 +39,32 @@ func (h *AdminSettingsHandler) Reset(e *core.RequestEvent) error {
 		return alertError(e, "Escribe DELETE para confirmar")
 	}
 
-	summary, err := seed.Wipe(h.app)
+	opts := seed.WipeOptions{
+		Players:      e.Request.FormValue("players") == "on",
+		Pairs:        e.Request.FormValue("pairs") == "on",
+		Competitions: e.Request.FormValue("competitions") == "on",
+		Matches:      e.Request.FormValue("matches") == "on",
+	}
+
+	if msg := opts.ValidationMessage(); msg != "" {
+		return alertError(e, msg)
+	}
+
+	summary, err := seed.WipeSelective(h.app, opts)
 	if err != nil {
 		slog.Error("reset: wipe failed", "error", err)
 		return alertError(e, "Error al reiniciar la base de datos")
 	}
 
-	slog.Info("reset: wipe complete",
-		"competitions", summary.Competitions,
-		"pairs", summary.Pairs,
-		"players", summary.Players,
-		"matches", summary.Matches,
-		"messages", summary.Messages,
-		"notifications", summary.Notifications,
-		"invitations", summary.Invitations,
-		"subscriptions", summary.Subscriptions,
+	slog.Info("reset: wipe complete", "total", summary.Total(),
+		"players", summary.Players, "pairs", summary.Pairs,
+		"competitions", summary.Competitions, "matches", summary.Matches,
+		"messages", summary.Messages, "notifications", summary.Notifications,
+		"invitations", summary.Invitations, "subscriptions", summary.Subscriptions,
 	)
 
 	mode := e.Request.FormValue("mode")
-	if mode == "sample" {
+	if mode == "sample" && opts.AllSelected() {
 		if err := seed.SampleLeague(h.app); err != nil {
 			slog.Error("reset: sample league failed", "error", err)
 			return alertError(e, "Datos eliminados, pero error al crear la liga de ejemplo")
@@ -66,11 +73,9 @@ func (h *AdminSettingsHandler) Reset(e *core.RequestEvent) error {
 	}
 
 	total := summary.Total()
-
 	msg := fmt.Sprintf("Base de datos reiniciada: %d registros eliminados.", total)
-	if mode == "sample" {
+	if mode == "sample" && opts.AllSelected() {
 		msg += " Liga de ejemplo creada."
 	}
-
 	return alertSuccess(e, msg)
 }

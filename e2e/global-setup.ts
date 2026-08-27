@@ -43,6 +43,7 @@ export default async function globalSetup() {
       APP_PLAYER2_PASSWORD: PLAYER2_PASSWORD,
       APP_PLAYER2_NAME: PLAYER2_NAME,
       APP_ENV: 'dev',
+      APP_DEV_TOOLS: 'true',
     },
     stdio: ['ignore', 'pipe', 'inherit'],
   });

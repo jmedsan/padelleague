@@ -15,7 +15,7 @@ import (
 	"padelleague/render"
 )
 
-func setupSettingsRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent, appEnv string) {
+func setupSettingsRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent, devTools bool) {
 	viewsFS := os.DirFS("..")
 	r := render.New(viewsFS, "")
 
@@ -24,7 +24,7 @@ func setupSettingsRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent, a
 	auth := NewAuthHandler(app, r.Page)
 	e.Router.GET("/login", auth.Login)
 
-	settings := NewAdminSettingsHandler(app, appEnv, r.Page)
+	settings := NewAdminSettingsHandler(app, devTools, r.Page)
 
 	g := e.Router.Group("/admin")
 	g.BindFunc(requireAuthTest)
@@ -44,7 +44,26 @@ func TestSettingsGET(t *testing.T) {
 		ExpectedContent: []string{"Zona de peligro"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupSettingsRoutes(tb, app, e, "dev")
+		setupSettingsRoutes(tb, app, e, true)
+		admin := makeAdminUser(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestSettingsGET_DevToolsFalse(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:     testAppFactory,
+		Name:               "GET /admin/settings with devTools=false hides reset form",
+		Method:             http.MethodGet,
+		URL:                "/admin/settings",
+		ExpectedStatus:     200,
+		ExpectedContent:    []string{"No hay opciones"},
+		NotExpectedContent: []string{"Zona de peligro"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSettingsRoutes(tb, app, e, false)
 		admin := makeAdminUser(tb, app)
 		s.Headers = authHeaders(tb, admin)
 	}
@@ -63,11 +82,11 @@ func TestResetWrongConfirm(t *testing.T) {
 	}
 	var playerID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupSettingsRoutes(tb, app, e, "dev")
+		setupSettingsRoutes(tb, app, e, true)
 		admin := makeAdminUser(tb, app)
 		player := makeUserTB(tb, app, "Player", "")
 		playerID = player.Id
-		s.Body = strings.NewReader("confirm=WRONG&mode=")
+		s.Body = strings.NewReader("confirm=WRONG&players=on")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -80,11 +99,39 @@ func TestResetWrongConfirm(t *testing.T) {
 	s.Test(t)
 }
 
-func TestResetEmptyMode(t *testing.T) {
+func TestResetPlayersOnly(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "POST reset confirm=DELETE mode=empty wipes data, keeps admins",
+		Name:            "POST reset players-only wipes users when no pairs reference them",
+		Method:          http.MethodPost,
+		URL:             "/admin/settings/reset",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"reiniciada"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSettingsRoutes(tb, app, e, true)
+		admin := makeAdminUser(tb, app)
+		makeUserTB(tb, app, "Player1", "")
+		makeUserTB(tb, app, "Player2", "")
+		s.Body = strings.NewReader("confirm=DELETE&players=on")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		players, err := app.FindRecordsByFilter("users", "roles ~ 'player'", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Empty(tb, players, "players should be wiped")
+	}
+	s.Test(t)
+}
+
+func TestResetFullWipe(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST reset all four categories wipes everything",
 		Method:          http.MethodPost,
 		URL:             "/admin/settings/reset",
 		ExpectedStatus:  200,
@@ -92,14 +139,14 @@ func TestResetEmptyMode(t *testing.T) {
 	}
 	var admin1ID, admin2ID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupSettingsRoutes(tb, app, e, "dev")
+		setupSettingsRoutes(tb, app, e, true)
 		admin1 := makeAdminUser(tb, app)
 		admin2 := makeAdminUser(tb, app)
 		admin1ID = admin1.Id
 		admin2ID = admin2.Id
 		makeUserTB(tb, app, "Player1", "")
 		makePairTB(tb, app, "TestPair")
-		s.Body = strings.NewReader("confirm=DELETE&mode=")
+		s.Body = strings.NewReader("confirm=DELETE&players=on&pairs=on&competitions=on&matches=on")
 		hdrs := authHeaders(tb, admin1)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -136,9 +183,9 @@ func TestResetSampleMode(t *testing.T) {
 		ExpectedContent: []string{"Liga de ejemplo"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupSettingsRoutes(tb, app, e, "dev")
+		setupSettingsRoutes(tb, app, e, true)
 		admin := makeAdminUser(tb, app)
-		s.Body = strings.NewReader("confirm=DELETE&mode=sample")
+		s.Body = strings.NewReader("confirm=DELETE&players=on&pairs=on&competitions=on&matches=on&mode=sample")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -155,11 +202,11 @@ func TestResetSampleMode(t *testing.T) {
 	s.Test(t)
 }
 
-func TestResetNonDevRejected(t *testing.T) {
+func TestResetDevToolsFalseRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "POST reset in non-dev env is rejected",
+		Name:            "POST reset with devTools=false is rejected",
 		Method:          http.MethodPost,
 		URL:             "/admin/settings/reset",
 		ExpectedStatus:  200,
@@ -167,46 +214,56 @@ func TestResetNonDevRejected(t *testing.T) {
 	}
 	var playerID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupSettingsRoutes(tb, app, e, "production")
+		setupSettingsRoutes(tb, app, e, false)
 		admin := makeAdminUser(tb, app)
 		player := makeUserTB(tb, app, "Player", "")
 		playerID = player.Id
-		s.Body = strings.NewReader("confirm=DELETE&mode=")
+		s.Body = strings.NewReader("confirm=DELETE&players=on&pairs=on&competitions=on&matches=on")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		_, err := app.FindRecordById("users", playerID)
-		assert.NoError(tb, err, "player should still exist in non-dev env")
+		assert.NoError(tb, err, "player should still exist when devTools=false")
 	}
 	s.Test(t)
 }
 
-func TestResetEmptyEnvRejected(t *testing.T) {
+func TestResetDependencyValidation(t *testing.T) {
 	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "POST reset with empty AppEnv is rejected",
-		Method:          http.MethodPost,
-		URL:             "/admin/settings/reset",
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"No disponible"},
+
+	cases := []struct {
+		name string
+		body string
+		msg  string
+	}{
+		{"pairs without players", "confirm=DELETE&pairs=on", "borrar parejas requiere borrar jugadores"},
+		{"competitions without pairs", "confirm=DELETE&competitions=on", "borrar competiciones requiere borrar parejas"},
+		{"matches without competitions", "confirm=DELETE&matches=on", "borrar partidos requiere borrar competiciones"},
 	}
-	var playerID string
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupSettingsRoutes(tb, app, e, "")
-		admin := makeAdminUser(tb, app)
-		player := makeUserTB(tb, app, "Player", "")
-		playerID = player.Id
-		s.Body = strings.NewReader("confirm=DELETE&mode=")
-		hdrs := authHeaders(tb, admin)
-		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-		s.Headers = hdrs
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s := &tests.ApiScenario{
+				TestAppFactory:  testAppFactory,
+				Name:            "dependency: " + tc.name,
+				Method:          http.MethodPost,
+				URL:             "/admin/settings/reset",
+				ExpectedStatus:  200,
+				ExpectedContent: []string{tc.msg},
+			}
+			body := tc.body
+			s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+				setupSettingsRoutes(tb, app, e, true)
+				admin := makeAdminUser(tb, app)
+				s.Body = strings.NewReader(body)
+				hdrs := authHeaders(tb, admin)
+				hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+				s.Headers = hdrs
+			}
+			s.Test(t)
+		})
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		_, err := app.FindRecordById("users", playerID)
-		assert.NoError(tb, err, "player should still exist with empty env")
-	}
-	s.Test(t)
 }

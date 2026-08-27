@@ -6,7 +6,7 @@
 <div class="card bg-base-100 shadow-xl border border-error max-w-lg">
     <div class="card-body">
         <h2 class="card-title text-error">Zona de peligro</h2>
-        <p class="text-sm opacity-70 mb-4">Elimina todos los datos de jugadores, parejas, competiciones y partidos. Los administradores y las pistas se conservan.</p>
+        <p class="text-sm opacity-70 mb-4">Selecciona qué datos eliminar. Los administradores y las pistas se conservan.</p>
 
         <form id="reset-form">
             <div class="form-control mb-4">
@@ -18,9 +18,29 @@
             </div>
 
             <div class="form-control mb-4">
-                <label class="label">
-                    <span class="label-text">Modo</span>
-                </label>
+                <label class="label"><span class="label-text">Datos a eliminar</span></label>
+                <div class="flex flex-col gap-2">
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" name="players" id="chk-players" class="checkbox checkbox-sm checkbox-error" />
+                        <span class="label-text">Jugadores (no admin)</span>
+                    </label>
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" name="pairs" id="chk-pairs" class="checkbox checkbox-sm checkbox-error" disabled />
+                        <span class="label-text">Parejas</span>
+                    </label>
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" name="competitions" id="chk-competitions" class="checkbox checkbox-sm checkbox-error" disabled />
+                        <span class="label-text">Competiciones y rondas</span>
+                    </label>
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" name="matches" id="chk-matches" class="checkbox checkbox-sm checkbox-error" disabled />
+                        <span class="label-text">Partidos y mensajes</span>
+                    </label>
+                </div>
+            </div>
+
+            <div id="mode-section" class="form-control mb-4 hidden">
+                <label class="label"><span class="label-text">Modo</span></label>
                 <div class="flex flex-col gap-2">
                     <label class="label cursor-pointer justify-start gap-3">
                         <input type="radio" name="mode" value="" class="radio radio-sm" checked />
@@ -38,7 +58,7 @@
                     hx-post="/admin/settings/reset"
                     hx-target="#reset-result"
                     hx-include="#reset-form"
-                    hx-confirm="Esta acción eliminará todos los datos. ¿Continuar?">
+                    hx-confirm="Esta acción eliminará los datos seleccionados. ¿Continuar?">
                 Reiniciar base de datos
             </button>
         </form>
@@ -51,9 +71,34 @@
 (function() {
     var inp = document.getElementById('confirm-input');
     var btn = document.getElementById('reset-btn');
-    inp.addEventListener('input', function() {
-        btn.disabled = inp.value !== 'DELETE';
-    });
+    var chks = {
+        players: document.getElementById('chk-players'),
+        pairs: document.getElementById('chk-pairs'),
+        competitions: document.getElementById('chk-competitions'),
+        matches: document.getElementById('chk-matches'),
+    };
+    var modeSection = document.getElementById('mode-section');
+
+    function updateState() {
+        chks.pairs.disabled = !chks.players.checked;
+        chks.competitions.disabled = !chks.pairs.checked;
+        chks.matches.disabled = !chks.competitions.checked;
+
+        if (chks.pairs.disabled) chks.pairs.checked = false;
+        if (chks.competitions.disabled) chks.competitions.checked = false;
+        if (chks.matches.disabled) chks.matches.checked = false;
+
+        var allChecked = chks.players.checked && chks.pairs.checked &&
+                chks.competitions.checked && chks.matches.checked;
+        modeSection.classList.toggle('hidden', !allChecked);
+
+        var anyChecked = chks.players.checked || chks.pairs.checked ||
+                chks.competitions.checked || chks.matches.checked;
+        btn.disabled = inp.value !== 'DELETE' || !anyChecked;
+    }
+
+    inp.addEventListener('input', updateState);
+    Object.values(chks).forEach(function(c) { c.addEventListener('change', updateState); });
 })();
 </script>
 {{else}}

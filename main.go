@@ -41,6 +41,7 @@ func main() {
 
 	slog.Info("startup",
 		"app_env", cfg.AppEnv,
+		"dev_tools", cfg.AppDevTools,
 		"push_enabled", cfg.VAPIDPublicKey != "",
 		"seed_users", len(seedUsers(cfg)),
 	)
@@ -48,12 +49,12 @@ func main() {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		seed.Run(app, seedUsers(cfg))
 		routes.Register(se, routes.Deps{
-			App:       app,
-			Renderer:  r,
-			Notifier:  notifier,
-			LeagueSvc: leagueSvc,
-			StaticFS:  staticFS,
-			AppEnv:    cfg.AppEnv,
+			App:         app,
+			Renderer:    r,
+			Notifier:    notifier,
+			LeagueSvc:   leagueSvc,
+			StaticFS:    staticFS,
+			AppDevTools: cfg.AppDevTools,
 		})
 		return se.Next()
 	})
