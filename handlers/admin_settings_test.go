@@ -281,6 +281,9 @@ func TestResetLoadPlayoff(t *testing.T) {
 		league, err := app.FindRecordsByFilter("competitions", "type = 'league'", "", 0, 0)
 		require.NoError(tb, err)
 		assert.Len(tb, league, 1, "league should also exist")
+
+		assert.NotEmpty(tb, comps[0].GetStringSlice("documents"),
+			"playoff should have default documents attached")
 	}
 	s.Test(t)
 }

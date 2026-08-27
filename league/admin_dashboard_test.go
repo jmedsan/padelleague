@@ -271,3 +271,23 @@ func TestSortAlerts_OrderByKind(t *testing.T) {
 	assert.Equal(t, "b", alerts[0].MatchID)
 	assert.Equal(t, "d", alerts[1].MatchID)
 }
+
+func TestAdminDashboard_DisputeAlertShowsBothScores(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "DscA")
+	p2 := makePair(t, app, "DscB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusDisputed)
+	match.Set("scores", "6-3 6-4")
+	match.Set("disputed_scores", "3-6 4-6")
+	require.NoError(t, app.Save(match))
+
+	_, alerts, err := AdminDashboard(app, time.Now())
+	require.NoError(t, err)
+	require.Len(t, alerts, 1)
+	assert.Equal(t, "dispute", alerts[0].Kind)
+	assert.Contains(t, alerts[0].Description, "6-3 6-4")
+	assert.Contains(t, alerts[0].Description, "propone: 3-6 4-6")
+}
