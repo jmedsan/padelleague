@@ -26,7 +26,7 @@
                 <tr class="hover">
                     <td class="font-medium">{{.GetString "title"}}</td>
                     <td class="hidden sm:table-cell text-sm opacity-60">
-                        {{if .GetString "file"}}Archivo{{else if .GetString "url"}}Enlace{{else}}<span class="opacity-40">—</span>{{end}}
+                        {{if .GetString "file"}}<a href="/api/files/documents/{{.Id}}/{{.GetString "file"}}" target="_blank" rel="noopener" class="link link-primary">Archivo</a>{{else if .GetString "url"}}<a href="{{.GetString "url"}}" target="_blank" rel="noopener" class="link link-primary">Enlace</a>{{else}}<span class="opacity-40">—</span>{{end}}
                     </td>
                     <td>
                         {{if .GetBool "is_default"}}<span class="badge badge-outline badge-sm">predeterminado</span>{{end}}
@@ -70,7 +70,7 @@
             <div class="form-control mt-3">
                 <label class="label"><span class="label-text font-medium">Archivo</span></label>
                 <input type="file" name="file" class="file-input file-input-bordered w-full">
-                {{if .GetString "file"}}<p class="text-xs opacity-50 mt-1">Archivo actual: {{.GetString "file"}}</p>{{end}}
+                {{if .GetString "file"}}<p class="text-xs opacity-50 mt-1">Archivo actual: <a href="/api/files/documents/{{.Id}}/{{.GetString "file"}}" target="_blank" rel="noopener" class="link link-primary">{{.GetString "file"}}</a></p>{{end}}
             </div>
             <div class="form-control mt-3">
                 <label class="label cursor-pointer justify-start gap-3">
