@@ -28,7 +28,7 @@ func makeEvent(auth *core.Record) (*core.RequestEvent, *httptest.ResponseRecorde
 func makeAdmin() *core.Record {
 	col := core.NewAuthCollection("users")
 	r := core.NewRecord(col)
-	r.Set("role", "admin")
+	r.Set("roles", []string{"admin"})
 	r.Set("display_name", "Admin User")
 	r.SetVerified(true)
 	return r
@@ -37,7 +37,7 @@ func makeAdmin() *core.Record {
 func makePlayer() *core.Record {
 	col := core.NewAuthCollection("users")
 	r := core.NewRecord(col)
-	r.Set("role", "player")
+	r.Set("roles", []string{"player"})
 	r.Set("display_name", "Test Player")
 	r.SetVerified(false)
 	return r

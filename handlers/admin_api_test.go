@@ -62,7 +62,7 @@ func makeAdminUser(t testing.TB, app core.App) *core.Record {
 	record := core.NewRecord(col)
 	record.Set("email", fmt.Sprintf("admin%d@test.local", n))
 	record.Set("display_name", "Test Admin")
-	record.Set("role", "admin")
+	record.Set("roles", []string{"admin"})
 	record.SetPassword("testpass123456")
 	record.SetVerified(true)
 	require.NoError(t, app.Save(record))

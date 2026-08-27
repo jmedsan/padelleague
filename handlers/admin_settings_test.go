@@ -110,7 +110,7 @@ func TestResetEmptyMode(t *testing.T) {
 		_, err = app.FindRecordById("users", admin2ID)
 		assert.NoError(tb, err, "admin2 should survive")
 
-		players, err := app.FindRecordsByFilter("users", "role = 'player'", "", 0, 0)
+		players, err := app.FindRecordsByFilter("users", "roles ~ 'player'", "", 0, 0)
 		require.NoError(tb, err)
 		assert.Empty(tb, players, "players should be wiped")
 
@@ -148,7 +148,7 @@ func TestResetSampleMode(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Len(tb, comps, 1, "sample competition should exist")
 
-		players, err := app.FindRecordsByFilter("users", "role = 'player'", "", 0, 0)
+		players, err := app.FindRecordsByFilter("users", "roles ~ 'player'", "", 0, 0)
 		require.NoError(tb, err)
 		assert.Len(tb, players, 8, "should have 8 sample players")
 	}

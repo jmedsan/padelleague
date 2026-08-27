@@ -52,7 +52,7 @@ func makeAdminUser(t *testing.T, app core.App) {
 	r.Set("display_name", fmt.Sprintf("Hook Admin %d", n))
 	r.SetPassword("testpass123456")
 	r.SetVerified(true)
-	r.Set("role", "admin")
+	r.Set("roles", []string{"admin"})
 	require.NoError(t, app.Save(r))
 }
 
@@ -68,7 +68,7 @@ func makeUser(t *testing.T, app core.App, role string) *core.Record {
 	r.SetPassword("testpass123456")
 	r.SetVerified(true)
 	if role != "" {
-		r.Set("role", role)
+		r.Set("roles", []string{role})
 	}
 	require.NoError(t, app.Save(r))
 	return r
@@ -295,7 +295,7 @@ func TestDefaultRole_EmptyRole_SetsPlayer(t *testing.T) {
 
 	saved, err := app.FindRecordById("users", r.Id)
 	require.NoError(t, err)
-	assert.Equal(t, "player", saved.GetString("role"))
+	assert.Contains(t, saved.GetStringSlice("roles"), "player")
 }
 
 func TestDefaultRole_ExplicitRole_Preserved(t *testing.T) {
@@ -307,14 +307,14 @@ func TestDefaultRole_ExplicitRole_Preserved(t *testing.T) {
 	r := core.NewRecord(col)
 	r.Set("email", "hasrole@test.local")
 	r.Set("display_name", "Has Role")
-	r.Set("role", "admin")
+	r.Set("roles", []string{"admin"})
 	r.SetPassword("testpass123456")
 	r.SetVerified(true)
 	require.NoError(t, app.Save(r))
 
 	saved, err := app.FindRecordById("users", r.Id)
 	require.NoError(t, err)
-	assert.Equal(t, "admin", saved.GetString("role"))
+	assert.Contains(t, saved.GetStringSlice("roles"), "admin")
 }
 
 // Cron registration

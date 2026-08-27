@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"slices"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/template"
@@ -19,8 +20,14 @@ type Renderer struct {
 
 // New creates a Renderer backed by the given views filesystem.
 func New(viewsFS fs.FS, vapidPublicKey string) *Renderer {
+	reg := template.NewRegistry()
+	reg.AddFuncs(map[string]any{
+		"contains": func(slice []string, item string) bool {
+			return slices.Contains(slice, item)
+		},
+	})
 	return &Renderer{
-		registry:       template.NewRegistry(),
+		registry:       reg,
 		viewsFS:        viewsFS,
 		vapidPublicKey: vapidPublicKey,
 	}
@@ -33,7 +40,7 @@ func (r *Renderer) withAuth(e *core.RequestEvent, data map[string]any) {
 			data["DisplayName"] = e.Auth.GetString("display_name")
 		}
 		if _, ok := data["IsAdmin"]; !ok {
-			data["IsAdmin"] = e.Auth.GetString("role") == "admin"
+			data["IsAdmin"] = slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
 		}
 		if _, ok := data["Verified"]; !ok {
 			data["Verified"] = e.Auth.Verified()

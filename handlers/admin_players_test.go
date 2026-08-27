@@ -99,7 +99,7 @@ func TestPlayerUpdateInvalidRole(t *testing.T) {
 		player := makeUserTB(tb, app, "Role Test", "roletest@test.local")
 		playerID = player.Id
 		s.URL = "/admin/players/" + player.Id
-		s.Body = strings.NewReader("display_name=Role+Test&role=superadmin")
+		s.Body = strings.NewReader("display_name=Role+Test&roles=superadmin")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -107,22 +107,21 @@ func TestPlayerUpdateInvalidRole(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		p, err := app.FindRecordById("users", playerID)
 		require.NoError(tb, err)
-		assert.Equal(tb, "player", p.GetString("role"),
+		assert.Contains(tb, p.GetStringSlice("roles"), "player",
 			"role must not change when invalid role submitted")
 	}
 	s.Test(t)
 }
 
-// PlayerUpdate: empty role → rejected, user unchanged
+// PlayerUpdate: no roles submitted → defaults to player
 
-func TestPlayerUpdateEmptyRole(t *testing.T) {
+func TestPlayerUpdateEmptyRolesDefaultsToPlayer(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "POST /admin/players/{id} rejects empty role",
-		Method:          http.MethodPost,
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"Rol inválido"},
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/players/{id} defaults to player when no roles submitted",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
 	}
 	var playerID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -131,7 +130,7 @@ func TestPlayerUpdateEmptyRole(t *testing.T) {
 		player := makeUserTB(tb, app, "Empty Role", "emptyrole@test.local")
 		playerID = player.Id
 		s.URL = "/admin/players/" + player.Id
-		s.Body = strings.NewReader("display_name=Empty+Role&role=")
+		s.Body = strings.NewReader("display_name=Empty+Role")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -139,8 +138,8 @@ func TestPlayerUpdateEmptyRole(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		p, err := app.FindRecordById("users", playerID)
 		require.NoError(tb, err)
-		assert.Equal(tb, "player", p.GetString("role"),
-			"role must not change when empty role submitted")
+		assert.Contains(tb, p.GetStringSlice("roles"), "player",
+			"roles must default to player when none submitted")
 	}
 	s.Test(t)
 }
