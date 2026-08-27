@@ -13,14 +13,24 @@ export default defineConfig({
   projects: [
     {
       name: 'desktop',
+      testIgnore: /z-admin-settings/,
       use: {
         viewport: { width: 1280, height: 720 },
       },
     },
     {
       name: 'mobile',
+      testIgnore: /z-admin-settings/,
       use: {
         viewport: { width: 375, height: 812 },
+      },
+    },
+    {
+      name: 'destructive',
+      testMatch: /z-admin-settings/,
+      dependencies: ['desktop', 'mobile'],
+      use: {
+        viewport: { width: 1280, height: 720 },
       },
     },
   ],
