@@ -6,6 +6,17 @@ import (
 	"padelleague/league"
 )
 
+// PairHandler handles admin pair management.
+type PairHandler struct {
+	app        core.App
+	renderPage RenderFunc
+}
+
+// NewPairHandler creates a PairHandler with the given dependencies.
+func NewPairHandler(app core.App, renderPage RenderFunc) *PairHandler {
+	return &PairHandler{app: app, renderPage: renderPage}
+}
+
 // PairView holds a pair record with resolved player names for display.
 type PairView struct {
 	Record  *core.Record
@@ -14,7 +25,7 @@ type PairView struct {
 }
 
 // Pairs renders the admin pairs management page.
-func (h *AdminHandler) Pairs(e *core.RequestEvent) error {
+func (h *PairHandler) Pairs(e *core.RequestEvent) error {
 	pairs, _ := h.app.FindAllRecords("pairs")
 
 	var views []PairView
@@ -35,7 +46,7 @@ func (h *AdminHandler) Pairs(e *core.RequestEvent) error {
 }
 
 // PairsCreate handles POST to create a new pair from two players.
-func (h *AdminHandler) PairsCreate(e *core.RequestEvent) error {
+func (h *PairHandler) PairsCreate(e *core.RequestEvent) error {
 	name := e.Request.FormValue("name")
 	player1 := e.Request.FormValue("player1")
 	player2 := e.Request.FormValue("player2")
@@ -68,7 +79,7 @@ func (h *AdminHandler) PairsCreate(e *core.RequestEvent) error {
 }
 
 // PairsUpdate handles POST to change the players in an existing pair.
-func (h *AdminHandler) PairsUpdate(e *core.RequestEvent) error {
+func (h *PairHandler) PairsUpdate(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	pair, err := h.app.FindRecordById("pairs", id)
 	if err != nil {

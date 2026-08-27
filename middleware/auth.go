@@ -31,6 +31,27 @@ func SetAuthCookie(e *core.RequestEvent, token string) {
 	})
 }
 
+// RequireAuth redirects unauthenticated users to /login and incomplete
+// profiles to /profile/complete, handling both regular and HTMX requests.
+func RequireAuth(e *core.RequestEvent) error {
+	if e.Auth == nil {
+		if e.Request.Header.Get("HX-Request") == "true" {
+			e.Response.Header().Set("HX-Redirect", "/login")
+			return e.NoContent(http.StatusNoContent)
+		}
+		return e.Redirect(http.StatusFound, "/login")
+	}
+	if e.Auth.GetString("display_name") == "" &&
+		e.Request.URL.Path != "/profile/complete" {
+		if e.Request.Header.Get("HX-Request") == "true" {
+			e.Response.Header().Set("HX-Redirect", "/profile/complete")
+			return e.NoContent(http.StatusNoContent)
+		}
+		return e.Redirect(http.StatusFound, "/profile/complete")
+	}
+	return e.Next()
+}
+
 // ClearAuthCookie removes the pb_auth cookie.
 func ClearAuthCookie(e *core.RequestEvent) {
 	http.SetCookie(e.Response, &http.Cookie{

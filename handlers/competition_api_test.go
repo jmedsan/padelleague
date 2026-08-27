@@ -29,9 +29,9 @@ func setupCompRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	auth := NewAuthHandler(app, r.Page)
 	e.Router.GET("/login", auth.Login)
 
-	admin := NewAdminHandler(app, notifier, r.Page)
 	comp := NewCompetitionHandler(app, svc, r.Page)
 	fixture := NewFixtureHandler(app, svc, r.Page)
+	dispute := NewDisputeHandler(app, notifier, r.Page)
 
 	g := e.Router.Group("/admin")
 	g.BindFunc(requireAuthTest)
@@ -46,8 +46,8 @@ func setupCompRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.POST("/competitions/{id}/payment", comp.TogglePayment)
 	g.POST("/competitions/{id}/penalty", comp.ApplyPenalty)
 	g.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
-	g.POST("/disputes/{id}/resolve", admin.DisputesResolve)
-	g.POST("/disputes/{id}/walkover-approve", admin.WalkoverApprove)
+	g.POST("/disputes/{id}/resolve", dispute.DisputesResolve)
+	g.POST("/disputes/{id}/walkover-approve", dispute.WalkoverApprove)
 }
 
 func TestCompUpdate(t *testing.T) {

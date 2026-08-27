@@ -6,8 +6,19 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// VenueHandler handles admin venue management.
+type VenueHandler struct {
+	app        core.App
+	renderPage RenderFunc
+}
+
+// NewVenueHandler creates a VenueHandler with the given dependencies.
+func NewVenueHandler(app core.App, renderPage RenderFunc) *VenueHandler {
+	return &VenueHandler{app: app, renderPage: renderPage}
+}
+
 // Venues renders the admin venues management page.
-func (h *AdminHandler) Venues(e *core.RequestEvent) error {
+func (h *VenueHandler) Venues(e *core.RequestEvent) error {
 	venues, _ := h.app.FindRecordsByFilter("venues",
 		"id != ''", "name", 0, 0, nil)
 
@@ -17,7 +28,7 @@ func (h *AdminHandler) Venues(e *core.RequestEvent) error {
 }
 
 // VenuesCreate handles POST to add a new venue.
-func (h *AdminHandler) VenuesCreate(e *core.RequestEvent) error {
+func (h *VenueHandler) VenuesCreate(e *core.RequestEvent) error {
 	name := e.Request.FormValue("name")
 	if name == "" {
 		return alertError(e, "El nombre es obligatorio")
@@ -42,7 +53,7 @@ func (h *AdminHandler) VenuesCreate(e *core.RequestEvent) error {
 }
 
 // VenuesUpdate handles POST to modify an existing venue.
-func (h *AdminHandler) VenuesUpdate(e *core.RequestEvent) error {
+func (h *VenueHandler) VenuesUpdate(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	record, err := h.app.FindRecordById("venues", id)
 	if err != nil {
@@ -62,7 +73,7 @@ func (h *AdminHandler) VenuesUpdate(e *core.RequestEvent) error {
 }
 
 // VenuesDelete handles POST to remove a venue.
-func (h *AdminHandler) VenuesDelete(e *core.RequestEvent) error {
+func (h *VenueHandler) VenuesDelete(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	record, err := h.app.FindRecordById("venues", id)
 	if err != nil {

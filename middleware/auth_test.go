@@ -163,6 +163,124 @@ func TestRequireAppAdmin_UnexpectedRole_Redirects(t *testing.T) {
 	s.Test(t)
 }
 
+func makeUserNoName(t testing.TB, app core.App) *core.Record {
+	t.Helper()
+	record := makeUser(t, app, "player")
+	_, err := app.DB().NewQuery("UPDATE users SET display_name = '' WHERE id = {:id}").
+		Bind(map[string]any{"id": record.Id}).Execute()
+	require.NoError(t, err)
+	return record
+}
+
+func TestRequireAuth_Unauthenticated_RedirectsToLogin(t *testing.T) {
+	handlerReached := false
+	s := tests.ApiScenario{
+		Name:           "unauthenticated redirects to /login",
+		Method:         http.MethodGet,
+		URL:            "/auth-test",
+		ExpectedStatus: 302,
+		BeforeTestFunc: func(_ testing.TB, _ *tests.TestApp, e *core.ServeEvent) {
+			e.Router.GET("/auth-test", func(e *core.RequestEvent) error {
+				handlerReached = true
+				return e.String(200, "OK")
+			}).BindFunc(RequireAuth)
+		},
+		AfterTestFunc: func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+			assert.Equal(tb, "/login", res.Header.Get("Location"))
+			assert.False(tb, handlerReached)
+		},
+	}
+	s.Test(t)
+}
+
+func TestRequireAuth_Unauthenticated_HXRedirect(t *testing.T) {
+	s := tests.ApiScenario{
+		Name:           "unauthenticated HTMX request gets HX-Redirect",
+		Method:         http.MethodGet,
+		URL:            "/auth-test",
+		Headers:        map[string]string{"HX-Request": "true"},
+		ExpectedStatus: 204,
+		BeforeTestFunc: func(_ testing.TB, _ *tests.TestApp, e *core.ServeEvent) {
+			e.Router.GET("/auth-test", func(e *core.RequestEvent) error {
+				return e.String(200, "OK")
+			}).BindFunc(RequireAuth)
+		},
+		AfterTestFunc: func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+			assert.Equal(tb, "/login", res.Header.Get("HX-Redirect"))
+		},
+	}
+	s.Test(t)
+}
+
+func TestRequireAuth_MissingDisplayName_RedirectsToProfile(t *testing.T) {
+	handlerReached := false
+	s := tests.ApiScenario{
+		Name:           "missing display_name redirects to /profile/complete",
+		Method:         http.MethodGet,
+		URL:            "/auth-test",
+		ExpectedStatus: 302,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		e.Router.GET("/auth-test", func(e *core.RequestEvent) error {
+			handlerReached = true
+			return e.String(200, "OK")
+		}).BindFunc(RequireAuth)
+		user := makeUserNoName(tb, app)
+		s.Headers = map[string]string{"Authorization": authToken(tb, user)}
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/profile/complete", res.Header.Get("Location"))
+		assert.False(tb, handlerReached)
+	}
+	s.Test(t)
+}
+
+func TestRequireAuth_MissingDisplayName_ProfileCompleteAllowed(t *testing.T) {
+	handlerReached := false
+	s := tests.ApiScenario{
+		Name:            "missing display_name can access /profile/complete",
+		Method:          http.MethodGet,
+		URL:             "/profile/complete",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"OK"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		e.Router.GET("/profile/complete", func(e *core.RequestEvent) error {
+			handlerReached = true
+			return e.String(200, "OK")
+		}).BindFunc(RequireAuth)
+		user := makeUserNoName(tb, app)
+		s.Headers = map[string]string{"Authorization": authToken(tb, user)}
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, _ *http.Response) {
+		assert.True(tb, handlerReached)
+	}
+	s.Test(t)
+}
+
+func TestRequireAuth_AuthenticatedWithName_PassesThrough(t *testing.T) {
+	handlerReached := false
+	s := tests.ApiScenario{
+		Name:            "authenticated user with display_name passes through",
+		Method:          http.MethodGet,
+		URL:             "/auth-test",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"OK"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		e.Router.GET("/auth-test", func(e *core.RequestEvent) error {
+			handlerReached = true
+			return e.String(200, "OK")
+		}).BindFunc(RequireAuth)
+		user := makeUser(tb, app, "player")
+		s.Headers = map[string]string{"Authorization": authToken(tb, user)}
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, _ *http.Response) {
+		assert.True(tb, handlerReached)
+	}
+	s.Test(t)
+}
+
 func TestCookieAuth_CopiesCookieToHeader(t *testing.T) {
 	var gotHeader, wantToken string
 	s := tests.ApiScenario{

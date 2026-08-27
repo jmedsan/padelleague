@@ -10,8 +10,19 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// InvitationHandler handles admin invitation management and outstanding matches.
+type InvitationHandler struct {
+	app        core.App
+	renderPage RenderFunc
+}
+
+// NewInvitationHandler creates an InvitationHandler with the given dependencies.
+func NewInvitationHandler(app core.App, renderPage RenderFunc) *InvitationHandler {
+	return &InvitationHandler{app: app, renderPage: renderPage}
+}
+
 // InvitationsList renders the admin invitations page.
-func (h *AdminHandler) InvitationsList(e *core.RequestEvent) error {
+func (h *InvitationHandler) InvitationsList(e *core.RequestEvent) error {
 	invitations, _ := h.app.FindRecordsByFilter("invitations",
 		"id != ''", "", 0, 0, nil)
 
@@ -30,7 +41,7 @@ func (h *AdminHandler) InvitationsList(e *core.RequestEvent) error {
 }
 
 // InvitationsCreate generates a new invitation token with the given max uses.
-func (h *AdminHandler) InvitationsCreate(e *core.RequestEvent) error {
+func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 	email := e.Request.FormValue("email")
 	competition := e.Request.FormValue("competition")
 
@@ -80,7 +91,7 @@ func (h *AdminHandler) InvitationsCreate(e *core.RequestEvent) error {
 }
 
 // InvitationsRevoke deactivates an invitation so it can no longer be used.
-func (h *AdminHandler) InvitationsRevoke(e *core.RequestEvent) error {
+func (h *InvitationHandler) InvitationsRevoke(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	invitation, err := h.app.FindRecordById("invitations", id)
 	if err != nil {

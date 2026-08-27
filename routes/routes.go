@@ -19,12 +19,12 @@ import (
 
 // Deps holds the shared dependencies injected into all route groups.
 type Deps struct {
-	App       core.App
-	Renderer  *render.Renderer
-	Notifier  *notify.Notifier
-	LeagueSvc *league.Service
-	StaticFS  fs.FS
-	AppEnv    string
+	App         core.App
+	Renderer    *render.Renderer
+	Notifier    *notify.Notifier
+	LeagueSvc   *league.Service
+	StaticFS    fs.FS
+	AppDevTools bool
 }
 
 // Register wires all application routes onto the given serve event.
@@ -34,13 +34,16 @@ func Register(se *core.ServeEvent, deps Deps) {
 		Priority: -1030,
 	})
 
+	auth := handlers.NewAuthHandler(deps.App, deps.Renderer.Page)
+	notif := handlers.NewNotificationHandler(deps.App, deps.Renderer.Page)
+
 	registerStaticRoutes(se, deps)
-	registerAuthRoutes(se, deps)
+	registerAuthRoutes(se, deps, auth)
 	registerPublicRoutes(se, deps)
 	registerAdminRoutes(se, deps)
 	registerMatchRoutes(se, deps)
-	registerNotificationRoutes(se, deps)
-	registerProfileRoutes(se, deps)
+	registerNotificationRoutes(se, deps, notif)
+	registerProfileRoutes(se, auth, notif)
 }
 
 func registerStaticRoutes(se *core.ServeEvent, deps Deps) {
@@ -58,9 +61,7 @@ func registerStaticRoutes(se *core.ServeEvent, deps Deps) {
 	se.Router.GET("/static/{path...}", apis.Static(staticSubFS, false))
 }
 
-func registerAuthRoutes(se *core.ServeEvent, deps Deps) {
-	auth := handlers.NewAuthHandler(deps.App, deps.Renderer.Page)
-
+func registerAuthRoutes(se *core.ServeEvent, deps Deps, auth *handlers.AuthHandler) {
 	se.Router.GET("/login", auth.Login)
 	se.Router.POST("/login", auth.LoginSubmit)
 	se.Router.GET("/register", auth.Register)
@@ -76,26 +77,35 @@ func registerAuthRoutes(se *core.ServeEvent, deps Deps) {
 
 func registerPublicRoutes(se *core.ServeEvent, deps Deps) {
 	pub := handlers.NewPublicHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page, deps.Renderer.ErrorPage)
-	se.Router.GET("/", pub.Home).BindFunc(requireAuth)
-	se.Router.GET("/competition/{id}", pub.Competition).BindFunc(requireAuth)
+	se.Router.GET("/", pub.Home).BindFunc(middleware.RequireAuth)
+	se.Router.GET("/competition/{id}", pub.Competition).BindFunc(middleware.RequireAuth)
 
 	player := handlers.NewPlayerHandler(deps.App, deps.Renderer.Page, deps.Renderer.ErrorPage)
-	se.Router.GET("/player/{id}", player.Player).BindFunc(requireAuth)
-	se.Router.GET("/h2h", player.H2H).BindFunc(requireAuth)
+	se.Router.GET("/player/{id}", player.Player).BindFunc(middleware.RequireAuth)
+	se.Router.GET("/h2h", player.H2H).BindFunc(middleware.RequireAuth)
 
 	ical := handlers.NewICalHandler(deps.App)
-	se.Router.GET("/ical/match/{id}", ical.Match).BindFunc(requireAuth)
-	se.Router.GET("/ical/competition/{id}", ical.Competition).BindFunc(requireAuth)
+	se.Router.GET("/ical/match/{id}", ical.Match).BindFunc(middleware.RequireAuth)
+	se.Router.GET("/ical/competition/{id}", ical.Competition).BindFunc(middleware.RequireAuth)
 }
 
 func registerAdminRoutes(se *core.ServeEvent, deps Deps) {
-	admin := handlers.NewAdminHandler(deps.App, deps.Notifier, deps.Renderer.Page)
+	g := se.Router.Group("/admin")
+	g.BindFunc(middleware.RequireAuth)
+	g.BindFunc(middleware.RequireAppAdmin)
+
+	registerAdminCompetitionRoutes(g, deps)
+	registerAdminDisputeRoutes(g, deps)
+	registerAdminInvitationRoutes(g, deps)
+	registerAdminPairRoutes(g, deps)
+	registerAdminPlayerRoutes(g, deps)
+	registerAdminVenueRoutes(g, deps)
+	registerAdminSettingsRoutes(g, deps)
+}
+
+func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
 	comp := handlers.NewCompetitionHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page)
 	fixture := handlers.NewFixtureHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page)
-
-	g := se.Router.Group("/admin")
-	g.BindFunc(requireAuth)
-	g.BindFunc(middleware.RequireAppAdmin)
 
 	g.GET("", comp.Dashboard)
 	g.GET("/competitions", comp.Dashboard)
@@ -113,98 +123,87 @@ func registerAdminRoutes(se *core.ServeEvent, deps Deps) {
 	g.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
 	g.POST("/competitions/{id}/round-dates", comp.UpdateRoundDates)
 	g.POST("/competitions/{id}/round-dates/regenerate", comp.RegenerateRoundDates)
+}
 
-	g.GET("/pairs", admin.Pairs)
-	g.POST("/pairs", admin.PairsCreate)
-	g.POST("/pairs/{id}", admin.PairsUpdate)
+func registerAdminDisputeRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
+	h := handlers.NewDisputeHandler(deps.App, deps.Notifier, deps.Renderer.Page)
+	g.GET("/disputes", h.Disputes)
+	g.POST("/disputes/{id}/resolve", h.DisputesResolve)
+	g.POST("/disputes/{id}/walkover-approve", h.WalkoverApprove)
+}
 
-	g.GET("/players", admin.Players)
-	g.POST("/players/pre-create", admin.PlayerPreCreate)
-	g.POST("/players/{id}", admin.PlayerUpdate)
+func registerAdminInvitationRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
+	h := handlers.NewInvitationHandler(deps.App, deps.Renderer.Page)
+	g.GET("/invitations", h.InvitationsList)
+	g.POST("/invitations", h.InvitationsCreate)
+	g.POST("/invitations/{id}/revoke", h.InvitationsRevoke)
+	g.GET("/outstanding", h.Outstanding)
+}
 
-	g.GET("/invitations", admin.InvitationsList)
-	g.POST("/invitations", admin.InvitationsCreate)
-	g.POST("/invitations/{id}/revoke", admin.InvitationsRevoke)
+func registerAdminPairRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
+	h := handlers.NewPairHandler(deps.App, deps.Renderer.Page)
+	g.GET("/pairs", h.Pairs)
+	g.POST("/pairs", h.PairsCreate)
+	g.POST("/pairs/{id}", h.PairsUpdate)
+}
 
-	g.GET("/outstanding", admin.Outstanding)
+func registerAdminPlayerRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
+	h := handlers.NewAdminPlayerHandler(deps.App, deps.Renderer.Page)
+	g.GET("/players", h.Players)
+	g.POST("/players/pre-create", h.PlayerPreCreate)
+	g.POST("/players/{id}", h.PlayerUpdate)
+}
 
-	g.GET("/disputes", admin.Disputes)
-	g.POST("/disputes/{id}/resolve", admin.DisputesResolve)
-	g.POST("/disputes/{id}/walkover-approve", admin.WalkoverApprove)
-
-	g.GET("/venues", admin.Venues)
-	g.POST("/venues", admin.VenuesCreate)
-	g.POST("/venues/{id}", admin.VenuesUpdate)
-	g.POST("/venues/{id}/delete", admin.VenuesDelete)
-
-	registerAdminSettingsRoutes(g, deps)
+func registerAdminVenueRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
+	h := handlers.NewVenueHandler(deps.App, deps.Renderer.Page)
+	g.GET("/venues", h.Venues)
+	g.POST("/venues", h.VenuesCreate)
+	g.POST("/venues/{id}", h.VenuesUpdate)
+	g.POST("/venues/{id}/delete", h.VenuesDelete)
 }
 
 func registerAdminSettingsRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
-	settings := handlers.NewAdminSettingsHandler(deps.App, deps.AppEnv, deps.Renderer.Page)
+	settings := handlers.NewAdminSettingsHandler(deps.App, deps.AppDevTools, deps.Renderer.Page)
 	g.GET("/settings", settings.Settings)
 	g.POST("/settings/reset", settings.Reset)
 }
 
 func registerMatchRoutes(se *core.ServeEvent, deps Deps) {
 	match := handlers.NewMatchHandler(deps.App, deps.Notifier, deps.Renderer.Page, deps.Renderer.ErrorPage)
-	se.Router.GET("/match/{id}", match.MatchDetail).BindFunc(requireAuth)
-	se.Router.POST("/match/{id}/submit", match.MatchSubmit).BindFunc(requireAuth)
-	se.Router.POST("/match/{id}/confirm", match.MatchConfirm).BindFunc(requireAuth)
-	se.Router.POST("/match/{id}/dispute", match.MatchDispute).BindFunc(requireAuth)
-	se.Router.POST("/match/{id}/correct", match.MatchCorrect).BindFunc(requireAuth)
-	se.Router.POST("/match/{id}/admin-override", match.AdminOverride).BindFunc(requireAuth).BindFunc(middleware.RequireAppAdmin)
-	se.Router.POST("/match/{id}/report-unplayed", match.ReportUnplayed).BindFunc(requireAuth)
+	se.Router.GET("/match/{id}", match.MatchDetail).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/match/{id}/submit", match.MatchSubmit).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/match/{id}/confirm", match.MatchConfirm).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/match/{id}/dispute", match.MatchDispute).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/match/{id}/correct", match.MatchCorrect).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/match/{id}/admin-override", match.AdminOverride).BindFunc(middleware.RequireAuth).BindFunc(middleware.RequireAppAdmin)
+	se.Router.POST("/match/{id}/report-unplayed", match.ReportUnplayed).BindFunc(middleware.RequireAuth)
 
 	thread := handlers.NewThreadHandler(deps.App, deps.Notifier, deps.Renderer.Page, deps.Renderer.Partial)
-	se.Router.GET("/match/{id}/thread", thread.Thread).BindFunc(requireAuth)
-	se.Router.GET("/match/{id}/thread-messages", thread.ThreadMessages).BindFunc(requireAuth)
-	se.Router.POST("/match/{id}/thread/message", thread.PostMessage).BindFunc(requireAuth)
-	se.Router.POST("/match/{id}/thread/proposal", thread.PostProposal).BindFunc(requireAuth)
-	se.Router.POST("/match/{id}/thread/proposal/{msgId}/respond", thread.RespondProposal).BindFunc(requireAuth)
-	se.Router.POST("/match/{id}/thread/proposal/{msgId}/change-decision", thread.ProposalChangeDecision).BindFunc(requireAuth)
-	se.Router.POST("/match/{id}/thread/availability", thread.PostAvailability).BindFunc(requireAuth)
+	se.Router.GET("/match/{id}/thread", thread.Thread).BindFunc(middleware.RequireAuth)
+	se.Router.GET("/match/{id}/thread-messages", thread.ThreadMessages).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/match/{id}/thread/message", thread.PostMessage).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/match/{id}/thread/proposal", thread.PostProposal).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/match/{id}/thread/proposal/{msgId}/respond", thread.RespondProposal).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/match/{id}/thread/proposal/{msgId}/change-decision", thread.ProposalChangeDecision).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/match/{id}/thread/availability", thread.PostAvailability).BindFunc(middleware.RequireAuth)
 }
 
-func registerNotificationRoutes(se *core.ServeEvent, deps Deps) {
-	notif := handlers.NewNotificationHandler(deps.App, deps.Renderer.Page)
-	se.Router.GET("/notifications/count", notif.Count).BindFunc(requireAuth)
-	se.Router.GET("/notifications/list", notif.List).BindFunc(requireAuth)
-	se.Router.POST("/notifications/{id}/read", notif.MarkRead).BindFunc(requireAuth)
-	se.Router.POST("/notifications/read-all", notif.MarkAllRead).BindFunc(requireAuth)
+func registerNotificationRoutes(se *core.ServeEvent, deps Deps, notif *handlers.NotificationHandler) {
+	se.Router.GET("/notifications/count", notif.Count).BindFunc(middleware.RequireAuth)
+	se.Router.GET("/notifications/list", notif.List).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/notifications/{id}/read", notif.MarkRead).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/notifications/read-all", notif.MarkAllRead).BindFunc(middleware.RequireAuth)
 
 	push := handlers.NewPushHandler(deps.App, deps.Notifier)
 	if push.Enabled() {
-		se.Router.POST("/push/subscribe", push.Subscribe).BindFunc(requireAuth)
-		se.Router.POST("/push/unsubscribe", push.Unsubscribe).BindFunc(requireAuth)
+		se.Router.POST("/push/subscribe", push.Subscribe).BindFunc(middleware.RequireAuth)
+		se.Router.POST("/push/unsubscribe", push.Unsubscribe).BindFunc(middleware.RequireAuth)
 	}
 }
 
-func registerProfileRoutes(se *core.ServeEvent, deps Deps) {
-	auth := handlers.NewAuthHandler(deps.App, deps.Renderer.Page)
-	notif := handlers.NewNotificationHandler(deps.App, deps.Renderer.Page)
-
-	se.Router.GET("/profile/complete", auth.ProfileComplete).BindFunc(requireAuth)
-	se.Router.POST("/profile/complete", auth.ProfileCompleteSubmit).BindFunc(requireAuth)
-	se.Router.GET("/profile/notifications", notif.Prefs).BindFunc(requireAuth)
-	se.Router.POST("/profile/notifications", notif.PrefsSave).BindFunc(requireAuth)
-}
-
-func requireAuth(e *core.RequestEvent) error {
-	if e.Auth == nil {
-		if e.Request.Header.Get("HX-Request") == "true" {
-			e.Response.Header().Set("HX-Redirect", "/login")
-			return e.NoContent(http.StatusNoContent)
-		}
-		return e.Redirect(http.StatusFound, "/login")
-	}
-	if e.Auth.GetString("display_name") == "" &&
-		e.Request.URL.Path != "/profile/complete" {
-		if e.Request.Header.Get("HX-Request") == "true" {
-			e.Response.Header().Set("HX-Redirect", "/profile/complete")
-			return e.NoContent(http.StatusNoContent)
-		}
-		return e.Redirect(http.StatusFound, "/profile/complete")
-	}
-	return e.Next()
+func registerProfileRoutes(se *core.ServeEvent, auth *handlers.AuthHandler, notif *handlers.NotificationHandler) {
+	se.Router.GET("/profile/complete", auth.ProfileComplete).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/profile/complete", auth.ProfileCompleteSubmit).BindFunc(middleware.RequireAuth)
+	se.Router.GET("/profile/notifications", notif.Prefs).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/profile/notifications", notif.PrefsSave).BindFunc(middleware.RequireAuth)
 }
