@@ -151,11 +151,11 @@ func TestMaskEmail_Boundaries(t *testing.T) {
 	for name, tc := range map[string]struct {
 		input, want string
 	}{
-		"no @":           {"noemail", "***"},
-		"@ at start":     {"@example.com", "***"},
-		"single char":    {"a@example.com", "a***@example.com"},
-		"two chars":      {"ab@example.com", "ab***@example.com"},
-		"normal":         {"john@example.com", "jo***@example.com"},
+		"no @":        {"noemail", "***"},
+		"@ at start":  {"@example.com", "***"},
+		"single char": {"a@example.com", "a***@example.com"},
+		"two chars":   {"ab@example.com", "ab***@example.com"},
+		"normal":      {"john@example.com", "jo***@example.com"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			assert.Equal(t, tc.want, maskEmail(tc.input))

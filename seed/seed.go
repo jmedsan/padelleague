@@ -85,26 +85,6 @@ type WipeOptions struct {
 	Matches      bool
 }
 
-// ValidationMessage returns a user-facing message if dependency constraints
-// are violated, or empty string if valid.
-func (o WipeOptions) ValidationMessage() string {
-	if o.Pairs && !o.Players {
-		return "borrar parejas requiere borrar jugadores"
-	}
-	if o.Competitions && !o.Pairs {
-		return "borrar competiciones requiere borrar parejas"
-	}
-	if o.Matches && !o.Competitions {
-		return "borrar partidos requiere borrar competiciones"
-	}
-	return ""
-}
-
-// AllSelected returns true when all four options are selected.
-func (o WipeOptions) AllSelected() bool {
-	return o.Players && o.Pairs && o.Competitions && o.Matches
-}
-
 // WipeSelective deletes data for the selected categories inside a transaction.
 func WipeSelective(app core.App, opts WipeOptions) (WipeSummary, error) {
 	var summary WipeSummary
@@ -187,23 +167,38 @@ func wipeNonAdminUsers(txApp core.App, count *int) error {
 	return nil
 }
 
-// SampleLeague creates a sample league with 8 players, 4 pairs, 1 competition,
-// and 12 matches (rounds 1–4 finalized, rounds 5–6 pending).
-func SampleLeague(app core.App) error {
+// SampleOptions selects which cumulative example stages SampleLeaguePartial
+// loads. Each stage requires the previous one: pairs need players, a
+// competition needs pairs, played matches need a competition.
+type SampleOptions struct {
+	Players      bool
+	Pairs        bool
+	Competitions bool
+	Matches      bool
+}
+
+// SampleLeaguePartial loads sample data up to the highest selected stage:
+// players → pairs → competition with rounds → early rounds played. With
+// Players false it loads nothing. Stages below the highest selected are always
+// included (the caller's UI enforces a contiguous selection).
+func SampleLeaguePartial(app core.App, opts SampleOptions) error {
+	if !opts.Players {
+		return nil
+	}
 	return app.RunInTransaction(func(txApp core.App) error {
 		playerIDs, err := createSamplePlayers(txApp)
-		if err != nil {
+		if err != nil || !opts.Pairs {
 			return err
 		}
 		pairIDs, err := createSamplePairs(txApp, playerIDs)
-		if err != nil {
+		if err != nil || !opts.Competitions {
 			return err
 		}
 		comp, err := createSampleCompetition(txApp, pairIDs)
 		if err != nil {
 			return err
 		}
-		if err := createSampleFixtures(txApp, comp, pairIDs); err != nil {
+		if err := createSampleFixtures(txApp, comp, pairIDs, opts.Matches); err != nil {
 			return err
 		}
 		return saveSampleSchedule(txApp, comp)
@@ -271,7 +266,7 @@ func createSampleCompetition(txApp core.App, pairIDs []string) (*core.Record, er
 	return comp, nil
 }
 
-func createSampleFixtures(txApp core.App, comp *core.Record, pairIDs []string) error {
+func createSampleFixtures(txApp core.App, comp *core.Record, pairIDs []string, played bool) error {
 	rounds := league.RoundRobin(pairIDs, true)
 	matchCol, err := txApp.FindCollectionByNameOrId("matches")
 	if err != nil {
@@ -285,16 +280,8 @@ func createSampleFixtures(txApp core.App, comp *core.Record, pairIDs []string) e
 			match.Set("matches_to_win", 1)
 			match.Set("pair1", m.Home)
 			match.Set("pair2", m.Away)
-			if round.Number <= 4 {
-				winner, err := league.DetermineWinner(match, "6-3 6-3")
-				if err != nil {
-					return fmt.Errorf("determine winner round %d: %w", round.Number, err)
-				}
-				match.Set("scores", "6-3 6-3")
-				match.Set("winner", winner)
-				match.Set("status", league.StatusFinal)
-			} else {
-				match.Set("status", league.StatusPending)
+			if err := setSampleMatchResult(match, round.Number, played); err != nil {
+				return err
 			}
 			if err := txApp.Save(match); err != nil {
 				return fmt.Errorf("create match round %d: %w", round.Number, err)
@@ -302,6 +289,23 @@ func createSampleFixtures(txApp core.App, comp *core.Record, pairIDs []string) e
 		}
 	}
 	comp.Set("rounds", len(rounds))
+	return nil
+}
+
+// setSampleMatchResult finalizes rounds 1–4 with a fixed score when played is
+// true; otherwise the match stays pending.
+func setSampleMatchResult(match *core.Record, roundNumber int, played bool) error {
+	if !played || roundNumber > 4 {
+		match.Set("status", league.StatusPending)
+		return nil
+	}
+	winner, err := league.DetermineWinner(match, "6-3 6-3")
+	if err != nil {
+		return fmt.Errorf("determine winner round %d: %w", roundNumber, err)
+	}
+	match.Set("scores", "6-3 6-3")
+	match.Set("winner", winner)
+	match.Set("status", league.StatusFinal)
 	return nil
 }
 

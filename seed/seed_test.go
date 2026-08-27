@@ -224,7 +224,7 @@ func TestSampleLeague(t *testing.T) {
 	svc := league.New(app, notifier)
 	hooks.Register(app, svc, notifier)
 
-	require.NoError(t, SampleLeague(app))
+	require.NoError(t, SampleLeaguePartial(app, SampleOptions{Players: true, Pairs: true, Competitions: true, Matches: true}))
 
 	players, err := app.FindRecordsByFilter("users", "email ~ '@padelleague.com'", "", 0, 0)
 	require.NoError(t, err)
@@ -261,37 +261,6 @@ func TestSampleLeague(t *testing.T) {
 	for i, s := range standings {
 		t.Logf("standing %d: pair=%s pts=%d", i, s.PairName, s.Points)
 	}
-}
-
-func TestWipeOptions_ValidationMessage(t *testing.T) {
-	cases := []struct {
-		name    string
-		opts    WipeOptions
-		wantMsg string
-	}{
-		{"all valid", WipeOptions{Players: true, Pairs: true, Competitions: true, Matches: true}, ""},
-		{"players only", WipeOptions{Players: true}, ""},
-		{"players+pairs", WipeOptions{Players: true, Pairs: true}, ""},
-		{"pairs without players", WipeOptions{Pairs: true}, "borrar parejas requiere borrar jugadores"},
-		{"competitions without pairs", WipeOptions{Competitions: true}, "borrar competiciones requiere borrar parejas"},
-		{"matches without competitions", WipeOptions{Matches: true}, "borrar partidos requiere borrar competiciones"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			msg := tc.opts.ValidationMessage()
-			if tc.wantMsg == "" {
-				assert.Empty(t, msg)
-			} else {
-				assert.Contains(t, msg, tc.wantMsg)
-			}
-		})
-	}
-}
-
-func TestWipeOptions_AllSelected(t *testing.T) {
-	assert.True(t, WipeOptions{Players: true, Pairs: true, Competitions: true, Matches: true}.AllSelected())
-	assert.False(t, WipeOptions{Players: true, Pairs: true, Competitions: true}.AllSelected())
-	assert.False(t, WipeOptions{}.AllSelected())
 }
 
 func TestWipeSelective_PlayersOnly(t *testing.T) {

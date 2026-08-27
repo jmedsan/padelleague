@@ -3,54 +3,41 @@
 <h1 class="text-2xl font-bold mb-6">Configuración</h1>
 
 {{if .DevMode}}
-<div class="card bg-base-100 shadow-xl border border-error max-w-lg">
+<div class="card bg-base-100 shadow-xl border border-warning max-w-lg">
     <div class="card-body">
-        <h2 class="card-title text-error">Zona de peligro</h2>
-        <p class="text-sm opacity-70 mb-4">Selecciona qué datos eliminar. Los administradores y las pistas se conservan.</p>
+        <h2 class="card-title">Reiniciar base de datos</h2>
+        <p class="text-sm opacity-70 mb-4">Borra todos los datos y deja la base limpia — se conservan los administradores y las pistas. Marca los datos de ejemplo a cargar tras el borrado; sin marcar nada, la base queda vacía.</p>
 
         <div id="reset-form">
             <div class="form-control mb-4">
-                <label class="label" for="confirm-input">
-                    <span class="label-text">Escribe <kbd class="kbd kbd-sm">DELETE</kbd> para confirmar</span>
-                </label>
-                <input type="text" id="confirm-input" name="confirm" placeholder="DELETE" autocomplete="off"
-                       class="input input-bordered input-error w-full" />
-            </div>
-
-            <div class="form-control mb-4">
-                <label class="label"><span class="label-text">Datos a eliminar</span></label>
+                <label class="label"><span class="label-text">Datos de ejemplo a cargar</span></label>
                 <div class="flex flex-col gap-2">
                     <label class="label cursor-pointer justify-start gap-3">
-                        <input type="checkbox" name="players" id="chk-players" class="checkbox checkbox-sm checkbox-error" />
-                        <span class="label-text">Jugadores (no admin)</span>
+                        <input type="checkbox" name="players" id="chk-players" class="checkbox checkbox-sm" />
+                        <span class="label-text">Jugadores</span>
                     </label>
                     <label class="label cursor-pointer justify-start gap-3">
-                        <input type="checkbox" name="pairs" id="chk-pairs" class="checkbox checkbox-sm checkbox-error" disabled />
+                        <input type="checkbox" name="pairs" id="chk-pairs" class="checkbox checkbox-sm" disabled />
                         <span class="label-text">Parejas</span>
                     </label>
                     <label class="label cursor-pointer justify-start gap-3">
-                        <input type="checkbox" name="competitions" id="chk-competitions" class="checkbox checkbox-sm checkbox-error" disabled />
-                        <span class="label-text">Competiciones y rondas</span>
+                        <input type="checkbox" name="competitions" id="chk-competitions" class="checkbox checkbox-sm" disabled />
+                        <span class="label-text">Competición y jornadas</span>
                     </label>
                     <label class="label cursor-pointer justify-start gap-3">
-                        <input type="checkbox" name="matches" id="chk-matches" class="checkbox checkbox-sm checkbox-error" disabled />
-                        <span class="label-text">Partidos y mensajes</span>
+                        <input type="checkbox" name="matches" id="chk-matches" class="checkbox checkbox-sm" disabled />
+                        <span class="label-text">Partidos jugados</span>
                     </label>
                 </div>
+                <p class="text-xs opacity-50 mt-2">Sin marcar nada: base de datos vacía (solo administradores).</p>
             </div>
 
-            <div id="mode-section" class="form-control mb-4 hidden">
-                <label class="label"><span class="label-text">Modo</span></label>
-                <div class="flex flex-col gap-2">
-                    <label class="label cursor-pointer justify-start gap-3">
-                        <input type="radio" name="mode" value="" class="radio radio-sm" checked />
-                        <span class="label-text">Solo borrar</span>
-                    </label>
-                    <label class="label cursor-pointer justify-start gap-3">
-                        <input type="radio" name="mode" value="sample" class="radio radio-sm" />
-                        <span class="label-text">Borrar y crear liga de ejemplo</span>
-                    </label>
-                </div>
+            <div class="form-control mb-4">
+                <label class="label" for="confirm-input">
+                    <span class="label-text">Escribe <kbd class="kbd kbd-sm">DELETE</kbd> para confirmar el borrado</span>
+                </label>
+                <input type="text" id="confirm-input" name="confirm" placeholder="DELETE" autocomplete="off"
+                       class="input input-bordered input-error w-full" />
             </div>
 
             <button id="reset-btn" type="button" disabled
@@ -76,9 +63,9 @@
         competitions: document.getElementById('chk-competitions'),
         matches: document.getElementById('chk-matches'),
     };
-    var modeSection = document.getElementById('mode-section');
 
     function updateState() {
+        // Dependent chain: each example stage requires the previous one.
         chks.pairs.disabled = !chks.players.checked;
         if (chks.pairs.disabled) chks.pairs.checked = false;
 
@@ -88,13 +75,9 @@
         chks.matches.disabled = !chks.competitions.checked;
         if (chks.matches.disabled) chks.matches.checked = false;
 
-        var allChecked = chks.players.checked && chks.pairs.checked &&
-                chks.competitions.checked && chks.matches.checked;
-        modeSection.classList.toggle('hidden', !allChecked);
-
-        var anyChecked = chks.players.checked || chks.pairs.checked ||
-                chks.competitions.checked || chks.matches.checked;
-        btn.disabled = inp.value !== 'DELETE' || !anyChecked;
+        // The reset always wipes; nothing checked means "from scratch", so the
+        // button only needs the DELETE confirmation, not any checkbox.
+        btn.disabled = inp.value !== 'DELETE';
     }
 
     inp.addEventListener('input', updateState);
