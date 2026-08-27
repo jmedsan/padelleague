@@ -30,26 +30,35 @@ test.describe('admin settings', () => {
   });
 
   test('checkbox dependency chain', async ({ page }) => {
-    // Initially pairs is disabled
-    await expect(page.locator('#chk-pairs')).toBeDisabled();
+    // Sample-data boxes default to checked and enabled (all dependencies satisfied).
+    await expect(page.locator('#chk-players')).toBeChecked();
+    await expect(page.locator('#chk-pairs')).toBeChecked();
+    await expect(page.locator('#chk-pairs')).toBeEnabled();
 
-    // Check players -> pairs becomes enabled
+    // Uncheck players -> pairs and everything downstream become disabled and unchecked
+    await page.locator('#chk-players').uncheck();
+    await expect(page.locator('#chk-pairs')).toBeDisabled();
+    await expect(page.locator('#chk-pairs')).not.toBeChecked();
+    await expect(page.locator('#chk-competitions')).toBeDisabled();
+    await expect(page.locator('#chk-competitions')).not.toBeChecked();
+
+    // Re-check players -> pairs re-enabled but not auto-checked; competitions stays disabled
     await page.locator('#chk-players').check();
     await expect(page.locator('#chk-pairs')).toBeEnabled();
+    await expect(page.locator('#chk-pairs')).not.toBeChecked();
     await expect(page.locator('#chk-competitions')).toBeDisabled();
 
     // Check pairs -> competitions becomes enabled
     await page.locator('#chk-pairs').check();
     await expect(page.locator('#chk-competitions')).toBeEnabled();
-
-    // Uncheck players -> pairs becomes disabled and unchecked
-    await page.locator('#chk-players').uncheck();
-    await expect(page.locator('#chk-pairs')).toBeDisabled();
-    await expect(page.locator('#chk-pairs')).not.toBeChecked();
-    await expect(page.locator('#chk-competitions')).toBeDisabled();
   });
 
   test('reset from scratch wipes to an empty database', async ({ page }) => {
+    // Boxes default to checked; unchecking players cascades all sample-data off,
+    // so an empty selection means "from scratch".
+    await page.locator('#chk-players').uncheck();
+    await expect(page.locator('#chk-pairs')).not.toBeChecked();
+    await expect(page.locator('#chk-matches')).not.toBeChecked();
     await page.locator('#confirm-input').fill('DELETE');
     await Promise.all([
       page.waitForResponse(resp => resp.url().includes('/admin/settings/reset')),
