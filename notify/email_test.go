@@ -145,3 +145,35 @@ func TestEmailNotifyPlayers_SkipsPlayerWithoutEmail(t *testing.T) {
 	require.Equal(t, 1, app.TestMailer.TotalSend())
 	assert.Equal(t, withEmail.Email(), app.TestMailer.LastMessage().To[0].Address)
 }
+
+func TestMaskEmail_Boundaries(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct {
+		input, want string
+	}{
+		"no @":           {"noemail", "***"},
+		"@ at start":     {"@example.com", "***"},
+		"single char":    {"a@example.com", "a***@example.com"},
+		"two chars":      {"ab@example.com", "ab***@example.com"},
+		"normal":         {"john@example.com", "jo***@example.com"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tc.want, maskEmail(tc.input))
+		})
+	}
+}
+
+func TestSendEmail_SendError_LogsError(t *testing.T) {
+	cap := withLogCapture(t)
+	app := newTestApp(t)
+	enableSMTP(t, app)
+	app.OnMailerSend().BindFunc(func(e *core.MailerEvent) error {
+		e.Mailer = failingMailer{}
+		return e.Next()
+	})
+
+	SendEmail(app, "player@test.local", "Asunto", "<p>Cuerpo</p>")
+
+	assert.True(t, cap.hasMessage("send email failed"),
+		"send failure must be logged")
+}

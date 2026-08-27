@@ -1,7 +1,11 @@
 package notify
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"log/slog"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -15,6 +19,41 @@ import (
 	"padelleague/league"
 	_ "padelleague/migrations"
 )
+
+type logCapture struct {
+	mu      sync.Mutex
+	records []slog.Record
+}
+
+func (c *logCapture) Enabled(context.Context, slog.Level) bool { return true }
+func (c *logCapture) Handle(_ context.Context, r slog.Record) error {
+	c.mu.Lock()
+	c.records = append(c.records, r.Clone())
+	c.mu.Unlock()
+	return nil
+}
+func (c *logCapture) WithAttrs([]slog.Attr) slog.Handler { return c }
+func (c *logCapture) WithGroup(string) slog.Handler       { return c }
+
+func (c *logCapture) hasMessage(msg string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, r := range c.records {
+		if r.Message == msg {
+			return true
+		}
+	}
+	return false
+}
+
+func withLogCapture(t *testing.T) *logCapture {
+	t.Helper()
+	cap := &logCapture{}
+	old := slog.Default()
+	slog.SetDefault(slog.New(cap))
+	t.Cleanup(func() { slog.SetDefault(old) })
+	return cap
+}
 
 var userSeq atomic.Int64
 
@@ -336,4 +375,65 @@ func TestNotifyAdmins_NoMatchID(t *testing.T) {
 		"user = {:uid}", "", 0, 0, map[string]any{"uid": admin.Id})
 	require.Len(t, notifs, 1)
 	assert.Equal(t, "", notifs[0].GetString("related_match"))
+}
+
+func TestNotifyPlayers_SaveError_LogsError(t *testing.T) {
+	cap := withLogCapture(t)
+	app := newTestApp(t)
+	notifier := NewNotifier(app, "", "")
+	notifier.save = func(*core.Record) error { return errors.New("injected") }
+
+	user := makeUser(t, app, "player")
+	notifier.NotifyPlayers([]string{user.Id}, league.Notification{Type: "general", Title: "T", Body: "B"})
+
+	assert.True(t, cap.hasMessage("notify player failed"),
+		"save failure must be logged")
+
+	notifs, _ := app.FindRecordsByFilter("notifications",
+		"user = {:uid}", "", 0, 0, map[string]any{"uid": user.Id})
+	assert.Empty(t, notifs, "no notification persisted when save fails")
+}
+
+func TestNotifyAdmins_SaveError_LogsError(t *testing.T) {
+	cap := withLogCapture(t)
+	app := newTestApp(t)
+	notifier := NewNotifier(app, "", "")
+	notifier.save = func(*core.Record) error { return errors.New("injected") }
+
+	admin := makeUser(t, app, "admin")
+	err := notifier.NotifyAdmins("general", "Notice", "Body", "")
+	require.NoError(t, err, "individual save failures must not propagate")
+
+	assert.True(t, cap.hasMessage("notify admin failed"),
+		"save failure must be logged")
+
+	notifs, _ := app.FindRecordsByFilter("notifications",
+		"user = {:uid}", "", 0, 0, map[string]any{"uid": admin.Id})
+	assert.Empty(t, notifs, "no notification persisted when save fails")
+}
+
+func TestPushTargetURL(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "/", pushTargetURL(""))
+	assert.Equal(t, "/match/abc123", pushTargetURL("abc123"))
+}
+
+func TestDeliverPush_DeleteError_Logs(t *testing.T) {
+	cap := withLogCapture(t)
+	app := newTestApp(t)
+	srv, hits := pushServer(t, 410)
+	priv, pub := vapidKeys(t)
+	user := makeUser(t, app, "player")
+	sub := makeSubscription(t, app, user.Id, srv.URL)
+
+	notifier := NewNotifier(app, pub, priv)
+	notifier.delete = func(*core.Record) error { return errors.New("injected") }
+
+	notifier.sendPush(user.Id, "T", "B", "")
+
+	require.Equal(t, int32(1), hits.Load())
+	assert.True(t, cap.hasMessage("push delete subscription failed"),
+		"delete failure must be logged")
+	_, err := app.FindRecordById("push_subscriptions", sub.Id)
+	assert.NoError(t, err, "subscription must survive when delete fails")
 }

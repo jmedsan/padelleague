@@ -19,6 +19,8 @@ type Notifier struct {
 	vapidPublicKey  string
 	vapidPrivateKey string
 	httpClient      *http.Client
+	save            func(*core.Record) error
+	delete          func(*core.Record) error
 }
 
 // NewNotifier creates a Notifier with the given VAPID keys for web push.
@@ -28,6 +30,8 @@ func NewNotifier(app core.App, vapidPublicKey, vapidPrivateKey string) *Notifier
 		vapidPublicKey:  vapidPublicKey,
 		vapidPrivateKey: vapidPrivateKey,
 		httpClient:      &http.Client{Timeout: 10 * time.Second},
+		save:            func(rec *core.Record) error { return app.Save(rec) },
+		delete:          func(rec *core.Record) error { return app.Delete(rec) },
 	}
 }
 
@@ -62,7 +66,7 @@ func (n *Notifier) NotifyPlayers(playerUserIDs []string, notif league.Notificati
 		if notif.MatchID != "" {
 			rec.Set("related_match", notif.MatchID)
 		}
-		if err := n.app.Save(rec); err != nil {
+		if err := n.save(rec); err != nil {
 			slog.Error("notify player failed", "user", userID, "err", err)
 		}
 		go n.sendPush(userID, notif.Title, notif.Body, notif.MatchID)
@@ -88,7 +92,7 @@ func (n *Notifier) NotifyAdmins(notifType, title, body, relatedMatchID string) e
 		if relatedMatchID != "" {
 			notif.Set("related_match", relatedMatchID)
 		}
-		if err := n.app.Save(notif); err != nil {
+		if err := n.save(notif); err != nil {
 			slog.Error("notify admin failed", "admin", admin.Id, "err", err)
 		}
 		go n.sendPush(admin.Id, title, body, relatedMatchID)
@@ -106,10 +110,7 @@ func (n *Notifier) sendPush(userID, title, body, relatedMatchID string) {
 		return
 	}
 
-	targetURL := "/"
-	if relatedMatchID != "" {
-		targetURL = "/match/" + relatedMatchID
-	}
+	targetURL := pushTargetURL(relatedMatchID)
 
 	payload, _ := json.Marshal(map[string]string{
 		"title": title,
@@ -150,10 +151,17 @@ func (n *Notifier) deliverPush(sub *core.Record, payload []byte, subscriber stri
 		slog.Warn("close push response", "err", err)
 	}
 	if resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusNotFound {
-		if err := n.app.Delete(sub); err != nil {
+		if err := n.delete(sub); err != nil {
 			slog.Error("push delete subscription failed", "err", err)
 		}
 	}
+}
+
+func pushTargetURL(relatedMatchID string) string {
+	if relatedMatchID != "" {
+		return "/match/" + relatedMatchID
+	}
+	return "/"
 }
 
 // NotificationPrefs returns the user's notification preferences with defaults applied.
