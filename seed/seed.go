@@ -252,20 +252,32 @@ func createSampleCompetition(txApp core.App, pairIDs []string) (*core.Record, er
 		return nil, err
 	}
 	now := time.Now().UTC()
+	payment := make(map[string]bool, len(pairIDs))
+	for _, pid := range pairIDs {
+		payment[pid] = true
+	}
 	comp := core.NewRecord(col)
 	comp.Set("name", "Liga de ejemplo")
 	comp.Set("type", "league")
 	comp.Set("active", true)
 	comp.Set("play_twice", true)
 	comp.Set("pairs", pairIDs)
-	comp.Set("start_date", now)
-	comp.Set("end_date", now.Add(30*24*time.Hour))
+	// Mid-season: started 20 days ago with 10 days left, so the pending rounds'
+	// arrange deadlines are near and sample players see live tasks on their home.
+	comp.Set("start_date", now.Add(-20*24*time.Hour))
+	comp.Set("end_date", now.Add(10*24*time.Hour))
+	comp.Set("payment_status", payment)
 	if err := txApp.Save(comp); err != nil {
 		return nil, fmt.Errorf("create competition: %w", err)
 	}
 	return comp, nil
 }
 
+// createSampleFixtures builds the round-robin matches. When played is true,
+// rounds 1–4 are finalized and round 5 carries a live dispute (match 0) and a
+// score awaiting confirmation (match 1), so sample players get real home tasks;
+// the rest stay pending. All states are set at CREATE time so the match
+// status-transition hook (which only guards updates) is never violated.
 func createSampleFixtures(txApp core.App, comp *core.Record, pairIDs []string, played bool) error {
 	rounds := league.RoundRobin(pairIDs, true)
 	matchCol, err := txApp.FindCollectionByNameOrId("matches")
@@ -273,40 +285,144 @@ func createSampleFixtures(txApp core.App, comp *core.Record, pairIDs []string, p
 		return err
 	}
 	for _, round := range rounds {
-		for _, m := range round.Matches {
-			match := core.NewRecord(matchCol)
-			match.Set("competition", comp.Id)
-			match.Set("round_number", round.Number)
-			match.Set("matches_to_win", 1)
-			match.Set("pair1", m.Home)
-			match.Set("pair2", m.Away)
-			if err := setSampleMatchResult(match, round.Number, played); err != nil {
+		for i, m := range round.Matches {
+			f := sampleFixture{round: round.Number, idx: i, home: m.Home, away: m.Away, played: played}
+			if err := createSampleMatch(txApp, matchCol, comp.Id, f); err != nil {
 				return err
-			}
-			if err := txApp.Save(match); err != nil {
-				return fmt.Errorf("create match round %d: %w", round.Number, err)
 			}
 		}
 	}
 	comp.Set("rounds", len(rounds))
+	if played {
+		return createSampleNotifications(txApp, comp)
+	}
 	return nil
 }
 
-// setSampleMatchResult finalizes rounds 1–4 with a fixed score when played is
-// true; otherwise the match stays pending.
-func setSampleMatchResult(match *core.Record, roundNumber int, played bool) error {
-	if !played || roundNumber > 4 {
+// sampleFixture describes one match to seed and how "played" it should be.
+type sampleFixture struct {
+	round, idx int
+	home, away string
+	played     bool
+}
+
+func createSampleMatch(txApp core.App, matchCol *core.Collection, compID string, f sampleFixture) error {
+	match := core.NewRecord(matchCol)
+	match.Set("competition", compID)
+	match.Set("round_number", f.round)
+	match.Set("matches_to_win", 1)
+	match.Set("pair1", f.home)
+	match.Set("pair2", f.away)
+	if err := setSampleMatchState(txApp, match, f); err != nil {
+		return err
+	}
+	if err := txApp.Save(match); err != nil {
+		return fmt.Errorf("create match round %d: %w", f.round, err)
+	}
+	return nil
+}
+
+// setSampleMatchState sets a match's status at create time: rounds 1–4
+// finalized when played; round 5 match 0 disputed and match 1 awaiting
+// confirmation; everything else pending.
+func setSampleMatchState(txApp core.App, match *core.Record, f sampleFixture) error {
+	switch {
+	case f.played && f.round <= 4:
+		return finalizeSampleMatch(match)
+	case f.played && f.round == 5 && f.idx == 0:
+		return submitSampleScore(txApp, match, league.StatusDisputed, "6-4 4-6 7-5")
+	case f.played && f.round == 5 && f.idx == 1:
+		return submitSampleScore(txApp, match, league.StatusConfirmed, "6-2 6-2")
+	default:
 		match.Set("status", league.StatusPending)
 		return nil
 	}
+}
+
+func finalizeSampleMatch(match *core.Record) error {
 	winner, err := league.DetermineWinner(match, "6-3 6-3")
 	if err != nil {
-		return fmt.Errorf("determine winner round %d: %w", roundNumber, err)
+		return fmt.Errorf("determine winner: %w", err)
 	}
 	match.Set("scores", "6-3 6-3")
 	match.Set("winner", winner)
 	match.Set("status", league.StatusFinal)
 	return nil
+}
+
+func submitSampleScore(txApp core.App, match *core.Record, status, scores string) error {
+	sub, err := firstPlayerOfPair(txApp, match.GetString("pair1"))
+	if err != nil {
+		return err
+	}
+	match.Set("scores", scores)
+	match.Set("submitted_by", sub)
+	match.Set("status", status)
+	return nil
+}
+
+// createSampleNotifications files bell notifications for the enriched round-5
+// matches: the disputed one (both pairs) and the awaiting-confirmation one (the
+// opponent who confirms).
+func createSampleNotifications(txApp core.App, comp *core.Record) error {
+	col, err := txApp.FindCollectionByNameOrId("notifications")
+	if err != nil {
+		return err
+	}
+	notify := func(userIDs []string, ntype, title, body string) error {
+		for _, uid := range userIDs {
+			n := core.NewRecord(col)
+			n.Set("user", uid)
+			n.Set("type", ntype)
+			n.Set("title", title)
+			n.Set("body", body)
+			n.Set("read", false)
+			if err := txApp.Save(n); err != nil {
+				return fmt.Errorf("create sample notification: %w", err)
+			}
+		}
+		return nil
+	}
+	if disputed := sampleMatchByStatus(txApp, comp.Id, league.StatusDisputed); disputed != nil {
+		players := append(playersOfPair(txApp, disputed.GetString("pair1")),
+			playersOfPair(txApp, disputed.GetString("pair2"))...)
+		if err := notify(players, "dispute", "Partido disputado", "Hay una disputa abierta en tu partido."); err != nil {
+			return err
+		}
+	}
+	if awaiting := sampleMatchByStatus(txApp, comp.Id, league.StatusConfirmed); awaiting != nil {
+		if err := notify(playersOfPair(txApp, awaiting.GetString("pair2")),
+			"quorum_request", "Resultado por confirmar", "Tu rival ha enviado un resultado. Confírmalo o dispútalo."); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func sampleMatchByStatus(txApp core.App, compID, status string) *core.Record {
+	ms, _ := txApp.FindRecordsByFilter("matches",
+		"competition = {:cid} && status = {:s}", "", 1, 0,
+		map[string]any{"cid": compID, "s": status})
+	if len(ms) == 0 {
+		return nil
+	}
+	return ms[0]
+}
+
+func firstPlayerOfPair(txApp core.App, pairID string) (string, error) {
+	pair, err := txApp.FindRecordById("pairs", pairID)
+	if err != nil {
+		return "", err
+	}
+	return pair.GetString("player1"), nil
+}
+
+func playersOfPair(txApp core.App, pairID string) []string {
+	pair, err := txApp.FindRecordById("pairs", pairID)
+	if err != nil {
+		return nil
+	}
+	return []string{pair.GetString("player1"), pair.GetString("player2")}
 }
 
 func maskEmail(email string) string {
