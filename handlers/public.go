@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"sort"
 	"time"
 
@@ -116,7 +117,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 		"UrgentTasks":    urgentTasks,
 	}
 
-	if e.Auth.GetString("role") == "admin" {
+	if slices.Contains(e.Auth.GetStringSlice("roles"), "admin") {
 		setups, alerts, _ := league.AdminDashboard(h.app, time.Now())
 		data["AdminSetups"] = setups
 		data["AdminAlerts"] = alerts

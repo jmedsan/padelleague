@@ -4,6 +4,7 @@ package seed
 import (
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
@@ -17,7 +18,7 @@ type User struct {
 	Email       string
 	Password    string
 	Collection  string
-	Role        string
+	Roles       []string
 	DisplayName string
 }
 
@@ -39,8 +40,8 @@ func Run(app core.App, users []User) {
 		record := core.NewRecord(col)
 		record.Set("email", u.Email)
 		record.SetPassword(u.Password)
-		if u.Role != "" {
-			record.Set("role", u.Role)
+		if len(u.Roles) > 0 {
+			record.Set("roles", u.Roles)
 		}
 		if u.DisplayName != "" {
 			record.Set("display_name", u.DisplayName)
@@ -123,7 +124,7 @@ func wipeNonAdminUsers(txApp core.App, count *int) error {
 		return fmt.Errorf("find users: %w", err)
 	}
 	for _, u := range users {
-		if u.GetString("role") == "admin" {
+		if slices.Contains(u.GetStringSlice("roles"), "admin") {
 			continue
 		}
 		if err := txApp.Delete(u); err != nil {
@@ -167,7 +168,7 @@ func createSamplePlayers(txApp core.App) ([]string, error) {
 		rec := core.NewRecord(col)
 		rec.Set("email", fmt.Sprintf("sample-p%d@padelleague.com", i+1))
 		rec.SetPassword("padel1234")
-		rec.Set("role", "player")
+		rec.Set("roles", []string{"player"})
 		rec.Set("display_name", fmt.Sprintf("Jugador %d", i+1))
 		rec.SetVerified(true)
 		if err := txApp.Save(rec); err != nil {

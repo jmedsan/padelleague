@@ -107,8 +107,8 @@ func remindCompetitionMatches(app core.App, notifier *notify.Notifier, comp *cor
 // Register wires all PocketBase event hooks and cron jobs onto the given app.
 func Register(app core.App, svc *league.Service, notifier *notify.Notifier) {
 	app.OnRecordCreate("users").BindFunc(func(e *core.RecordEvent) error {
-		if e.Record.GetString("role") == "" {
-			e.Record.Set("role", "player")
+		if len(e.Record.GetStringSlice("roles")) == 0 {
+			e.Record.Set("roles", []string{"player"})
 		}
 		return e.Next()
 	})

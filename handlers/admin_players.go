@@ -34,14 +34,19 @@ func (h *AdminHandler) PlayerUpdate(e *core.RequestEvent) error {
 	}
 
 	displayName := e.Request.FormValue("display_name")
-	role := e.Request.FormValue("role")
+	roles := e.Request.Form["roles"]
 
-	if role != "admin" && role != "player" {
-		return alertError(e, "Rol inválido")
+	for _, r := range roles {
+		if r != "admin" && r != "player" {
+			return alertError(e, "Rol inválido")
+		}
+	}
+	if len(roles) == 0 {
+		roles = []string{"player"}
 	}
 
 	user.Set("display_name", displayName)
-	user.Set("role", role)
+	user.Set("roles", roles)
 
 	if err := h.app.Save(user); err != nil {
 		slog.Error("save player failed", "err", err)
@@ -70,7 +75,7 @@ func (h *AdminHandler) PlayerPreCreate(e *core.RequestEvent) error {
 	user := core.NewRecord(collection)
 	user.Set("email", email)
 	user.Set("display_name", displayName)
-	user.Set("role", "player")
+	user.Set("roles", []string{"player"})
 	user.SetPassword(tempPassword)
 
 	if err := h.app.Save(user); err != nil {

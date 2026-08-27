@@ -34,7 +34,7 @@ func makeUser(t *testing.T, app core.App, role string) *core.Record {
 	record := core.NewRecord(col)
 	record.Set("email", fmt.Sprintf("notifyuser%d@test.local", n))
 	record.Set("display_name", fmt.Sprintf("User %d", n))
-	record.Set("role", role)
+	record.Set("roles", []string{role})
 	record.SetPassword("testpass123456")
 	record.SetVerified(true)
 	require.NoError(t, app.Save(record))

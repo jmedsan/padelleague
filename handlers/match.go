@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -90,7 +91,7 @@ func canReportUnplayed(status string, team int) bool {
 }
 
 func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNames map[string]string, auth *core.Record) MatchView {
-	isAdmin := auth.GetString("role") == "admin"
+	isAdmin := slices.Contains(auth.GetStringSlice("roles"), "admin")
 	_, teamErr := league.PlayerTeam(h.app, userID, match)
 	isParticipant := teamErr == nil
 	status := match.GetString("status")
@@ -144,7 +145,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
-	isAdmin := e.Auth.GetString("role") == "admin"
+	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
 	_, teamErr := league.PlayerTeam(h.app, userID, match)
 	isParticipant := teamErr == nil
 
@@ -197,7 +198,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
-	isAdmin := e.Auth.GetString("role") == "admin"
+	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
 	_, teamErr := league.PlayerTeam(h.app, userID, match)
 	if teamErr != nil && !isAdmin {
 		return alertError(e, "No eres participante de este partido")
@@ -268,7 +269,7 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 		return alertError(e, "Record no encontrado")
 	}
 
-	if e.Auth.GetString("role") != "admin" {
+	if !slices.Contains(e.Auth.GetStringSlice("roles"), "admin") {
 		return alertError(e, "Solo administradores")
 	}
 

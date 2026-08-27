@@ -26,7 +26,7 @@ func makeUser(t testing.TB, app core.App, role string) *core.Record {
 	record.Set("email", fmt.Sprintf("mwuser%d@test.local", n))
 	record.Set("username", fmt.Sprintf("mwuser%d", n))
 	record.Set("display_name", "MW "+role)
-	record.Set("role", role)
+	record.Set("roles", []string{role})
 	record.SetPassword("testpass123456")
 	record.SetVerified(true)
 	require.NoError(t, app.Save(record))
@@ -122,8 +122,8 @@ func TestRequireAppAdmin_EmptyRole_Redirects(t *testing.T) {
 		}).BindFunc(RequireAppAdmin)
 		user := makeUser(tb, app, "player")
 		token := authToken(tb, user)
-		// Bypass PocketBase validation to set empty role via raw SQL.
-		_, err := app.DB().NewQuery("UPDATE users SET role = '' WHERE id = {:id}").
+		// Bypass PocketBase validation to set empty roles via raw SQL.
+		_, err := app.DB().NewQuery("UPDATE users SET roles = '[]' WHERE id = {:id}").
 			Bind(map[string]any{"id": user.Id}).Execute()
 		require.NoError(tb, err)
 		s.Headers = map[string]string{"Authorization": token}
@@ -150,8 +150,8 @@ func TestRequireAppAdmin_UnexpectedRole_Redirects(t *testing.T) {
 		}).BindFunc(RequireAppAdmin)
 		user := makeUser(tb, app, "player")
 		token := authToken(tb, user)
-		// Bypass PocketBase validation to set unexpected role via raw SQL.
-		_, err := app.DB().NewQuery("UPDATE users SET role = 'superadmin' WHERE id = {:id}").
+		// Bypass PocketBase validation to set unexpected roles via raw SQL.
+		_, err := app.DB().NewQuery(`UPDATE users SET roles = '["superadmin"]' WHERE id = {:id}`).
 			Bind(map[string]any{"id": user.Id}).Execute()
 		require.NoError(tb, err)
 		s.Headers = map[string]string{"Authorization": token}

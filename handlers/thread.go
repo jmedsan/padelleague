@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"sort"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -165,7 +166,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="text-center py-6 opacity-60">Parejas pendientes de asignacion</div>`)
 	}
 
-	isAdmin := e.Auth.GetString("role") == "admin"
+	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
 	myTeam, teamErr := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if teamErr != nil && !isAdmin {
 		return alertError(e, "No tienes acceso a este hilo")
@@ -205,7 +206,7 @@ func (h *ThreadHandler) ThreadMessages(e *core.RequestEvent) error {
 		return err
 	}
 
-	isAdmin := e.Auth.GetString("role") == "admin"
+	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
 	myTeam, teamErr := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if teamErr != nil && !isAdmin {
 		return alertError(e, "No tienes acceso a este hilo")

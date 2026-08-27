@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -72,7 +73,7 @@ func makeUserTB(t testing.TB, app core.App, displayName, email string) *core.Rec
 	record.Set("email", email)
 	record.Set("username", fmt.Sprintf("huser%d", n))
 	record.Set("display_name", displayName)
-	record.Set("role", "player")
+	record.Set("roles", []string{"player"})
 	record.SetPassword("testpass123456")
 	record.SetVerified(true)
 	require.NoError(t, app.Save(record))
@@ -91,7 +92,7 @@ func makeUser(t *testing.T, app core.App, displayName, email string) *core.Recor
 	record.Set("email", email)
 	record.Set("username", fmt.Sprintf("huser%d", n))
 	record.Set("display_name", displayName)
-	record.Set("role", "player")
+	record.Set("roles", []string{"player"})
 	record.SetPassword("testpass123456")
 	record.SetVerified(true)
 	require.NoError(t, app.Save(record))
@@ -314,7 +315,7 @@ func requireAuthTest(e *core.RequestEvent) error {
 }
 
 func requireAdminTest(e *core.RequestEvent) error {
-	if e.Auth == nil || e.Auth.GetString("role") != "admin" {
+	if e.Auth == nil || !slices.Contains(e.Auth.GetStringSlice("roles"), "admin") {
 		return e.Redirect(302, "/login")
 	}
 	return e.Next()
@@ -375,7 +376,7 @@ func makeAdminUserTB(t testing.TB, app core.App) *core.Record {
 	record.Set("email", fmt.Sprintf("admin%d@test.local", n))
 	record.Set("username", fmt.Sprintf("hadmin%d", n))
 	record.Set("display_name", "Admin")
-	record.Set("role", "admin")
+	record.Set("roles", []string{"admin"})
 	record.SetPassword("testpass123456")
 	record.SetVerified(true)
 	require.NoError(t, app.Save(record))

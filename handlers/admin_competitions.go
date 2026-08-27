@@ -55,7 +55,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		standings, _ = h.leagueSvc.ComputeStandings(id)
 	}
 
-	allUsers, _ := h.app.FindRecordsByFilter("users", "role = 'player'", "", 0, 0, nil)
+	allUsers, _ := h.app.FindRecordsByFilter("users", "roles ~ 'player'", "", 0, 0, nil)
 
 	var roundDates []roundDate
 	isLeague := comp.GetString("type") == "league"

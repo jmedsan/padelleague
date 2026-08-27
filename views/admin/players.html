@@ -52,9 +52,10 @@
                     </td>
                     <td class="opacity-60 text-sm">{{.GetString "email"}}</td>
                     <td>
-                        {{if eq (.GetString "role") "admin"}}
+                        {{if contains (.GetStringSlice "roles") "admin"}}
                         <span class="badge badge-secondary badge-sm">Admin</span>
-                        {{else}}
+                        {{end}}
+                        {{if contains (.GetStringSlice "roles") "player"}}
                         <span class="badge badge-outline badge-sm">Jugador</span>
                         {{end}}
                     </td>
@@ -86,12 +87,18 @@
             </div>
             <div class="form-control mt-3">
                 <label class="label">
-                    <span class="label-text text-xs font-medium">Rol</span>
+                    <span class="label-text text-xs font-medium">Roles</span>
                 </label>
-                <select name="role" class="select select-bordered w-full">
-                    <option value="player" {{if eq (.GetString "role") "player"}}selected{{end}}>Jugador</option>
-                    <option value="admin" {{if eq (.GetString "role") "admin"}}selected{{end}}>Admin</option>
-                </select>
+                <label class="label cursor-pointer justify-start gap-2">
+                    <input type="checkbox" name="roles" value="admin" class="checkbox checkbox-sm"
+                        {{if contains (.GetStringSlice "roles") "admin"}}checked{{end}}>
+                    <span class="label-text">Admin</span>
+                </label>
+                <label class="label cursor-pointer justify-start gap-2">
+                    <input type="checkbox" name="roles" value="player" class="checkbox checkbox-sm"
+                        {{if contains (.GetStringSlice "roles") "player"}}checked{{end}}>
+                    <span class="label-text">Jugador</span>
+                </label>
             </div>
             <div class="form-control mt-3">
                 <label class="label">

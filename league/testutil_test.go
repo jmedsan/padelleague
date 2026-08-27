@@ -37,7 +37,7 @@ func makeUser(t *testing.T, app core.App, displayName, email string) *core.Recor
 	record.Set("email", email)
 	record.Set("username", fmt.Sprintf("luser%d", n))
 	record.Set("display_name", displayName)
-	record.Set("role", "player")
+	record.Set("roles", []string{"player"})
 	record.SetPassword("testpass123456")
 	record.SetVerified(true)
 	require.NoError(t, app.Save(record))

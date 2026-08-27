@@ -27,27 +27,27 @@ func TestRun_CreatesUsers(t *testing.T) {
 	app := newTestApp(t)
 
 	Run(app, []User{
-		{Email: "seed1@test.local", Password: "pass123456", Collection: "users", Role: "admin", DisplayName: "Seed Admin"},
-		{Email: "seed2@test.local", Password: "pass123456", Collection: "users", Role: "player", DisplayName: "Seed Player"},
+		{Email: "seed1@test.local", Password: "pass123456", Collection: "users", Roles: []string{"admin"}, DisplayName: "Seed Admin"},
+		{Email: "seed2@test.local", Password: "pass123456", Collection: "users", Roles: []string{"player"}, DisplayName: "Seed Player"},
 	})
 
 	u1, err := app.FindAuthRecordByEmail("users", "seed1@test.local")
 	require.NoError(t, err)
-	assert.Equal(t, "admin", u1.GetString("role"))
+	assert.Contains(t, u1.GetStringSlice("roles"), "admin")
 	assert.Equal(t, "Seed Admin", u1.GetString("display_name"))
 	assert.True(t, u1.Verified())
 
 	u2, err := app.FindAuthRecordByEmail("users", "seed2@test.local")
 	require.NoError(t, err)
-	assert.Equal(t, "player", u2.GetString("role"))
+	assert.Contains(t, u2.GetStringSlice("roles"), "player")
 }
 
 func TestRun_SkipsEmptyEmailOrPassword(t *testing.T) {
 	app := newTestApp(t)
 
 	Run(app, []User{
-		{Email: "", Password: "pass123456", Collection: "users", Role: "player"},
-		{Email: "nopass@test.local", Password: "", Collection: "users", Role: "player"},
+		{Email: "", Password: "pass123456", Collection: "users", Roles: []string{"player"}},
+		{Email: "nopass@test.local", Password: "", Collection: "users", Roles: []string{"player"}},
 	})
 
 	_, err := app.FindAuthRecordByEmail("users", "nopass@test.local")
@@ -62,18 +62,18 @@ func TestRun_SkipsExistingUser(t *testing.T) {
 	existing := core.NewRecord(col)
 	existing.Set("email", "existing@test.local")
 	existing.Set("display_name", "Original")
-	existing.Set("role", "player")
+	existing.Set("roles", []string{"player"})
 	existing.SetPassword("original123456")
 	existing.SetVerified(true)
 	require.NoError(t, app.Save(existing))
 
 	Run(app, []User{
-		{Email: "existing@test.local", Password: "newpass123456", Collection: "users", Role: "admin", DisplayName: "Changed"},
+		{Email: "existing@test.local", Password: "newpass123456", Collection: "users", Roles: []string{"admin"}, DisplayName: "Changed"},
 	})
 
 	u, err := app.FindAuthRecordByEmail("users", "existing@test.local")
 	require.NoError(t, err)
-	assert.Equal(t, "player", u.GetString("role"), "existing user should not be overwritten")
+	assert.Contains(t, u.GetStringSlice("roles"), "player", "existing user should not be overwritten")
 	assert.Equal(t, "Original", u.GetString("display_name"), "existing display_name should not change")
 }
 
@@ -81,7 +81,7 @@ func TestRun_InvalidCollection(t *testing.T) {
 	app := newTestApp(t)
 
 	Run(app, []User{
-		{Email: "bad@test.local", Password: "pass123456", Collection: "nonexistent", Role: "player"},
+		{Email: "bad@test.local", Password: "pass123456", Collection: "nonexistent", Roles: []string{"player"}},
 	})
 
 	// Should not panic; user should not exist anywhere.
@@ -94,7 +94,7 @@ func TestRun_MissingRequiredFields_LogsAndContinues(t *testing.T) {
 
 	Run(app, []User{
 		{Email: "norole@test.local", Password: "pass123456", Collection: "users"},
-		{Email: "good@test.local", Password: "pass123456", Collection: "users", Role: "player", DisplayName: "Good"},
+		{Email: "good@test.local", Password: "pass123456", Collection: "users", Roles: []string{"player"}, DisplayName: "Good"},
 	})
 
 	_, err := app.FindAuthRecordByEmail("users", "norole@test.local")
@@ -102,7 +102,7 @@ func TestRun_MissingRequiredFields_LogsAndContinues(t *testing.T) {
 
 	u, err := app.FindAuthRecordByEmail("users", "good@test.local")
 	require.NoError(t, err)
-	assert.Equal(t, "player", u.GetString("role"), "subsequent valid user should still be created")
+	assert.Contains(t, u.GetStringSlice("roles"), "player", "subsequent valid user should still be created")
 }
 
 func seedUser(t *testing.T, app core.App, email, role, displayName string) *core.Record {
@@ -111,7 +111,7 @@ func seedUser(t *testing.T, app core.App, email, role, displayName string) *core
 	require.NoError(t, err)
 	rec := core.NewRecord(col)
 	rec.Set("email", email)
-	rec.Set("role", role)
+	rec.Set("roles", []string{role})
 	rec.Set("display_name", displayName)
 	rec.SetPassword("testpass123456")
 	rec.SetVerified(true)
@@ -208,10 +208,10 @@ func TestWipe(t *testing.T) {
 	_, err = app.FindRecordById("users", admin2.Id)
 	require.NoError(t, err)
 
-	// No non-admin users remain
-	nonAdmins, err := app.FindRecordsByFilter("users", "role != 'admin'", "", 0, 0)
+	// Only admins remain
+	allUsers, err := app.FindRecordsByFilter("users", "id != ''", "", 0, 0)
 	require.NoError(t, err)
-	assert.Equal(t, 0, len(nonAdmins))
+	assert.Equal(t, 2, len(allUsers), "only the two admins should remain")
 
 	// Venues untouched
 	assert.Equal(t, venuesBefore, countRecords(t, app, "venues"))
@@ -226,7 +226,7 @@ func TestSampleLeague(t *testing.T) {
 
 	require.NoError(t, SampleLeague(app))
 
-	players, err := app.FindRecordsByFilter("users", "role = 'player'", "", 0, 0)
+	players, err := app.FindRecordsByFilter("users", "email ~ '@padelleague.com'", "", 0, 0)
 	require.NoError(t, err)
 	assert.Equal(t, 8, len(players))
 

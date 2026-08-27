@@ -343,7 +343,7 @@ func TestAcceptProposalSupersedesOthers(t *testing.T) {
 			"non-accepted pending proposal must be superseded")
 
 		// No admin notification should be created (normal case, no failures)
-		admins, _ := app.FindRecordsByFilter("users", "role = 'admin'", "", 0, 0, nil)
+		admins, _ := app.FindRecordsByFilter("users", "roles ~ 'admin'", "", 0, 0, nil)
 		for _, admin := range admins {
 			notifs, _ := app.FindRecordsByFilter("notifications",
 				"user = {:uid} && title = 'Error al superseder propuestas'",
@@ -421,7 +421,7 @@ func TestAcceptProposalSupersedeFailureNotifiesAdmin(t *testing.T) {
 		// Admin notification must exist about the failure
 		// The exact title depends on the S-4 fix implementation. Check for
 		// any admin notification that references the failure.
-		admins, _ := app.FindRecordsByFilter("users", "role = 'admin'", "", 0, 0, nil)
+		admins, _ := app.FindRecordsByFilter("users", "roles ~ 'admin'", "", 0, 0, nil)
 		require.NotEmpty(tb, admins, "test requires at least one admin")
 		adminNotifs, _ := app.FindRecordsByFilter("notifications",
 			"user = {:uid} && type = 'admin_message'",

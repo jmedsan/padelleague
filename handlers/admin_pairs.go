@@ -26,7 +26,7 @@ func (h *AdminHandler) Pairs(e *core.RequestEvent) error {
 		})
 	}
 
-	users, _ := h.app.FindRecordsByFilter("users", "role = 'player'", "display_name", 0, 0, nil)
+	users, _ := h.app.FindRecordsByFilter("users", "roles ~ 'player'", "display_name", 0, 0, nil)
 
 	return h.renderPage(e, "admin/pairs.html", map[string]any{
 		"Pairs": views,

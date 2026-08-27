@@ -75,7 +75,7 @@ func (n *Notifier) NotifyAdmins(notifType, title, body, relatedMatchID string) e
 	if err != nil {
 		return err
 	}
-	admins, err := n.app.FindRecordsByFilter("users", "role = 'admin'", "", 0, 0, nil)
+	admins, err := n.app.FindRecordsByFilter("users", "roles ~ 'admin'", "", 0, 0, nil)
 	if err != nil {
 		return err
 	}

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
@@ -24,7 +25,7 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
-	isAdmin := e.Auth.GetString("role") == "admin"
+	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
 	myTeam, err := league.PlayerTeam(h.app, userID, match)
 	if err != nil && !isAdmin {
 		return alertError(e, "No eres participante de este partido")
@@ -85,7 +86,7 @@ func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
-	isAdmin := e.Auth.GetString("role") == "admin"
+	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
 	myTeam, err := league.PlayerTeam(h.app, userID, match)
 	if err != nil && !isAdmin {
 		return alertError(e, "No eres participante de este partido")
@@ -128,7 +129,7 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
-	isAdmin := e.Auth.GetString("role") == "admin"
+	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
 	submittedByID := match.GetString("submitted_by")
 	if submittedByID == "" {
 		return alertError(e, "No se encontró quién envió el resultado")

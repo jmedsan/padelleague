@@ -156,7 +156,7 @@ func (h *AuthHandler) registerUser(inviteID, email, displayName, password string
 		userRecord = core.NewRecord(collection)
 		userRecord.Set("email", email)
 		userRecord.Set("display_name", displayName)
-		userRecord.Set("role", "player")
+		userRecord.Set("roles", []string{"player"})
 		userRecord.SetPassword(password)
 
 		if err := txApp.Save(userRecord); err != nil {

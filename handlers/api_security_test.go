@@ -121,7 +121,7 @@ func TestAPIUserRoleEscalationForbidden(t *testing.T) {
 		TestAppFactory:  testAppFactory,
 		Name:            "player cannot self-escalate role to admin via the record API",
 		Method:          http.MethodPatch,
-		Body:            strings.NewReader(`{"role":"admin"}`),
+		Body:            strings.NewReader(`{"roles":["admin"]}`),
 		ExpectedStatus:  403,
 		ExpectedContent: []string{"superusers"},
 	}
@@ -134,7 +134,8 @@ func TestAPIUserRoleEscalationForbidden(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		u, err := app.FindRecordById("users", playerID)
 		require.NoError(tb, err)
-		assert.Equal(tb, "player", u.GetString("role"), "role must remain player")
+		assert.Contains(tb, u.GetStringSlice("roles"), "player", "roles must still contain player")
+		assert.NotContains(tb, u.GetStringSlice("roles"), "admin", "roles must not contain admin")
 	}
 	s.Test(t)
 }
@@ -146,7 +147,7 @@ func TestAPIAnonUserCreateForbidden(t *testing.T) {
 		Name:            "unauthenticated client cannot create a user (incl. admin) via the record API",
 		Method:          http.MethodPost,
 		URL:             "/api/collections/users/records",
-		Body:            strings.NewReader(`{"email":"attacker@evil.com","password":"hunter2hunter2","passwordConfirm":"hunter2hunter2","display_name":"Attacker","role":"admin"}`),
+		Body:            strings.NewReader(`{"email":"attacker@evil.com","password":"hunter2hunter2","passwordConfirm":"hunter2hunter2","display_name":"Attacker","roles":["admin"]}`),
 		Headers:         map[string]string{"Content-Type": "application/json"},
 		ExpectedStatus:  403,
 		ExpectedContent: []string{"superusers"},
