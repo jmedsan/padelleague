@@ -219,7 +219,8 @@ func BuildRoundSchedule(start, end time.Time, rounds int) map[int]time.Time {
 		return nil
 	}
 	schedule := make(map[int]time.Time, rounds)
-	for r := 1; r <= rounds; r++ {
+	for i := range rounds {
+		r := i + 1
 		d, _ := RecommendedArrangeBy(start, end, rounds, r)
 		schedule[r] = d
 	}
