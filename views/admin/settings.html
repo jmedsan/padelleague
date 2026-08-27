@@ -13,23 +13,23 @@
                 <label class="label"><span class="label-text">Datos de ejemplo a cargar</span></label>
                 <div class="flex flex-col gap-2">
                     <label class="label cursor-pointer justify-start gap-3">
-                        <input type="checkbox" name="players" id="chk-players" class="checkbox checkbox-sm" />
+                        <input type="checkbox" name="players" id="chk-players" class="checkbox checkbox-sm" checked />
                         <span class="label-text">Jugadores</span>
                     </label>
                     <label class="label cursor-pointer justify-start gap-3">
-                        <input type="checkbox" name="pairs" id="chk-pairs" class="checkbox checkbox-sm" disabled />
+                        <input type="checkbox" name="pairs" id="chk-pairs" class="checkbox checkbox-sm" checked />
                         <span class="label-text">Parejas</span>
                     </label>
                     <label class="label cursor-pointer justify-start gap-3">
-                        <input type="checkbox" name="competitions" id="chk-competitions" class="checkbox checkbox-sm" disabled />
+                        <input type="checkbox" name="competitions" id="chk-competitions" class="checkbox checkbox-sm" checked />
                         <span class="label-text">Liga de ejemplo</span>
                     </label>
                     <label class="label cursor-pointer justify-start gap-3">
-                        <input type="checkbox" name="playoff" id="chk-playoff" class="checkbox checkbox-sm" disabled />
+                        <input type="checkbox" name="playoff" id="chk-playoff" class="checkbox checkbox-sm" checked />
                         <span class="label-text">Playoff de ejemplo</span>
                     </label>
                     <label class="label cursor-pointer justify-start gap-3">
-                        <input type="checkbox" name="matches" id="chk-matches" class="checkbox checkbox-sm" disabled />
+                        <input type="checkbox" name="matches" id="chk-matches" class="checkbox checkbox-sm" checked />
                         <span class="label-text">Partidos jugados</span>
                     </label>
                 </div>
@@ -91,6 +91,7 @@
 
     inp.addEventListener('input', updateState);
     Object.values(chks).forEach(function(c) { c.addEventListener('change', updateState); });
+    updateState();
 })();
 </script>
 
