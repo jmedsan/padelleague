@@ -183,7 +183,7 @@ func registerAdminVenueRoutes(g *router.RouterGroup[*core.RequestEvent], deps De
 }
 
 func registerAdminSettingsRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
-	settings := handlers.NewAdminSettingsHandler(deps.App, deps.AppDevTools, deps.Renderer.Page)
+	settings := handlers.NewAdminSettingsHandler(deps.App, deps.AppDevTools, deps.StaticFS, deps.Renderer.Page)
 	g.GET("/settings", settings.Settings)
 	g.POST("/settings/reset", settings.Reset)
 }

@@ -3,6 +3,7 @@ package seed
 
 import (
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"slices"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"padelleague/league"
 
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/filesystem"
 )
 
 // User describes a user to seed into the database.
@@ -182,6 +184,7 @@ type SampleOptions struct {
 	Competitions bool
 	Matches      bool
 	Playoff      bool
+	StaticFS     fs.FS
 }
 
 // SampleLeaguePartial loads sample data up to the highest selected stage:
@@ -219,7 +222,7 @@ func populateSampleLeague(txApp core.App, comp *core.Record, pairIDs []string, o
 	if err := saveSampleSchedule(txApp, comp); err != nil {
 		return err
 	}
-	if err := createSampleDocuments(txApp, comp); err != nil {
+	if err := createSampleDocuments(txApp, comp, opts.StaticFS); err != nil {
 		return err
 	}
 	if opts.Playoff {
@@ -467,10 +470,28 @@ func playersOfPair(txApp core.App, pairID string) []string {
 	return []string{pair.GetString("player1"), pair.GetString("player2")}
 }
 
-func createSampleDocuments(txApp core.App, comp *core.Record) error {
+func createSampleDocuments(txApp core.App, comp *core.Record, staticFS fs.FS) error {
 	col, err := txApp.FindCollectionByNameOrId("documents")
 	if err != nil {
 		return fmt.Errorf("find documents collection: %w", err)
+	}
+	var docIDs []string
+	if staticFS != nil {
+		b, err := fs.ReadFile(staticFS, "static/docs/reglamento-liga-amistosa.pdf")
+		if err == nil {
+			f, err := filesystem.NewFileFromBytes(b, "reglamento-liga-amistosa.pdf")
+			if err == nil {
+				rec := core.NewRecord(col)
+				rec.Set("title", "Reglamento de la liga (amistosa)")
+				rec.Set("is_mandatory", true)
+				rec.Set("is_default", true)
+				rec.Set("file", f)
+				if err := txApp.Save(rec); err != nil {
+					return fmt.Errorf("create document reglamento PDF: %w", err)
+				}
+				docIDs = append(docIDs, rec.Id)
+			}
+		}
 	}
 	type docSpec struct {
 		title     string
@@ -478,12 +499,11 @@ func createSampleDocuments(txApp core.App, comp *core.Record) error {
 		mandatory bool
 		isDefault bool
 	}
-	docs := []docSpec{
-		{title: "Reglamento", url: "https://www.fep.es/noticias/reglamento-de-juego", mandatory: true, isDefault: true},
-		{title: "Tutorial Padel", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", mandatory: false, isDefault: false},
+	linkDocs := []docSpec{
+		{title: "Reglamento FEP", url: "https://www.fep.es/noticias/reglamento-de-juego", mandatory: true, isDefault: true},
+		{title: "Tutorial Padel", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
 	}
-	var docIDs []string
-	for _, d := range docs {
+	for _, d := range linkDocs {
 		rec := core.NewRecord(col)
 		rec.Set("title", d.title)
 		rec.Set("url", d.url)

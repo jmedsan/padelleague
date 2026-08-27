@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"io/fs"
 	"log/slog"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -13,12 +14,13 @@ import (
 type AdminSettingsHandler struct {
 	app        core.App
 	devTools   bool
+	staticFS   fs.FS
 	renderPage RenderFunc
 }
 
 // NewAdminSettingsHandler creates an AdminSettingsHandler with the given dependencies.
-func NewAdminSettingsHandler(app core.App, devTools bool, renderPage RenderFunc) *AdminSettingsHandler {
-	return &AdminSettingsHandler{app: app, devTools: devTools, renderPage: renderPage}
+func NewAdminSettingsHandler(app core.App, devTools bool, staticFS fs.FS, renderPage RenderFunc) *AdminSettingsHandler {
+	return &AdminSettingsHandler{app: app, devTools: devTools, staticFS: staticFS, renderPage: renderPage}
 }
 
 // Settings renders the admin settings page.
@@ -58,6 +60,7 @@ func (h *AdminSettingsHandler) Reset(e *core.RequestEvent) error {
 		Competitions: e.Request.FormValue("competitions") == "on",
 		Matches:      e.Request.FormValue("matches") == "on",
 		Playoff:      e.Request.FormValue("playoff") == "on",
+		StaticFS:     h.staticFS,
 	}
 	if err := seed.SampleLeaguePartial(h.app, load); err != nil {
 		slog.Error("reset: sample load failed", "error", err)
