@@ -70,10 +70,10 @@ func main() {
 func seedUsers(cfg config.Config) []seed.User {
 	users := []seed.User{
 		{Email: cfg.PBAdminEmail, Password: cfg.PBAdminPassword, Collection: core.CollectionNameSuperusers},
-		{Email: cfg.AppAdmin1Email, Password: cfg.AppAdmin1Password, Collection: "users", Roles: []string{"admin"}, DisplayName: cfg.AppAdmin1Name},
+		{Email: cfg.AppAdmin1Email, Password: cfg.AppAdmin1Password, Collection: "users", Roles: []string{"admin", "player"}, DisplayName: cfg.AppAdmin1Name},
 	}
 	if cfg.AppAdmin2Email != "" {
-		users = append(users, seed.User{Email: cfg.AppAdmin2Email, Password: cfg.AppAdmin2Password, Collection: "users", Roles: []string{"admin"}, DisplayName: cfg.AppAdmin2Name})
+		users = append(users, seed.User{Email: cfg.AppAdmin2Email, Password: cfg.AppAdmin2Password, Collection: "users", Roles: []string{"admin", "player"}, DisplayName: cfg.AppAdmin2Name})
 	}
 	if cfg.AppEnv != "prod" {
 		users = append(users, seed.User{Email: cfg.AppPlayerEmail, Password: cfg.AppPlayerPassword, Collection: "users", Roles: []string{"player"}, DisplayName: cfg.AppPlayerName})
