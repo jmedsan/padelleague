@@ -94,7 +94,7 @@ func registerPublicRoutes(se *core.ServeEvent, deps Deps) {
 	view := handlers.NewViewHandler()
 	se.Router.GET("/view/{mode}", view.Switch).BindFunc(middleware.RequireAuth)
 
-	srch := handlers.NewSearchHandler(deps.App, deps.LeagueSvc, deps.SearchIndex, deps.Renderer.Page)
+	srch := handlers.NewSearchHandler(deps.App, deps.LeagueSvc, deps.SearchIndex, deps.Renderer.Partial)
 	se.Router.GET("/search", srch.Search).BindFunc(middleware.RequireAuth)
 }
 
