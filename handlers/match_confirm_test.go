@@ -138,7 +138,36 @@ func TestMatchDisputeNonParticipantPlayer_Refused(t *testing.T) {
 	s.Test(t)
 }
 
-// Correction window boundary (line 148)
+func TestMatchDisputeEmptyScoreRejected(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "dispute without counter-score is rejected",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Debes indicar el marcador correcto"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "EmSc A")
+		p2 := makePairTB(tb, app, "EmSc B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
+		submitter := p1.GetString("player1")
+		match.Set("scores", "6-3 6-4")
+		match.Set("submitted_by", submitter)
+		require.NoError(tb, app.Save(match))
+		s.URL = "/match/" + match.Id + "/dispute"
+		s.Body = strings.NewReader("dispute_notes=Solo+notas")
+		opponent, _ := app.FindRecordById("users", p2.GetString("player1"))
+		hdrs := authHeaders(tb, opponent)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+// Correction window boundary
 
 // Just under 24h → correction allowed
 func TestMatchCorrectBoundary_Under24h_Allowed(t *testing.T) {
