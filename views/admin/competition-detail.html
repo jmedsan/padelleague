@@ -259,6 +259,73 @@
     </div>
 </div>
 
+<!-- Documentos -->
+<div class="card bg-base-100 shadow mb-6">
+    <div class="card-body">
+        <h2 class="card-title text-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Documentos
+            {{if .AttachedDocs}}<span class="badge badge-neutral badge-sm">{{len .AttachedDocs}}</span>{{end}}
+        </h2>
+
+        {{if .AttachedDocs}}
+        <div class="overflow-x-auto">
+            <table class="table table-zebra">
+                <thead>
+                    <tr>
+                        <th>Título</th>
+                        <th>Tipo</th>
+                        <th>Obligatorio</th>
+                        <th class="text-right">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .AttachedDocs}}
+                    <tr>
+                        <td class="font-medium">{{.GetString "title"}}</td>
+                        <td>
+                            {{if .GetString "url"}}
+                                <a href="{{.GetString "url"}}" target="_blank" class="link link-primary text-sm">Enlace</a>
+                            {{else}}
+                                <span class="text-sm">Archivo</span>
+                            {{end}}
+                        </td>
+                        <td>
+                            {{if .GetBool "is_mandatory"}}<span class="badge badge-error badge-sm">Obligatorio</span>{{else}}<span class="text-base-content/40">—</span>{{end}}
+                        </td>
+                        <td class="text-right">
+                            <form hx-post="/admin/competitions/{{$.Competition.Id}}/detach-doc/{{.Id}}" hx-confirm="¿Quitar este documento de la competición?" class="inline">
+                                <button type="submit" class="btn btn-ghost btn-xs text-error">Quitar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="text-center py-6 text-base-content/50">
+            <p class="text-sm">No hay documentos adjuntos</p>
+        </div>
+        {{end}}
+
+        {{if .UnattachedDocs}}
+        <div class="divider text-xs uppercase tracking-wider">Adjuntar documento</div>
+        <form hx-post="/admin/competitions/{{.Competition.Id}}/attach-doc" class="flex items-end gap-3">
+            <div class="form-control flex-1">
+                <select name="document" class="select select-bordered select-sm w-full" required>
+                    <option value="">Seleccionar documento…</option>
+                    {{range .UnattachedDocs}}
+                    <option value="{{.Id}}">{{.GetString "title"}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Adjuntar</button>
+        </form>
+        {{end}}
+    </div>
+</div>
+
 <!-- Calendario -->
 <div class="card bg-base-100 shadow mb-6">
     <div class="card-body">
