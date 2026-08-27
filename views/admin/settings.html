@@ -44,7 +44,9 @@
                     class="btn btn-error w-full"
                     hx-post="/admin/settings/reset"
                     hx-target="#reset-result"
-                    hx-include="#reset-form">
+                    hx-include="#reset-form"
+                    hx-indicator="#reset-overlay"
+                    hx-disabled-elt="this">
                 Reiniciar base de datos
             </button>
         </div>
@@ -84,6 +86,18 @@
     Object.values(chks).forEach(function(c) { c.addEventListener('change', updateState); });
 })();
 </script>
+
+<style>
+    /* Full-screen blocking overlay shown by HTMX while the reset request runs. */
+    #reset-overlay { display: none; }
+    #reset-overlay.htmx-request { display: flex; }
+</style>
+<div id="reset-overlay"
+     class="fixed inset-0 z-50 flex-col items-center justify-center gap-3 bg-base-300/80 backdrop-blur-sm"
+     role="status" aria-live="polite" aria-busy="true">
+    <span class="loading loading-spinner loading-lg text-primary"></span>
+    <p class="text-sm font-medium">Reiniciando la base de datos…</p>
+</div>
 {{else}}
 <div class="alert alert-info max-w-lg">
     <span>No hay opciones de configuración disponibles en este entorno.</span>
