@@ -200,6 +200,48 @@ export async function setPlayoffDate(page: Page, matchId: string, date: string):
 }
 
 // ---------------------------------------------------------------------------
+// Document helpers
+// ---------------------------------------------------------------------------
+
+export async function createDocument(
+  page: Page,
+  title: string,
+  url: string,
+  options?: { mandatory?: boolean; isDefault?: boolean },
+): Promise<void> {
+  await page.locator('button:has-text("Nuevo documento")').click();
+  const dialog = page.locator('dialog#modal-create-doc');
+  await dialog.locator('input[name="title"]').fill(title);
+  await dialog.locator('input[name="url"]').fill(url);
+  if (options?.mandatory) {
+    await dialog.locator('input[name="is_mandatory"]').check();
+  }
+  if (options?.isDefault) {
+    await dialog.locator('input[name="is_default"]').check();
+  }
+  await clickAndWaitForHxRedirect(page, dialog.locator('button[type="submit"]'));
+}
+
+export async function attachDocumentToCompetition(
+  page: Page,
+  docTitle: string,
+): Promise<void> {
+  const select = page.locator('select[name="document"]');
+  await select.selectOption({ label: docTitle });
+  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Adjuntar")'));
+}
+
+export async function acceptDocsGate(page: Page): Promise<void> {
+  await expect(page.getByRole('heading', { name: 'Documentos obligatorios' })).toBeVisible({ timeout: 5000 });
+  const mandatoryLinks = page.locator('[data-mandatory-id]');
+  const count = await mandatoryLinks.count();
+  for (let i = 0; i < count; i++) {
+    await mandatoryLinks.nth(i).click();
+  }
+  await clickAndWaitForHxRedirect(page, page.locator('#accept-btn'));
+}
+
+// ---------------------------------------------------------------------------
 // Assertion helpers
 // ---------------------------------------------------------------------------
 

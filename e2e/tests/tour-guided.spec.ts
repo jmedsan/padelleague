@@ -7,7 +7,7 @@ import {
 import {
   createPlayer, createPair, addPairToCompetition, markAllPairsPaid,
   generateFixtures, setDates, submitScore, confirmScore, disputeScore,
-  resolveDispute,
+  resolveDispute, createDocument, attachDocumentToCompetition, acceptDocsGate,
   clickAndWaitForHxRedirect,
   assertFinalStandings, assertPlayoffChampion,
   lookupPlayerId, getRoundMatches, getMatchById,
@@ -37,7 +37,7 @@ const PAIRS: { name: string; label: PairId; p1: number; p2: number }[] = [
 
 const COMP_NAME = `G-League ${RUN_ID}`;
 const PLAYOFF_NAME = `G-Playoff ${RUN_ID}`;
-const EXPECTED_FALLBACKS: string[] = [];
+const EXPECTED_FALLBACKS: string[] = ['no Documentos quick-link on home'];
 
 let playerIds: string[] = [];
 let pairIds: string[] = [];
@@ -118,10 +118,11 @@ async function gotoMatchViaPendingAction(page: Page): Promise<void> {
 
 async function gotoMatchViaCompCard(page: Page, compId: string, matchId: string): Promise<void> {
   await goHome(page);
-  // Click the competition card by href (avoids nested-<a> parsing issues)
   await page.locator(`a[href="/competition/${compId}"]`).first().click();
   await page.waitForLoadState('domcontentloaded');
-  // On the competition page, find the match link in the rounds table
+  if (await page.getByRole('heading', { name: 'Documentos obligatorios' }).isVisible().catch(() => false)) {
+    await acceptDocsGate(page);
+  }
   await page.locator(`a[href="/match/${matchId}"]`).first().click();
   await page.waitForLoadState('domcontentloaded');
 }
@@ -200,6 +201,33 @@ test.describe('guided navigation tour', () => {
     await page.getByTestId('setup-configure').click();
     await page.waitForLoadState('domcontentloaded');
     await clickAndWaitForHxRedirect(page, page.locator('.toggle.toggle-success'));
+
+    // =======================================================================
+    // Phase 1f: Admin creates mandatory doc + player passes gate
+    // =======================================================================
+
+    // Admin creates a mandatory document via Documentos panel
+    await goHome(page);
+    await referenceFallback(page, 'no Documentos quick-link on home', '/admin/documents');
+    await createDocument(page, 'Reglamento de prueba', 'https://example.com/reglamento', {
+      mandatory: true,
+    });
+
+    // Admin attaches it to the competition
+    await goHome(page);
+    await clickAdminQuickLink(page, 'Competiciones');
+    await page.getByRole('link', { name: COMP_NAME }).first().click();
+    await page.waitForLoadState('domcontentloaded');
+    await attachDocumentToCompetition(page, 'Reglamento de prueba');
+
+    // Player hits the gate on first competition entry
+    await loginAs(page, PLAYERS[0].email, PLAYER_PASSWORD);
+    await page.goto(`/competition/${competitionId}`);
+    await page.waitForLoadState('domcontentloaded');
+    await acceptDocsGate(page);
+
+    // After accepting, player sees normal competition page
+    await expect(page.locator('input[aria-label="Jornadas"]')).toBeVisible({ timeout: 5000 });
 
     // =======================================================================
     // Phase 2: Play all 12 league matches via home affordances

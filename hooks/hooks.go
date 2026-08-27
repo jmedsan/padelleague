@@ -140,7 +140,10 @@ func Register(app core.App, svc *league.Service, notifier *notify.Notifier, sear
 	})
 
 	if searchIndex != nil {
-		rebuildSearchIndex(app, searchIndex)
+		app.OnServe().BindFunc(func(e *core.ServeEvent) error {
+			rebuildSearchIndex(app, searchIndex)
+			return e.Next()
+		})
 		app.Cron().MustAdd("search-index-rebuild", "*/10 * * * *", func() {
 			rebuildSearchIndex(app, searchIndex)
 		})
