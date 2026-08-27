@@ -197,6 +197,20 @@ func TestSecondarySearch(t *testing.T) {
 	assert.Equal(t, "Pendientes", results[0].Label)
 }
 
+func TestPlayerPistasNoSpuriousMatch(t *testing.T) {
+	t.Parallel()
+	entries := []Entry{
+		NewEntry(Entry{Label: "Pistas", Secondary: "Gestión de pistas", Type: "página", URL: "/admin/venues", Keywords: []string{"pista"}, Scope: Scope{Admin: true}}),
+		NewEntry(Entry{Label: "Partidos", Secondary: "Todos los partidos", Type: "página", URL: "/", Keywords: []string{"partido", "partidos"}, Scope: Scope{Public: true}}),
+	}
+	ix := &Index{}
+	ix.Replace(entries)
+	player := Viewer{IsAdmin: false, CompIDs: map[string]struct{}{}}
+
+	results := ix.Search("Pistas", player, 10)
+	assert.Empty(t, results, "player searching 'Pistas' must get no results (admin entry filtered, no spurious public match)")
+}
+
 func TestLabelMatchOutranksKeyword(t *testing.T) {
 	t.Parallel()
 	entries := []Entry{

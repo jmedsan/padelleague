@@ -126,8 +126,8 @@ func rankEntries(fq string, visible []Entry) []scored {
 		fullTexts[i] = e.searchText
 	}
 
-	labelHit := fuzzyScoreMap(fq, labelTexts)
-	fullHit := fuzzyScoreMap(fq, fullTexts)
+	labelHit := fuzzyScoreMap(fq, labelTexts, math.Inf(-1))
+	fullHit := fuzzyScoreMap(fq, fullTexts, -0.2)
 
 	var hits []scored
 	for i, e := range visible {
@@ -155,13 +155,16 @@ func rankEntries(fq string, visible []Entry) []scored {
 	return hits
 }
 
-func fuzzyScoreMap(query string, targets []string) map[int]float64 {
+func fuzzyScoreMap(query string, targets []string, minScore float64) map[int]float64 {
 	matches := fuzzy.Find(query, targets)
 	result := make(map[int]float64, len(matches))
 	for _, m := range matches {
 		s := float64(m.Score)
 		if len(m.Str) > 0 {
 			s /= float64(len(m.Str))
+		}
+		if s < minScore {
+			continue
 		}
 		result[m.Index] = s
 	}
