@@ -771,3 +771,106 @@ func TestAcceptProposalBlocksSecondAcceptance(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestPostMessage_AdminNonParticipant_Succeeds(t *testing.T) {
+	t.Parallel()
+	var matchID string
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "admin non-participant can post a thread message",
+		Method:         http.MethodPost,
+		Body:           strings.NewReader("content=Mensaje+del+admin&type=chat"),
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "AdmMsg A")
+		p2 := makePairTB(tb, app, "AdmMsg B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
+		s.URL = "/match/" + match.Id + "/thread/message"
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		msgs, err := app.FindRecordsByFilter("match_messages",
+			"match = {:m}", "", 0, 0, map[string]any{"m": matchID})
+		require.NoError(tb, err)
+		require.Len(tb, msgs, 1)
+		assert.Equal(tb, "Mensaje del admin", msgs[0].GetString("content"))
+	}
+	s.Test(t)
+}
+
+func TestPostMessage_NonParticipantNonAdmin_Rejected(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "non-participant non-admin cannot post",
+		Method:          http.MethodPost,
+		Body:            strings.NewReader("content=intruso&type=chat"),
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"No eres participante"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		outsider := makeUserTB(tb, app, "Outsider Msg", "")
+		p1 := makePairTB(tb, app, "OutMsg A")
+		p2 := makePairTB(tb, app, "OutMsg B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + match.Id + "/thread/message"
+		hdrs := authHeaders(tb, outsider)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestPostMessage_AdminNotifiesBothPairs(t *testing.T) {
+	t.Parallel()
+	var matchID string
+	var p1Player1, p1Player2, p2Player1, p2Player2 string
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "admin message notifies both pairs",
+		Method:         http.MethodPost,
+		Body:           strings.NewReader("content=Aviso+importante&type=chat"),
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "BothN A")
+		p2 := makePairTB(tb, app, "BothN B")
+		p1Player1 = p1.GetString("player1")
+		p1Player2 = p1.GetString("player2")
+		p2Player1 = p2.GetString("player1")
+		p2Player2 = p2.GetString("player2")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
+		s.URL = "/match/" + match.Id + "/thread/message"
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		notifs, err := app.FindRecordsByFilter("notifications",
+			"related_match = {:m}", "", 0, 0, map[string]any{"m": matchID})
+		require.NoError(tb, err)
+
+		notifiedUsers := make(map[string]bool)
+		for _, n := range notifs {
+			notifiedUsers[n.GetString("user")] = true
+		}
+		assert.True(tb, notifiedUsers[p1Player1], "pair1 player1 should be notified")
+		assert.True(tb, notifiedUsers[p1Player2], "pair1 player2 should be notified")
+		assert.True(tb, notifiedUsers[p2Player1], "pair2 player1 should be notified")
+		assert.True(tb, notifiedUsers[p2Player2], "pair2 player2 should be notified")
+	}
+	s.Test(t)
+}
