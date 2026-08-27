@@ -26,7 +26,7 @@ type PairView struct {
 
 // Pairs renders the admin pairs management page.
 func (h *PairHandler) Pairs(e *core.RequestEvent) error {
-	pairs, _ := h.app.FindAllRecords("pairs")
+	pairs, _ := h.app.FindRecordsByFilter("pairs", "id != ''", "name", 0, 0, nil)
 
 	var views []PairView
 	for _, p := range pairs {

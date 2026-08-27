@@ -184,7 +184,7 @@ func (h *CompetitionHandler) buildPairEntries(pairIDs []string, seeding map[stri
 }
 
 func (h *CompetitionHandler) availablePairs(enrolledIDs []string) []*core.Record {
-	allPairsRaw, _ := h.app.FindAllRecords("pairs")
+	allPairsRaw, _ := h.app.FindRecordsByFilter("pairs", "id != ''", "name", 0, 0, nil)
 	enrolled := map[string]struct{}{}
 	for _, pid := range enrolledIDs {
 		enrolled[pid] = struct{}{}

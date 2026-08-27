@@ -29,6 +29,38 @@ func TestAdminPairsPage(t *testing.T) {
 	s.Test(t)
 }
 
+func TestAdminPairsSortedByName(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/pairs renders pairs in alphabetical order",
+		Method:          http.MethodGet,
+		URL:             "/admin/pairs",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Parejas"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupFullAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		makePairTB(tb, app, "Zorros")
+		makePairTB(tb, app, "Aguilas")
+		makePairTB(tb, app, "Lobos")
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		idxA := strings.Index(body, "Aguilas")
+		idxL := strings.Index(body, "Lobos")
+		idxZ := strings.Index(body, "Zorros")
+		require.NotEqual(tb, -1, idxA, "Aguilas should appear in response")
+		require.NotEqual(tb, -1, idxL, "Lobos should appear in response")
+		require.NotEqual(tb, -1, idxZ, "Zorros should appear in response")
+		assert.Less(tb, idxA, idxL, "Aguilas should appear before Lobos")
+		assert.Less(tb, idxL, idxZ, "Lobos should appear before Zorros")
+	}
+	s.Test(t)
+}
+
 func TestAdminPairsCreate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
