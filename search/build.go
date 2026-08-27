@@ -1,3 +1,5 @@
+// Package search provides a full-text search index with accent folding,
+// fuzzy matching, and scope-based visibility filtering.
 package search
 
 import (
@@ -9,6 +11,7 @@ import (
 	"padelleague/league"
 )
 
+// Build harvests searchable entries from the database and static pages.
 func Build(app core.App) []Entry {
 	var entries []Entry
 	entries = append(entries, staticPages...)
@@ -29,13 +32,12 @@ func buildUsers(app core.App) []Entry {
 	}
 	entries := make([]Entry, 0, len(users))
 	for _, u := range users {
-		entries = append(entries, NewEntry(
-			u.GetString("display_name"),
-			"",
-			"jugador",
-			"/player/"+u.Id,
-			Scope{Public: true},
-		))
+		entries = append(entries, NewEntry(Entry{
+			Label: u.GetString("display_name"),
+			Type:  "jugador",
+			URL:   "/player/" + u.Id,
+			Scope: Scope{Public: true},
+		}))
 	}
 	return entries
 }
@@ -48,13 +50,13 @@ func buildCompetitions(app core.App) []Entry {
 	}
 	entries := make([]Entry, 0, len(comps))
 	for _, c := range comps {
-		entries = append(entries, NewEntry(
-			c.GetString("name"),
-			c.GetString("category"),
-			"competición",
-			"/competition/"+c.Id,
-			Scope{Public: true},
-		))
+		entries = append(entries, NewEntry(Entry{
+			Label:     c.GetString("name"),
+			Secondary: c.GetString("category"),
+			Type:      "competición",
+			URL:       "/competition/" + c.Id,
+			Scope:     Scope{Public: true},
+		}))
 	}
 	return entries
 }
@@ -83,14 +85,13 @@ func buildMatches(app core.App) []Entry {
 		p2 := pairNames[m.GetString("pair2")]
 		round := int(m.GetFloat("round_number"))
 		label := fmt.Sprintf("%s vs %s (J%d)", p1, p2, round)
-		secondary := m.GetString("scores")
-		entries = append(entries, NewEntry(
-			label,
-			secondary,
-			"partido",
-			"/match/"+m.Id,
-			Scope{Public: true},
-		))
+		entries = append(entries, NewEntry(Entry{
+			Label:     label,
+			Secondary: m.GetString("scores"),
+			Type:      "partido",
+			URL:       "/match/" + m.Id,
+			Scope:     Scope{Public: true},
+		}))
 	}
 	return entries
 }
@@ -122,13 +123,12 @@ func buildMessages(app core.App) []Entry {
 		}
 		matchID := msg.GetString("match")
 		compID := matchCompMap[matchID]
-		entries = append(entries, NewEntry(
-			content,
-			"",
-			"mensaje",
-			"/match/"+matchID,
-			Scope{CompID: compID},
-		))
+		entries = append(entries, NewEntry(Entry{
+			Label: content,
+			Type:  "mensaje",
+			URL:   "/match/" + matchID,
+			Scope: Scope{CompID: compID},
+		}))
 	}
 	return entries
 }
@@ -155,23 +155,21 @@ func buildDocuments(app core.App) []Entry {
 		if url == "" {
 			url = "/admin/documents"
 		}
+		title := d.GetString("title")
+		desc := d.GetString("description")
 		if len(compIDs) == 0 {
-			entries = append(entries, NewEntry(
-				d.GetString("title"),
-				d.GetString("description"),
-				"documento",
-				url,
-				Scope{Admin: true},
-			))
+			entries = append(entries, NewEntry(Entry{
+				Label: title, Secondary: desc,
+				Type: "documento", URL: url,
+				Scope: Scope{Admin: true},
+			}))
 		} else {
 			for _, cid := range compIDs {
-				entries = append(entries, NewEntry(
-					d.GetString("title"),
-					d.GetString("description"),
-					"documento",
-					url,
-					Scope{CompID: cid},
-				))
+				entries = append(entries, NewEntry(Entry{
+					Label: title, Secondary: desc,
+					Type: "documento", URL: url,
+					Scope: Scope{CompID: cid},
+				}))
 			}
 		}
 	}
@@ -186,13 +184,12 @@ func buildVenues(app core.App) []Entry {
 	}
 	entries := make([]Entry, 0, len(venues))
 	for _, v := range venues {
-		entries = append(entries, NewEntry(
-			v.GetString("name"),
-			"",
-			"pista",
-			"/admin/venues",
-			Scope{Admin: true},
-		))
+		entries = append(entries, NewEntry(Entry{
+			Label: v.GetString("name"),
+			Type:  "pista",
+			URL:   "/admin/venues",
+			Scope: Scope{Admin: true},
+		}))
 	}
 	return entries
 }

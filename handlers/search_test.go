@@ -27,8 +27,8 @@ func seedSearchIndex(tb testing.TB, app core.App, ix *search.Index) {
 	tb.Helper()
 	entries := search.Build(app)
 	entries = append(entries,
-		search.NewEntry("Admin Secret Panel", "", "página", "/admin/secret", search.Scope{Admin: true}),
-		search.NewEntry("Public Player Page", "", "página", "/player/1", search.Scope{Public: true}),
+		search.NewEntry(search.Entry{Label: "Admin Secret Panel", Type: "página", URL: "/admin/secret", Scope: search.Scope{Admin: true}}),
+		search.NewEntry(search.Entry{Label: "Public Player Page", Type: "página", URL: "/player/1", Scope: search.Scope{Public: true}}),
 	)
 	ix.Replace(entries)
 }
@@ -199,8 +199,8 @@ func TestSearch_PlayerExcludesForeignCompEntry(t *testing.T) {
 		comp2 := makeCompetitionTB(tb, app, "league", []*core.Record{p2})
 
 		entries := []search.Entry{
-			search.NewEntry("My Thread Message", "", "mensaje", "/match/1", search.Scope{CompID: comp1.Id}),
-			search.NewEntry("Foreign Thread Message", "", "mensaje", "/match/2", search.Scope{CompID: comp2.Id}),
+			search.NewEntry(search.Entry{Label: "My Thread Message", Type: "mensaje", URL: "/match/1", Scope: search.Scope{CompID: comp1.Id}}),
+			search.NewEntry(search.Entry{Label: "Foreign Thread Message", Type: "mensaje", URL: "/match/2", Scope: search.Scope{CompID: comp2.Id}}),
 		}
 		ix.Replace(entries)
 

@@ -13,12 +13,14 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
+// Scope controls entry visibility: public, admin-only, or per-competition.
 type Scope struct {
 	Public bool
 	Admin  bool
 	CompID string
 }
 
+// Entry is a single searchable item in the index.
 type Entry struct {
 	Label     string
 	folded    string
@@ -28,16 +30,19 @@ type Entry struct {
 	Scope     Scope
 }
 
+// Index holds the search entries behind a read-write lock.
 type Index struct {
 	mu      sync.RWMutex
 	entries []Entry
 }
 
+// Viewer represents the requesting user's access context.
 type Viewer struct {
 	IsAdmin bool
 	CompIDs map[string]struct{}
 }
 
+// Result is a ranked search match returned to the caller.
 type Result struct {
 	Label     string
 	Secondary string
@@ -46,23 +51,20 @@ type Result struct {
 	Score     float64
 }
 
-func NewEntry(label, secondary, typ, url string, scope Scope) Entry {
-	return Entry{
-		Label:     label,
-		folded:    fold(label),
-		Secondary: secondary,
-		Type:      typ,
-		URL:       url,
-		Scope:     scope,
-	}
+// NewEntry computes the folded label for accent-insensitive matching.
+func NewEntry(e Entry) Entry {
+	e.folded = fold(e.Label)
+	return e
 }
 
+// Replace atomically swaps the index entries.
 func (ix *Index) Replace(entries []Entry) {
 	ix.mu.Lock()
 	defer ix.mu.Unlock()
 	ix.entries = entries
 }
 
+// Search returns ranked results filtered by the viewer's access scope.
 func (ix *Index) Search(query string, v Viewer, limit int) []Result {
 	if query == "" {
 		return nil
@@ -79,39 +81,7 @@ func (ix *Index) Search(query string, v Viewer, limit int) []Result {
 	}
 	ix.mu.RUnlock()
 
-	type scored struct {
-		entry Entry
-		score float64
-	}
-	var hits []scored
-
-	labels := make([]string, len(visible))
-	for i, e := range visible {
-		labels[i] = e.folded
-	}
-	fuzzyMatches := fuzzy.Find(fq, labels)
-	fuzzyHit := make(map[int]float64, len(fuzzyMatches))
-	for _, m := range fuzzyMatches {
-		s := float64(m.Score)
-		if len(m.Str) > 0 {
-			s /= float64(len(m.Str))
-		}
-		fuzzyHit[m.Index] = s
-	}
-
-	for i, e := range visible {
-		if s, ok := fuzzyHit[i]; ok {
-			hits = append(hits, scored{e, s})
-			continue
-		}
-		if s := wordSimilarity(fq, e.folded); s >= 0.6 {
-			hits = append(hits, scored{e, s})
-		}
-	}
-
-	sort.Slice(hits, func(i, j int) bool {
-		return hits[i].score > hits[j].score
-	})
+	hits := rankEntries(fq, visible)
 
 	if len(hits) > limit {
 		hits = hits[:limit]
@@ -128,6 +98,43 @@ func (ix *Index) Search(query string, v Viewer, limit int) []Result {
 		}
 	}
 	return results
+}
+
+type scored struct {
+	entry Entry
+	score float64
+}
+
+func rankEntries(fq string, visible []Entry) []scored {
+	labels := make([]string, len(visible))
+	for i, e := range visible {
+		labels[i] = e.folded
+	}
+	fuzzyMatches := fuzzy.Find(fq, labels)
+	fuzzyHit := make(map[int]float64, len(fuzzyMatches))
+	for _, m := range fuzzyMatches {
+		s := float64(m.Score)
+		if len(m.Str) > 0 {
+			s /= float64(len(m.Str))
+		}
+		fuzzyHit[m.Index] = s
+	}
+
+	var hits []scored
+	for i, e := range visible {
+		if s, ok := fuzzyHit[i]; ok {
+			hits = append(hits, scored{e, s})
+			continue
+		}
+		if s := wordSimilarity(fq, e.folded); s >= 0.6 {
+			hits = append(hits, scored{e, s})
+		}
+	}
+
+	sort.Slice(hits, func(i, j int) bool {
+		return hits[i].score > hits[j].score
+	})
+	return hits
 }
 
 func (e Entry) visibleTo(v Viewer) bool {
