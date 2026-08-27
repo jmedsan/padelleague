@@ -1,0 +1,159 @@
+package search
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestFold(t *testing.T) {
+	t.Parallel()
+	cases := []struct{ in, want string }{
+		{"Otoño 2025", "otono 2025"},
+		{"Vídeo de normas", "video de normas"},
+		{"Reglamento", "reglamento"},
+		{"PADEL 360", "padel 360"},
+	}
+	for _, tc := range cases {
+		assert.Equal(t, tc.want, fold(tc.in), "fold(%q)", tc.in)
+	}
+}
+
+func TestRankTypoAccentMatrix(t *testing.T) {
+	t.Parallel()
+	entries := []Entry{
+		newEntry("Reglamento", "", "documento", "/doc/1", Scope{Public: true}),
+		newEntry("Padel 360", "", "pista", "/venues/1", Scope{Admin: true}),
+		newEntry("Vídeo de normas", "", "documento", "/doc/2", Scope{Public: true}),
+		newEntry("Otoño 2025", "", "competición", "/comp/1", Scope{Public: true}),
+		newEntry("Javier Medina", "", "jugador", "/player/1", Scope{Public: true}),
+	}
+
+	ix := &Index{}
+	ix.Replace(entries)
+	admin := Viewer{IsAdmin: true, CompIDs: map[string]struct{}{}}
+
+	tests := []struct {
+		query string
+		want  string
+	}{
+		{"reglemento", "Reglamento"},
+		{"padle", "Padel 360"},
+		{"video norma", "Vídeo de normas"},
+		{"otono", "Otoño 2025"},
+		{"javi", "Javier Medina"},
+	}
+	for _, tc := range tests {
+		results := ix.Search(tc.query, admin, 10)
+		require.NotEmpty(t, results, "query %q must return results", tc.query)
+		assert.Equal(t, tc.want, results[0].Label, "query %q top result", tc.query)
+	}
+}
+
+func TestScopeFilterPlayer(t *testing.T) {
+	t.Parallel()
+	entries := []Entry{
+		newEntry("Public Page", "", "página", "/", Scope{Public: true}),
+		newEntry("Admin Panel", "", "página", "/admin", Scope{Admin: true}),
+		newEntry("Comp A Thread", "", "mensaje", "/match/1", Scope{CompID: "comp-a"}),
+		newEntry("Comp B Thread", "", "mensaje", "/match/2", Scope{CompID: "comp-b"}),
+	}
+	ix := &Index{}
+	ix.Replace(entries)
+
+	player := Viewer{
+		IsAdmin: false,
+		CompIDs: map[string]struct{}{"comp-a": {}},
+	}
+
+	results := ix.Search("p", player, 10)
+	var labels []string
+	for _, r := range results {
+		labels = append(labels, r.Label)
+	}
+
+	assert.Contains(t, labels, "Public Page")
+	assert.Contains(t, labels, "Comp A Thread")
+	assert.NotContains(t, labels, "Admin Panel", "player must not see admin entries")
+	assert.NotContains(t, labels, "Comp B Thread", "player must not see foreign comp entries")
+}
+
+func TestScopeFilterAdmin(t *testing.T) {
+	t.Parallel()
+	entries := []Entry{
+		newEntry("Public Page", "", "página", "/", Scope{Public: true}),
+		newEntry("Admin Panel", "", "página", "/admin", Scope{Admin: true}),
+		newEntry("Comp A Thread", "", "mensaje", "/match/1", Scope{CompID: "comp-a"}),
+		newEntry("Comp B Thread", "", "mensaje", "/match/2", Scope{CompID: "comp-b"}),
+	}
+	ix := &Index{}
+	ix.Replace(entries)
+
+	admin := Viewer{IsAdmin: true, CompIDs: map[string]struct{}{}}
+
+	results := ix.Search("p", admin, 10)
+	var labels []string
+	for _, r := range results {
+		labels = append(labels, r.Label)
+	}
+
+	assert.Contains(t, labels, "Public Page")
+	assert.Contains(t, labels, "Admin Panel")
+	assert.Contains(t, labels, "Comp A Thread")
+	assert.Contains(t, labels, "Comp B Thread")
+}
+
+func TestSearchLimit(t *testing.T) {
+	t.Parallel()
+	var entries []Entry
+	for i := 0; i < 20; i++ {
+		entries = append(entries, newEntry("Test Entry", "", "página", "/", Scope{Public: true}))
+	}
+	ix := &Index{}
+	ix.Replace(entries)
+
+	results := ix.Search("test", Viewer{}, 5)
+	assert.Len(t, results, 5)
+}
+
+func TestSearchEmptyQuery(t *testing.T) {
+	t.Parallel()
+	ix := &Index{}
+	ix.Replace([]Entry{newEntry("Foo", "", "página", "/", Scope{Public: true})})
+	results := ix.Search("", Viewer{}, 10)
+	assert.Empty(t, results)
+}
+
+func TestVisibleTo(t *testing.T) {
+	t.Parallel()
+
+	player := Viewer{IsAdmin: false, CompIDs: map[string]struct{}{"c1": {}}}
+	admin := Viewer{IsAdmin: true, CompIDs: map[string]struct{}{}}
+
+	pub := Entry{Scope: Scope{Public: true}}
+	adm := Entry{Scope: Scope{Admin: true}}
+	ownComp := Entry{Scope: Scope{CompID: "c1"}}
+	foreignComp := Entry{Scope: Scope{CompID: "c2"}}
+
+	assert.True(t, pub.visibleTo(player))
+	assert.False(t, adm.visibleTo(player))
+	assert.True(t, ownComp.visibleTo(player))
+	assert.False(t, foreignComp.visibleTo(player))
+
+	assert.True(t, pub.visibleTo(admin))
+	assert.True(t, adm.visibleTo(admin))
+	assert.True(t, ownComp.visibleTo(admin))
+	assert.True(t, foreignComp.visibleTo(admin))
+}
+
+func newEntry(label, secondary, typ, url string, scope Scope) Entry {
+	return Entry{
+		Label:     label,
+		folded:    fold(label),
+		Secondary: secondary,
+		Type:      typ,
+		URL:       url,
+		Scope:     scope,
+	}
+}
