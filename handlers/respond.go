@@ -1,3 +1,4 @@
+// Package handlers implements HTTP handlers for all application routes.
 package handlers
 
 import (

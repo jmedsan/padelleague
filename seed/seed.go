@@ -73,35 +73,87 @@ func (s WipeSummary) Total() int {
 		s.Messages + s.Notifications + s.Invitations + s.Subscriptions
 }
 
-// Wipe deletes all in-scope data inside a transaction, preserving admin users,
-// venues, and superusers.
-func Wipe(app core.App) (WipeSummary, error) {
+// SamplePlayerPassword is the password used for sample league players.
+// Dev/test only — never used in production.
+const SamplePlayerPassword = "padel1234"
+
+// WipeOptions controls which data categories to delete.
+type WipeOptions struct {
+	Players      bool
+	Pairs        bool
+	Competitions bool
+	Matches      bool
+}
+
+// ValidationMessage returns a user-facing message if dependency constraints
+// are violated, or empty string if valid.
+func (o WipeOptions) ValidationMessage() string {
+	if o.Pairs && !o.Players {
+		return "borrar parejas requiere borrar jugadores"
+	}
+	if o.Competitions && !o.Pairs {
+		return "borrar competiciones requiere borrar parejas"
+	}
+	if o.Matches && !o.Competitions {
+		return "borrar partidos requiere borrar competiciones"
+	}
+	return ""
+}
+
+// AllSelected returns true when all four options are selected.
+func (o WipeOptions) AllSelected() bool {
+	return o.Players && o.Pairs && o.Competitions && o.Matches
+}
+
+// WipeSelective deletes data for the selected categories inside a transaction.
+func WipeSelective(app core.App, opts WipeOptions) (WipeSummary, error) {
 	var summary WipeSummary
-
-	type target struct {
-		name    string
-		counter *int
-	}
-	targets := []target{
-		{"match_messages", &summary.Messages},
-		{"notifications", &summary.Notifications},
-		{"matches", &summary.Matches},
-		{"competitions", &summary.Competitions},
-		{"invitations", &summary.Invitations},
-		{"push_subscriptions", &summary.Subscriptions},
-		{"pairs", &summary.Pairs},
-	}
-
 	err := app.RunInTransaction(func(txApp core.App) error {
-		for _, t := range targets {
-			if err := wipeCollection(txApp, t.name, t.counter); err != nil {
-				return err
-			}
-		}
-		return wipeNonAdminUsers(txApp, &summary.Players)
+		return wipeCategories(txApp, opts, &summary)
 	})
-
 	return summary, err
+}
+
+func wipeCategories(txApp core.App, opts WipeOptions, summary *WipeSummary) error {
+	if opts.Matches {
+		if err := wipeMatches(txApp, summary); err != nil {
+			return err
+		}
+	}
+	if opts.Competitions {
+		if err := wipeCollection(txApp, "competitions", &summary.Competitions); err != nil {
+			return err
+		}
+	}
+	if opts.Pairs {
+		if err := wipeCollection(txApp, "pairs", &summary.Pairs); err != nil {
+			return err
+		}
+	}
+	if opts.Players {
+		return wipePlayers(txApp, summary)
+	}
+	return nil
+}
+
+func wipeMatches(txApp core.App, summary *WipeSummary) error {
+	if err := wipeCollection(txApp, "match_messages", &summary.Messages); err != nil {
+		return err
+	}
+	return wipeCollection(txApp, "matches", &summary.Matches)
+}
+
+func wipePlayers(txApp core.App, summary *WipeSummary) error {
+	if err := wipeCollection(txApp, "notifications", &summary.Notifications); err != nil {
+		return err
+	}
+	if err := wipeCollection(txApp, "invitations", &summary.Invitations); err != nil {
+		return err
+	}
+	if err := wipeCollection(txApp, "push_subscriptions", &summary.Subscriptions); err != nil {
+		return err
+	}
+	return wipeNonAdminUsers(txApp, &summary.Players)
 }
 
 func wipeCollection(txApp core.App, name string, count *int) error {
@@ -167,7 +219,7 @@ func createSamplePlayers(txApp core.App) ([]string, error) {
 	for i := range 8 {
 		rec := core.NewRecord(col)
 		rec.Set("email", fmt.Sprintf("sample-p%d@padelleague.com", i+1))
-		rec.SetPassword("padel1234")
+		rec.SetPassword(SamplePlayerPassword)
 		rec.Set("roles", []string{"player"})
 		rec.Set("display_name", fmt.Sprintf("Jugador %d", i+1))
 		rec.SetVerified(true)
