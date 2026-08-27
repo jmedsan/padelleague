@@ -209,6 +209,14 @@ func TestResetLoadFullSample(t *testing.T) {
 		finals, err := app.FindRecordsByFilter("matches", "status = 'final'", "", 0, 0)
 		require.NoError(tb, err)
 		assert.NotEmpty(tb, finals, "rounds 1-4 should be played (matches selected)")
+
+		disputed, err := app.FindRecordsByFilter("matches", "status = 'disputed'", "", 0, 0)
+		require.NoError(tb, err)
+		assert.NotEmpty(tb, disputed, "sample should include a live dispute (incident)")
+
+		notifs, err := app.FindRecordsByFilter("notifications", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.NotEmpty(tb, notifs, "sample should file notifications to players")
 	}
 	s.Test(t)
 }
