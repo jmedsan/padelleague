@@ -101,6 +101,12 @@ func wipeCategories(txApp core.App, opts WipeOptions, summary *WipeSummary) erro
 		}
 	}
 	if opts.Competitions {
+		if err := wipeCollection(txApp, "document_acks", new(int)); err != nil {
+			return err
+		}
+		if err := wipeCollection(txApp, "documents", new(int)); err != nil {
+			return err
+		}
 		if err := wipeCollection(txApp, "competitions", &summary.Competitions); err != nil {
 			return err
 		}
@@ -175,6 +181,7 @@ type SampleOptions struct {
 	Pairs        bool
 	Competitions bool
 	Matches      bool
+	Playoff      bool
 }
 
 // SampleLeaguePartial loads sample data up to the highest selected stage:
@@ -201,7 +208,18 @@ func SampleLeaguePartial(app core.App, opts SampleOptions) error {
 		if err := createSampleFixtures(txApp, comp, pairIDs, opts.Matches); err != nil {
 			return err
 		}
-		return saveSampleSchedule(txApp, comp)
+		if err := saveSampleSchedule(txApp, comp); err != nil {
+			return err
+		}
+		if err := createSampleDocuments(txApp, comp); err != nil {
+			return err
+		}
+		if opts.Playoff {
+			if err := createSamplePlayoff(txApp, pairIDs); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 
@@ -440,6 +458,56 @@ func playersOfPair(txApp core.App, pairID string) []string {
 		return nil
 	}
 	return []string{pair.GetString("player1"), pair.GetString("player2")}
+}
+
+func createSampleDocuments(txApp core.App, comp *core.Record) error {
+	col, err := txApp.FindCollectionByNameOrId("documents")
+	if err != nil {
+		return fmt.Errorf("find documents collection: %w", err)
+	}
+	type docSpec struct {
+		title     string
+		url       string
+		mandatory bool
+		isDefault bool
+	}
+	docs := []docSpec{
+		{title: "Reglamento", url: "https://www.fep.es/noticias/reglamento-de-juego", mandatory: true, isDefault: true},
+		{title: "Tutorial Padel", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", mandatory: false, isDefault: false},
+	}
+	var docIDs []string
+	for _, d := range docs {
+		rec := core.NewRecord(col)
+		rec.Set("title", d.title)
+		rec.Set("url", d.url)
+		rec.Set("is_mandatory", d.mandatory)
+		rec.Set("is_default", d.isDefault)
+		if err := txApp.Save(rec); err != nil {
+			return fmt.Errorf("create document %s: %w", d.title, err)
+		}
+		docIDs = append(docIDs, rec.Id)
+	}
+	comp.Set("documents", docIDs)
+	if err := txApp.Save(comp); err != nil {
+		return fmt.Errorf("attach documents to competition: %w", err)
+	}
+	return nil
+}
+
+func createSamplePlayoff(txApp core.App, pairIDs []string) error {
+	col, err := txApp.FindCollectionByNameOrId("competitions")
+	if err != nil {
+		return err
+	}
+	comp := core.NewRecord(col)
+	comp.Set("name", "Playoff de ejemplo")
+	comp.Set("type", "playoff")
+	comp.Set("active", true)
+	comp.Set("pairs", pairIDs)
+	if err := txApp.Save(comp); err != nil {
+		return fmt.Errorf("create sample playoff: %w", err)
+	}
+	return nil
 }
 
 func maskEmail(email string) string {

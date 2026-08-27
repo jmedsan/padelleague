@@ -22,7 +22,11 @@
                     </label>
                     <label class="label cursor-pointer justify-start gap-3">
                         <input type="checkbox" name="competitions" id="chk-competitions" class="checkbox checkbox-sm" disabled />
-                        <span class="label-text">Competición y jornadas</span>
+                        <span class="label-text">Liga de ejemplo</span>
+                    </label>
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" name="playoff" id="chk-playoff" class="checkbox checkbox-sm" disabled />
+                        <span class="label-text">Playoff de ejemplo</span>
                     </label>
                     <label class="label cursor-pointer justify-start gap-3">
                         <input type="checkbox" name="matches" id="chk-matches" class="checkbox checkbox-sm" disabled />
@@ -63,16 +67,19 @@
         players: document.getElementById('chk-players'),
         pairs: document.getElementById('chk-pairs'),
         competitions: document.getElementById('chk-competitions'),
+        playoff: document.getElementById('chk-playoff'),
         matches: document.getElementById('chk-matches'),
     };
 
     function updateState() {
-        // Dependent chain: each example stage requires the previous one.
         chks.pairs.disabled = !chks.players.checked;
         if (chks.pairs.disabled) chks.pairs.checked = false;
 
         chks.competitions.disabled = !chks.pairs.checked;
         if (chks.competitions.disabled) chks.competitions.checked = false;
+
+        chks.playoff.disabled = !chks.competitions.checked;
+        if (chks.playoff.disabled) chks.playoff.checked = false;
 
         chks.matches.disabled = !chks.competitions.checked;
         if (chks.matches.disabled) chks.matches.checked = false;

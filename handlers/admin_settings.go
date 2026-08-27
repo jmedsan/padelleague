@@ -57,6 +57,7 @@ func (h *AdminSettingsHandler) Reset(e *core.RequestEvent) error {
 		Pairs:        e.Request.FormValue("pairs") == "on",
 		Competitions: e.Request.FormValue("competitions") == "on",
 		Matches:      e.Request.FormValue("matches") == "on",
+		Playoff:      e.Request.FormValue("playoff") == "on",
 	}
 	if err := seed.SampleLeaguePartial(h.app, load); err != nil {
 		slog.Error("reset: sample load failed", "error", err)
