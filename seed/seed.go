@@ -205,22 +205,29 @@ func SampleLeaguePartial(app core.App, opts SampleOptions) error {
 		if err != nil {
 			return err
 		}
-		if err := createSampleFixtures(txApp, comp, pairIDs, opts.Matches); err != nil {
+		if err := populateSampleLeague(txApp, comp, pairIDs, opts); err != nil {
 			return err
-		}
-		if err := saveSampleSchedule(txApp, comp); err != nil {
-			return err
-		}
-		if err := createSampleDocuments(txApp, comp); err != nil {
-			return err
-		}
-		if opts.Playoff {
-			if err := createSamplePlayoff(txApp, pairIDs); err != nil {
-				return err
-			}
 		}
 		return nil
 	})
+}
+
+func populateSampleLeague(txApp core.App, comp *core.Record, pairIDs []string, opts SampleOptions) error {
+	if err := createSampleFixtures(txApp, comp, pairIDs, opts.Matches); err != nil {
+		return err
+	}
+	if err := saveSampleSchedule(txApp, comp); err != nil {
+		return err
+	}
+	if err := createSampleDocuments(txApp, comp); err != nil {
+		return err
+	}
+	if opts.Playoff {
+		if err := createSamplePlayoff(txApp, pairIDs); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func createSamplePlayers(txApp core.App) ([]string, error) {
