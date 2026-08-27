@@ -55,6 +55,27 @@ func TestMandatoryGateLifecycle(t *testing.T) {
 	assert.Len(t, UnacknowledgedMandatory(app, comp, userID), 1, "new mandatory re-gates after prior ack")
 }
 
+func TestAttachedDocumentsSortedByTitle(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "Sort A")
+	p2 := makePair(t, app, "Sort B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	zeta := makeDoc(t, app, "Zeta", false)
+	alfa := makeDoc(t, app, "Alfa", false)
+	mike := makeDoc(t, app, "Mike", false)
+	comp.Set("documents", []string{zeta.Id, mike.Id, alfa.Id})
+	require.NoError(t, app.Save(comp))
+
+	got := AttachedDocuments(app, comp)
+	titles := make([]string, len(got))
+	for i, d := range got {
+		titles[i] = d.GetString("title")
+	}
+	assert.Equal(t, []string{"Alfa", "Mike", "Zeta"}, titles, "attached documents render in title order regardless of attach order")
+}
+
 func makeDoc(t *testing.T, app core.App, title string, mandatory bool) *core.Record {
 	t.Helper()
 	col, err := app.FindCollectionByNameOrId("documents")
