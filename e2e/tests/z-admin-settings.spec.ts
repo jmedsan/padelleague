@@ -14,6 +14,10 @@ test.describe('admin settings', () => {
     await expect(page.locator('#chk-pairs')).toBeVisible();
     await expect(page.locator('#chk-competitions')).toBeVisible();
     await expect(page.locator('#chk-matches')).toBeVisible();
+    // Blocking overlay + spinner present but hidden until a reset runs.
+    await expect(page.locator('#reset-overlay')).toBeAttached();
+    await expect(page.locator('#reset-overlay')).toBeHidden();
+    await expect(page.locator('#reset-overlay .loading-spinner')).toBeAttached();
   });
 
   test('DELETE gate: enabled on DELETE alone (from scratch), disabled otherwise', async ({ page }) => {

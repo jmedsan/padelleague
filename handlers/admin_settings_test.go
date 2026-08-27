@@ -41,7 +41,7 @@ func TestSettingsGET(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/admin/settings",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Reiniciar base de datos", "Datos de ejemplo a cargar"},
+		ExpectedContent: []string{"Reiniciar base de datos", "Datos de ejemplo a cargar", "reset-overlay", "Reiniciando la base de datos"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupSettingsRoutes(tb, app, e, true)
