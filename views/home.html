@@ -176,6 +176,33 @@
 {{if .IsAdmin}}
 <div class="divider mt-10 mb-6 text-sm opacity-50">Administración</div>
 
+{{if .AdminBootstrap}}
+<div class="card bg-primary text-primary-content shadow-lg mb-6" data-testid="bootstrap-create">
+    <div class="card-body text-center py-8">
+        <h2 class="card-title text-xl justify-center">Crea tu primera competición</h2>
+        <p class="text-sm opacity-70 mt-1">Empieza configurando una liga o un playoff</p>
+        <div class="card-actions justify-center mt-4">
+            <a href="/admin/competitions" class="btn bg-white/20 border-0 hover:bg-white/30">Crear competición</a>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{if .PlayoffPrompts}}
+<div class="mb-6 space-y-3">
+    {{range .PlayoffPrompts}}
+    <div class="card bg-success text-success-content shadow-sm" data-testid="playoff-prompt">
+        <div class="card-body p-4">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+                <p class="font-medium">La liga {{.CompName}} ha terminado — crea el playoff</p>
+                <a href="/admin/competitions" class="btn btn-sm bg-white/20 border-0 hover:bg-white/30">Crear playoff</a>
+            </div>
+        </div>
+    </div>
+    {{end}}
+</div>
+{{end}}
+
 {{if .AdminSetups}}
 <div class="mb-6">
     <h2 class="text-lg font-bold mb-3">Preparar competiciones</h2>
@@ -183,9 +210,12 @@
         {{range .AdminSetups}}
         <div class="card bg-base-100 shadow-sm border border-base-300">
             <div class="card-body p-4">
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between flex-wrap gap-2">
                     <h3 class="font-bold">{{.CompName}}</h3>
-                    {{if .Ready}}<a href="/admin/competitions" class="btn btn-success btn-sm">Activar</a>{{end}}
+                    <div class="flex gap-2">
+                        <a href="/admin/competitions/{{.CompID}}" class="btn btn-outline btn-sm" data-testid="setup-configure">Configurar</a>
+                        {{if .Ready}}<a href="/admin/competitions" class="btn btn-success btn-sm">Activar</a>{{end}}
+                    </div>
                 </div>
                 <div class="flex flex-wrap gap-2 mt-2">
                     {{range .Items}}
@@ -234,6 +264,10 @@
     <a href="/admin/disputes" class="btn btn-outline gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
         Disputas
+    </a>
+    <a href="/admin/players" class="btn btn-outline gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" /></svg>
+        Jugadores
     </a>
 </div>
 {{end}}

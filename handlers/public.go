@@ -79,7 +79,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 		playerPairIDs[p.Id] = struct{}{}
 	}
 
-	allComps, _ := h.app.FindRecordsByFilter("competitions",
+	activeComps, _ := h.app.FindRecordsByFilter("competitions",
 		"active = true", "name", 0, 0, nil)
 
 	var comps []HomeCompetition
@@ -87,7 +87,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	var pendingActions []PendingAction
 	var recentResults []RecentResult
 
-	for _, c := range allComps {
+	for _, c := range activeComps {
 		if !h.playerInCompetition(c, playerPairIDs) {
 			continue
 		}
@@ -121,6 +121,10 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 		setups, alerts, _ := league.AdminDashboard(h.app, time.Now())
 		data["AdminSetups"] = setups
 		data["AdminAlerts"] = alerts
+
+		existing, _ := h.app.FindRecordsByFilter("competitions", "", "", 1, 0, nil)
+		data["AdminBootstrap"] = len(existing) == 0
+		data["PlayoffPrompts"] = league.PlayoffPrompts(h.app, activeComps, time.Now())
 	}
 
 	return h.renderPage(e, "home.html", data)

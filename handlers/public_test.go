@@ -794,6 +794,78 @@ func TestHome_AdminAlerts(t *testing.T) {
 	s.Test(t)
 }
 
+func TestHome_AdminBootstrap_TrueWithZeroCompetitions(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "admin bootstrap card shown when zero competitions exist",
+		Method:          http.MethodGet,
+		URL:             "/",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"bootstrap-create", "Crea tu primera competición"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestHome_AdminBootstrap_FalseWithOneCompetition(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "admin bootstrap card hidden when a competition exists",
+		Method:          http.MethodGet,
+		URL:             "/",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Administración"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "BootP1")
+		p2 := makePairTB(tb, app, "BootP2")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("active", false)
+		require.NoError(tb, app.Save(comp))
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.NotContains(tb, body, "bootstrap-create", "bootstrap card must not appear when competitions exist")
+	}
+	s.Test(t)
+}
+
+func TestHome_NonAdminSeesNoAdminCards(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "non-admin sees no bootstrap or playoff prompt cards",
+		Method:          http.MethodGet,
+		URL:             "/",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"PadelLeague"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		myPair := makePairTB(tb, app, "P3Pair")
+		oppPair := makePairTB(tb, app, "P3Opp")
+		makeCompetitionTB(tb, app, "league", []*core.Record{myPair, oppPair})
+		user, _ := app.FindRecordById("users", myPair.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.NotContains(tb, body, "bootstrap-create", "non-admin must not see bootstrap card")
+		assert.NotContains(tb, body, "playoff-prompt", "non-admin must not see playoff prompt")
+		assert.NotContains(tb, body, "Administración", "non-admin must not see admin section")
+	}
+	s.Test(t)
+}
+
 func TestHome_NoDatesGracefulDegradation(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
