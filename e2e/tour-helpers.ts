@@ -65,7 +65,7 @@ export async function createCompetition(
   page: Page,
   name: string,
   type: 'league' | 'playoff',
-  options?: { playTwice?: boolean },
+  options?: { playTwice?: boolean; suToken?: string },
 ): Promise<string> {
   await page.getByRole('button', { name: /crear competición/i }).first().click();
   const dialog = page.locator('dialog#modal-create');
@@ -75,16 +75,18 @@ export async function createCompetition(
     await dialog.locator('input[name="play_twice"]').check();
   }
   await dialog.locator('input[name="active"]').check();
-  await Promise.all([
-    page.waitForResponse(resp => resp.url().includes('/admin/competitions') && resp.status() < 400),
-    dialog.locator('button[type="submit"]').click(),
-  ]);
-  await page.goto('/admin/competitions');
-  await expect(page.getByText(name).first()).toBeVisible({ timeout: 10000 });
-  const href = await page.locator(`a:has-text("${name}")`).first().getAttribute('href');
-  if (!href) throw new Error('Competition link not found');
-  const id = href.split('/').pop();
-  if (!id) throw new Error('Competition ID not found in href');
+  await clickAndWaitForHxRedirect(page, dialog.locator('button[type="submit"]'));
+  const match = page.url().match(/\/admin\/competitions\/([^/]+)/);
+  if (match) return match[1];
+  const headers: Record<string, string> = {};
+  if (options?.suToken) headers['Authorization'] = options.suToken;
+  const resp = await page.request.get(
+    `/api/collections/competitions/records?filter=name='${name}'&perPage=1`,
+    { headers },
+  );
+  const data = await resp.json();
+  const id = data.items?.[0]?.id;
+  if (!id) throw new Error(`Competition not found after create: ${name}`);
   return id;
 }
 
