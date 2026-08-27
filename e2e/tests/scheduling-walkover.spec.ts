@@ -97,6 +97,7 @@ test.describe('scheduling, walkover & bracket', () => {
     // Player reports the match as unplayed via the real UI form.
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${matchId}`);
+    await page.locator('textarea[name="reason"]').fill('El rival no se presentó.');
     await Promise.all([
       page.waitForResponse(resp => resp.url().includes(`/match/${matchId}/report-unplayed`)),
       page.locator('button:has-text("Reportar no jugado")').click(),

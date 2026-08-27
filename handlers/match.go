@@ -402,7 +402,8 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
-	if _, err := league.PlayerTeam(h.app, userID, match); err != nil {
+	reporterTeam, err := league.PlayerTeam(h.app, userID, match)
+	if err != nil {
 		return alertError(e, "No eres participante de este partido")
 	}
 
@@ -415,11 +416,11 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 		return alertError(e, "Este partido no puede reportarse como no jugado")
 	}
 
-	notes := match.GetString("dispute_notes")
+	reason := e.Request.FormValue("reason")
 	match.Set("review_type", "walkover")
 	match.Set("walkover_requested_by", userID)
 	match.Set("status", league.StatusDisputed)
-	match.Set("dispute_notes", "[No jugado] "+notes)
+	match.Set("dispute_notes", "[No jugado] "+reason)
 
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al reportar")
@@ -428,6 +429,19 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 	if err := h.notifier.NotifyAdmins("dispute", "Partido no jugado", "Un jugador ha reportado un partido como no jugado.", id); err != nil {
 		slog.Error("notify admins walkover report", "match", id, "err", err)
 	}
+
+	// Tell the rival pair a walkover was filed against them.
+	rivalPairID := match.GetString("pair2")
+	if reporterTeam == 2 {
+		rivalPairID = match.GetString("pair1")
+	}
+	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
+	h.notifier.NotifyPlayers(rivalPlayers, league.Notification{
+		Type: "general", Title: "Partido reportado como no jugado",
+		Body: "Tu rival ha reportado este partido como no jugado. Un administrador lo revisará.", MatchID: id,
+	})
+	h.notifier.EmailPlayers(rivalPlayers, "Partido reportado como no jugado",
+		"Tu rival ha reportado este partido como no jugado. Un administrador lo revisará.", "/match/"+id)
 
 	return redirectHX(e, "/match/"+id)
 }

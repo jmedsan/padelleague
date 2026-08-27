@@ -12,7 +12,7 @@ import (
 	"padelleague/middleware"
 )
 
-func setupViewRoute(app *tests.TestApp, e *core.ServeEvent) {
+func setupViewRoute(_ *tests.TestApp, e *core.ServeEvent) {
 	e.Router.BindFunc(middleware.CookieAuth)
 	view := NewViewHandler()
 	e.Router.GET("/view/{mode}", view.Switch).BindFunc(requireAuthTest)

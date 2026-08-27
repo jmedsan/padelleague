@@ -330,7 +330,7 @@ func setSampleMatchState(txApp core.App, match *core.Record, f sampleFixture) er
 	case f.played && f.round <= 4:
 		return finalizeSampleMatch(match)
 	case f.played && f.round == 5 && f.idx == 0:
-		return submitSampleScore(txApp, match, league.StatusDisputed, "6-4 4-6 7-5")
+		return disputeSampleMatch(txApp, match)
 	case f.played && f.round == 5 && f.idx == 1:
 		return submitSampleScore(txApp, match, league.StatusConfirmed, "6-2 6-2")
 	default:
@@ -358,6 +358,23 @@ func submitSampleScore(txApp core.App, match *core.Record, status, scores string
 	match.Set("scores", scores)
 	match.Set("submitted_by", sub)
 	match.Set("status", status)
+	return nil
+}
+
+// disputeSampleMatch models a full dispute: pair1 submitted a score and pair2
+// disputed it with a note, so the admin sees both the submitted result and the
+// opponent's objection to resolve.
+func disputeSampleMatch(txApp core.App, match *core.Record) error {
+	if err := submitSampleScore(txApp, match, league.StatusDisputed, "6-4 4-6 7-5"); err != nil {
+		return err
+	}
+	disputer, err := firstPlayerOfPair(txApp, match.GetString("pair2"))
+	if err != nil {
+		return err
+	}
+	match.Set("disputed_by", disputer)
+	match.Set("disputed_scores", "6-4 4-6 5-7")
+	match.Set("dispute_notes", "No estoy de acuerdo: el tercer set fue 5-7, no 7-5.")
 	return nil
 }
 
