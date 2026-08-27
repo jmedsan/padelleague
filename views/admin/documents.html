@@ -1,0 +1,138 @@
+{{define "content"}}
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div>
+        <a href="/admin" class="link link-hover text-sm opacity-60">&larr; Panel de administración</a>
+        <h1 class="text-2xl font-bold mt-1">Documentos</h1>
+    </div>
+    <button class="btn btn-primary btn-sm sm:btn-md" onclick="document.getElementById('modal-create-doc').showModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+        Nuevo documento
+    </button>
+</div>
+
+<div class="card bg-base-100 shadow-sm border border-base-300">
+    <div class="overflow-x-auto">
+        <table class="table table-zebra">
+            <thead>
+                <tr>
+                    <th>Título</th>
+                    <th class="hidden sm:table-cell">Tipo</th>
+                    <th>Flags</th>
+                    <th class="text-right">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Documents}}
+                <tr class="hover">
+                    <td class="font-medium">{{.GetString "title"}}</td>
+                    <td class="hidden sm:table-cell text-sm opacity-60">
+                        {{if .GetString "file"}}Archivo{{else if .GetString "url"}}Enlace{{else}}<span class="opacity-40">—</span>{{end}}
+                    </td>
+                    <td>
+                        {{if .GetBool "is_default"}}<span class="badge badge-outline badge-sm">predeterminado</span>{{end}}
+                        {{if .GetBool "is_mandatory"}}<span class="badge badge-outline badge-sm badge-error">obligatorio</span>{{end}}
+                    </td>
+                    <td class="text-right">
+                        <button class="btn btn-ghost btn-xs" onclick="document.getElementById('modal-edit-doc-{{.Id}}').showModal()">Editar</button>
+                        <form hx-post="/admin/documents/{{.Id}}/delete" hx-confirm="¿Eliminar este documento?">
+                            <button type="submit" class="btn btn-ghost btn-xs text-error">Eliminar</button>
+                        </form>
+                    </td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="4" class="text-center py-12 opacity-60">No hay documentos registrados</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{{range .Documents}}
+<dialog id="modal-edit-doc-{{.Id}}" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box">
+        <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">x</button></form>
+        <h3 class="text-lg font-bold mb-4">Editar documento</h3>
+        <form hx-post="/admin/documents/{{.Id}}" hx-target="body" enctype="multipart/form-data">
+            <div class="form-control">
+                <label class="label"><span class="label-text font-medium">Título</span></label>
+                <input type="text" name="title" value="{{.GetString "title"}}" class="input input-bordered w-full" required>
+            </div>
+            <div class="form-control mt-3">
+                <label class="label"><span class="label-text font-medium">Descripción</span></label>
+                <textarea name="description" class="textarea textarea-bordered w-full" rows="2">{{.GetString "description"}}</textarea>
+            </div>
+            <div class="form-control mt-3">
+                <label class="label"><span class="label-text font-medium">Enlace</span></label>
+                <input type="url" name="url" value="{{.GetString "url"}}" class="input input-bordered w-full" placeholder="https://...">
+            </div>
+            <div class="form-control mt-3">
+                <label class="label"><span class="label-text font-medium">Archivo</span></label>
+                <input type="file" name="file" class="file-input file-input-bordered w-full">
+                {{if .GetString "file"}}<p class="text-xs opacity-50 mt-1">Archivo actual: {{.GetString "file"}}</p>{{end}}
+            </div>
+            <div class="form-control mt-3">
+                <label class="label cursor-pointer justify-start gap-3">
+                    <input type="checkbox" name="is_default" class="checkbox checkbox-sm" {{if .GetBool "is_default"}}checked{{end}} />
+                    <span class="label-text">Predeterminado (se adjunta a nuevas competiciones)</span>
+                </label>
+            </div>
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-3">
+                    <input type="checkbox" name="is_mandatory" class="checkbox checkbox-sm" {{if .GetBool "is_mandatory"}}checked{{end}} />
+                    <span class="label-text">Obligatorio (bloquea hasta que el jugador lo lea)</span>
+                </label>
+            </div>
+            <div class="modal-action">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>cerrar</button></form>
+</dialog>
+{{end}}
+
+<dialog id="modal-create-doc" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box">
+        <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">x</button></form>
+        <h3 class="text-lg font-bold mb-4">Nuevo documento</h3>
+        <div id="create-doc-error" class="mb-2"></div>
+        <form hx-post="/admin/documents" hx-target="#create-doc-error" enctype="multipart/form-data">
+            <div class="form-control">
+                <label class="label"><span class="label-text font-medium">Título</span></label>
+                <input type="text" name="title" class="input input-bordered w-full" placeholder="Título del documento" required>
+            </div>
+            <div class="form-control mt-3">
+                <label class="label"><span class="label-text font-medium">Descripción</span></label>
+                <textarea name="description" class="textarea textarea-bordered w-full" rows="2" placeholder="Descripción opcional"></textarea>
+            </div>
+            <div class="form-control mt-3">
+                <label class="label"><span class="label-text font-medium">Enlace</span></label>
+                <input type="url" name="url" class="input input-bordered w-full" placeholder="https://...">
+            </div>
+            <div class="form-control mt-3">
+                <label class="label"><span class="label-text font-medium">Archivo</span></label>
+                <input type="file" name="file" class="file-input file-input-bordered w-full">
+            </div>
+            <p class="text-xs opacity-50 mt-1">Añade un archivo o un enlace (uno de los dos).</p>
+            <div class="form-control mt-3">
+                <label class="label cursor-pointer justify-start gap-3">
+                    <input type="checkbox" name="is_default" class="checkbox checkbox-sm" />
+                    <span class="label-text">Predeterminado (se adjunta a nuevas competiciones)</span>
+                </label>
+            </div>
+            <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-3">
+                    <input type="checkbox" name="is_mandatory" class="checkbox checkbox-sm" />
+                    <span class="label-text">Obligatorio (bloquea hasta que el jugador lo lea)</span>
+                </label>
+            </div>
+            <div class="modal-action">
+                <button type="submit" class="btn btn-primary">Crear</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>cerrar</button></form>
+</dialog>
+{{end}}
