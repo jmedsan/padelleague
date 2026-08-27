@@ -758,8 +758,10 @@ func TestHome_AdminAlerts(t *testing.T) {
 		ExpectedStatus: 200,
 		ExpectedContent: []string{
 			"Alertas",
-			"Disputa abierta",
 			"AlertDispP1",
+			"Test Competition",
+			"En disputa",
+			"Ver partido completo",
 			"Vencido",
 			"AlertOvdP1",
 		},
@@ -781,7 +783,13 @@ func TestHome_AdminAlerts(t *testing.T) {
 		comp.Set("recovery_days", 9999) // stay out of the finished-by-date phase
 		require.NoError(tb, app.Save(comp))
 
-		makeMatchTB(tb, app, comp.Id, dispP1.Id, dispP2.Id, "disputed")
+		disputed := makeMatchTB(tb, app, comp.Id, dispP1.Id, dispP2.Id, "disputed")
+		disputed.Set("scores", "6-3 6-4")
+		disputed.Set("submitted_by", dispP1.GetString("player1"))
+		disputed.Set("disputed_by", dispP2.GetString("player1"))
+		disputed.Set("disputed_scores", "6-4 6-3")
+		disputed.Set("dispute_notes", "Marcador incorrecto")
+		require.NoError(tb, app.Save(disputed))
 		makeMatchTB(tb, app, comp.Id, ovdP1.Id, ovdP2.Id, "pending")
 
 		admin := makeAdminUserTB(tb, app)
@@ -789,9 +797,45 @@ func TestHome_AdminAlerts(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		dispIdx := indexOf(body, "Disputa abierta")
+		dispIdx := indexOf(body, "AlertDispP1")
 		ovdIdx := indexOf(body, "Vencido")
 		assert.Greater(tb, ovdIdx, dispIdx, "dispute must appear before overdue")
+	}
+	s.Test(t)
+}
+
+func TestHome_AdminWalkoverAlert(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "admin sees walkover context in summary card",
+		Method:         http.MethodGet,
+		URL:            "/",
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			"Walkover League",
+			"Walkover A",
+			"Solicitud de walkover por Walkover A P1",
+			"Motivo del walkover",
+			"Ver partido completo",
+		},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Walkover A")
+		p2 := makePairTB(tb, app, "Walkover B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("name", "Walkover League")
+		require.NoError(tb, app.Save(comp))
+
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		match.Set("review_type", "walkover")
+		match.Set("walkover_requested_by", p1.GetString("player1"))
+		match.Set("dispute_notes", "Motivo del walkover")
+		require.NoError(tb, app.Save(match))
+
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
 	}
 	s.Test(t)
 }

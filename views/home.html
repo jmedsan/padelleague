@@ -231,10 +231,13 @@
 </div>
 {{end}}
 
-{{if .AdminAlerts}}
+{{if or .AdminCards .AdminAlerts}}
 <div class="mb-6">
     <h2 class="text-lg font-bold mb-3">Alertas</h2>
-    <div class="space-y-2">
+    <div class="space-y-3">
+        {{range .AdminCards}}
+        {{template "matchCard" .}}
+        {{end}}
         {{range .AdminAlerts}}
         <a href="/match/{{.MatchID}}" class="flex items-center gap-3 p-3 rounded-xl {{if eq .Kind "dispute"}}bg-error/10 hover:bg-error/20{{else if eq .Kind "walkover"}}bg-info/10 hover:bg-info/20{{else}}bg-warning/10 hover:bg-warning/20{{end}} transition-colors">
             <div class="flex-1 min-w-0">
