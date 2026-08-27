@@ -234,12 +234,22 @@ func populateSampleLeague(txApp core.App, comp *core.Record, pairIDs []string, o
 }
 
 func createSamplePlayers(txApp core.App) ([]string, error) {
+	admins, err := txApp.FindRecordsByFilter("users",
+		"roles ~ 'admin' && roles ~ 'player'", "created", 0, 0)
+	if err != nil {
+		admins = nil
+	}
+	sampleCount := 8 - len(admins)
+	if sampleCount < 0 {
+		sampleCount = 0
+	}
+
 	col, err := txApp.FindCollectionByNameOrId("users")
 	if err != nil {
 		return nil, err
 	}
-	ids := make([]string, 8)
-	for i := range 8 {
+	ids := make([]string, 0, 8)
+	for i := range sampleCount {
 		rec := core.NewRecord(col)
 		rec.Set("email", fmt.Sprintf("sample-p%d@padelleague.com", i+1))
 		rec.SetPassword(SamplePlayerPassword)
@@ -249,7 +259,10 @@ func createSamplePlayers(txApp core.App) ([]string, error) {
 		if err := txApp.Save(rec); err != nil {
 			return nil, fmt.Errorf("create player %d: %w", i+1, err)
 		}
-		ids[i] = rec.Id
+		ids = append(ids, rec.Id)
+	}
+	for _, a := range admins {
+		ids = append(ids, a.Id)
 	}
 	return ids, nil
 }
