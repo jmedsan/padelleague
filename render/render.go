@@ -52,6 +52,19 @@ func (r *Renderer) withAuth(e *core.RequestEvent, data map[string]any) {
 	}
 }
 
+// AdminView reports whether the request should render admin controls: the user
+// is an admin AND is not currently viewing as a player (the view_as cookie).
+func AdminView(e *core.RequestEvent) bool {
+	roles := e.Auth.GetStringSlice("roles")
+	if !slices.Contains(roles, "admin") {
+		return false
+	}
+	if c, err := e.Request.Cookie("view_as"); err == nil {
+		return c.Value != "player"
+	}
+	return true
+}
+
 // setViewContext derives the admin/player view flags from the user's roles and
 // the view_as cookie. Admins default to the admin view; either role alone has
 // no choice, so HasBothRoles gates the switcher UI.
@@ -68,7 +81,12 @@ func setViewContext(e *core.RequestEvent, data map[string]any) {
 	data["IsAdmin"] = isAdmin
 	data["HasBothRoles"] = isAdmin && slices.Contains(roles, "player")
 	data["ViewAs"] = viewAs
-	data["AdminView"] = isAdmin && viewAs == "admin"
+	data["AdminView"] = AdminView(e)
+}
+
+func (r *Renderer) partialFiles() []string {
+	entries, _ := fs.Glob(r.viewsFS, "views/partials/*.html")
+	return entries
 }
 
 // Page renders a full page within the site layout.
@@ -77,7 +95,9 @@ func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) 
 		data = map[string]any{}
 	}
 	r.withAuth(e, data)
-	html, err := r.registry.LoadFS(r.viewsFS, "views/layout.html", "views/"+page).Render(data)
+	files := append([]string{"views/layout.html"}, r.partialFiles()...)
+	files = append(files, "views/"+page)
+	html, err := r.registry.LoadFS(r.viewsFS, files...).Render(data)
 	if err != nil {
 		return err
 	}
@@ -88,7 +108,9 @@ func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) 
 func (r *Renderer) ErrorPage(e *core.RequestEvent, statusCode int, message string) error {
 	data := map[string]any{"ErrorMessage": message}
 	r.withAuth(e, data)
-	html, err := r.registry.LoadFS(r.viewsFS, "views/layout.html", "views/error.html").Render(data)
+	files := append([]string{"views/layout.html"}, r.partialFiles()...)
+	files = append(files, "views/error.html")
+	html, err := r.registry.LoadFS(r.viewsFS, files...).Render(data)
 	if err != nil {
 		slog.Error("render error page", "err", err)
 		return e.HTML(statusCode, message)
@@ -102,7 +124,8 @@ func (r *Renderer) Partial(e *core.RequestEvent, page string, data map[string]an
 		data = map[string]any{}
 	}
 	r.withAuth(e, data)
-	html, err := r.registry.LoadFS(r.viewsFS, "views/"+page).Render(data)
+	files := append([]string{"views/" + page}, r.partialFiles()...)
+	html, err := r.registry.LoadFS(r.viewsFS, files...).Render(data)
 	if err != nil {
 		return err
 	}
