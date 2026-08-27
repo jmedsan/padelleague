@@ -101,10 +101,11 @@ func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 	}
 
 	disputedScores := e.Request.FormValue("disputed_scores")
-	if disputedScores != "" {
-		if _, err := league.ParseScore(disputedScores); err != nil {
-			return alertError(e, "El marcador que propones no es válido")
-		}
+	if disputedScores == "" {
+		return alertError(e, "Debes indicar el marcador correcto según tú")
+	}
+	if _, err := league.ParseScore(disputedScores); err != nil {
+		return alertError(e, "El marcador que propones no es válido")
 	}
 	disputeNotes := e.Request.FormValue("dispute_notes")
 	match.Set("disputed_by", userID)

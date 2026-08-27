@@ -96,7 +96,7 @@ func TestMatchDisputeAdminNonParticipant_Succeeds(t *testing.T) {
 		match.Set("submitted_by", submitter)
 		require.NoError(tb, app.Save(match))
 		s.URL = "/match/" + match.Id + "/dispute"
-		s.Body = strings.NewReader("dispute_notes=Admin+override")
+		s.Body = strings.NewReader("disputed_scores=6-4+6-3&dispute_notes=Admin+override")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -130,7 +130,7 @@ func TestMatchDisputeNonParticipantPlayer_Refused(t *testing.T) {
 		match.Set("submitted_by", submitter)
 		require.NoError(tb, app.Save(match))
 		s.URL = "/match/" + match.Id + "/dispute"
-		s.Body = strings.NewReader("dispute_notes=Outsider+attempt")
+		s.Body = strings.NewReader("disputed_scores=6-4+6-3&dispute_notes=Outsider+attempt")
 		hdrs := authHeaders(tb, outsider)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs

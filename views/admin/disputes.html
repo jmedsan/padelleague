@@ -52,14 +52,6 @@
                             {{end}}
                         </div>
                     </div>
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Ganador</span></label>
-                        <select name="winner" class="select select-bordered select-sm">
-                            <option value="">Auto-detectar</option>
-                            <option value="{{.Match.GetString "pair1"}}">{{.Pair1Name}}</option>
-                            <option value="{{.Match.GetString "pair2"}}">{{.Pair2Name}}</option>
-                        </select>
-                    </div>
                     <button type="submit" class="btn btn-primary btn-sm">Resolver</button>
                 </div>
             </form>

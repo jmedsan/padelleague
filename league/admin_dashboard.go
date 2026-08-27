@@ -98,11 +98,18 @@ func buildAlerts(app core.App, c *core.Record, now time.Time) []AdminAlert {
 		map[string]any{"cid": c.Id})
 	for _, m := range disputed {
 		p1, p2 := pairNamesForMatch(app, m)
+		desc := "Disputa abierta"
+		if s := m.GetString("scores"); s != "" {
+			desc = s
+			if ds := m.GetString("disputed_scores"); ds != "" {
+				desc += " → propone: " + ds
+			}
+		}
 		alerts = append(alerts, AdminAlert{
 			Kind: "dispute", MatchID: m.Id,
 			Pair1: p1, Pair2: p2,
 			CompName: compName, RoundNumber: m.GetInt("round_number"),
-			Description: "Disputa abierta",
+			Description: desc,
 		})
 	}
 
