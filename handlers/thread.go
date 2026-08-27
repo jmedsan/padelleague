@@ -222,8 +222,9 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 		return err
 	}
 
-	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
-	if err != nil || myTeam == 0 {
+	myTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
+	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
+	if myTeam == 0 && !isAdmin {
 		return alertError(e, "No eres participante de este partido")
 	}
 
@@ -252,13 +253,20 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 		return alertError(e, "Error al enviar mensaje")
 	}
 
-	rivalPairID := match.GetString("pair1")
-	if myTeam == 1 {
-		rivalPairID = match.GetString("pair2")
+	// A player notifies the rival team; an admin (not on either team) notifies both.
+	var recipients []string
+	if myTeam == 0 {
+		recipients = append(league.PlayersForPair(h.app, match.GetString("pair1")),
+			league.PlayersForPair(h.app, match.GetString("pair2"))...)
+	} else {
+		rivalPairID := match.GetString("pair1")
+		if myTeam == 1 {
+			rivalPairID = match.GetString("pair2")
+		}
+		recipients = league.PlayersForPair(h.app, rivalPairID)
 	}
-	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
 	authorName := league.PlayerName(h.app, e.Auth.Id)
-	h.notifier.NotifyPlayers(rivalPlayers, league.Notification{
+	h.notifier.NotifyPlayers(recipients, league.Notification{
 		Type: "general", Title: "Nuevo mensaje",
 		Body: fmt.Sprintf("%s escribió: %s", authorName, league.Truncate(content, 60)), MatchID: matchID,
 	})
