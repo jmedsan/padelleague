@@ -320,3 +320,23 @@ func TestAPIMatchViewStillWorksForParticipant(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+// All writes to pairs/competitions/venues/invitations go through server-side
+// app.Save in admin handlers; the record API is locked to superuser-only.
+func TestAPIAdminCannotCreateCompetitionViaRecordAPI(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "admin cannot create a competition via the record API (writes are server-side only)",
+		Method:          http.MethodPost,
+		URL:             "/api/collections/competitions/records",
+		Body:            strings.NewReader(`{"name":"Test","type":"league"}`),
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = jsonHeaders(authHeaders(tb, admin))
+	}
+	s.Test(t)
+}
