@@ -136,6 +136,21 @@ export async function activate(page: Page): Promise<void> {
   await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Activar")'));
 }
 
+// markAllPairsPaid marks every pair in the current competition as paid via the
+// "Marcar todos como pagado" control on the competition detail page. Reloads
+// first so the payment section reflects the pairs just added over HTMX.
+export async function markAllPairsPaid(page: Page): Promise<void> {
+  await page.reload();
+  await page.waitForLoadState('domcontentloaded');
+  const btn = page.getByRole('button', { name: /marcar todos como pagado/i });
+  if (await btn.count() === 0) return;
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes('/payment-all')),
+    btn.first().click(),
+  ]);
+  await expect(btn).toHaveCount(0);
+}
+
 export async function submitScore(page: Page, score: string): Promise<void> {
   const sets = score.split(/\s+/).map(s => s.split('-'));
   for (const [f, v] of [['s1a', sets[0][0]], ['s1b', sets[0][1]], ['s2a', sets[1][0]], ['s2b', sets[1][1]]]) {

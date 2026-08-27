@@ -5,7 +5,7 @@ import {
   computeExpected, PlannedMatch, PairId,
 } from '../season-helpers';
 import {
-  createPlayer, createPair, addPairToCompetition,
+  createPlayer, createPair, addPairToCompetition, markAllPairsPaid,
   generateFixtures, setDates, submitScore, confirmScore, disputeScore,
   resolveDispute,
   clickAndWaitForHxRedirect,
@@ -192,6 +192,8 @@ test.describe('guided navigation tour', () => {
     const startDate = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
     const endDate = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
     await setDates(page, startDate, endDate);
+    // A pair can't play without paying — mark all pairs paid before activating.
+    await markAllPairsPaid(page);
 
     // 1e. Configurar → activate via toggle
     await goHome(page);

@@ -5,7 +5,7 @@ import {
   computeExpected, PlannedMatch, PairId,
 } from '../season-helpers';
 import {
-  createPlayer, createCompetition, createPair, addPairToCompetition,
+  createPlayer, createCompetition, createPair, addPairToCompetition, markAllPairsPaid,
   generateFixtures, submitScore, confirmScore,
   clickAndWaitForHxRedirect,
   assertFinalStandings, assertPlayoffChampion,
@@ -152,6 +152,9 @@ test.describe('reference navigation tour', () => {
 
     // --- Step 5: Generate fixtures ---
     await generateFixtures(page);
+
+    // A pair can't play without paying — mark all pairs paid.
+    await markAllPairsPaid(page);
 
     // --- Step 6: Play all 12 matches (submit + confirm) ---
     const fixtures = await mapFixturesToScores(page.request);
