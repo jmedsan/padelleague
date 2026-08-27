@@ -33,10 +33,11 @@ func buildUsers(app core.App) []Entry {
 	entries := make([]Entry, 0, len(users))
 	for _, u := range users {
 		entries = append(entries, NewEntry(Entry{
-			Label: u.GetString("display_name"),
-			Type:  "jugador",
-			URL:   "/player/" + u.Id,
-			Scope: Scope{Public: true},
+			Label:    u.GetString("display_name"),
+			Type:     "jugador",
+			URL:      "/player/" + u.Id,
+			Keywords: []string{"jugador"},
+			Scope:    Scope{Public: true},
 		}))
 	}
 	return entries
@@ -50,11 +51,20 @@ func buildCompetitions(app core.App) []Entry {
 	}
 	entries := make([]Entry, 0, len(comps))
 	for _, c := range comps {
+		compType := c.GetString("type")
+		kw := []string{"competición"}
+		switch compType {
+		case "league":
+			kw = append(kw, "liga")
+		case "playoff":
+			kw = append(kw, "playoff")
+		}
 		entries = append(entries, NewEntry(Entry{
 			Label:     c.GetString("name"),
 			Secondary: c.GetString("category"),
 			Type:      "competición",
 			URL:       "/competition/" + c.Id,
+			Keywords:  kw,
 			Scope:     Scope{Public: true},
 		}))
 	}
@@ -90,6 +100,7 @@ func buildMatches(app core.App) []Entry {
 			Secondary: m.GetString("scores"),
 			Type:      "partido",
 			URL:       "/match/" + m.Id,
+			Keywords:  []string{"partido", fmt.Sprintf("jornada %d", round), p1, p2},
 			Scope:     Scope{Public: true},
 		}))
 	}
@@ -161,14 +172,16 @@ func buildDocuments(app core.App) []Entry {
 			entries = append(entries, NewEntry(Entry{
 				Label: title, Secondary: desc,
 				Type: "documento", URL: url,
-				Scope: Scope{Admin: true},
+				Keywords: []string{"documento"},
+				Scope:    Scope{Admin: true},
 			}))
 		} else {
 			for _, cid := range compIDs {
 				entries = append(entries, NewEntry(Entry{
 					Label: title, Secondary: desc,
 					Type: "documento", URL: url,
-					Scope: Scope{CompID: cid},
+					Keywords: []string{"documento"},
+					Scope:    Scope{CompID: cid},
 				}))
 			}
 		}
@@ -185,10 +198,11 @@ func buildVenues(app core.App) []Entry {
 	entries := make([]Entry, 0, len(venues))
 	for _, v := range venues {
 		entries = append(entries, NewEntry(Entry{
-			Label: v.GetString("name"),
-			Type:  "pista",
-			URL:   "/admin/venues",
-			Scope: Scope{Admin: true},
+			Label:    v.GetString("name"),
+			Type:     "pista",
+			URL:      "/admin/venues",
+			Keywords: []string{"pista"},
+			Scope:    Scope{Admin: true},
 		}))
 	}
 	return entries
