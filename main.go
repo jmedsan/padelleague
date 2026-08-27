@@ -55,6 +55,7 @@ func main() {
 			Renderer:    r,
 			Notifier:    notifier,
 			LeagueSvc:   leagueSvc,
+			SearchIndex: searchIndex,
 			StaticFS:    staticFS,
 			AppDevTools: cfg.AppDevTools,
 		})
