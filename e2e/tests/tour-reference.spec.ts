@@ -7,6 +7,7 @@ import {
 import {
   createPlayer, createCompetition, createPair, addPairToCompetition, markAllPairsPaid,
   generateFixtures, submitScore, confirmScore,
+  createDocument, attachDocumentToCompetition, acceptDocsGate,
   clickAndWaitForHxRedirect,
   assertFinalStandings, assertPlayoffChampion,
   lookupPlayerId, getRoundMatches, getMatchById,
@@ -155,6 +156,28 @@ test.describe('reference navigation tour', () => {
 
     // A pair can't play without paying — mark all pairs paid.
     await markAllPairsPaid(page);
+
+    // --- Step 5b: Admin creates + attaches mandatory doc, player passes gate ---
+    await navTo(page, 'Documentos');
+    await createDocument(page, 'Reglamento de prueba', 'https://example.com/reglamento', {
+      mandatory: true,
+    });
+
+    // Attach it to the league competition
+    await navTo(page, 'Panel');
+    await page.locator(`a:has-text("${COMP_NAME}")`).first().click();
+    await page.waitForLoadState('domcontentloaded');
+    await attachDocumentToCompetition(page, 'Reglamento de prueba');
+
+    // Player hits the gate on first entry
+    await loginAs(page, PLAYERS[0].email, PLAYER_PASSWORD);
+    await page.goto(`/competition/${competitionId}`);
+    await page.waitForLoadState('domcontentloaded');
+    await acceptDocsGate(page);
+    await expect(page.locator('input[aria-label="Jornadas"]')).toBeVisible({ timeout: 5000 });
+
+    // Back to admin for the rest
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 
     // --- Step 6: Play all 12 matches (submit + confirm) ---
     const fixtures = await mapFixturesToScores(page.request);
