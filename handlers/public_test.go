@@ -1095,7 +1095,25 @@ func TestCompetition_NonParticipantNoGate(t *testing.T) {
 	s.Test(t)
 }
 
-func TestBuildBracket_FeederLabels(t *testing.T) {
+func TestPopulateFeeder(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty slots get feeder labels", func(t *testing.T) {
+		m := RoundMatchView{Pair1: "", Pair2: ""}
+		populateFeeder(&m, 1, 0)
+		assert.Equal(t, "Ganador de J1-1", m.Feeder1)
+		assert.Equal(t, "Ganador de J1-2", m.Feeder2)
+	})
+
+	t.Run("filled slots keep no feeder", func(t *testing.T) {
+		m := RoundMatchView{Pair1: "A", Pair2: ""}
+		populateFeeder(&m, 1, 0)
+		assert.Empty(t, m.Feeder1)
+		assert.Equal(t, "Ganador de J1-2", m.Feeder2)
+	})
+}
+
+func TestBuildBracket_PassesThroughFeeders(t *testing.T) {
 	t.Parallel()
 	rounds := []RoundView{
 		{RoundNumber: 1, Matches: []RoundMatchView{
@@ -1103,7 +1121,7 @@ func TestBuildBracket_FeederLabels(t *testing.T) {
 			{Pair1: "Team C", Pair2: "Team D"},
 		}},
 		{RoundNumber: 2, Matches: []RoundMatchView{
-			{Pair1: "", Pair2: ""},
+			{Feeder1: "Ganador de J1-1", Feeder2: "Ganador de J1-2"},
 		}},
 	}
 
@@ -1117,22 +1135,4 @@ func TestBuildBracket_FeederLabels(t *testing.T) {
 	semi := bracket[0].Matches[0]
 	assert.Empty(t, semi.Feeder1, "round 1 should have no feeders")
 	assert.Empty(t, semi.Feeder2, "round 1 should have no feeders")
-}
-
-func TestBuildBracket_FeederSkipsFilledSlots(t *testing.T) {
-	t.Parallel()
-	rounds := []RoundView{
-		{RoundNumber: 1, Matches: []RoundMatchView{
-			{Pair1: "A", Pair2: "B"},
-			{Pair1: "C", Pair2: "D"},
-		}},
-		{RoundNumber: 2, Matches: []RoundMatchView{
-			{Pair1: "A", Pair2: ""},
-		}},
-	}
-
-	bracket := buildBracket(rounds, 2)
-	final := bracket[1].Matches[0]
-	assert.Empty(t, final.Feeder1, "filled slot should not have feeder")
-	assert.Equal(t, "Ganador de J1-2", final.Feeder2)
 }

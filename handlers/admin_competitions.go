@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"sort"
 	"strconv"
@@ -264,6 +265,8 @@ type matchEntry struct {
 	Match     *core.Record
 	Pair1Name string
 	Pair2Name string
+	Feeder1   string
+	Feeder2   string
 	RoundNum  int
 }
 
@@ -306,6 +309,18 @@ func (h *CompetitionHandler) buildRoundGroups(matches []*core.Record, pairNames 
 	sort.Slice(rounds, func(i, j int) bool {
 		return rounds[i].Number < rounds[j].Number
 	})
+	for ri := 1; ri < len(rounds); ri++ {
+		prevRound := rounds[ri-1].Number
+		for mi := range rounds[ri].Matches {
+			me := &rounds[ri].Matches[mi]
+			if me.Pair1Name == "" {
+				me.Feeder1 = fmt.Sprintf("Ganador de J%d-%d", prevRound, mi*2+1)
+			}
+			if me.Pair2Name == "" {
+				me.Feeder2 = fmt.Sprintf("Ganador de J%d-%d", prevRound, mi*2+2)
+			}
+		}
+	}
 	return rounds
 }
 
