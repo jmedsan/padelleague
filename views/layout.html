@@ -88,6 +88,15 @@
                         </li>
                         {{end}}
                     </ul>
+                    {{if .DisplayName}}
+                    <div class="dropdown dropdown-end">
+                        <div class="form-control">
+                            <input id="global-search" type="text" placeholder="Buscar…" class="input input-bordered input-sm w-40 lg:w-56"
+                                   hx-get="/search" hx-trigger="keyup changed delay:200ms, focus" hx-target="#search-results-dropdown" name="q" autocomplete="off">
+                        </div>
+                        <div id="search-results-dropdown" tabindex="0" class="dropdown-content z-40 mt-1 w-80 max-h-96 overflow-y-auto bg-base-100 rounded-box shadow-xl"></div>
+                    </div>
+                    {{end}}
                     <button onclick="toggleTheme()" class="btn btn-ghost btn-circle btn-sm" aria-label="cambiar tema">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
@@ -139,6 +148,13 @@
                 <div class="p-4 bg-primary text-primary-content">
                     <span class="text-xl font-bold">PadelLeague</span>
                 </div>
+                {{if .DisplayName}}
+                <div class="p-4 pb-0">
+                    <input type="text" placeholder="Buscar…" class="input input-bordered input-sm w-full"
+                           hx-get="/search" hx-trigger="keyup changed delay:200ms, focus" hx-target="#search-results-mobile" name="q" autocomplete="off">
+                    <div id="search-results-mobile" class="mt-1 max-h-64 overflow-y-auto"></div>
+                </div>
+                {{end}}
                 <ul class="menu p-4 gap-1">
                     <li><a href="/" class="rounded-lg font-medium">Inicio</a></li>
                     {{if .AdminView}}

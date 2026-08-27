@@ -19,7 +19,7 @@ import (
 func setupSearchRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent, ix *search.Index) {
 	r := render.New(os.DirFS(".."), "")
 	svc := league.New(app, notify.NewNotifier(app, "", ""))
-	h := NewSearchHandler(app, svc, ix, r.Page)
+	h := NewSearchHandler(app, svc, ix, r.Partial)
 	e.Router.GET("/search", h.Search).BindFunc(requireAuthTest)
 }
 

@@ -13,15 +13,15 @@ import (
 
 // SearchHandler serves the global search endpoint.
 type SearchHandler struct {
-	app        core.App
-	leagueSvc  *league.Service
-	index      *search.Index
-	renderPage RenderFunc
+	app           core.App
+	leagueSvc     *league.Service
+	index         *search.Index
+	renderPartial RenderFunc
 }
 
 // NewSearchHandler creates a SearchHandler with the given dependencies.
-func NewSearchHandler(app core.App, leagueSvc *league.Service, index *search.Index, renderPage RenderFunc) *SearchHandler {
-	return &SearchHandler{app: app, leagueSvc: leagueSvc, index: index, renderPage: renderPage}
+func NewSearchHandler(app core.App, leagueSvc *league.Service, index *search.Index, renderPartial RenderFunc) *SearchHandler {
+	return &SearchHandler{app: app, leagueSvc: leagueSvc, index: index, renderPartial: renderPartial}
 }
 
 // Search handles GET /search. Empty q returns recent+suggestions; non-empty q
@@ -40,7 +40,7 @@ func (h *SearchHandler) Search(e *core.RequestEvent) error {
 
 	grouped := groupByType(results)
 
-	return h.renderPage(e, "search-results.html", map[string]any{
+	return h.renderPartial(e, "search-results.html", map[string]any{
 		"Query":   q,
 		"Results": results,
 		"Grouped": grouped,
@@ -105,7 +105,7 @@ func (h *SearchHandler) renderSuggestions(e *core.RequestEvent, viewer search.Vi
 		data["PlayerTasks"] = tasks
 	}
 
-	return h.renderPage(e, "search-results.html", data)
+	return h.renderPartial(e, "search-results.html", data)
 }
 
 func (h *SearchHandler) recentSearches(userID string) []string {
