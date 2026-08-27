@@ -1,0 +1,310 @@
+{{define "matchCard"}}
+<div class="card bg-base-100 shadow-lg rounded-2xl overflow-hidden">
+    <div class="card-body">
+        <div class="flex items-center justify-between">
+            <h2 class="card-title text-lg">{{.Pair1Name}} vs {{.Pair2Name}}</h2>
+            <span class="badge {{.StatusClass}}">{{.StatusLabel}}</span>
+        </div>
+
+        <p class="text-sm opacity-60">Jornada {{.RoundNum}}</p>
+
+        {{if .Match.GetString "date"}}
+        <div class="flex flex-wrap gap-2">
+            <span class="badge badge-outline badge-sm">{{.Match.GetString "date"}}</span>
+            {{if .Match.GetString "time"}}
+            <span class="badge badge-outline badge-sm">{{.Match.GetString "time"}}</span>
+            {{end}}
+            {{if .Match.GetString "club"}}
+            <span class="badge badge-outline badge-sm">{{.Match.GetString "club"}}</span>
+            {{end}}
+            {{if .Match.GetString "court_number"}}
+            <span class="badge badge-outline badge-sm">Pista {{.Match.GetString "court_number"}}</span>
+            {{end}}
+        </div>
+        {{end}}
+
+        {{if .Score}}
+        <p class="text-2xl font-black tracking-wide text-center my-2">{{.Score}}</p>
+        {{end}}
+
+        {{if .Match.GetString "winner"}}
+        <div class="alert bg-success/10 border border-success/20 mb-2">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-success"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0 0 16.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.04 6.04 0 0 1-2.02 1.118M14.27 9.728a6.04 6.04 0 0 1-2.02 1.118m0 0a5.993 5.993 0 0 1-.498.058" /></svg>
+            <span class="font-medium">Ganador: {{if eq (.Match.GetString "winner") (.Match.GetString "pair1")}}{{.Pair1Name}}{{else}}{{.Pair2Name}}{{end}}</span>
+        </div>
+        {{end}}
+
+        {{if eq (.Match.GetString "status") "disputed"}}
+        <div class="grid grid-cols-2 gap-2 text-sm">
+            <span class="opacity-60">Marcador de {{.SubmittedBy}}:</span><span class="font-medium">{{.SubmittedScore}}</span>
+            {{if .DisputedScore}}
+            <span class="opacity-60">Marcador de {{.DisputedBy}}:</span><span class="font-medium">{{.DisputedScore}}</span>
+            {{else}}
+            <span class="opacity-60">Disputado por:</span><span>{{.DisputedBy}}</span>
+            {{end}}
+            {{if .DisputeNotes}}<span class="opacity-60">Motivo:</span><span>{{.DisputeNotes}}</span>{{end}}
+        </div>
+        {{else}}
+        {{if or .SubmittedBy .ConfirmedBy .DisputedBy}}
+        <div class="text-sm opacity-60 space-y-1">
+            {{if .SubmittedBy}}<p>Enviado por: <span class="font-medium">{{.SubmittedBy}}</span></p>{{end}}
+            {{if .ConfirmedBy}}<p>Confirmado por: <span class="font-medium">{{.ConfirmedBy}}</span></p>{{end}}
+            {{if .DisputedBy}}<p>Disputado por: <span class="font-medium">{{.DisputedBy}}</span></p>{{end}}
+        </div>
+        {{end}}
+        {{end}}
+
+        {{if eq .Mode "admin-summary"}}
+        <a href="/match/{{.Match.Id}}" class="link link-primary text-xs">Ver partido completo →</a>
+        {{end}}
+
+        {{if eq .Mode "admin-full"}}
+        {{template "matchAdminControls" .}}
+        {{end}}
+
+        {{if eq .Mode "player"}}
+        {{template "matchPlayerActions" .}}
+        {{end}}
+    </div>
+</div>
+{{end}}
+
+{{define "matchAdminControls"}}
+<div class="divider my-2"></div>
+{{if eq (.Match.GetString "status") "disputed"}}
+    {{if eq .ReviewType "walkover"}}
+    <div class="alert alert-warning mb-3">
+        <span>Solicitud de walkover por {{.RequestedBy}}</span>
+    </div>
+    <form hx-post="/admin/disputes/{{.Match.Id}}/walkover-approve" hx-target="closest .card" hx-swap="outerHTML">
+        <div class="flex flex-wrap gap-3 items-end">
+            <div class="form-control">
+                <label class="label"><span class="label-text">Ganador</span></label>
+                <select name="winner" class="select select-bordered select-sm" required>
+                    <option value="">Seleccionar</option>
+                    <option value="{{.Match.GetString "pair1"}}">{{.Pair1Name}}</option>
+                    <option value="{{.Match.GetString "pair2"}}">{{.Pair2Name}}</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-warning btn-sm">Aprobar walkover</button>
+        </div>
+    </form>
+    {{else}}
+    <form hx-post="/admin/disputes/{{.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
+        <div class="flex flex-wrap gap-3 items-end">
+            <div class="form-control">
+                <label class="label"><span class="label-text">Marcador final</span></label>
+                <input type="text" name="score" id="final-{{.Match.Id}}" value="{{.SubmittedScore}}" class="input input-bordered input-sm w-40">
+                <div class="flex gap-1 mt-1">
+                    <button type="button" onclick="document.getElementById('final-{{.Match.Id}}').value='{{.SubmittedScore}}'" class="btn btn-xs btn-outline">{{.SubmittedScore}}</button>
+                    {{if .DisputedScore}}
+                    <button type="button" onclick="document.getElementById('final-{{.Match.Id}}').value='{{.DisputedScore}}'" class="btn btn-xs btn-outline">{{.DisputedScore}}</button>
+                    {{end}}
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Resolver</button>
+        </div>
+    </form>
+    {{end}}
+{{else}}
+<div class="card bg-warning/5 border border-warning/20 rounded-xl">
+    <div class="collapse collapse-arrow">
+        <input type="checkbox" class="peer">
+        <div class="collapse-title font-bold text-sm uppercase tracking-wider opacity-50">Corrección de administrador</div>
+        <div class="collapse-content">
+            <form hx-post="/match/{{.Match.Id}}/admin-override" hx-target="body">
+                <div class="form-control mb-3">
+                    <label class="label py-1"><span class="label-text text-xs">Resultado (ej: 6-3 4-6 7-5)</span></label>
+                    <input type="text" name="scores" class="input input-bordered input-sm" placeholder="6-3 4-6 7-5" value="{{.Match.GetString "scores"}}">
+                </div>
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <div class="form-control">
+                        <label class="label py-1"><span class="label-text text-xs">Fecha</span></label>
+                        <input type="date" name="date" class="input input-bordered input-sm" value="{{.Match.GetString "date"}}">
+                    </div>
+                    <div class="form-control">
+                        <label class="label py-1"><span class="label-text text-xs">Hora</span></label>
+                        <input type="time" name="time" class="input input-bordered input-sm" value="{{.Match.GetString "time"}}">
+                    </div>
+                </div>
+                <div class="form-control mb-3">
+                    <label class="label py-1"><span class="label-text text-xs">Club</span></label>
+                    <select name="venue_id" class="select select-bordered select-sm w-full">
+                        <option value="">Sin cambios</option>
+                        {{range .Venues}}
+                        <option value="{{.Id}}">{{.GetString "name"}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div class="form-control mb-3">
+                    <label class="label py-1"><span class="label-text text-xs">Pista</span></label>
+                    <input type="text" name="court_number" class="input input-bordered input-sm" placeholder="Ej: 3" value="{{.Match.GetString "court_number"}}">
+                </div>
+                <button type="submit" class="btn btn-warning btn-sm w-full">Aplicar cambios</button>
+            </form>
+        </div>
+    </div>
+</div>
+{{end}}
+{{end}}
+
+{{define "matchPlayerActions"}}
+<div id="action-result"></div>
+
+{{if .CanSubmit}}
+<div class="card bg-base-200/50 rounded-xl mb-4">
+    <div class="card-body p-4">
+        <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Registrar resultado</h3>
+        <form hx-post="/match/{{.Match.Id}}/submit" hx-target="#action-result" onsubmit="return composeScore(this)">
+            <div>
+                <label class="label py-1"><span class="label-text text-xs">Resultado</span></label>
+                <div class="overflow-x-auto pb-2">
+                    <table class="table table-compact w-full text-center">
+                        <thead>
+                            <tr>
+                                <th class="text-xs w-16"></th>
+                                <th class="text-xs">Set 1</th>
+                                <th class="text-xs">Set 2</th>
+                                <th class="text-xs" id="set3-header" style="display:none">Set 3</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="text-xs font-bold text-left py-1">{{.Pair1Name}}</td>
+                                <td class="py-1"><button type="button" class="btn btn-circle btn-sm btn-ghost score-btn" data-field="s1a" onclick="incScore(this)"><span>-</span></button><input type="hidden" name="s1a" value=""></td>
+                                <td class="py-1"><button type="button" class="btn btn-circle btn-sm btn-ghost score-btn" data-field="s2a" onclick="incScore(this)"><span>-</span></button><input type="hidden" name="s2a" value=""></td>
+                                <td class="py-1" id="s3a-cell" style="display:none"><button type="button" class="btn btn-circle btn-sm btn-ghost score-btn" data-field="s3a" onclick="incScore(this)"><span>-</span></button><input type="hidden" name="s3a" value=""></td>
+                            </tr>
+                            <tr>
+                                <td class="text-xs font-bold text-left py-1">{{.Pair2Name}}</td>
+                                <td class="py-1"><button type="button" class="btn btn-circle btn-sm btn-ghost score-btn" data-field="s1b" onclick="incScore(this)"><span>-</span></button><input type="hidden" name="s1b" value=""></td>
+                                <td class="py-1"><button type="button" class="btn btn-circle btn-sm btn-ghost score-btn" data-field="s2b" onclick="incScore(this)"><span>-</span></button><input type="hidden" name="s2b" value=""></td>
+                                <td class="py-1" id="s3b-cell" style="display:none"><button type="button" class="btn btn-circle btn-sm btn-ghost score-btn" data-field="s3b" onclick="incScore(this)"><span>-</span></button><input type="hidden" name="s3b" value=""></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <input type="hidden" name="scores" id="scores-hidden">
+            </div>
+            <button type="submit" class="btn btn-primary mt-4 w-full">Enviar resultado</button>
+        </form>
+    </div>
+</div>
+<script>
+function incScore(btn) {
+    var field = btn.dataset.field;
+    var inp = btn.parentElement.querySelector('input[name="'+field+'"]');
+    var cur = inp.value === '' ? -1 : parseInt(inp.value);
+    var next = cur >= 7 ? '' : String(cur + 1);
+    inp.value = next;
+    btn.querySelector('span').textContent = next === '' ? '-' : next;
+    btn.classList.toggle('btn-primary', next !== '');
+    btn.classList.toggle('btn-ghost', next === '');
+    checkThirdSet();
+}
+function checkThirdSet() {
+    var s1a = document.querySelector('[name=s1a]').value;
+    var s1b = document.querySelector('[name=s1b]').value;
+    var s2a = document.querySelector('[name=s2a]').value;
+    var s2b = document.querySelector('[name=s2b]').value;
+    var show = false;
+    if (s1a !== '' && s1b !== '' && s2a !== '' && s2b !== '') {
+        var w1 = (parseInt(s1a) > parseInt(s1b) ? 1 : 0) + (parseInt(s2a) > parseInt(s2b) ? 1 : 0);
+        show = (w1 === 1);
+    }
+    var d = show ? '' : 'none';
+    document.getElementById('set3-header').style.display = d;
+    var c1 = document.getElementById('s3a-cell'); if (c1) c1.style.display = d;
+    var c2 = document.getElementById('s3b-cell'); if (c2) c2.style.display = d;
+    if (!show) {
+        var s3a = document.querySelector('[name=s3a]');
+        var s3b = document.querySelector('[name=s3b]');
+        if (s3a) { s3a.value = ''; var b = s3a.previousElementSibling; if (b) { b.querySelector('span').textContent = '-'; b.classList.remove('btn-primary'); b.classList.add('btn-ghost'); } }
+        if (s3b) { s3b.value = ''; var b = s3b.previousElementSibling; if (b) { b.querySelector('span').textContent = '-'; b.classList.remove('btn-primary'); b.classList.add('btn-ghost'); } }
+    }
+}
+function composeScore(form) {
+    var parts = [];
+    for (var i = 1; i <= 3; i++) {
+        var a = form.querySelector('[name=s'+i+'a]');
+        var b = form.querySelector('[name=s'+i+'b]');
+        if (a && b && a.value !== '' && b.value !== '') {
+            parts.push(a.value + '-' + b.value);
+        }
+    }
+    document.getElementById('scores-hidden').value = parts.join(' ');
+    return true;
+}
+</script>
+{{end}}
+
+{{if .CanWalkover}}
+<div class="card bg-base-200/50 rounded-xl mb-4">
+    <div class="card-body p-4">
+        <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Reportar partido no jugado</h3>
+        <p class="text-xs opacity-70 mb-3">Pasará a revisión del administrador. Si se aprueba como walkover, se registrará el resultado por defecto y podría aplicarse una penalización de puntos al equipo responsable.</p>
+        <form hx-post="/match/{{.Match.Id}}/report-unplayed" hx-target="#action-result">
+            <div class="form-control">
+                <label class="label py-1"><span class="label-text text-xs">Motivo</span></label>
+                <textarea name="reason" class="textarea textarea-bordered" placeholder="¿Por qué no se jugó? (p. ej. el rival no se presentó)" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-warning mt-1 w-full">Reportar no jugado</button>
+        </form>
+    </div>
+</div>
+{{end}}
+
+{{if .CanConfirm}}
+<div class="card bg-info/5 border border-info/20 rounded-xl mb-4">
+    <div class="card-body p-4">
+        <h3 class="font-bold mb-3">El rival ha enviado este resultado</h3>
+        <div class="flex gap-3">
+            <button hx-post="/match/{{.Match.Id}}/confirm" hx-target="#action-result" class="btn btn-success flex-1">Confirmar</button>
+            <button onclick="document.getElementById('dispute-form').classList.toggle('hidden')" class="btn btn-error btn-outline flex-1">Disputar</button>
+        </div>
+        <form id="dispute-form" class="hidden mt-3" hx-post="/match/{{.Match.Id}}/dispute" hx-target="#action-result">
+            <div class="form-control">
+                <label class="label py-1"><span class="label-text text-xs">Marcador correcto (según tú) *</span></label>
+                <input type="text" name="disputed_scores" class="input input-bordered input-sm" placeholder="6-4 4-6 5-7" required>
+            </div>
+            <div class="form-control mt-2">
+                <label class="label py-1"><span class="label-text text-xs">Comentario (opcional)</span></label>
+                <textarea name="dispute_notes" class="textarea textarea-bordered" placeholder="Describe el problema con el resultado..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-error mt-2 w-full">Enviar disputa</button>
+        </form>
+    </div>
+</div>
+{{end}}
+
+{{if eq (.Match.GetString "status") "confirmed"}}
+{{if not .CanConfirm}}
+<div class="alert alert-info mb-4">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+    <span>Esperando confirmación del rival</span>
+</div>
+{{end}}
+{{end}}
+
+{{if .CanCorrect}}
+<div class="card bg-base-200/50 rounded-xl mb-4">
+    <div class="card-body p-4">
+        <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Corregir marcador</h3>
+        <form hx-post="/match/{{.Match.Id}}/correct" hx-target="#action-result">
+            <div class="form-control">
+                <label class="label py-1"><span class="label-text text-xs">Nuevo marcador (ej: 6-3 4-6 7-5)</span></label>
+                <input type="text" name="scores" class="input input-bordered" placeholder="6-3 4-6 7-5" value="{{.Match.GetString "scores"}}" required>
+            </div>
+            <button type="submit" class="btn btn-warning mt-3 w-full">Corregir resultado</button>
+        </form>
+    </div>
+</div>
+{{end}}
+
+{{if eq (.Match.GetString "status") "disputed"}}
+<div class="alert alert-warning mb-4">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+    <span>En disputa — esperando resolución del administrador</span>
+</div>
+{{end}}
+{{end}}

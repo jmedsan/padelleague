@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -10,10 +9,10 @@ import (
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/types"
 
 	"padelleague/league"
 	"padelleague/notify"
+	"padelleague/render"
 )
 
 // MatchHandler handles match detail, score submission, and correction flows.
@@ -27,34 +26,6 @@ type MatchHandler struct {
 // NewMatchHandler creates a MatchHandler with the given dependencies.
 func NewMatchHandler(app core.App, notifier *notify.Notifier, renderPage RenderFunc, renderErrorPage RenderErrorFunc) *MatchHandler {
 	return &MatchHandler{app: app, notifier: notifier, renderPage: renderPage, renderErrorPage: renderErrorPage}
-}
-
-// MatchView holds a match record with display-ready fields and permission flags.
-type MatchView struct {
-	Record        *core.Record
-	Pair1Name     string
-	Pair2Name     string
-	RoundNum      int
-	CanSubmit     bool
-	CanConfirm    bool
-	CanDispute    bool
-	CanEdit       bool
-	CanWalkover   bool
-	CanCorrect    bool
-	IsAdmin       bool
-	IsParticipant bool
-	StatusLabel   string
-	StatusClass   string
-}
-
-// MatchDetailData bundles a MatchView with competition context for the detail page.
-type MatchDetailData struct {
-	Match           MatchView
-	CompetitionName string
-	SubmittedBy     string
-	ConfirmedBy     string
-	DisputedBy      string
-	DisputeNotes    string
 }
 
 func statusLabel(status string) string {
@@ -90,52 +61,6 @@ func canReportUnplayed(status string, team int) bool {
 	return team > 0 && (status == league.StatusPending || status == league.StatusConfirmed)
 }
 
-func (h *MatchHandler) buildMatchView(match *core.Record, userID string, pairNames map[string]string, auth *core.Record) MatchView {
-	isAdmin := slices.Contains(auth.GetStringSlice("roles"), "admin")
-	_, teamErr := league.PlayerTeam(h.app, userID, match)
-	isParticipant := teamErr == nil
-	status := match.GetString("status")
-	submittedBy := match.GetString("submitted_by")
-
-	team, _ := league.PlayerTeam(h.app, userID, match)
-	isSubmitter := false
-	if submittedBy != "" {
-		submitterTeam, err := league.PlayerTeam(h.app, submittedBy, match)
-		if err == nil {
-			isSubmitter = (submitterTeam == team)
-		}
-	}
-
-	roundNum := int(match.GetFloat("round_number"))
-
-	canCorrect := false
-	if status == league.StatusConfirmed && team > 0 && isSubmitter {
-		submittedAt := match.GetString("submitted_at")
-		if submittedAt != "" {
-			if dt, err := types.ParseDateTime(submittedAt); err == nil {
-				canCorrect = time.Since(dt.Time()) < 24*time.Hour
-			}
-		}
-	}
-
-	return MatchView{
-		Record:        match,
-		Pair1Name:     pairNames[match.GetString("pair1")],
-		Pair2Name:     pairNames[match.GetString("pair2")],
-		RoundNum:      roundNum,
-		CanSubmit:     status == league.StatusPending && team > 0,
-		CanConfirm:    status == league.StatusConfirmed && team > 0 && !isSubmitter,
-		CanDispute:    status == league.StatusConfirmed && team > 0 && !isSubmitter,
-		CanEdit:       status == league.StatusPending && team > 0,
-		CanWalkover:   canReportUnplayed(status, team),
-		CanCorrect:    canCorrect,
-		IsAdmin:       isAdmin,
-		IsParticipant: isParticipant,
-		StatusLabel:   statusLabel(status),
-		StatusClass:   statusClass(status),
-	}
-}
-
 // MatchDetail renders the match page with score, status, and available actions.
 func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
@@ -153,12 +78,11 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		return h.renderErrorPage(e, http.StatusForbidden, "No tienes acceso a este partido")
 	}
 
-	pairNames := league.PairNames(h.app, []string{
-		match.GetString("pair1"),
-		match.GetString("pair2"),
-	})
-
-	mv := h.buildMatchView(match, userID, pairNames, e.Auth)
+	mode := ModePlayer
+	if render.AdminView(e) {
+		mode = ModeAdminFull
+	}
+	mc := NewMatchCard(h.app, match, mode, userID)
 
 	compName := ""
 	compID := match.GetString("competition")
@@ -169,23 +93,15 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		}
 	}
 
-	submittedByName := playerNameIfSet(h.app, match.GetString("submitted_by"))
-	confirmedByName := playerNameIfSet(h.app, match.GetString("confirmed_by"))
-	disputedByName := playerNameIfSet(h.app, match.GetString("disputed_by"))
-	shareText := buildShareText(match, pairNames)
-
+	shareText := buildShareText(h.app, match)
 	venues, _ := h.app.FindRecordsByFilter("venues", "", "name", 0, 0, nil)
+	mc.Venues = venues
 
 	return h.renderPage(e, "match.html", map[string]any{
-		"Match":           mv,
+		"Card":            mc,
 		"CompetitionName": compName,
 		"CompetitionID":   compID,
-		"SubmittedBy":     submittedByName,
-		"ConfirmedBy":     confirmedByName,
-		"DisputedBy":      disputedByName,
-		"DisputeNotes":    match.GetString("dispute_notes"),
 		"ShareText":       shareText,
-		"Venues":          venues,
 	})
 }
 
@@ -453,16 +369,9 @@ func playerNameIfSet(app core.App, userID string) string {
 	return league.PlayerName(app, userID)
 }
 
-func buildShareText(match *core.Record, pairNames map[string]string) string {
+func buildShareText(app core.App, match *core.Record) string {
 	if match.GetString("status") != league.StatusFinal {
 		return ""
 	}
-	p1Name := pairNames[match.GetString("pair1")]
-	p2Name := pairNames[match.GetString("pair2")]
-	score := match.GetString("scores")
-	winnerName := p2Name
-	if match.GetString("winner") == match.GetString("pair1") {
-		winnerName = p1Name
-	}
-	return url.QueryEscape(fmt.Sprintf("Resultado: %s %s %s. Ganador: %s!", p1Name, score, p2Name, winnerName))
+	return url.QueryEscape(NewMatchCard(app, match, ModePlayer, "").SummaryLine())
 }

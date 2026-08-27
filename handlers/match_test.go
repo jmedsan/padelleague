@@ -245,25 +245,20 @@ func TestAdminOverrideNewDate(t *testing.T) {
 
 func TestBuildShareTextFinalMatch(t *testing.T) {
 	t.Parallel()
-	p1Name := "Pair Alpha"
-	p2Name := "Pair Beta"
-	pairNames := map[string]string{"p1id": p1Name, "p2id": p2Name}
-
 	app, err := tests.NewTestApp(tmplDataDir)
 	require.NoError(t, err)
 	t.Cleanup(app.Cleanup)
-	col, err := app.FindCollectionByNameOrId("matches")
-	require.NoError(t, err)
+
+	p1 := makePairTB(t, app, "Pair Alpha")
+	p2 := makePairTB(t, app, "Pair Beta")
+	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
 
 	t.Run("pair1 wins", func(t *testing.T) {
-		t.Parallel()
-		m := core.NewRecord(col)
-		m.Set("status", "final")
-		m.Set("pair1", "p1id")
-		m.Set("pair2", "p2id")
+		m := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "final")
 		m.Set("scores", "6-3 6-4")
-		m.Set("winner", "p1id")
-		text := buildShareText(m, pairNames)
+		m.Set("winner", p1.Id)
+		require.NoError(t, app.Save(m))
+		text := buildShareText(app, m)
 		assert.NotEmpty(t, text)
 		assert.Contains(t, text, "Pair+Alpha")
 		assert.Contains(t, text, "Ganador")
@@ -271,25 +266,18 @@ func TestBuildShareTextFinalMatch(t *testing.T) {
 	})
 
 	t.Run("pair2 wins", func(t *testing.T) {
-		t.Parallel()
-		m := core.NewRecord(col)
-		m.Set("status", "final")
-		m.Set("pair1", "p1id")
-		m.Set("pair2", "p2id")
+		m := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "final")
 		m.Set("scores", "3-6 4-6")
-		m.Set("winner", "p2id")
-		text := buildShareText(m, pairNames)
+		m.Set("winner", p2.Id)
+		require.NoError(t, app.Save(m))
+		text := buildShareText(app, m)
 		assert.Contains(t, text, "Pair+Beta%21")
 		assert.NotContains(t, text, "Pair+Alpha%21")
 	})
 
 	t.Run("non-final returns empty", func(t *testing.T) {
-		t.Parallel()
-		m := core.NewRecord(col)
-		m.Set("status", "pending")
-		m.Set("pair1", "p1id")
-		m.Set("pair2", "p2id")
-		text := buildShareText(m, pairNames)
+		m := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
+		text := buildShareText(app, m)
 		assert.Empty(t, text)
 	})
 }
@@ -356,6 +344,33 @@ func TestMatchDetailShowsCompName(t *testing.T) {
 		require.NoError(tb, app.Save(comp))
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		s.URL = "/match/" + m.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestMatchDetailAdminShowsResolveForm(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /match/{id} admin view shows resolve form for disputed match",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Resolver", "Marcador final"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Res A")
+		p2 := makePairTB(tb, app, "Res B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		m.Set("scores", "6-3 6-4")
+		m.Set("submitted_by", p1.GetString("player1"))
+		m.Set("disputed_by", p2.GetString("player1"))
+		m.Set("disputed_scores", "6-4 6-3")
+		require.NoError(tb, app.Save(m))
+		s.URL = "/match/" + m.Id
+		admin := makeAdminUserTB(tb, app)
 		s.Headers = authHeaders(tb, admin)
 	}
 	s.Test(t)
