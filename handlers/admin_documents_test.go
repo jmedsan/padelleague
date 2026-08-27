@@ -36,7 +36,7 @@ func setupDocRoutes(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.POST("/competitions/{id}/detach-doc/{docId}", comp.DetachDocument)
 }
 
-func makeDocument(t testing.TB, app core.App, title, url string, isDefault, isMandatory bool) *core.Record {
+func makeDocument(t testing.TB, app core.App, title, url string, isDefault bool) *core.Record {
 	t.Helper()
 	col, err := app.FindCollectionByNameOrId("documents")
 	require.NoError(t, err)
@@ -44,7 +44,6 @@ func makeDocument(t testing.TB, app core.App, title, url string, isDefault, isMa
 	record.Set("title", title)
 	record.Set("url", url)
 	record.Set("is_default", isDefault)
-	record.Set("is_mandatory", isMandatory)
 	require.NoError(t, app.Save(record))
 	return record
 }
@@ -62,7 +61,7 @@ func TestDocumentsListGET(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupDocRoutes(tb, app, e)
 		admin := makeAdminUserTB(tb, app)
-		makeDocument(tb, app, "Reglamento", "https://example.com/rules", false, false)
+		makeDocument(tb, app, "Reglamento", "https://example.com/rules", false)
 		s.Headers = authHeaders(tb, admin)
 	}
 	s.Test(t)
@@ -116,7 +115,7 @@ func TestDocumentsCreateWithFileOnly(t *testing.T) {
 		_ = w.WriteField("is_default", "on")
 		part, _ := w.CreateFormFile("file", "tarifas.pdf")
 		_, _ = part.Write([]byte("%PDF-1.4 fake content"))
-		w.Close()
+		require.NoError(tb, w.Close())
 
 		s.Body = &buf
 		hdrs := authHeaders(tb, admin)
@@ -179,7 +178,7 @@ func TestDocumentsCreateWithBoth(t *testing.T) {
 		_ = w.WriteField("url", "https://example.com")
 		part, _ := w.CreateFormFile("file", "both.pdf")
 		_, _ = part.Write([]byte("data"))
-		w.Close()
+		require.NoError(tb, w.Close())
 
 		s.Body = &buf
 		hdrs := authHeaders(tb, admin)
@@ -226,7 +225,7 @@ func TestDocumentsUpdate(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupDocRoutes(tb, app, e)
 		admin := makeAdminUserTB(tb, app)
-		doc := makeDocument(tb, app, "Old Title", "https://old.com", false, false)
+		doc := makeDocument(tb, app, "Old Title", "https://old.com", false)
 		docID = doc.Id
 		s.URL = "/admin/documents/" + doc.Id
 		s.Body = strings.NewReader("title=New+Title&url=https%3A%2F%2Fnew.com&is_mandatory=on")
@@ -256,7 +255,7 @@ func TestDocumentsDelete(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupDocRoutes(tb, app, e)
 		admin := makeAdminUserTB(tb, app)
-		doc := makeDocument(tb, app, "To Delete", "https://del.com", false, false)
+		doc := makeDocument(tb, app, "To Delete", "https://del.com", false)
 		docID = doc.Id
 		s.URL = "/admin/documents/" + doc.Id + "/delete"
 		s.Headers = authHeaders(tb, admin)
@@ -310,9 +309,9 @@ func TestCompetitionCreatePreloadsDefaultDocs(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupDocRoutes(tb, app, e)
 		admin := makeAdminUserTB(tb, app)
-		d1 := makeDocument(tb, app, "Default1", "https://d1.com", true, false)
-		d2 := makeDocument(tb, app, "Default2", "https://d2.com", true, false)
-		makeDocument(tb, app, "Not Default", "https://nd.com", false, false)
+		d1 := makeDocument(tb, app, "Default1", "https://d1.com", true)
+		d2 := makeDocument(tb, app, "Default2", "https://d2.com", true)
+		makeDocument(tb, app, "Not Default", "https://nd.com", false)
 		defaultDocIDs = []string{d1.Id, d2.Id}
 		s.Body = strings.NewReader("name=Preload+Test&type=league")
 		hdrs := authHeaders(tb, admin)
@@ -348,7 +347,7 @@ func TestCompetitionAttachDocument(t *testing.T) {
 		p2 := makePairTB(tb, app, "AttB")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
-		doc := makeDocument(tb, app, "Attach Me", "https://att.com", false, false)
+		doc := makeDocument(tb, app, "Attach Me", "https://att.com", false)
 		docID = doc.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/attach-doc"
 		s.Body = strings.NewReader("document=" + doc.Id)
@@ -380,7 +379,7 @@ func TestCompetitionDetachDocument(t *testing.T) {
 		p2 := makePairTB(tb, app, "DetB")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
-		doc := makeDocument(tb, app, "Detach Me", "https://det.com", false, false)
+		doc := makeDocument(tb, app, "Detach Me", "https://det.com", false)
 		docID = doc.Id
 		comp.Set("documents", []string{doc.Id})
 		require.NoError(tb, app.Save(comp))
@@ -417,7 +416,7 @@ func TestCompetitionDetachKeepsOtherComps(t *testing.T) {
 		p4 := makePairTB(tb, app, "KC2B")
 		comp2 := makeCompetitionTB(tb, app, "league", []*core.Record{p3, p4})
 		comp2ID = comp2.Id
-		doc := makeDocument(tb, app, "Shared Doc", "https://shared.com", false, false)
+		doc := makeDocument(tb, app, "Shared Doc", "https://shared.com", false)
 		docID = doc.Id
 		comp1.Set("documents", []string{doc.Id})
 		require.NoError(tb, app.Save(comp1))

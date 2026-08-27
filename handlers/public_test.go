@@ -914,7 +914,7 @@ func TestCompetition_GateRendersForUnackedMandatory(t *testing.T) {
 		p2 := makePairTB(tb, app, "GateB")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 
-		doc := makeDocumentTB(tb, app, "Reglamento", true, false, "https://example.com/regla")
+		doc := makeDocumentTB(tb, app, "Reglamento", true, "https://example.com/regla")
 		comp.Set("documents", []string{doc.Id})
 		require.NoError(tb, app.Save(comp))
 
@@ -945,7 +945,7 @@ func TestCompetition_AcceptDocsThenNoGate(t *testing.T) {
 		p2 := makePairTB(tb, app, "AckB")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 
-		doc := makeDocumentTB(tb, app, "Reglamento", true, false, "https://example.com/regla")
+		doc := makeDocumentTB(tb, app, "Reglamento", true, "https://example.com/regla")
 		comp.Set("documents", []string{doc.Id})
 		require.NoError(tb, app.Save(comp))
 
@@ -983,7 +983,7 @@ func TestCompetition_ReGateAfterNewMandatory(t *testing.T) {
 		p2 := makePairTB(tb, app, "ReGateB")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 
-		doc1 := makeDocumentTB(tb, app, "Reglamento", true, false, "https://example.com/r1")
+		doc1 := makeDocumentTB(tb, app, "Reglamento", true, "https://example.com/r1")
 		comp.Set("documents", []string{doc1.Id})
 		require.NoError(tb, app.Save(comp))
 
@@ -994,7 +994,7 @@ func TestCompetition_ReGateAfterNewMandatory(t *testing.T) {
 		ack.Set("documents", []string{doc1.Id})
 		require.NoError(tb, app.Save(ack))
 
-		doc2 := makeDocumentTB(tb, app, "Tarifas", true, false, "https://example.com/t")
+		doc2 := makeDocumentTB(tb, app, "Tarifas", true, "https://example.com/t")
 		comp.Set("documents", []string{doc1.Id, doc2.Id})
 		require.NoError(tb, app.Save(comp))
 
@@ -1019,7 +1019,7 @@ func TestCompetition_NoMandatoryNoGate(t *testing.T) {
 		p2 := makePairTB(tb, app, "NoGateB")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 
-		doc := makeDocumentTB(tb, app, "Info", false, false, "https://example.com/info")
+		doc := makeDocumentTB(tb, app, "Info", false, "https://example.com/info")
 		comp.Set("documents", []string{doc.Id})
 		require.NoError(tb, app.Save(comp))
 
@@ -1049,7 +1049,7 @@ func TestCompetition_DocumentosTabShown(t *testing.T) {
 		p2 := makePairTB(tb, app, "TabB")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 
-		doc := makeDocumentTB(tb, app, "Info", false, false, "https://example.com/info")
+		doc := makeDocumentTB(tb, app, "Info", false, "https://example.com/info")
 		comp.Set("documents", []string{doc.Id})
 		require.NoError(tb, app.Save(comp))
 
@@ -1080,7 +1080,7 @@ func TestCompetition_NonParticipantNoGate(t *testing.T) {
 		p2 := makePairTB(tb, app, "PartB")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 
-		doc := makeDocumentTB(tb, app, "Reglamento", true, false, "https://example.com/r")
+		doc := makeDocumentTB(tb, app, "Reglamento", true, "https://example.com/r")
 		comp.Set("documents", []string{doc.Id})
 		require.NoError(tb, app.Save(comp))
 

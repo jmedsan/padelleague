@@ -23,11 +23,11 @@ func TestFold(t *testing.T) {
 func TestRankTypoAccentMatrix(t *testing.T) {
 	t.Parallel()
 	entries := []Entry{
-		newEntry("Reglamento", "", "documento", "/doc/1", Scope{Public: true}),
-		newEntry("Padel 360", "", "pista", "/venues/1", Scope{Admin: true}),
-		newEntry("Vídeo de normas", "", "documento", "/doc/2", Scope{Public: true}),
-		newEntry("Otoño 2025", "", "competición", "/comp/1", Scope{Public: true}),
-		newEntry("Javier Medina", "", "jugador", "/player/1", Scope{Public: true}),
+		NewEntry(Entry{Label: "Reglamento", Type: "documento", URL: "/doc/1", Scope: Scope{Public: true}}),
+		NewEntry(Entry{Label: "Padel 360", Type: "pista", URL: "/venues/1", Scope: Scope{Admin: true}}),
+		NewEntry(Entry{Label: "Vídeo de normas", Type: "documento", URL: "/doc/2", Scope: Scope{Public: true}}),
+		NewEntry(Entry{Label: "Otoño 2025", Type: "competición", URL: "/comp/1", Scope: Scope{Public: true}}),
+		NewEntry(Entry{Label: "Javier Medina", Type: "jugador", URL: "/player/1", Scope: Scope{Public: true}}),
 	}
 
 	ix := &Index{}
@@ -54,10 +54,10 @@ func TestRankTypoAccentMatrix(t *testing.T) {
 func TestScopeFilterPlayer(t *testing.T) {
 	t.Parallel()
 	entries := []Entry{
-		newEntry("Public Page", "", "página", "/", Scope{Public: true}),
-		newEntry("Admin Panel", "", "página", "/admin", Scope{Admin: true}),
-		newEntry("Comp A Thread", "", "mensaje", "/match/1", Scope{CompID: "comp-a"}),
-		newEntry("Comp B Thread", "", "mensaje", "/match/2", Scope{CompID: "comp-b"}),
+		NewEntry(Entry{Label: "Public Page", Type: "página", URL: "/", Scope: Scope{Public: true}}),
+		NewEntry(Entry{Label: "Admin Panel", Type: "página", URL: "/admin", Scope: Scope{Admin: true}}),
+		NewEntry(Entry{Label: "Comp A Thread", Type: "mensaje", URL: "/match/1", Scope: Scope{CompID: "comp-a"}}),
+		NewEntry(Entry{Label: "Comp B Thread", Type: "mensaje", URL: "/match/2", Scope: Scope{CompID: "comp-b"}}),
 	}
 	ix := &Index{}
 	ix.Replace(entries)
@@ -82,10 +82,10 @@ func TestScopeFilterPlayer(t *testing.T) {
 func TestScopeFilterAdmin(t *testing.T) {
 	t.Parallel()
 	entries := []Entry{
-		newEntry("Public Page", "", "página", "/", Scope{Public: true}),
-		newEntry("Admin Panel", "", "página", "/admin", Scope{Admin: true}),
-		newEntry("Comp A Thread", "", "mensaje", "/match/1", Scope{CompID: "comp-a"}),
-		newEntry("Comp B Thread", "", "mensaje", "/match/2", Scope{CompID: "comp-b"}),
+		NewEntry(Entry{Label: "Public Page", Type: "página", URL: "/", Scope: Scope{Public: true}}),
+		NewEntry(Entry{Label: "Admin Panel", Type: "página", URL: "/admin", Scope: Scope{Admin: true}}),
+		NewEntry(Entry{Label: "Comp A Thread", Type: "mensaje", URL: "/match/1", Scope: Scope{CompID: "comp-a"}}),
+		NewEntry(Entry{Label: "Comp B Thread", Type: "mensaje", URL: "/match/2", Scope: Scope{CompID: "comp-b"}}),
 	}
 	ix := &Index{}
 	ix.Replace(entries)
@@ -108,7 +108,7 @@ func TestSearchLimit(t *testing.T) {
 	t.Parallel()
 	var entries []Entry
 	for i := 0; i < 20; i++ {
-		entries = append(entries, newEntry("Test Entry", "", "página", "/", Scope{Public: true}))
+		entries = append(entries, NewEntry(Entry{Label: "Test Entry", Type: "página", URL: "/", Scope: Scope{Public: true}}))
 	}
 	ix := &Index{}
 	ix.Replace(entries)
@@ -120,7 +120,7 @@ func TestSearchLimit(t *testing.T) {
 func TestSearchEmptyQuery(t *testing.T) {
 	t.Parallel()
 	ix := &Index{}
-	ix.Replace([]Entry{newEntry("Foo", "", "página", "/", Scope{Public: true})})
+	ix.Replace([]Entry{NewEntry(Entry{Label: "Foo", Type: "página", URL: "/", Scope: Scope{Public: true}})})
 	results := ix.Search("", Viewer{}, 10)
 	assert.Empty(t, results)
 }
@@ -145,15 +145,4 @@ func TestVisibleTo(t *testing.T) {
 	assert.True(t, adm.visibleTo(admin))
 	assert.True(t, ownComp.visibleTo(admin))
 	assert.True(t, foreignComp.visibleTo(admin))
-}
-
-func newEntry(label, secondary, typ, url string, scope Scope) Entry {
-	return Entry{
-		Label:     label,
-		folded:    fold(label),
-		Secondary: secondary,
-		Type:      typ,
-		URL:       url,
-		Scope:     scope,
-	}
 }

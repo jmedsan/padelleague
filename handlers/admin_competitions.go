@@ -65,24 +65,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 
 	phase := league.PhaseOf(comp, time.Now())
 
-	attachedIDs := comp.GetStringSlice("documents")
-	var attachedDocs []*core.Record
-	for _, did := range attachedIDs {
-		if doc, err2 := h.app.FindRecordById("documents", did); err2 == nil {
-			attachedDocs = append(attachedDocs, doc)
-		}
-	}
-	attachedSet := make(map[string]struct{}, len(attachedIDs))
-	for _, did := range attachedIDs {
-		attachedSet[did] = struct{}{}
-	}
-	allDocs, _ := h.app.FindRecordsByFilter("documents", "", "title", 0, 0, nil)
-	var unattachedDocs []*core.Record
-	for _, d := range allDocs {
-		if _, ok := attachedSet[d.Id]; !ok {
-			unattachedDocs = append(unattachedDocs, d)
-		}
-	}
+	attachedDocs, unattachedDocs := h.buildDetailDocs(comp)
 
 	return h.renderPage(e, "admin/competition-detail.html", map[string]any{
 		"Competition":     comp,
@@ -102,6 +85,26 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"AttachedDocs":    attachedDocs,
 		"UnattachedDocs":  unattachedDocs,
 	})
+}
+
+func (h *CompetitionHandler) buildDetailDocs(comp *core.Record) (attached, unattached []*core.Record) {
+	attachedIDs := comp.GetStringSlice("documents")
+	for _, did := range attachedIDs {
+		if doc, err := h.app.FindRecordById("documents", did); err == nil {
+			attached = append(attached, doc)
+		}
+	}
+	attachedSet := make(map[string]struct{}, len(attachedIDs))
+	for _, did := range attachedIDs {
+		attachedSet[did] = struct{}{}
+	}
+	allDocs, _ := h.app.FindRecordsByFilter("documents", "", "title", 0, 0, nil)
+	for _, d := range allDocs {
+		if _, ok := attachedSet[d.Id]; !ok {
+			unattached = append(unattached, d)
+		}
+	}
+	return attached, unattached
 }
 
 func anyUnpaid(entries []pairEntry) bool {
