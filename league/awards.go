@@ -9,6 +9,7 @@ import (
 // Award represents a competition award (e.g. best pair, longest streak).
 type Award struct {
 	Title    string
+	PairID   string
 	PairName string
 	Value    string
 }
@@ -26,6 +27,7 @@ func (svc *Service) Awards(competitionID string) []Award {
 	if best.Played > 0 {
 		awards = append(awards, Award{
 			Title:    "Mejor pareja",
+			PairID:   best.PairID,
 			PairName: best.PairName,
 			Value:    strconv.Itoa(best.Points) + " pts",
 		})
@@ -40,6 +42,7 @@ func (svc *Service) Awards(competitionID string) []Award {
 	if mostPlayed.Played > 0 {
 		awards = append(awards, Award{
 			Title:    "Más partidos",
+			PairID:   mostPlayed.PairID,
 			PairName: mostPlayed.PairName,
 			Value:    strconv.Itoa(mostPlayed.Played) + " partidos",
 		})
@@ -81,6 +84,7 @@ func (svc *Service) longestStreakAward(competitionID string, standings []Standin
 	pairNames := PairNames(svc.app, []string{longestPairID})
 	return &Award{
 		Title:    "Mayor racha",
+		PairID:   longestPairID,
 		PairName: pairNames[longestPairID],
 		Value:    strconv.Itoa(longestStreak) + " victorias",
 	}
