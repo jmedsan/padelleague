@@ -29,7 +29,7 @@ func setupCompRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	auth := NewAuthHandler(app, r.Page)
 	e.Router.GET("/login", auth.Login)
 
-	comp := NewCompetitionHandler(app, svc, r.Page)
+	comp := NewCompetitionHandler(app, svc, notifier, r.Page)
 	fixture := NewFixtureHandler(app, svc, r.Page)
 	dispute := NewDisputeHandler(app, notifier, r.Page)
 

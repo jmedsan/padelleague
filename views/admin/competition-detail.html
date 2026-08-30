@@ -540,4 +540,19 @@
     </div>
 </div>
 {{end}}
+
+<div class="card bg-base-100 shadow-sm mt-6">
+    <div class="card-body">
+        <h2 class="card-title text-lg">Enviar anuncio</h2>
+        <form hx-post="/admin/competitions/{{.Competition.Id}}/broadcast" hx-swap="none" class="space-y-3">
+            <div class="form-control">
+                <input type="text" name="title" placeholder="Título del anuncio" class="input input-bordered w-full" required>
+            </div>
+            <div class="form-control">
+                <textarea name="body" placeholder="Mensaje para todos los jugadores" class="textarea textarea-bordered w-full" rows="3" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Enviar anuncio</button>
+        </form>
+    </div>
+</div>
 {{end}}

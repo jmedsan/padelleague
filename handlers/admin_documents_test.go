@@ -31,7 +31,8 @@ func setupDocRoutes(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.POST("/documents/{id}", doc.DocumentsUpdate)
 	g.POST("/documents/{id}/delete", doc.DocumentsDelete)
 
-	comp := NewCompetitionHandler(app, league.New(app, notify.NewNotifier(app, "", "")), render.New(os.DirFS(".."), "").Page)
+	n := notify.NewNotifier(app, "", "")
+	comp := NewCompetitionHandler(app, league.New(app, n), n, render.New(os.DirFS(".."), "").Page)
 	g.POST("/competitions/{id}/attach-doc", comp.AttachDocument)
 	g.POST("/competitions/{id}/detach-doc/{docId}", comp.DetachDocument)
 }

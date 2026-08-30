@@ -12,18 +12,20 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 
 	"padelleague/league"
+	"padelleague/notify"
 )
 
 // CompetitionHandler handles admin CRUD and management operations for competitions.
 type CompetitionHandler struct {
 	app        core.App
 	leagueSvc  *league.Service
+	notifier   *notify.Notifier
 	renderPage RenderFunc
 }
 
 // NewCompetitionHandler creates a CompetitionHandler with the given dependencies.
-func NewCompetitionHandler(app core.App, leagueSvc *league.Service, renderPage RenderFunc) *CompetitionHandler {
-	return &CompetitionHandler{app: app, leagueSvc: leagueSvc, renderPage: renderPage}
+func NewCompetitionHandler(app core.App, leagueSvc *league.Service, notifier *notify.Notifier, renderPage RenderFunc) *CompetitionHandler {
+	return &CompetitionHandler{app: app, leagueSvc: leagueSvc, notifier: notifier, renderPage: renderPage}
 }
 
 // Detail renders the admin detail page for a single competition.
@@ -575,4 +577,39 @@ func (h *CompetitionHandler) DetachDocument(e *core.RequestEvent) error {
 		return alertError(e, "Error al quitar el documento")
 	}
 	return redirectHX(e, "/admin/competitions/"+comp.Id)
+}
+
+// AdminBroadcast sends an announcement to all players of a competition.
+func (h *CompetitionHandler) AdminBroadcast(e *core.RequestEvent) error {
+	comp, err := h.app.FindRecordById("competitions", e.Request.PathValue("id"))
+	if err != nil {
+		return alertError(e, "Competición no encontrada")
+	}
+
+	title := strings.TrimSpace(e.Request.FormValue("title"))
+	body := strings.TrimSpace(e.Request.FormValue("body"))
+	if title == "" || body == "" {
+		return alertError(e, "El título y el mensaje son obligatorios")
+	}
+
+	seen := make(map[string]struct{})
+	var players []string
+	for _, pid := range comp.GetStringSlice("pairs") {
+		for _, uid := range league.PlayersForPair(h.app, pid) {
+			if _, ok := seen[uid]; !ok {
+				seen[uid] = struct{}{}
+				players = append(players, uid)
+			}
+		}
+	}
+
+	h.notifier.NotifyPlayers(players, league.Notification{
+		Type:  "general",
+		Title: title,
+		Body:  body,
+	})
+	h.notifier.EmailPlayers(players, title, body, "/competition/"+comp.Id)
+
+	slog.Info("broadcast sent", "competition", comp.Id, "players", len(players))
+	return alertSuccess(e, "Anuncio enviado a "+strconv.Itoa(len(players))+" jugadores")
 }

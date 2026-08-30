@@ -143,7 +143,7 @@ type seededPair struct {
 }
 
 func (h *FixtureHandler) seedSlots(pairIDs []string, bracketSize int, comp *core.Record) []string {
-	seeding := NewCompetitionHandler(h.app, h.leagueSvc, h.renderPage).getSeeding(comp)
+	seeding := NewCompetitionHandler(h.app, h.leagueSvc, nil, h.renderPage).getSeeding(comp)
 
 	sp := make([]seededPair, len(pairIDs))
 	for i, pid := range pairIDs {
