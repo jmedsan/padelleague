@@ -165,6 +165,11 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 		return alertError(e, "Error al guardar el resultado")
 	}
 
+	h.notifySubmit(match, userID, scores)
+	return redirectHX(e, "/match/"+match.Id)
+}
+
+func (h *MatchHandler) notifySubmit(match *core.Record, userID, scores string) {
 	label := pairPlayerLabel(h.app, userID, match)
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: userID,
@@ -186,8 +191,6 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	if err := h.notifier.NotifyAdmins(an.Type, an.Title, an.Body, match.Id, participants...); err != nil {
 		slog.Error("notify admins match progress failed", "match", match.Id, "err", err)
 	}
-
-	return redirectHX(e, "/match/"+match.Id)
 }
 
 // AdminOverride lets an admin set the final score, bypassing the normal flow.

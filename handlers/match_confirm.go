@@ -29,23 +29,9 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
-	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
-	myTeam, err := league.PlayerTeam(h.app, userID, match)
-	if err != nil && !isAdmin {
-		return alertError(e, "No eres participante de este partido")
-	}
-
-	submittedByID := match.GetString("submitted_by")
-	if submittedByID == "" {
-		return alertError(e, "No se encontró quién envió el resultado")
-	}
-	submitterTeam, err := league.PlayerTeam(h.app, submittedByID, match)
+	submitterTeam, err := h.validateConfirmParticipant(e, match, userID)
 	if err != nil {
-		return alertError(e, "Error al verificar el equipo que envió el resultado")
-	}
-
-	if myTeam == submitterTeam {
-		return alertError(e, "No puedes confirmar tu propio resultado")
+		return err
 	}
 
 	score := match.GetString("scores")
@@ -88,6 +74,26 @@ func (h *MatchHandler) notifyConfirmToSubmitter(match *core.Record, submitterTea
 	n := league.NotifResultConfirmed(match.Id)
 	h.notifier.NotifyPlayers(submitterPlayers, n)
 	h.notifier.EmailPlayers(submitterPlayers, n.Title, n.Body, "/match/"+matchID)
+}
+
+func (h *MatchHandler) validateConfirmParticipant(e *core.RequestEvent, match *core.Record, userID string) (int, error) {
+	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
+	myTeam, err := league.PlayerTeam(h.app, userID, match)
+	if err != nil && !isAdmin {
+		return 0, alertError(e, "No eres participante de este partido")
+	}
+	submittedByID := match.GetString("submitted_by")
+	if submittedByID == "" {
+		return 0, alertError(e, "No se encontró quién envió el resultado")
+	}
+	submitterTeam, err := league.PlayerTeam(h.app, submittedByID, match)
+	if err != nil {
+		return 0, alertError(e, "Error al verificar el equipo que envió el resultado")
+	}
+	if myTeam == submitterTeam {
+		return 0, alertError(e, "No puedes confirmar tu propio resultado")
+	}
+	return submitterTeam, nil
 }
 
 // MatchDispute handles the opponent disputing a submitted score.
