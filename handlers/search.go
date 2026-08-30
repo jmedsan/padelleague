@@ -85,27 +85,72 @@ func (h *SearchHandler) recordQuery(userID, query string) {
 	}
 }
 
+type navLink struct{ Label, URL string }
+
 func (h *SearchHandler) renderSuggestions(e *core.RequestEvent, viewer search.Viewer) error {
-	recent := h.recentSearches(e.Auth.Id)
-
-	data := map[string]any{
-		"Query":   "",
-		"Results": []search.Result{},
-		"Grouped": map[string][]search.Result{},
-		"Empty":   true,
-		"Recent":  recent,
-	}
-
+	var obligations []navLink
 	if viewer.IsAdmin {
 		setups, alerts, _ := league.AdminDashboard(h.app, time.Now())
-		data["AdminSetups"] = setups
-		data["AdminAlerts"] = alerts
+		for _, a := range alerts {
+			obligations = append(obligations, navLink{a.Description, "/match/" + a.MatchID})
+		}
+		for _, s := range setups {
+			if !s.Ready {
+				obligations = append(obligations, navLink{s.CompName + " — configuración pendiente", "/admin/competitions/" + s.CompID})
+			}
+		}
 	} else {
 		tasks, _ := league.PlayerTasks(h.app, e.Auth.Id, time.Now())
-		data["PlayerTasks"] = tasks
+		for _, t := range tasks {
+			obligations = append(obligations, navLink{t.Description, "/match/" + t.MatchID})
+		}
 	}
 
-	return h.renderPartial(e, "search-results.html", data)
+	competitions := h.activeCompetitions(e.Auth.Id)
+	recent := h.recentSearches(e.Auth.Id)
+	quickNav := quickNav(e.Auth.Id, viewer.IsAdmin)
+
+	return h.renderPartial(e, "search-results.html", map[string]any{
+		"Query":        "",
+		"Results":      []search.Result{},
+		"Grouped":      map[string][]search.Result{},
+		"Empty":        true,
+		"Obligations":  obligations,
+		"Competitions": competitions,
+		"Recent":       recent,
+		"QuickNav":     quickNav,
+	})
+}
+
+func (h *SearchHandler) activeCompetitions(userID string) []navLink {
+	pairs, _ := league.PairsForPlayer(h.app, userID)
+	var links []navLink
+	for _, p := range pairs {
+		comps, _ := h.app.FindRecordsByFilter("competitions",
+			"active = true && pairs ~ {:pid}", "name", 0, 0,
+			map[string]any{"pid": p.Id})
+		for _, c := range comps {
+			links = append(links, navLink{c.GetString("name"), "/competition/" + c.Id})
+		}
+	}
+	return links
+}
+
+func quickNav(authID string, isAdmin bool) []navLink {
+	links := []navLink{
+		{"Inicio", "/"},
+		{"Mi perfil", "/player/" + authID},
+	}
+	if isAdmin {
+		links = append(links,
+			navLink{"Disputas", "/admin/disputes"},
+			navLink{"Parejas", "/admin/pairs"},
+			navLink{"Jugadores", "/admin/players"},
+			navLink{"Sedes", "/admin/venues"},
+			navLink{"Ajustes", "/admin/settings"},
+		)
+	}
+	return links
 }
 
 func (h *SearchHandler) recentSearches(userID string) []string {

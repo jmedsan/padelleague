@@ -21,6 +21,22 @@
         {{end}}
         {{end}}
     {{else}}
+        {{if .Obligations}}
+        <div class="mb-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-1 px-1">Tu próxima acción</h3>
+            {{range .Obligations}}
+            <a href="{{.URL}}" class="block px-3 py-2 text-sm rounded-lg hover:bg-base-200 transition-colors">{{.Label}}</a>
+            {{end}}
+        </div>
+        {{end}}
+        {{if .Competitions}}
+        <div class="mb-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-1 px-1">Tus competiciones</h3>
+            {{range .Competitions}}
+            <a href="{{.URL}}" class="block px-3 py-2 text-sm rounded-lg hover:bg-base-200 transition-colors">{{.Label}}</a>
+            {{end}}
+        </div>
+        {{end}}
         {{if .Recent}}
         <div class="mb-3">
             <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-1 px-1">Búsquedas recientes</h3>
@@ -29,19 +45,11 @@
             {{end}}
         </div>
         {{end}}
-        {{if .PlayerTasks}}
+        {{if .QuickNav}}
         <div class="mb-3">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-1 px-1">Sugerencias</h3>
-            {{range .PlayerTasks}}
-            <div class="px-3 py-2 text-sm">{{.Title}}</div>
-            {{end}}
-        </div>
-        {{end}}
-        {{if .AdminAlerts}}
-        <div class="mb-3">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-1 px-1">Alertas</h3>
-            {{range .AdminAlerts}}
-            <div class="px-3 py-2 text-sm">{{.Label}}</div>
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-1 px-1">Ir a</h3>
+            {{range .QuickNav}}
+            <a href="{{.URL}}" class="block px-3 py-2 text-sm rounded-lg hover:bg-base-200 transition-colors">{{.Label}}</a>
             {{end}}
         </div>
         {{end}}
