@@ -290,7 +290,7 @@
             {{if .AttachedDocs}}<span class="badge badge-neutral badge-sm">{{len .AttachedDocs}}</span>{{end}}
         </h2>
 
-        {{if .AttachedDocs}}
+        {{if .AttachedDocViews}}
         <div class="overflow-x-auto">
             <table class="table table-zebra">
                 <thead>
@@ -302,27 +302,8 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {{range .AttachedDocs}}
-                    <tr>
-                        <td class="font-medium">{{.GetString "title"}}</td>
-                        <td>
-                            {{if .GetString "url"}}
-                                <a href="{{.GetString "url"}}" target="_blank" rel="noopener" class="link link-primary text-sm">Enlace</a>
-                            {{else if .GetString "file"}}
-                                <a href="/api/files/documents/{{.Id}}/{{.GetString "file"}}" target="_blank" rel="noopener" class="link link-primary text-sm">Archivo</a>
-                            {{else}}
-                                <span class="text-sm opacity-40">—</span>
-                            {{end}}
-                        </td>
-                        <td>
-                            {{if .GetBool "is_mandatory"}}<span class="badge badge-error badge-sm">Obligatorio</span>{{else}}<span class="text-base-content/40">—</span>{{end}}
-                        </td>
-                        <td class="text-right">
-                            <form hx-post="/admin/competitions/{{$.Competition.Id}}/detach-doc/{{.Id}}" hx-confirm="¿Quitar este documento de la competición?" class="inline">
-                                <button type="submit" class="btn btn-ghost btn-xs text-error">Quitar</button>
-                            </form>
-                        </td>
-                    </tr>
+                    {{range .AttachedDocViews}}
+                    {{template "documentAttachRow" .}}
                     {{end}}
                 </tbody>
             </table>

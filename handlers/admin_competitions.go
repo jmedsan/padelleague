@@ -71,24 +71,32 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 
 	attachedDocs, unattachedDocs := h.buildDetailDocs(comp)
 
+	attachMode := Mode{Admin: true, Full: false, Editable: true}
+	attachedViews := make([]DocumentView, len(attachedDocs))
+	for i, d := range attachedDocs {
+		dv := NewDocumentView(d, attachMode)
+		dv.CompetitionID = comp.Id
+		attachedViews[i] = dv
+	}
+
 	return h.renderPage(e, "admin/competition-detail.html", map[string]any{
-		"Competition":     comp,
-		"Entries":         pairEntries,
-		"AllPairs":        allPairs,
-		"AllCompetitions": allComps,
-		"AllUsers":        allUsers,
-		"Rounds":          rounds,
-		"Disputes":        disputes,
-		"Standings":       standings,
-		"PenaltyRows":     penaltyRows,
-		"IsLeague":        isLeague,
-		"HasFixtures":     len(matches) > 0,
-		"HasUnpaid":       anyUnpaid(pairEntries),
-		"UnpaidCount":     countUnpaid(pairEntries),
-		"RoundDates":      roundDates,
-		"Phase":           phase,
-		"AttachedDocs":    attachedDocs,
-		"UnattachedDocs":  unattachedDocs,
+		"Competition":       comp,
+		"Entries":           pairEntries,
+		"AllPairs":          allPairs,
+		"AllCompetitions":   allComps,
+		"AllUsers":          allUsers,
+		"Rounds":            rounds,
+		"Disputes":          disputes,
+		"Standings":         standings,
+		"PenaltyRows":       penaltyRows,
+		"IsLeague":          isLeague,
+		"HasFixtures":       len(matches) > 0,
+		"HasUnpaid":         anyUnpaid(pairEntries),
+		"UnpaidCount":       countUnpaid(pairEntries),
+		"RoundDates":        roundDates,
+		"Phase":             phase,
+		"AttachedDocViews":  attachedViews,
+		"UnattachedDocs":    unattachedDocs,
 	})
 }
 
