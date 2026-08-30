@@ -32,6 +32,10 @@ type MatchCard struct {
 	ReviewType     string
 	RequestedBy    string
 
+	Feeder1   string
+	Feeder2   string
+	IsMyMatch bool
+
 	CanSubmit   bool
 	CanConfirm  bool
 	CanDispute  bool
@@ -75,6 +79,26 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 	return c
 }
 
+// NewMatchRow builds a reduced read-only match view-model for list/row surfaces.
+func NewMatchRow(match *core.Record, pairNames map[string]string, playerPairIDs map[string]struct{}) MatchCard {
+	p1 := match.GetString("pair1")
+	p2 := match.GetString("pair2")
+	status := match.GetString("status")
+	_, myP1 := playerPairIDs[p1]
+	_, myP2 := playerPairIDs[p2]
+	return MatchCard{
+		Mode:        PlayerRow,
+		Match:       match,
+		Pair1Name:   pairNames[p1],
+		Pair2Name:   pairNames[p2],
+		RoundNum:    int(match.GetFloat("round_number")),
+		StatusLabel: statusLabel(status),
+		StatusClass: statusClass(status),
+		Score:       match.GetString("scores"),
+		IsMyMatch:   myP1 || myP2,
+	}
+}
+
 func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID string) {
 	status := match.GetString("status")
 	submittedBy := match.GetString("submitted_by")
@@ -100,6 +124,16 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 				c.CanCorrect = time.Since(dt.Time()) < 24*time.Hour
 			}
 		}
+	}
+}
+
+// PopulateFeeder sets the playoff placeholder text for unresolved pairs.
+func (c *MatchCard) PopulateFeeder(prevRound, matchIdx int) {
+	if c.Pair1Name == "" {
+		c.Feeder1 = fmt.Sprintf("Ganador de J%d-%d", prevRound, matchIdx*2+1)
+	}
+	if c.Pair2Name == "" {
+		c.Feeder2 = fmt.Sprintf("Ganador de J%d-%d", prevRound, matchIdx*2+2)
 	}
 }
 
