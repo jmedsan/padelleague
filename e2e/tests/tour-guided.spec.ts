@@ -260,18 +260,27 @@ test.describe('guided navigation tour', () => {
         await gotoMatchViaCompCard(page, competitionId, f.id);
 
         if (i === 0) {
-          // R-171: venue select must not pre-select any option
-          const venueSelect = page.locator('select[name="venue_id"]');
-          await expect(venueSelect).toBeVisible({ timeout: 3000 });
-          const selectedOptions = venueSelect.locator('option[selected]');
-          await expect(selectedOptions).toHaveCount(0);
+          // R-174: proposal accordion visible on pending match
+          const proposalTitle = page.locator('.collapse-title:has-text("Proponer fecha")');
+          await expect(proposalTitle).toBeVisible({ timeout: 3000 });
 
           // R-174: no availability buttons on thread page
           await expect(page.locator('button:has-text("Estoy libre")')).toHaveCount(0);
           await expect(page.locator('button:has-text("No puedo")')).toHaveCount(0);
 
-          // R-174: proposal accordion visible on pending match
-          await expect(page.locator('text=Proponer fecha')).toBeVisible({ timeout: 3000 });
+          // Expand proposal accordion to check venue select
+          const proposalCollapse = page.locator('.collapse:has(select[name="venue_id"])');
+          const proposalCheckbox = proposalCollapse.locator('> input[type="checkbox"]');
+          if (!(await proposalCheckbox.isChecked())) {
+            await proposalCheckbox.check({ force: true });
+            await page.waitForTimeout(300);
+          }
+
+          // R-171: venue select must not pre-select any option
+          const venueSelect = page.locator('select[name="venue_id"]');
+          await expect(venueSelect).toBeVisible({ timeout: 3000 });
+          const selectedOptions = venueSelect.locator('option[selected]');
+          await expect(selectedOptions).toHaveCount(0);
         }
 
         await submitScore(page, f.orientedScore);
@@ -325,7 +334,14 @@ test.describe('guided navigation tour', () => {
     await clickAdminQuickLink(page, 'Competiciones');
     await page.getByRole('link', { name: COMP_NAME }).first().click();
     await page.waitForLoadState('domcontentloaded');
-    const penaltyModal = page.locator(`#penalty-modal-${pairIds[0]}`).locator('..');
+    // Expand Parejas accordion (collapsed when started + all paid)
+    const parejasSection = page.locator('[data-testid="section-parejas"]');
+    const parejasCheckbox = parejasSection.locator('> input[type="checkbox"]');
+    if (!(await parejasCheckbox.isChecked())) {
+      await parejasCheckbox.check({ force: true });
+      await page.waitForTimeout(300);
+    }
+    const penaltyModal = page.locator(`#penalty-modal-${pairIds[0]} + .modal`);
     await page.locator(`label[for="penalty-modal-${pairIds[0]}"]:has-text("Penalizar")`).click();
     await penaltyModal.locator('textarea[name="reason"]').fill('Ajuste de clasificación');
     await clickAndWaitForHxRedirect(page, penaltyModal.locator('button:has-text("Confirmar penalización")'));

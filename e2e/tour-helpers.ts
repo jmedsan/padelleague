@@ -127,9 +127,12 @@ export async function generateFixtures(page: Page): Promise<void> {
 }
 
 export async function setDates(page: Page, startDate: string, endDate: string): Promise<void> {
+  // Open the edit modal to set competition start/end dates
+  await page.locator('label[for="edit-modal"]').first().click();
+  await page.waitForTimeout(300);
   await page.fill('input[name="start_date"]', startDate);
   await page.fill('input[name="end_date"]', endDate);
-  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Guardar fechas")'));
+  await clickAndWaitForHxRedirect(page, page.locator('.modal button:has-text("Guardar")'));
 }
 
 export async function activate(page: Page): Promise<void> {

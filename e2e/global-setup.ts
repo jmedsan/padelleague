@@ -16,6 +16,12 @@ export const PLAYER1_NAME = 'Test Player';
 export const PLAYER2_EMAIL = 'player2@test.com';
 export const PLAYER2_PASSWORD = 'testpass123456';
 export const PLAYER2_NAME = 'Test Player 2';
+export const PLAYER3_EMAIL = 'player3@test.com';
+export const PLAYER3_PASSWORD = 'testpass123456';
+export const PLAYER3_NAME = 'Test Player 3';
+export const PLAYER4_EMAIL = 'player4@test.com';
+export const PLAYER4_PASSWORD = 'testpass123456';
+export const PLAYER4_NAME = 'Test Player 4';
 
 let serverProcess: ChildProcess;
 
@@ -87,10 +93,15 @@ async function seedTestData() {
   // Get player IDs
   const player1 = await getUser(PLAYER1_EMAIL, adminToken);
   const player2 = await getUser(PLAYER2_EMAIL, adminToken);
+  const player3 = await createPlayer(PLAYER3_EMAIL, PLAYER3_PASSWORD, PLAYER3_NAME, adminToken);
+  const player4 = await createPlayer(PLAYER4_EMAIL, PLAYER4_PASSWORD, PLAYER4_NAME, adminToken);
 
   // Create pair 1 (player1 + player2) and pair 2 (admin + player1) via admin form
   const pair1Id = await createPair('Pareja Alpha', player1.id, player2.id, adminToken);
   const pair2Id = await createPair('Pareja Beta', player1.id, (await getUser(ADMIN_EMAIL, adminToken)).id, adminToken);
+  // pair3: no overlap with pair1/pair2 players — used for admin-notif scratch matches
+  // so the admin is NOT a participant and receives match-progress notifications
+  const pair3Id = await createPair('Pareja Gamma', player3.id, player4.id, adminToken);
 
   // Create competition
   const compId = await createCompetition('Liga E2E Test', 'league', adminToken);
@@ -116,14 +127,18 @@ async function seedTestData() {
   // tests get an untouched match each. Two mutating tests across two projects
   // means four, since a test that confirms a match leaves nothing pending for
   // the next one.
+  // Slots 0-1 use pair1 vs pair2; slot 2 (admin-notif) uses pair1 vs pair3
+  // so the admin is NOT a match participant and receives the notification.
+  // pair3 is NOT added to the competition to avoid changing fixture generation.
   for (let i = 0; i < 6; i++) {
+    const usePair3 = i >= 4; // slots 0-1 = indices 0-3, slot 2 = indices 4-5
     const extra = await fetch(`${BASE_URL}/api/collections/matches/records`, {
       method: 'POST',
       headers: { 'Authorization': adminToken, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         competition: compId,
         pair1: pair1Id,
-        pair2: pair2Id,
+        pair2: usePair3 ? pair3Id : pair2Id,
         status: 'pending',
         round_number: i + 2,
       }),
@@ -157,6 +172,17 @@ async function getUser(email: string, token: string) {
   });
   const data = await resp.json();
   return data.items[0];
+}
+
+async function createPlayer(email: string, password: string, name: string, token: string): Promise<{ id: string; email: string }> {
+  const resp = await fetch(`${BASE_URL}/api/collections/users/records`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': token },
+    body: JSON.stringify({ email, password, passwordConfirm: password, display_name: name, roles: ['player'], verified: true }),
+  });
+  if (!resp.ok) throw new Error(`createPlayer: ${resp.status} ${await resp.text()}`);
+  const data = await resp.json();
+  return { id: data.id, email };
 }
 
 async function createPair(name: string, player1Id: string, player2Id: string, token: string): Promise<string> {
