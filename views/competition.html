@@ -90,7 +90,7 @@
     </div>
 
     {{if .DocumentViews}}
-    <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Documentos">
+    <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Documentos" id="tab-documentos">
     <div role="tabpanel" class="tab-content pt-6">
         <div class="space-y-3">
             {{range .DocumentViews}}
@@ -178,4 +178,12 @@
         Descargar calendario .ics
     </a>
 </div>
+<script>
+(function(){
+    if (location.hash === '#documentos') {
+        var tab = document.getElementById('tab-documentos');
+        if (tab) tab.checked = true;
+    }
+})();
+</script>
 {{end}}

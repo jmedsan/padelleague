@@ -168,6 +168,44 @@ test.describe('R-178: presentation quality guards', () => {
     expect(await adminCards.count(), 'admin should see at least one competition').toBeGreaterThan(0);
   });
 
+  test('R-167: onboarding checklist — reglamento deep-links to Documentos tab', async ({ page }) => {
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.locator('a:has-text("Inicio")').first().click();
+    await page.waitForLoadState('networkidle');
+
+    const checklist = page.locator('[data-testid="onboard-checklist"]');
+    if (await checklist.isVisible().catch(() => false)) {
+      // No "Cómo funciona" should appear (dropped non-trackable step)
+      await expect(checklist.locator('text=Cómo funciona')).toHaveCount(0);
+
+      // Check no done item appears after an open item (no sequential ordering bug)
+      const items = checklist.locator('li');
+      const count = await items.count();
+      let sawOpen = false;
+      for (let i = 0; i < count; i++) {
+        const hasLineThrough = await items.nth(i).locator('.line-through').count() > 0;
+        if (!hasLineThrough) sawOpen = true;
+        if (hasLineThrough && sawOpen) {
+          throw new Error(`Done item at position ${i} appears after an open item`);
+        }
+      }
+
+      // Click "Lee el reglamento" and verify it lands on Documentos
+      const regLink = checklist.locator('a:has-text("Lee el reglamento")');
+      if (await regLink.count() > 0) {
+        await regLink.click();
+        await page.waitForLoadState('networkidle');
+        // Should land on competition page with #documentos fragment
+        expect(page.url()).toContain('#documentos');
+        // Documentos tab should be active
+        const docTab = page.locator('#tab-documentos');
+        if (await docTab.count() > 0) {
+          await expect(docTab).toBeChecked();
+        }
+      }
+    }
+  });
+
   test('R-164: date-format guard — no raw ISO dates in visible text', async ({ page }) => {
     // ISO date patterns that should NEVER appear in rendered UI text
     const isoLeaks = [
