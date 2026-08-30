@@ -308,8 +308,7 @@ func TestCompetitionGen2_WithPenaltyShowsPenColumn(t *testing.T) {
 		p1 := makePairTB(tb, app, "PenA")
 		p2 := makePairTB(tb, app, "PenB")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		comp.Set("penalty_points", fmt.Sprintf(`{"%s": 1}`, p1.Id))
-		require.NoError(tb, app.Save(comp))
+		makePenaltyTB(tb, app, comp.Id, p1.Id, 1, "Prueba", "", false)
 
 		makeFinalMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "6-3 6-4", p1.Id)
 

@@ -101,8 +101,7 @@ func TestComputeStandings_Penalty(t *testing.T) {
 
 	makeFinalMatch(t, app, comp.Id, p1.Id, p2.Id, "6-3 6-4", p1.Id)
 
-	comp.Set("penalty_points", map[string]any{p1.Id: float64(3)})
-	require.NoError(t, app.Save(comp))
+	makePenaltyTB(t, app, comp.Id, p1.Id, 3, "Prueba", "", false)
 
 	svc := league.New(app, nil)
 	rows, err := svc.ComputeStandings(comp.Id)
