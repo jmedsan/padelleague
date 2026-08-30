@@ -68,28 +68,26 @@ func TestProposalActions(t *testing.T) {
 		msgType, matchStatus    string
 		sameTeamOrOutsider      bool
 		proposalStatus          string
-		compModifiable          bool
 		wantRespond, wantChange bool
 	}{
-		{"opponent, pending", prop, league.StatusPending, false, "pending", true, true, false},
-		{"opponent, accepted", prop, league.StatusPending, false, "accepted", true, false, true},
-		{"opponent, rejected", prop, league.StatusPending, false, "rejected", true, false, true},
-		{"own proposal, pending", prop, league.StatusPending, true, "pending", true, false, false},
-		{"own proposal, accepted", prop, league.StatusPending, true, "accepted", true, false, false},
-		{"outsider", prop, league.StatusPending, true, "pending", true, false, false},
-		{"confirmed match", prop, league.StatusConfirmed, false, "pending", true, false, false},
-		{"disputed match", prop, league.StatusDisputed, false, "pending", true, false, false},
-		{"final match", prop, league.StatusFinal, false, "pending", true, false, false},
-		{"chat message", "chat", league.StatusPending, false, "pending", true, false, false},
-		{"score discussion", "score_discussion", league.StatusPending, false, "pending", true, false, false},
-		{"superseded proposal", prop, league.StatusPending, false, "superseded", true, false, false},
-		{"read-only comp", prop, league.StatusPending, false, "pending", false, false, false},
+		{"opponent, pending", prop, league.StatusPending, false, "pending", true, false},
+		{"opponent, accepted", prop, league.StatusPending, false, "accepted", false, true},
+		{"opponent, rejected", prop, league.StatusPending, false, "rejected", false, true},
+		{"own proposal, pending", prop, league.StatusPending, true, "pending", false, false},
+		{"own proposal, accepted", prop, league.StatusPending, true, "accepted", false, false},
+		{"outsider", prop, league.StatusPending, true, "pending", false, false},
+		{"confirmed match", prop, league.StatusConfirmed, false, "pending", false, false},
+		{"disputed match", prop, league.StatusDisputed, false, "pending", false, false},
+		{"final match", prop, league.StatusFinal, false, "pending", false, false},
+		{"chat message", "chat", league.StatusPending, false, "pending", false, false},
+		{"score discussion", "score_discussion", league.StatusPending, false, "pending", false, false},
+		{"superseded proposal", prop, league.StatusPending, false, "superseded", false, false},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			respond, change := proposalActions(tc.msgType, tc.matchStatus, tc.sameTeamOrOutsider, tc.proposalStatus, tc.compModifiable)
+			respond, change := proposalActions(tc.msgType, tc.matchStatus, tc.sameTeamOrOutsider, tc.proposalStatus)
 			assert.Equal(t, tc.wantRespond, respond, "canRespond")
 			assert.Equal(t, tc.wantChange, change, "canChange")
 		})

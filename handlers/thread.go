@@ -105,7 +105,9 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 		}
 
 		status := msg.GetString("proposal_status")
-		canRespond, canChangeDecision := proposalActions(msgType, match.GetString("status"), authorTeam == myTeam || myTeam == 0, status, compModifiable)
+		canRespond, canChangeDecision := proposalActions(msgType, match.GetString("status"), authorTeam == myTeam || myTeam == 0, status)
+		canRespond = canRespond && compModifiable
+		canChangeDecision = canChangeDecision && compModifiable
 
 		threadMessages = append(threadMessages, ThreadMessage{
 			Record:            msg,
@@ -141,11 +143,10 @@ func playerTeamOf(uid string, pair1Players, pair2Players []string) int {
 	return 0
 }
 
-func proposalActions(msgType, matchStatus string, sameTeamOrOutsider bool, proposalStatus string, compModifiable bool) (canRespond, canChange bool) {
+func proposalActions(msgType, matchStatus string, sameTeamOrOutsider bool, proposalStatus string) (canRespond, canChange bool) {
 	canAct := msgType == "scheduling_proposal" &&
 		league.IsPreScore(matchStatus) &&
-		!sameTeamOrOutsider &&
-		compModifiable
+		!sameTeamOrOutsider
 	return canAct && proposalStatus == "pending",
 		canAct && (proposalStatus == "accepted" || proposalStatus == "rejected")
 }
