@@ -566,7 +566,7 @@ async function assertStandings(
 
 async function applyPenalty(page: Page, compId: string, pairId: string) {
 	await page.goto(`/admin/competitions/${compId}`);
-	const modal = page.locator(`#penalty-modal-${pairId}`).locator('..');
+	const modal = page.locator(`#penalty-modal-${pairId} + .modal`);
 	await page.locator(`label[for="penalty-modal-${pairId}"]:has-text("Penalizar")`).click();
 	await modal.locator('textarea[name="reason"]').fill('Ajuste de clasificación');
 	await clickAndWaitForHxRedirect(page, modal.locator('button:has-text("Confirmar penalización")'));
