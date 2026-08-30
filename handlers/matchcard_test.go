@@ -268,6 +268,66 @@ func TestMatchCardCrossRoleLeakGuard(t *testing.T) {
 	})
 }
 
+func TestMatchRowRendersOuterAnchorNoInnerLinks(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "competition fixture row is an outer anchor with no inner links",
+		Method:         http.MethodGet,
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			"Row Pair A",
+			"Row Pair B",
+			"Pendiente",
+		},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Row Pair A")
+		p2 := makePairTB(tb, app, "Row Pair B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/competition/" + comp.Id
+		player, err := app.FindRecordById("users", p1.GetString("player1"))
+		require.NoError(tb, err)
+		s.Headers = authHeaders(tb, player)
+	}
+	s.Test(t)
+}
+
+func TestNewMatchRowFields(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePairTB(t, app, "MR A")
+	p2 := makePairTB(t, app, "MR B")
+	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
+	match := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
+
+	pairNames := map[string]string{p1.Id: "MR A", p2.Id: "MR B"}
+	playerPairIDs := map[string]struct{}{p1.Id: {}}
+
+	mc := NewMatchRow(match, pairNames, playerPairIDs)
+	assert.Equal(t, PlayerRow, mc.Mode)
+	assert.Equal(t, "MR A", mc.Pair1Name)
+	assert.Equal(t, "MR B", mc.Pair2Name)
+	assert.True(t, mc.IsMyMatch)
+	assert.Equal(t, "Pendiente", mc.StatusLabel)
+	assert.False(t, mc.CanSubmit)
+}
+
+func TestPopulateFeederOnMatchCard(t *testing.T) {
+	t.Parallel()
+	mc := MatchCard{}
+	mc.PopulateFeeder(1, 0)
+	assert.Equal(t, "Ganador de J1-1", mc.Feeder1)
+	assert.Equal(t, "Ganador de J1-2", mc.Feeder2)
+
+	mc2 := MatchCard{Pair1Name: "A"}
+	mc2.PopulateFeeder(1, 0)
+	assert.Empty(t, mc2.Feeder1)
+	assert.Equal(t, "Ganador de J1-2", mc2.Feeder2)
+}
+
 func TestPairPlayerLabel(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
