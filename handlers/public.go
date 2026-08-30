@@ -10,6 +10,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 
 	"padelleague/league"
+	"padelleague/render"
 )
 
 // PublicHandler serves player-facing pages like the dashboard and competition views.
@@ -23,6 +24,13 @@ type PublicHandler struct {
 // NewPublicHandler creates a PublicHandler with the given dependencies.
 func NewPublicHandler(app core.App, leagueSvc *league.Service, renderPage RenderFunc, renderErrorPage RenderErrorFunc) *PublicHandler {
 	return &PublicHandler{app: app, leagueSvc: leagueSvc, renderPage: renderPage, renderErrorPage: renderErrorPage}
+}
+
+// OnboardStep is one item in the player onboarding checklist.
+type OnboardStep struct {
+	Label string
+	URL   string
+	Done  bool
 }
 
 // PendingMatchDetail holds summary info for a pending match on the dashboard.
@@ -121,6 +129,12 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 		h.addAdminHomeData(data, activeComps)
 	}
 
+	if slices.Contains(e.Auth.GetStringSlice("roles"), "player") && !render.AdminView(e) {
+		if steps := h.onboardingSteps(e.Auth, activeComps); len(steps) > 0 {
+			data["OnboardSteps"] = steps
+		}
+	}
+
 	return h.renderPage(e, "home.html", data)
 }
 
@@ -132,6 +146,32 @@ func (h *PublicHandler) addAdminHomeData(data map[string]any, activeComps []*cor
 	existing, _ := h.app.FindRecordsByFilter("competitions", "", "", 1, 0, nil)
 	data["AdminBootstrap"] = len(existing) == 0
 	data["PlayoffPrompts"] = league.PlayoffPrompts(h.app, activeComps, time.Now())
+}
+
+// onboardingSteps returns the player onboarding checklist, or nil when every
+// actionable step is done (so the template hides the card).
+func (h *PublicHandler) onboardingSteps(user *core.Record, activeComps []*core.Record) []OnboardStep {
+	profileDone := user.GetString("display_name") != ""
+
+	reglamentoDone := true
+	reglamentoURL := "/"
+	for _, c := range activeComps {
+		if pending := league.UnacknowledgedMandatory(h.app, c, user.Id); len(pending) > 0 {
+			reglamentoDone = false
+			reglamentoURL = fmt.Sprintf("/competition/%s", c.Id)
+			break
+		}
+	}
+
+	if profileDone && reglamentoDone {
+		return nil
+	}
+
+	return []OnboardStep{
+		{Label: "Completa tu perfil", URL: "/profile/complete", Done: profileDone},
+		{Label: "Lee el reglamento", URL: reglamentoURL, Done: reglamentoDone},
+		{Label: "Cómo funciona", URL: "/", Done: true},
+	}
 }
 
 func (h *PublicHandler) splitAdminAlerts(alerts []league.AdminAlert) ([]MatchCard, []league.AdminAlert) {
