@@ -104,6 +104,38 @@ func TestScopeFilterAdmin(t *testing.T) {
 	assert.Contains(t, labels, "Comp B Thread")
 }
 
+func TestPairScopeCompVsAdmin(t *testing.T) {
+	t.Parallel()
+	entries := []Entry{
+		NewEntry(Entry{Label: "Pair With Comp", Type: "pareja", URL: "/pair/p1",
+			Secondary: "Ana / Bruno", Keywords: []string{"pareja", "Ana", "Bruno"},
+			Scope: Scope{CompID: "comp-x"}}),
+		NewEntry(Entry{Label: "Pair No Comp", Type: "pareja", URL: "/pair/p2",
+			Secondary: "Carla / David", Keywords: []string{"pareja", "Carla", "David"},
+			Scope: Scope{Admin: true}}),
+	}
+	ix := &Index{}
+	ix.Replace(entries)
+
+	player := Viewer{IsAdmin: false, CompIDs: map[string]struct{}{"comp-x": {}}}
+	results := ix.Search("pair", player, 10)
+	var labels []string
+	for _, r := range results {
+		labels = append(labels, r.Label)
+	}
+	assert.Contains(t, labels, "Pair With Comp", "player in comp-x sees comp-scoped pair")
+	assert.NotContains(t, labels, "Pair No Comp", "player must not see admin-only pair")
+
+	admin := Viewer{IsAdmin: true}
+	adminResults := ix.Search("pair", admin, 10)
+	var adminLabels []string
+	for _, r := range adminResults {
+		adminLabels = append(adminLabels, r.Label)
+	}
+	assert.Contains(t, adminLabels, "Pair With Comp")
+	assert.Contains(t, adminLabels, "Pair No Comp", "admin sees all pairs")
+}
+
 func TestSearchLimit(t *testing.T) {
 	t.Parallel()
 	var entries []Entry
