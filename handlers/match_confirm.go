@@ -129,7 +129,8 @@ func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 		Kind: "result_event", Detail: label + " disputó el resultado (propone " + disputedScores + ")",
 	})
 
-	if err := h.notifier.NotifyAdmins("dispute", "Partido disputado", disputeNotes, match.Id); err != nil {
+	n := league.NotifAdminDisputed(match.Id, disputeNotes)
+	if err := h.notifier.NotifyAdmins(n.Type, n.Title, n.Body, match.Id); err != nil {
 		slog.Error("notify admins failed", "err", err)
 	}
 
