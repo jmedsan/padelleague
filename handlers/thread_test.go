@@ -1026,3 +1026,131 @@ func TestFinalMatchThreadAcceptsPost(t *testing.T) {
 		s.Test(t)
 	})
 }
+
+func TestMostUsedVenue_ReturnsMostFrequent(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "mostUsedVenue returns most frequent venue",
+		Method:          http.MethodGet,
+		URL:             "/placeholder",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"thread-messages"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "VenueA")
+		p2 := makePairTB(tb, app, "VenueB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		m1 := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+		m1.Set("club", "Club Favorito")
+		require.NoError(tb, app.Save(m1))
+
+		m2 := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+		m2.Set("club", "Club Favorito")
+		require.NoError(tb, app.Save(m2))
+
+		m3 := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+		m3.Set("club", "Club Otro")
+		require.NoError(tb, app.Save(m3))
+
+		current := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		result := mostUsedVenue(app, current)
+		assert.Equal(tb, "Club Favorito", result)
+
+		s.URL = "/match/" + current.Id + "/thread"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestMostUsedVenue_EmptyWithNoHistory(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "mostUsedVenue returns empty with no history",
+		Method:          http.MethodGet,
+		URL:             "/placeholder",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"thread-messages"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "NoHistA")
+		p2 := makePairTB(tb, app, "NoHistB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		current := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		result := mostUsedVenue(app, current)
+		assert.Equal(tb, "", result)
+
+		s.URL = "/match/" + current.Id + "/thread"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestThread_ProposalFormPreSelectsVenue(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "proposal form pre-selects most-used venue",
+		Method:          http.MethodGet,
+		URL:             "/placeholder",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"selected"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		venue := makeVenueTB(tb, app, "Club Predeterminado")
+		p1 := makePairTB(tb, app, "PreSelA")
+		p2 := makePairTB(tb, app, "PreSelB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		m1 := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+		m1.Set("club", venue.GetString("name"))
+		require.NoError(tb, app.Save(m1))
+
+		current := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + current.Id + "/thread"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(_ testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(t, res)
+		assert.Contains(t, body, `selected>Club Predeterminado`)
+		assert.Contains(t, body, `value="20:00"`)
+	}
+	s.Test(t)
+}
+
+func TestThread_NoHistoryNoPreSelect(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "proposal form no pre-selection without history",
+		Method:          http.MethodGet,
+		URL:             "/placeholder",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"thread-messages"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		makeVenueTB(tb, app, "SomeVenue")
+		p1 := makePairTB(tb, app, "NoPreA")
+		p2 := makePairTB(tb, app, "NoPreB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		current := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + current.Id + "/thread"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(_ testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(t, res)
+		assert.NotContains(t, body, "selected>SomeVenue")
+	}
+	s.Test(t)
+}

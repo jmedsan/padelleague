@@ -181,28 +181,41 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 
 	var unpaidWarning string
 	if canPropose {
-		if comp, err := h.app.FindRecordById("competitions", match.GetString("competition")); err == nil {
-			ps := make(map[string]bool)
-			_ = comp.UnmarshalJSONField("payment_status", &ps)
-			p1Paid, p2Paid := ps[pair1ID], ps[pair2ID]
-			if !p1Paid || !p2Paid {
-				unpaidWarning = "Una o ambas parejas no han pagado la inscripción"
-			}
-		}
+		unpaidWarning = h.checkUnpaid(match, pair1ID, pair2ID)
+	}
+
+	defaultVenue := ""
+	if canPropose {
+		defaultVenue = mostUsedVenue(h.app, match)
 	}
 
 	return h.renderPartial(e, "thread.html", map[string]any{
-		"MatchID":       matchID,
-		"Messages":      threadMessages,
-		"Venues":        venues,
-		"CanPost":       canPost,
-		"CanPropose":    canPropose,
-		"IsAdmin":       isAdmin,
-		"IsParticipant": isParticipant,
-		"IsPlayoff":     isPlayoff,
-		"Match":         match,
-		"UnpaidWarning": unpaidWarning,
+		"MatchID":              matchID,
+		"Messages":             threadMessages,
+		"Venues":               venues,
+		"CanPost":              canPost,
+		"CanPropose":           canPropose,
+		"IsAdmin":              isAdmin,
+		"IsParticipant":        isParticipant,
+		"IsPlayoff":            isPlayoff,
+		"Match":                match,
+		"UnpaidWarning":        unpaidWarning,
+		"ProposalDefaultVenue": defaultVenue,
+		"ProposalDefaultTime":  "20:00",
 	})
+}
+
+func (h *ThreadHandler) checkUnpaid(match *core.Record, pair1ID, pair2ID string) string {
+	comp, err := h.app.FindRecordById("competitions", match.GetString("competition"))
+	if err != nil {
+		return ""
+	}
+	ps := make(map[string]bool)
+	_ = comp.UnmarshalJSONField("payment_status", &ps)
+	if !ps[pair1ID] || !ps[pair2ID] {
+		return "Una o ambas parejas no han pagado la inscripción"
+	}
+	return ""
 }
 
 // ThreadMessages returns the HTMX partial with updated thread messages.
@@ -699,4 +712,22 @@ func (h *ThreadHandler) PostAvailability(e *core.RequestEvent) error {
 	})
 
 	return redirectHX(e, "/match/"+matchID)
+}
+
+func mostUsedVenue(app core.App, match *core.Record) string {
+	p1 := match.GetString("pair1")
+	p2 := match.GetString("pair2")
+	rows, _ := app.FindRecordsByFilter("matches",
+		"(pair1 = {:a} || pair2 = {:a} || pair1 = {:b} || pair2 = {:b}) && club != ''",
+		"", 0, 0, map[string]any{"a": p1, "b": p2})
+	counts := map[string]int{}
+	best, bestN := "", 0
+	for _, r := range rows {
+		c := r.GetString("club")
+		counts[c]++
+		if counts[c] > bestN {
+			best, bestN = c, counts[c]
+		}
+	}
+	return best
 }
