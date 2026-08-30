@@ -762,3 +762,83 @@ func TestAdminOverrideCourtNumber(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestPlayerSubmitBlockedOnFinalizedComp(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /match/{id}/submit blocked for player on finalized competition",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"finalizada o archivada"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "BF A")
+		p2 := makePairTB(tb, app, "BF B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("finalized", true)
+		require.NoError(tb, app.Save(comp))
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + m.Id + "/submit"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		hdrs := authHeaders(tb, user)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+		s.Body = strings.NewReader("scores=6-3+6-4")
+	}
+	s.Test(t)
+}
+
+func TestPlayerSubmitBlockedOnInactiveComp(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /match/{id}/submit blocked for player on inactive competition",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"finalizada o archivada"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "BI A")
+		p2 := makePairTB(tb, app, "BI B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("active", false)
+		require.NoError(tb, app.Save(comp))
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + m.Id + "/submit"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		hdrs := authHeaders(tb, user)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+		s.Body = strings.NewReader("scores=6-3+6-4")
+	}
+	s.Test(t)
+}
+
+func TestAdminSubmitAllowedOnFinalizedComp(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /match/{id}/admin-override allowed on finalized competition",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "AF A")
+		p2 := makePairTB(tb, app, "AF B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("finalized", true)
+		require.NoError(tb, app.Save(comp))
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + m.Id + "/admin-override"
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+		s.Body = strings.NewReader("scores=6-3+6-4")
+	}
+	s.Test(t)
+}

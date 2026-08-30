@@ -4,8 +4,12 @@ package handlers
 import (
 	"html"
 	"net/http"
+	"slices"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
 )
 
 // RenderFunc renders a full page template.
@@ -32,6 +36,20 @@ func alertSuccess(e *core.RequestEvent, msg string) error {
 
 func alertWarning(e *core.RequestEvent, msg string) error {
 	return e.HTML(http.StatusOK, `<div class="alert alert-warning">`+html.EscapeString(msg)+`</div>`)
+}
+
+func checkCompModifiable(app core.App, e *core.RequestEvent, match *core.Record) error {
+	if slices.Contains(e.Auth.GetStringSlice("roles"), "admin") {
+		return nil
+	}
+	comp, err := app.FindRecordById("competitions", match.GetString("competition"))
+	if err != nil {
+		return alertError(e, "Competición no encontrada")
+	}
+	if !league.PlayerCanModify(comp, time.Now()) {
+		return alertError(e, "La competición está finalizada o archivada; no puedes modificar este partido.")
+	}
+	return nil
 }
 
 func redirectHX(e *core.RequestEvent, url string) error {

@@ -94,6 +94,14 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		comp, _ := h.app.FindRecordById("competitions", compID)
 		if comp != nil {
 			compName = comp.GetString("name")
+			if !isAdmin && !league.PlayerCanModify(comp, time.Now()) {
+				mc.CanSubmit = false
+				mc.CanConfirm = false
+				mc.CanDispute = false
+				mc.CanEdit = false
+				mc.CanWalkover = false
+				mc.CanCorrect = false
+			}
 		}
 	}
 
@@ -124,6 +132,10 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	_, teamErr := league.PlayerTeam(h.app, userID, match)
 	if teamErr != nil && !isAdmin {
 		return alertError(e, "No eres participante de este partido")
+	}
+
+	if err := checkCompModifiable(h.app, e, match); err != nil {
+		return err
 	}
 
 	if !league.IsPreScore(match.GetString("status")) {
@@ -325,6 +337,10 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 	reporterTeam, err := league.PlayerTeam(h.app, userID, match)
 	if err != nil {
 		return alertError(e, "No eres participante de este partido")
+	}
+
+	if err := checkCompModifiable(h.app, e, match); err != nil {
+		return err
 	}
 
 	if match.GetString("review_type") == "walkover" {

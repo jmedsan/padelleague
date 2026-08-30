@@ -20,6 +20,10 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 		return err
 	}
 
+	if err := checkCompModifiable(h.app, e, match); err != nil {
+		return err
+	}
+
 	if match.GetString("status") != league.StatusConfirmed {
 		return alertError(e, "Este partido no está pendiente de confirmación")
 	}
@@ -91,6 +95,10 @@ func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := findMatchOr404(h.app, e, id)
 	if err != nil {
+		return err
+	}
+
+	if err := checkCompModifiable(h.app, e, match); err != nil {
 		return err
 	}
 
@@ -167,6 +175,10 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := findMatchOr404(h.app, e, id)
 	if err != nil {
+		return err
+	}
+
+	if err := checkCompModifiable(h.app, e, match); err != nil {
 		return err
 	}
 
