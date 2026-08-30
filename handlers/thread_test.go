@@ -1188,3 +1188,31 @@ func TestThreadMessages_AllTypesRenderCorrectSubDefine(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestPlayerProposalBlockedOnFinalizedComp(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /match/{id}/propose blocked for player on finalized competition",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"finalizada o archivada"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "PB A")
+		p2 := makePairTB(tb, app, "PB B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("finalized", true)
+		require.NoError(tb, app.Save(comp))
+		v := makeVenueTB(tb, app, "Blocked Venue")
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + m.Id + "/thread/proposal"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		hdrs := authHeaders(tb, user)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+		s.Body = strings.NewReader("date=2026-10-01&time=20:00&venue=" + v.Id)
+	}
+	s.Test(t)
+}

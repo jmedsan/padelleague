@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 
@@ -176,10 +177,12 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	isParticipant := myTeam != 0
 	canPost := isParticipant || isAdmin
 	isPlayoff := false
+	compModifiable := true
 	if comp, err := h.app.FindRecordById("competitions", match.GetString("competition")); err == nil {
 		isPlayoff = league.IsPlayoff(comp)
+		compModifiable = isAdmin || league.PlayerCanModify(comp, time.Now())
 	}
-	canPropose := isParticipant && league.IsPreScore(match.GetString("status")) && !isPlayoff
+	canPropose := isParticipant && league.IsPreScore(match.GetString("status")) && !isPlayoff && compModifiable
 
 	var unpaidWarning string
 	if canPropose {
@@ -195,6 +198,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		"IsAdmin":              isAdmin,
 		"IsParticipant":        isParticipant,
 		"IsPlayoff":            isPlayoff,
+		"CompModifiable":       compModifiable,
 		"IsScheduled":          match.GetString("status") == league.StatusScheduled,
 		"Match":                match,
 		"UnpaidWarning":        unpaidWarning,
@@ -303,6 +307,10 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 		return err
 	}
 
+	if err := checkCompModifiable(h.app, e, match); err != nil {
+		return err
+	}
+
 	if !league.IsPreScore(match.GetString("status")) {
 		return alertError(e, "Solo se pueden proponer fechas para partidos pendientes")
 	}
@@ -389,6 +397,10 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 
 	match, err := findMatchOr404(h.app, e, matchID)
 	if err != nil {
+		return err
+	}
+
+	if err := checkCompModifiable(h.app, e, match); err != nil {
 		return err
 	}
 
@@ -610,6 +622,10 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 
 	match, err := findMatchOr404(h.app, e, matchID)
 	if err != nil {
+		return err
+	}
+
+	if err := checkCompModifiable(h.app, e, match); err != nil {
 		return err
 	}
 

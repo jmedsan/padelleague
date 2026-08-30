@@ -316,6 +316,42 @@ func TestCompetitionPhase(t *testing.T) {
 	}
 }
 
+func TestPlayerCanModify(t *testing.T) {
+	t.Parallel()
+	end := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
+	during := end.AddDate(0, 0, -5)
+	afterRecovery := end.AddDate(0, 0, 15)
+
+	tests := []struct {
+		name     string
+		active   bool
+		end      time.Time
+		finalize bool
+		now      time.Time
+		want     bool
+	}{
+		{"active ongoing", true, end, false, during, true},
+		{"inactive ongoing", false, end, false, during, false},
+		{"active finalized", true, end, true, during, false},
+		{"active past recovery", true, end, false, afterRecovery, false},
+		{"inactive finalized", false, end, true, during, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			app := newTestApp(t)
+			comp := makeCompetition(t, app, nil)
+			comp.Set("active", tt.active)
+			if !tt.end.IsZero() {
+				comp.Set("end_date", tt.end.Format(time.RFC3339))
+			}
+			comp.Set("finalized", tt.finalize)
+			require.NoError(t, app.Save(comp))
+			assert.Equal(t, tt.want, PlayerCanModify(comp, tt.now))
+		})
+	}
+}
+
 func TestPhaseLabels(t *testing.T) {
 	t.Parallel()
 	assert.Equal(t, "", PhaseUnknown.String())

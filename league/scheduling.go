@@ -156,6 +156,11 @@ func CompetitionPhase(comp *core.Record, now time.Time) Phase {
 	return PhaseFinished
 }
 
+// PlayerCanModify reports whether a non-admin may mutate matches in comp.
+func PlayerCanModify(comp *core.Record, now time.Time) bool {
+	return comp.GetBool("active") && CompetitionPhase(comp, now) != PhaseFinished
+}
+
 // PhaseOf derives the phase, exempting playoffs (which have no recovery
 // window) by always returning PhaseUnknown for them.
 func PhaseOf(comp *core.Record, now time.Time) Phase {
