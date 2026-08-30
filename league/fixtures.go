@@ -95,7 +95,7 @@ func (svc *Service) AdvancePlayoff(matchRecord *core.Record) error {
 	}
 
 	for i, nm := range nextMatches {
-		if nm.GetString("status") != StatusPending {
+		if !IsPreScore(nm.GetString("status")) {
 			continue
 		}
 		seedNextMatch(nm, roundWinners, i)

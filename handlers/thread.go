@@ -613,7 +613,7 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 		return err
 	}
 
-	if match.GetString("status") != league.StatusPending {
+	if !league.IsPreScore(match.GetString("status")) {
 		return alertError(e, "Este partido ya no acepta cambios")
 	}
 
