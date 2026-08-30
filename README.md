@@ -16,6 +16,7 @@ A web app for organizing padel leagues. An admin creates competitions, assigns p
 - **Add to calendar** — one-tap "Añadir al calendario" (`.ics`) on a scheduled match
 - **Player profile** — win rate, per-competition stats
 - **Notifications** — bell icon with unread count, email, and web push
+- **Global search** — fuzzy, accent-folded search across players, competitions, matches, threads, documents, and venues; focusing the search box without typing shows a zero-query panel with pending obligations, active competitions, recent searches, and quick-nav links
 
 ### For admins
 
