@@ -359,7 +359,9 @@ func (h *ThreadHandler) notifyProposal(match *core.Record, myTeam int, n proposa
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
 	authorName := league.PlayerName(h.app, n.AuthorID)
-	notif := league.NotifProposal(match.Id, authorName, n.Date, n.Time, n.VenueName)
+	notif := league.NotifProposal(league.ProposalParams{
+		MatchID: match.Id, AuthorName: authorName, Date: n.Date, Time: n.Time, VenueName: n.VenueName,
+	})
 	h.notifier.NotifyPlayers(rivalPlayers, notif)
 	h.notifier.EmailPlayers(rivalPlayers, notif.Title, notif.Body, "/match/"+match.Id)
 }

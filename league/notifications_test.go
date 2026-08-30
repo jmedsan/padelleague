@@ -45,7 +45,7 @@ func TestNotificationConstructors(t *testing.T) {
 		},
 		{
 			name: "Proposal",
-			got:  NotifProposal("m1", "Carlos", "15/03", "18:00", "Padel 360"),
+			got:  NotifProposal(ProposalParams{MatchID: "m1", AuthorName: "Carlos", Date: "15/03", Time: "18:00", VenueName: "Padel 360"}),
 			want: Notification{Type: "scheduling", Title: "Propuesta de fecha", Body: "Carlos propone jugar el 15/03 a las 18:00 en Padel 360", MatchID: "m1"},
 		},
 		{
