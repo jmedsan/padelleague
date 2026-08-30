@@ -167,4 +167,71 @@ test.describe('R-178: presentation quality guards', () => {
     const adminCards = page.locator('a[href^="/admin/competitions/"]');
     expect(await adminCards.count(), 'admin should see at least one competition').toBeGreaterThan(0);
   });
+
+  test('R-164: date-format guard — no raw ISO dates in visible text', async ({ page }) => {
+    // ISO date patterns that should NEVER appear in rendered UI text
+    const isoLeaks = [
+      /\d{4}-\d{2}-\d{2}T/,                  // RFC3339 with T separator
+      /00:00:00\.000Z/,                        // PB midnight timestamp suffix
+      /\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/, // raw PB datetime
+    ];
+    // Spanish date format: DD/MM/YYYY or DD/MM/YYYY HH:MM
+    const spanishDate = /\d{2}\/\d{2}\/\d{4}/;
+
+    // Check player home (has dates in next match, proposed dates, etc.)
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.locator('a:has-text("Inicio")').first().click();
+    await page.waitForLoadState('networkidle');
+
+    let bodyText = await page.evaluate(() => document.body.innerText);
+
+    for (const pattern of isoLeaks) {
+      const match = bodyText.match(pattern);
+      expect(match, `ISO date leak on player home: "${match?.[0]}"`).toBeNull();
+    }
+
+    // Navigate to a competition and check dates there
+    const compLink = page.locator('a[href^="/competition/"]').first();
+    if (await compLink.count() > 0) {
+      await compLink.click();
+      await page.waitForLoadState('networkidle');
+
+      // Accept docs gate if present
+      const docsGate = page.getByRole('heading', { name: 'Documentos obligatorios' });
+      if (await docsGate.isVisible().catch(() => false)) {
+        const acceptBtns = page.locator('button:has-text("He leído")');
+        const btnCount = await acceptBtns.count();
+        for (let i = 0; i < btnCount; i++) {
+          await acceptBtns.nth(i).click();
+          await page.waitForTimeout(300);
+        }
+        const confirmBtn = page.locator('button:has-text("Confirmar")');
+        if (await confirmBtn.isVisible().catch(() => false)) {
+          await confirmBtn.click();
+          await page.waitForLoadState('networkidle');
+        }
+      }
+
+      bodyText = await page.evaluate(() => document.body.innerText);
+      for (const pattern of isoLeaks) {
+        const match = bodyText.match(pattern);
+        expect(match, `ISO date leak on competition page: "${match?.[0]}"`).toBeNull();
+      }
+    }
+
+    // Check admin competition detail (has round dates, match dates)
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.locator('a:has-text("Competiciones")').first().click();
+    await page.waitForLoadState('networkidle');
+    const adminComp = page.locator('a[href^="/admin/competitions/"]').first();
+    if (await adminComp.count() > 0) {
+      await adminComp.click();
+      await page.waitForLoadState('networkidle');
+      bodyText = await page.evaluate(() => document.body.innerText);
+      for (const pattern of isoLeaks) {
+        const match = bodyText.match(pattern);
+        expect(match, `ISO date leak on admin detail: "${match?.[0]}"`).toBeNull();
+      }
+    }
+  });
 });
