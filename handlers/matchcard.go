@@ -10,20 +10,10 @@ import (
 	"padelleague/league"
 )
 
-// CardMode selects how much of a match a shared partial renders.
-type CardMode string
-
-// Card render modes.
-const (
-	ModePlayer       CardMode = "player"
-	ModeAdminSummary CardMode = "admin-summary"
-	ModeAdminFull    CardMode = "admin-full"
-)
-
 // MatchCard is the neutral view-model for a match, rendered by
-// views/partials/match-card.html in one of the three CardModes.
+// views/partials/match-card.html gated by Mode axes.
 type MatchCard struct {
-	Mode            CardMode
+	Mode            Mode
 	Match           *core.Record
 	Pair1Name       string
 	Pair2Name       string
@@ -53,7 +43,7 @@ type MatchCard struct {
 }
 
 // NewMatchCard builds the neutral match view-model for the given render mode.
-func NewMatchCard(app core.App, match *core.Record, mode CardMode, viewerID string) MatchCard {
+func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) MatchCard {
 	status := match.GetString("status")
 	pairNames := league.PairNames(app, []string{match.GetString("pair1"), match.GetString("pair2")})
 	competitionName := ""
@@ -79,7 +69,7 @@ func NewMatchCard(app core.App, match *core.Record, mode CardMode, viewerID stri
 		DisputedBy:      pairPlayerLabel(app, match.GetString("disputed_by"), match),
 		RequestedBy:     playerNameIfSet(app, match.GetString("walkover_requested_by")),
 	}
-	if mode == ModePlayer {
+	if mode.Editable && !mode.Admin {
 		c.fillPlayerActions(app, match, viewerID)
 	}
 	return c

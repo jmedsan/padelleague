@@ -42,7 +42,7 @@ func (h *DisputeHandler) Disputes(e *core.RequestEvent) error {
 
 	var cards []MatchCard
 	for _, m := range matches {
-		cards = append(cards, NewMatchCard(h.app, m, ModeAdminFull, ""))
+		cards = append(cards, NewMatchCard(h.app, m, AdminFull, ""))
 	}
 
 	return h.renderPage(e, "admin/disputes.html", map[string]any{
