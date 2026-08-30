@@ -842,3 +842,144 @@ func TestAdminSubmitAllowedOnFinalizedComp(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestReadOnlyCompGuard_AllHandlers(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name   string
+		status string
+		path   string
+		body   string
+	}{
+		{"confirm", "confirmed", "/confirm", ""},
+		{"dispute", "confirmed", "/dispute", "disputed_scores=6-4+6-3&dispute_notes=wrong"},
+		{"correct", "confirmed", "/correct", "scores=6-4+6-3"},
+		{"report-unplayed", "pending", "/report-unplayed", "reason=test"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s := &tests.ApiScenario{
+				TestAppFactory:  testAppFactory,
+				Name:            "player " + tc.name + " blocked on finalized comp",
+				Method:          http.MethodPost,
+				ExpectedStatus:  200,
+				ExpectedContent: []string{"finalizada o archivada"},
+			}
+			s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+				setupAllRoutes(tb, app, e)
+				p1 := makePairTB(tb, app, "RO-"+tc.name+" A")
+				p2 := makePairTB(tb, app, "RO-"+tc.name+" B")
+				comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+				comp.Set("finalized", true)
+				require.NoError(tb, app.Save(comp))
+				m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, tc.status)
+				if tc.status == "confirmed" {
+					m.Set("submitted_by", p1.GetString("player1"))
+					m.Set("scores", "6-3 6-4")
+					m.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
+					require.NoError(tb, app.Save(m))
+				}
+				s.URL = "/match/" + m.Id + tc.path
+				user, _ := app.FindRecordById("users", p2.GetString("player1"))
+				hdrs := authHeaders(tb, user)
+				hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+				s.Headers = hdrs
+				if tc.body != "" {
+					s.Body = strings.NewReader(tc.body)
+				}
+			}
+			s.Test(t)
+		})
+	}
+}
+
+func TestReadOnlyCompGuard_ThreadHandlers(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		path string
+		body string
+	}{
+		{"respond-proposal", "/thread/proposal/%s/respond", "decision=accepted"},
+		{"change-decision", "/thread/proposal/%s/change-decision", ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s := &tests.ApiScenario{
+				TestAppFactory:  testAppFactory,
+				Name:            "player " + tc.name + " blocked on finalized comp",
+				Method:          http.MethodPost,
+				ExpectedStatus:  200,
+				ExpectedContent: []string{"finalizada o archivada"},
+			}
+			s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+				setupAllRoutes(tb, app, e)
+				p1 := makePairTB(tb, app, "RO-"+tc.name+" A")
+				p2 := makePairTB(tb, app, "RO-"+tc.name+" B")
+				comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+				comp.Set("finalized", true)
+				require.NoError(tb, app.Save(comp))
+				m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+				msgCol, _ := app.FindCollectionByNameOrId("match_messages")
+				msg := core.NewRecord(msgCol)
+				msg.Set("match", m.Id)
+				msg.Set("author", p1.GetString("player1"))
+				msg.Set("type", "scheduling_proposal")
+				msg.Set("proposal_data", `{"date":"2026-10-01","time":"20:00","venue_id":"v1","venue_name":"Test"}`)
+				msg.Set("proposal_status", "pending")
+				require.NoError(tb, app.Save(msg))
+				s.URL = "/match/" + m.Id + fmt.Sprintf(tc.path, msg.Id)
+				user, _ := app.FindRecordById("users", p2.GetString("player1"))
+				hdrs := authHeaders(tb, user)
+				hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+				s.Headers = hdrs
+				if tc.body != "" {
+					s.Body = strings.NewReader(tc.body)
+				}
+			}
+			s.Test(t)
+		})
+	}
+}
+
+func TestAdminConfirmOnFinalizedComp(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "admin can confirm on finalized comp (gated handler bypass)",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "AG A")
+		p2 := makePairTB(tb, app, "AG B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("finalized", true)
+		require.NoError(tb, app.Save(comp))
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
+		m.Set("submitted_by", p1.GetString("player1"))
+		m.Set("scores", "6-3 6-4")
+		m.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
+		require.NoError(tb, app.Save(m))
+		matchID = m.Id
+		s.URL = "/match/" + m.Id + "/confirm"
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "final", m.GetString("status"))
+	}
+	s.Test(t)
+}

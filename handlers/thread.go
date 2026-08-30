@@ -80,7 +80,7 @@ func ParseProposalData(raw any) *ProposalData {
 	return &pd
 }
 
-func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, myTeam int) []ThreadMessage {
+func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, myTeam int, compModifiable bool) []ThreadMessage {
 	messages, _ := h.app.FindRecordsByFilter("match_messages",
 		"match = {:mid}", "created", 0, 0,
 		map[string]any{"mid": matchID})
@@ -105,7 +105,7 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 		}
 
 		status := msg.GetString("proposal_status")
-		canRespond, canChangeDecision := proposalActions(msgType, match.GetString("status"), authorTeam == myTeam || myTeam == 0, status)
+		canRespond, canChangeDecision := proposalActions(msgType, match.GetString("status"), authorTeam == myTeam || myTeam == 0, status, compModifiable)
 
 		threadMessages = append(threadMessages, ThreadMessage{
 			Record:            msg,
@@ -141,10 +141,11 @@ func playerTeamOf(uid string, pair1Players, pair2Players []string) int {
 	return 0
 }
 
-func proposalActions(msgType, matchStatus string, sameTeamOrOutsider bool, proposalStatus string) (canRespond, canChange bool) {
+func proposalActions(msgType, matchStatus string, sameTeamOrOutsider bool, proposalStatus string, compModifiable bool) (canRespond, canChange bool) {
 	canAct := msgType == "scheduling_proposal" &&
 		league.IsPreScore(matchStatus) &&
-		!sameTeamOrOutsider
+		!sameTeamOrOutsider &&
+		compModifiable
 	return canAct && proposalStatus == "pending",
 		canAct && (proposalStatus == "accepted" || proposalStatus == "rejected")
 }
@@ -169,11 +170,6 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		return alertError(e, "No tienes acceso a este hilo")
 	}
 
-	threadMessages := h.buildThreadMessages(match, matchID, myTeam)
-
-	venues, _ := h.app.FindRecordsByFilter("venues",
-		"id != ''", "name", 0, 0, nil)
-
 	isParticipant := myTeam != 0
 	canPost := isParticipant || isAdmin
 	isPlayoff := false
@@ -182,6 +178,11 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		isPlayoff = league.IsPlayoff(comp)
 		compModifiable = isAdmin || league.PlayerCanModify(comp, time.Now())
 	}
+
+	threadMessages := h.buildThreadMessages(match, matchID, myTeam, compModifiable)
+
+	venues, _ := h.app.FindRecordsByFilter("venues",
+		"id != ''", "name", 0, 0, nil)
 	canPropose := isParticipant && league.IsPreScore(match.GetString("status")) && !isPlayoff && compModifiable
 
 	var unpaidWarning string
@@ -234,7 +235,12 @@ func (h *ThreadHandler) ThreadMessages(e *core.RequestEvent) error {
 		return alertError(e, "No tienes acceso a este hilo")
 	}
 
-	threadMessages := h.buildThreadMessages(match, matchID, myTeam)
+	compModifiable := true
+	if comp, err := h.app.FindRecordById("competitions", match.GetString("competition")); err == nil {
+		compModifiable = isAdmin || league.PlayerCanModify(comp, time.Now())
+	}
+
+	threadMessages := h.buildThreadMessages(match, matchID, myTeam, compModifiable)
 
 	return h.renderPartial(e, "thread-messages.html", map[string]any{
 		"MatchID":  matchID,
@@ -468,8 +474,10 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 	for _, old := range existing {
 		old.Set("proposal_status", "superseded")
 		if err := h.app.Save(old); err != nil {
-			_ = h.notifier.NotifyAdmins("admin_message", "Error al reemplazar propuesta",
-				"No se pudo marcar la propuesta anterior como reemplazada", match.Id)
+			_ = h.notifier.NotifyAdmins(league.Notification{
+				Type: "admin_message", Title: "Error al reemplazar propuesta",
+				Body: "No se pudo marcar la propuesta anterior como reemplazada", MatchID: match.Id,
+			})
 		}
 	}
 
@@ -554,7 +562,7 @@ func (h *ThreadHandler) supersedePendingAndNotify(matchID, excludeMsgID string) 
 	if err := h.supersedePending(matchID, excludeMsgID); err != nil {
 		slog.Error("supersede pending proposals", "match", matchID, "err", err)
 		n := league.NotifAdminSupersedeFailed(matchID)
-		_ = h.notifier.NotifyAdmins(n.Type, n.Title, n.Body, matchID)
+		_ = h.notifier.NotifyAdmins(n)
 	}
 }
 
