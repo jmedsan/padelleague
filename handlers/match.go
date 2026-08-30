@@ -162,21 +162,6 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	return redirectHX(e, "/match/"+match.Id)
 }
 
-func (h *MatchHandler) createAdminTimelineEntry(matchID, adminID, content string) {
-	col, err := h.app.FindCollectionByNameOrId("match_messages")
-	if err != nil {
-		return
-	}
-	record := core.NewRecord(col)
-	record.Set("match", matchID)
-	record.Set("author", adminID)
-	record.Set("type", "admin_action")
-	record.Set("content", content)
-	if err := h.app.Save(record); err != nil {
-		slog.Error("save admin timeline entry", "match", matchID, "err", err)
-	}
-}
-
 // AdminOverride lets an admin set the final score, bypassing the normal flow.
 func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
@@ -209,7 +194,10 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 	}
 
 	adminName := league.PlayerName(h.app, e.Auth.Id)
-	h.createAdminTimelineEntry(id, e.Auth.Id, adminName+" (admin): "+strings.Join(changes, "; "))
+	addTimelineEntry(h.app, timelineEntry{
+		MatchID: id, ActorID: e.Auth.Id,
+		Kind: "admin_action", Detail: adminName + " (admin): " + strings.Join(changes, "; "),
+	})
 
 	return redirectHX(e, "/match/"+id)
 }

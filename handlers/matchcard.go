@@ -74,9 +74,9 @@ func NewMatchCard(app core.App, match *core.Record, mode CardMode, viewerID stri
 		DisputedScore:   match.GetString("disputed_scores"),
 		DisputeNotes:    match.GetString("dispute_notes"),
 		ReviewType:      match.GetString("review_type"),
-		SubmittedBy:     playerNameIfSet(app, match.GetString("submitted_by")),
-		ConfirmedBy:     playerNameIfSet(app, match.GetString("confirmed_by")),
-		DisputedBy:      playerNameIfSet(app, match.GetString("disputed_by")),
+		SubmittedBy:     pairPlayerLabel(app, match.GetString("submitted_by"), match),
+		ConfirmedBy:     pairPlayerLabel(app, match.GetString("confirmed_by"), match),
+		DisputedBy:      pairPlayerLabel(app, match.GetString("disputed_by"), match),
 		RequestedBy:     playerNameIfSet(app, match.GetString("walkover_requested_by")),
 	}
 	if mode == ModePlayer {
@@ -121,4 +121,21 @@ func (c MatchCard) SummaryLine() string {
 		winner = c.Pair1Name
 	}
 	return fmt.Sprintf("Resultado: %s %s %s. Ganador: %s!", c.Pair1Name, c.Score, c.Pair2Name, winner)
+}
+
+func pairPlayerLabel(app core.App, userID string, match *core.Record) string {
+	if userID == "" {
+		return ""
+	}
+	name := league.PlayerName(app, userID)
+	team, err := league.PlayerTeam(app, userID, match)
+	if err != nil || team == 0 {
+		return name
+	}
+	pairID := match.GetString("pair1")
+	if team == 2 {
+		pairID = match.GetString("pair2")
+	}
+	pairName := league.PairNames(app, []string{pairID})[pairID]
+	return fmt.Sprintf("%s (%s)", pairName, name)
 }
