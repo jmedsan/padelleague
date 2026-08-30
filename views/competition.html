@@ -15,7 +15,7 @@
         <span class="badge badge-lg bg-white/20 border-0 text-primary-content">Playoff</span>
         {{end}}
         {{if .Competition.GetString "category"}}
-        <span class="badge badge-lg bg-white/10 border-0 text-primary-content">{{.Competition.GetString "category"}}</span>
+        <span class="badge badge-lg bg-white/20 border-0 text-primary-content">{{.Competition.GetString "category"}}</span>
         {{end}}
         {{if .IsArchived}}
         <span class="badge badge-lg bg-black/20 border-0 text-primary-content">Archivada</span>
@@ -135,7 +135,7 @@
                             <td class="text-center text-sm">{{.GamesWon}}/{{.GamesLost}}</td>
                             <td class="text-center text-lg font-bold">{{.Points}}</td>
                             {{if $.HasPenalties}}<td class="text-center">
-                                {{if gt .Penalty 0}}<span class="text-error font-medium">-{{.Penalty}}</span>{{else}}<span class="opacity-30">—</span>{{end}}
+                                {{if gt .Penalty 0}}<span class="text-error font-medium">-{{.Penalty}}</span>{{else}}<span class="opacity-60">—</span>{{end}}
                             </td>{{end}}
                         </tr>
                         {{end}}

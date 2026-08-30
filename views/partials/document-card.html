@@ -43,11 +43,11 @@
         <a href="{{.OpenURL}}" target="_blank" rel="noopener" class="link link-primary text-sm">Enlace</a>
         {{end}}
         {{else}}
-        <span class="text-sm opacity-40">—</span>
+        <span class="text-sm opacity-60">—</span>
         {{end}}
     </td>
     <td>
-        {{if .IsMandatory}}<span class="badge badge-error badge-sm">Obligatorio</span>{{else}}<span class="text-base-content/40">—</span>{{end}}
+        {{if .IsMandatory}}<span class="badge badge-error badge-sm">Obligatorio</span>{{else}}<span class="text-base-content/60">—</span>{{end}}
     </td>
     <td class="text-right">
         {{if and .Mode.Admin .Mode.Editable}}

@@ -10,7 +10,7 @@
 
         {{if .Match.GetString "date"}}
         <div class="flex flex-wrap gap-2">
-            <span class="badge badge-outline badge-sm">{{.Match.GetString "date"}}</span>
+            <span class="badge badge-outline badge-sm">{{fmtDate (.Match.GetString "date")}}</span>
             {{if .Match.GetString "time"}}
             <span class="badge badge-outline badge-sm">{{.Match.GetString "time"}}</span>
             {{end}}
@@ -122,7 +122,7 @@
                 <div class="grid grid-cols-2 gap-3 mb-3">
                     <div class="form-control">
                         <label class="label py-1"><span class="label-text text-xs">Fecha</span></label>
-                        <input type="date" name="date" class="input input-bordered input-sm" value="{{.Match.GetString "date"}}">
+                        <input type="date" name="date" class="input input-bordered input-sm" value="{{printf "%.10s" (.Match.GetString "date")}}">
                     </div>
                     <div class="form-control">
                         <label class="label py-1"><span class="label-text text-xs">Hora</span></label>
@@ -319,7 +319,7 @@ function composeScore(form) {
             {{if .Score}}
             <span class="font-bold text-lg">{{.Score}}</span>
             {{else}}
-            <span class="text-sm opacity-40">vs</span>
+            <span class="text-sm opacity-60">vs</span>
             {{end}}
         </div>
         <span class="font-medium flex-1 text-sm sm:text-base truncate min-w-0">{{if .Pair2Name}}{{.Pair2Name}}{{else if .Feeder2}}{{.Feeder2}}{{else}}Por definir{{end}}</span>

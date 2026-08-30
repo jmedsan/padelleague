@@ -25,8 +25,8 @@
                 {{range .Venues}}
                 <tr class="hover">
                     <td class="font-medium">{{.GetString "name"}}</td>
-                    <td class="hidden sm:table-cell opacity-60 text-sm">{{if .GetString "address"}}{{.GetString "address"}}{{else}}<span class="opacity-40">—</span>{{end}}</td>
-                    <td>{{if .GetFloat "courts"}}<span class="badge badge-outline badge-sm">{{.GetFloat "courts"}}</span>{{else}}<span class="opacity-40">—</span>{{end}}</td>
+                    <td class="hidden sm:table-cell opacity-60 text-sm">{{if .GetString "address"}}{{.GetString "address"}}{{else}}<span class="opacity-60">—</span>{{end}}</td>
+                    <td>{{if .GetFloat "courts"}}<span class="badge badge-outline badge-sm">{{.GetFloat "courts"}}</span>{{else}}<span class="opacity-60">—</span>{{end}}</td>
                     <td class="text-right">
                         <button class="btn btn-ghost btn-xs" onclick="document.getElementById('modal-edit-venue-{{.Id}}').showModal()">Editar</button>
                         <form hx-post="/admin/venues/{{.Id}}/delete" hx-confirm="¿Eliminar este club?">
