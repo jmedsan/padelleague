@@ -1,0 +1,11 @@
+{{define "resultHistoryRow"}}
+<tr class="hover cursor-pointer" onclick="window.location='{{entityURL "match" .MatchID}}'">
+    <td class="text-sm opacity-70">{{.Date}}</td>
+    <td>{{template "pairLink" (elink .Pair1ID .PairName1)}}</td>
+    <td>{{template "pairLink" (elink .Pair2ID .PairName2)}}</td>
+    <td>{{.Score}}</td>
+    <td>{{template "wonBadge" .}}</td>
+</tr>
+{{end}}
+
+{{define "wonBadge"}}{{if .Won}}<span class="badge badge-success">V</span>{{else}}<span class="badge badge-error">D</span>{{end}}{{end}}
