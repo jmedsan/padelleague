@@ -44,8 +44,8 @@
         <tbody>
             {{range .Data.Pairs}}
             <tr>
-                <td>{{.Pair.GetString "name"}}</td>
-                <td>{{.Partner}}</td>
+                <td><a href="{{entityURL "pair" .Pair.Id}}" class="link link-hover">{{.Pair.GetString "name"}}</a></td>
+                <td><a href="{{entityURL "player" .PartnerID}}" class="link link-hover">{{.Partner}}</a></td>
             </tr>
             {{end}}
         </tbody>
@@ -68,7 +68,7 @@
         <tbody>
             {{range .Data.CompetitionStats}}
             <tr>
-                <td class="font-medium">{{.Name}}</td>
+                <td class="font-medium"><a href="{{entityURL "competition" .CompID}}" class="link link-hover">{{.Name}}</a></td>
                 <td class="text-center">{{.Played}}</td>
                 <td class="text-center text-success">{{.Wins}}</td>
                 <td class="text-center text-error">{{.Losses}}</td>

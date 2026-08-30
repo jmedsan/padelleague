@@ -42,6 +42,20 @@ func PairNames(app core.App, pairIDs []string) map[string]string {
 	return names
 }
 
+// EntityURL returns the canonical URL for a known entity kind, or "#" for
+// unknown kinds or empty IDs.
+func EntityURL(kind, id string) string {
+	if id == "" {
+		return "#"
+	}
+	switch kind {
+	case "player", "competition", "match", "pair":
+		return "/" + kind + "/" + id
+	default:
+		return "#"
+	}
+}
+
 // PlayerName returns the display name for a user, or "?" if not found.
 func PlayerName(app core.App, userID string) string {
 	if userID == "" {

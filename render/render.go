@@ -9,6 +9,8 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/template"
+
+	"padelleague/league"
 )
 
 // Renderer renders HTML templates with auth context injected.
@@ -25,6 +27,7 @@ func New(viewsFS fs.FS, vapidPublicKey string) *Renderer {
 		"contains": func(slice []string, item string) bool {
 			return slices.Contains(slice, item)
 		},
+		"entityURL": league.EntityURL,
 	})
 	return &Renderer{
 		registry:       reg,

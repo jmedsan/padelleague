@@ -21,6 +21,7 @@ func Build(app core.App) []Entry {
 	entries = append(entries, buildMessages(app)...)
 	entries = append(entries, buildDocuments(app)...)
 	entries = append(entries, buildVenues(app)...)
+	entries = append(entries, buildPairs(app)...)
 	entries = append(entries, buildPenalties(app)...)
 	return entries
 }
@@ -36,7 +37,7 @@ func buildUsers(app core.App) []Entry {
 		entries = append(entries, NewEntry(Entry{
 			Label:    u.GetString("display_name"),
 			Type:     "jugador",
-			URL:      "/player/" + u.Id,
+			URL:      league.EntityURL("player", u.Id),
 			Keywords: []string{"jugador"},
 			Scope:    Scope{Public: true},
 		}))
@@ -64,7 +65,7 @@ func buildCompetitions(app core.App) []Entry {
 			Label:     c.GetString("name"),
 			Secondary: c.GetString("category"),
 			Type:      "competición",
-			URL:       "/competition/" + c.Id,
+			URL:       league.EntityURL("competition", c.Id),
 			Keywords:  kw,
 			Scope:     Scope{Public: true},
 		}))
@@ -100,7 +101,7 @@ func buildMatches(app core.App) []Entry {
 			Label:     label,
 			Secondary: m.GetString("scores"),
 			Type:      "partido",
-			URL:       "/match/" + m.Id,
+			URL:       league.EntityURL("match", m.Id),
 			Keywords:  []string{"partido", fmt.Sprintf("jornada %d", round), p1, p2},
 			Scope:     Scope{Public: true},
 		}))
@@ -138,7 +139,7 @@ func buildMessages(app core.App) []Entry {
 		entries = append(entries, NewEntry(Entry{
 			Label: content,
 			Type:  "mensaje",
-			URL:   "/match/" + matchID,
+			URL:   league.EntityURL("match", matchID),
 			Scope: Scope{CompID: compID},
 		}))
 	}
@@ -205,6 +206,52 @@ func buildVenues(app core.App) []Entry {
 			Keywords: []string{"pista"},
 			Scope:    Scope{Admin: true},
 		}))
+	}
+	return entries
+}
+
+func buildPairs(app core.App) []Entry {
+	pairs, err := app.FindRecordsByFilter("pairs", "", "", 0, 0, nil)
+	if err != nil {
+		slog.Error("search: build pairs", "err", err)
+		return nil
+	}
+
+	pairComps := make(map[string]map[string]struct{})
+	matches, _ := app.FindRecordsByFilter("matches", "", "", 0, 0, nil)
+	for _, m := range matches {
+		compID := m.GetString("competition")
+		for _, pid := range []string{m.GetString("pair1"), m.GetString("pair2")} {
+			if pairComps[pid] == nil {
+				pairComps[pid] = make(map[string]struct{})
+			}
+			pairComps[pid][compID] = struct{}{}
+		}
+	}
+
+	var entries []Entry
+	for _, p := range pairs {
+		p1Name := league.PlayerName(app, p.GetString("player1"))
+		p2Name := league.PlayerName(app, p.GetString("player2"))
+		secondary := p1Name + " / " + p2Name
+		compIDs := pairComps[p.Id]
+		if len(compIDs) == 0 {
+			entries = append(entries, NewEntry(Entry{
+				Label: p.GetString("name"), Secondary: secondary,
+				Type: "pareja", URL: league.EntityURL("pair", p.Id),
+				Keywords: []string{"pareja", p1Name, p2Name},
+				Scope:    Scope{Admin: true},
+			}))
+		} else {
+			for cid := range compIDs {
+				entries = append(entries, NewEntry(Entry{
+					Label: p.GetString("name"), Secondary: secondary,
+					Type: "pareja", URL: league.EntityURL("pair", p.Id),
+					Keywords: []string{"pareja", p1Name, p2Name},
+					Scope:    Scope{CompID: cid},
+				}))
+			}
+		}
 	}
 	return entries
 }

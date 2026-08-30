@@ -25,8 +25,9 @@ func NewPlayerHandler(app core.App, renderPage RenderFunc, renderErrorPage Rende
 
 // PairInfo holds a pair record with the partner's display name.
 type PairInfo struct {
-	Pair    *core.Record
-	Partner string
+	Pair      *core.Record
+	Partner   string
+	PartnerID string
 }
 
 // PlayerData bundles all statistics for a player's profile page.
@@ -47,6 +48,7 @@ type PlayerData struct {
 
 // CompetitionStat holds win/loss totals for one competition on a player's profile.
 type CompetitionStat struct {
+	CompID string
 	Name   string
 	Wins   int
 	Losses int
@@ -92,8 +94,9 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 			partnerID = p.GetString("player2")
 		}
 		pairInfos = append(pairInfos, PairInfo{
-			Pair:    p,
-			Partner: league.PlayerName(h.app, partnerID),
+			Pair:      p,
+			Partner:   league.PlayerName(h.app, partnerID),
+			PartnerID: partnerID,
 		})
 	}
 
@@ -146,7 +149,7 @@ func (h *PlayerHandler) buildPlayerStats(user *core.Record, pairs []*core.Record
 	var allResults []matchResult
 
 	for _, p := range pairs {
-		results := h.pairMatchResults(p.Id)
+		results := pairMatchResults(h.app, p.Id)
 		for _, r := range results {
 			totals.played++
 			if r.won {
@@ -177,13 +180,13 @@ func (h *PlayerHandler) buildPlayerStats(user *core.Record, pairs []*core.Record
 		GamesLost:        totals.gamesLost,
 		Streak:           computeCurrentStreak(allResults),
 		BestStreak:       computeBestStreak(allResults),
-		CompetitionStats: h.computeCompetitionStats(allResults),
+		CompetitionStats: computeCompetitionStats(h.app, allResults),
 		Recent:           buildRecentMatches(allResults, 20),
 	}
 }
 
-func (h *PlayerHandler) pairMatchResults(pairID string) []matchResult {
-	matches, _ := h.app.FindRecordsByFilter("matches",
+func pairMatchResults(app core.App, pairID string) []matchResult {
+	matches, _ := app.FindRecordsByFilter("matches",
 		"(pair1 = {:pid} || pair2 = {:pid}) && status = 'final'",
 		"", 0, 0,
 		map[string]any{"pid": pairID})
@@ -197,7 +200,7 @@ func (h *PlayerHandler) pairMatchResults(pairID string) []matchResult {
 	for pid := range pairIDSet {
 		pairIDSlice = append(pairIDSlice, pid)
 	}
-	pairNames := league.PairNames(h.app, pairIDSlice)
+	pairNames := league.PairNames(app, pairIDSlice)
 
 	var results []matchResult
 	for _, m := range matches {
@@ -281,16 +284,16 @@ func computeBestStreak(results []matchResult) string {
 	return fmt.Sprintf("%dD", bestLoss)
 }
 
-func (h *PlayerHandler) computeCompetitionStats(results []matchResult) []CompetitionStat {
+func computeCompetitionStats(app core.App, results []matchResult) []CompetitionStat {
 	compStatsMap := map[string]*CompetitionStat{}
 	for _, r := range results {
 		cs, ok := compStatsMap[r.compID]
 		if !ok {
 			compName := r.compID
-			if comp, err := h.app.FindRecordById("competitions", r.compID); err == nil {
+			if comp, err := app.FindRecordById("competitions", r.compID); err == nil {
 				compName = comp.GetString("name")
 			}
-			cs = &CompetitionStat{Name: compName}
+			cs = &CompetitionStat{Name: compName, CompID: r.compID}
 			compStatsMap[r.compID] = cs
 		}
 		cs.Played++
