@@ -693,7 +693,7 @@ func TestThread_PlayoffHidesProposal(t *testing.T) {
 		ExpectedStatus: 200,
 		ExpectedContent: []string{
 			"Fecha:",
-			"2026-10-15",
+			"15/10/2026",
 			"20:00",
 			"Padel 360",
 		},

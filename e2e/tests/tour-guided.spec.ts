@@ -270,6 +270,10 @@ test.describe('guided navigation tour', () => {
           await expect(shareBtn).toBeVisible({ timeout: 3000 });
           const onclick = await shareBtn.getAttribute('onclick') ?? '';
           expect(onclick).toMatch(new RegExp(`match.*${f.id}`));
+
+          // R-164: no raw ISO date strings visible on the match detail page
+          const bodyText = await page.locator('body').innerText();
+          expect(bodyText).not.toMatch(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}Z/);
         }
       }
 

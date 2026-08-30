@@ -120,7 +120,7 @@ func TestHomeGen2_AcceptedProposalShowsConfirmado(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Confirmado", "2026-09-15 18:00", "Padel 360"},
+		ExpectedContent: []string{"Confirmado", "15/09/2026 18:00", "Padel 360"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -146,7 +146,7 @@ func TestHomeGen2_PendingProposalShowsPropuestaEnviada(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Propuesta enviada", "2026-10-01 20:00"},
+		ExpectedContent: []string{"Propuesta enviada", "01/10/2026 20:00"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)

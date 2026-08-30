@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/template"
@@ -28,6 +29,7 @@ func New(viewsFS fs.FS, vapidPublicKey string) *Renderer {
 			return slices.Contains(slice, item)
 		},
 		"entityURL": league.EntityURL,
+		"fmtDate":   FmtDate,
 		"elink": func(id, name string) map[string]string {
 			return map[string]string{"ID": id, "Name": name}
 		},
@@ -122,6 +124,32 @@ func (r *Renderer) ErrorPage(e *core.RequestEvent, statusCode int, message strin
 		return e.HTML(statusCode, message)
 	}
 	return e.HTML(statusCode, html)
+}
+
+var dateLayouts = []string{
+	"2006-01-02 15:04:05.000Z",
+	time.RFC3339,
+	"2006-01-02 15:04",
+	"2006-01-02",
+}
+
+// FmtDate parses a date string and returns it in Spanish DD/MM/YYYY format.
+// Times at midnight are omitted; otherwise HH:MM is appended.
+func FmtDate(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	for _, layout := range dateLayouts {
+		t, err := time.Parse(layout, raw)
+		if err != nil {
+			continue
+		}
+		if t.Hour() == 0 && t.Minute() == 0 {
+			return t.Format("02/01/2006")
+		}
+		return t.Format("02/01/2006 15:04")
+	}
+	return raw
 }
 
 // Partial renders an HTML fragment without the site layout.
