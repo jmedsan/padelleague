@@ -496,7 +496,7 @@ func TestGen2_TallyH2H(t *testing.T) {
 
 		// Recent is capped at 5: with 7 matches, only 5 rows should appear.
 		// Each row has H2HTalA as PairName1, which only appears in <td> cells.
-		rowCount := strings.Count(body, "<td>H2HTalA</td>")
+		rowCount := strings.Count(body, ">H2HTalA</a></td>")
 		assert.Equal(tb, 5, rowCount, "recent should be capped at 5 entries")
 	}
 
@@ -662,6 +662,45 @@ func TestPlayerProfileWithMatches(t *testing.T) {
 		m.Set("winner", p2.Id)
 		m.Set("round_number", 4)
 		require.NoError(tb, app.Save(m))
+
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.URL = "/player/" + user.Id
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestPlayerHistoryRowsHavePairLinks(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "player history rows render pairLink anchors",
+		Method:         http.MethodGet,
+		ExpectedStatus: 200,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Link A")
+		p2 := makePairTB(tb, app, "Link B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		col, _ := app.FindCollectionByNameOrId("matches")
+		m := core.NewRecord(col)
+		m.Set("competition", comp.Id)
+		m.Set("pair1", p1.Id)
+		m.Set("pair2", p2.Id)
+		m.Set("status", "final")
+		m.Set("scores", "6-3 6-4")
+		m.Set("winner", p1.Id)
+		m.Set("round_number", 1)
+		require.NoError(tb, app.Save(m))
+
+		s.ExpectedContent = []string{
+			`href="/pair/` + p1.Id + `"`,
+			`href="/pair/` + p2.Id + `"`,
+			"Link A",
+			"Link B",
+		}
 
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		s.URL = "/player/" + user.Id
