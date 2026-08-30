@@ -126,3 +126,37 @@ func NotifDisputeResolved(matchID string) Notification {
 		Body: "Un administrador ha resuelto la disputa de tu partido.", MatchID: matchID,
 	}
 }
+
+// NotifAdminMatchUnplayed alerts admins that a player reported a match unplayed.
+func NotifAdminMatchUnplayed(matchID string) Notification {
+	return Notification{
+		Type: "dispute", Title: "Partido no jugado",
+		Body: "Un jugador ha reportado un partido como no jugado.", MatchID: matchID,
+	}
+}
+
+// NotifAdminDisputed alerts admins that a match result was disputed.
+func NotifAdminDisputed(matchID, notes string) Notification {
+	return Notification{
+		Type: "dispute", Title: "Partido disputado",
+		Body: notes, MatchID: matchID,
+	}
+}
+
+// NotifAdminSupersedeFailed alerts admins that pending proposals could not be superseded.
+func NotifAdminSupersedeFailed(matchID string) Notification {
+	return Notification{
+		Type: "admin_message", Title: "Propuestas pendientes no actualizadas",
+		Body:    fmt.Sprintf("El partido %s tiene propuestas que no se pudieron marcar como superadas. Revisa el hilo.", matchID),
+		MatchID: matchID,
+	}
+}
+
+// NotifAdminPlayoffAdvanceFailed alerts admins that automatic playoff advancement failed.
+func NotifAdminPlayoffAdvanceFailed(matchID string) Notification {
+	return Notification{
+		Type: "admin_message", Title: "Error en avance de playoff",
+		Body:    "El partido finalizó pero el bracket no avanzó automáticamente. Revisa el panel de administración.",
+		MatchID: matchID,
+	}
+}

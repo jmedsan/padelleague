@@ -41,10 +41,8 @@ func handleAdvance(svc *league.Service, notifier *notify.Notifier, rec *core.Rec
 	if err := svc.AdvancePlayoff(rec); err != nil {
 		slog.Error("auto-advance playoff failed", "match", rec.Id, "err", err)
 		if notifier != nil {
-			_ = notifier.NotifyAdmins("admin_message",
-				"Error en avance de playoff",
-				"El partido finalizó pero el bracket no avanzó automáticamente. Revisa el panel de administración.",
-				rec.Id)
+			n := league.NotifAdminPlayoffAdvanceFailed(rec.Id)
+			_ = notifier.NotifyAdmins(n.Type, n.Title, n.Body, rec.Id)
 		}
 	}
 }

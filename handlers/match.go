@@ -340,7 +340,8 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 		Kind: "result_event", Detail: label + " reportó el partido como no jugado",
 	})
 
-	if err := h.notifier.NotifyAdmins("dispute", "Partido no jugado", "Un jugador ha reportado un partido como no jugado.", id); err != nil {
+	an := league.NotifAdminMatchUnplayed(id)
+	if err := h.notifier.NotifyAdmins(an.Type, an.Title, an.Body, id); err != nil {
 		slog.Error("notify admins walkover report", "match", id, "err", err)
 	}
 

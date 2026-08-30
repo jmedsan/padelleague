@@ -88,6 +88,26 @@ func TestNotificationConstructors(t *testing.T) {
 			got:  NotifDisputeResolved("m1"),
 			want: Notification{Type: "dispute", Title: "Disputa resuelta", Body: "Un administrador ha resuelto la disputa de tu partido.", MatchID: "m1"},
 		},
+		{
+			name: "AdminMatchUnplayed",
+			got:  NotifAdminMatchUnplayed("m1"),
+			want: Notification{Type: "dispute", Title: "Partido no jugado", Body: "Un jugador ha reportado un partido como no jugado.", MatchID: "m1"},
+		},
+		{
+			name: "AdminDisputed",
+			got:  NotifAdminDisputed("m1", "Notas del jugador"),
+			want: Notification{Type: "dispute", Title: "Partido disputado", Body: "Notas del jugador", MatchID: "m1"},
+		},
+		{
+			name: "AdminSupersedeFailed",
+			got:  NotifAdminSupersedeFailed("m1"),
+			want: Notification{Type: "admin_message", Title: "Propuestas pendientes no actualizadas", Body: "El partido m1 tiene propuestas que no se pudieron marcar como superadas. Revisa el hilo.", MatchID: "m1"},
+		},
+		{
+			name: "AdminPlayoffAdvanceFailed",
+			got:  NotifAdminPlayoffAdvanceFailed("m1"),
+			want: Notification{Type: "admin_message", Title: "Error en avance de playoff", Body: "El partido finalizó pero el bracket no avanzó automáticamente. Revisa el panel de administración.", MatchID: "m1"},
+		},
 	}
 
 	for _, tt := range tests {

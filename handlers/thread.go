@@ -475,13 +475,7 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 		return alertError(e, "Error al marcar la propuesta como aceptada")
 	}
 
-	if err := h.supersedePending(match.Id, msg.Id); err != nil {
-		slog.Error("supersede pending proposals", "match", match.Id, "err", err)
-		_ = h.notifier.NotifyAdmins("admin_message",
-			"Propuestas pendientes no actualizadas",
-			fmt.Sprintf("El partido %s tiene propuestas que no se pudieron marcar como superadas. Revisa el hilo.", match.Id),
-			match.Id)
-	}
+	h.supersedePendingAndNotify(match.Id, msg.Id)
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	responderName := league.PlayerName(h.app, e.Auth.Id)
@@ -540,6 +534,14 @@ func (h *ThreadHandler) supersedePending(matchID, excludeMsgID string) error {
 	return nil
 }
 
+func (h *ThreadHandler) supersedePendingAndNotify(matchID, excludeMsgID string) {
+	if err := h.supersedePending(matchID, excludeMsgID); err != nil {
+		slog.Error("supersede pending proposals", "match", matchID, "err", err)
+		n := league.NotifAdminSupersedeFailed(matchID)
+		_ = h.notifier.NotifyAdmins(n.Type, n.Title, n.Body, matchID)
+	}
+}
+
 func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
 	msg.Set("proposal_status", "rejected")
 	msg.Set("rejection_reason", "Decisión cambiada")
@@ -586,13 +588,7 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 		slog.Error("save match after acceptance", "match", match.Id, "err", err)
 		return alertError(e, "Error al actualizar el partido")
 	}
-	if err := h.supersedePending(match.Id, msg.Id); err != nil {
-		slog.Error("supersede pending proposals", "match", match.Id, "err", err)
-		_ = h.notifier.NotifyAdmins("admin_message",
-			"Propuestas pendientes no actualizadas",
-			fmt.Sprintf("El partido %s tiene propuestas que no se pudieron marcar como superadas. Revisa el hilo.", match.Id),
-			match.Id)
-	}
+	h.supersedePendingAndNotify(match.Id, msg.Id)
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	responderName := league.PlayerName(h.app, e.Auth.Id)
 	notif := league.NotifDecisionChangedToAccepted(match.Id, responderName, pd.Date, pd.Time)
