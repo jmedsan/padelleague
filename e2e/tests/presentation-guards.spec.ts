@@ -272,4 +272,47 @@ test.describe('R-178: presentation quality guards', () => {
       }
     }
   });
+
+  test('R-175: mode-driven home — admin sees dashboard, not player content; player view shows the opposite', async ({ page }) => {
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+
+    // Ensure admin view mode (clear any lingering view_as cookie)
+    await page.goto('/view/admin');
+    await page.waitForLoadState('networkidle');
+    await page.locator('a:has-text("Inicio")').first().click();
+    await page.waitForLoadState('networkidle');
+
+    // Admin dashboard content should be present
+    await expect(page.locator('a[href="/admin/competitions"]').first()).toBeVisible();
+
+    // Player-only content must NOT appear
+    await expect(page.locator('[data-testid="player-competitions-heading"]')).toHaveCount(0);
+    const bodyText = await page.evaluate(() => document.body.innerText);
+    expect(bodyText).not.toContain('Mis competiciones');
+
+    // No "Administración" divider (removed by R-175)
+    expect(bodyText).not.toContain('Administración');
+
+    // Flip to player view via the switcher
+    const switcher = page.locator('details:has(summary:has-text("Ver como"))');
+    await switcher.locator('summary').click();
+    await switcher.locator('a:has-text("Jugador")').click();
+    await page.waitForLoadState('networkidle');
+
+    // Now on home in player view
+    await page.locator('a:has-text("Inicio")').first().click();
+    await page.waitForLoadState('networkidle');
+
+    // Player content should be present
+    const playerBody = await page.evaluate(() => document.body.innerText);
+    // Admin nav buttons must NOT appear in player view
+    await expect(page.locator('[data-testid="admin-dashboard-heading"]')).toHaveCount(0);
+    expect(playerBody).not.toContain('Preparar competiciones');
+
+    // Switch back to admin view for other tests
+    const switcher2 = page.locator('details:has(summary:has-text("Ver como"))');
+    await switcher2.locator('summary').click();
+    await switcher2.locator('a:has-text("Admin")').click();
+    await page.waitForLoadState('networkidle');
+  });
 });
