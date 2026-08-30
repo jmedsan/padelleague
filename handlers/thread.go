@@ -179,6 +179,18 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	}
 	canPropose := isParticipant && match.GetString("status") == league.StatusPending && !isPlayoff
 
+	var unpaidWarning string
+	if canPropose {
+		if comp, err := h.app.FindRecordById("competitions", match.GetString("competition")); err == nil {
+			ps := make(map[string]bool)
+			_ = comp.UnmarshalJSONField("payment_status", &ps)
+			p1Paid, p2Paid := ps[pair1ID], ps[pair2ID]
+			if !p1Paid || !p2Paid {
+				unpaidWarning = "Una o ambas parejas no han pagado la inscripción"
+			}
+		}
+	}
+
 	return h.renderPartial(e, "thread.html", map[string]any{
 		"MatchID":       matchID,
 		"Messages":      threadMessages,
@@ -189,6 +201,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		"IsParticipant": isParticipant,
 		"IsPlayoff":     isPlayoff,
 		"Match":         match,
+		"UnpaidWarning": unpaidWarning,
 	})
 }
 

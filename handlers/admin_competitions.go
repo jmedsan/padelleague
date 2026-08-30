@@ -82,6 +82,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"IsLeague":        isLeague,
 		"HasFixtures":     len(matches) > 0,
 		"HasUnpaid":       anyUnpaid(pairEntries),
+		"UnpaidCount":     countUnpaid(pairEntries),
 		"RoundDates":      roundDates,
 		"Phase":           phase,
 		"AttachedDocs":    attachedDocs,
@@ -116,6 +117,16 @@ func anyUnpaid(entries []pairEntry) bool {
 		}
 	}
 	return false
+}
+
+func countUnpaid(entries []pairEntry) int {
+	n := 0
+	for _, pe := range entries {
+		if !pe.Paid {
+			n++
+		}
+	}
+	return n
 }
 
 // Create handles POST to create a new competition.
