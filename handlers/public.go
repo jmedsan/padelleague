@@ -197,7 +197,7 @@ func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[s
 	var actions []PendingAction
 
 	pendingMatches, _ := h.app.FindRecordsByFilter("matches",
-		"competition = {:cid} && status = 'pending'",
+		"competition = {:cid} && (status = 'pending' || status = 'scheduled')",
 		"round_number", 0, 0,
 		map[string]any{"cid": c.Id})
 

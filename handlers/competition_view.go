@@ -34,7 +34,7 @@ func NewCompetitionView(app core.App, comp *core.Record, mode Mode) CompetitionV
 			played++
 		case league.StatusDisputed:
 			disputes++
-		case league.StatusPending:
+		case league.StatusPending, league.StatusScheduled:
 			pending++
 		}
 	}

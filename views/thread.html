@@ -35,13 +35,6 @@
             {{if and .IsAdmin (not .IsParticipant)}}
             <div class="text-center text-xs opacity-40 mb-2">Escribiendo como administrador</div>
             {{end}}
-            {{if .IsParticipant}}
-            <div class="flex gap-2 mb-3">
-                <button hx-post="/match/{{.MatchID}}/thread/availability" hx-vals='{"available":"1"}' hx-target="body" class="btn btn-success btn-sm flex-1">Estoy libre</button>
-                <button hx-post="/match/{{.MatchID}}/thread/availability" hx-vals='{"available":"0"}' hx-target="body" class="btn btn-error btn-outline btn-sm flex-1">No puedo</button>
-            </div>
-            {{end}}
-
             <form hx-post="/match/{{.MatchID}}/thread/message" hx-target="body" class="flex gap-2 mb-3">
                 <input type="hidden" name="type" value="chat">
                 <input type="text" name="content" class="input input-bordered input-sm flex-1" placeholder="Escribe un mensaje..." required>
@@ -70,7 +63,7 @@
             {{if .CanPropose}}
             <div class="collapse collapse-arrow bg-base-200 rounded-lg">
                 <input type="checkbox" class="peer">
-                <div class="collapse-title text-sm font-medium py-2 min-h-0">Proponer fecha</div>
+                <div class="collapse-title text-sm font-medium py-2 min-h-0">{{if .IsScheduled}}Proponer nueva fecha (reprogramar){{else}}Proponer fecha{{end}}</div>
                 <div class="collapse-content">
                     <form id="proposal-form" hx-post="/match/{{.MatchID}}/thread/proposal" hx-target="body">
                         <div class="grid grid-cols-2 gap-3">
