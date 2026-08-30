@@ -1154,3 +1154,99 @@ func TestThread_NoHistoryNoPreSelect(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestThreadMessages_AdminActionRendersAsSystemLine(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "admin_action renders via resultEventLine, not chatMessage",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"thread-messages"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "AdminAct A")
+		p2 := makePairTB(tb, app, "AdminAct B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+
+		col, _ := app.FindCollectionByNameOrId("match_messages")
+		msg := core.NewRecord(col)
+		msg.Set("match", match.Id)
+		msg.Set("author", p1.GetString("player1"))
+		msg.Set("type", "admin_action")
+		msg.Set("content", "Admin corrigió el resultado")
+		require.NoError(tb, app.Save(msg))
+
+		s.URL = "/match/" + match.Id + "/thread-messages"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, `data-type="action"`, "admin_action renders as system line")
+		assert.Contains(tb, body, "Admin corrigió el resultado")
+		assert.NotContains(tb, body, "chat-bubble", "admin_action must not render as chat")
+	}
+	s.Test(t)
+}
+
+func TestThreadMessages_AllTypesRenderCorrectSubDefine(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "each message type dispatches to its sub-define",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"thread-messages"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "SubDef A")
+		p2 := makePairTB(tb, app, "SubDef B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		col, _ := app.FindCollectionByNameOrId("match_messages")
+
+		chat := core.NewRecord(col)
+		chat.Set("match", match.Id)
+		chat.Set("author", p1.GetString("player1"))
+		chat.Set("type", "chat")
+		chat.Set("content", "Hola desde chat")
+		require.NoError(tb, app.Save(chat))
+
+		event := core.NewRecord(col)
+		event.Set("match", match.Id)
+		event.Set("author", p1.GetString("player1"))
+		event.Set("type", "result_event")
+		event.Set("content", "registró resultado: 6-2 6-3")
+		require.NoError(tb, app.Save(event))
+
+		proposal := core.NewRecord(col)
+		proposal.Set("match", match.Id)
+		proposal.Set("author", p2.GetString("player1"))
+		proposal.Set("type", "scheduling_proposal")
+		proposal.Set("proposal_data", map[string]any{
+			"date": "2026-10-05", "time": "20:00", "venue_name": "Padel 360",
+		})
+		proposal.Set("proposal_status", "pending")
+		require.NoError(tb, app.Save(proposal))
+
+		s.URL = "/match/" + match.Id + "/thread-messages"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, `data-type="proposal"`, "proposal renders via proposalCard sub-define")
+		assert.Contains(tb, body, "Padel 360", "proposal card shows venue name")
+		assert.Contains(tb, body, "20:00", "proposal card shows time")
+		assert.Contains(tb, body, `data-type="action"`, "result_event renders via resultEventLine sub-define")
+		assert.Contains(tb, body, "registró resultado: 6-2 6-3", "system line shows event content")
+		assert.Contains(tb, body, "chat-bubble", "chat renders via chatMessage sub-define")
+		assert.Contains(tb, body, "Hola desde chat", "chat bubble shows message content")
+	}
+	s.Test(t)
+}

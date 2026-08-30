@@ -29,6 +29,7 @@ func NewThreadHandler(app core.App, notifier *notify.Notifier, renderPage Render
 // ThreadMessage holds a thread message record with display-ready fields.
 type ThreadMessage struct {
 	Record            *core.Record
+	MatchID           string
 	AuthorName        string
 	AuthorTeam        int
 	IsMyTeam          bool
@@ -107,6 +108,7 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 
 		threadMessages = append(threadMessages, ThreadMessage{
 			Record:            msg,
+			MatchID:           matchID,
 			AuthorName:        nameCache[authorID],
 			AuthorTeam:        authorTeam,
 			IsMyTeam:          myTeam != 0 && authorTeam == myTeam,
