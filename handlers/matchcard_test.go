@@ -84,6 +84,18 @@ func TestNewMatchCardActions(t *testing.T) {
 			viewerID: outsider.Id,
 			want:     cardActions{},
 		},
+		{
+			// A non-participant (team == 0) on a confirmed match must get no
+			// confirm/dispute/correct — guards the `team > 0` boundary on the
+			// confirmed path that a pending-only outsider case cannot reach.
+			name:      "player outsider on confirmed match has no actions",
+			mode:      PlayerFull,
+			status:    "confirmed",
+			viewerID:  outsider.Id,
+			submitted: true,
+			recent:    true,
+			want:      cardActions{},
+		},
 	}
 
 	for _, tc := range cases {
@@ -326,6 +338,13 @@ func TestPopulateFeederOnMatchCard(t *testing.T) {
 	mc2.PopulateFeeder(1, 0)
 	assert.Empty(t, mc2.Feeder1)
 	assert.Equal(t, "Ganador de J1-2", mc2.Feeder2)
+
+	// matchIdx > 0 so the *2 in matchIdx*2+n is distinguishable from /2
+	// (at matchIdx 0 both yield 0): idx 3 → feeders 7 and 8.
+	mc3 := MatchCard{}
+	mc3.PopulateFeeder(1, 3)
+	assert.Equal(t, "Ganador de J1-7", mc3.Feeder1)
+	assert.Equal(t, "Ganador de J1-8", mc3.Feeder2)
 }
 
 func TestPairPlayerLabel(t *testing.T) {
