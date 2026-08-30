@@ -274,6 +274,31 @@ test.describe('reference navigation tour', () => {
 
     // --- Step 11: Assert playoff champion ---
     await assertPlayoffChampion(page, playoffId, PAIRS[0].name);
+
+    // --- Step 12: Entity interlinking — competition → pair → player ---
+    await loginAs(page, PLAYERS[0].email, PLAYER_PASSWORD);
+    await page.goto(`/competition/${competitionId}`);
+    await page.waitForLoadState('domcontentloaded');
+
+    // Switch to Clasificación tab, then click pair link in standings
+    await page.locator('input[aria-label="Clasificación"]').click();
+    const pairLink = page.locator(`a[href="/pair/${pairIds[0]}"]`).first();
+    await expect(pairLink).toBeVisible();
+    await pairLink.click();
+    await page.waitForLoadState('domcontentloaded');
+
+    // Verify pair page content
+    expect(page.url()).toContain(`/pair/${pairIds[0]}`);
+    await expect(page.locator('h1')).toContainText(PAIRS[0].name);
+    await expect(page.locator(`table a[href="/player/${playerIds[0]}"]`)).toBeVisible();
+    await expect(page.locator(`table a[href="/player/${playerIds[1]}"]`)).toBeVisible();
+    await expect(page.locator(`a[href="/competition/${competitionId}"]`)).toBeVisible();
+
+    // Click player link → verify player page
+    await page.locator(`table a[href="/player/${playerIds[0]}"]`).click();
+    await page.waitForLoadState('domcontentloaded');
+    expect(page.url()).toContain(`/player/${playerIds[0]}`);
+    await expect(page.locator('h1')).toContainText(PLAYERS[0].name);
   });
 });
 
