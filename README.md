@@ -10,7 +10,7 @@ A web app for organizing padel leagues. An admin creates competitions, assigns p
 
 - **Urgent-tasks home** — the single most important next action first: an open dispute, your next confirmed match to play, or a match to organize before its deadline
 - **Scheduling deadlines** — each league round shows a recommended "organize by" date; matches surface escalating warnings (próximo → urgente → vencido) with at most one reminder per step
-- **Match thread** — schedule proposals, chat, and score discussion in one place
+- **Match thread** — schedule proposals, chat, and score discussion in one place; every result-changing action (submit, confirm, dispute, correct, resolve, walkover) is recorded as a timeline entry attributed to the acting pair and player
 - **Structured score entry** — set-by-set input with valid padel scores, venue selection
 - **Score confirmation with reminders** — one player submits a result, the opponent confirms or disputes; if it sits unconfirmed the app reminds the opponent before the quorum timeout resolves it
 - **Add to calendar** — one-tap "Añadir al calendario" (`.ics`) on a scheduled match
