@@ -57,8 +57,7 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 	h.notifyConfirmToSubmitter(match, submitterTeam, id)
 
 	participants := matchParticipantUserIDs(h.app, match)
-	an := league.NotifAdminMatchProgress(match.Id, "Resultado confirmado: "+score)
-	if err := h.notifier.NotifyAdmins(an.Type, an.Title, an.Body, match.Id, participants...); err != nil {
+	if err := h.notifier.NotifyAdmins(league.NotifAdminMatchProgress(match.Id, "Resultado confirmado: "+score), participants...); err != nil {
 		slog.Error("notify admins match progress failed", "match", match.Id, "err", err)
 	}
 
@@ -151,7 +150,7 @@ func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 	})
 
 	n := league.NotifAdminDisputed(match.Id, disputeNotes)
-	if err := h.notifier.NotifyAdmins(n.Type, n.Title, n.Body, match.Id); err != nil {
+	if err := h.notifier.NotifyAdmins(n); err != nil {
 		slog.Error("notify admins failed", "err", err)
 	}
 

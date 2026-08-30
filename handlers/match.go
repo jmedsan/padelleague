@@ -188,7 +188,7 @@ func (h *MatchHandler) notifySubmit(match *core.Record, userID, scores string) {
 
 	participants := matchParticipantUserIDs(h.app, match)
 	an := league.NotifAdminMatchProgress(match.Id, "Resultado registrado: "+scores)
-	if err := h.notifier.NotifyAdmins(an.Type, an.Title, an.Body, match.Id, participants...); err != nil {
+	if err := h.notifier.NotifyAdmins(an, participants...); err != nil {
 		slog.Error("notify admins match progress failed", "match", match.Id, "err", err)
 	}
 }
@@ -372,7 +372,7 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 	})
 
 	an := league.NotifAdminMatchUnplayed(id)
-	if err := h.notifier.NotifyAdmins(an.Type, an.Title, an.Body, id); err != nil {
+	if err := h.notifier.NotifyAdmins(an); err != nil {
 		slog.Error("notify admins walkover report", "match", id, "err", err)
 	}
 
