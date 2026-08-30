@@ -161,6 +161,12 @@ func (c MatchCard) SummaryLine() string {
 	return fmt.Sprintf("Resultado: %s %s %s. Ganador: %s!", c.Pair1Name, c.Score, c.Pair2Name, winner)
 }
 
+func matchParticipantUserIDs(app core.App, match *core.Record) []string {
+	p1 := league.PlayersForPair(app, match.GetString("pair1"))
+	p2 := league.PlayersForPair(app, match.GetString("pair2"))
+	return append(p1, p2...)
+}
+
 func pairPlayerLabel(app core.App, userID string, match *core.Record) string {
 	if userID == "" {
 		return ""

@@ -254,7 +254,8 @@ func TestNotificationPrefs_MalformedFallsBackToDefaults(t *testing.T) {
 			user.Set("notification_prefs", raw)
 			prefs := NotificationPrefs(user)
 			assert.Equal(t, true, prefs["general"])
-			assert.Len(t, prefs, 5)
+			assert.Equal(t, true, prefs["match_progress"])
+			assert.Len(t, prefs, 6)
 		})
 	}
 }
@@ -410,6 +411,43 @@ func TestNotifyAdmins_SaveError_LogsError(t *testing.T) {
 	notifs, _ := app.FindRecordsByFilter("notifications",
 		"user = {:uid}", "", 0, 0, map[string]any{"uid": admin.Id})
 	assert.Empty(t, notifs, "no notification persisted when save fails")
+}
+
+func TestNotifyAdmins_ExcludesParticipants(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	notifier := NewNotifier(app, "", "")
+
+	admin1 := makeUser(t, app, "admin")
+	admin2 := makeUser(t, app, "admin")
+
+	err := notifier.NotifyAdmins("match_progress", "Progreso", "Body", "", admin1.Id)
+	require.NoError(t, err)
+
+	notifs1, _ := app.FindRecordsByFilter("notifications",
+		"user = {:uid}", "", 0, 0, map[string]any{"uid": admin1.Id})
+	assert.Empty(t, notifs1, "excluded admin must not receive notification")
+
+	notifs2, _ := app.FindRecordsByFilter("notifications",
+		"user = {:uid}", "", 0, 0, map[string]any{"uid": admin2.Id})
+	assert.Len(t, notifs2, 1, "non-excluded admin must receive notification")
+}
+
+func TestNotifyAdmins_HonorsPrefs(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	notifier := NewNotifier(app, "", "")
+
+	admin := makeUser(t, app, "admin")
+	admin.Set("notification_prefs", map[string]any{"match_progress": false})
+	require.NoError(t, app.Save(admin))
+
+	err := notifier.NotifyAdmins("match_progress", "Progreso", "Body", "")
+	require.NoError(t, err)
+
+	notifs, _ := app.FindRecordsByFilter("notifications",
+		"user = {:uid}", "", 0, 0, map[string]any{"uid": admin.Id})
+	assert.Empty(t, notifs, "admin with match_progress=false must not be notified")
 }
 
 func TestPushTargetURL(t *testing.T) {

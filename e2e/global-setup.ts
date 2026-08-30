@@ -116,7 +116,7 @@ async function seedTestData() {
   // tests get an untouched match each. Two mutating tests across two projects
   // means four, since a test that confirms a match leaves nothing pending for
   // the next one.
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 6; i++) {
     const extra = await fetch(`${BASE_URL}/api/collections/matches/records`, {
       method: 'POST',
       headers: { 'Authorization': adminToken, 'Content-Type': 'application/json' },

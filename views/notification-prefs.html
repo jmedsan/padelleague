@@ -49,6 +49,15 @@
                         <input type="checkbox" name="scheduling" class="toggle toggle-primary" {{if index .Prefs "scheduling"}}checked{{end}}>
                     </label>
                 </div>
+                {{if .IsAdmin}}
+                <div class="divider my-1"></div>
+                <div class="form-control">
+                    <label class="label cursor-pointer">
+                        <span class="label-text">Progreso de partidos (administrador)</span>
+                        <input type="checkbox" name="match_progress" class="toggle toggle-primary" {{if index .Prefs "match_progress"}}checked{{end}}>
+                    </label>
+                </div>
+                {{end}}
                 <div class="card-actions justify-end">
                     <button type="submit" class="btn btn-primary">Guardar</button>
                 </div>
