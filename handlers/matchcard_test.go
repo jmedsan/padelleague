@@ -196,3 +196,33 @@ func TestMatchCardAdminFullShowsScoresAndResolveEndpoint(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestPairPlayerLabel(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+
+	p1 := makePairTB(t, app, "Label A")
+	p2 := makePairTB(t, app, "Label B")
+	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
+	match := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
+
+	t.Run("team 1 player", func(t *testing.T) {
+		got := pairPlayerLabel(app, p1.GetString("player1"), match)
+		assert.Equal(t, "Label A (Label A P1)", got)
+	})
+
+	t.Run("team 2 player", func(t *testing.T) {
+		got := pairPlayerLabel(app, p2.GetString("player1"), match)
+		assert.Equal(t, "Label B (Label B P1)", got)
+	})
+
+	t.Run("empty user ID", func(t *testing.T) {
+		assert.Equal(t, "", pairPlayerLabel(app, "", match))
+	})
+
+	t.Run("admin non-participant returns bare name", func(t *testing.T) {
+		admin := makeAdminUserTB(t, app)
+		got := pairPlayerLabel(app, admin.Id, match)
+		assert.Equal(t, "Admin", got)
+	})
+}
