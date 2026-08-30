@@ -154,7 +154,7 @@
                 <tbody>
                     {{range .Entries}}
                     <tr>
-                        <td class="font-medium"><a href="{{entityURL "pair" .PairID}}" class="link link-hover">{{.PairName}}</a></td>
+                        <td class="font-medium">{{template "pairLink" (elink .PairID .PairName)}}</td>
                         {{if not $.IsLeague}}<td>{{if gt .Seed 0}}<span class="badge badge-outline badge-sm">{{.Seed}}</span>{{else}}<span class="text-base-content/40">—</span>{{end}}</td>{{end}}
                         <td>
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/payment" class="inline">
@@ -467,7 +467,7 @@
                             {{else if eq .Position 3}}<span class="text-accent">🥉</span>
                             {{else}}{{.Position}}{{end}}
                         </td>
-                        <td><a href="{{entityURL "pair" .PairID}}" class="link link-hover">{{.PairName}}</a></td>
+                        <td>{{template "pairLink" (elink .PairID .PairName)}}</td>
                         <td class="text-center">{{.Played}}</td>
                         <td class="text-center">{{.Wins}}</td>
                         <td class="text-center">{{.Losses}}</td>
