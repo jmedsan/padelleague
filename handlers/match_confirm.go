@@ -74,11 +74,9 @@ func (h *MatchHandler) notifyConfirmToSubmitter(match *core.Record, submitterTea
 		submitterPairID = match.GetString("pair2")
 	}
 	submitterPlayers := league.PlayersForPair(h.app, submitterPairID)
-	h.notifier.NotifyPlayers(submitterPlayers, league.Notification{
-		Type: "general", Title: "Resultado confirmado",
-		Body: "Tu rival ha confirmado el resultado del partido.", MatchID: match.Id,
-	})
-	h.notifier.EmailPlayers(submitterPlayers, "Resultado confirmado", "Tu rival ha confirmado el resultado del partido.", "/match/"+matchID)
+	n := league.NotifResultConfirmed(match.Id)
+	h.notifier.NotifyPlayers(submitterPlayers, n)
+	h.notifier.EmailPlayers(submitterPlayers, n.Title, n.Body, "/match/"+matchID)
 }
 
 // MatchDispute handles the opponent disputing a submitted score.
@@ -151,12 +149,9 @@ func (h *MatchHandler) notifyDisputeToSubmitter(match *core.Record, disputerTeam
 		submitterPairID = match.GetString("pair2")
 	}
 	submitterPlayers := league.PlayersForPair(h.app, submitterPairID)
-	h.notifier.NotifyPlayers(submitterPlayers, league.Notification{
-		Type: "general", Title: "Resultado disputado",
-		Body: "Tu rival ha disputado el resultado que enviaste.", MatchID: match.Id,
-	})
-	h.notifier.EmailPlayers(submitterPlayers, "Resultado disputado",
-		"Tu rival ha disputado el resultado que enviaste.", "/match/"+match.Id)
+	n := league.NotifResultDisputed(match.Id)
+	h.notifier.NotifyPlayers(submitterPlayers, n)
+	h.notifier.EmailPlayers(submitterPlayers, n.Title, n.Body, "/match/"+match.Id)
 }
 
 // MatchCorrect allows the submitting team to correct a confirmed score.
@@ -225,10 +220,7 @@ func (h *MatchHandler) notifyCorrectionToRival(match *core.Record, myTeam int) {
 		rivalPairID = match.GetString("pair1")
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	h.notifier.NotifyPlayers(rivalPlayers, league.Notification{
-		Type: "quorum_request", Title: "Resultado corregido",
-		Body: "El rival ha corregido el resultado. Confirma o disputa.", MatchID: match.Id,
-	})
+	h.notifier.NotifyPlayers(rivalPlayers, league.NotifResultCorrected(match.Id))
 }
 
 func (h *MatchHandler) validateCorrectionWindow(e *core.RequestEvent, match *core.Record) error {
