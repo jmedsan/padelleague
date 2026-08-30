@@ -125,6 +125,26 @@ func TestSearchEmptyQuery(t *testing.T) {
 	assert.Empty(t, results)
 }
 
+func TestPenaltySearchAdminOnlyScope(t *testing.T) {
+	t.Parallel()
+	entries := []Entry{
+		NewEntry(Entry{Label: "Falta grave", Type: "penalización", URL: "/admin/competitions/c1", Scope: Scope{Admin: true}}),
+		NewEntry(Entry{Label: "Public comp", Type: "competición", URL: "/comp/c1", Scope: Scope{Public: true}}),
+	}
+	ix := &Index{}
+	ix.Replace(entries)
+
+	admin := Viewer{IsAdmin: true, CompIDs: map[string]struct{}{}}
+	player := Viewer{IsAdmin: false, CompIDs: map[string]struct{}{"c1": {}}}
+
+	adminResults := ix.Search("falta", admin, 10)
+	require.Len(t, adminResults, 1, "admin must find penalty")
+	assert.Equal(t, "Falta grave", adminResults[0].Label)
+
+	playerResults := ix.Search("falta", player, 10)
+	assert.Empty(t, playerResults, "player must not see penalty search entries")
+}
+
 func TestVisibleTo(t *testing.T) {
 	t.Parallel()
 

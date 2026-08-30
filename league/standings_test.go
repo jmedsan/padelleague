@@ -448,3 +448,78 @@ func TestComputeStandings_HeadToHeadOverridesInputOrder(t *testing.T) {
 	assert.Less(t, rowWinner.Position, rowLoser.Position,
 		"head-to-head must promote the winner above its registration order")
 }
+
+func TestPenaltyTotals_SumsActiveRows(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+
+	p1 := makePair(t, app, "PT A")
+	p2 := makePair(t, app, "PT B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	makePenalty(t, app, comp.Id, p1.Id, 3, false)
+	makePenalty(t, app, comp.Id, p1.Id, 2, false)
+	makePenalty(t, app, comp.Id, p1.Id, 5, true) // voided — must not count
+	makePenalty(t, app, comp.Id, p2.Id, 1, false)
+
+	totals, err := PenaltyTotals(app, comp.Id)
+	require.NoError(t, err)
+	assert.Equal(t, 5.0, totals[p1.Id], "active penalties for p1 must sum to 5")
+	assert.Equal(t, 1.0, totals[p2.Id], "active penalties for p2 must sum to 1")
+}
+
+func TestPenaltyTotals_VoidedRowExcluded(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+
+	p1 := makePair(t, app, "PV A")
+	comp := makeCompetition(t, app, []*core.Record{p1})
+
+	makePenalty(t, app, comp.Id, p1.Id, 3, false)
+
+	totals, err := PenaltyTotals(app, comp.Id)
+	require.NoError(t, err)
+	assert.Equal(t, 3.0, totals[p1.Id])
+
+	// Void the penalty
+	rows, err := app.FindRecordsByFilter("penalties",
+		"competition = {:c} && pair = {:p}", "", 0, 0,
+		map[string]any{"c": comp.Id, "p": p1.Id})
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	require.NoError(t, VoidPenalty(app, rows[0].Id))
+
+	totals2, err := PenaltyTotals(app, comp.Id)
+	require.NoError(t, err)
+	assert.Zero(t, totals2[p1.Id], "voided penalty must drop from totals")
+}
+
+func TestStandings_PenaltyDeductsPoints(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	p1 := makePair(t, app, "PD A")
+	p2 := makePair(t, app, "PD B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
+	m.Set("scores", "6-3 6-4")
+	m.Set("winner", p1.Id)
+	require.NoError(t, app.Save(m))
+
+	makePenalty(t, app, comp.Id, p1.Id, 3, false)
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+
+	var p1Row StandingRowFull
+	for _, r := range rows {
+		if r.PairID == p1.Id {
+			p1Row = r
+		}
+	}
+	assert.Equal(t, 0, p1Row.Points, "3 points from win minus 3 penalty = 0")
+	assert.Equal(t, 3, p1Row.Penalty)
+}

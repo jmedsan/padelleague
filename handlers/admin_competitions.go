@@ -362,7 +362,7 @@ func (h *CompetitionHandler) getPenaltyRows(compID string) map[string][]PenaltyR
 		"competition = {:c} && voided = false", "-created", 0, 0,
 		map[string]any{"c": compID})
 	if err != nil {
-		return nil
+		return map[string][]PenaltyRow{}
 	}
 	out := make(map[string][]PenaltyRow, len(rows))
 	for _, r := range rows {

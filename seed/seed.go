@@ -103,13 +103,7 @@ func wipeCategories(txApp core.App, opts WipeOptions, summary *WipeSummary) erro
 		}
 	}
 	if opts.Competitions {
-		if err := wipeCollection(txApp, "document_acks", new(int)); err != nil {
-			return err
-		}
-		if err := wipeCollection(txApp, "documents", new(int)); err != nil {
-			return err
-		}
-		if err := wipeCollection(txApp, "competitions", &summary.Competitions); err != nil {
+		if err := wipeCompetitions(txApp, summary); err != nil {
 			return err
 		}
 	}
@@ -122,6 +116,19 @@ func wipeCategories(txApp core.App, opts WipeOptions, summary *WipeSummary) erro
 		return wipePlayers(txApp, summary)
 	}
 	return nil
+}
+
+func wipeCompetitions(txApp core.App, summary *WipeSummary) error {
+	if err := wipeCollection(txApp, "document_acks", new(int)); err != nil {
+		return err
+	}
+	if err := wipeCollection(txApp, "documents", new(int)); err != nil {
+		return err
+	}
+	if err := wipeCollection(txApp, "penalties", new(int)); err != nil {
+		return err
+	}
+	return wipeCollection(txApp, "competitions", &summary.Competitions)
 }
 
 func wipeMatches(txApp core.App, summary *WipeSummary) error {

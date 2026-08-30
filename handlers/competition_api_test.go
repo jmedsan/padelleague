@@ -311,19 +311,19 @@ func TestCompApplyPenalty(t *testing.T) {
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/penalty"
-		s.Body = strings.NewReader("pair_id=" + pair.Id + "&action=apply")
+		s.Body = strings.NewReader("pair_id=" + pair.Id + "&action=apply&amount=3&reason=Prueba")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		c, err := app.FindRecordById("competitions", compID)
+		rows, err := app.FindRecordsByFilter("penalties",
+			"competition = {:c} && pair = {:p} && voided = false", "", 0, 0,
+			map[string]any{"c": compID, "p": pairID})
 		require.NoError(tb, err)
-		raw := c.Get("penalty_points")
-		b, _ := json.Marshal(raw)
-		var penalties map[string]float64
-		require.NoError(tb, json.Unmarshal(b, &penalties))
-		assert.Equal(tb, float64(3), penalties[pairID], "default penalty must be 3")
+		require.Len(tb, rows, 1, "must create exactly one penalty row")
+		assert.Equal(tb, 3.0, rows[0].GetFloat("amount"), "default penalty must be 3")
+		assert.Equal(tb, "Prueba", rows[0].GetString("reason"))
 	}
 	s.Test(t)
 }
