@@ -107,8 +107,7 @@ test.describe('responsive - no horizontal overflow', () => {
   test('R-165: competition card badges stay within card bounds', async ({ page }) => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    // Navigate home via navbar link
-    await page.locator('a:has-text("Inicio")').first().click();
+    // loginAs already navigates to / (home)
     await page.waitForLoadState('networkidle');
 
     const cards = page.locator('.card.overflow-hidden');

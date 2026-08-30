@@ -102,7 +102,7 @@ test.describe('admin management', () => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.locator('a:has-text("Competiciones")').first().click();
     await page.waitForLoadState('networkidle');
-    await page.getByRole('button', { name: /crear competici[oó]n/i }).click();
+    await page.getByRole('button', { name: /crear competici[oó]n/i }).first().click();
     const dialog = page.locator('dialog#modal-create');
     await expect(dialog).toBeVisible();
     const select = dialog.locator('select[name="category"]');
