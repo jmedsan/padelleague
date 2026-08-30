@@ -1142,15 +1142,15 @@ func TestPopulateFeeder(t *testing.T) {
 	t.Parallel()
 
 	t.Run("empty slots get feeder labels", func(t *testing.T) {
-		m := RoundMatchView{Pair1: "", Pair2: ""}
-		populateFeeder(&m, 1, 0)
+		m := MatchCard{}
+		m.PopulateFeeder(1, 0)
 		assert.Equal(t, "Ganador de J1-1", m.Feeder1)
 		assert.Equal(t, "Ganador de J1-2", m.Feeder2)
 	})
 
 	t.Run("filled slots keep no feeder", func(t *testing.T) {
-		m := RoundMatchView{Pair1: "A", Pair2: ""}
-		populateFeeder(&m, 1, 0)
+		m := MatchCard{Pair1Name: "A"}
+		m.PopulateFeeder(1, 0)
 		assert.Empty(t, m.Feeder1)
 		assert.Equal(t, "Ganador de J1-2", m.Feeder2)
 	})
@@ -1159,11 +1159,11 @@ func TestPopulateFeeder(t *testing.T) {
 func TestBuildBracket_PassesThroughFeeders(t *testing.T) {
 	t.Parallel()
 	rounds := []RoundView{
-		{RoundNumber: 1, Matches: []RoundMatchView{
-			{Pair1: "Team A", Pair2: "Team B"},
-			{Pair1: "Team C", Pair2: "Team D"},
+		{RoundNumber: 1, Matches: []MatchCard{
+			{Pair1Name: "Team A", Pair2Name: "Team B"},
+			{Pair1Name: "Team C", Pair2Name: "Team D"},
 		}},
-		{RoundNumber: 2, Matches: []RoundMatchView{
+		{RoundNumber: 2, Matches: []MatchCard{
 			{Feeder1: "Ganador de J1-1", Feeder2: "Ganador de J1-2"},
 		}},
 	}

@@ -125,14 +125,7 @@
     <h2 class="text-lg font-bold mb-3">Últimos resultados</h2>
     <div class="space-y-2">
         {{range .RecentResults}}
-        <a href="/match/{{.MatchID}}" class="block p-3 rounded-xl bg-base-100 shadow-sm hover:shadow-md transition-shadow">
-            <div class="flex items-center justify-between gap-2">
-                <span class="font-medium flex-1 text-right text-sm truncate">{{.Pair1Name}}</span>
-                <span class="font-bold text-base px-2">{{.Score}}</span>
-                <span class="font-medium flex-1 text-sm truncate">{{.Pair2Name}}</span>
-            </div>
-            <p class="text-xs opacity-50 mt-1 text-center">{{.CompetitionName}}</p>
-        </a>
+        {{template "matchRow" .}}
         {{end}}
     </div>
 </div>
@@ -169,10 +162,7 @@
                 {{if .PendingDetails}}
                 <div class="space-y-1">
                     {{range .PendingDetails}}
-                    <a href="/match/{{.MatchID}}" class="flex items-center justify-between text-sm p-1.5 rounded-lg hover:bg-base-200/50 transition-colors">
-                        <span>vs <span class="font-medium">{{.Opponent}}</span></span>
-                        <span class="badge badge-ghost badge-sm">J{{.RoundNumber}}</span>
-                    </a>
+                    {{template "matchRow" .}}
                     {{end}}
                 </div>
                 {{end}}
