@@ -22,6 +22,7 @@
         </div>
         <div class="card-actions mt-2">
             <a href="/match/{{.MatchID}}" class="btn btn-sm bg-white/20 border-0 hover:bg-white/30">Ver partido</a>
+            {{if and (eq .Kind 3) (not .ScheduleStatus)}}<a href="/match/{{.MatchID}}#proposal-form" class="btn btn-sm bg-white/30 border-0 hover:bg-white/40" data-testid="propose-now-cta">Proponer ahora</a>{{end}}
         </div>
     </div>
 </div>
@@ -38,6 +39,7 @@
             </div>
             {{if $t.ArrangeBy}}<span class="badge badge-sm {{if eq $t.Warning.String "overdue"}}badge-error{{else if eq $t.Warning.String "urgent"}}badge-warning{{else}}badge-info{{end}}">{{$t.Warning.Label}}</span>{{end}}
             {{if $t.Recovery}}<span class="badge badge-sm badge-secondary" data-testid="recovery-badge">En recuperación</span>{{end}}
+            {{if and (eq $t.Kind 3) (not $t.ScheduleStatus)}}<span class="badge badge-sm badge-primary" data-testid="propose-now-cta">Proponer</span>{{end}}
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 opacity-40 flex-none"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
         </a>
         {{end}}{{end}}
