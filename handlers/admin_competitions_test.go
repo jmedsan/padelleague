@@ -948,17 +948,18 @@ func TestPenaltyUsesDefaultAmount(t *testing.T) {
 		compID = comp.Id
 		pairID = p1.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/penalty"
-		s.Body = strings.NewReader("pair_id=" + p1.Id + "&action=apply")
+		s.Body = strings.NewReader("pair_id=" + p1.Id + "&action=apply&amount=5&reason=Prueba+default")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		c, err := app.FindRecordById("competitions", compID)
+		rows, err := app.FindRecordsByFilter("penalties",
+			"competition = {:c} && pair = {:p} && voided = false", "", 0, 0,
+			map[string]any{"c": compID, "p": pairID})
 		require.NoError(tb, err)
-		var penalties map[string]float64
-		require.NoError(tb, c.UnmarshalJSONField("penalty_points", &penalties))
-		assert.Equal(tb, float64(5), penalties[pairID], "must use competition's default_penalty, not hardcoded 3")
+		require.Len(tb, rows, 1)
+		assert.Equal(tb, 5.0, rows[0].GetFloat("amount"), "must use competition's default_penalty, not hardcoded 3")
 	}
 	s.Test(t)
 }
@@ -967,33 +968,209 @@ func TestPenaltyRemove(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "POST penalty action=remove deletes penalty",
+		Name:           "POST penalty action=remove voids penalty",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var compID, pairID string
+	var penaltyID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		admin := makeAdminUserTB(tb, app)
 		p1 := makePairTB(tb, app, "PR A")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1})
-		comp.Set("penalty_points", map[string]float64{p1.Id: 3})
-		require.NoError(tb, app.Save(comp))
-		compID = comp.Id
-		pairID = p1.Id
+		col, err := app.FindCollectionByNameOrId("penalties")
+		require.NoError(tb, err)
+		pen := core.NewRecord(col)
+		pen.Set("competition", comp.Id)
+		pen.Set("pair", p1.Id)
+		pen.Set("amount", 3)
+		pen.Set("reason", "Test remove")
+		pen.Set("applied_by", admin.Id)
+		pen.Set("voided", false)
+		require.NoError(tb, app.Save(pen))
+		penaltyID = pen.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/penalty"
-		s.Body = strings.NewReader("pair_id=" + p1.Id + "&action=remove")
+		s.Body = strings.NewReader("action=remove&penalty_id=" + pen.Id)
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		c, err := app.FindRecordById("competitions", compID)
+		pen, err := app.FindRecordById("penalties", penaltyID)
 		require.NoError(tb, err)
-		var penalties map[string]float64
-		require.NoError(tb, c.UnmarshalJSONField("penalty_points", &penalties))
-		_, hasPenalty := penalties[pairID]
-		assert.False(tb, hasPenalty, "penalty must be deleted after remove")
+		assert.True(tb, pen.GetBool("voided"), "penalty must be voided after remove")
+	}
+	s.Test(t)
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Group 13b: Penalty validation + trace + void-retains-history
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestPenaltyValidation_EmptyReason(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST penalty with empty reason returns alert",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"El motivo es obligatorio"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "ValA")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1})
+		s.URL = "/admin/competitions/" + comp.Id + "/penalty"
+		s.Body = strings.NewReader("pair_id=" + p1.Id + "&action=apply&amount=3&reason=")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		rows, err := app.FindRecordsByFilter("penalties", "", "", 0, 0, nil)
+		require.NoError(tb, err)
+		assert.Empty(tb, rows, "no penalty row must be created with empty reason")
+	}
+	s.Test(t)
+}
+
+func TestPenaltyValidation_ZeroAmount(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST penalty with amount=0 returns alert",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"El importe debe ser mayor que cero"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "ValB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1})
+		s.URL = "/admin/competitions/" + comp.Id + "/penalty"
+		s.Body = strings.NewReader("pair_id=" + p1.Id + "&action=apply&amount=0&reason=Test")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		rows, err := app.FindRecordsByFilter("penalties", "", "", 0, 0, nil)
+		require.NoError(tb, err)
+		assert.Empty(tb, rows, "no penalty row must be created with amount 0")
+	}
+	s.Test(t)
+}
+
+func TestPenaltyValidation_NonNumericAmount(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST penalty with amount=abc returns alert",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"El importe debe ser mayor que cero"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "ValC")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1})
+		s.URL = "/admin/competitions/" + comp.Id + "/penalty"
+		s.Body = strings.NewReader("pair_id=" + p1.Id + "&action=apply&amount=abc&reason=Test")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		rows, err := app.FindRecordsByFilter("penalties", "", "", 0, 0, nil)
+		require.NoError(tb, err)
+		assert.Empty(tb, rows, "no penalty row must be created with non-numeric amount")
+	}
+	s.Test(t)
+}
+
+func TestPenaltyApplyTrace(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST penalty creates row with exact pair/amount/reason/applied_by",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, pairID, adminID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		adminID = admin.Id
+		p1 := makePairTB(tb, app, "Trace A")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1})
+		compID = comp.Id
+		pairID = p1.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/penalty"
+		s.Body = strings.NewReader("pair_id=" + p1.Id + "&action=apply&amount=7&reason=Falta+grave")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		rows, err := app.FindRecordsByFilter("penalties",
+			"competition = {:c} && pair = {:p}", "", 0, 0,
+			map[string]any{"c": compID, "p": pairID})
+		require.NoError(tb, err)
+		require.Len(tb, rows, 1)
+		r := rows[0]
+		assert.Equal(tb, 7.0, r.GetFloat("amount"))
+		assert.Equal(tb, "Falta grave", r.GetString("reason"))
+		assert.Equal(tb, adminID, r.GetString("applied_by"))
+		assert.False(tb, r.GetBool("voided"))
+	}
+	s.Test(t)
+}
+
+func TestPenaltyVoidRetainsHistory(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST penalty remove voids but retains row with reason intact",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var penaltyID, compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "Void A")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1})
+		compID = comp.Id
+		col, err := app.FindCollectionByNameOrId("penalties")
+		require.NoError(tb, err)
+		pen := core.NewRecord(col)
+		pen.Set("competition", comp.Id)
+		pen.Set("pair", p1.Id)
+		pen.Set("amount", 4)
+		pen.Set("reason", "History test")
+		pen.Set("applied_by", admin.Id)
+		pen.Set("voided", false)
+		require.NoError(tb, app.Save(pen))
+		penaltyID = pen.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/penalty"
+		s.Body = strings.NewReader("action=remove&penalty_id=" + pen.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		pen, err := app.FindRecordById("penalties", penaltyID)
+		require.NoError(tb, err)
+		assert.True(tb, pen.GetBool("voided"), "row must be voided")
+		assert.Equal(tb, "History test", pen.GetString("reason"), "reason must be retained")
+		assert.Equal(tb, 4.0, pen.GetFloat("amount"), "amount must be retained")
+
+		totals, err := league.PenaltyTotals(app, compID)
+		require.NoError(tb, err)
+		assert.Zero(tb, totals[pen.GetString("pair")], "voided penalty must not count in totals")
 	}
 	s.Test(t)
 }
@@ -1236,9 +1413,9 @@ func TestPaymentStatusSurvivesDBRoundTrip(t *testing.T) {
 	s.Test(t)
 }
 
-// TestPenaltyMapSurvivesDBRoundTrip sets a penalty, re-reads from DB,
-// verifies getPenaltyMap returns the correct value.
-func TestPenaltyMapSurvivesDBRoundTrip(t *testing.T) {
+// TestPenaltyRowSurvivesDBRoundTrip applies a penalty via POST, re-reads from DB,
+// verifies the penalty row persists correctly.
+func TestPenaltyRowSurvivesDBRoundTrip(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
@@ -1256,19 +1433,19 @@ func TestPenaltyMapSurvivesDBRoundTrip(t *testing.T) {
 		compID = comp.Id
 		pairID = p1.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/penalty"
-		s.Body = strings.NewReader("pair_id=" + p1.Id + "&action=apply")
+		s.Body = strings.NewReader("pair_id=" + p1.Id + "&action=apply&amount=3&reason=Round+trip+test")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		comp, err := app.FindRecordById("competitions", compID)
+		rows, err := app.FindRecordsByFilter("penalties",
+			"competition = {:c} && pair = {:p} && voided = false", "", 0, 0,
+			map[string]any{"c": compID, "p": pairID})
 		require.NoError(tb, err)
-
-		var penalties map[string]float64
-		require.NoError(tb, comp.UnmarshalJSONField("penalty_points", &penalties))
-		assert.Equal(tb, float64(3), penalties[pairID],
-			"penalty must persist after DB round-trip")
+		require.Len(tb, rows, 1, "penalty must persist after DB round-trip")
+		assert.Equal(tb, 3.0, rows[0].GetFloat("amount"))
+		assert.Equal(tb, "Round trip test", rows[0].GetString("reason"))
 	}
 	s.Test(t)
 }
@@ -1338,7 +1515,8 @@ func TestAdminCompDetailWithPenalties(t *testing.T) {
 		p2 := makePairTB(tb, app, "Pen B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 
-		comp.Set("penalty_points", map[string]any{p1.Id: 1.0})
+		makePenaltyTB(tb, app, comp.Id, p1.Id, 1, "Prueba", "", false)
+		makePenaltyTB(tb, app, comp.Id, p1.Id, 2, "Anulada", "", true)
 		comp.Set("payment_status", map[string]any{p1.Id: true, p2.Id: false})
 		comp.Set("seeding", map[string]any{p1.Id: 1, p2.Id: 2})
 		comp.Set("quorum_timeout_hours", 48)

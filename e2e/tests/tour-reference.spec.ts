@@ -224,7 +224,7 @@ test.describe('reference navigation tour', () => {
     await page.locator(`a:has-text("${COMP_NAME}")`).first().click();
     await page.waitForLoadState('domcontentloaded');
     const penaltyModal = page.locator(`#penalty-modal-${pairIds[0]}`).locator('..');
-    await page.locator(`label[for="penalty-modal-${pairIds[0]}"]`).click();
+    await page.locator(`label[for="penalty-modal-${pairIds[0]}"]:has-text("Penalizar")`).click();
     await penaltyModal.locator('textarea[name="reason"]').fill('Ajuste de clasificación');
     await clickAndWaitForHxRedirect(page, penaltyModal.locator('button:has-text("Confirmar penalización")'));
 
