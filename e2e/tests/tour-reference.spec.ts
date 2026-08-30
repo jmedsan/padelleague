@@ -299,6 +299,34 @@ test.describe('reference navigation tour', () => {
     await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain(`/player/${playerIds[0]}`);
     await expect(page.locator('h1')).toContainText(PLAYERS[0].name);
+
+    // --- Step 13: Double-role (R-150) — admin+player "Ver como" switcher ---
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+
+    // Admin has both roles → "Ver como" switcher visible
+    const verComo = page.locator('summary:has-text("Ver como")');
+    await expect(verComo).toBeVisible();
+    // Default view is admin — Gestión dropdown visible
+    await expect(page.locator('summary:has-text("Gestión")')).toBeVisible();
+
+    // Switch to player view via desktop nav
+    const desktopNav = page.locator('.menu-horizontal');
+    await verComo.click();
+    await desktopNav.locator('a[href="/view/player"]').click();
+    await page.waitForLoadState('domcontentloaded');
+    // In player view: Gestión should be hidden, player home content visible
+    await expect(page.locator('summary:has-text("Gestión")')).not.toBeVisible();
+    await expect(page.locator('h1, h2').first()).toBeVisible();
+
+    // Switch back to admin view
+    const verComoPlayer = page.locator('.menu-horizontal summary:has-text("Ver como")');
+    await verComoPlayer.click();
+    await desktopNav.locator('a[href="/view/admin"]').click();
+    await page.waitForLoadState('domcontentloaded');
+    // Gestión visible again
+    await expect(page.locator('summary:has-text("Gestión")')).toBeVisible();
   });
 });
 
