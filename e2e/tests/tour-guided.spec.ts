@@ -263,6 +263,14 @@ test.describe('guided navigation tour', () => {
         await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
         await gotoMatchViaPendingAction(page);
         await confirmScore(page);
+
+        // R-169: after confirming, the share button must include the match URL
+        if (i === 0) {
+          const shareBtn = page.locator('button:has-text("Compartir")');
+          await expect(shareBtn).toBeVisible({ timeout: 3000 });
+          const onclick = await shareBtn.getAttribute('onclick') ?? '';
+          expect(onclick).toMatch(new RegExp(`match.*${f.id}`));
+        }
       }
 
       // Verify match reached final
