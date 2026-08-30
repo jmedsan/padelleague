@@ -865,7 +865,7 @@ func TestHome_AdminBootstrap_FalseWithOneCompetition(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Administración"},
+		ExpectedContent: []string{"/admin/competitions"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -906,7 +906,7 @@ func TestHome_NonAdminSeesNoAdminCards(t *testing.T) {
 		body := readBody(tb, res)
 		assert.NotContains(tb, body, "bootstrap-create", "non-admin must not see bootstrap card")
 		assert.NotContains(tb, body, "playoff-prompt", "non-admin must not see playoff prompt")
-		assert.NotContains(tb, body, "Administración", "non-admin must not see admin section")
+		assert.NotContains(tb, body, "/admin/competitions", "non-admin must not see admin nav")
 	}
 	s.Test(t)
 }

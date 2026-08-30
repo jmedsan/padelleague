@@ -54,16 +54,22 @@ type PendingAction struct {
 
 // Home renders the player's dashboard with competitions, next match, and actions.
 func (h *PublicHandler) Home(e *core.RequestEvent) error {
-	userID := e.Auth.Id
+	data := map[string]any{}
 
+	activeComps, _ := h.app.FindRecordsByFilter("competitions",
+		"active = true", "name", 0, 0, nil)
+
+	if render.AdminView(e) {
+		h.addAdminHomeData(data, activeComps)
+		return h.renderPage(e, "home.html", data)
+	}
+
+	userID := e.Auth.Id
 	pairs, _ := league.PairsForPlayer(h.app, userID)
 	playerPairIDs := make(map[string]struct{}, len(pairs))
 	for _, p := range pairs {
 		playerPairIDs[p.Id] = struct{}{}
 	}
-
-	activeComps, _ := h.app.FindRecordsByFilter("competitions",
-		"active = true", "name", 0, 0, nil)
 
 	var comps []CompetitionView
 	var nextMatch *NextMatch
@@ -92,19 +98,13 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 
 	urgentTasks, _ := league.PlayerTasks(h.app, userID, time.Now())
 
-	data := map[string]any{
-		"Competitions":   comps,
-		"NextMatch":      nextMatch,
-		"PendingActions": pendingActions,
-		"RecentResults":  recentResults,
-		"UrgentTasks":    urgentTasks,
-	}
+	data["Competitions"] = comps
+	data["NextMatch"] = nextMatch
+	data["PendingActions"] = pendingActions
+	data["RecentResults"] = recentResults
+	data["UrgentTasks"] = urgentTasks
 
-	if slices.Contains(e.Auth.GetStringSlice("roles"), "admin") {
-		h.addAdminHomeData(data, activeComps)
-	}
-
-	if slices.Contains(e.Auth.GetStringSlice("roles"), "player") && !render.AdminView(e) {
+	if slices.Contains(e.Auth.GetStringSlice("roles"), "player") {
 		if steps := h.onboardingSteps(e.Auth, activeComps); len(steps) > 0 {
 			data["OnboardSteps"] = steps
 		}
