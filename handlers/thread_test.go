@@ -929,3 +929,62 @@ func TestPostMessage_AdminNotifiesBothPairs(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestFinalMatchThreadAcceptsPost(t *testing.T) {
+	t.Parallel()
+
+	t.Run("participant can post in final match thread", func(t *testing.T) {
+		t.Parallel()
+		s := &tests.ApiScenario{
+			TestAppFactory: testAppFactory,
+			Name:           "participant posts in final match thread",
+			Method:         http.MethodPost,
+			ExpectedStatus: 204,
+		}
+		s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+			setupAllRoutes(tb, app, e)
+			p1 := makePairTB(tb, app, "FinalT A")
+			p2 := makePairTB(tb, app, "FinalT B")
+			comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+			m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+			m.Set("scores", "6-3 6-4")
+			m.Set("winner", p1.Id)
+			require.NoError(tb, app.Save(m))
+			s.URL = "/match/" + m.Id + "/thread/message"
+			player, err := app.FindRecordById("users", p1.GetString("player1"))
+			require.NoError(tb, err)
+			s.Body = strings.NewReader("content=Post+after+final")
+			hdrs := authHeaders(tb, player)
+			hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+			s.Headers = hdrs
+		}
+		s.Test(t)
+	})
+
+	t.Run("admin can post in final match thread", func(t *testing.T) {
+		t.Parallel()
+		s := &tests.ApiScenario{
+			TestAppFactory: testAppFactory,
+			Name:           "admin posts in final match thread",
+			Method:         http.MethodPost,
+			ExpectedStatus: 204,
+		}
+		s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+			setupAllRoutes(tb, app, e)
+			admin := makeAdminUserTB(tb, app)
+			p1 := makePairTB(tb, app, "FinalTA A")
+			p2 := makePairTB(tb, app, "FinalTA B")
+			comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+			m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+			m.Set("scores", "6-3 6-4")
+			m.Set("winner", p1.Id)
+			require.NoError(tb, app.Save(m))
+			s.URL = "/match/" + m.Id + "/thread/message"
+			s.Body = strings.NewReader("content=Admin+post+after+final")
+			hdrs := authHeaders(tb, admin)
+			hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+			s.Headers = hdrs
+		}
+		s.Test(t)
+	})
+}
