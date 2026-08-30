@@ -139,39 +139,7 @@
 <h2 class="text-xl font-bold mb-4">Mis competiciones</h2>
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
     {{range .Competitions}}
-    <div class="card bg-base-100 shadow-md hover:shadow-xl transition-all duration-200 hover:-translate-y-1 border-l-4 {{if eq (.Competition.GetString "type") "league"}}border-l-primary{{else}}border-l-secondary{{end}}">
-        <div class="card-body">
-            <a href="/competition/{{.Competition.Id}}" class="flex items-start justify-between hover:opacity-80 transition-opacity">
-                <div>
-                    <h2 class="card-title text-lg">
-                        {{.Competition.GetString "name"}}
-                    </h2>
-                    {{if .Competition.GetString "category"}}
-                    <span class="badge badge-outline badge-sm mt-1">{{.Competition.GetString "category"}}</span>
-                    {{end}}
-                </div>
-                {{if eq (.Competition.GetString "type") "league"}}
-                <span class="badge badge-primary">Liga</span>
-                {{else}}
-                <span class="badge badge-secondary">Playoff</span>
-                {{end}}
-            </a>
-            {{if gt .PendingMatches 0}}
-            <div class="mt-3">
-                <p class="text-sm opacity-70 mb-2">{{.PendingMatches}} partido{{if gt .PendingMatches 1}}s{{end}} pendiente{{if gt .PendingMatches 1}}s{{end}}</p>
-                {{if .PendingDetails}}
-                <div class="space-y-1">
-                    {{range .PendingDetails}}
-                    {{template "matchRow" .}}
-                    {{end}}
-                </div>
-                {{end}}
-            </div>
-            {{else}}
-            <p class="text-sm opacity-50 mt-3">Sin partidos pendientes</p>
-            {{end}}
-        </div>
-    </div>
+    {{template "competitionCard" .}}
     {{end}}
 </div>
 {{else}}

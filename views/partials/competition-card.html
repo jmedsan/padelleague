@@ -1,0 +1,89 @@
+{{define "competitionCard"}}
+{{if .Mode.Admin}}
+{{/* AdminSummary: outer anchor card with stats, links to admin detail */}}
+<a href="{{.URL}}" class="card bg-base-100 shadow-sm border-l-4 border-success hover:shadow-md transition-shadow">
+    <div class="card-body gap-3">
+        <div class="flex justify-between items-start">
+            <h3 class="card-title text-base">{{.Name}}</h3>
+            <div class="flex gap-1">
+                {{if gt .DisputeCount 0}}
+                <span class="badge badge-error badge-sm gap-1">{{.DisputeCount}} disputa{{if gt .DisputeCount 1}}s{{end}}</span>
+                {{end}}
+                {{if eq (.Competition.GetString "type") "league"}}
+                <span class="badge badge-primary badge-sm">Liga</span>
+                {{else}}
+                <span class="badge badge-secondary badge-sm">Playoff</span>
+                {{end}}
+            </div>
+        </div>
+        {{if .Competition.GetString "category"}}
+        <p class="text-sm text-base-content/60">{{.Competition.GetString "category"}}</p>
+        {{end}}
+        <div class="flex items-center gap-4 text-sm">
+            <span class="font-medium">{{.PairsCount}} parejas</span>
+            <span class="text-base-content/60">·</span>
+            <span>{{.PlayedMatches}}/{{.TotalMatches}} partidos</span>
+        </div>
+        {{if gt .TotalMatches 0}}
+        <progress class="progress progress-success w-full" value="{{.PlayedMatches}}" max="{{.TotalMatches}}"></progress>
+        {{end}}
+    </div>
+</a>
+{{else}}
+{{/* PlayerRow: card with name link + pending details */}}
+<div class="card bg-base-100 shadow-md hover:shadow-xl transition-all duration-200 hover:-translate-y-1 border-l-4 {{if eq (.Competition.GetString "type") "league"}}border-l-primary{{else}}border-l-secondary{{end}}">
+    <div class="card-body">
+        <a href="{{.URL}}" class="flex items-start justify-between hover:opacity-80 transition-opacity">
+            <div>
+                <h2 class="card-title text-lg">
+                    {{.Name}}
+                </h2>
+                {{if .Competition.GetString "category"}}
+                <span class="badge badge-outline badge-sm mt-1">{{.Competition.GetString "category"}}</span>
+                {{end}}
+            </div>
+            {{if eq (.Competition.GetString "type") "league"}}
+            <span class="badge badge-primary">Liga</span>
+            {{else}}
+            <span class="badge badge-secondary">Playoff</span>
+            {{end}}
+        </a>
+        {{if gt .PendingCount 0}}
+        <div class="mt-3">
+            <p class="text-sm opacity-70 mb-2">{{.PendingCount}} partido{{if gt .PendingCount 1}}s{{end}} pendiente{{if gt .PendingCount 1}}s{{end}}</p>
+            {{if .PendingDetails}}
+            <div class="space-y-1">
+                {{range .PendingDetails}}
+                {{template "matchRow" .}}
+                {{end}}
+            </div>
+            {{end}}
+        </div>
+        {{else}}
+        <p class="text-sm opacity-50 mt-3">Sin partidos pendientes</p>
+        {{end}}
+    </div>
+</div>
+{{end}}
+{{end}}
+
+{{define "competitionCardInactive"}}
+<a href="{{.URL}}" class="card bg-base-100 shadow-sm border-l-4 border-base-300 opacity-75 hover:opacity-100 hover:shadow-md transition-all">
+    <div class="card-body py-4 gap-2">
+        <div class="flex justify-between items-start">
+            <h3 class="card-title text-sm">{{.Name}}</h3>
+            {{if eq (.Competition.GetString "type") "league"}}
+            <span class="badge badge-primary badge-outline badge-sm">Liga</span>
+            {{else}}
+            <span class="badge badge-secondary badge-outline badge-sm">Playoff</span>
+            {{end}}
+        </div>
+        {{if .Competition.GetString "category"}}
+        <p class="text-xs text-base-content/50">{{.Competition.GetString "category"}}</p>
+        {{end}}
+        <div class="text-xs text-base-content/60">
+            {{.PairsCount}} parejas · {{.PlayedMatches}}/{{.TotalMatches}} partidos
+        </div>
+    </div>
+</a>
+{{end}}

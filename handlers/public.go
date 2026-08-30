@@ -33,13 +33,6 @@ type OnboardStep struct {
 	Done  bool
 }
 
-// HomeCompetition groups a competition with its pending-match count for the dashboard.
-type HomeCompetition struct {
-	Competition    *core.Record
-	PendingMatches int
-	PendingDetails []MatchCard
-}
-
 // NextMatch holds the player's next upcoming match details for the dashboard.
 type NextMatch struct {
 	MatchID         string
@@ -72,7 +65,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	activeComps, _ := h.app.FindRecordsByFilter("competitions",
 		"active = true", "name", 0, 0, nil)
 
-	var comps []HomeCompetition
+	var comps []CompetitionView
 	var nextMatch *NextMatch
 	var pendingActions []PendingAction
 	var recentResults []MatchCard
@@ -192,7 +185,7 @@ func (h *PublicHandler) opponentName(m *core.Record, playerPairIDs map[string]st
 }
 
 type homeCompetitionParts struct {
-	Comp    HomeCompetition
+	Comp    CompetitionView
 	Next    *NextMatch
 	Pending []PendingAction
 	Recent  []MatchCard
@@ -238,11 +231,7 @@ func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[s
 	results := h.findRecentResults(c)
 
 	return homeCompetitionParts{
-		Comp: HomeCompetition{
-			Competition:    c,
-			PendingMatches: pending,
-			PendingDetails: pendingDetails,
-		},
+		Comp:    NewHomeCompetitionView(c, pending, pendingDetails),
 		Next:    nextMatch,
 		Pending: actions,
 		Recent:  results,
@@ -415,10 +404,14 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 			for i, d := range pending {
 				mandatoryIDs[i] = d.Id
 			}
+			docViews := make([]DocumentView, len(allDocs))
+			for i, d := range allDocs {
+				docViews[i] = NewDocumentView(d, PlayerRow)
+			}
 			return h.renderPage(e, "competition-docs-gate.html", map[string]any{
-				"Competition":  comp,
-				"Documents":    allDocs,
-				"MandatoryIDs": mandatoryIDs,
+				"Competition":   comp,
+				"DocumentViews": docViews,
+				"MandatoryIDs":  mandatoryIDs,
 			})
 		}
 	}
@@ -436,7 +429,11 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	data := h.buildCompetitionData(comp, rounds, pairNames, autoExpandRound)
 	docs := league.AttachedDocuments(h.app, comp)
 	if len(docs) > 0 {
-		data["Documents"] = docs
+		docViews := make([]DocumentView, len(docs))
+		for i, d := range docs {
+			docViews[i] = NewDocumentView(d, PlayerRow)
+		}
+		data["DocumentViews"] = docViews
 	}
 	return h.renderPage(e, "competition.html", data)
 }
