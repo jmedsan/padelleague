@@ -19,7 +19,7 @@ test.describe('match lifecycle', () => {
     }
     await page.getByRole('button', { name: 'Enviar resultado' }).click();
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText('6-3 6-4')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('6-3 6-4').first()).toBeVisible({ timeout: 5000 });
     await expect(page.getByText(/esperando confirmaci[oó]n/i).first()).toBeVisible({ timeout: 5000 });
   });
 
