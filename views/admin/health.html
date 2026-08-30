@@ -1,0 +1,28 @@
+{{define "content"}}
+<div class="mb-6">
+    <a href="/admin" class="btn btn-ghost btn-sm">← Panel</a>
+    <h1 class="text-2xl font-bold mt-2">Salud de la liga</h1>
+</div>
+
+<div class="grid gap-4">
+    {{range .Groups}}
+    <div class="card bg-base-100 shadow-sm">
+        <div class="card-body p-4">
+            <h2 class="card-title text-base">
+                {{.Title}}
+                <span class="badge {{if .Items}}badge-warning{{else}}badge-success{{end}} badge-sm">{{len .Items}}</span>
+            </h2>
+            {{if .Items}}
+            <div class="space-y-1 mt-2">
+                {{range .Items}}
+                <a href="{{.URL}}" class="block px-3 py-2 text-sm rounded-lg hover:bg-base-200 transition-colors">{{.Label}}</a>
+                {{end}}
+            </div>
+            {{else}}
+            <p class="text-sm text-base-content/50 mt-1">Sin pendientes</p>
+            {{end}}
+        </div>
+    </div>
+    {{end}}
+</div>
+{{end}}
