@@ -234,6 +234,38 @@ func TestProposalFromPairTwoNotifiesPairOne(t *testing.T) {
 	}
 }
 
+func TestProposalSendsEmail(t *testing.T) {
+	t.Parallel()
+	testApp, err := tests.NewTestApp(tmplDataDir)
+	require.NoError(t, err)
+	t.Cleanup(testApp.Cleanup)
+
+	testApp.Settings().SMTP.Enabled = true
+	testApp.Settings().SMTP.Host = "smtp.test.local"
+	testApp.Settings().SMTP.Port = 587
+	require.NoError(t, testApp.Save(testApp.Settings()))
+
+	p1 := makePairTB(t, testApp, "Email P1")
+	p2 := makePairTB(t, testApp, "Email P2")
+	comp := makeCompetitionTB(t, testApp, "league", []*core.Record{p1, p2})
+	match := makeMatchTB(t, testApp, comp.Id, p1.Id, p2.Id, "pending")
+
+	h := &ThreadHandler{app: testApp, notifier: notify.NewNotifier(testApp, "", "")}
+	h.notifyProposal(match, 1, proposalNotice{
+		AuthorID: p1.GetString("player1"), Date: "2026-09-20", Time: "19:00", VenueName: "Club Test",
+	})
+
+	assert.Greater(t, testApp.TestMailer.TotalSend(), 0, "scheduling proposal must send email")
+	found := false
+	for _, msg := range testApp.TestMailer.Messages() {
+		if msg.Subject == "Propuesta de fecha" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "email subject should be 'Propuesta de fecha'")
+}
+
 // PostMessage accepts only chat and score_discussion; anything else falls
 // back to chat. Without that clamp a caller could post a message typed as a
 // scheduling proposal, which would render accept/reject buttons on something
