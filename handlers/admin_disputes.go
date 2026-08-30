@@ -21,20 +21,6 @@ func NewDisputeHandler(app core.App, notifier *notify.Notifier, renderPage Rende
 	return &DisputeHandler{app: app, notifier: notifier, renderPage: renderPage}
 }
 
-// DisputeView holds a disputed match with resolved pair and player names.
-type DisputeView struct {
-	Match          *core.Record
-	Pair1Name      string
-	Pair2Name      string
-	SubmittedBy    string
-	SubmittedScore string
-	DisputedBy     string
-	DisputedScore  string
-	DisputeNotes   string
-	ReviewType     string
-	RequestedBy    string
-}
-
 // Disputes renders the admin disputes page listing all disputed matches.
 func (h *DisputeHandler) Disputes(e *core.RequestEvent) error {
 	matches, _ := h.app.FindRecordsByFilter("matches",
