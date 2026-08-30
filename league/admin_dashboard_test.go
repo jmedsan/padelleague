@@ -135,7 +135,15 @@ func TestOutstandingMatches_OrderingAndFields(t *testing.T) {
 	assert.Equal(t, "OutB", out[0].Pair2)
 	assert.Equal(t, StatusPending, out[0].Status)
 	assert.Equal(t, WarnOverdue, out[0].Warning)
-	assert.Equal(t, start.AddDate(0, 0, 20).Format("02/01"), out[0].ArrangeBy)
+	// Compare against the code's own computation from the DB-stored dates (via
+	// the same RoundArrangeDate on a reloaded record) — not a raw-local
+	// time.Now() formula, which diverges by a day when the local date is ahead
+	// of UTC (e.g. run just after local midnight).
+	savedComp, err := app.FindRecordById("competitions", comp.Id)
+	require.NoError(t, err)
+	wantDeadline, ok := RoundArrangeDate(savedComp, 1)
+	require.True(t, ok)
+	assert.Equal(t, wantDeadline.Format("02/01"), out[0].ArrangeBy)
 
 	// The playoff match (no deadline, WarnNone) and the future round-2 match
 	// (WarnNone) both sort after the overdue one; the playoff match has no
