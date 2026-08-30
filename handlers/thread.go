@@ -186,11 +186,6 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		unpaidWarning = h.checkUnpaid(match, pair1ID, pair2ID)
 	}
 
-	defaultVenue := ""
-	if canPropose {
-		defaultVenue = mostUsedVenue(h.app, match)
-	}
-
 	return h.renderPartial(e, "thread.html", map[string]any{
 		"MatchID":              matchID,
 		"Messages":             threadMessages,
@@ -202,7 +197,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		"IsPlayoff":            isPlayoff,
 		"Match":                match,
 		"UnpaidWarning":        unpaidWarning,
-		"ProposalDefaultVenue": defaultVenue,
+		"ProposalDefaultVenue": "",
 		"ProposalDefaultTime":  "20:00",
 	})
 }
@@ -698,20 +693,4 @@ func (h *ThreadHandler) PostAvailability(e *core.RequestEvent) error {
 	return redirectHX(e, "/match/"+matchID)
 }
 
-func mostUsedVenue(app core.App, match *core.Record) string {
-	p1 := match.GetString("pair1")
-	p2 := match.GetString("pair2")
-	rows, _ := app.FindRecordsByFilter("matches",
-		"(pair1 = {:a} || pair2 = {:a} || pair1 = {:b} || pair2 = {:b}) && club != ''",
-		"", 0, 0, map[string]any{"a": p1, "b": p2})
-	counts := map[string]int{}
-	best, bestN := "", 0
-	for _, r := range rows {
-		c := r.GetString("club")
-		counts[c]++
-		if counts[c] > bestN {
-			best, bestN = c, counts[c]
-		}
-	}
-	return best
-}
+
