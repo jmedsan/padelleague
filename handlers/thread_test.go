@@ -721,68 +721,6 @@ func TestThread_PlayoffHidesProposal(t *testing.T) {
 	s.Test(t)
 }
 
-// Cluster: Availability buttons (T9a)
-
-func TestThread_AvailabilityButtons(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "thread shows availability buttons for participants",
-		Method:          http.MethodGet,
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"Estoy libre", "No puedo"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "AvailA")
-		p2 := makePairTB(tb, app, "AvailB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-
-		s.URL = "/match/" + match.Id + "/thread"
-		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
-	}
-	s.Test(t)
-}
-
-func TestPostAvailability_CreatesMessage(t *testing.T) {
-	t.Parallel()
-	var matchID string
-	var userID string
-	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "POST availability creates system message",
-		Method:         http.MethodPost,
-		Body:           strings.NewReader("available=1"),
-		ExpectedStatus: 204,
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "AvPost1")
-		p2 := makePairTB(tb, app, "AvPost2")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		matchID = match.Id
-
-		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		userID = user.Id
-		s.URL = "/match/" + match.Id + "/thread/availability"
-		s.Headers = authHeaders(tb, user)
-		s.Headers["Content-Type"] = "application/x-www-form-urlencoded"
-	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		msgs, err := app.FindRecordsByFilter("match_messages",
-			"match = {:mid} && type = 'availability'",
-			"", 0, 0, map[string]any{"mid": matchID})
-		require.NoError(tb, err)
-		require.Len(tb, msgs, 1)
-		assert.Equal(tb, "Estoy libre", msgs[0].GetString("content"))
-		assert.Equal(tb, userID, msgs[0].GetString("author"))
-	}
-	s.Test(t)
-}
-
 func TestThread_PlayoffNoDateShowsPending(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
@@ -842,6 +780,106 @@ func TestAcceptProposalBlocksSecondAcceptance(t *testing.T) {
 	s.Test(t)
 }
 
+func TestAcceptProposal_SetsStatusScheduled(t *testing.T) {
+	t.Parallel()
+	var matchID string
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "accepting a proposal sets match status to scheduled",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "SchedA")
+		p2 := makePairTB(tb, app, "SchedB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
+
+		prop := makeProposal(tb, app, match.Id, p1.GetString("player1"))
+		respondent, _ := app.FindRecordById("users", p2.GetString("player1"))
+		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/respond", match.Id, prop.Id)
+		s.Body = strings.NewReader("action=accept")
+		hdrs := authHeaders(tb, respondent)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		match, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, league.StatusScheduled, match.GetString("status"))
+	}
+	s.Test(t)
+}
+
+func TestReschedule_SupersedesOldAccepted(t *testing.T) {
+	t.Parallel()
+	var matchID, oldPropID string
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "rescheduling a scheduled match supersedes the old accepted proposal",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Resched A")
+		p2 := makePairTB(tb, app, "Resched B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+		matchID = match.Id
+
+		oldProp := makeProposal(tb, app, match.Id, p1.GetString("player1"))
+		oldProp.Set("proposal_status", "accepted")
+		require.NoError(tb, app.Save(oldProp))
+		oldPropID = oldProp.Id
+
+		newProp := makeProposal(tb, app, match.Id, p2.GetString("player1"))
+		respondent, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/respond", match.Id, newProp.Id)
+		s.Body = strings.NewReader("action=accept")
+		hdrs := authHeaders(tb, respondent)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		old, err := app.FindRecordById("match_messages", oldPropID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "superseded", old.GetString("proposal_status"))
+
+		match, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, league.StatusScheduled, match.GetString("status"))
+	}
+	s.Test(t)
+}
+
+func TestScheduledMatch_AllowsNewProposal(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "scheduled match allows posting a new proposal",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "SchdPrA")
+		p2 := makePairTB(tb, app, "SchdPrB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.URL = fmt.Sprintf("/match/%s/thread/proposal", match.Id)
+		s.Body = strings.NewReader("date=2026-12-01&time=20:00&venue_id=")
+		hdrs := authHeaders(tb, user)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
 func TestPostMessage_AdminNonParticipant_Succeeds(t *testing.T) {
 	t.Parallel()
 	var matchID string
@@ -883,7 +921,7 @@ func TestThread_AdminNonParticipant_SeesComposeBox(t *testing.T) {
 		Method:             http.MethodGet,
 		ExpectedStatus:     200,
 		ExpectedContent:    []string{"Escribe un mensaje...", "Escribiendo como administrador"},
-		NotExpectedContent: []string{"Estoy libre", "No puedo", "Proponer fecha", "solo lectura"},
+		NotExpectedContent: []string{"Proponer fecha", "solo lectura"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -1026,7 +1064,6 @@ func TestFinalMatchThreadAcceptsPost(t *testing.T) {
 		s.Test(t)
 	})
 }
-
 
 func TestThread_VenueNotPreSelected(t *testing.T) {
 	t.Parallel()

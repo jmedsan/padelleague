@@ -142,7 +142,7 @@ func playerTeamOf(uid string, pair1Players, pair2Players []string) int {
 
 func proposalActions(msgType, matchStatus string, sameTeamOrOutsider bool, proposalStatus string) (canRespond, canChange bool) {
 	canAct := msgType == "scheduling_proposal" &&
-		matchStatus == league.StatusPending &&
+		league.IsPreScore(matchStatus) &&
 		!sameTeamOrOutsider
 	return canAct && proposalStatus == "pending",
 		canAct && (proposalStatus == "accepted" || proposalStatus == "rejected")
@@ -179,7 +179,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	if comp, err := h.app.FindRecordById("competitions", match.GetString("competition")); err == nil {
 		isPlayoff = league.IsPlayoff(comp)
 	}
-	canPropose := isParticipant && match.GetString("status") == league.StatusPending && !isPlayoff
+	canPropose := isParticipant && league.IsPreScore(match.GetString("status")) && !isPlayoff
 
 	var unpaidWarning string
 	if canPropose {
@@ -195,6 +195,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		"IsAdmin":              isAdmin,
 		"IsParticipant":        isParticipant,
 		"IsPlayoff":            isPlayoff,
+		"IsScheduled":          match.GetString("status") == league.StatusScheduled,
 		"Match":                match,
 		"UnpaidWarning":        unpaidWarning,
 		"ProposalDefaultVenue": "",
@@ -302,7 +303,7 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 		return err
 	}
 
-	if match.GetString("status") != league.StatusPending {
+	if !league.IsPreScore(match.GetString("status")) {
 		return alertError(e, "Solo se pueden proponer fechas para partidos pendientes")
 	}
 
@@ -391,7 +392,7 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 		return err
 	}
 
-	if match.GetString("status") != league.StatusPending {
+	if !league.IsPreScore(match.GetString("status")) {
 		return alertError(e, "Este partido ya no acepta propuestas")
 	}
 
@@ -447,10 +448,17 @@ func (h *ThreadHandler) dispatchProposalAction(e *core.RequestEvent, match, msg 
 func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
 	existing, _ := h.app.FindRecordsByFilter("match_messages",
 		"match = {:mid} && proposal_status = 'accepted'",
-		"", 1, 0,
+		"", 0, 0,
 		map[string]any{"mid": match.Id})
-	if len(existing) > 0 {
+	if len(existing) > 0 && match.GetString("status") != league.StatusScheduled {
 		return alertError(e, "Ya hay una propuesta aceptada para este partido")
+	}
+	for _, old := range existing {
+		old.Set("proposal_status", "superseded")
+		if err := h.app.Save(old); err != nil {
+			_ = h.notifier.NotifyAdmins("admin_message", "Error al reemplazar propuesta",
+				"No se pudo marcar la propuesta anterior como reemplazada", match.Id)
+		}
 	}
 
 	pd := ParseProposalData(msg.Get("proposal_data"))
@@ -461,6 +469,7 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 	match.Set("date", pd.Date)
 	match.Set("time", pd.Time)
 	match.Set("club", pd.VenueName)
+	match.Set("status", league.StatusScheduled)
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al actualizar el partido")
 	}
@@ -546,6 +555,7 @@ func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.
 	match.Set("date", "")
 	match.Set("time", "")
 	match.Set("club", "")
+	match.Set("status", league.StatusPending)
 	if err := h.app.Save(match); err != nil {
 		slog.Error("save match after rejection", "match", match.Id, "err", err)
 		return alertError(e, "Error al actualizar el partido")
@@ -579,6 +589,7 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 	match.Set("date", pd.Date)
 	match.Set("time", pd.Time)
 	match.Set("club", pd.VenueName)
+	match.Set("status", league.StatusScheduled)
 	if err := h.app.Save(match); err != nil {
 		slog.Error("save match after acceptance", "match", match.Id, "err", err)
 		return alertError(e, "Error al actualizar el partido")
@@ -647,50 +658,3 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 
 	return redirectHX(e, "/match/"+matchID)
 }
-
-// PostAvailability posts a quick availability message to the match thread.
-func (h *ThreadHandler) PostAvailability(e *core.RequestEvent) error {
-	matchID := e.Request.PathValue("id")
-	match, err := findMatchOr404(h.app, e, matchID)
-	if err != nil {
-		return err
-	}
-
-	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
-	if err != nil || myTeam == 0 {
-		return alertError(e, "No eres participante de este partido")
-	}
-
-	available := e.Request.FormValue("available")
-	content := "No puedo"
-	if available == "1" {
-		content = "Estoy libre"
-	}
-
-	col, err := h.app.FindCollectionByNameOrId("match_messages")
-	if err != nil {
-		return alertError(e, "Error interno")
-	}
-
-	record := core.NewRecord(col)
-	record.Set("match", matchID)
-	record.Set("author", e.Auth.Id)
-	record.Set("type", "availability")
-	record.Set("content", content)
-
-	if err := h.app.Save(record); err != nil {
-		return alertError(e, "Error al enviar disponibilidad")
-	}
-
-	rivalPairID := match.GetString("pair1")
-	if myTeam == 1 {
-		rivalPairID = match.GetString("pair2")
-	}
-	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	authorName := league.PlayerName(h.app, e.Auth.Id)
-	h.notifier.NotifyPlayers(rivalPlayers, league.NotifAvailability(matchID, authorName, content))
-
-	return redirectHX(e, "/match/"+matchID)
-}
-
-

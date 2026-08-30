@@ -107,7 +107,7 @@ func (h *CompetitionHandler) classifyMatchIssues(m *core.Record, ctx issueContex
 		return []AdminIssue{issue}
 	case league.StatusConfirmed:
 		return h.checkQuorumIssue(m, base, ctx.quorumHours, ctx.now)
-	case league.StatusPending:
+	case league.StatusPending, league.StatusScheduled:
 		return h.checkPendingIssues(m, base, ctx.now)
 	}
 	return nil

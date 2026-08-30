@@ -95,14 +95,6 @@ func NotifDecisionChangedToAccepted(matchID, responderName, date, timeStr string
 	}
 }
 
-// NotifAvailability notifies the rival of an availability message.
-func NotifAvailability(matchID, authorName, content string) Notification {
-	return Notification{
-		Type: "general", Title: "Disponibilidad",
-		Body: fmt.Sprintf("%s: %s", authorName, content), MatchID: matchID,
-	}
-}
-
 // NotifSchedulingReminder reminds players to arrange their match.
 func NotifSchedulingReminder(matchID, levelLabel string) Notification {
 	return Notification{
@@ -124,6 +116,14 @@ func NotifDisputeResolved(matchID string) Notification {
 	return Notification{
 		Type: "dispute", Title: "Disputa resuelta",
 		Body: "Un administrador ha resuelto la disputa de tu partido.", MatchID: matchID,
+	}
+}
+
+// NotifAdminMatchProgress alerts admins of match score activity (submit or confirm).
+func NotifAdminMatchProgress(matchID, summary string) Notification {
+	return Notification{
+		Type: "match_progress", Title: "Progreso de partido",
+		Body: summary, MatchID: matchID,
 	}
 }
 

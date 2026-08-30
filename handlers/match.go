@@ -32,6 +32,8 @@ func statusLabel(status string) string {
 	switch status {
 	case league.StatusPending:
 		return "Pendiente"
+	case league.StatusScheduled:
+		return "Programado"
 	case league.StatusConfirmed:
 		return "Enviado — esperando confirmación"
 	case league.StatusDisputed:
@@ -46,6 +48,8 @@ func statusClass(status string) string {
 	switch status {
 	case league.StatusPending:
 		return "badge-warning"
+	case league.StatusScheduled:
+		return "badge-info"
 	case league.StatusConfirmed:
 		return "badge-info"
 	case league.StatusDisputed:
@@ -58,7 +62,7 @@ func statusClass(status string) string {
 
 // canReportUnplayed mirrors the status precondition ReportUnplayed enforces.
 func canReportUnplayed(status string, team int) bool {
-	return team > 0 && (status == league.StatusPending || status == league.StatusConfirmed)
+	return team > 0 && (league.IsPreScore(status) || status == league.StatusConfirmed)
 }
 
 // MatchDetail renders the match page with score, status, and available actions.
@@ -122,7 +126,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 		return alertError(e, "No eres participante de este partido")
 	}
 
-	if match.GetString("status") != league.StatusPending {
+	if !league.IsPreScore(match.GetString("status")) {
 		return alertError(e, "Este partido ya tiene un resultado registrado")
 	}
 
@@ -164,6 +168,12 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	n := league.NotifResultSubmitted(match.Id)
 	h.notifier.NotifyPlayers(rivalPlayers, n)
 	h.notifier.EmailPlayers(rivalPlayers, n.Title, n.Body, "/match/"+match.Id)
+
+	participants := matchParticipantUserIDs(h.app, match)
+	an := league.NotifAdminMatchProgress(match.Id, "Resultado registrado: "+scores)
+	if err := h.notifier.NotifyAdmins(an.Type, an.Title, an.Body, match.Id, participants...); err != nil {
+		slog.Error("notify admins match progress failed", "match", match.Id, "err", err)
+	}
 
 	return redirectHX(e, "/match/"+match.Id)
 }
@@ -322,7 +332,7 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 	}
 
 	status := match.GetString("status")
-	if status != league.StatusPending && status != league.StatusConfirmed {
+	if !league.IsPreScore(status) && status != league.StatusConfirmed {
 		return alertError(e, "Este partido no puede reportarse como no jugado")
 	}
 
@@ -375,4 +385,3 @@ func buildShareText(app core.App, match *core.Record, baseURL, matchPath string)
 	line := NewMatchCard(app, match, PlayerFull, "").SummaryLine()
 	return url.QueryEscape(line + "\n" + fullURL), fullURL
 }
-

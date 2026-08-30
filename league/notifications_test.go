@@ -69,11 +69,6 @@ func TestNotificationConstructors(t *testing.T) {
 			want: Notification{Type: "scheduling", Title: "Decisión cambiada", Body: "María cambió su decisión: propuesta ahora aceptada para el 15/03 a las 18:00", MatchID: "m1"},
 		},
 		{
-			name: "Availability",
-			got:  NotifAvailability("m1", "Carlos", "Disponible lunes y miércoles"),
-			want: Notification{Type: "general", Title: "Disponibilidad", Body: "Carlos: Disponible lunes y miércoles", MatchID: "m1"},
-		},
-		{
 			name: "SchedulingReminder",
 			got:  NotifSchedulingReminder("m1", "pendiente"),
 			want: Notification{Type: "scheduling", Title: "Recordatorio: organiza tu partido", Body: "Tu partido está pendiente. Organízalo antes de que venza el plazo.", MatchID: "m1"},
@@ -107,6 +102,11 @@ func TestNotificationConstructors(t *testing.T) {
 			name: "AdminPlayoffAdvanceFailed",
 			got:  NotifAdminPlayoffAdvanceFailed("m1"),
 			want: Notification{Type: "admin_message", Title: "Error en avance de playoff", Body: "El partido finalizó pero el bracket no avanzó automáticamente. Revisa el panel de administración.", MatchID: "m1"},
+		},
+		{
+			name: "AdminMatchProgress",
+			got:  NotifAdminMatchProgress("m1", "Resultado registrado: 6-3 6-4"),
+			want: Notification{Type: "match_progress", Title: "Progreso de partido", Body: "Resultado registrado: 6-3 6-4", MatchID: "m1"},
 		},
 	}
 

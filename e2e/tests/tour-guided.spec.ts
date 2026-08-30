@@ -259,12 +259,19 @@ test.describe('guided navigation tour', () => {
         await loginAs(page, submitterEmail, PLAYER_PASSWORD);
         await gotoMatchViaCompCard(page, competitionId, f.id);
 
-        // R-171: venue select must not pre-select any option
         if (i === 0) {
+          // R-171: venue select must not pre-select any option
           const venueSelect = page.locator('select[name="venue_id"]');
           await expect(venueSelect).toBeVisible({ timeout: 3000 });
           const selectedOptions = venueSelect.locator('option[selected]');
           await expect(selectedOptions).toHaveCount(0);
+
+          // R-174: no availability buttons on thread page
+          await expect(page.locator('button:has-text("Estoy libre")')).toHaveCount(0);
+          await expect(page.locator('button:has-text("No puedo")')).toHaveCount(0);
+
+          // R-174: proposal accordion visible on pending match
+          await expect(page.locator('text=Proponer fecha')).toBeVisible({ timeout: 3000 });
         }
 
         await submitScore(page, f.orientedScore);
@@ -283,6 +290,14 @@ test.describe('guided navigation tour', () => {
           // R-164: no raw ISO date strings visible on the match detail page
           const bodyText = await page.locator('body').innerText();
           expect(bodyText).not.toMatch(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}Z/);
+
+          // R-174: no scheduling controls on a played match
+          await page.goto(`/match/${f.id}`);
+          await page.waitForLoadState('domcontentloaded');
+          await page.waitForSelector('#match-thread', { timeout: 5000 });
+          await expect(page.locator('button:has-text("Estoy libre")')).toHaveCount(0);
+          await expect(page.locator('button:has-text("No puedo")')).toHaveCount(0);
+          await expect(page.locator('text=Proponer fecha')).toHaveCount(0);
         }
       }
 
