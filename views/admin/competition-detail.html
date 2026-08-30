@@ -358,24 +358,9 @@
                     <span class="badge badge-ghost badge-sm ml-2">{{len .Matches}} partidos</span>
                 </div>
                 <div class="collapse-content">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+                    <div class="divide-y divide-base-200 pt-2">
                         {{range .Matches}}
-                        <a href="/match/{{.Match.Id}}" class="flex items-center justify-between bg-base-100 rounded-lg px-4 py-3 hover:bg-base-200 transition-colors cursor-pointer">
-                            <div class="flex-1 text-right text-sm font-medium truncate">{{if .Pair1Name}}{{.Pair1Name}}{{else if .Feeder1}}{{.Feeder1}}{{else}}Por definir{{end}}</div>
-                            <div class="px-3 text-xs text-base-content/40 flex-shrink-0">vs</div>
-                            <div class="flex-1 text-sm font-medium truncate">{{if .Pair2Name}}{{.Pair2Name}}{{else if .Feeder2}}{{.Feeder2}}{{else}}Por definir{{end}}</div>
-                            <div class="flex items-center gap-2 ml-3 flex-shrink-0">
-                                {{if .Match.GetString "scores"}}
-                                <span class="text-sm font-mono">{{.Match.GetString "scores"}}</span>
-                                {{end}}
-                                {{$status := .Match.GetString "status"}}
-                                {{if eq $status "pending"}}<span class="badge badge-warning badge-xs">Pendiente</span>
-                                {{else if eq $status "confirmed"}}<span class="badge badge-info badge-xs">Enviado</span>
-                                {{else if eq $status "disputed"}}<span class="badge badge-error badge-xs">Disputado</span>
-                                {{else if eq $status "final"}}<span class="badge badge-success badge-xs">Final</span>
-                                {{end}}
-                            </div>
-                        </a>
+                        {{template "matchRow" .}}
                         {{end}}
                     </div>
                 </div>

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"sort"
 	"strconv"
@@ -285,18 +284,9 @@ type roundDate struct {
 	Date   string // "YYYY-MM-DD" for the input value
 }
 
-type matchEntry struct {
-	Match     *core.Record
-	Pair1Name string
-	Pair2Name string
-	Feeder1   string
-	Feeder2   string
-	RoundNum  int
-}
-
 type roundGroup struct {
 	Number  int
-	Matches []matchEntry
+	Matches []MatchCard
 }
 
 func (h *CompetitionHandler) buildRoundDates(comp *core.Record) []roundDate {
@@ -316,15 +306,11 @@ func (h *CompetitionHandler) buildRoundDates(comp *core.Record) []roundDate {
 }
 
 func (h *CompetitionHandler) buildRoundGroups(matches []*core.Record, pairNames map[string]string) []roundGroup {
-	roundMap := map[int][]matchEntry{}
+	noPairs := map[string]struct{}{}
+	roundMap := map[int][]MatchCard{}
 	for _, m := range matches {
 		rn := int(m.GetFloat("round_number"))
-		roundMap[rn] = append(roundMap[rn], matchEntry{
-			Match:     m,
-			Pair1Name: pairNames[m.GetString("pair1")],
-			Pair2Name: pairNames[m.GetString("pair2")],
-			RoundNum:  rn,
-		})
+		roundMap[rn] = append(roundMap[rn], NewMatchRow(m, pairNames, noPairs))
 	}
 	var rounds []roundGroup
 	for rn, ms := range roundMap {
@@ -336,13 +322,7 @@ func (h *CompetitionHandler) buildRoundGroups(matches []*core.Record, pairNames 
 	for ri := 1; ri < len(rounds); ri++ {
 		prevRound := rounds[ri-1].Number
 		for mi := range rounds[ri].Matches {
-			me := &rounds[ri].Matches[mi]
-			if me.Pair1Name == "" {
-				me.Feeder1 = fmt.Sprintf("Ganador de J%d-%d", prevRound, mi*2+1)
-			}
-			if me.Pair2Name == "" {
-				me.Feeder2 = fmt.Sprintf("Ganador de J%d-%d", prevRound, mi*2+2)
-			}
+			rounds[ri].Matches[mi].PopulateFeeder(prevRound, mi)
 		}
 	}
 	return rounds
