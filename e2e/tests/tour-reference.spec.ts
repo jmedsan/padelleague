@@ -6,7 +6,7 @@ import {
 } from '../season-helpers';
 import {
   createPlayer, createCompetition, createPair, addPairToCompetition, markAllPairsPaid,
-  generateFixtures, submitScore, confirmScore,
+  generateFixtures, submitScore, confirmScore, disputeScore, resolveDispute,
   createDocument, attachDocumentToCompetition, acceptDocsGate,
   clickAndWaitForHxRedirect,
   assertFinalStandings, assertPlayoffChampion,
@@ -182,7 +182,7 @@ test.describe('reference navigation tour', () => {
     // --- Step 6: Play all 12 matches (submit + confirm) ---
     const fixtures = await mapFixturesToScores(page.request);
 
-    for (const f of fixtures) {
+    for (const [fixtureIndex, f] of fixtures.entries()) {
       const submitterEmail = playerEmailForPair(f.pair1Label, 0);
       const confirmerEmail = playerEmailForPair(f.pair2Label, 0);
 
@@ -194,7 +194,17 @@ test.describe('reference navigation tour', () => {
       // Confirmer logs in, navigates to match
       await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
       await gotoMatchViaCompetition(page, f.id);
-      await confirmScore(page);
+      if (fixtureIndex === 0) {
+        await disputeScore(page);
+        await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+        await gotoMatchViaCompetition(page, f.id);
+        const resolveForm = page.locator(`form[hx-post="/admin/disputes/${f.id}/resolve"]`);
+        await expect(resolveForm).toBeVisible();
+        await expect(resolveForm.locator('input[name="score"]')).toHaveValue(f.orientedScore);
+        await resolveDispute(page, f.id, f.orientedScore);
+      } else {
+        await confirmScore(page);
+      }
 
       // Verify final
       const matchData = await getMatchById(page.request, suToken, f.id);

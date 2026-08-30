@@ -370,6 +370,7 @@ func TestMatchDetailAdminShowsResolveForm(t *testing.T) {
 		m.Set("disputed_scores", "6-4 6-3")
 		require.NoError(tb, app.Save(m))
 		s.URL = "/match/" + m.Id
+		s.ExpectedContent = append(s.ExpectedContent, `hx-post="/admin/disputes/`+m.Id+`/resolve"`)
 		admin := makeAdminUserTB(tb, app)
 		s.Headers = authHeaders(tb, admin)
 	}

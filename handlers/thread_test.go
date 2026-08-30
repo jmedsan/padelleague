@@ -805,6 +805,29 @@ func TestPostMessage_AdminNonParticipant_Succeeds(t *testing.T) {
 	s.Test(t)
 }
 
+func TestThread_AdminNonParticipant_SeesComposeBox(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:     testAppFactory,
+		Name:               "admin non-participant sees compose box and admin note",
+		Method:             http.MethodGet,
+		ExpectedStatus:     200,
+		ExpectedContent:    []string{"Escribe un mensaje...", "Escribiendo como administrador"},
+		NotExpectedContent: []string{"Estoy libre", "No puedo", "Proponer fecha", "solo lectura"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "AdmThr A")
+		p2 := makePairTB(tb, app, "AdmThr B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + match.Id + "/thread"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
 func TestPostMessage_NonParticipantNonAdmin_Rejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

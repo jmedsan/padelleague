@@ -6,7 +6,7 @@
             <span class="badge {{.StatusClass}}">{{.StatusLabel}}</span>
         </div>
 
-        <p class="text-sm opacity-60">Jornada {{.RoundNum}}</p>
+        <p class="text-sm opacity-60">{{if .CompetitionName}}{{.CompetitionName}} · {{end}}Jornada {{.RoundNum}}</p>
 
         {{if .Match.GetString "date"}}
         <div class="flex flex-wrap gap-2">
@@ -44,6 +44,11 @@
             {{end}}
             {{if .DisputeNotes}}<span class="opacity-60">Motivo:</span><span>{{.DisputeNotes}}</span>{{end}}
         </div>
+        {{if eq .ReviewType "walkover"}}
+        <div class="alert alert-warning mt-3">
+            <span>Solicitud de walkover por {{.RequestedBy}}</span>
+        </div>
+        {{end}}
         {{else}}
         {{if or .SubmittedBy .ConfirmedBy .DisputedBy}}
         <div class="text-sm opacity-60 space-y-1">
@@ -73,9 +78,6 @@
 <div class="divider my-2"></div>
 {{if eq (.Match.GetString "status") "disputed"}}
     {{if eq .ReviewType "walkover"}}
-    <div class="alert alert-warning mb-3">
-        <span>Solicitud de walkover por {{.RequestedBy}}</span>
-    </div>
     <form hx-post="/admin/disputes/{{.Match.Id}}/walkover-approve" hx-target="closest .card" hx-swap="outerHTML">
         <div class="flex flex-wrap gap-3 items-end">
             <div class="form-control">
