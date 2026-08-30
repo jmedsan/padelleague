@@ -258,11 +258,13 @@ func TestBuildShareTextFinalMatch(t *testing.T) {
 		m.Set("scores", "6-3 6-4")
 		m.Set("winner", p1.Id)
 		require.NoError(t, app.Save(m))
-		text := buildShareText(app, m)
+		text, shareURL := buildShareText(app, m, "https://example.com", "/match/"+m.Id)
 		assert.NotEmpty(t, text)
 		assert.Contains(t, text, "Pair+Alpha")
 		assert.Contains(t, text, "Ganador")
 		assert.Contains(t, text, "Pair+Alpha%21")
+		assert.Contains(t, text, "https%3A%2F%2Fexample.com%2Fmatch%2F"+m.Id)
+		assert.Equal(t, "https://example.com/match/"+m.Id, shareURL)
 	})
 
 	t.Run("pair2 wins", func(t *testing.T) {
@@ -270,15 +272,17 @@ func TestBuildShareTextFinalMatch(t *testing.T) {
 		m.Set("scores", "3-6 4-6")
 		m.Set("winner", p2.Id)
 		require.NoError(t, app.Save(m))
-		text := buildShareText(app, m)
+		text, shareURL := buildShareText(app, m, "https://example.com", "/match/"+m.Id)
 		assert.Contains(t, text, "Pair+Beta%21")
 		assert.NotContains(t, text, "Pair+Alpha%21")
+		assert.Equal(t, "https://example.com/match/"+m.Id, shareURL)
 	})
 
 	t.Run("non-final returns empty", func(t *testing.T) {
 		m := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
-		text := buildShareText(app, m)
+		text, shareURL := buildShareText(app, m, "https://example.com", "/match/"+m.Id)
 		assert.Empty(t, text)
+		assert.Empty(t, shareURL)
 	})
 }
 

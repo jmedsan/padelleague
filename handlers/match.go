@@ -93,7 +93,8 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		}
 	}
 
-	shareText := buildShareText(h.app, match)
+	matchPath := "/match/" + match.Id
+	shareText, shareURL := buildShareText(h.app, match, requestBaseURL(e), matchPath)
 	venues, _ := h.app.FindRecordsByFilter("venues", "", "name", 0, 0, nil)
 	mc.Venues = venues
 
@@ -102,6 +103,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		"CompetitionName": compName,
 		"CompetitionID":   compID,
 		"ShareText":       shareText,
+		"ShareURL":        shareURL,
 	})
 }
 
@@ -365,9 +367,12 @@ func playerNameIfSet(app core.App, userID string) string {
 	return league.PlayerName(app, userID)
 }
 
-func buildShareText(app core.App, match *core.Record) string {
+func buildShareText(app core.App, match *core.Record, baseURL, matchPath string) (text, shareURL string) {
 	if match.GetString("status") != league.StatusFinal {
-		return ""
+		return "", ""
 	}
-	return url.QueryEscape(NewMatchCard(app, match, PlayerFull, "").SummaryLine())
+	fullURL := baseURL + matchPath
+	line := NewMatchCard(app, match, PlayerFull, "").SummaryLine()
+	return url.QueryEscape(line + "\n" + fullURL), fullURL
 }
+
