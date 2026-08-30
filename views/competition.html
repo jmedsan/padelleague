@@ -32,7 +32,7 @@
             <div class="card-body p-4 text-center">
                 <span class="text-2xl">&#127942;</span>
                 <h3 class="font-bold text-sm uppercase tracking-wide opacity-60">{{.Title}}</h3>
-                <p class="text-lg font-bold"><a href="{{entityURL "pair" .PairID}}" class="link link-hover">{{.PairName}}</a></p>
+                <p class="text-lg font-bold">{{template "pairLink" (elink .PairID .PairName)}}</p>
                 <p class="text-sm opacity-60">{{.Value}}</p>
             </div>
         </div>
@@ -127,7 +127,7 @@
                                     {{.Position}}
                                 </div>
                             </td>
-                            <td class="font-medium"><a href="{{entityURL "pair" .PairID}}" class="link link-hover">{{.PairName}}</a></td>
+                            <td class="font-medium">{{template "pairLink" (elink .PairID .PairName)}}</td>
                             <td class="text-center">{{.Played}}</td>
                             <td class="text-center text-success">{{.Wins}}</td>
                             <td class="text-center text-error">{{.Losses}}</td>

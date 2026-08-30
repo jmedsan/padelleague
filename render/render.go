@@ -28,6 +28,9 @@ func New(viewsFS fs.FS, vapidPublicKey string) *Renderer {
 			return slices.Contains(slice, item)
 		},
 		"entityURL": league.EntityURL,
+		"elink": func(id, name string) map[string]string {
+			return map[string]string{"ID": id, "Name": name}
+		},
 	})
 	return &Renderer{
 		registry:       reg,

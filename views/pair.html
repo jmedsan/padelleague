@@ -9,10 +9,10 @@
     <table class="table table-sm">
         <tbody>
             <tr>
-                <td><a href="{{entityURL "player" .Data.Player1.ID}}" class="link link-hover">{{.Data.Player1.Name}}</a></td>
+                <td>{{template "playerLink" (elink .Data.Player1.ID .Data.Player1.Name)}}</td>
             </tr>
             <tr>
-                <td><a href="{{entityURL "player" .Data.Player2.ID}}" class="link link-hover">{{.Data.Player2.Name}}</a></td>
+                <td>{{template "playerLink" (elink .Data.Player2.ID .Data.Player2.Name)}}</td>
             </tr>
         </tbody>
     </table>
@@ -63,8 +63,8 @@
             {{range .Data.Recent}}
             <tr class="hover cursor-pointer" onclick="window.location='{{entityURL "match" .MatchID}}'">
                 <td class="text-sm opacity-70">{{.Date}}</td>
-                <td>{{.PairName1}}</td>
-                <td>{{.PairName2}}</td>
+                <td>{{template "pairLink" (elink .Pair1ID .PairName1)}}</td>
+                <td>{{template "pairLink" (elink .Pair2ID .PairName2)}}</td>
                 <td>{{.Score}}</td>
                 <td>{{if .Won}}<span class="badge badge-success">V</span>{{else}}<span class="badge badge-error">D</span>{{end}}</td>
             </tr>

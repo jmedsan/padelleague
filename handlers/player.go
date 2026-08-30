@@ -58,6 +58,8 @@ type CompetitionStat struct {
 // RecentMatch holds a finalized match for the player's recent-results list.
 type RecentMatch struct {
 	MatchID   string
+	Pair1ID   string
+	Pair2ID   string
 	PairName1 string
 	PairName2 string
 	Score     string
@@ -112,6 +114,8 @@ type matchResult struct {
 	won     bool
 	isPair1 bool
 	date    string
+	p1id    string
+	p2id    string
 	p1      string
 	p2      string
 	score   string
@@ -210,6 +214,8 @@ func pairMatchResults(app core.App, pairID string) []matchResult {
 			won:     won,
 			isPair1: m.GetString("pair1") == pairID,
 			date:    m.GetString("date"),
+			p1id:    m.GetString("pair1"),
+			p2id:    m.GetString("pair2"),
 			p1:      pairNames[m.GetString("pair1")],
 			p2:      pairNames[m.GetString("pair2")],
 			score:   m.GetString("scores"),
@@ -227,6 +233,8 @@ func buildRecentMatches(allResults []matchResult, limit int) []RecentMatch {
 	for _, r := range allResults[:limit] {
 		recent = append(recent, RecentMatch{
 			MatchID:   r.matchID,
+			Pair1ID:   r.p1id,
+			Pair2ID:   r.p2id,
 			PairName1: r.p1,
 			PairName2: r.p2,
 			Score:     r.score,
@@ -362,6 +370,8 @@ func tallyH2H(p1, p2 string, matches []*core.Record, pairNames map[string]string
 		if len(recent) < 5 {
 			recent = append(recent, RecentMatch{
 				MatchID:   m.Id,
+				Pair1ID:   m.GetString("pair1"),
+				Pair2ID:   m.GetString("pair2"),
 				PairName1: pairNames[m.GetString("pair1")],
 				PairName2: pairNames[m.GetString("pair2")],
 				Score:     m.GetString("scores"),
