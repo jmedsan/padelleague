@@ -12,10 +12,10 @@
             <div class="text-right">
                 {{if .ArrangeBy}}<span class="badge bg-white/20 border-0">{{.Warning.Label}}</span>
                 {{else if eq .ScheduleStatus "confirmed"}}<span class="badge bg-white/20 border-0">Confirmado</span>
-                {{if .ProposedDate}}<p class="text-sm mt-1">{{.ProposedDate}}</p>{{end}}
+                {{if .ProposedDate}}<p class="text-sm mt-1">{{fmtDate .ProposedDate}}</p>{{end}}
                 {{if .ProposedVenue}}<p class="text-sm opacity-70">{{.ProposedVenue}}</p>{{end}}
                 {{else if eq .ScheduleStatus "proposed"}}<span class="badge bg-white/20 border-0">Propuesta enviada</span>
-                {{if .ProposedDate}}<p class="text-sm mt-1">{{.ProposedDate}}</p>{{end}}
+                {{if .ProposedDate}}<p class="text-sm mt-1">{{fmtDate .ProposedDate}}</p>{{end}}
                 {{end}}
                 {{if .Recovery}}<span class="badge badge-secondary" data-testid="recovery-badge">En recuperación</span>{{end}}
             </div>
@@ -58,11 +58,11 @@
             <div class="text-right">
                 {{if eq .NextMatch.ScheduleStatus "confirmed"}}
                 <span class="badge bg-white/20 border-0">Confirmado</span>
-                {{if .NextMatch.ProposedDate}}<p class="text-sm mt-1">{{.NextMatch.ProposedDate}}</p>{{end}}
+                {{if .NextMatch.ProposedDate}}<p class="text-sm mt-1">{{fmtDate .NextMatch.ProposedDate}}</p>{{end}}
                 {{if .NextMatch.ProposedVenue}}<p class="text-sm opacity-70">{{.NextMatch.ProposedVenue}}</p>{{end}}
                 {{else if eq .NextMatch.ScheduleStatus "proposed"}}
                 <span class="badge bg-white/20 border-0">Propuesta enviada</span>
-                {{if .NextMatch.ProposedDate}}<p class="text-sm mt-1">{{.NextMatch.ProposedDate}}</p>{{end}}
+                {{if .NextMatch.ProposedDate}}<p class="text-sm mt-1">{{fmtDate .NextMatch.ProposedDate}}</p>{{end}}
                 {{else}}
                 <span class="badge bg-white/20 border-0">Sin programar</span>
                 {{end}}

@@ -331,8 +331,8 @@ func TestGen2_PlayerProfile_DateOrdering(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		// Later match (Feb) should appear before earlier match (Jan) in the HTML.
-		febIdx := indexOf(body, "2026-02-01")
-		janIdx := indexOf(body, "2026-01-01")
+		febIdx := indexOf(body, "01/02/2026")
+		janIdx := indexOf(body, "01/01/2026")
 		require.NotEqual(tb, -1, febIdx, "Feb match should be in output")
 		require.NotEqual(tb, -1, janIdx, "Jan match should be in output")
 		assert.Less(tb, febIdx, janIdx, "Feb match should appear before Jan match (desc order)")

@@ -224,3 +224,23 @@ func TestWithAuth_DoesNotOverrideExisting(t *testing.T) {
 	assert.Equal(t, false, data["Verified"], "caller-provided value preserved")
 	assert.Equal(t, "custom-id", data["AuthID"], "caller-provided value preserved")
 }
+
+func TestFmtDate(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name, input, want string
+	}{
+		{"empty", "", ""},
+		{"PB datetime midnight", "2026-08-28 00:00:00.000Z", "28/08/2026"},
+		{"PB datetime with time", "2026-08-28 19:30:00.000Z", "28/08/2026 19:30"},
+		{"date only", "2026-08-28", "28/08/2026"},
+		{"RFC3339", "2026-08-28T19:30:00Z", "28/08/2026 19:30"},
+		{"date + time no seconds", "2026-10-15 19:30", "15/10/2026 19:30"},
+		{"unparseable", "not-a-date", "not-a-date"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, FmtDate(tt.input))
+		})
+	}
+}

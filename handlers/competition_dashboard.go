@@ -8,6 +8,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/types"
 
 	"padelleague/league"
+	"padelleague/render"
 )
 
 // AdminIssue represents a problem detected in competition state for the admin dashboard.
@@ -149,7 +150,7 @@ func (h *CompetitionHandler) checkPendingIssues(m *core.Record, base AdminIssue,
 			issue.Type = "overdue"
 			issue.TypeLabel = "Vencido"
 			issue.BadgeClass = "badge-ghost"
-			issue.Detail = "fecha: " + d
+			issue.Detail = "fecha: " + render.FmtDate(d)
 			issues = append(issues, issue)
 		}
 	}
