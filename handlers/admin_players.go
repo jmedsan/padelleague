@@ -9,6 +9,8 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/security"
+
+	"padelleague/notify"
 )
 
 // AdminPlayerHandler handles admin player management.
@@ -106,6 +108,9 @@ func (h *AdminPlayerHandler) PlayerPreCreate(e *core.RequestEvent) error {
 
 	resetURL := buildResetURL(e, resetToken)
 
+	notify.SendEmail(h.app, email, "Bienvenido a PadelLeague",
+		buildOnboardingEmail(email, resetURL))
+
 	return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-success">
 	<div class="w-full">
 		<p class="font-medium">Usuario creado: %s</p>
@@ -140,7 +145,7 @@ func (h *AdminPlayerHandler) createPlayerInvitation(email, createdBy string) err
 	return nil
 }
 
-func buildResetURL(e *core.RequestEvent, token string) string {
+func requestBaseURL(e *core.RequestEvent) string {
 	scheme := e.Request.Header.Get("X-Forwarded-Proto")
 	if scheme == "" {
 		scheme = "https"
@@ -148,5 +153,25 @@ func buildResetURL(e *core.RequestEvent, token string) string {
 			scheme = "http"
 		}
 	}
-	return fmt.Sprintf("%s://%s/reset-password?token=%s", scheme, e.Request.Host, token)
+	return fmt.Sprintf("%s://%s", scheme, e.Request.Host)
+}
+
+func buildResetURL(e *core.RequestEvent, token string) string {
+	return requestBaseURL(e) + "/reset-password?token=" + token
+}
+
+func buildOnboardingEmail(email, resetURL string) string {
+	return fmt.Sprintf(`<h2>Bienvenido a PadelLeague</h2>
+<p>Se ha creado una cuenta para <strong>%s</strong>.</p>
+<p>Establece tu contraseña para acceder:</p>
+<p><a href="%s">Establecer contraseña</a></p>
+<p>— PadelLeague</p>`, html.EscapeString(email), html.EscapeString(resetURL))
+}
+
+func buildInviteEmail(registerURL string) string {
+	return fmt.Sprintf(`<h2>PadelLeague</h2>
+<p>Has sido invitado a unirte a PadelLeague.</p>
+<p>Regístrate con el siguiente enlace:</p>
+<p><a href="%s">Registrarse</a></p>
+<p>— PadelLeague</p>`, html.EscapeString(registerURL))
 }

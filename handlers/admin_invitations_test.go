@@ -286,3 +286,55 @@ func TestAdminInvitationsRevoke(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestInvitationEmailSendsOnboardingEmail(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/invitations with email sends invite email",
+		Method:         http.MethodPost,
+		URL:            "/admin/invitations",
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		enableSMTP(tb, app)
+		s.Body = strings.NewReader("email=newplayer@test.com")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		require.Equal(tb, 1, app.TestMailer.TotalSend(), "expected one email sent")
+		msg := app.TestMailer.LastMessage()
+		assert.Equal(tb, "newplayer@test.com", msg.To[0].Address)
+		assert.Contains(tb, msg.Subject, "Invitación")
+		assert.Contains(tb, msg.HTML, "/register?token=")
+	}
+	s.Test(t)
+}
+
+func TestInvitationLinkNoEmailNoEmail(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/invitations without email sends no email",
+		Method:         http.MethodPost,
+		URL:            "/admin/invitations",
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		enableSMTP(tb, app)
+		s.Body = strings.NewReader("max_uses=5")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		assert.Equal(tb, 0, app.TestMailer.TotalSend(), "no email for link-only invitation")
+	}
+	s.Test(t)
+}

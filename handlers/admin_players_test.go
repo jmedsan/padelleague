@@ -181,3 +181,32 @@ func TestPreCreateInvitationExpiry48h(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestPreCreateSendsOnboardingEmail(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/players/pre-create sends onboarding email",
+		Method:          http.MethodPost,
+		URL:             "/admin/players/pre-create",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Usuario creado"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		enableSMTP(tb, app)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+		s.Body = strings.NewReader("email=onboard@test.local&display_name=OnboardUser")
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		require.Equal(tb, 1, app.TestMailer.TotalSend(), "expected one onboarding email")
+		msg := app.TestMailer.LastMessage()
+		assert.Equal(tb, "onboard@test.local", msg.To[0].Address)
+		assert.Contains(tb, msg.Subject, "Bienvenido")
+		assert.Contains(tb, msg.HTML, "reset-password?token=")
+	}
+	s.Test(t)
+}

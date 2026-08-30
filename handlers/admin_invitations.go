@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/notify"
 )
 
 // InvitationHandler handles admin invitation management and outstanding matches.
@@ -85,6 +87,12 @@ func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 
 	if err := h.app.Save(record); err != nil {
 		return alertError(e, "Error al crear la invitación")
+	}
+
+	if email != "" {
+		registerURL := requestBaseURL(e) + "/register?token=" + token
+		notify.SendEmail(h.app, email, "Invitación a PadelLeague",
+			buildInviteEmail(registerURL))
 	}
 
 	return redirectHX(e, "/admin/invitations")
