@@ -59,6 +59,16 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 		return alertError(e, "Error al confirmar el partido")
 	}
 
+	addTimelineEntry(h.app, timelineEntry{
+		MatchID: match.Id, ActorID: userID,
+		Kind: "result_event", Detail: pairPlayerLabel(h.app, userID, match) + " confirmó el resultado",
+	})
+
+	h.notifyConfirmToSubmitter(match, submitterTeam, id)
+	return redirectHX(e, "/match/"+id)
+}
+
+func (h *MatchHandler) notifyConfirmToSubmitter(match *core.Record, submitterTeam int, matchID string) {
 	submitterPairID := match.GetString("pair1")
 	if submitterTeam == 2 {
 		submitterPairID = match.GetString("pair2")
@@ -68,9 +78,7 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 		Type: "general", Title: "Resultado confirmado",
 		Body: "Tu rival ha confirmado el resultado del partido.", MatchID: match.Id,
 	})
-	h.notifier.EmailPlayers(submitterPlayers, "Resultado confirmado", "Tu rival ha confirmado el resultado del partido.", "/match/"+id)
-
-	return redirectHX(e, "/match/"+id)
+	h.notifier.EmailPlayers(submitterPlayers, "Resultado confirmado", "Tu rival ha confirmado el resultado del partido.", "/match/"+matchID)
 }
 
 // MatchDispute handles the opponent disputing a submitted score.
@@ -116,6 +124,12 @@ func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al disputar el partido")
 	}
+
+	label := pairPlayerLabel(h.app, userID, match)
+	addTimelineEntry(h.app, timelineEntry{
+		MatchID: match.Id, ActorID: userID,
+		Kind: "result_event", Detail: label + " disputó el resultado (propone " + disputedScores + ")",
+	})
 
 	if err := h.notifier.NotifyAdmins("dispute", "Partido disputado", disputeNotes, match.Id); err != nil {
 		slog.Error("notify admins failed", "err", err)
@@ -172,15 +186,9 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 		return alertError(e, msg)
 	}
 
-	submittedAt := match.GetString("submitted_at")
-	if submittedAt == "" {
-		return alertError(e, "No se encontró la fecha de envío")
+	if err := h.validateCorrectionWindow(e, match); err != nil {
+		return err
 	}
-	dt, err := types.ParseDateTime(submittedAt)
-	if err != nil || time.Since(dt.Time()) >= 24*time.Hour {
-		return alertError(e, "El plazo de 24 horas para corregir ha expirado")
-	}
-
 	scores := e.Request.FormValue("scores")
 	if scores == "" {
 		return alertError(e, "Debes indicar el marcador corregido")
@@ -203,6 +211,10 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 		return alertError(e, "Error al corregir el resultado")
 	}
 
+	addTimelineEntry(h.app, timelineEntry{
+		MatchID: match.Id, ActorID: userID,
+		Kind: "result_event", Detail: pairPlayerLabel(h.app, userID, match) + " corrigió el resultado: " + scores,
+	})
 	h.notifyCorrectionToRival(match, myTeam)
 	return redirectHX(e, "/match/"+id)
 }
@@ -217,6 +229,18 @@ func (h *MatchHandler) notifyCorrectionToRival(match *core.Record, myTeam int) {
 		Type: "quorum_request", Title: "Resultado corregido",
 		Body: "El rival ha corregido el resultado. Confirma o disputa.", MatchID: match.Id,
 	})
+}
+
+func (h *MatchHandler) validateCorrectionWindow(e *core.RequestEvent, match *core.Record) error {
+	submittedAt := match.GetString("submitted_at")
+	if submittedAt == "" {
+		return alertError(e, "No se encontró la fecha de envío")
+	}
+	dt, err := types.ParseDateTime(submittedAt)
+	if err != nil || time.Since(dt.Time()) >= 24*time.Hour {
+		return alertError(e, "El plazo de 24 horas para corregir ha expirado")
+	}
+	return nil
 }
 
 func (h *MatchHandler) validateCorrectionPermission(isAdmin bool, myTeam int, submittedByID string, match *core.Record) string {

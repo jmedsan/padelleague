@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func findTimelineEntries(app *tests.TestApp, matchID, kind string) []*core.Record {
+func findResultEvents(app *tests.TestApp, matchID string) []*core.Record {
 	recs, _ := app.FindRecordsByFilter("match_messages",
-		"match = {:id} && type = {:kind}", "", 0, 0,
-		map[string]any{"id": matchID, "kind": kind})
+		"match = {:id} && type = 'result_event'", "", 0, 0,
+		map[string]any{"id": matchID})
 	return recs
 }
 
@@ -45,7 +45,7 @@ func TestSubmitCreatesTimelineEntry(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		entries := findTimelineEntries(app, matchID, "result_event")
+		entries := findResultEvents(app, matchID)
 		require.Len(tb, entries, 1, "submit must write one result_event")
 		assert.Equal(tb, playerID, entries[0].GetString("author"))
 		assert.Contains(tb, entries[0].GetString("content"), "registró el resultado")
@@ -82,7 +82,7 @@ func TestConfirmCreatesTimelineEntry(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		entries := findTimelineEntries(app, matchID, "result_event")
+		entries := findResultEvents(app, matchID)
 		require.Len(tb, entries, 1, "confirm must write one result_event")
 		assert.Equal(tb, confirmerID, entries[0].GetString("author"))
 		assert.Contains(tb, entries[0].GetString("content"), "confirmó el resultado")
@@ -120,7 +120,7 @@ func TestDisputeCreatesTimelineEntry(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		entries := findTimelineEntries(app, matchID, "result_event")
+		entries := findResultEvents(app, matchID)
 		require.Len(tb, entries, 1, "dispute must write one result_event")
 		assert.Equal(tb, disputerID, entries[0].GetString("author"))
 		assert.Contains(tb, entries[0].GetString("content"), "disputó el resultado")
@@ -159,7 +159,7 @@ func TestCorrectCreatesTimelineEntry(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		entries := findTimelineEntries(app, matchID, "result_event")
+		entries := findResultEvents(app, matchID)
 		require.Len(tb, entries, 1, "correct must write one result_event")
 		assert.Equal(tb, correctorID, entries[0].GetString("author"))
 		assert.Contains(tb, entries[0].GetString("content"), "corrigió el resultado")
@@ -194,7 +194,7 @@ func TestReportUnplayedCreatesTimelineEntry(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		entries := findTimelineEntries(app, matchID, "result_event")
+		entries := findResultEvents(app, matchID)
 		require.Len(tb, entries, 1, "report-unplayed must write one result_event")
 		assert.Equal(tb, reporterID, entries[0].GetString("author"))
 		assert.Contains(tb, entries[0].GetString("content"), "reportó el partido como no jugado")
@@ -212,8 +212,8 @@ func TestDisputeResolveCreatesTimelineEntry(t *testing.T) {
 	}
 	var matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
 		p1 := makePairTB(tb, app, "TL Res A")
 		p2 := makePairTB(tb, app, "TL Res B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
@@ -231,7 +231,7 @@ func TestDisputeResolveCreatesTimelineEntry(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		entries := findTimelineEntries(app, matchID, "result_event")
+		entries := findResultEvents(app, matchID)
 		require.Len(tb, entries, 1, "dispute resolve must write one result_event")
 		assert.Contains(tb, entries[0].GetString("content"), "resolvió la disputa")
 	}
@@ -248,24 +248,26 @@ func TestWalkoverApproveCreatesTimelineEntry(t *testing.T) {
 	}
 	var matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
 		p1 := makePairTB(tb, app, "TL WO A")
 		p2 := makePairTB(tb, app, "TL WO B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("walkover_score", "6-0 6-0")
+		require.NoError(tb, app.Save(comp))
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
 		m.Set("review_type", "walkover")
 		m.Set("walkover_requested_by", p1.GetString("player1"))
 		require.NoError(tb, app.Save(m))
 		matchID = m.Id
-		s.URL = "/admin/disputes/" + m.Id + "/walkover"
+		s.URL = "/admin/disputes/" + m.Id + "/walkover-approve"
 		s.Body = strings.NewReader("winner=" + p2.Id)
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		entries := findTimelineEntries(app, matchID, "result_event")
+		entries := findResultEvents(app, matchID)
 		require.Len(tb, entries, 1, "walkover approve must write one result_event")
 		assert.Contains(tb, entries[0].GetString("content"), "aprobó walkover")
 	}

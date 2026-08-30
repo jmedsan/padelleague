@@ -147,6 +147,12 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 		return alertError(e, "Error al guardar el resultado")
 	}
 
+	label := pairPlayerLabel(h.app, userID, match)
+	addTimelineEntry(h.app, timelineEntry{
+		MatchID: match.Id, ActorID: userID,
+		Kind: "result_event", Detail: label + " registró el resultado: " + scores,
+	})
+
 	myTeam, _ := league.PlayerTeam(h.app, userID, match)
 	rivalPairID := match.GetString("pair2")
 	if myTeam == 2 {
@@ -329,6 +335,12 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al reportar")
 	}
+
+	label := pairPlayerLabel(h.app, userID, match)
+	addTimelineEntry(h.app, timelineEntry{
+		MatchID: match.Id, ActorID: userID,
+		Kind: "result_event", Detail: label + " reportó el partido como no jugado",
+	})
 
 	if err := h.notifier.NotifyAdmins("dispute", "Partido no jugado", "Un jugador ha reportado un partido como no jugado.", id); err != nil {
 		slog.Error("notify admins walkover report", "match", id, "err", err)
