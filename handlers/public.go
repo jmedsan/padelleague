@@ -33,18 +33,11 @@ type OnboardStep struct {
 	Done  bool
 }
 
-// PendingMatchDetail holds summary info for a pending match on the dashboard.
-type PendingMatchDetail struct {
-	MatchID     string
-	Opponent    string
-	RoundNumber int
-}
-
 // HomeCompetition groups a competition with its pending-match count for the dashboard.
 type HomeCompetition struct {
 	Competition    *core.Record
 	PendingMatches int
-	PendingDetails []PendingMatchDetail
+	PendingDetails []MatchCard
 }
 
 // NextMatch holds the player's next upcoming match details for the dashboard.
@@ -66,17 +59,6 @@ type PendingAction struct {
 	Description string
 }
 
-// RecentResult holds a finalized match result for the dashboard feed.
-type RecentResult struct {
-	MatchID         string
-	Pair1Name       string
-	Pair2Name       string
-	Score           string
-	WinnerName      string
-	CompetitionName string
-	UpdatedAt       string
-}
-
 // Home renders the player's dashboard with competitions, next match, and actions.
 func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	userID := e.Auth.Id
@@ -93,7 +75,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	var comps []HomeCompetition
 	var nextMatch *NextMatch
 	var pendingActions []PendingAction
-	var recentResults []RecentResult
+	var recentResults []MatchCard
 
 	for _, c := range activeComps {
 		if !h.playerInCompetition(c, playerPairIDs) {
@@ -109,7 +91,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	}
 
 	sort.Slice(recentResults, func(i, j int) bool {
-		return recentResults[i].UpdatedAt > recentResults[j].UpdatedAt
+		return recentResults[i].Match.GetString("created") > recentResults[j].Match.GetString("created")
 	})
 	if len(recentResults) > 5 {
 		recentResults = recentResults[:5]
@@ -213,12 +195,12 @@ type homeCompetitionParts struct {
 	Comp    HomeCompetition
 	Next    *NextMatch
 	Pending []PendingAction
-	Recent  []RecentResult
+	Recent  []MatchCard
 }
 
 func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[string]struct{}, needNext bool) homeCompetitionParts {
 	pending := 0
-	var pendingDetails []PendingMatchDetail
+	var pendingDetails []MatchCard
 	var nextMatch *NextMatch
 	var actions []PendingAction
 
@@ -226,6 +208,8 @@ func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[s
 		"competition = {:cid} && status = 'pending'",
 		"round_number", 0, 0,
 		map[string]any{"cid": c.Id})
+
+	pairNames := collectPairNames(h.app, pendingMatches)
 
 	for _, m := range pendingMatches {
 		p1 := m.GetString("pair1")
@@ -238,11 +222,7 @@ func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[s
 		pending++
 
 		if len(pendingDetails) < 5 {
-			pendingDetails = append(pendingDetails, PendingMatchDetail{
-				MatchID:     m.Id,
-				Opponent:    h.opponentName(m, playerPairIDs),
-				RoundNumber: int(m.GetFloat("round_number")),
-			})
+			pendingDetails = append(pendingDetails, NewMatchRow(m, pairNames, playerPairIDs))
 		}
 
 		if needNext && nextMatch == nil {
@@ -359,37 +339,17 @@ func (h *PublicHandler) findUnconfirmedScores(c *core.Record, playerPairIDs map[
 	return actions
 }
 
-func (h *PublicHandler) findRecentResults(c *core.Record) []RecentResult {
+func (h *PublicHandler) findRecentResults(c *core.Record) []MatchCard {
 	finals, _ := h.app.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'final'",
 		"-created", 5, 0, map[string]any{"cid": c.Id})
-	var results []RecentResult
+	pairNames := collectPairNames(h.app, finals)
+	empty := map[string]struct{}{}
+	var results []MatchCard
 	for _, m := range finals {
-		p1 := m.GetString("pair1")
-		p2 := m.GetString("pair2")
-		p1Name, p2Name := "?", "?"
-		if pair, err := h.app.FindRecordById("pairs", p1); err == nil {
-			p1Name = pair.GetString("name")
-		}
-		if pair, err := h.app.FindRecordById("pairs", p2); err == nil {
-			p2Name = pair.GetString("name")
-		}
-		winnerName := ""
-		switch m.GetString("winner") {
-		case p1:
-			winnerName = p1Name
-		case p2:
-			winnerName = p2Name
-		}
-		results = append(results, RecentResult{
-			MatchID:         m.Id,
-			Pair1Name:       p1Name,
-			Pair2Name:       p2Name,
-			Score:           m.GetString("scores"),
-			WinnerName:      winnerName,
-			CompetitionName: c.GetString("name"),
-			UpdatedAt:       m.GetString("created"),
-		})
+		mc := NewMatchRow(m, pairNames, empty)
+		mc.CompetitionName = c.GetString("name")
+		results = append(results, mc)
 	}
 	return results
 }
@@ -397,23 +357,13 @@ func (h *PublicHandler) findRecentResults(c *core.Record) []RecentResult {
 // RoundView groups matches by round number for the competition page.
 type RoundView struct {
 	RoundNumber int
-	Matches     []RoundMatchView
-}
-
-// RoundMatchView holds a match record with resolved pair names for display.
-type RoundMatchView struct {
-	Match     *core.Record
-	Pair1     string
-	Pair2     string
-	Feeder1   string
-	Feeder2   string
-	IsMyMatch bool
+	Matches     []MatchCard
 }
 
 // BracketRound holds one round of a single-elimination bracket for display.
 type BracketRound struct {
 	Name    string
-	Matches []RoundMatchView
+	Matches []MatchCard
 }
 
 func buildBracket(rounds []RoundView, maxRound int) []BracketRound {
@@ -425,15 +375,6 @@ func buildBracket(rounds []RoundView, maxRound int) []BracketRound {
 		})
 	}
 	return bracket
-}
-
-func populateFeeder(m *RoundMatchView, prevRound, matchIdx int) {
-	if m.Pair1 == "" {
-		m.Feeder1 = fmt.Sprintf("Ganador de J%d-%d", prevRound, matchIdx*2+1)
-	}
-	if m.Pair2 == "" {
-		m.Feeder2 = fmt.Sprintf("Ganador de J%d-%d", prevRound, matchIdx*2+2)
-	}
 }
 
 func bracketRoundName(round, maxRound int) string {
@@ -596,19 +537,10 @@ func buildCompPairs(standings []league.StandingRowFull, pairNames map[string]str
 }
 
 func buildRounds(matches []*core.Record, pairNames map[string]string, playerPairIDs map[string]struct{}) []RoundView {
-	roundMap := map[int][]RoundMatchView{}
+	roundMap := map[int][]MatchCard{}
 	for _, m := range matches {
 		rn := int(m.GetFloat("round_number"))
-		p1 := m.GetString("pair1")
-		p2 := m.GetString("pair2")
-		_, myP1 := playerPairIDs[p1]
-		_, myP2 := playerPairIDs[p2]
-		roundMap[rn] = append(roundMap[rn], RoundMatchView{
-			Match:     m,
-			Pair1:     pairNames[p1],
-			Pair2:     pairNames[p2],
-			IsMyMatch: myP1 || myP2,
-		})
+		roundMap[rn] = append(roundMap[rn], NewMatchRow(m, pairNames, playerPairIDs))
 	}
 	for rn, ms := range roundMap {
 		sort.SliceStable(ms, func(i, j int) bool {
@@ -628,7 +560,7 @@ func buildRounds(matches []*core.Record, pairNames map[string]string, playerPair
 	for ri := 1; ri < len(rounds); ri++ {
 		prevRound := rounds[ri-1].RoundNumber
 		for mi := range rounds[ri].Matches {
-			populateFeeder(&rounds[ri].Matches[mi], prevRound, mi)
+			rounds[ri].Matches[mi].PopulateFeeder(prevRound, mi)
 		}
 	}
 	return rounds

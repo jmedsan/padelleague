@@ -92,11 +92,25 @@ func NewMatchRow(match *core.Record, pairNames map[string]string, playerPairIDs 
 		Pair1Name:   pairNames[p1],
 		Pair2Name:   pairNames[p2],
 		RoundNum:    int(match.GetFloat("round_number")),
-		StatusLabel: statusLabel(status),
+		StatusLabel: statusLabelShort(status),
 		StatusClass: statusClass(status),
 		Score:       match.GetString("scores"),
 		IsMyMatch:   myP1 || myP2,
 	}
+}
+
+func statusLabelShort(status string) string {
+	switch status {
+	case league.StatusPending:
+		return "Pendiente"
+	case league.StatusConfirmed:
+		return "Enviado"
+	case league.StatusDisputed:
+		return "Disputa"
+	case league.StatusFinal:
+		return "Final"
+	}
+	return status
 }
 
 func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID string) {
