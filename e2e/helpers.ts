@@ -45,6 +45,7 @@ const _tokenCache = new Map<string, string>();
 const SCRATCH_SLOTS: Record<string, number> = {
   'submit-score': 0,
   'propose-schedule': 1,
+  'admin-notif': 2,
 };
 
 export function scratchMatchId(purpose: keyof typeof SCRATCH_SLOTS | string, projectName: string): string {
@@ -52,7 +53,7 @@ export function scratchMatchId(purpose: keyof typeof SCRATCH_SLOTS | string, pro
   const slot = SCRATCH_SLOTS[purpose];
   if (slot === undefined) throw new Error(`unknown scratch purpose: ${purpose}`);
   // seed appends scratch matches after the generated fixtures
-  const base = data.matchIds.length - 4;
+  const base = data.matchIds.length - Object.keys(SCRATCH_SLOTS).length * 2;
   const idx = base + slot * 2 + (projectName === 'mobile' ? 1 : 0);
   const id = data.matchIds[idx];
   if (!id) throw new Error(`no scratch match at ${idx}; seed provides ${data.matchIds.length}`);

@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
+import { loginAs, scratchMatchId, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD } from '../helpers';
+import { submitScore, confirmScore } from '../tour-helpers';
 
 test.describe('R-178: presentation quality guards', () => {
   test.beforeEach(({}, testInfo) => {
@@ -271,6 +272,36 @@ test.describe('R-178: presentation quality guards', () => {
         expect(match, `ISO date leak on admin detail: "${match?.[0]}"`).toBeNull();
       }
     }
+  });
+
+  test('R-173: admin match-progress notification — submit + confirm triggers bell entry', async ({ page }, testInfo) => {
+    const matchId = scratchMatchId('admin-notif', testInfo.project.name);
+
+    // Player1 submits a score
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.waitForLoadState('networkidle');
+    await submitScore(page, '6-3 6-4');
+
+    // Player2 confirms
+    await loginAs(page, PLAYER2_EMAIL, PLAYER2_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.waitForLoadState('networkidle');
+    await confirmScore(page);
+
+    // Admin clicks the notification bell and sees the match-progress entry
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.locator('a:has-text("Inicio")').first().click();
+    await page.waitForLoadState('networkidle');
+
+    // Click the bell dropdown to load notifications
+    const bell = page.locator('.dropdown button .indicator').first();
+    await bell.click();
+    await page.waitForTimeout(500);
+
+    // The dropdown should contain a match-progress notification
+    const dropdown = page.locator('.dropdown-content').first();
+    await expect(dropdown.locator('text=Progreso de partido')).toBeVisible({ timeout: 5000 });
   });
 
   test('R-175: mode-driven home — admin sees dashboard, not player content; player view shows the opposite', async ({ page }) => {

@@ -74,7 +74,8 @@ func (n *Notifier) NotifyPlayers(playerUserIDs []string, notif league.Notificati
 }
 
 // NotifyAdmins creates an in-app notification and sends a push for each admin user.
-func (n *Notifier) NotifyAdmins(notifType, title, body, relatedMatchID string) error {
+// excludeUserIDs are skipped (e.g. participants already notified as players).
+func (n *Notifier) NotifyAdmins(notifType, title, body, relatedMatchID string, excludeUserIDs ...string) error {
 	notifCol, err := n.app.FindCollectionByNameOrId("notifications")
 	if err != nil {
 		return err
@@ -83,7 +84,20 @@ func (n *Notifier) NotifyAdmins(notifType, title, body, relatedMatchID string) e
 	if err != nil {
 		return err
 	}
+	excludeSet := make(map[string]struct{}, len(excludeUserIDs))
+	for _, id := range excludeUserIDs {
+		excludeSet[id] = struct{}{}
+	}
 	for _, admin := range admins {
+		if _, excluded := excludeSet[admin.Id]; excluded {
+			continue
+		}
+		prefs := NotificationPrefs(admin)
+		if enabled, ok := prefs[notifType]; ok {
+			if b, ok := enabled.(bool); ok && !b {
+				continue
+			}
+		}
 		notif := core.NewRecord(notifCol)
 		notif.Set("user", admin.Id)
 		notif.Set("type", notifType)
@@ -172,6 +186,7 @@ func NotificationPrefs(user *core.Record) map[string]any {
 		"match_assigned": true,
 		"general":        true,
 		"scheduling":     true,
+		"match_progress": true,
 	}
 	prefs, ok := decodePrefs(user.Get("notification_prefs"))
 	if !ok {

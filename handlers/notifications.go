@@ -139,6 +139,7 @@ func (h *NotificationHandler) PrefsSave(e *core.RequestEvent) error {
 		"match_assigned": e.Request.FormValue("match_assigned") == "on",
 		"general":        e.Request.FormValue("general") == "on",
 		"scheduling":     e.Request.FormValue("scheduling") == "on",
+		"match_progress": e.Request.FormValue("match_progress") == "on",
 	}
 
 	e.Auth.Set("notification_prefs", prefs)

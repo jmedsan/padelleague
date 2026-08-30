@@ -65,6 +65,13 @@ func (h *MatchHandler) MatchConfirm(e *core.RequestEvent) error {
 	})
 
 	h.notifyConfirmToSubmitter(match, submitterTeam, id)
+
+	participants := matchParticipantUserIDs(h.app, match)
+	an := league.NotifAdminMatchProgress(match.Id, "Resultado confirmado: "+score)
+	if err := h.notifier.NotifyAdmins(an.Type, an.Title, an.Body, match.Id, participants...); err != nil {
+		slog.Error("notify admins match progress failed", "match", match.Id, "err", err)
+	}
+
 	return redirectHX(e, "/match/"+id)
 }
 
