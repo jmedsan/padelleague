@@ -1,7 +1,6 @@
 package league
 
 import (
-	"log/slog"
 	"sort"
 	"strings"
 
@@ -40,7 +39,10 @@ func (svc *Service) ComputeStandings(competitionID string) ([]StandingRowFull, e
 		map[string]any{"cid": competitionID})
 
 	pairStats := tallyMatchStats(pairIDs, matches)
-	penaltyMap := parsePenalties(comp)
+	penaltyMap, err := PenaltyTotals(svc.app, competitionID)
+	if err != nil {
+		return nil, err
+	}
 	rows := buildStandingRows(pairIDs, pairNames, pairStats, penaltyMap)
 	sortStandings(rows, matches)
 
@@ -101,14 +103,6 @@ func tallyMatch(stats map[string]*pairStats, m *core.Record) {
 	s2.setsLost += sc.Sets1
 	s2.gamesWon += sc.Games2
 	s2.gamesLost += sc.Games1
-}
-
-func parsePenalties(comp *core.Record) map[string]float64 {
-	penaltyMap := map[string]float64{}
-	if err := comp.UnmarshalJSONField("penalty_points", &penaltyMap); err != nil {
-		slog.Warn("unmarshal penalty_points", "err", err)
-	}
-	return penaltyMap
 }
 
 func buildStandingRows(pairIDs []string, pairNames map[string]string, stats map[string]*pairStats, penaltyMap map[string]float64) []StandingRowFull {

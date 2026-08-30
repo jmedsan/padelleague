@@ -164,24 +164,45 @@
                             </form>
                         </td>
                         <td>
-                            {{$penaltyMap := $.PenaltyMap}}
-                            {{$penalty := index $penaltyMap .PairID}}
-                            {{if $penalty}}
-                            <div class="flex items-center gap-2">
-                                <span class="badge badge-error badge-sm">-{{$penalty}}</span>
-                                <form hx-post="/admin/competitions/{{$.Competition.Id}}/penalty" class="inline">
-                                    <input type="hidden" name="pair_id" value="{{.PairID}}">
-                                    <input type="hidden" name="action" value="remove">
-                                    <button type="submit" class="btn btn-ghost btn-xs">Quitar</button>
-                                </form>
+                            {{$rows := index $.PenaltyRows .PairID}}
+                            <div class="space-y-1">
+                                {{range $rows}}
+                                <div class="flex flex-wrap items-center gap-1 text-xs">
+                                    <span class="badge badge-error badge-sm">-{{.Amount}}</span>
+                                    <span>{{.Reason}}</span>
+                                    <span class="text-base-content/50">{{.AdminName}}, {{.Date}}</span>
+                                    <form hx-post="/admin/competitions/{{$.Competition.Id}}/penalty" class="inline">
+                                        <input type="hidden" name="action" value="remove">
+                                        <input type="hidden" name="penalty_id" value="{{.ID}}">
+                                        <button type="submit" class="btn btn-ghost btn-xs">Quitar</button>
+                                    </form>
+                                </div>
+                                {{end}}
+                                <label for="penalty-modal-{{.PairID}}" class="btn btn-ghost btn-xs text-warning">Penalizar</label>
                             </div>
-                            {{else}}
-                            <form hx-post="/admin/competitions/{{$.Competition.Id}}/penalty" class="inline">
-                                <input type="hidden" name="pair_id" value="{{.PairID}}">
-                                <input type="hidden" name="action" value="apply">
-                                <button type="submit" class="btn btn-ghost btn-xs text-warning">Penalizar</button>
-                            </form>
-                            {{end}}
+                            <input type="checkbox" id="penalty-modal-{{.PairID}}" class="modal-toggle">
+                            <div class="modal" role="dialog">
+                                <div class="modal-box">
+                                    <h3 class="font-bold text-lg">Penalizar a {{.PairName}}</h3>
+                                    <form hx-post="/admin/competitions/{{$.Competition.Id}}/penalty" class="mt-4 space-y-3">
+                                        <input type="hidden" name="action" value="apply">
+                                        <input type="hidden" name="pair_id" value="{{.PairID}}">
+                                        <label class="form-control">
+                                            <span class="label-text">Puntos</span>
+                                            <input type="number" name="amount" class="input input-bordered" min="0.01" step="0.01" value="{{$.Competition.GetFloat "default_penalty"}}" required>
+                                        </label>
+                                        <label class="form-control">
+                                            <span class="label-text">Motivo</span>
+                                            <textarea name="reason" class="textarea textarea-bordered" required></textarea>
+                                        </label>
+                                        <div class="modal-action">
+                                            <label for="penalty-modal-{{.PairID}}" class="btn">Cancelar</label>
+                                            <button type="submit" class="btn btn-warning">Confirmar penalización</button>
+                                        </div>
+                                    </form>
+                                </div>
+                                <label class="modal-backdrop" for="penalty-modal-{{.PairID}}">Cerrar</label>
+                            </div>
                         </td>
                         <td class="text-right">
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja?" class="inline">

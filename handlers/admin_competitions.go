@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -36,7 +37,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 	pairIDs := comp.GetStringSlice("pairs")
 	seeding := h.getSeeding(comp)
 	paymentStatus := h.getPaymentStatus(comp)
-	penaltyMap := h.getPenaltyMap(comp)
+	penaltyRows := h.getPenaltyRows(id)
 
 	pairEntries := h.buildPairEntries(pairIDs, seeding, paymentStatus)
 	allPairs := h.availablePairs(pairIDs)
@@ -77,7 +78,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"Rounds":          rounds,
 		"Disputes":        disputes,
 		"Standings":       standings,
-		"PenaltyMap":      penaltyMap,
+		"PenaltyRows":     penaltyRows,
 		"IsLeague":        isLeague,
 		"HasFixtures":     len(matches) > 0,
 		"HasUnpaid":       anyUnpaid(pairEntries),
@@ -228,31 +229,36 @@ func (h *CompetitionHandler) FinalizeCompetition(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions/"+id)
 }
 
-// ApplyPenalty adds or removes a point penalty for a pair in a competition.
+// ApplyPenalty creates a new penalty row or voids an existing one.
 func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	comp, err := h.app.FindRecordById("competitions", id)
-	if err != nil {
-		return alertError(e, "Competición no encontrada")
+	action := e.Request.FormValue("action")
+
+	if action == "remove" {
+		penaltyID := e.Request.FormValue("penalty_id")
+		if err := league.VoidPenalty(h.app, penaltyID); err != nil {
+			return alertError(e, "Error al quitar la penalización")
+		}
+		return redirectHX(e, "/admin/competitions/"+id)
 	}
 
 	pairID := e.Request.FormValue("pair_id")
-	action := e.Request.FormValue("action")
-
-	if action == "apply" {
-		amount := comp.GetFloat("default_penalty")
-		if amount == 0 {
-			amount = 3
-		}
-		if err := league.SetPenalty(h.app, comp, pairID, amount); err != nil {
-			return alertError(e, "Error al guardar")
-		}
-	} else {
-		if err := league.RemovePenalty(h.app, comp, pairID); err != nil {
-			return alertError(e, "Error al guardar")
-		}
+	if pairID == "" {
+		return alertError(e, "Debes seleccionar una pareja")
+	}
+	reason := strings.TrimSpace(e.Request.FormValue("reason"))
+	amountStr := e.Request.FormValue("amount")
+	amount, err := strconv.ParseFloat(amountStr, 64)
+	if err != nil || amount <= 0 {
+		return alertError(e, "El importe debe ser mayor que cero")
+	}
+	if reason == "" {
+		return alertError(e, "El motivo es obligatorio")
 	}
 
+	if err := league.ApplyPenalty(h.app, league.PenaltyInput{CompetitionID: id, PairID: pairID, Reason: reason, AdminID: e.Auth.Id, Amount: amount}); err != nil {
+		return alertError(e, "Error al guardar la penalización")
+	}
 	return redirectHX(e, "/admin/competitions/"+id)
 }
 
@@ -342,8 +348,37 @@ func (h *CompetitionHandler) buildDisputeViews(matches []*core.Record, pairNames
 	return disputes
 }
 
-func (h *CompetitionHandler) getPenaltyMap(comp *core.Record) map[string]float64 {
-	return league.PenaltyMap(comp)
+// PenaltyRow is one penalty entry for the admin UI.
+type PenaltyRow struct {
+	ID        string
+	Amount    float64
+	Reason    string
+	AdminName string
+	Date      string
+}
+
+func (h *CompetitionHandler) getPenaltyRows(compID string) map[string][]PenaltyRow {
+	rows, err := h.app.FindRecordsByFilter("penalties",
+		"competition = {:c} && voided = false", "-created", 0, 0,
+		map[string]any{"c": compID})
+	if err != nil {
+		return map[string][]PenaltyRow{}
+	}
+	out := make(map[string][]PenaltyRow, len(rows))
+	for _, r := range rows {
+		adminName := "Sistema"
+		if aid := r.GetString("applied_by"); aid != "" {
+			adminName = league.PlayerName(h.app, aid)
+		}
+		out[r.GetString("pair")] = append(out[r.GetString("pair")], PenaltyRow{
+			ID:        r.Id,
+			Amount:    r.GetFloat("amount"),
+			Reason:    r.GetString("reason"),
+			AdminName: adminName,
+			Date:      r.GetDateTime("created").Time().Format("02/01/2006"),
+		})
+	}
+	return out
 }
 
 func (h *CompetitionHandler) getSeeding(comp *core.Record) map[string]int {

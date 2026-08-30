@@ -10,8 +10,6 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"padelleague/league"
 )
 
 // Dispute resolve auto-determines winner from score (pair2 wins)
@@ -267,11 +265,14 @@ func TestWalkoverApprove(t *testing.T) {
 		assert.Equal(tb, "6-0 6-0", m.GetString("scores"))
 		assert.Equal(tb, p1ID, m.GetString("winner"))
 
-		comp, err := app.FindRecordById("competitions", compID)
+		rows, err := app.FindRecordsByFilter("penalties",
+			"competition = {:c} && pair = {:p} && voided = false", "", 0, 0,
+			map[string]any{"c": compID, "p": p2ID})
 		require.NoError(tb, err)
-		penalties := make(map[string]float64)
-		require.NoError(tb, comp.UnmarshalJSONField("penalty_points", &penalties))
-		assert.Equal(tb, 5.0, penalties[p2ID], "losing pair must have penalty applied")
+		require.Len(tb, rows, 1, "losing pair must have penalty applied")
+		assert.Equal(tb, 5.0, rows[0].GetFloat("amount"))
+		assert.Equal(tb, "Walkover aprobado", rows[0].GetString("reason"))
+		assert.NotEmpty(tb, rows[0].GetString("applied_by"), "walkover penalty must record approving admin")
 	}
 	s.Test(t)
 }
@@ -311,12 +312,11 @@ func TestWalkoverApprove_ZeroPenalty_NoPenaltyApplied(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "final", m.GetString("status"))
 
-		comp, err := app.FindRecordById("competitions", compID)
+		rows, err := app.FindRecordsByFilter("penalties",
+			"competition = {:c} && pair = {:p}", "", 0, 0,
+			map[string]any{"c": compID, "p": p2ID})
 		require.NoError(tb, err)
-		penalties := make(map[string]float64)
-		require.NoError(tb, comp.UnmarshalJSONField("penalty_points", &penalties))
-		_, has := penalties[p2ID]
-		assert.False(tb, has, "no penalty entry must be recorded when default_penalty is 0")
+		assert.Empty(tb, rows, "no penalty entry must be recorded when default_penalty is 0")
 	}
 	s.Test(t)
 }
@@ -330,7 +330,7 @@ func TestWalkoverApprove_PenaltyFails_AlertsAdmin(t *testing.T) {
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"no se pudo aplicar la penalización"},
 	}
-	var matchID, compID string
+	var matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupCompRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
@@ -340,17 +340,13 @@ func TestWalkoverApprove_PenaltyFails_AlertsAdmin(t *testing.T) {
 		comp.Set("default_penalty", 5)
 		comp.Set("walkover_score", "6-0 6-0")
 		require.NoError(tb, app.Save(comp))
-		compID = comp.Id
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
 		match.Set("review_type", "walkover")
 		require.NoError(tb, app.Save(match))
 		matchID = match.Id
 
-		app.OnRecordUpdate("competitions").BindFunc(func(ev *core.RecordEvent) error {
-			if ev.Record.Id == compID {
-				return fmt.Errorf("simulated DB failure for penalty save")
-			}
-			return ev.Next()
+		app.OnRecordCreate("penalties").BindFunc(func(_ *core.RecordEvent) error {
+			return fmt.Errorf("simulated DB failure for penalty save")
 		})
 
 		s.URL = "/admin/disputes/" + match.Id + "/walkover-approve"
@@ -386,7 +382,7 @@ func TestWalkoverApprove_AlreadyFinal_RejectedNoDoublePenalty(t *testing.T) {
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("default_penalty", 5)
 		comp.Set("walkover_score", "6-0 6-0")
-		require.NoError(tb, league.AccumulatePenalty(app, comp, p2.Id, 5))
+		makePenaltyTB(tb, app, comp.Id, p2.Id, 5, "Walkover aprobado", admin.Id, false)
 		compID = comp.Id
 		// Simulates the state right after a first, successful approval.
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
@@ -402,11 +398,12 @@ func TestWalkoverApprove_AlreadyFinal_RejectedNoDoublePenalty(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		comp, err := app.FindRecordById("competitions", compID)
+		rows, err := app.FindRecordsByFilter("penalties",
+			"competition = {:c} && pair = {:p} && voided = false", "", 0, 0,
+			map[string]any{"c": compID, "p": p2ID})
 		require.NoError(tb, err)
-		penalties := make(map[string]float64)
-		require.NoError(tb, comp.UnmarshalJSONField("penalty_points", &penalties))
-		assert.Equal(tb, 5.0, penalties[p2ID], "penalty must stay at the original amount, not doubled")
+		require.Len(tb, rows, 1, "penalty must stay at the original amount, not doubled")
+		assert.Equal(tb, 5.0, rows[0].GetFloat("amount"))
 	}
 	s.Test(t)
 }
