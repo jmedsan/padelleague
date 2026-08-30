@@ -1179,3 +1179,93 @@ func TestBuildBracket_PassesThroughFeeders(t *testing.T) {
 	assert.Empty(t, semi.Feeder1, "round 1 should have no feeders")
 	assert.Empty(t, semi.Feeder2, "round 1 should have no feeders")
 }
+
+func TestHome_OnboardChecklist_ShownWhenMandatoryDocPending(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "onboarding checklist shown when mandatory doc unacked",
+		Method:          http.MethodGet,
+		URL:             "/",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Primeros pasos"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "OnbA")
+		p2 := makePairTB(tb, app, "OnbB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		docCol, err := app.FindCollectionByNameOrId("documents")
+		require.NoError(tb, err)
+		doc := core.NewRecord(docCol)
+		doc.Set("title", "Reglamento Test")
+		doc.Set("link", "https://example.com")
+		doc.Set("is_mandatory", true)
+		doc.Set("is_default", false)
+		require.NoError(tb, app.Save(doc))
+
+		comp.Set("documents", []string{doc.Id})
+		require.NoError(tb, app.Save(comp))
+
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "onboard-checklist", "checklist card present")
+		assert.Contains(tb, body, "Lee el reglamento", "reglamento step shown")
+		assert.Contains(tb, body, "Completa tu perfil", "profile step shown")
+		assert.Contains(tb, body, "step-success", "completed steps have success class")
+	}
+	s.Test(t)
+}
+
+func TestHome_OnboardChecklist_HiddenWhenAllDone(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "onboarding checklist hidden when all steps done",
+		Method:          http.MethodGet,
+		URL:             "/",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"PadelLeague"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "DoneA")
+		p2 := makePairTB(tb, app, "DoneB")
+		makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.NotContains(tb, body, "onboard-checklist", "checklist should be hidden")
+		assert.NotContains(tb, body, "Primeros pasos", "checklist heading should be hidden")
+	}
+	s.Test(t)
+}
+
+func TestHome_OnboardChecklist_HiddenForAdminView(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "onboarding checklist hidden in admin view",
+		Method:          http.MethodGet,
+		URL:             "/",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"PadelLeague"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.NotContains(tb, body, "onboard-checklist", "admin should not see checklist")
+	}
+	s.Test(t)
+}
