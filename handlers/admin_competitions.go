@@ -69,15 +69,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 
 	phase := league.PhaseOf(comp, time.Now())
 
-	attachedDocs, unattachedDocs := h.buildDetailDocs(comp)
-
-	attachMode := Mode{Admin: true, Full: false, Editable: true}
-	attachedViews := make([]DocumentView, len(attachedDocs))
-	for i, d := range attachedDocs {
-		dv := NewDocumentView(d, attachMode)
-		dv.CompetitionID = comp.Id
-		attachedViews[i] = dv
-	}
+	attachedViews, unattachedDocs := h.buildDetailDocs(comp)
 
 	return h.renderPage(e, "admin/competition-detail.html", map[string]any{
 		"Competition":      comp,
@@ -100,11 +92,15 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 	})
 }
 
-func (h *CompetitionHandler) buildDetailDocs(comp *core.Record) (attached, unattached []*core.Record) {
+func (h *CompetitionHandler) buildDetailDocs(comp *core.Record) ([]DocumentView, []*core.Record) {
 	attachedIDs := comp.GetStringSlice("documents")
+	attachMode := Mode{Admin: true, Full: false, Editable: true}
+	var views []DocumentView
 	for _, did := range attachedIDs {
 		if doc, err := h.app.FindRecordById("documents", did); err == nil {
-			attached = append(attached, doc)
+			dv := NewDocumentView(doc, attachMode)
+			dv.CompetitionID = comp.Id
+			views = append(views, dv)
 		}
 	}
 	attachedSet := make(map[string]struct{}, len(attachedIDs))
@@ -112,12 +108,13 @@ func (h *CompetitionHandler) buildDetailDocs(comp *core.Record) (attached, unatt
 		attachedSet[did] = struct{}{}
 	}
 	allDocs, _ := h.app.FindRecordsByFilter("documents", "", "title", 0, 0, nil)
+	var unattached []*core.Record
 	for _, d := range allDocs {
 		if _, ok := attachedSet[d.Id]; !ok {
 			unattached = append(unattached, d)
 		}
 	}
-	return attached, unattached
+	return views, unattached
 }
 
 func anyUnpaid(entries []pairEntry) bool {
