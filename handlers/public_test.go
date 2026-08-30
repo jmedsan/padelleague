@@ -1216,7 +1216,8 @@ func TestHome_OnboardChecklist_ShownWhenMandatoryDocPending(t *testing.T) {
 		assert.Contains(tb, body, "onboard-checklist", "checklist card present")
 		assert.Contains(tb, body, "Lee el reglamento", "reglamento step shown")
 		assert.Contains(tb, body, "Completa tu perfil", "profile step shown")
-		assert.Contains(tb, body, "step-success", "completed steps have success class")
+		assert.Contains(tb, body, "#documentos", "reglamento deep-links to documentos tab")
+		assert.NotContains(tb, body, "Cómo funciona", "dropped non-trackable step")
 	}
 	s.Test(t)
 }
