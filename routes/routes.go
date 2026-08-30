@@ -114,6 +114,7 @@ func registerAdminRoutes(se *core.ServeEvent, deps Deps) {
 	registerAdminVenueRoutes(g, deps)
 	registerAdminDocumentRoutes(g, deps)
 	registerAdminSettingsRoutes(g, deps)
+	registerAdminHealthRoutes(g, deps)
 }
 
 func registerAdminDocumentRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
@@ -189,6 +190,11 @@ func registerAdminSettingsRoutes(g *router.RouterGroup[*core.RequestEvent], deps
 	settings := handlers.NewAdminSettingsHandler(deps.App, deps.AppDevTools, deps.StaticFS, deps.Renderer.Page)
 	g.GET("/settings", settings.Settings)
 	g.POST("/settings/reset", settings.Reset)
+}
+
+func registerAdminHealthRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
+	h := handlers.NewAdminHealthHandler(deps.App, deps.Renderer.Page)
+	g.GET("/health", h.Health)
 }
 
 func registerMatchRoutes(se *core.ServeEvent, deps Deps) {

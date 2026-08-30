@@ -144,6 +144,7 @@ func quickNav(authID string, isAdmin bool) []navLink {
 	if isAdmin {
 		links = append(links,
 			navLink{"Disputas", "/admin/disputes"},
+			navLink{"Salud", "/admin/health"},
 			navLink{"Parejas", "/admin/pairs"},
 			navLink{"Jugadores", "/admin/players"},
 			navLink{"Sedes", "/admin/venues"},
