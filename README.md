@@ -14,9 +14,10 @@ A web app for organizing padel leagues. An admin creates competitions, assigns p
 - **Structured score entry** — set-by-set input with valid padel scores, venue selection
 - **Score confirmation with reminders** — one player submits a result, the opponent confirms or disputes; if it sits unconfirmed the app reminds the opponent before the quorum timeout resolves it
 - **Add to calendar** — one-tap "Añadir al calendario" (`.ics`) on a scheduled match
-- **Player profile** — win rate, per-competition stats
+- **Player profile** — win rate, per-competition stats with links to competitions and partners
+- **Pair page** — canonical page per pair showing players, competition positions, and match history
 - **Notifications** — bell icon with unread count, email, and web push
-- **Global search** — fuzzy, accent-folded search across players, competitions, matches, threads, documents, and venues; focusing the search box without typing shows a zero-query panel with pending obligations, active competitions, recent searches, and quick-nav links
+- **Global search** — fuzzy, accent-folded search across players, pairs, competitions, matches, threads, documents, and venues; focusing the search box without typing shows a zero-query panel with pending obligations, active competitions, recent searches, and quick-nav links
 
 ### For admins
 
