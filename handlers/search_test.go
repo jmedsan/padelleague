@@ -236,3 +236,91 @@ func TestSearch_NoResults(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestSearch_ZeroQueryNeverBlank(t *testing.T) {
+	t.Parallel()
+	ix := &search.Index{}
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "empty query for fresh user shows quick-nav (never blank)",
+		Method:          http.MethodGet,
+		URL:             "/search?q=",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Ir a", "Inicio", "Mi perfil"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSearchRoutes(tb, app, e, ix)
+		user := makeUserTB(tb, app, "Fresh User", "")
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestSearch_ZeroQueryPlayerTask(t *testing.T) {
+	t.Parallel()
+	ix := &search.Index{}
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "empty query for player with disputed match shows obligation link",
+		Method:          http.MethodGet,
+		URL:             "/search?q=",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Tu próxima acción", "/match/", "Disputa abierta"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSearchRoutes(tb, app, e, ix)
+		p1 := makePairTB(tb, app, "TaskA")
+		p2 := makePairTB(tb, app, "TaskB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestSearch_ZeroQueryAdminAlertAndSetup(t *testing.T) {
+	t.Parallel()
+	ix := &search.Index{}
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "empty query for admin shows alert + setup links",
+		Method:          http.MethodGet,
+		URL:             "/search?q=",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Tu próxima acción", "Disputas"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSearchRoutes(tb, app, e, ix)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "AlertA")
+		p2 := makePairTB(tb, app, "AlertB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestSearch_ZeroQueryObligationsAreLinks(t *testing.T) {
+	t.Parallel()
+	ix := &search.Index{}
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "obligation rows are <a> links, not plain <div>",
+		Method:          http.MethodGet,
+		URL:             "/search?q=",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{`<a href="/match/`},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSearchRoutes(tb, app, e, ix)
+		p1 := makePairTB(tb, app, "LinkA")
+		p2 := makePairTB(tb, app, "LinkB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}

@@ -61,9 +61,54 @@ test.describe('global search', () => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     const results = await openSearchAndType(page, testInfo, 'Mi perfil');
 
-    const link = results.locator('a[href="/profile"]');
+    const link = results.locator('a[href*="/player/"]').first();
     await expect(link).toBeVisible({ timeout: 10000 });
     await link.click();
-    await expect(page).toHaveURL('/profile', { timeout: 10000 });
+    await expect(page).toHaveURL(/\/player\//, { timeout: 10000 });
+  });
+
+  test('zero-query panel shows quick-nav with links', async ({ page }, testInfo) => {
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    const isMobile = testInfo.project.name === 'mobile';
+    const searchInput = isMobile
+      ? page.locator('.drawer-side input[name="q"]')
+      : page.locator('#global-search');
+    const results = isMobile
+      ? page.locator('#search-results-mobile #search-results')
+      : page.locator('#search-results-dropdown #search-results');
+
+    if (isMobile) {
+      await page.getByLabel('abrir menú').click();
+      await expect(searchInput).toBeVisible({ timeout: 5000 });
+    }
+
+    await searchInput.click();
+    await expect(results).toBeVisible({ timeout: 10000 });
+
+    await expect(results.getByText('Ir a')).toBeVisible();
+    await expect(results.locator('a', { hasText: 'Inicio' })).toBeVisible();
+    await expect(results.locator('a', { hasText: 'Mi perfil' })).toBeVisible();
+  });
+
+  test('zero-query admin panel shows admin nav links', async ({ page }, testInfo) => {
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    const isMobile = testInfo.project.name === 'mobile';
+    const searchInput = isMobile
+      ? page.locator('.drawer-side input[name="q"]')
+      : page.locator('#global-search');
+    const results = isMobile
+      ? page.locator('#search-results-mobile #search-results')
+      : page.locator('#search-results-dropdown #search-results');
+
+    if (isMobile) {
+      await page.getByLabel('abrir menú').click();
+      await expect(searchInput).toBeVisible({ timeout: 5000 });
+    }
+
+    await searchInput.click();
+    await expect(results).toBeVisible({ timeout: 10000 });
+
+    await expect(results.locator('a', { hasText: 'Disputas' })).toBeVisible();
+    await expect(results.locator('a', { hasText: 'Jugadores' })).toBeVisible();
   });
 });
