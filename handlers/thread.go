@@ -620,41 +620,9 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
 	msgID := e.Request.PathValue("msgId")
 
-	match, err := findMatchOr404(h.app, e, matchID)
+	match, msg, authorTeam, err := h.validateChangeDecision(e, matchID, msgID)
 	if err != nil {
 		return err
-	}
-
-	if err := checkCompModifiable(h.app, e, match); err != nil {
-		return err
-	}
-
-	if !league.IsPreScore(match.GetString("status")) {
-		return alertError(e, "Este partido ya no acepta cambios")
-	}
-
-	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
-	if err != nil || myTeam == 0 {
-		return alertError(e, "No eres participante de este partido")
-	}
-
-	msg, err := h.app.FindRecordById("match_messages", msgID)
-	if err != nil {
-		return alertError(e, "Propuesta no encontrada")
-	}
-
-	if msg.GetString("match") != matchID {
-		return alertError(e, "Propuesta no pertenece a este partido")
-	}
-
-	authorTeam, _ := league.PlayerTeam(h.app, msg.GetString("author"), match)
-	if authorTeam == myTeam {
-		return alertError(e, "No puedes cambiar la decisión de tu propia propuesta")
-	}
-
-	currentStatus := msg.GetString("proposal_status")
-	if currentStatus != "accepted" && currentStatus != "rejected" {
-		return alertError(e, "Solo se pueden cambiar decisiones de propuestas aceptadas o rechazadas")
 	}
 
 	proposerPairID := match.GetString("pair1")
@@ -662,7 +630,7 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 		proposerPairID = match.GetString("pair2")
 	}
 
-	if currentStatus == "accepted" {
+	if msg.GetString("proposal_status") == "accepted" {
 		if err := h.revokeAcceptance(e, match, msg, proposerPairID); err != nil {
 			return err
 		}
@@ -673,4 +641,37 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 	}
 
 	return redirectHX(e, "/match/"+matchID)
+}
+
+func (h *ThreadHandler) validateChangeDecision(e *core.RequestEvent, matchID, msgID string) (*core.Record, *core.Record, int, error) {
+	match, err := findMatchOr404(h.app, e, matchID)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	if err := checkCompModifiable(h.app, e, match); err != nil {
+		return nil, nil, 0, err
+	}
+	if !league.IsPreScore(match.GetString("status")) {
+		return nil, nil, 0, alertError(e, "Este partido ya no acepta cambios")
+	}
+	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
+	if err != nil || myTeam == 0 {
+		return nil, nil, 0, alertError(e, "No eres participante de este partido")
+	}
+	msg, err := h.app.FindRecordById("match_messages", msgID)
+	if err != nil {
+		return nil, nil, 0, alertError(e, "Propuesta no encontrada")
+	}
+	if msg.GetString("match") != matchID {
+		return nil, nil, 0, alertError(e, "Propuesta no pertenece a este partido")
+	}
+	authorTeam, _ := league.PlayerTeam(h.app, msg.GetString("author"), match)
+	if authorTeam == myTeam {
+		return nil, nil, 0, alertError(e, "No puedes cambiar la decisión de tu propia propuesta")
+	}
+	currentStatus := msg.GetString("proposal_status")
+	if currentStatus != "accepted" && currentStatus != "rejected" {
+		return nil, nil, 0, alertError(e, "Solo se pueden cambiar decisiones de propuestas aceptadas o rechazadas")
+	}
+	return match, msg, authorTeam, nil
 }
