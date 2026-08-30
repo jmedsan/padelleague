@@ -87,6 +87,9 @@ func registerPublicRoutes(se *core.ServeEvent, deps Deps) {
 	se.Router.GET("/player/{id}", player.Player).BindFunc(middleware.RequireAuth)
 	se.Router.GET("/h2h", player.H2H).BindFunc(middleware.RequireAuth)
 
+	pair := handlers.NewPairPageHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page, deps.Renderer.ErrorPage)
+	se.Router.GET("/pair/{id}", pair.PairPage).BindFunc(middleware.RequireAuth)
+
 	ical := handlers.NewICalHandler(deps.App)
 	se.Router.GET("/ical/match/{id}", ical.Match).BindFunc(middleware.RequireAuth)
 	se.Router.GET("/ical/competition/{id}", ical.Competition).BindFunc(middleware.RequireAuth)
