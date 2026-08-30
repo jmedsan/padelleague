@@ -103,4 +103,27 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.goto('/profile/notifications');
     await checkNoOverflow(page);
   });
+
+  test('R-165: competition card badges stay within card bounds', async ({ page }) => {
+    await page.setViewportSize(MOBILE);
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    // Navigate home via navbar link
+    await page.locator('a:has-text("Inicio")').first().click();
+    await page.waitForLoadState('networkidle');
+
+    const cards = page.locator('.card.overflow-hidden');
+    const count = await cards.count();
+    for (let i = 0; i < count; i++) {
+      const card = cards.nth(i);
+      const cardBox = await card.boundingBox();
+      if (!cardBox) continue;
+      const badges = card.locator('.badge');
+      const badgeCount = await badges.count();
+      for (let j = 0; j < badgeCount; j++) {
+        const badgeBox = await badges.nth(j).boundingBox();
+        if (!badgeBox) continue;
+        expect(badgeBox.x + badgeBox.width, `badge ${j} in card ${i} right edge`).toBeLessThanOrEqual(cardBox.x + cardBox.width + 1);
+      }
+    }
+  });
 });

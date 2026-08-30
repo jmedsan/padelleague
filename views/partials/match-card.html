@@ -313,8 +313,8 @@ function composeScore(form) {
 
 {{define "matchRow"}}
 <a href="/match/{{.Match.Id}}" class="block rounded-xl py-3 px-3 transition-all duration-150 hover:shadow-md {{if .IsMyMatch}}bg-primary/5 border-l-4 border-l-primary hover:bg-primary/10{{else}}bg-base-200/50 hover:bg-base-200{{end}}">
-    <div class="flex items-center justify-between gap-2">
-        <span class="font-medium flex-1 text-right text-sm sm:text-base break-words">{{if .Pair1Name}}{{.Pair1Name}}{{else if .Feeder1}}{{.Feeder1}}{{else}}Por definir{{end}}</span>
+    <div class="flex items-center justify-between gap-2 min-w-0">
+        <span class="font-medium flex-1 text-right text-sm sm:text-base truncate min-w-0">{{if .Pair1Name}}{{.Pair1Name}}{{else if .Feeder1}}{{.Feeder1}}{{else}}Por definir{{end}}</span>
         <div class="flex-none px-3">
             {{if .Score}}
             <span class="font-bold text-lg">{{.Score}}</span>
@@ -322,9 +322,9 @@ function composeScore(form) {
             <span class="text-sm opacity-40">vs</span>
             {{end}}
         </div>
-        <span class="font-medium flex-1 text-sm sm:text-base break-words">{{if .Pair2Name}}{{.Pair2Name}}{{else if .Feeder2}}{{.Feeder2}}{{else}}Por definir{{end}}</span>
+        <span class="font-medium flex-1 text-sm sm:text-base truncate min-w-0">{{if .Pair2Name}}{{.Pair2Name}}{{else if .Feeder2}}{{.Feeder2}}{{else}}Por definir{{end}}</span>
         <div class="flex-none ml-2">
-            <span class="badge {{.StatusClass}} badge-sm">{{.StatusLabel}}</span>
+            <span class="badge {{.StatusClass}} badge-sm whitespace-nowrap">{{.StatusLabel}}</span>
         </div>
     </div>
 </a>

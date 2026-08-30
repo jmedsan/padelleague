@@ -31,7 +31,7 @@
 </a>
 {{else}}
 {{/* PlayerRow: card with name link + pending details */}}
-<div class="card bg-base-100 shadow-md hover:shadow-xl transition-all duration-200 hover:-translate-y-1 border-l-4 {{if eq (.Competition.GetString "type") "league"}}border-l-primary{{else}}border-l-secondary{{end}}">
+<div class="card bg-base-100 shadow-md hover:shadow-xl transition-all duration-200 hover:-translate-y-1 border-l-4 overflow-hidden {{if eq (.Competition.GetString "type") "league"}}border-l-primary{{else}}border-l-secondary{{end}}">
     <div class="card-body">
         <a href="{{.URL}}" class="flex items-start justify-between hover:opacity-80 transition-opacity">
             <div>
