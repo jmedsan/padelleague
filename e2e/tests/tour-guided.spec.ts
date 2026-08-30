@@ -258,6 +258,15 @@ test.describe('guided navigation tour', () => {
         // Standard flow: submit via home → confirm via PendingActions
         await loginAs(page, submitterEmail, PLAYER_PASSWORD);
         await gotoMatchViaCompCard(page, competitionId, f.id);
+
+        // R-171: venue select must not pre-select any option
+        if (i === 0) {
+          const venueSelect = page.locator('select[name="venue_id"]');
+          await expect(venueSelect).toBeVisible({ timeout: 3000 });
+          const selectedOptions = venueSelect.locator('option[selected]');
+          await expect(selectedOptions).toHaveCount(0);
+        }
+
         await submitScore(page, f.orientedScore);
 
         await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
