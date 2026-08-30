@@ -39,6 +39,9 @@ func setupPublicRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	e.Router.GET("/player/{id}", player.Player).BindFunc(requireAuthTest)
 	e.Router.GET("/h2h", player.H2H).BindFunc(requireAuthTest)
 
+	pair := NewPairPageHandler(app, svc, r.Page, r.ErrorPage)
+	e.Router.GET("/pair/{id}", pair.PairPage).BindFunc(requireAuthTest)
+
 	ical := NewICalHandler(app)
 	e.Router.GET("/ical/match/{id}", ical.Match).BindFunc(requireAuthTest)
 	e.Router.GET("/ical/competition/{id}", ical.Competition).BindFunc(requireAuthTest)
