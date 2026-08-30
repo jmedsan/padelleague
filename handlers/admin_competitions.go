@@ -52,7 +52,12 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 	pairNameMap := league.PairNames(h.app, pairIDs)
 
 	rounds := h.buildRoundGroups(matches, pairNameMap)
-	disputes := h.buildDisputeViews(matches, pairNameMap)
+	var disputes []MatchCard
+	for _, m := range matches {
+		if m.GetString("status") == league.StatusDisputed {
+			disputes = append(disputes, NewMatchCard(h.app, m, AdminFull, ""))
+		}
+	}
 
 	var standings []league.StandingRowFull
 	if comp.GetString("type") == "league" {
@@ -341,24 +346,6 @@ func (h *CompetitionHandler) buildRoundGroups(matches []*core.Record, pairNames 
 		}
 	}
 	return rounds
-}
-
-func (h *CompetitionHandler) buildDisputeViews(matches []*core.Record, pairNames map[string]string) []DisputeView {
-	var disputes []DisputeView
-	for _, m := range matches {
-		if m.GetString("status") != league.StatusDisputed {
-			continue
-		}
-		disputes = append(disputes, DisputeView{
-			Match:        m,
-			Pair1Name:    pairNames[m.GetString("pair1")],
-			Pair2Name:    pairNames[m.GetString("pair2")],
-			SubmittedBy:  league.PlayerName(h.app, m.GetString("submitted_by")),
-			DisputedBy:   league.PlayerName(h.app, m.GetString("disputed_by")),
-			DisputeNotes: m.GetString("dispute_notes"),
-		})
-	}
-	return disputes
 }
 
 // PenaltyRow is one penalty entry for the admin UI.

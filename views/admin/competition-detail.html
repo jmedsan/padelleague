@@ -447,41 +447,7 @@
         </h2>
         <div class="space-y-3 mt-2">
             {{range .Disputes}}
-            <div class="alert shadow-sm">
-                <div class="w-full">
-                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
-                        <div>
-                            <p class="font-semibold"><a href="{{entityURL "pair" (.Match.GetString "pair1")}}" class="link link-hover">{{.Pair1Name}}</a> vs <a href="{{entityURL "pair" (.Match.GetString "pair2")}}" class="link link-hover">{{.Pair2Name}}</a></p>
-                            <p class="text-sm text-base-content/60 mt-1">
-                                Resultado enviado: <span class="font-mono">{{.Match.GetString "scores"}}</span>
-                            </p>
-                            <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm mt-1">
-                                <span>Enviado: <span class="font-medium">{{.SubmittedBy}}</span></span>
-                                <span>Disputado: <span class="font-medium">{{.DisputedBy}}</span></span>
-                            </div>
-                            {{if .DisputeNotes}}
-                            <p class="text-sm mt-2 italic bg-base-200 rounded px-3 py-1">"{{.DisputeNotes}}"</p>
-                            {{end}}
-                        </div>
-                    </div>
-                    <div class="divider my-2"></div>
-                    <form hx-post="/admin/disputes/{{.Match.Id}}/resolve" class="flex flex-wrap gap-2 items-end">
-                        <div class="form-control">
-                            <label class="label py-0"><span class="label-text text-xs">Marcador final</span></label>
-                            <input type="text" name="score" class="input input-bordered input-sm w-36" placeholder="6-4 6-3" required>
-                        </div>
-                        <div class="form-control">
-                            <label class="label py-0"><span class="label-text text-xs">Ganador</span></label>
-                            <select name="winner" class="select select-bordered select-sm">
-                                <option value="">Automático</option>
-                                <option value="{{.Match.GetString "pair1"}}">{{.Pair1Name}}</option>
-                                <option value="{{.Match.GetString "pair2"}}">{{.Pair2Name}}</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-error btn-sm">Resolver</button>
-                    </form>
-                </div>
-            </div>
+            {{template "matchCard" .}}
             {{end}}
         </div>
     </div>

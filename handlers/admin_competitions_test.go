@@ -352,7 +352,7 @@ func TestDetailPageHasFixtures(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Group 5: buildDisputeViews (line 345)
+// Group 5: dispute rendering via matchCard AdminFull
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestDetailPageShowsDisputes(t *testing.T) {
