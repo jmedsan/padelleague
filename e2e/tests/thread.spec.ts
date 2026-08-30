@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginAs, scratchMatchId, loadTestData, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
+import { loginAs, scratchMatchId, loadTestData, PLAYER1_EMAIL, PLAYER1_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 
 test.describe('match thread', () => {
   test('player can view match thread', async ({ page }) => {
@@ -36,5 +36,22 @@ test.describe('match thread', () => {
     await collapseTitle.locator('..').locator('input[type="checkbox"]').click();
     await expect(page.locator('input[type="date"]')).toBeVisible({ timeout: 3000 });
     await expect(page.locator('input[type="time"]')).toBeVisible({ timeout: 3000 });
+  });
+
+  test('admin non-participant can post in thread', async ({ page }) => {
+    const data = loadTestData();
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    const msg = `Admin msg ${Date.now()}`;
+    const resp = await page.request.post(`/match/${data.matchIds[0]}/thread/message`, {
+      form: { content: msg, type: 'chat' },
+    });
+    expect(resp.status()).toBeLessThan(400);
+    await page.goto(`/match/${data.matchIds[0]}`);
+    await page.waitForFunction(
+      (text) => document.body.innerText.includes(text),
+      msg,
+      { timeout: 15000 }
+    );
+    await expect(page.locator('[name="content"]')).toBeVisible({ timeout: 5000 });
   });
 });
