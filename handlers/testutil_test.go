@@ -283,7 +283,7 @@ func setupAllRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	e.Router.GET("/notifications/count", notif.Count).BindFunc(requireAuthTest)
 	e.Router.GET("/notifications/list", notif.List).BindFunc(requireAuthTest)
 
-	comp := NewCompetitionHandler(app, svc, r.Page)
+	comp := NewCompetitionHandler(app, svc, notifier, r.Page)
 	fixture := NewFixtureHandler(app, svc, r.Page)
 	g := e.Router.Group("/admin")
 	g.BindFunc(requireAuthTest)
@@ -301,6 +301,7 @@ func setupAllRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.POST("/competitions/{id}/payment", comp.TogglePayment)
 	g.POST("/competitions/{id}/payment-all", comp.TogglePaymentAll)
 	g.POST("/competitions/{id}/penalty", comp.ApplyPenalty)
+	g.POST("/competitions/{id}/broadcast", comp.AdminBroadcast)
 }
 
 func requireAuthTest(e *core.RequestEvent) error {
@@ -460,7 +461,7 @@ func setupFullAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) 
 	auth := NewAuthHandler(app, r.Page)
 	e.Router.GET("/login", auth.Login)
 
-	comp := NewCompetitionHandler(app, svc, r.Page)
+	comp := NewCompetitionHandler(app, svc, notifier, r.Page)
 	fixture := NewFixtureHandler(app, svc, r.Page)
 	dispute := NewDisputeHandler(app, notifier, r.Page)
 	inv := NewInvitationHandler(app, r.Page)
