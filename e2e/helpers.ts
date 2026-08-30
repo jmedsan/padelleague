@@ -8,6 +8,8 @@ export const PLAYER1_EMAIL = 'player@test.com';
 export const PLAYER1_PASSWORD = 'testpass123456';
 export const PLAYER2_EMAIL = 'player2@test.com';
 export const PLAYER2_PASSWORD = 'testpass123456';
+export const PLAYER3_EMAIL = 'player3@test.com';
+export const PLAYER3_PASSWORD = 'testpass123456';
 
 export interface TestData {
   adminToken: string;

@@ -223,7 +223,14 @@ test.describe('reference navigation tour', () => {
     await navTo(page, 'Panel');
     await page.locator(`a:has-text("${COMP_NAME}")`).first().click();
     await page.waitForLoadState('domcontentloaded');
-    const penaltyModal = page.locator(`#penalty-modal-${pairIds[0]}`).locator('..');
+    // Expand Parejas accordion (collapsed when started + all paid)
+    const parejasSection = page.locator('[data-testid="section-parejas"]');
+    const parejasCheckbox = parejasSection.locator('> input[type="checkbox"]');
+    if (!(await parejasCheckbox.isChecked())) {
+      await parejasCheckbox.check({ force: true });
+      await page.waitForTimeout(300);
+    }
+    const penaltyModal = page.locator(`#penalty-modal-${pairIds[0]} + .modal`);
     await page.locator(`label[for="penalty-modal-${pairIds[0]}"]:has-text("Penalizar")`).click();
     await penaltyModal.locator('textarea[name="reason"]').fill('Ajuste de clasificación');
     await clickAndWaitForHxRedirect(page, penaltyModal.locator('button:has-text("Confirmar penalización")'));

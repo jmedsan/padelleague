@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { loginAs, scratchMatchId, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD } from '../helpers';
+import { loginAs, scratchMatchId, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER3_EMAIL, PLAYER3_PASSWORD } from '../helpers';
 import { submitScore, confirmScore } from '../tour-helpers';
 
 test.describe('R-178: presentation quality guards', () => {
@@ -283,8 +283,8 @@ test.describe('R-178: presentation quality guards', () => {
     await page.waitForLoadState('networkidle');
     await submitScore(page, '6-3 6-4');
 
-    // Player2 confirms
-    await loginAs(page, PLAYER2_EMAIL, PLAYER2_PASSWORD);
+    // Player3 confirms (on pair3, opposite team — admin is not a participant)
+    await loginAs(page, PLAYER3_EMAIL, PLAYER3_PASSWORD);
     await page.goto(`/match/${matchId}`);
     await page.waitForLoadState('networkidle');
     await confirmScore(page);
@@ -294,14 +294,14 @@ test.describe('R-178: presentation quality guards', () => {
     await page.locator('a:has-text("Inicio")').first().click();
     await page.waitForLoadState('networkidle');
 
-    // Click the bell dropdown to load notifications
-    const bell = page.locator('.dropdown button .indicator').first();
+    // Click the desktop bell dropdown to load notifications
+    const bell = page.locator('button[aria-label="notificaciones"]:visible');
     await bell.click();
     await page.waitForTimeout(500);
 
     // The dropdown should contain a match-progress notification
-    const dropdown = page.locator('.dropdown-content').first();
-    await expect(dropdown.locator('text=Progreso de partido')).toBeVisible({ timeout: 5000 });
+    const dropdown = page.locator('#notif-dropdown');
+    await expect(dropdown.locator('text=Progreso de partido').first()).toBeVisible({ timeout: 5000 });
   });
 
   test('R-175: mode-driven home — admin sees dashboard, not player content; player view shows the opposite', async ({ page }) => {
