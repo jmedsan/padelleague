@@ -439,6 +439,14 @@ func TestBuildMatchViewFlags(t *testing.T) {
 			deny: []string{markerCanConfirm, markerCanCorrect},
 		},
 		{
+			// A scheduled match (date accepted, no score yet) is still pre-score:
+			// a participant must be able to submit. Pins IsPreScore's StatusScheduled
+			// clause through CanSubmit at the unit level (R-180 mutation).
+			name: "scheduled/submitter-team", status: "scheduled", viewer: "submitter",
+			want: []string{markerCanSubmit, markerCanWalkover},
+			deny: []string{markerCanConfirm, markerCanCorrect},
+		},
+		{
 			name: "pending/outsider", status: "pending", viewer: "outsider",
 			httpStatus: 403,
 			want:       []string{"No tienes acceso"},
