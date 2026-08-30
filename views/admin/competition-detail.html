@@ -60,7 +60,13 @@
             </div>
             <div class="form-control mb-3">
                 <label class="label"><span class="label-text">Categoría</span></label>
-                <input type="text" name="category" value="{{.Competition.GetString "category"}}" class="input input-bordered">
+                <select name="category" class="select select-bordered w-full">
+                    <option value="">Sin categoría</option>
+                    {{$current := .Competition.GetString "category"}}
+                    {{range .Categories}}
+                    <option value="{{.}}" {{if eq . $current}}selected{{end}}>{{.}}</option>
+                    {{end}}
+                </select>
             </div>
             <div class="form-control mb-3">
                 <label class="label"><span class="label-text">Tiempo de espera para confirmación (horas)</span></label>

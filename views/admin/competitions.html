@@ -109,7 +109,12 @@
             </div>
             <div class="form-control w-full mt-3">
                 <label class="label"><span class="label-text font-medium">Categoría</span></label>
-                <input type="text" name="category" class="input input-bordered w-full" placeholder="Ej: 1ª categoría">
+                <select name="category" class="select select-bordered w-full">
+                    <option value="">Sin categoría</option>
+                    {{range .Categories}}
+                    <option value="{{.}}">{{.}}</option>
+                    {{end}}
+                </select>
             </div>
             <div class="form-control w-full mt-3">
                 <label class="label"><span class="label-text font-medium">Tiempo de espera para confirmación (horas)</span></label>

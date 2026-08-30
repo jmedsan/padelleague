@@ -88,6 +88,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"Phase":            phase,
 		"AttachedDocViews": attachedViews,
 		"UnattachedDocs":   unattachedDocs,
+		"Categories":       league.Categories(),
 	})
 }
 
