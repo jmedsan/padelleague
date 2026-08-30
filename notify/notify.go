@@ -75,7 +75,7 @@ func (n *Notifier) NotifyPlayers(playerUserIDs []string, notif league.Notificati
 
 // NotifyAdmins creates an in-app notification and sends a push for each admin user.
 // excludeUserIDs are skipped (e.g. participants already notified as players).
-func (n *Notifier) NotifyAdmins(notifType, title, body, relatedMatchID string, excludeUserIDs ...string) error {
+func (n *Notifier) NotifyAdmins(notif league.Notification, excludeUserIDs ...string) error {
 	notifCol, err := n.app.FindCollectionByNameOrId("notifications")
 	if err != nil {
 		return err
@@ -84,34 +84,43 @@ func (n *Notifier) NotifyAdmins(notifType, title, body, relatedMatchID string, e
 	if err != nil {
 		return err
 	}
-	excludeSet := make(map[string]struct{}, len(excludeUserIDs))
-	for _, id := range excludeUserIDs {
+	recipients := filterRecipients(admins, notif.Type, excludeUserIDs)
+	for _, admin := range recipients {
+		rec := core.NewRecord(notifCol)
+		rec.Set("user", admin.Id)
+		rec.Set("type", notif.Type)
+		rec.Set("title", notif.Title)
+		rec.Set("body", notif.Body)
+		if notif.MatchID != "" {
+			rec.Set("related_match", notif.MatchID)
+		}
+		if err := n.save(rec); err != nil {
+			slog.Error("notify admin failed", "admin", admin.Id, "err", err)
+		}
+		go n.sendPush(admin.Id, notif.Title, notif.Body, notif.MatchID)
+	}
+	return nil
+}
+
+func filterRecipients(users []*core.Record, notifType string, excludeIDs []string) []*core.Record {
+	excludeSet := make(map[string]struct{}, len(excludeIDs))
+	for _, id := range excludeIDs {
 		excludeSet[id] = struct{}{}
 	}
-	for _, admin := range admins {
-		if _, excluded := excludeSet[admin.Id]; excluded {
+	var out []*core.Record
+	for _, u := range users {
+		if _, excluded := excludeSet[u.Id]; excluded {
 			continue
 		}
-		prefs := NotificationPrefs(admin)
+		prefs := NotificationPrefs(u)
 		if enabled, ok := prefs[notifType]; ok {
 			if b, ok := enabled.(bool); ok && !b {
 				continue
 			}
 		}
-		notif := core.NewRecord(notifCol)
-		notif.Set("user", admin.Id)
-		notif.Set("type", notifType)
-		notif.Set("title", title)
-		notif.Set("body", body)
-		if relatedMatchID != "" {
-			notif.Set("related_match", relatedMatchID)
-		}
-		if err := n.save(notif); err != nil {
-			slog.Error("notify admin failed", "admin", admin.Id, "err", err)
-		}
-		go n.sendPush(admin.Id, title, body, relatedMatchID)
+		out = append(out, u)
 	}
-	return nil
+	return out
 }
 
 func (n *Notifier) sendPush(userID, title, body, relatedMatchID string) {

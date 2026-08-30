@@ -52,44 +52,39 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 
 	rounds := h.buildRoundGroups(matches, pairNameMap)
 	disputes := h.buildDisputeCards(matches)
-
-	var standings []league.StandingRowFull
-	if comp.GetString("type") == "league" {
-		standings, _ = h.leagueSvc.ComputeStandings(id)
-	}
-
 	allUsers, _ := h.app.FindRecordsByFilter("users", "roles ~ 'player'", "display_name", 0, 0, nil)
-
-	var roundDates []roundDate
 	isLeague := comp.GetString("type") == "league"
-	if isLeague && len(matches) > 0 {
-		roundDates = h.buildRoundDates(comp)
+
+	data := map[string]any{
+		"Competition":     comp,
+		"Entries":         pairEntries,
+		"AllPairs":        allPairs,
+		"AllCompetitions": allComps,
+		"AllUsers":        allUsers,
+		"Rounds":          rounds,
+		"Disputes":        disputes,
+		"PenaltyRows":     penaltyRows,
+		"IsLeague":        isLeague,
+		"HasFixtures":     len(matches) > 0,
+		"HasUnpaid":       anyUnpaid(pairEntries),
+		"UnpaidCount":     countUnpaid(pairEntries),
+		"Phase":           league.PhaseOf(comp, time.Now()),
+		"Categories":      league.Categories(),
 	}
+	h.addDetailExtras(data, comp, matches)
+	return h.renderPage(e, "admin/competition-detail.html", data)
+}
 
-	phase := league.PhaseOf(comp, time.Now())
-
+func (h *CompetitionHandler) addDetailExtras(data map[string]any, comp *core.Record, matches []*core.Record) {
+	if comp.GetString("type") == "league" {
+		data["Standings"], _ = h.leagueSvc.ComputeStandings(comp.Id)
+		if len(matches) > 0 {
+			data["RoundDates"] = h.buildRoundDates(comp)
+		}
+	}
 	attachedViews, unattachedDocs := h.buildDetailDocs(comp)
-
-	return h.renderPage(e, "admin/competition-detail.html", map[string]any{
-		"Competition":      comp,
-		"Entries":          pairEntries,
-		"AllPairs":         allPairs,
-		"AllCompetitions":  allComps,
-		"AllUsers":         allUsers,
-		"Rounds":           rounds,
-		"Disputes":         disputes,
-		"Standings":        standings,
-		"PenaltyRows":      penaltyRows,
-		"IsLeague":         isLeague,
-		"HasFixtures":      len(matches) > 0,
-		"HasUnpaid":        anyUnpaid(pairEntries),
-		"UnpaidCount":      countUnpaid(pairEntries),
-		"RoundDates":       roundDates,
-		"Phase":            phase,
-		"AttachedDocViews": attachedViews,
-		"UnattachedDocs":   unattachedDocs,
-		"Categories":       league.Categories(),
-	})
+	data["AttachedDocViews"] = attachedViews
+	data["UnattachedDocs"] = unattachedDocs
 }
 
 func (h *CompetitionHandler) buildDetailDocs(comp *core.Record) ([]DocumentView, []*core.Record) {

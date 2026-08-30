@@ -182,7 +182,7 @@ func TestNotifyAdmins_CreatesNotification(t *testing.T) {
 	admin := makeUser(t, app, "admin")
 
 	match := makeMatch(t, app)
-	err := notifier.NotifyAdmins("dispute", "Dispute", "A dispute was filed", match.Id)
+	err := notifier.NotifyAdmins(league.Notification{Type: "dispute", Title: "Dispute", Body: "A dispute was filed", MatchID: match.Id})
 	require.NoError(t, err)
 
 	notifs, _ := app.FindRecordsByFilter("notifications",
@@ -369,7 +369,7 @@ func TestNotifyAdmins_NoMatchID(t *testing.T) {
 	notifier := NewNotifier(app, "", "")
 	admin := makeUser(t, app, "admin")
 
-	err := notifier.NotifyAdmins("general", "Admin Notice", "Something happened", "")
+	err := notifier.NotifyAdmins(league.Notification{Type: "general", Title: "Admin Notice", Body: "Something happened"})
 	require.NoError(t, err)
 
 	notifs, _ := app.FindRecordsByFilter("notifications",
@@ -402,7 +402,7 @@ func TestNotifyAdmins_SaveError_LogsError(t *testing.T) {
 	notifier.save = func(*core.Record) error { return errors.New("injected") }
 
 	admin := makeUser(t, app, "admin")
-	err := notifier.NotifyAdmins("general", "Notice", "Body", "")
+	err := notifier.NotifyAdmins(league.Notification{Type: "general", Title: "Notice", Body: "Body"})
 	require.NoError(t, err, "individual save failures must not propagate")
 
 	assert.True(t, cap.hasMessage("notify admin failed"),
@@ -421,7 +421,7 @@ func TestNotifyAdmins_ExcludesParticipants(t *testing.T) {
 	admin1 := makeUser(t, app, "admin")
 	admin2 := makeUser(t, app, "admin")
 
-	err := notifier.NotifyAdmins("match_progress", "Progreso", "Body", "", admin1.Id)
+	err := notifier.NotifyAdmins(league.Notification{Type: "match_progress", Title: "Progreso", Body: "Body"}, admin1.Id)
 	require.NoError(t, err)
 
 	notifs1, _ := app.FindRecordsByFilter("notifications",
@@ -442,7 +442,7 @@ func TestNotifyAdmins_HonorsPrefs(t *testing.T) {
 	admin.Set("notification_prefs", map[string]any{"match_progress": false})
 	require.NoError(t, app.Save(admin))
 
-	err := notifier.NotifyAdmins("match_progress", "Progreso", "Body", "")
+	err := notifier.NotifyAdmins(league.Notification{Type: "match_progress", Title: "Progreso", Body: "Body"})
 	require.NoError(t, err)
 
 	notifs, _ := app.FindRecordsByFilter("notifications",
