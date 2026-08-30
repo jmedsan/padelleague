@@ -154,7 +154,7 @@
                 <tbody>
                     {{range .Entries}}
                     <tr>
-                        <td class="font-medium">{{.PairName}}</td>
+                        <td class="font-medium"><a href="{{entityURL "pair" .PairID}}" class="link link-hover">{{.PairName}}</a></td>
                         {{if not $.IsLeague}}<td>{{if gt .Seed 0}}<span class="badge badge-outline badge-sm">{{.Seed}}</span>{{else}}<span class="text-base-content/40">—</span>{{end}}</td>{{end}}
                         <td>
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/payment" class="inline">
@@ -451,7 +451,7 @@
                 <div class="w-full">
                     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                         <div>
-                            <p class="font-semibold">{{.Pair1Name}} vs {{.Pair2Name}}</p>
+                            <p class="font-semibold"><a href="{{entityURL "pair" (.Match.GetString "pair1")}}" class="link link-hover">{{.Pair1Name}}</a> vs <a href="{{entityURL "pair" (.Match.GetString "pair2")}}" class="link link-hover">{{.Pair2Name}}</a></p>
                             <p class="text-sm text-base-content/60 mt-1">
                                 Resultado enviado: <span class="font-mono">{{.Match.GetString "scores"}}</span>
                             </p>
@@ -520,7 +520,7 @@
                             {{else if eq .Position 3}}<span class="text-accent">🥉</span>
                             {{else}}{{.Position}}{{end}}
                         </td>
-                        <td>{{.PairName}}</td>
+                        <td><a href="{{entityURL "pair" .PairID}}" class="link link-hover">{{.PairName}}</a></td>
                         <td class="text-center">{{.Played}}</td>
                         <td class="text-center">{{.Wins}}</td>
                         <td class="text-center">{{.Losses}}</td>

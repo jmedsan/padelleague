@@ -2,7 +2,7 @@
 <div class="card bg-base-100 shadow-lg rounded-2xl overflow-hidden">
     <div class="card-body">
         <div class="flex items-center justify-between">
-            <h2 class="card-title text-lg">{{.Pair1Name}} vs {{.Pair2Name}}</h2>
+            <h2 class="card-title text-lg"><a href="{{entityURL "pair" (.Match.GetString "pair1")}}" class="link link-hover">{{.Pair1Name}}</a> vs <a href="{{entityURL "pair" (.Match.GetString "pair2")}}" class="link link-hover">{{.Pair2Name}}</a></h2>
             <span class="badge {{.StatusClass}}">{{.StatusLabel}}</span>
         </div>
 

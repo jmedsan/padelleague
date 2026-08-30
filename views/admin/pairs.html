@@ -22,7 +22,7 @@
                             <span class="text-xs font-bold">{{slice .Player1 0 1}}</span>
                         </div>
                     </div>
-                    <span class="text-sm">{{.Player1}}</span>
+                    <a href="{{entityURL "player" (.Record.GetString "player1")}}" class="text-sm link link-hover">{{.Player1}}</a>
                 </div>
                 <span class="text-base-content/40 text-xs font-bold">&amp;</span>
                 <div class="flex items-center gap-2">
@@ -31,7 +31,7 @@
                             <span class="text-xs font-bold">{{slice .Player2 0 1}}</span>
                         </div>
                     </div>
-                    <span class="text-sm">{{.Player2}}</span>
+                    <a href="{{entityURL "player" (.Record.GetString "player2")}}" class="text-sm link link-hover">{{.Player2}}</a>
                 </div>
             </div>
             <div class="card-actions justify-end mt-3">
