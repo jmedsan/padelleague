@@ -66,6 +66,11 @@ invariants:
 	if ! grep -q 'slog.Info("startup"' main.go; then \
 		echo "FAIL: startup config log line missing from main.go (R-19)"; fail=1; \
 	fi; \
+	( cd frontend && npx tailwindcss -i ../static/css/input.css -o /tmp/styles-css-check.css --minify ) >/dev/null 2>&1; \
+	if ! diff -q /tmp/styles-css-check.css static/css/styles.css >/dev/null 2>&1; then \
+		echo "FAIL: static/css/styles.css is stale — run 'make css' and commit it (the Dockerfile embeds the committed CSS without rebuilding)"; fail=1; \
+	fi; \
+	rm -f /tmp/styles-css-check.css; \
 	if [ "$$fail" != "0" ]; then exit 1; fi; \
 	echo "invariants hold"
 
