@@ -28,9 +28,7 @@
                     <td>{{if .ArrangeBy}}{{.ArrangeBy}}{{else}}—{{end}}</td>
                     <td>
                         {{if .ArrangeBy}}
-                        <span class="badge badge-sm {{if eq .Warning.String "overdue"}}badge-error{{else if eq .Warning.String "urgent"}}badge-warning{{else if eq .Warning.String "heads_up"}}badge-info{{else}}badge-ghost{{end}}">
-                            {{if .Warning.Label}}{{.Warning.Label}}{{else}}Sin urgencia{{end}}
-                        </span>
+                        {{template "warningBadge" .Warning}}
                         {{end}}
                     </td>
                 </tr>
@@ -50,9 +48,7 @@
                         <p class="text-sm opacity-60">{{.CompetitionName}} — Jornada {{.RoundNumber}}</p>
                     </div>
                     {{if .ArrangeBy}}
-                    <span class="badge badge-sm {{if eq .Warning.String "overdue"}}badge-error{{else if eq .Warning.String "urgent"}}badge-warning{{else if eq .Warning.String "heads_up"}}badge-info{{else}}badge-ghost{{end}}">
-                        {{if .Warning.Label}}{{.Warning.Label}}{{else}}Sin urgencia{{end}}
-                    </span>
+                    {{template "warningBadge" .Warning}}
                     {{end}}
                 </div>
                 <div class="text-sm opacity-60 mt-2">
