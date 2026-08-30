@@ -4,12 +4,12 @@ import "github.com/pocketbase/pocketbase/core"
 
 // DocumentView is a view-model for rendering a document across surfaces.
 type DocumentView struct {
-	Document    *core.Record
-	Title       string
-	Description string
-	IsFile      bool
-	OpenURL     string
-	IsDefault   bool
+	Document      *core.Record
+	Title         string
+	Description   string
+	IsFile        bool
+	OpenURL       string
+	IsDefault     bool
 	IsMandatory   bool
 	CompetitionID string
 	Mode          Mode
