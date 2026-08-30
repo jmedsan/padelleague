@@ -1,0 +1,60 @@
+{{define "documentCard"}}
+<div class="flex items-center justify-between gap-3 p-3 bg-base-200/50 rounded-lg" data-testid="document-card">
+    <div class="flex-1 min-w-0">
+        <p class="font-medium truncate">{{.Title}}</p>
+        {{if .Description}}
+        <p class="text-sm opacity-60 truncate">{{.Description}}</p>
+        {{end}}
+        {{if and .Mode.Admin .Mode.Full}}
+        <div class="flex gap-1 mt-1">
+            {{if .IsDefault}}<span class="badge badge-outline badge-sm">predeterminado</span>{{end}}
+            {{if .IsMandatory}}<span class="badge badge-outline badge-sm badge-error">obligatorio</span>{{end}}
+        </div>
+        {{else}}
+        {{if .IsMandatory}}<span class="badge badge-warning badge-sm mt-1">Obligatorio</span>{{end}}
+        {{end}}
+    </div>
+    <div class="flex items-center gap-2 flex-none">
+        {{if .IsFile}}
+        <a href="{{.OpenURL}}" target="_blank" rel="noopener" class="btn btn-sm btn-outline"
+           {{if .IsMandatory}}data-mandatory-id="{{.Document.Id}}"{{end}}>Abrir</a>
+        {{else if .OpenURL}}
+        <a href="{{.OpenURL}}" target="_blank" rel="noopener" class="btn btn-sm btn-outline"
+           {{if .IsMandatory}}data-mandatory-id="{{.Document.Id}}"{{end}}>Abrir</a>
+        {{end}}
+        {{if and .Mode.Admin .Mode.Editable}}
+        <button class="btn btn-ghost btn-xs" onclick="document.getElementById('modal-edit-doc-{{.Document.Id}}').showModal()">Editar</button>
+        <form hx-post="/admin/documents/{{.Document.Id}}/delete" hx-confirm="¿Eliminar este documento?">
+            <button type="submit" class="btn btn-ghost btn-xs text-error">Eliminar</button>
+        </form>
+        {{end}}
+    </div>
+</div>
+{{end}}
+
+{{define "documentAttachRow"}}
+<tr data-testid="document-attach-row">
+    <td class="font-medium">{{.Title}}</td>
+    <td>
+        {{if .OpenURL}}
+        {{if .IsFile}}
+        <a href="{{.OpenURL}}" target="_blank" rel="noopener" class="link link-primary text-sm">Archivo</a>
+        {{else}}
+        <a href="{{.OpenURL}}" target="_blank" rel="noopener" class="link link-primary text-sm">Enlace</a>
+        {{end}}
+        {{else}}
+        <span class="text-sm opacity-40">—</span>
+        {{end}}
+    </td>
+    <td>
+        {{if .IsMandatory}}<span class="badge badge-error badge-sm">Obligatorio</span>{{else}}<span class="text-base-content/40">—</span>{{end}}
+    </td>
+    <td class="text-right">
+        {{if and .Mode.Admin .Mode.Editable}}
+        <form hx-post="/admin/competitions/{{.CompetitionID}}/detach-doc/{{.Document.Id}}" hx-confirm="¿Quitar este documento de la competición?" class="inline">
+            <button type="submit" class="btn btn-ghost btn-xs text-error">Quitar</button>
+        </form>
+        {{end}}
+    </td>
+</tr>
+{{end}}

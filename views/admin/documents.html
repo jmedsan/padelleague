@@ -10,43 +10,12 @@
     </button>
 </div>
 
-<div class="card bg-base-100 shadow-sm border border-base-300">
-    <div class="overflow-x-auto">
-        <table class="table table-zebra">
-            <thead>
-                <tr>
-                    <th>Título</th>
-                    <th class="hidden sm:table-cell">Tipo</th>
-                    <th>Flags</th>
-                    <th class="text-right">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{range .Documents}}
-                <tr class="hover">
-                    <td class="font-medium">{{.GetString "title"}}</td>
-                    <td class="hidden sm:table-cell text-sm opacity-60">
-                        {{if .GetString "file"}}<a href="/api/files/documents/{{.Id}}/{{.GetString "file"}}" target="_blank" rel="noopener" class="link link-primary">Archivo</a>{{else if .GetString "url"}}<a href="{{.GetString "url"}}" target="_blank" rel="noopener" class="link link-primary">Enlace</a>{{else}}<span class="opacity-40">—</span>{{end}}
-                    </td>
-                    <td>
-                        {{if .GetBool "is_default"}}<span class="badge badge-outline badge-sm">predeterminado</span>{{end}}
-                        {{if .GetBool "is_mandatory"}}<span class="badge badge-outline badge-sm badge-error">obligatorio</span>{{end}}
-                    </td>
-                    <td class="text-right">
-                        <button class="btn btn-ghost btn-xs" onclick="document.getElementById('modal-edit-doc-{{.Id}}').showModal()">Editar</button>
-                        <form hx-post="/admin/documents/{{.Id}}/delete" hx-confirm="¿Eliminar este documento?">
-                            <button type="submit" class="btn btn-ghost btn-xs text-error">Eliminar</button>
-                        </form>
-                    </td>
-                </tr>
-                {{else}}
-                <tr>
-                    <td colspan="4" class="text-center py-12 opacity-60">No hay documentos registrados</td>
-                </tr>
-                {{end}}
-            </tbody>
-        </table>
-    </div>
+<div class="space-y-3">
+    {{range .DocumentViews}}
+    {{template "documentCard" .}}
+    {{else}}
+    <div class="text-center py-12 opacity-60">No hay documentos registrados</div>
+    {{end}}
 </div>
 
 {{range .Documents}}

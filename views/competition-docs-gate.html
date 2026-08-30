@@ -16,29 +16,8 @@
         <p class="text-sm opacity-70 mb-4">Antes de acceder a la competición, debes revisar los siguientes documentos.</p>
 
         <div class="space-y-3">
-            {{range .Documents}}
-            <div class="flex items-center justify-between gap-3 p-3 bg-base-200/50 rounded-lg">
-                <div class="flex-1 min-w-0">
-                    <p class="font-medium truncate">{{.GetString "title"}}</p>
-                    {{if .GetString "description"}}
-                    <p class="text-sm opacity-60 truncate">{{.GetString "description"}}</p>
-                    {{end}}
-                    {{if .GetBool "is_mandatory"}}
-                    <span class="badge badge-warning badge-sm mt-1">Obligatorio</span>
-                    {{end}}
-                </div>
-                <div class="flex-none">
-                    {{if .GetString "file"}}
-                    <a href="/api/files/documents/{{.Id}}/{{.GetString "file"}}" target="_blank" rel="noopener"
-                       class="btn btn-sm btn-outline"
-                       {{if .GetBool "is_mandatory"}}data-mandatory-id="{{.Id}}"{{end}}>Abrir</a>
-                    {{else}}
-                    <a href="{{.GetString "url"}}" target="_blank" rel="noopener"
-                       class="btn btn-sm btn-outline"
-                       {{if .GetBool "is_mandatory"}}data-mandatory-id="{{.Id}}"{{end}}>Abrir</a>
-                    {{end}}
-                </div>
-            </div>
+            {{range .DocumentViews}}
+            {{template "documentCard" .}}
             {{end}}
         </div>
 
