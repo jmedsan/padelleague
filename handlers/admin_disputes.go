@@ -40,27 +40,13 @@ func (h *DisputeHandler) Disputes(e *core.RequestEvent) error {
 	matches, _ := h.app.FindRecordsByFilter("matches",
 		"status = 'disputed'", "created", 0, 0, nil)
 
-	var views []DisputeView
+	var cards []MatchCard
 	for _, m := range matches {
-		pairIDs := []string{m.GetString("pair1"), m.GetString("pair2")}
-		pairNames := league.PairNames(h.app, pairIDs)
-
-		views = append(views, DisputeView{
-			Match:          m,
-			Pair1Name:      pairNames[pairIDs[0]],
-			Pair2Name:      pairNames[pairIDs[1]],
-			SubmittedBy:    league.PlayerName(h.app, m.GetString("submitted_by")),
-			SubmittedScore: m.GetString("scores"),
-			DisputedBy:     league.PlayerName(h.app, m.GetString("disputed_by")),
-			DisputedScore:  m.GetString("disputed_scores"),
-			DisputeNotes:   m.GetString("dispute_notes"),
-			ReviewType:     m.GetString("review_type"),
-			RequestedBy:    league.PlayerName(h.app, m.GetString("walkover_requested_by")),
-		})
+		cards = append(cards, NewMatchCard(h.app, m, ModeAdminFull, ""))
 	}
 
 	return h.renderPage(e, "admin/disputes.html", map[string]any{
-		"Disputes": views,
+		"Cards": cards,
 	})
 }
 

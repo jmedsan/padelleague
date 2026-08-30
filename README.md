@@ -112,7 +112,8 @@ migrations/          # PocketBase schema migrations
 render/              # Template rendering helpers
 routes/              # Route registration with Deps struct
 seed/                # Dev/test data seeding
-views/               # Go HTML templates (layout.html, pages, admin/)
+views/               # Go HTML page templates (layout.html, pages, admin/)
+views/partials/      # One shared partial per domain object; explicit modes select player, summary, or admin controls
 static/              # CSS, JS, images, manifest.json, sw.js (PWA)
 frontend/            # Tailwind config + input CSS (build only)
 e2e/                 # Playwright end-to-end tests (includes full-season simulation)

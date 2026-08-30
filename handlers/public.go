@@ -118,16 +118,35 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	}
 
 	if slices.Contains(e.Auth.GetStringSlice("roles"), "admin") {
-		setups, alerts, _ := league.AdminDashboard(h.app, time.Now())
-		data["AdminSetups"] = setups
-		data["AdminAlerts"] = alerts
-
-		existing, _ := h.app.FindRecordsByFilter("competitions", "", "", 1, 0, nil)
-		data["AdminBootstrap"] = len(existing) == 0
-		data["PlayoffPrompts"] = league.PlayoffPrompts(h.app, activeComps, time.Now())
+		h.addAdminHomeData(data, activeComps)
 	}
 
 	return h.renderPage(e, "home.html", data)
+}
+
+func (h *PublicHandler) addAdminHomeData(data map[string]any, activeComps []*core.Record) {
+	setups, alerts, _ := league.AdminDashboard(h.app, time.Now())
+	data["AdminSetups"] = setups
+	data["AdminCards"], data["AdminAlerts"] = h.splitAdminAlerts(alerts)
+
+	existing, _ := h.app.FindRecordsByFilter("competitions", "", "", 1, 0, nil)
+	data["AdminBootstrap"] = len(existing) == 0
+	data["PlayoffPrompts"] = league.PlayoffPrompts(h.app, activeComps, time.Now())
+}
+
+func (h *PublicHandler) splitAdminAlerts(alerts []league.AdminAlert) ([]MatchCard, []league.AdminAlert) {
+	var cards []MatchCard
+	var otherAlerts []league.AdminAlert
+	for _, alert := range alerts {
+		if alert.Kind == "dispute" || alert.Kind == "walkover" {
+			if match, err := h.app.FindRecordById("matches", alert.MatchID); err == nil {
+				cards = append(cards, NewMatchCard(h.app, match, ModeAdminSummary, ""))
+				continue
+			}
+		}
+		otherAlerts = append(otherAlerts, alert)
+	}
+	return cards, otherAlerts
 }
 
 func (h *PublicHandler) playerInCompetition(c *core.Record, playerPairIDs map[string]struct{}) bool {

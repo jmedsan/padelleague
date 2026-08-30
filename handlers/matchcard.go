@@ -23,13 +23,14 @@ const (
 // MatchCard is the neutral view-model for a match, rendered by
 // views/partials/match-card.html in one of the three CardModes.
 type MatchCard struct {
-	Mode        CardMode
-	Match       *core.Record
-	Pair1Name   string
-	Pair2Name   string
-	RoundNum    int
-	StatusLabel string
-	StatusClass string
+	Mode            CardMode
+	Match           *core.Record
+	Pair1Name       string
+	Pair2Name       string
+	CompetitionName string
+	RoundNum        int
+	StatusLabel     string
+	StatusClass     string
 
 	Score          string
 	SubmittedBy    string
@@ -55,23 +56,28 @@ type MatchCard struct {
 func NewMatchCard(app core.App, match *core.Record, mode CardMode, viewerID string) MatchCard {
 	status := match.GetString("status")
 	pairNames := league.PairNames(app, []string{match.GetString("pair1"), match.GetString("pair2")})
+	competitionName := ""
+	if competition, err := app.FindRecordById("competitions", match.GetString("competition")); err == nil {
+		competitionName = competition.GetString("name")
+	}
 	c := MatchCard{
-		Mode:           mode,
-		Match:          match,
-		Pair1Name:      pairNames[match.GetString("pair1")],
-		Pair2Name:      pairNames[match.GetString("pair2")],
-		RoundNum:       int(match.GetFloat("round_number")),
-		StatusLabel:    statusLabel(status),
-		StatusClass:    statusClass(status),
-		Score:          match.GetString("scores"),
-		SubmittedScore: match.GetString("scores"),
-		DisputedScore:  match.GetString("disputed_scores"),
-		DisputeNotes:   match.GetString("dispute_notes"),
-		ReviewType:     match.GetString("review_type"),
-		SubmittedBy:    playerNameIfSet(app, match.GetString("submitted_by")),
-		ConfirmedBy:    playerNameIfSet(app, match.GetString("confirmed_by")),
-		DisputedBy:     playerNameIfSet(app, match.GetString("disputed_by")),
-		RequestedBy:    playerNameIfSet(app, match.GetString("walkover_requested_by")),
+		Mode:            mode,
+		Match:           match,
+		Pair1Name:       pairNames[match.GetString("pair1")],
+		Pair2Name:       pairNames[match.GetString("pair2")],
+		CompetitionName: competitionName,
+		RoundNum:        int(match.GetFloat("round_number")),
+		StatusLabel:     statusLabel(status),
+		StatusClass:     statusClass(status),
+		Score:           match.GetString("scores"),
+		SubmittedScore:  match.GetString("scores"),
+		DisputedScore:   match.GetString("disputed_scores"),
+		DisputeNotes:    match.GetString("dispute_notes"),
+		ReviewType:      match.GetString("review_type"),
+		SubmittedBy:     playerNameIfSet(app, match.GetString("submitted_by")),
+		ConfirmedBy:     playerNameIfSet(app, match.GetString("confirmed_by")),
+		DisputedBy:      playerNameIfSet(app, match.GetString("disputed_by")),
+		RequestedBy:     playerNameIfSet(app, match.GetString("walkover_requested_by")),
 	}
 	if mode == ModePlayer {
 		c.fillPlayerActions(app, match, viewerID)
