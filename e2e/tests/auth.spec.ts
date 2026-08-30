@@ -10,7 +10,7 @@ test('login with valid credentials via form', async ({ page }) => {
   await loginViaForm(page, ADMIN_EMAIL, ADMIN_PASSWORD);
   await expect(page).toHaveURL('/');
   await expect(page.locator('.navbar')).toBeVisible();
-  await expect(page.getByText('Administración').first()).toBeVisible();
+  await expect(page.getByText('Modo administrador').first()).toBeVisible();
 });
 
 test('login with invalid credentials shows error', async ({ page }) => {

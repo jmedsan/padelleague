@@ -303,10 +303,10 @@ test.describe('R-178: presentation quality guards', () => {
     await page.locator('a:has-text("Inicio")').first().click();
     await page.waitForLoadState('networkidle');
 
-    // Player content should be present
-    const playerBody = await page.evaluate(() => document.body.innerText);
-    // Admin nav buttons must NOT appear in player view
+    // Admin dashboard content must NOT appear in player view
     await expect(page.locator('[data-testid="admin-dashboard-heading"]')).toHaveCount(0);
+    await expect(page.locator('a[href="/admin/competitions"]')).toHaveCount(0);
+    const playerBody = await page.evaluate(() => document.body.innerText);
     expect(playerBody).not.toContain('Preparar competiciones');
 
     // Switch back to admin view for other tests
