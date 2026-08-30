@@ -584,11 +584,11 @@ func TestGen2_PlayerProfile_CompetitionStats(t *testing.T) {
 		compact := strings.Join(strings.Fields(body), " ")
 		// Liga Alfa row: name, then PJ=2, PG=2, PP=0.
 		assert.Contains(tb, compact,
-			`Liga Alfa</td> <td class="text-center">2</td> <td class="text-center text-success">2</td> <td class="text-center text-error">0</td>`,
+			`Liga Alfa</a></td> <td class="text-center">2</td> <td class="text-center text-success">2</td> <td class="text-center text-error">0</td>`,
 			"Liga Alfa row: 2 played, 2 wins, 0 losses")
 		// Liga Beta row: name, then PJ=1, PG=0, PP=1.
 		assert.Contains(tb, compact,
-			`Liga Beta</td> <td class="text-center">1</td> <td class="text-center text-success">0</td> <td class="text-center text-error">1</td>`,
+			`Liga Beta</a></td> <td class="text-center">1</td> <td class="text-center text-success">0</td> <td class="text-center text-error">1</td>`,
 			"Liga Beta row: 1 played, 0 wins, 1 loss")
 	}
 
