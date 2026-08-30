@@ -62,4 +62,19 @@ test.describe('admin management', () => {
     await page.goto('/admin/venues');
     await expect(page.getByText(name)).toBeVisible({ timeout: 5000 });
   });
+
+  test('R-166: category field is a dropdown with Spanish labels', async ({ page }) => {
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.locator('a:has-text("Competiciones")').first().click();
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('button', { name: /crear competici[oó]n/i }).click();
+    const dialog = page.locator('dialog#modal-create');
+    await expect(dialog).toBeVisible();
+    const select = dialog.locator('select[name="category"]');
+    await expect(select).toBeVisible();
+    const options = await select.locator('option').allTextContents();
+    expect(options).toContain('1ª categoría');
+    expect(options).toContain('Mixta');
+    expect(options).toContain('Femenina');
+  });
 });

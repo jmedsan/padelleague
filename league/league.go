@@ -17,6 +17,19 @@ type Notifier interface {
 	EmailPlayers(playerUserIDs []string, subject, body, link string)
 }
 
+// Categories returns the predefined competition category labels.
+func Categories() []string {
+	return []string{
+		"1ª categoría",
+		"2ª categoría",
+		"3ª categoría",
+		"4ª categoría",
+		"Mixta",
+		"Femenina",
+		"Masculina",
+	}
+}
+
 // Service provides domain operations for competitions, matches, and standings.
 type Service struct {
 	app      core.App
