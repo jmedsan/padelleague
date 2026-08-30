@@ -75,6 +75,25 @@
 </div>
 {{end}}
 
+{{if .OnboardSteps}}
+<div class="card bg-base-100 shadow-md mb-6" data-testid="onboard-checklist">
+    <div class="card-body">
+        <h2 class="card-title text-lg">Primeros pasos</h2>
+        <ul class="steps steps-vertical">
+            {{range .OnboardSteps}}
+            <li class="step {{if .Done}}step-success{{end}}">
+                {{if .Done}}
+                <span class="opacity-60">{{.Label}}</span>
+                {{else}}
+                <a href="{{.URL}}" class="link link-hover font-medium">{{.Label}}</a>
+                {{end}}
+            </li>
+            {{end}}
+        </ul>
+    </div>
+</div>
+{{end}}
+
 {{if .PendingActions}}
 <div class="mb-6">
     <h2 class="text-lg font-bold mb-3">Acciones pendientes</h2>
