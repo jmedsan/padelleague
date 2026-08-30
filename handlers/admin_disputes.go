@@ -94,8 +94,8 @@ func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 		}
 	}
 
-	h.notifyMatchPlayers(match, "general", "Walkover aprobado",
-		"Un administrador ha resuelto el partido como walkover.")
+	n := league.NotifWalkoverApproved(match.Id)
+	h.notifyMatchPlayers(match, n.Type, n.Title, n.Body)
 
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
@@ -135,8 +135,8 @@ func (h *DisputeHandler) DisputesResolve(e *core.RequestEvent) error {
 		MatchID: match.Id, ActorID: e.Auth.Id, Kind: "result_event",
 		Detail: league.PlayerName(h.app, e.Auth.Id) + " (admin) resolvió la disputa: " + score,
 	})
-	h.notifyMatchPlayers(match, "dispute", "Disputa resuelta",
-		"Un administrador ha resuelto la disputa de tu partido.")
+	n := league.NotifDisputeResolved(match.Id)
+	h.notifyMatchPlayers(match, n.Type, n.Title, n.Body)
 
 	compID := match.GetString("competition")
 	return redirectHX(e, "/admin/competitions/"+compID)

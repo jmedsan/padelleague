@@ -159,11 +159,9 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 		rivalPairID = match.GetString("pair1")
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	h.notifier.NotifyPlayers(rivalPlayers, league.Notification{
-		Type: "quorum_request", Title: "Resultado enviado",
-		Body: "Tu rival ha registrado un resultado. Confirma o disputa.", MatchID: match.Id,
-	})
-	h.notifier.EmailPlayers(rivalPlayers, "Resultado enviado", "Tu rival ha registrado un resultado. Confirma o disputa.", "/match/"+match.Id)
+	n := league.NotifResultSubmitted(match.Id)
+	h.notifier.NotifyPlayers(rivalPlayers, n)
+	h.notifier.EmailPlayers(rivalPlayers, n.Title, n.Body, "/match/"+match.Id)
 
 	return redirectHX(e, "/match/"+match.Id)
 }
@@ -352,12 +350,9 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 		rivalPairID = match.GetString("pair1")
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	h.notifier.NotifyPlayers(rivalPlayers, league.Notification{
-		Type: "general", Title: "Partido reportado como no jugado",
-		Body: "Tu rival ha reportado este partido como no jugado. Un administrador lo revisará.", MatchID: id,
-	})
-	h.notifier.EmailPlayers(rivalPlayers, "Partido reportado como no jugado",
-		"Tu rival ha reportado este partido como no jugado. Un administrador lo revisará.", "/match/"+id)
+	n := league.NotifMatchReportedUnplayed(id)
+	h.notifier.NotifyPlayers(rivalPlayers, n)
+	h.notifier.EmailPlayers(rivalPlayers, n.Title, n.Body, "/match/"+id)
 
 	return redirectHX(e, "/match/"+id)
 }
