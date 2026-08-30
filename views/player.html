@@ -44,8 +44,8 @@
         <tbody>
             {{range .Data.Pairs}}
             <tr>
-                <td><a href="{{entityURL "pair" .Pair.Id}}" class="link link-hover">{{.Pair.GetString "name"}}</a></td>
-                <td><a href="{{entityURL "player" .PartnerID}}" class="link link-hover">{{.Partner}}</a></td>
+                <td>{{template "pairLink" (elink .Pair.Id (.Pair.GetString "name"))}}</td>
+                <td>{{template "playerLink" (elink .PartnerID .Partner)}}</td>
             </tr>
             {{end}}
         </tbody>
@@ -96,8 +96,8 @@
             {{range .Data.Recent}}
             <tr class="hover cursor-pointer" onclick="window.location='/match/{{.MatchID}}'">
                 <td class="text-sm opacity-70">{{.Date}}</td>
-                <td>{{.PairName1}}</td>
-                <td>{{.PairName2}}</td>
+                <td>{{template "pairLink" (elink .Pair1ID .PairName1)}}</td>
+                <td>{{template "pairLink" (elink .Pair2ID .PairName2)}}</td>
                 <td>{{.Score}}</td>
                 <td>{{if .Won}}<span class="badge badge-success">V</span>{{else}}<span class="badge badge-error">D</span>{{end}}</td>
             </tr>
