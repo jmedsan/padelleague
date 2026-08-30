@@ -78,9 +78,9 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		return h.renderErrorPage(e, http.StatusForbidden, "No tienes acceso a este partido")
 	}
 
-	mode := ModePlayer
+	mode := PlayerFull
 	if render.AdminView(e) {
-		mode = ModeAdminFull
+		mode = AdminFull
 	}
 	mc := NewMatchCard(h.app, match, mode, userID)
 
@@ -373,5 +373,5 @@ func buildShareText(app core.App, match *core.Record) string {
 	if match.GetString("status") != league.StatusFinal {
 		return ""
 	}
-	return url.QueryEscape(NewMatchCard(app, match, ModePlayer, "").SummaryLine())
+	return url.QueryEscape(NewMatchCard(app, match, PlayerFull, "").SummaryLine())
 }

@@ -180,7 +180,7 @@ func (h *PublicHandler) splitAdminAlerts(alerts []league.AdminAlert) ([]MatchCar
 	for _, alert := range alerts {
 		if alert.Kind == "dispute" || alert.Kind == "walkover" {
 			if match, err := h.app.FindRecordById("matches", alert.MatchID); err == nil {
-				cards = append(cards, NewMatchCard(h.app, match, ModeAdminSummary, ""))
+				cards = append(cards, NewMatchCard(h.app, match, AdminSummary, ""))
 				continue
 			}
 		}

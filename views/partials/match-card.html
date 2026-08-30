@@ -59,15 +59,15 @@
         {{end}}
         {{end}}
 
-        {{if eq .Mode "admin-summary"}}
+        {{if and .Mode.Admin (not .Mode.Full)}}
         <a href="/match/{{.Match.Id}}" class="link link-primary text-xs">Ver partido completo →</a>
         {{end}}
 
-        {{if eq .Mode "admin-full"}}
+        {{if and .Mode.Admin .Mode.Editable}}
         {{template "matchAdminControls" .}}
         {{end}}
 
-        {{if eq .Mode "player"}}
+        {{if and .Mode.Editable (not .Mode.Admin)}}
         {{template "matchPlayerActions" .}}
         {{end}}
     </div>
