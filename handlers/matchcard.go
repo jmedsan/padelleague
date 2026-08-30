@@ -103,6 +103,8 @@ func statusLabelShort(status string) string {
 	switch status {
 	case league.StatusPending:
 		return "Pendiente"
+	case league.StatusScheduled:
+		return "Programado"
 	case league.StatusConfirmed:
 		return "Enviado"
 	case league.StatusDisputed:
@@ -126,10 +128,10 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 		}
 	}
 
-	c.CanSubmit = status == league.StatusPending && team > 0
+	c.CanSubmit = league.IsPreScore(status) && team > 0
 	c.CanConfirm = status == league.StatusConfirmed && team > 0 && !isSubmitter
 	c.CanDispute = status == league.StatusConfirmed && team > 0 && !isSubmitter
-	c.CanEdit = status == league.StatusPending && team > 0
+	c.CanEdit = league.IsPreScore(status) && team > 0
 	c.CanWalkover = canReportUnplayed(status, team)
 
 	if status == league.StatusConfirmed && team > 0 && isSubmitter {
