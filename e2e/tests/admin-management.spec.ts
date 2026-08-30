@@ -63,6 +63,41 @@ test.describe('admin management', () => {
     await expect(page.getByText(name)).toBeVisible({ timeout: 5000 });
   });
 
+  test('R-168: competition detail sections are collapsed accordions when started', async ({ page }) => {
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    // Navigate to a competition that has fixtures (started)
+    await page.goto('/admin/competitions');
+    await page.waitForLoadState('networkidle');
+    const compLink = page.locator('a[href^="/admin/competitions/"]').first();
+    await compLink.click();
+    await page.waitForLoadState('networkidle');
+
+    // Verify accordion sections exist with collapse class
+    const parejas = page.locator('[data-testid="section-parejas"]');
+    await expect(parejas).toBeVisible();
+    await expect(parejas).toHaveClass(/collapse/);
+
+    const addPairs = page.locator('[data-testid="section-add-pairs"]');
+    await expect(addPairs).toBeVisible();
+    await expect(addPairs).toHaveClass(/collapse/);
+
+    // Add pairs and round dates should be collapsed (not checked) when started
+    const addPairsCheckbox = addPairs.locator('> input[type="checkbox"]');
+    await expect(addPairsCheckbox).not.toBeChecked();
+
+    // Verify penalty modal is reachable from inside collapsed Parejas
+    await parejas.locator('> input[type="checkbox"]').check({ force: true });
+    await page.waitForTimeout(300);
+    const penalizeBtn = parejas.locator('label:has-text("Penalizar")').first();
+    if (await penalizeBtn.count() > 0) {
+      const modalId = await penalizeBtn.getAttribute('for');
+      await penalizeBtn.click();
+      await page.waitForTimeout(300);
+      const toggle = page.locator(`#${modalId}`);
+      await expect(toggle).toBeChecked();
+    }
+  });
+
   test('R-166: category field is a dropdown with Spanish labels', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.locator('a:has-text("Competiciones")').first().click();

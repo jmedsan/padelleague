@@ -126,288 +126,6 @@
     <label class="modal-backdrop" for="edit-modal"></label>
 </div>
 
-<!-- Parejas -->
-<div class="card bg-base-100 shadow mb-6">
-    <div class="card-body">
-        <h2 class="card-title text-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            Parejas
-            {{if .Entries}}<span class="badge badge-neutral badge-sm">{{len .Entries}}</span>{{end}}
-            {{if .HasUnpaid}}<span class="badge badge-warning badge-sm gap-1">{{.UnpaidCount}} sin pagar</span>{{end}}
-        </h2>
-
-        {{if .HasUnpaid}}
-        <form hx-post="/admin/competitions/{{.Competition.Id}}/payment-all" class="mb-3">
-            <button type="submit" class="btn btn-success btn-sm gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                Marcar todos como pagado
-            </button>
-        </form>
-        {{end}}
-
-        {{if .Entries}}
-        <div class="overflow-x-auto">
-            <table class="table table-zebra">
-                <thead>
-                    <tr>
-                        <th>Pareja</th>
-                        {{if not .IsLeague}}<th>Cabeza de serie</th>{{end}}
-                        <th>Pagado</th>
-                        <th>Penalización</th>
-                        <th class="text-right">Acción</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{range .Entries}}
-                    <tr>
-                        <td class="font-medium">{{template "pairLink" (elink .PairID .PairName)}}</td>
-                        {{if not $.IsLeague}}<td>{{if gt .Seed 0}}<span class="badge badge-outline badge-sm">{{.Seed}}</span>{{else}}<span class="text-base-content/40">—</span>{{end}}</td>{{end}}
-                        <td>
-                            <form hx-post="/admin/competitions/{{$.Competition.Id}}/payment" class="inline">
-                                <input type="hidden" name="pair_id" value="{{.PairID}}">
-                                <input type="checkbox" class="checkbox checkbox-sm checkbox-success"
-                                       onchange="this.form.requestSubmit()"
-                                       {{if .Paid}}checked{{end}}>
-                            </form>
-                        </td>
-                        <td>
-                            {{$rows := index $.PenaltyRows .PairID}}
-                            <div class="space-y-1">
-                                {{range $rows}}
-                                <div class="flex flex-wrap items-center gap-1 text-xs">
-                                    <span class="badge badge-error badge-sm">-{{.Amount}}</span>
-                                    <span>{{.Reason}}</span>
-                                    <span class="text-base-content/50">{{.AdminName}}, {{.Date}}</span>
-                                    <form hx-post="/admin/competitions/{{$.Competition.Id}}/penalty" class="inline">
-                                        <input type="hidden" name="action" value="remove">
-                                        <input type="hidden" name="penalty_id" value="{{.ID}}">
-                                        <button type="submit" class="btn btn-ghost btn-xs">Quitar</button>
-                                    </form>
-                                </div>
-                                {{end}}
-                                <label for="penalty-modal-{{.PairID}}" class="btn btn-ghost btn-xs text-warning">Penalizar</label>
-                            </div>
-                            <input type="checkbox" id="penalty-modal-{{.PairID}}" class="modal-toggle">
-                            <div class="modal" role="dialog">
-                                <div class="modal-box">
-                                    <h3 class="font-bold text-lg">Penalizar a {{.PairName}}</h3>
-                                    <form hx-post="/admin/competitions/{{$.Competition.Id}}/penalty" class="mt-4 space-y-3">
-                                        <input type="hidden" name="action" value="apply">
-                                        <input type="hidden" name="pair_id" value="{{.PairID}}">
-                                        <label class="form-control">
-                                            <span class="label-text">Puntos</span>
-                                            <input type="number" name="amount" class="input input-bordered" min="0.01" step="0.01" value="{{$.Competition.GetFloat "default_penalty"}}" required>
-                                        </label>
-                                        <label class="form-control">
-                                            <span class="label-text">Motivo</span>
-                                            <textarea name="reason" class="textarea textarea-bordered" required></textarea>
-                                        </label>
-                                        <div class="modal-action">
-                                            <label for="penalty-modal-{{.PairID}}" class="btn">Cancelar</label>
-                                            <button type="submit" class="btn btn-warning">Confirmar penalización</button>
-                                        </div>
-                                    </form>
-                                </div>
-                                <label class="modal-backdrop" for="penalty-modal-{{.PairID}}">Cerrar</label>
-                            </div>
-                        </td>
-                        <td class="text-right">
-                            <form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja?" class="inline">
-                                <input type="hidden" name="pair_id" value="{{.PairID}}">
-                                <button type="submit" class="btn btn-ghost btn-xs text-error">Quitar</button>
-                            </form>
-                        </td>
-                    </tr>
-                    {{end}}
-                </tbody>
-            </table>
-        </div>
-        {{else}}
-        <div class="text-center py-8 text-base-content/50">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-12 w-12 mx-auto stroke-current mb-2 opacity-30"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            <p class="text-sm">No hay parejas en esta competición</p>
-        </div>
-        {{end}}
-
-        <div class="divider text-xs uppercase tracking-wider">Añadir parejas</div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="bg-base-200 rounded-box p-4">
-                <p class="text-sm font-semibold mb-3">Desde el listado</p>
-                <div id="add-pair-result" class="mb-2"></div>
-                <form hx-post="/admin/competitions/{{.Competition.Id}}/pairs" hx-target="#add-pair-result">
-                    <select name="pair" class="select select-bordered select-sm w-full" required>
-                        <option value="">Seleccionar pareja…</option>
-                        {{range .AllPairs}}
-                        <option value="{{.Id}}">{{.GetString "name"}}</option>
-                        {{end}}
-                    </select>
-                    {{if not .IsLeague}}
-                    <input type="number" name="seed" class="input input-bordered input-sm w-full mt-2" placeholder="Cabeza de serie" min="1">
-                    {{end}}
-                    <button type="submit" class="btn btn-primary btn-sm w-full mt-2">Añadir</button>
-                </form>
-            </div>
-
-            <div class="bg-base-200 rounded-box p-4">
-                <p class="text-sm font-semibold mb-3">Copiar de otra competición</p>
-                <div id="copy-result" class="mb-2"></div>
-                <form hx-post="/admin/competitions/{{.Competition.Id}}/copy-pairs" hx-target="#copy-result">
-                    <select name="source_competition" class="select select-bordered select-sm w-full" required>
-                        <option value="">Competición origen…</option>
-                        {{range .AllCompetitions}}
-                        <option value="{{.Id}}">{{.GetString "name"}}</option>
-                        {{end}}
-                    </select>
-                    <button type="submit" class="btn btn-accent btn-sm w-full mt-2">Copiar</button>
-                </form>
-            </div>
-
-            <div class="bg-base-200 rounded-box p-4">
-                <p class="text-sm font-semibold mb-3">Crear nueva pareja</p>
-                <div id="create-pair-result" class="mb-2"></div>
-                <form hx-post="/admin/pairs" hx-target="#create-pair-result">
-                    <input type="text" name="name" class="input input-bordered input-sm w-full" placeholder="Nombre de la pareja" required>
-                    <select name="player1" class="select select-bordered select-sm w-full mt-2" required>
-                        <option value="">Jugador 1…</option>
-                        {{range .AllUsers}}
-                        <option value="{{.Id}}">{{.GetString "display_name"}}</option>
-                        {{end}}
-                    </select>
-                    <select name="player2" class="select select-bordered select-sm w-full mt-2" required>
-                        <option value="">Jugador 2…</option>
-                        {{range .AllUsers}}
-                        <option value="{{.Id}}">{{.GetString "display_name"}}</option>
-                        {{end}}
-                    </select>
-                    <button type="submit" class="btn btn-secondary btn-sm w-full mt-2">Crear</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Documentos -->
-<div class="card bg-base-100 shadow mb-6">
-    <div class="card-body">
-        <h2 class="card-title text-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            Documentos
-            {{if .AttachedDocs}}<span class="badge badge-neutral badge-sm">{{len .AttachedDocs}}</span>{{end}}
-        </h2>
-
-        {{if .AttachedDocViews}}
-        <div class="overflow-x-auto">
-            <table class="table table-zebra">
-                <thead>
-                    <tr>
-                        <th>Título</th>
-                        <th>Tipo</th>
-                        <th>Obligatorio</th>
-                        <th class="text-right">Acción</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{range .AttachedDocViews}}
-                    {{template "documentAttachRow" .}}
-                    {{end}}
-                </tbody>
-            </table>
-        </div>
-        {{else}}
-        <div class="text-center py-6 text-base-content/50">
-            <p class="text-sm">No hay documentos adjuntos</p>
-        </div>
-        {{end}}
-
-        {{if .UnattachedDocs}}
-        <div class="divider text-xs uppercase tracking-wider">Adjuntar documento</div>
-        <form hx-post="/admin/competitions/{{.Competition.Id}}/attach-doc" class="flex items-end gap-3">
-            <div class="form-control flex-1">
-                <select name="document" class="select select-bordered select-sm w-full" required>
-                    <option value="">Seleccionar documento…</option>
-                    {{range .UnattachedDocs}}
-                    <option value="{{.Id}}">{{.GetString "title"}}</option>
-                    {{end}}
-                </select>
-            </div>
-            <button type="submit" class="btn btn-primary btn-sm">Adjuntar</button>
-        </form>
-        {{end}}
-    </div>
-</div>
-
-<!-- Calendario -->
-<div class="card bg-base-100 shadow mb-6">
-    <div class="card-body">
-        <div class="flex justify-between items-center mb-2">
-            <h2 class="card-title text-lg">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                Calendario
-            </h2>
-            {{if .HasFixtures}}
-                <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" hx-confirm="¿Regenerar el calendario? Se perderán todos los partidos y resultados existentes." class="btn btn-warning btn-sm">Regenerar</button>
-            {{else if .Entries}}
-                <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" class="btn btn-primary btn-sm">Generar calendario</button>
-            {{end}}
-        </div>
-
-        <div id="generate-result" class="mb-2"></div>
-
-        {{if .HasFixtures}}
-        <div class="space-y-2">
-            {{range .Rounds}}
-            <div class="collapse collapse-arrow bg-base-200 rounded-box">
-                <input type="checkbox">
-                <div class="collapse-title font-medium text-sm">
-                    Jornada {{.Number}}
-                    <span class="badge badge-ghost badge-sm ml-2">{{len .Matches}} partidos</span>
-                </div>
-                <div class="collapse-content">
-                    <div class="divide-y divide-base-200 pt-2">
-                        {{range .Matches}}
-                        {{template "matchRow" .}}
-                        {{end}}
-                    </div>
-                </div>
-            </div>
-            {{end}}
-        </div>
-        {{else}}
-        <div class="text-center py-8 text-base-content/50">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-12 w-12 mx-auto stroke-current mb-2 opacity-30"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            <p class="text-sm">{{if .Entries}}Añade parejas y genera el calendario{{else}}Primero añade parejas a la competición{{end}}</p>
-        </div>
-        {{end}}
-    </div>
-</div>
-
-<!-- Fechas de jornada -->
-{{if and .IsLeague .RoundDates}}
-<div class="card bg-base-100 shadow mb-6" id="round-schedule">
-    <div class="card-body">
-        <div class="flex justify-between items-center mb-2">
-            <h2 class="card-title text-lg">Fechas límite por jornada</h2>
-            <button hx-post="/admin/competitions/{{.Competition.Id}}/round-dates/regenerate"
-                    hx-confirm="¿Regenerar las fechas? Esto sobrescribe las fechas editadas."
-                    class="btn btn-ghost btn-sm">Regenerar fechas</button>
-        </div>
-        <form hx-post="/admin/competitions/{{.Competition.Id}}/round-dates" class="space-y-2">
-            {{range .RoundDates}}
-            <div class="flex items-center gap-3">
-                <span class="text-sm font-medium w-24">Jornada {{.Number}}</span>
-                <input type="date" name="round_date_{{.Number}}" value="{{.Date}}"
-                       class="input input-bordered input-sm flex-1 max-w-xs">
-            </div>
-            {{end}}
-            <div class="mt-3">
-                <button type="submit" class="btn btn-primary btn-sm">Guardar fechas</button>
-            </div>
-        </form>
-    </div>
-</div>
-{{end}}
-
 <!-- Disputas -->
 {{if .Disputes}}
 <div class="card bg-base-100 shadow mb-6 border border-error/20">
@@ -475,6 +193,298 @@
             <p class="text-sm">No hay datos de clasificación todavía</p>
         </div>
         {{end}}
+    </div>
+</div>
+{{end}}
+
+<!-- Calendario -->
+<div class="card bg-base-100 shadow mb-6">
+    <div class="card-body">
+        <div class="flex justify-between items-center mb-2">
+            <h2 class="card-title text-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                Calendario
+            </h2>
+            {{if .HasFixtures}}
+                <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" hx-confirm="¿Regenerar el calendario? Se perderán todos los partidos y resultados existentes." class="btn btn-warning btn-sm">Regenerar</button>
+            {{else if .Entries}}
+                <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" class="btn btn-primary btn-sm">Generar calendario</button>
+            {{end}}
+        </div>
+
+        <div id="generate-result" class="mb-2"></div>
+
+        {{if .HasFixtures}}
+        <div class="space-y-2">
+            {{range .Rounds}}
+            <div class="collapse collapse-arrow bg-base-200 rounded-box">
+                <input type="checkbox">
+                <div class="collapse-title font-medium text-sm">
+                    Jornada {{.Number}}
+                    <span class="badge badge-ghost badge-sm ml-2">{{len .Matches}} partidos</span>
+                </div>
+                <div class="collapse-content">
+                    <div class="divide-y divide-base-200 pt-2">
+                        {{range .Matches}}
+                        {{template "matchRow" .}}
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+            {{end}}
+        </div>
+        {{else}}
+        <div class="text-center py-8 text-base-content/50">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-12 w-12 mx-auto stroke-current mb-2 opacity-30"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <p class="text-sm">{{if .Entries}}Añade parejas y genera el calendario{{else}}Primero añade parejas a la competición{{end}}</p>
+        </div>
+        {{end}}
+    </div>
+</div>
+
+<!-- Documentos -->
+<div class="card bg-base-100 shadow mb-6">
+    <div class="card-body">
+        <h2 class="card-title text-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Documentos
+            {{if .AttachedDocs}}<span class="badge badge-neutral badge-sm">{{len .AttachedDocs}}</span>{{end}}
+        </h2>
+
+        {{if .AttachedDocViews}}
+        <div class="overflow-x-auto">
+            <table class="table table-zebra">
+                <thead>
+                    <tr>
+                        <th>Título</th>
+                        <th>Tipo</th>
+                        <th>Obligatorio</th>
+                        <th class="text-right">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .AttachedDocViews}}
+                    {{template "documentAttachRow" .}}
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="text-center py-6 text-base-content/50">
+            <p class="text-sm">No hay documentos adjuntos</p>
+        </div>
+        {{end}}
+
+        {{if .UnattachedDocs}}
+        <div class="divider text-xs uppercase tracking-wider">Adjuntar documento</div>
+        <form hx-post="/admin/competitions/{{.Competition.Id}}/attach-doc" class="flex items-end gap-3">
+            <div class="form-control flex-1">
+                <select name="document" class="select select-bordered select-sm w-full" required>
+                    <option value="">Seleccionar documento…</option>
+                    {{range .UnattachedDocs}}
+                    <option value="{{.Id}}">{{.GetString "title"}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Adjuntar</button>
+        </form>
+        {{end}}
+    </div>
+</div>
+
+<!-- Parejas (accordion — collapsed when started and all paid) -->
+<div class="collapse collapse-arrow bg-base-100 shadow mb-6" data-testid="section-parejas">
+    <input type="checkbox" {{if not (and .HasFixtures (not .HasUnpaid))}}checked{{end}}>
+    <div class="collapse-title text-lg font-bold">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current inline-block mr-1 align-text-bottom"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        Parejas
+        {{if .Entries}}<span class="badge badge-neutral badge-sm ml-1">{{len .Entries}}</span>{{end}}
+        {{if .HasUnpaid}}<span class="badge badge-warning badge-sm gap-1 ml-1">{{.UnpaidCount}} sin pagar</span>{{end}}
+    </div>
+    <div class="collapse-content">
+        {{if .HasUnpaid}}
+        <form hx-post="/admin/competitions/{{.Competition.Id}}/payment-all" class="mb-3">
+            <button type="submit" class="btn btn-success btn-sm gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                Marcar todos como pagado
+            </button>
+        </form>
+        {{end}}
+
+        {{if .Entries}}
+        <div class="overflow-x-auto">
+            <table class="table table-zebra">
+                <thead>
+                    <tr>
+                        <th>Pareja</th>
+                        {{if not .IsLeague}}<th>Cabeza de serie</th>{{end}}
+                        <th>Pagado</th>
+                        <th>Penalización</th>
+                        <th class="text-right">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Entries}}
+                    <tr>
+                        <td class="font-medium">{{template "pairLink" (elink .PairID .PairName)}}</td>
+                        {{if not $.IsLeague}}<td>{{if gt .Seed 0}}<span class="badge badge-outline badge-sm">{{.Seed}}</span>{{else}}<span class="text-base-content/40">—</span>{{end}}</td>{{end}}
+                        <td>
+                            <form hx-post="/admin/competitions/{{$.Competition.Id}}/payment" class="inline">
+                                <input type="hidden" name="pair_id" value="{{.PairID}}">
+                                <input type="checkbox" class="checkbox checkbox-sm checkbox-success"
+                                       onchange="this.form.requestSubmit()"
+                                       {{if .Paid}}checked{{end}}>
+                            </form>
+                        </td>
+                        <td>
+                            {{$rows := index $.PenaltyRows .PairID}}
+                            <div class="space-y-1">
+                                {{range $rows}}
+                                <div class="flex flex-wrap items-center gap-1 text-xs">
+                                    <span class="badge badge-error badge-sm">-{{.Amount}}</span>
+                                    <span>{{.Reason}}</span>
+                                    <span class="text-base-content/50">{{.AdminName}}, {{.Date}}</span>
+                                    <form hx-post="/admin/competitions/{{$.Competition.Id}}/penalty" class="inline">
+                                        <input type="hidden" name="action" value="remove">
+                                        <input type="hidden" name="penalty_id" value="{{.ID}}">
+                                        <button type="submit" class="btn btn-ghost btn-xs">Quitar</button>
+                                    </form>
+                                </div>
+                                {{end}}
+                                <label for="penalty-modal-{{.PairID}}" class="btn btn-ghost btn-xs text-warning">Penalizar</label>
+                            </div>
+                        </td>
+                        <td class="text-right">
+                            <form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja?" class="inline">
+                                <input type="hidden" name="pair_id" value="{{.PairID}}">
+                                <button type="submit" class="btn btn-ghost btn-xs text-error">Quitar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="text-center py-8 text-base-content/50">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-12 w-12 mx-auto stroke-current mb-2 opacity-30"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <p class="text-sm">No hay parejas en esta competición</p>
+        </div>
+        {{end}}
+    </div>
+</div>
+
+<!-- Penalty modals (outside collapse so they stay reachable) -->
+{{range .Entries}}
+<input type="checkbox" id="penalty-modal-{{.PairID}}" class="modal-toggle">
+<div class="modal" role="dialog">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg">Penalizar a {{.PairName}}</h3>
+        <form hx-post="/admin/competitions/{{$.Competition.Id}}/penalty" class="mt-4 space-y-3">
+            <input type="hidden" name="action" value="apply">
+            <input type="hidden" name="pair_id" value="{{.PairID}}">
+            <label class="form-control">
+                <span class="label-text">Puntos</span>
+                <input type="number" name="amount" class="input input-bordered" min="0.01" step="0.01" value="{{$.Competition.GetFloat "default_penalty"}}" required>
+            </label>
+            <label class="form-control">
+                <span class="label-text">Motivo</span>
+                <textarea name="reason" class="textarea textarea-bordered" required></textarea>
+            </label>
+            <div class="modal-action">
+                <label for="penalty-modal-{{.PairID}}" class="btn">Cancelar</label>
+                <button type="submit" class="btn btn-warning">Confirmar penalización</button>
+            </div>
+        </form>
+    </div>
+    <label class="modal-backdrop" for="penalty-modal-{{.PairID}}">Cerrar</label>
+</div>
+{{end}}
+
+<!-- Añadir parejas (accordion — collapsed once started) -->
+<div class="collapse collapse-arrow bg-base-100 shadow mb-6" data-testid="section-add-pairs">
+    <input type="checkbox" {{if not .HasFixtures}}checked{{end}}>
+    <div class="collapse-title text-lg font-bold">Añadir parejas</div>
+    <div class="collapse-content">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-base-200 rounded-box p-4">
+                <p class="text-sm font-semibold mb-3">Desde el listado</p>
+                <div id="add-pair-result" class="mb-2"></div>
+                <form hx-post="/admin/competitions/{{.Competition.Id}}/pairs" hx-target="#add-pair-result">
+                    <select name="pair" class="select select-bordered select-sm w-full" required>
+                        <option value="">Seleccionar pareja…</option>
+                        {{range .AllPairs}}
+                        <option value="{{.Id}}">{{.GetString "name"}}</option>
+                        {{end}}
+                    </select>
+                    {{if not .IsLeague}}
+                    <input type="number" name="seed" class="input input-bordered input-sm w-full mt-2" placeholder="Cabeza de serie" min="1">
+                    {{end}}
+                    <button type="submit" class="btn btn-primary btn-sm w-full mt-2">Añadir</button>
+                </form>
+            </div>
+
+            <div class="bg-base-200 rounded-box p-4">
+                <p class="text-sm font-semibold mb-3">Copiar de otra competición</p>
+                <div id="copy-result" class="mb-2"></div>
+                <form hx-post="/admin/competitions/{{.Competition.Id}}/copy-pairs" hx-target="#copy-result">
+                    <select name="source_competition" class="select select-bordered select-sm w-full" required>
+                        <option value="">Competición origen…</option>
+                        {{range .AllCompetitions}}
+                        <option value="{{.Id}}">{{.GetString "name"}}</option>
+                        {{end}}
+                    </select>
+                    <button type="submit" class="btn btn-accent btn-sm w-full mt-2">Copiar</button>
+                </form>
+            </div>
+
+            <div class="bg-base-200 rounded-box p-4">
+                <p class="text-sm font-semibold mb-3">Crear nueva pareja</p>
+                <div id="create-pair-result" class="mb-2"></div>
+                <form hx-post="/admin/pairs" hx-target="#create-pair-result">
+                    <input type="text" name="name" class="input input-bordered input-sm w-full" placeholder="Nombre de la pareja" required>
+                    <select name="player1" class="select select-bordered select-sm w-full mt-2" required>
+                        <option value="">Jugador 1…</option>
+                        {{range .AllUsers}}
+                        <option value="{{.Id}}">{{.GetString "display_name"}}</option>
+                        {{end}}
+                    </select>
+                    <select name="player2" class="select select-bordered select-sm w-full mt-2" required>
+                        <option value="">Jugador 2…</option>
+                        {{range .AllUsers}}
+                        <option value="{{.Id}}">{{.GetString "display_name"}}</option>
+                        {{end}}
+                    </select>
+                    <button type="submit" class="btn btn-secondary btn-sm w-full mt-2">Crear</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Fechas de jornada (accordion — collapsed once started) -->
+{{if and .IsLeague .RoundDates}}
+<div class="collapse collapse-arrow bg-base-100 shadow mb-6" data-testid="section-round-dates" id="round-schedule">
+    <input type="checkbox" {{if not .HasFixtures}}checked{{end}}>
+    <div class="collapse-title text-lg font-bold">Fechas límite por jornada</div>
+    <div class="collapse-content">
+        <div class="flex justify-end mb-2">
+            <button hx-post="/admin/competitions/{{.Competition.Id}}/round-dates/regenerate"
+                    hx-confirm="¿Regenerar las fechas? Esto sobrescribe las fechas editadas."
+                    class="btn btn-ghost btn-sm">Regenerar fechas</button>
+        </div>
+        <form hx-post="/admin/competitions/{{.Competition.Id}}/round-dates" class="space-y-2">
+            {{range .RoundDates}}
+            <div class="flex items-center gap-3">
+                <span class="text-sm font-medium w-24">Jornada {{.Number}}</span>
+                <input type="date" name="round_date_{{.Number}}" value="{{.Date}}"
+                       class="input input-bordered input-sm flex-1 max-w-xs">
+            </div>
+            {{end}}
+            <div class="mt-3">
+                <button type="submit" class="btn btn-primary btn-sm">Guardar fechas</button>
+            </div>
+        </form>
     </div>
 </div>
 {{end}}
