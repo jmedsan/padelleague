@@ -22,22 +22,13 @@ type AdminIssue struct {
 	Detail          string
 }
 
-// CompetitionSummary holds aggregate stats for a competition on the dashboard.
-type CompetitionSummary struct {
-	Competition   *core.Record
-	PairsCount    int
-	TotalMatches  int
-	PlayedMatches int
-	DisputeCount  int
-}
-
 // Dashboard renders the admin competitions overview with active/inactive lists and issues.
 func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
 	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != ''", "name", 0, 0, nil)
 
-	var active, inactive []CompetitionSummary
+	var active, inactive []CompetitionView
 	for _, comp := range allComps {
-		summary := h.buildCompetitionSummary(comp)
+		summary := h.buildCompetitionView(comp)
 		if comp.GetBool("active") {
 			active = append(active, summary)
 		} else {
@@ -59,30 +50,11 @@ func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
 	})
 }
 
-func (h *CompetitionHandler) buildCompetitionSummary(comp *core.Record) CompetitionSummary {
-	allMatches, _ := h.app.FindRecordsByFilter("matches",
-		"competition = {:cid}", "", 0, 0,
-		map[string]any{"cid": comp.Id})
-	playedMatches := 0
-	disputeCount := 0
-	for _, m := range allMatches {
-		if m.GetString("status") == league.StatusFinal {
-			playedMatches++
-		}
-		if m.GetString("status") == league.StatusDisputed {
-			disputeCount++
-		}
-	}
-	return CompetitionSummary{
-		Competition:   comp,
-		PairsCount:    len(comp.GetStringSlice("pairs")),
-		TotalMatches:  len(allMatches),
-		PlayedMatches: playedMatches,
-		DisputeCount:  disputeCount,
-	}
+func (h *CompetitionHandler) buildCompetitionView(comp *core.Record) CompetitionView {
+	return NewCompetitionView(h.app, comp, AdminSummary)
 }
 
-func (h *CompetitionHandler) buildAdminIssues(active []CompetitionSummary) []AdminIssue {
+func (h *CompetitionHandler) buildAdminIssues(active []CompetitionView) []AdminIssue {
 	var issues []AdminIssue
 	now := time.Now().UTC()
 	for _, cs := range active {
