@@ -119,7 +119,7 @@ func TestMatchCardPlayerModeHidesAdminControls(t *testing.T) {
 		Name:               "player match card has no admin controls",
 		Method:             http.MethodGet,
 		ExpectedStatus:     http.StatusOK,
-		ExpectedContent:    []string{"Marcador de Player Card A P1:", "Marcador de Player Card B P1:"},
+		ExpectedContent:    []string{"Marcador de Player Card A (Player Card A P1):", "Marcador de Player Card B (Player Card B P1):"},
 		NotExpectedContent: []string{"Resolver", "Aprobar walkover", "Corrección de administrador"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -149,7 +149,7 @@ func TestMatchCardAdminSummaryIsReadOnly(t *testing.T) {
 		Method:             http.MethodGet,
 		URL:                "/",
 		ExpectedStatus:     http.StatusOK,
-		ExpectedContent:    []string{"Summary League", "Marcador de Summary A P1:", "Marcador de Summary B P1:", "Ver partido completo"},
+		ExpectedContent:    []string{"Summary League", "Marcador de Summary A (Summary A P1):", "Marcador de Summary B (Summary B P1):", "Ver partido completo"},
 		NotExpectedContent: []string{"Resolver", "Aprobar walkover", "Corrección de administrador"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -177,7 +177,7 @@ func TestMatchCardAdminFullShowsScoresAndResolveEndpoint(t *testing.T) {
 		Name:            "admin full match card shows both scores and resolve endpoint",
 		Method:          http.MethodGet,
 		ExpectedStatus:  http.StatusOK,
-		ExpectedContent: []string{"Marcador final", "Marcador de Full A P1:", "Marcador de Full B P1:"},
+		ExpectedContent: []string{"Marcador final", "Marcador de Full A (Full A P1):", "Marcador de Full B (Full B P1):"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)

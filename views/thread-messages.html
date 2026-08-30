@@ -78,8 +78,12 @@
             {{end}}
         </div>
     </div>
+    {{else if or (eq .Type "result_event") (eq .Type "admin_action")}}
+    <div class="entry text-center my-2" data-type="action">
+        <span class="text-xs opacity-60 bg-base-200 rounded-full px-3 py-1">{{.Content}}</span>
+    </div>
     {{else}}
-    <div class="entry chat {{if .IsMyTeam}}chat-end{{else}}chat-start{{end}}" data-type="{{if or (eq .Type "score_discussion") (eq .Type "admin_action")}}action{{else}}message{{end}}">
+    <div class="entry chat {{if .IsMyTeam}}chat-end{{else}}chat-start{{end}}" data-type="{{if eq .Type "score_discussion"}}action{{else}}message{{end}}">
         <div class="chat-header text-xs opacity-50 mb-1">
             {{.AuthorName}} <time class="ml-1">{{.CreatedAt}}</time>
         </div>
