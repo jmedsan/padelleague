@@ -183,5 +183,5 @@ func pairPlayerLabel(app core.App, userID string, match *core.Record) string {
 		pairID = match.GetString("pair2")
 	}
 	pairName := league.PairNames(app, []string{pairID})[pairID]
-	return fmt.Sprintf("%s (%s)", pairName, name)
+	return fmt.Sprintf("%s (%s)", name, pairName)
 }

@@ -625,7 +625,7 @@ func TestThreadMessages_ResultEventRendersAsSystemLine(t *testing.T) {
 		msg.Set("match", match.Id)
 		msg.Set("author", p1.GetString("player1"))
 		msg.Set("type", "result_event")
-		msg.Set("content", "registró el resultado: 6-3 6-4")
+		msg.Set("content", "registró el resultado")
 		require.NoError(tb, app.Save(msg))
 
 		s.URL = "/match/" + match.Id + "/thread-messages"
@@ -635,7 +635,7 @@ func TestThreadMessages_ResultEventRendersAsSystemLine(t *testing.T) {
 		s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 			body := readBody(tb, res)
 			assert.Contains(tb, body, `data-type="action"`, "result_event renders as system line")
-			assert.Contains(tb, body, "registró el resultado: 6-3 6-4", "system line content")
+			assert.Contains(tb, body, "registró el resultado", "system line content")
 			assert.NotContains(tb, body, `data-type="message"`, "result_event must not render as chat bubble")
 		}
 	}

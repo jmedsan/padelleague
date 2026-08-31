@@ -131,7 +131,7 @@ func TestMatchCardPlayerModeHidesAdminControls(t *testing.T) {
 		Name:               "player match card has no admin controls",
 		Method:             http.MethodGet,
 		ExpectedStatus:     http.StatusOK,
-		ExpectedContent:    []string{"Marcador de Player Card A (Player Card A P1):", "Marcador de Player Card B (Player Card B P1):"},
+		ExpectedContent:    []string{"Marcador de Player Card A P1 (Player Card A):", "Marcador de Player Card B P1 (Player Card B):"},
 		NotExpectedContent: []string{"Resolver", "Aprobar walkover", "Corrección de administrador"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -161,7 +161,7 @@ func TestMatchCardAdminSummaryIsReadOnly(t *testing.T) {
 		Method:             http.MethodGet,
 		URL:                "/",
 		ExpectedStatus:     http.StatusOK,
-		ExpectedContent:    []string{"Summary League", "Marcador de Summary A (Summary A P1):", "Marcador de Summary B (Summary B P1):", "Ver partido completo"},
+		ExpectedContent:    []string{"Summary League", "Marcador de Summary A P1 (Summary A):", "Marcador de Summary B P1 (Summary B):", "Ver partido completo"},
 		NotExpectedContent: []string{"Resolver", "Aprobar walkover", "Corrección de administrador"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -189,7 +189,7 @@ func TestMatchCardAdminFullShowsScoresAndResolveEndpoint(t *testing.T) {
 		Name:            "admin full match card shows both scores and resolve endpoint",
 		Method:          http.MethodGet,
 		ExpectedStatus:  http.StatusOK,
-		ExpectedContent: []string{"Marcador final", "Marcador de Full A (Full A P1):", "Marcador de Full B (Full B P1):"},
+		ExpectedContent: []string{"Marcador final", "Marcador de Full A P1 (Full A):", "Marcador de Full B P1 (Full B):"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -358,12 +358,12 @@ func TestPairPlayerLabel(t *testing.T) {
 
 	t.Run("team 1 player", func(t *testing.T) {
 		got := pairPlayerLabel(app, p1.GetString("player1"), match)
-		assert.Equal(t, "Label A (Label A P1)", got)
+		assert.Equal(t, "Label A P1 (Label A)", got)
 	})
 
 	t.Run("team 2 player", func(t *testing.T) {
 		got := pairPlayerLabel(app, p2.GetString("player1"), match)
-		assert.Equal(t, "Label B (Label B P1)", got)
+		assert.Equal(t, "Label B P1 (Label B)", got)
 	})
 
 	t.Run("empty user ID", func(t *testing.T) {
