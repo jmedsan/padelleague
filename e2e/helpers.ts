@@ -48,6 +48,7 @@ const SCRATCH_SLOTS: Record<string, number> = {
   'submit-score': 0,
   'propose-schedule': 1,
   'admin-notif': 2,
+  'mobile-lifecycle': 3,
 };
 
 export function scratchMatchId(purpose: keyof typeof SCRATCH_SLOTS | string, projectName: string): string {
