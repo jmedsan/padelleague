@@ -131,6 +131,11 @@ func TestDisputeCreatesTimelineEntry(t *testing.T) {
 		require.Len(tb, entries, 1, "dispute must write one result_event")
 		assert.Equal(tb, disputerID, entries[0].GetString("author"))
 		assert.Contains(tb, entries[0].GetString("content"), "disputó el resultado")
+
+		submissions := findTimelineEntries(app, matchID, "result_submission")
+		require.Len(tb, submissions, 1, "dispute must write one result_submission with counter-scores")
+		assert.Equal(tb, disputerID, submissions[0].GetString("author"))
+		assert.Equal(tb, "6-4 6-3", submissions[0].GetString("content"))
 	}
 	s.Test(t)
 }
