@@ -141,9 +141,6 @@
                     {{end}}
                 </div>
             </div>
-            {{if .AdminView}}
-            <div class="bg-error/90 text-error-content text-center text-sm font-semibold py-1.5">Modo administrador</div>
-            {{end}}
             {{if and .DisplayName (not .Verified)}}
             <div id="verify-banner" class="alert alert-warning shadow-md mx-4 mt-4 max-w-[calc(100%-2rem)]">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>

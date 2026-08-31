@@ -22,14 +22,9 @@ test.describe('R-178: presentation quality guards', () => {
     await page.locator('a:has-text("Inicio")').first().click();
     await page.waitForLoadState('networkidle');
 
-    // Admin banner should be visible and not hot-pink (#f87272)
-    const banner = page.locator('text=Modo administrador');
-    await expect(banner).toBeVisible();
-    const bannerBg = await banner.evaluate(el => {
-      const div = el.closest('div')!;
-      return getComputedStyle(div).backgroundColor;
-    });
-    expect(bannerBg).not.toContain('rgb(248, 114, 114)');
+    // Admin mode indicator (top-bar pill/dropdown) should be visible
+    const indicator = page.locator('[aria-label="cambiar vista"], details:has(a[href="/view/player"]) summary').first();
+    await expect(indicator).toBeVisible();
 
     // Theme attribute is 'dark' (not 'night')
     const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
