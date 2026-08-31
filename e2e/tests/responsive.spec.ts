@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginAs, loadTestData, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
+import { loginAs, loadTestData, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 const MOBILE = { width: 375, height: 812 };
 
@@ -136,8 +136,11 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.waitForLoadState('networkidle');
 
     // Admin mode indicator (top-bar pill/dropdown) should be visible
-    const indicator = page.locator('[aria-label="cambiar vista"], details:has(a[href="/view/player"]) summary').first();
-    await expect(indicator).toBeVisible();
+    if (isMobile(page)) {
+      await expect(page.locator('[aria-label="cambiar vista"]')).toBeVisible();
+    } else {
+      await expect(page.locator('details:has(a[href="/view/player"]) summary')).toBeVisible();
+    }
 
     // Theme should be 'dark', not 'night'
     const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));

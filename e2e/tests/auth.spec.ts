@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginAs, loginViaForm, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
+import { loginAs, loginViaForm, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 test('unauthenticated access redirects to login', async ({ page }) => {
   await page.goto('/');
@@ -10,7 +10,11 @@ test('login with valid credentials via form', async ({ page }) => {
   await loginViaForm(page, ADMIN_EMAIL, ADMIN_PASSWORD);
   await expect(page).toHaveURL('/');
   await expect(page.locator('.navbar')).toBeVisible();
-  await expect(page.locator('[aria-label="cambiar vista"], details:has(a[href="/view/player"]) summary').first()).toBeVisible();
+  if (isMobile(page)) {
+    await expect(page.locator('[aria-label="cambiar vista"]')).toBeVisible();
+  } else {
+    await expect(page.locator('details:has(a[href="/view/player"]) summary')).toBeVisible();
+  }
 });
 
 test('login with invalid credentials shows error', async ({ page }) => {

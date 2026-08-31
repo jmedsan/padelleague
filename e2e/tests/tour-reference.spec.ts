@@ -1,5 +1,5 @@
 import { test, expect, Page, APIRequestContext } from '@playwright/test';
-import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, isMobile, navViaDrawer, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import {
   setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,
   computeExpected, PlannedMatch, PairId,
@@ -49,12 +49,23 @@ const pairNames: Record<PairId, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Nav-menu helper — opens the desktop Gestión dropdown and clicks the link
+// Nav-menu helper — viewport-aware (desktop Gestión dropdown / mobile drawer)
 // ---------------------------------------------------------------------------
 
+const NAV_HREFS: Record<string, string> = {
+  'Panel': '/admin',
+  'Parejas': '/admin/pairs',
+  'Jugadores': '/admin/players',
+  'Documentos': '/admin/documents',
+};
+
 async function navTo(page: Page, label: string): Promise<void> {
-  // Ensure the layout (with nav menu) is present — HTMX body replacements
-  // and HX-Redirects can leave the page without the nav chrome.
+  if (isMobile(page)) {
+    const href = NAV_HREFS[label];
+    if (!href) throw new Error(`navTo: unknown label "${label}"`);
+    await navViaDrawer(page, href);
+    return;
+  }
   if (!await page.locator('summary:has-text("Gestión")').isVisible().catch(() => false)) {
     await page.goto('/');
   }
@@ -100,10 +111,6 @@ interface MatchFixture {
 // ---------------------------------------------------------------------------
 
 test.describe('reference navigation tour', () => {
-  test.beforeEach(({}, testInfo) => {
-    test.skip(testInfo.project.name !== 'desktop', 'reference tour runs desktop-only');
-  });
-
   test.describe.configure({ retries: 0 });
 
   test('complete league + playoff via nav-menu navigation', async ({ page }) => {
@@ -307,33 +314,48 @@ test.describe('reference navigation tour', () => {
     expect(page.url()).toContain(`/player/${playerIds[0]}`);
     await expect(page.locator('h1')).toContainText(PLAYERS[0].name);
 
-    // --- Step 13: Double-role (R-150) — admin+player "Ver como" switcher ---
+    // --- Step 13: Double-role (R-150) — admin+player view switcher ---
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
-    // Admin has both roles → view-switcher visible (shows current mode)
-    const viewSwitcher = page.locator('.menu-horizontal details:has(a[href="/view/player"]) summary');
-    await expect(viewSwitcher).toBeVisible();
-    // Default view is admin — Gestión dropdown visible
-    await expect(page.locator('summary:has-text("Gestión")')).toBeVisible();
+    if (isMobile(page)) {
+      // Mobile: admin pill button visible
+      const pill = page.locator('[aria-label="cambiar vista"]');
+      await expect(pill).toBeVisible();
 
-    // Switch to player view via desktop nav
-    const desktopNav = page.locator('.menu-horizontal');
-    await viewSwitcher.click();
-    await desktopNav.locator('a[href="/view/player"]').click();
-    await page.waitForLoadState('domcontentloaded');
-    // In player view: Gestión should be hidden, player home content visible
-    await expect(page.locator('summary:has-text("Gestión")')).not.toBeVisible();
-    await expect(page.locator('h1, h2').first()).toBeVisible();
+      // Switch to player view
+      await pill.click();
+      await page.locator('.dropdown-content a[href="/view/player"]').click();
+      await page.waitForLoadState('domcontentloaded');
+      await expect(page.locator('h1, h2').first()).toBeVisible();
 
-    // Switch back to admin view
-    const viewSwitcherPlayer = page.locator('.menu-horizontal details:has(a[href="/view/admin"]) summary');
-    await viewSwitcherPlayer.click();
-    await desktopNav.locator('a[href="/view/admin"]').click();
-    await page.waitForLoadState('domcontentloaded');
-    // Gestión visible again
-    await expect(page.locator('summary:has-text("Gestión")')).toBeVisible();
+      // Switch back to admin view
+      const pillPlayer = page.locator('[aria-label="cambiar vista"]');
+      await pillPlayer.click();
+      await page.locator('.dropdown-content a[href="/view/admin"]').click();
+      await page.waitForLoadState('domcontentloaded');
+    } else {
+      // Desktop: view-switcher dropdown visible
+      const viewSwitcher = page.locator('.menu-horizontal details:has(a[href="/view/player"]) summary');
+      await expect(viewSwitcher).toBeVisible();
+      await expect(page.locator('summary:has-text("Gestión")')).toBeVisible();
+
+      // Switch to player view
+      const desktopNav = page.locator('.menu-horizontal');
+      await viewSwitcher.click();
+      await desktopNav.locator('a[href="/view/player"]').click();
+      await page.waitForLoadState('domcontentloaded');
+      await expect(page.locator('summary:has-text("Gestión")')).not.toBeVisible();
+      await expect(page.locator('h1, h2').first()).toBeVisible();
+
+      // Switch back to admin view
+      const viewSwitcherPlayer = page.locator('.menu-horizontal details:has(a[href="/view/admin"]) summary');
+      await viewSwitcherPlayer.click();
+      await desktopNav.locator('a[href="/view/admin"]').click();
+      await page.waitForLoadState('domcontentloaded');
+      await expect(page.locator('summary:has-text("Gestión")')).toBeVisible();
+    }
   });
 });
 

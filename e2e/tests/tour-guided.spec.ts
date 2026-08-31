@@ -132,10 +132,6 @@ async function gotoMatchViaCompCard(page: Page, compId: string, matchId: string)
 // ---------------------------------------------------------------------------
 
 test.describe('guided navigation tour', () => {
-  test.beforeEach(({}, testInfo) => {
-    test.skip(testInfo.project.name !== 'desktop', 'guided tour runs desktop-only');
-  });
-
   test.describe.configure({ retries: 0 });
 
   test('complete league + playoff via home affordances (P4, P6)', async ({ page }) => {
