@@ -7,10 +7,11 @@ import (
 )
 
 type timelineEntry struct {
-	MatchID string
-	ActorID string
-	Kind    string
-	Detail  string
+	MatchID  string
+	ActorID  string
+	Kind     string
+	Detail   string
+	ParentID string
 }
 
 func addTimelineEntry(app core.App, e timelineEntry) {
@@ -24,6 +25,9 @@ func addTimelineEntry(app core.App, e timelineEntry) {
 	rec.Set("author", e.ActorID)
 	rec.Set("type", e.Kind)
 	rec.Set("content", e.Detail)
+	if e.ParentID != "" {
+		rec.Set("parent", e.ParentID)
+	}
 	if err := app.Save(rec); err != nil {
 		slog.Error("timeline: save entry", "match", e.MatchID, "err", err)
 	}

@@ -39,86 +39,16 @@ func TestMatchSubmitScore(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
 		m, err := app.FindRecordById("matches", matchID)
 		require.NoError(tb, err)
-		assert.Equal(tb, "confirmed", m.GetString("status"))
-		assert.Equal(tb, "6-3 6-4", m.GetString("scores"))
+		assert.Equal(tb, "pending", m.GetString("status"), "match stays pre-score after submit")
 		assert.Equal(tb, submitterID, m.GetString("submitted_by"))
 		assert.Equal(tb, "/match/"+matchID, res.Header.Get("HX-Redirect"))
-	}
-	s.Test(t)
-}
 
-func TestMatchConfirm(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "POST /match/{id}/confirm by opponent returns 204",
-		Method:         http.MethodPost,
-		ExpectedStatus: 204,
-	}
-	var matchID, opponentID, p1ID string
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "Confirm A")
-		p2 := makePairTB(tb, app, "Confirm B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
-		matchID = match.Id
-		p1ID = p1.Id
-		submitter := p1.GetString("player1")
-		match.Set("scores", "6-3 6-4")
-		match.Set("submitted_by", submitter)
-		require.NoError(tb, app.Save(match))
-		s.URL = "/match/" + match.Id + "/confirm"
-		opponent, _ := app.FindRecordById("users", p2.GetString("player1"))
-		opponentID = opponent.Id
-		s.Headers = authHeaders(tb, opponent)
-	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
-		m, err := app.FindRecordById("matches", matchID)
+		proposals, err := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_submission' && proposal_status = 'pending'",
+			"", 0, 0, map[string]any{"mid": matchID})
 		require.NoError(tb, err)
-		assert.Equal(tb, "final", m.GetString("status"))
-		assert.Equal(tb, opponentID, m.GetString("confirmed_by"))
-		assert.Equal(tb, p1ID, m.GetString("winner"))
-		assert.Equal(tb, "/match/"+matchID, res.Header.Get("HX-Redirect"))
-	}
-	s.Test(t)
-}
-
-func TestMatchDispute(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "POST /match/{id}/dispute with notes returns 204",
-		Method:         http.MethodPost,
-		ExpectedStatus: 204,
-	}
-	var matchID, opponentID string
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "Dispute A")
-		p2 := makePairTB(tb, app, "Dispute B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
-		matchID = match.Id
-		submitter := p1.GetString("player1")
-		match.Set("scores", "6-3 6-4")
-		match.Set("submitted_by", submitter)
-		require.NoError(tb, app.Save(match))
-		s.URL = "/match/" + match.Id + "/dispute"
-		s.Body = strings.NewReader("disputed_scores=6-4+6-3&dispute_notes=El+marcador+es+incorrecto")
-		opponent, _ := app.FindRecordById("users", p2.GetString("player1"))
-		opponentID = opponent.Id
-		hdrs := authHeaders(tb, opponent)
-		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-		s.Headers = hdrs
-	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
-		m, err := app.FindRecordById("matches", matchID)
-		require.NoError(tb, err)
-		assert.Equal(tb, "disputed", m.GetString("status"))
-		assert.Equal(tb, "El marcador es incorrecto", m.GetString("dispute_notes"))
-		assert.Equal(tb, opponentID, m.GetString("disputed_by"))
-		assert.Equal(tb, "/match/"+matchID, res.Header.Get("HX-Redirect"))
+		require.Len(tb, proposals, 1, "a pending result proposal must exist")
+		assert.Equal(tb, "6-3 6-4", ParseProposalData(proposals[0].GetString("proposal_data")).Scores)
 	}
 	s.Test(t)
 }
@@ -137,13 +67,13 @@ func TestMatchCorrect(t *testing.T) {
 		p1 := makePairTB(tb, app, "Correct A")
 		p2 := makePairTB(tb, app, "Correct B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
 		matchID = match.Id
 		submitter := p1.GetString("player1")
-		match.Set("scores", "6-3 6-4")
 		match.Set("submitted_by", submitter)
 		match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
 		require.NoError(tb, app.Save(match))
+		makeResultProposal(tb, app, match.Id, submitter, "6-3 6-4")
 		s.URL = "/match/" + match.Id + "/correct"
 		s.Body = strings.NewReader("scores=6-4+6-3")
 		user, _ := app.FindRecordById("users", submitter)
@@ -154,10 +84,18 @@ func TestMatchCorrect(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
 		m, err := app.FindRecordById("matches", matchID)
 		require.NoError(tb, err)
-		assert.Equal(tb, "confirmed", m.GetString("status"))
-		assert.Equal(tb, "6-4 6-3", m.GetString("scores"))
-		assert.Empty(tb, m.GetString("confirmed_by"), "confirmed_by must be cleared on correction")
-		assert.NotEmpty(tb, m.GetString("submitted_at"), "submitted_at must be refreshed")
+		assert.Equal(tb, "scheduled", m.GetString("status"), "match stays pre-score")
+
+		pending, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_submission' && proposal_status = 'pending'",
+			"", 0, 0, map[string]any{"mid": matchID})
+		require.Len(tb, pending, 1, "corrected proposal must be pending")
+		assert.Equal(tb, "6-4 6-3", ParseProposalData(pending[0].GetString("proposal_data")).Scores)
+
+		superseded, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_submission' && proposal_status = 'superseded'",
+			"", 0, 0, map[string]any{"mid": matchID})
+		assert.Len(tb, superseded, 1, "old proposal must be superseded")
 		assert.Equal(tb, "/match/"+matchID, res.Header.Get("HX-Redirect"))
 	}
 	s.Test(t)
@@ -244,61 +182,6 @@ func TestMatchSubmitWORejected(t *testing.T) {
 	s.Test(t)
 }
 
-func TestMatchConfirmOwnResultRejected(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "POST /match/{id}/confirm by submitter rejected",
-		Method:          http.MethodPost,
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"propio resultado"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "ConfOwn A")
-		p2 := makePairTB(tb, app, "ConfOwn B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
-		submitter := p1.GetString("player1")
-		match.Set("scores", "6-3 6-4")
-		match.Set("submitted_by", submitter)
-		require.NoError(tb, app.Save(match))
-		s.URL = "/match/" + match.Id + "/confirm"
-		user, _ := app.FindRecordById("users", submitter)
-		s.Headers = authHeaders(tb, user)
-	}
-	s.Test(t)
-}
-
-func TestMatchDisputeOwnResultRejected(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "POST /match/{id}/dispute by submitter rejected",
-		Method:          http.MethodPost,
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"propio resultado"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "DispOwn A")
-		p2 := makePairTB(tb, app, "DispOwn B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
-		submitter := p1.GetString("player1")
-		match.Set("scores", "6-3 6-4")
-		match.Set("submitted_by", submitter)
-		require.NoError(tb, app.Save(match))
-		s.URL = "/match/" + match.Id + "/dispute"
-		s.Body = strings.NewReader("dispute_notes=Incorrecto")
-		user, _ := app.FindRecordById("users", submitter)
-		hdrs := authHeaders(tb, user)
-		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-		s.Headers = hdrs
-	}
-	s.Test(t)
-}
-
 func TestMatchCorrectExpired(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
@@ -313,12 +196,12 @@ func TestMatchCorrectExpired(t *testing.T) {
 		p1 := makePairTB(tb, app, "CorrExp A")
 		p2 := makePairTB(tb, app, "CorrExp B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
 		submitter := p1.GetString("player1")
-		match.Set("scores", "6-3 6-4")
 		match.Set("submitted_by", submitter)
 		match.SetRaw("submitted_at", time.Now().Add(-25*time.Hour).UTC().Format(time.RFC3339))
 		require.NoError(tb, app.Save(match))
+		makeResultProposal(tb, app, match.Id, submitter, "6-3 6-4")
 		s.URL = "/match/" + match.Id + "/correct"
 		s.Body = strings.NewReader("scores=6-4+6-3")
 		user, _ := app.FindRecordById("users", submitter)

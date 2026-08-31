@@ -297,34 +297,69 @@ func (h *PublicHandler) checkPendingProposal(m *core.Record, playerPairIDs map[s
 }
 
 func (h *PublicHandler) findUnconfirmedScores(c *core.Record, playerPairIDs map[string]struct{}) []PendingAction {
+	actions := h.findLegacyConfirmed(c, playerPairIDs)
+	actions = append(actions, h.findPendingProposals(c, playerPairIDs)...)
+	return actions
+}
+
+func (h *PublicHandler) findLegacyConfirmed(c *core.Record, playerPairIDs map[string]struct{}) []PendingAction {
+	var actions []PendingAction
 	confirmed, _ := h.app.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'confirmed'",
 		"", 0, 0, map[string]any{"cid": c.Id})
-	var actions []PendingAction
 	for _, m := range confirmed {
-		p1 := m.GetString("pair1")
-		p2 := m.GetString("pair2")
-		_, hasP1 := playerPairIDs[p1]
-		_, hasP2 := playerPairIDs[p2]
-		if !hasP1 && !hasP2 {
-			continue
-		}
-		submitterTeam, _ := league.PlayerTeam(h.app, m.GetString("submitted_by"), m)
-		playerTeam := 1
-		if hasP2 {
-			playerTeam = 2
-		}
-		if submitterTeam == playerTeam {
+		if !isRivalAction(h.app, m, m.GetString("submitted_by"), playerPairIDs) {
 			continue
 		}
 		actions = append(actions, PendingAction{
 			MatchID:     m.Id,
 			Opponent:    h.opponentName(m, playerPairIDs),
 			ActionType:  "confirm_score",
-			Description: "Confirmar resultado: " + m.GetString("scores"),
+			Description: "Responder resultado: " + m.GetString("scores"),
 		})
 	}
 	return actions
+}
+
+func (h *PublicHandler) findPendingProposals(c *core.Record, playerPairIDs map[string]struct{}) []PendingAction {
+	var actions []PendingAction
+	proposals, _ := h.app.FindRecordsByFilter("match_messages",
+		"type = 'result_submission' && proposal_status = 'pending'",
+		"", 0, 0, nil)
+	for _, p := range proposals {
+		m, err := h.app.FindRecordById("matches", p.GetString("match"))
+		if err != nil || m.GetString("competition") != c.Id {
+			continue
+		}
+		if !isRivalAction(h.app, m, p.GetString("author"), playerPairIDs) {
+			continue
+		}
+		scores := m.GetString("scores")
+		if scores == "" {
+			scores = "pendiente"
+		}
+		actions = append(actions, PendingAction{
+			MatchID:     m.Id,
+			Opponent:    h.opponentName(m, playerPairIDs),
+			ActionType:  "respond_result",
+			Description: "Responder resultado: " + scores,
+		})
+	}
+	return actions
+}
+
+func isRivalAction(app core.App, m *core.Record, authorID string, playerPairIDs map[string]struct{}) bool {
+	_, hasP1 := playerPairIDs[m.GetString("pair1")]
+	_, hasP2 := playerPairIDs[m.GetString("pair2")]
+	if !hasP1 && !hasP2 {
+		return false
+	}
+	authorTeam, _ := league.PlayerTeam(app, authorID, m)
+	playerTeam := 1
+	if hasP2 {
+		playerTeam = 2
+	}
+	return authorTeam != playerTeam
 }
 
 func (h *PublicHandler) findRecentResults(c *core.Record) []MatchCard {

@@ -13,8 +13,6 @@ import (
 
 type cardActions struct {
 	submit   bool
-	confirm  bool
-	dispute  bool
 	edit     bool
 	walkover bool
 	correct  bool
@@ -55,12 +53,12 @@ func TestNewMatchCardActions(t *testing.T) {
 			want:      cardActions{walkover: true, correct: true},
 		},
 		{
-			name:      "player confirmed opponent can confirm dispute and report walkover",
+			name:      "player confirmed opponent can report walkover",
 			mode:      PlayerFull,
 			status:    "confirmed",
 			viewerID:  p2.GetString("player1"),
 			submitted: true,
-			want:      cardActions{confirm: true, dispute: true, walkover: true},
+			want:      cardActions{walkover: true},
 		},
 		{
 			name:     "admin summary has no player actions",
@@ -114,8 +112,6 @@ func TestNewMatchCardActions(t *testing.T) {
 			card := NewMatchCard(app, match, tc.mode, tc.viewerID)
 			assert.Equal(t, tc.want, cardActions{
 				submit:   card.CanSubmit,
-				confirm:  card.CanConfirm,
-				dispute:  card.CanDispute,
 				edit:     card.CanEdit,
 				walkover: card.CanWalkover,
 				correct:  card.CanCorrect,

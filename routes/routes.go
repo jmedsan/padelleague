@@ -205,8 +205,6 @@ func registerMatchRoutes(se *core.ServeEvent, deps Deps) {
 	match := handlers.NewMatchHandler(deps.App, deps.Notifier, deps.Renderer.Page, deps.Renderer.ErrorPage)
 	se.Router.GET("/match/{id}", match.MatchDetail).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/match/{id}/submit", match.MatchSubmit).BindFunc(middleware.RequireAuth)
-	se.Router.POST("/match/{id}/confirm", match.MatchConfirm).BindFunc(middleware.RequireAuth)
-	se.Router.POST("/match/{id}/dispute", match.MatchDispute).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/match/{id}/correct", match.MatchCorrect).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/match/{id}/admin-override", match.AdminOverride).BindFunc(middleware.RequireAuth).BindFunc(middleware.RequireAppAdmin)
 	se.Router.POST("/match/{id}/report-unplayed", match.ReportUnplayed).BindFunc(middleware.RequireAuth)

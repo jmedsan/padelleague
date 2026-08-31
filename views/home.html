@@ -204,7 +204,7 @@
     <div class="space-y-2">
         {{range .PendingActions}}
         <a href="/match/{{.MatchID}}" class="flex items-center gap-3 p-3 rounded-xl bg-warning/10 hover:bg-warning/20 transition-colors">
-            {{if eq .ActionType "confirm_score"}}
+            {{if or (eq .ActionType "confirm_score") (eq .ActionType "respond_result")}}
             <div class="w-8 h-8 rounded-full bg-warning/20 flex items-center justify-center flex-none">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 text-warning"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
             </div>

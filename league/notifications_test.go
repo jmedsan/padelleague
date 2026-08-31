@@ -24,11 +24,6 @@ func TestNotificationConstructors(t *testing.T) {
 			want: Notification{Type: "general", Title: "Resultado confirmado", Body: "Tu rival ha confirmado el resultado del partido.", MatchID: "m1"},
 		},
 		{
-			name: "ResultDisputed",
-			got:  NotifResultDisputed("m1"),
-			want: Notification{Type: "general", Title: "Resultado disputado", Body: "Tu rival ha disputado el resultado que enviaste.", MatchID: "m1"},
-		},
-		{
 			name: "ResultCorrected",
 			got:  NotifResultCorrected("m1"),
 			want: Notification{Type: "quorum_request", Title: "Resultado corregido", Body: "El rival ha corregido el resultado. Confirma o disputa.", MatchID: "m1"},
@@ -87,11 +82,6 @@ func TestNotificationConstructors(t *testing.T) {
 			name: "AdminMatchUnplayed",
 			got:  NotifAdminMatchUnplayed("m1"),
 			want: Notification{Type: "dispute", Title: "Partido no jugado", Body: "Un jugador ha reportado un partido como no jugado.", MatchID: "m1"},
-		},
-		{
-			name: "AdminDisputed",
-			got:  NotifAdminDisputed("m1", "Notas del jugador"),
-			want: Notification{Type: "dispute", Title: "Partido disputado", Body: "Notas del jugador", MatchID: "m1"},
 		},
 		{
 			name: "AdminSupersedeFailed",

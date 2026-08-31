@@ -10,6 +10,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 
 	"padelleague/league"
+	"padelleague/render"
 )
 
 // RenderFunc renders a full page template.
@@ -38,8 +39,40 @@ func alertWarning(e *core.RequestEvent, msg string) error {
 	return e.HTML(http.StatusOK, `<div class="alert alert-warning">`+html.EscapeString(msg)+`</div>`)
 }
 
-func checkCompModifiable(app core.App, e *core.RequestEvent, match *core.Record) error {
+func isEffectiveAdmin(e *core.RequestEvent) bool {
+	return render.AdminView(e)
+}
+
+func checkDocGate(app core.App, e *core.RequestEvent, match *core.Record) error {
 	if slices.Contains(e.Auth.GetStringSlice("roles"), "admin") {
+		return nil
+	}
+	compID := match.GetString("competition")
+	if compID == "" {
+		return nil
+	}
+	comp, err := app.FindRecordById("competitions", compID)
+	if err != nil {
+		return nil
+	}
+	userID := e.Auth.Id
+	pairs, _ := league.PairsForPlayer(app, userID)
+	playerPairIDs := make(map[string]struct{}, len(pairs))
+	for _, p := range pairs {
+		playerPairIDs[p.Id] = struct{}{}
+	}
+	if !league.IsParticipant(comp, playerPairIDs) {
+		return nil
+	}
+	if pending := league.UnacknowledgedMandatory(app, comp, userID); len(pending) > 0 {
+		e.Response.Header().Set("HX-Redirect", "/competition/"+compID)
+		return e.NoContent(http.StatusNoContent)
+	}
+	return nil
+}
+
+func checkCompModifiable(app core.App, e *core.RequestEvent, match *core.Record) error {
+	if isEffectiveAdmin(e) {
 		return nil
 	}
 	comp, err := app.FindRecordById("competitions", match.GetString("competition"))

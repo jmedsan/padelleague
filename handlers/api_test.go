@@ -272,9 +272,15 @@ func TestMatchSubmitValidScore(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		m, err := app.FindRecordById("matches", matchID)
 		require.NoError(tb, err)
-		assert.Equal(tb, "confirmed", m.GetString("status"))
-		assert.Equal(tb, "6-3 6-4", m.GetString("scores"))
+		assert.Equal(tb, "pending", m.GetString("status"), "match stays pre-score")
 		assert.Equal(tb, submitterID, m.GetString("submitted_by"))
+
+		proposals, err := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_submission' && proposal_status = 'pending'",
+			"", 0, 0, map[string]any{"mid": matchID})
+		require.NoError(tb, err)
+		require.Len(tb, proposals, 1)
+		assert.Equal(tb, "6-3 6-4", ParseProposalData(proposals[0].GetString("proposal_data")).Scores)
 	}
 	s.Test(t)
 }

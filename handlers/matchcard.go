@@ -36,12 +36,11 @@ type MatchCard struct {
 	Feeder2   string
 	IsMyMatch bool
 
-	CanSubmit   bool
-	CanConfirm  bool
-	CanDispute  bool
-	CanEdit     bool
-	CanWalkover bool
-	CanCorrect  bool
+	CanSubmit       bool
+	CanEdit         bool
+	CanWalkover     bool
+	CanCorrect      bool
+	HasDateAndPlace bool
 
 	Venues []*core.Record
 }
@@ -128,13 +127,13 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 		}
 	}
 
+	c.HasDateAndPlace = match.GetString("date") != "" && match.GetString("club") != ""
 	c.CanSubmit = league.IsPreScore(status) && team > 0
-	c.CanConfirm = status == league.StatusConfirmed && team > 0 && !isSubmitter
-	c.CanDispute = status == league.StatusConfirmed && team > 0 && !isSubmitter
 	c.CanEdit = league.IsPreScore(status) && team > 0
 	c.CanWalkover = canReportUnplayed(status, team)
 
-	if status == league.StatusConfirmed && team > 0 && isSubmitter {
+	canCorrectStatus := league.IsPreScore(status) || status == league.StatusConfirmed
+	if canCorrectStatus && team > 0 && isSubmitter {
 		if submittedAt := match.GetString("submitted_at"); submittedAt != "" {
 			if dt, err := types.ParseDateTime(submittedAt); err == nil {
 				c.CanCorrect = time.Since(dt.Time()) < 24*time.Hour

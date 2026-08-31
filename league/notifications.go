@@ -26,14 +26,6 @@ func NotifResultConfirmed(matchID string) Notification {
 	}
 }
 
-// NotifResultDisputed notifies the submitter that the rival disputed the score.
-func NotifResultDisputed(matchID string) Notification {
-	return Notification{
-		Type: "general", Title: "Resultado disputado",
-		Body: "Tu rival ha disputado el resultado que enviaste.", MatchID: matchID,
-	}
-}
-
 // NotifResultCorrected notifies the rival that the score was corrected.
 func NotifResultCorrected(matchID string) Notification {
 	return Notification{
@@ -132,14 +124,6 @@ func NotifAdminMatchUnplayed(matchID string) Notification {
 	return Notification{
 		Type: "dispute", Title: "Partido no jugado",
 		Body: "Un jugador ha reportado un partido como no jugado.", MatchID: matchID,
-	}
-}
-
-// NotifAdminDisputed alerts admins that a match result was disputed.
-func NotifAdminDisputed(matchID, notes string) Notification {
-	return Notification{
-		Type: "dispute", Title: "Partido disputado",
-		Body: notes, MatchID: matchID,
 	}
 }
 

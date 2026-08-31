@@ -370,3 +370,183 @@ func TestRemindPendingConfirmations_ExactBoundary(t *testing.T) {
 	svc.RemindPendingConfirmations(time.Now())
 	require.Len(t, notifier.calls, 2, "at exact threshold boundary, reminder must fire")
 }
+
+func makeResultProposal(t *testing.T, app core.App, matchID, authorID, scores string) *core.Record { //nolint:unparam
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("match_messages")
+	require.NoError(t, err)
+	r := core.NewRecord(col)
+	r.Set("match", matchID)
+	r.Set("author", authorID)
+	r.Set("type", "result_submission")
+	r.Set("content", scores)
+	r.Set("proposal_status", "pending")
+	r.Set("proposal_data", `{"scores":"`+scores+`"}`)
+	require.NoError(t, app.Save(r))
+	return r
+}
+
+func TestConfirmStaleMatches_ProposalAutoAccept(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "PropAA A")
+	p2 := makePair(t, app, "PropAA B")
+
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	comp.Set("quorum_timeout_hours", 1)
+	require.NoError(t, app.Save(comp))
+
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "scheduled")
+	match.Set("submitted_by", p1.GetString("player1"))
+	require.NoError(t, app.Save(match))
+
+	proposal := makeResultProposal(t, app, match.Id, p1.GetString("player1"), "6-3 6-4")
+
+	staleTime := time.Now().Add(-2 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
+	_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:sa} WHERE id = {:id}").
+		Bind(map[string]any{"sa": staleTime, "id": match.Id}).Execute()
+	require.NoError(t, err)
+
+	notifier := &fakeNotifier{}
+	svc := New(app, notifier)
+	svc.ConfirmStaleMatches()
+
+	updated, err := app.FindRecordById("matches", match.Id)
+	require.NoError(t, err)
+	assert.Equal(t, "final", updated.GetString("status"))
+	assert.Equal(t, p1.Id, updated.GetString("winner"))
+
+	updatedProposal, err := app.FindRecordById("match_messages", proposal.Id)
+	require.NoError(t, err)
+	assert.Equal(t, "accepted", updatedProposal.GetString("proposal_status"))
+
+	require.True(t, len(notifier.calls) > 0, "must notify players")
+}
+
+func TestConfirmStaleMatches_ProposalNotExpired(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "PropNE A")
+	p2 := makePair(t, app, "PropNE B")
+
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	comp.Set("quorum_timeout_hours", 24)
+	require.NoError(t, app.Save(comp))
+
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "scheduled")
+	match.Set("submitted_by", p1.GetString("player1"))
+	require.NoError(t, app.Save(match))
+
+	makeResultProposal(t, app, match.Id, p1.GetString("player1"), "6-3 6-4")
+
+	recentTime := time.Now().Add(-1 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
+	_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:sa} WHERE id = {:id}").
+		Bind(map[string]any{"sa": recentTime, "id": match.Id}).Execute()
+	require.NoError(t, err)
+
+	notifier := &fakeNotifier{}
+	svc := New(app, notifier)
+	svc.ConfirmStaleMatches()
+
+	updated, err := app.FindRecordById("matches", match.Id)
+	require.NoError(t, err)
+	assert.Equal(t, "scheduled", updated.GetString("status"), "match should stay scheduled when not expired")
+}
+
+func TestRemindPendingConfirmations_Proposal(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "PropRm A")
+	p2 := makePair(t, app, "PropRm B")
+
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	comp.Set("quorum_timeout_hours", 24)
+	comp.Set("confirm_reminder_hours", 6)
+	require.NoError(t, app.Save(comp))
+
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "scheduled")
+	match.Set("submitted_by", p1.GetString("player1"))
+	match.Set("confirm_reminded", false)
+	require.NoError(t, app.Save(match))
+
+	makeResultProposal(t, app, match.Id, p1.GetString("player1"), "6-3 6-4")
+
+	pastReminder := time.Now().Add(-8 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
+	_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:sa} WHERE id = {:id}").
+		Bind(map[string]any{"sa": pastReminder, "id": match.Id}).Execute()
+	require.NoError(t, err)
+
+	notifier := &fakeNotifier{}
+	svc := New(app, notifier)
+	svc.RemindPendingConfirmations(time.Now())
+
+	require.True(t, len(notifier.calls) > 0, "must send reminder for proposal-based match")
+
+	updated, err := app.FindRecordById("matches", match.Id)
+	require.NoError(t, err)
+	assert.True(t, updated.GetBool("confirm_reminded"))
+}
+
+func TestConfirmStaleMatches_ProposalExactBoundary(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "PropBnd A")
+	p2 := makePair(t, app, "PropBnd B")
+
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	comp.Set("quorum_timeout_hours", 2)
+	require.NoError(t, app.Save(comp))
+
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "scheduled")
+	match.Set("submitted_by", p1.GetString("player1"))
+	require.NoError(t, app.Save(match))
+
+	makeResultProposal(t, app, match.Id, p1.GetString("player1"), "6-3 6-4")
+
+	// Exactly at the boundary (2h ago for 2h timeout): with `<`, elapsed == timeout
+	// means NOT less-than, so auto-accept fires. A `<=` mutant would skip it.
+	exactTime := time.Now().Add(-2 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
+	_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:sa} WHERE id = {:id}").
+		Bind(map[string]any{"sa": exactTime, "id": match.Id}).Execute()
+	require.NoError(t, err)
+
+	notifier := &fakeNotifier{}
+	svc := New(app, notifier)
+	svc.ConfirmStaleMatches()
+
+	updated, err := app.FindRecordById("matches", match.Id)
+	require.NoError(t, err)
+	assert.Equal(t, "final", updated.GetString("status"),
+		"match at exact boundary must be auto-accepted (elapsed == timeout passes strict <)")
+}
+
+func TestRemindProposal_ThresholdGteTimeout(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "PropThr A")
+	p2 := makePair(t, app, "PropThr B")
+
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	comp.Set("quorum_timeout_hours", 6)
+	comp.Set("confirm_reminder_hours", 6)
+	require.NoError(t, app.Save(comp))
+
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "scheduled")
+	match.Set("submitted_by", p1.GetString("player1"))
+	match.Set("confirm_reminded", false)
+	require.NoError(t, app.Save(match))
+
+	makeResultProposal(t, app, match.Id, p1.GetString("player1"), "6-3 6-4")
+
+	pastTime := time.Now().Add(-8 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
+	_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:sa} WHERE id = {:id}").
+		Bind(map[string]any{"sa": pastTime, "id": match.Id}).Execute()
+	require.NoError(t, err)
+
+	notifier := &fakeNotifier{}
+	svc := New(app, notifier)
+	svc.RemindPendingConfirmations(time.Now())
+
+	assert.Empty(t, notifier.calls,
+		"reminder must NOT fire when threshold >= timeout (proposal path)")
+}
