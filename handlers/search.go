@@ -7,6 +7,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 
 	"padelleague/league"
+	"padelleague/render"
 	"padelleague/search"
 )
 
@@ -55,7 +56,7 @@ func (h *SearchHandler) buildViewer(e *core.RequestEvent) search.Viewer {
 		return v
 	}
 
-	v.IsAdmin = isEffectiveAdmin(e)
+	v.IsAdmin = render.AdminView(e)
 
 	pairs, _ := league.PairsForPlayer(h.app, e.Auth.Id)
 	for _, p := range pairs {
