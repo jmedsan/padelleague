@@ -96,7 +96,7 @@ func (h *CompetitionHandler) addDetailExtras(data map[string]any, comp *core.Rec
 
 func (h *CompetitionHandler) buildDetailDocs(comp *core.Record) ([]DocumentView, []*core.Record) {
 	attachedIDs := comp.GetStringSlice("documents")
-	attachMode := Mode{Admin: true, Full: false, Editable: true}
+	attachMode := Mode{Admin: true, Editable: true, Row: true}
 	var views []DocumentView
 	for _, did := range attachedIDs {
 		if doc, err := h.app.FindRecordById("documents", did); err == nil {
