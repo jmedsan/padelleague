@@ -1,0 +1,47 @@
+{{define "standingsTable"}}
+<div class="overflow-x-auto">
+    <table class="table table-zebra {{if .Admin}}table-sm{{end}}">
+        <thead>
+            <tr {{if not .Admin}}class="bg-base-200"{{end}}>
+                <th class="{{if .Admin}}w-10{{else}}w-12 text-center{{end}}">#</th>
+                <th>Pareja</th>
+                <th class="text-center">PJ</th>
+                <th class="text-center">PG</th>
+                <th class="text-center">PP</th>
+                <th class="text-center">Sets</th>
+                <th class="text-center">Juegos</th>
+                <th class="text-center {{if not .Admin}}font-bold {{end}}">Pts</th>
+                {{if .HasPenalties}}<th class="text-center">Pen.</th>{{end}}
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Standings}}
+            <tr {{if $.Admin}}{{if le .Position 3}}class="font-medium"{{end}}{{else}}class="hover"{{end}}>
+                <td {{if not $.Admin}}class="text-center"{{end}}>
+                    {{if $.Admin}}
+                        {{if eq .Position 1}}<span class="text-warning">🥇</span>
+                        {{else if eq .Position 2}}<span class="text-base-content/60">🥈</span>
+                        {{else if eq .Position 3}}<span class="text-accent">🥉</span>
+                        {{else}}{{.Position}}{{end}}
+                    {{else}}
+                        <div class="w-7 h-7 rounded-full {{if eq .Position 1}}bg-warning text-warning-content{{else if eq .Position 2}}bg-base-300{{else if eq .Position 3}}bg-orange-700/20{{else}}bg-base-200{{end}} flex items-center justify-center text-sm font-bold mx-auto">
+                            {{.Position}}
+                        </div>
+                    {{end}}
+                </td>
+                <td {{if not $.Admin}}class="font-medium"{{end}}>{{template "pairLink" (elink .PairID .PairName)}}</td>
+                <td class="text-center">{{.Played}}</td>
+                <td class="text-center {{if not $.Admin}}text-success{{end}}">{{.Wins}}</td>
+                <td class="text-center {{if not $.Admin}}text-error{{end}}">{{.Losses}}</td>
+                <td class="text-center text-sm">{{.SetsWon}}/{{.SetsLost}}</td>
+                <td class="text-center text-sm">{{.GamesWon}}/{{.GamesLost}}</td>
+                <td class="text-center {{if not $.Admin}}text-lg {{end}}font-bold">{{.Points}}</td>
+                {{if $.HasPenalties}}<td class="text-center">
+                    {{if gt .Penalty 0}}<span class="text-error font-medium">-{{.Penalty}}</span>{{else}}<span class="opacity-60">—</span>{{end}}
+                </td>{{end}}
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}

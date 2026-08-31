@@ -33,6 +33,15 @@ func New(viewsFS fs.FS, vapidPublicKey string) *Renderer {
 		"elink": func(id, name string) map[string]string {
 			return map[string]string{"ID": id, "Name": name}
 		},
+		"dict": func(pairs ...any) map[string]any {
+			m := make(map[string]any, len(pairs)/2)
+			for i := 0; i+1 < len(pairs); i += 2 {
+				if k, ok := pairs[i].(string); ok {
+					m[k] = pairs[i+1]
+				}
+			}
+			return m
+		},
 	})
 	return &Renderer{
 		registry:       reg,
