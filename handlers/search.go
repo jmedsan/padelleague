@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"log/slog"
-	"slices"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -56,7 +55,7 @@ func (h *SearchHandler) buildViewer(e *core.RequestEvent) search.Viewer {
 		return v
 	}
 
-	v.IsAdmin = slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
+	v.IsAdmin = isEffectiveAdmin(e)
 
 	pairs, _ := league.PairsForPlayer(h.app, e.Auth.Id)
 	for _, p := range pairs {
