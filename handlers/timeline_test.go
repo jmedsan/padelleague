@@ -18,11 +18,18 @@ func findResultEvents(app *tests.TestApp, matchID string) []*core.Record {
 	return recs
 }
 
+func findTimelineEntries(app *tests.TestApp, matchID, entryType string) []*core.Record {
+	recs, _ := app.FindRecordsByFilter("match_messages",
+		"match = {:id} && type = {:type}", "", 0, 0,
+		map[string]any{"id": matchID, "type": entryType})
+	return recs
+}
+
 func TestSubmitCreatesTimelineEntry(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "score submit writes result_event timeline entry",
+		Name:           "score submit writes result_submission timeline entry",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
@@ -45,10 +52,10 @@ func TestSubmitCreatesTimelineEntry(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		entries := findResultEvents(app, matchID)
-		require.Len(tb, entries, 1, "submit must write one result_event")
+		entries := findTimelineEntries(app, matchID, "result_submission")
+		require.Len(tb, entries, 1, "submit must write one result_submission")
 		assert.Equal(tb, playerID, entries[0].GetString("author"))
-		assert.Contains(tb, entries[0].GetString("content"), "registró el resultado")
+		assert.Equal(tb, "6-3 6-4", entries[0].GetString("content"))
 	}
 	s.Test(t)
 }
@@ -132,7 +139,7 @@ func TestCorrectCreatesTimelineEntry(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "correct writes result_event timeline entry",
+		Name:           "correct writes result_submission timeline entry",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
@@ -159,10 +166,10 @@ func TestCorrectCreatesTimelineEntry(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		entries := findResultEvents(app, matchID)
-		require.Len(tb, entries, 1, "correct must write one result_event")
+		entries := findTimelineEntries(app, matchID, "result_submission")
+		require.Len(tb, entries, 1, "correct must write one result_submission")
 		assert.Equal(tb, correctorID, entries[0].GetString("author"))
-		assert.Contains(tb, entries[0].GetString("content"), "corrigió el resultado")
+		assert.Equal(tb, "6-4 6-3", entries[0].GetString("content"))
 	}
 	s.Test(t)
 }

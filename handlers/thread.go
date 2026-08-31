@@ -42,6 +42,7 @@ type ThreadMessage struct {
 	RejectionText     string
 	CanRespond        bool
 	CanChangeDecision bool
+	DataType          string
 	CreatedAt         string
 }
 
@@ -104,6 +105,11 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 			pd = ParseProposalData(msg.GetString("proposal_data"))
 		}
 
+		authorName := nameCache[authorID]
+		if msgType == "scheduling_proposal" || msgType == "result_submission" || msgType == "scheduling_response" {
+			authorName = pairPlayerLabel(h.app, authorID, match)
+		}
+
 		status := msg.GetString("proposal_status")
 		canRespond, canChangeDecision := proposalActions(msgType, match.GetString("status"), authorTeam == myTeam || myTeam == 0, status)
 		canRespond = canRespond && compModifiable
@@ -112,7 +118,7 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 		threadMessages = append(threadMessages, ThreadMessage{
 			Record:            msg,
 			MatchID:           matchID,
-			AuthorName:        nameCache[authorID],
+			AuthorName:        authorName,
 			AuthorTeam:        authorTeam,
 			IsMyTeam:          myTeam != 0 && authorTeam == myTeam,
 			Type:              msgType,
@@ -123,10 +129,22 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 			RejectionText:     msg.GetString("rejection_text"),
 			CanRespond:        canRespond,
 			CanChangeDecision: canChangeDecision,
+			DataType:          dataTypeFor(msgType),
 			CreatedAt:         msg.GetDateTime("created").Time().Format("02/01 15:04"),
 		})
 	}
 	return threadMessages
+}
+
+func dataTypeFor(msgType string) string {
+	switch msgType {
+	case "scheduling_proposal", "scheduling_response", "availability":
+		return "schedule"
+	case "result_submission", "result_event", "admin_action":
+		return "result"
+	default:
+		return "message"
+	}
 }
 
 func playerTeamOf(uid string, pair1Players, pair2Players []string) int {
@@ -458,7 +476,7 @@ func (h *ThreadHandler) dispatchProposalAction(e *core.RequestEvent, match, msg 
 	case "accept":
 		return h.acceptProposal(e, match, msg, proposerPairID)
 	case "reject":
-		return h.rejectProposal(e, msg, match.Id, proposerPairID)
+		return h.rejectProposal(e, msg, match, proposerPairID)
 	default:
 		return alertError(e, "Acción no válida")
 	}
@@ -502,15 +520,22 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 
 	h.supersedePendingAndNotify(match.Id, msg.Id)
 
+	responderLabel := pairPlayerLabel(h.app, e.Auth.Id, match)
+	proposerName := league.PlayerName(h.app, msg.GetString("author"))
+	addTimelineEntry(h.app, timelineEntry{
+		MatchID: match.Id, ActorID: e.Auth.Id,
+		Kind:   "scheduling_response",
+		Detail: responderLabel + " aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
+	})
+
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
-	responderName := league.PlayerName(h.app, e.Auth.Id)
-	notif := league.NotifProposalAccepted(match.Id, responderName, pd.Date, pd.Time)
+	notif := league.NotifProposalAccepted(match.Id, league.PlayerName(h.app, e.Auth.Id), pd.Date, pd.Time)
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
 	h.notifier.EmailPlayers(proposerPlayers, notif.Title, notif.Body, "/match/"+match.Id)
 	return nil
 }
 
-func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, matchID, proposerPairID string) error {
+func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, match *core.Record, proposerPairID string) error {
 	reason := e.Request.FormValue("rejection_reason")
 	text := e.Request.FormValue("rejection_text")
 
@@ -521,11 +546,23 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 		return alertError(e, "Error al rechazar la propuesta")
 	}
 
+	responderLabel := pairPlayerLabel(h.app, e.Auth.Id, match)
+	proposerName := league.PlayerName(h.app, msg.GetString("author"))
+	detail := responderLabel + " rechazó la propuesta de " + proposerName
+	if text != "" {
+		detail += ": " + text
+	} else if reason != "" {
+		detail += ": " + reason
+	}
+	addTimelineEntry(h.app, timelineEntry{
+		MatchID: match.Id, ActorID: e.Auth.Id,
+		Kind: "scheduling_response", Detail: detail,
+	})
+
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
-	responderName := league.PlayerName(h.app, e.Auth.Id)
-	notif := league.NotifProposalRejected(matchID, responderName, reason)
+	notif := league.NotifProposalRejected(match.Id, league.PlayerName(h.app, e.Auth.Id), reason)
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
-	h.notifier.EmailPlayers(proposerPlayers, notif.Title, notif.Body, "/match/"+matchID)
+	h.notifier.EmailPlayers(proposerPlayers, notif.Title, notif.Body, "/match/"+match.Id)
 	return nil
 }
 
@@ -581,9 +618,16 @@ func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.
 		slog.Error("save match after rejection", "match", match.Id, "err", err)
 		return alertError(e, "Error al actualizar el partido")
 	}
+
+	responderLabel := pairPlayerLabel(h.app, e.Auth.Id, match)
+	proposerName := league.PlayerName(h.app, msg.GetString("author"))
+	addTimelineEntry(h.app, timelineEntry{
+		MatchID: match.Id, ActorID: e.Auth.Id,
+		Kind: "scheduling_response", Detail: responderLabel + " revocó la aceptación de la propuesta de " + proposerName,
+	})
+
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
-	responderName := league.PlayerName(h.app, e.Auth.Id)
-	notif := league.NotifDecisionChangedToRejected(match.Id, responderName)
+	notif := league.NotifDecisionChangedToRejected(match.Id, league.PlayerName(h.app, e.Auth.Id))
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
 	h.notifier.EmailPlayers(proposerPlayers, notif.Title, notif.Body, "/match/"+match.Id)
 	return nil
@@ -616,9 +660,17 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 		return alertError(e, "Error al actualizar el partido")
 	}
 	h.supersedePendingAndNotify(match.Id, msg.Id)
+
+	responderLabel := pairPlayerLabel(h.app, e.Auth.Id, match)
+	proposerName := league.PlayerName(h.app, msg.GetString("author"))
+	addTimelineEntry(h.app, timelineEntry{
+		MatchID: match.Id, ActorID: e.Auth.Id,
+		Kind:   "scheduling_response",
+		Detail: responderLabel + " aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
+	})
+
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
-	responderName := league.PlayerName(h.app, e.Auth.Id)
-	notif := league.NotifDecisionChangedToAccepted(match.Id, responderName, pd.Date, pd.Time)
+	notif := league.NotifDecisionChangedToAccepted(match.Id, league.PlayerName(h.app, e.Auth.Id), pd.Date, pd.Time)
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
 	h.notifier.EmailPlayers(proposerPlayers, notif.Title, notif.Body, "/match/"+match.Id)
 	return nil
