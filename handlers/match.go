@@ -173,7 +173,7 @@ func (h *MatchHandler) notifySubmit(match *core.Record, userID, scores string) {
 	label := pairPlayerLabel(h.app, userID, match)
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: userID,
-		Kind: "result_event", Detail: label + " registró el resultado: " + scores,
+		Kind: "result_event", Detail: label + " registró el resultado",
 	})
 
 	myTeam, _ := league.PlayerTeam(h.app, userID, match)

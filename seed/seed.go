@@ -321,21 +321,40 @@ func createSampleCompetition(txApp core.App, pairIDs []string) (*core.Record, er
 	return comp, nil
 }
 
+// sampleCtx bundles collections and timing needed while building sample matches.
+type sampleCtx struct {
+	app      core.App
+	matchCol *core.Collection
+	msgCol   *core.Collection
+	compID   string
+	start    time.Time
+}
+
 // createSampleFixtures builds the round-robin matches. When played is true,
 // rounds 1–4 are finalized and round 5 carries a live dispute (match 0) and a
 // score awaiting confirmation (match 1), so sample players get real home tasks;
 // the rest stay pending. All states are set at CREATE time so the match
 // status-transition hook (which only guards updates) is never violated.
+// Each non-pending match also gets chronologically realistic timeline entries
+// (scheduling proposal → acceptance → result events).
 func createSampleFixtures(txApp core.App, comp *core.Record, pairIDs []string, played bool) error {
 	rounds := league.RoundRobin(pairIDs, true)
 	matchCol, err := txApp.FindCollectionByNameOrId("matches")
 	if err != nil {
 		return err
 	}
+	msgCol, err := txApp.FindCollectionByNameOrId("match_messages")
+	if err != nil {
+		return err
+	}
+	sc := sampleCtx{
+		app: txApp, matchCol: matchCol, msgCol: msgCol,
+		compID: comp.Id, start: comp.GetDateTime("start_date").Time(),
+	}
 	for _, round := range rounds {
 		for i, m := range round.Matches {
 			f := sampleFixture{round: round.Number, idx: i, home: m.Home, away: m.Away, played: played}
-			if err := createSampleMatch(txApp, matchCol, comp.Id, f); err != nil {
+			if err := sc.createMatch(f); err != nil {
 				return err
 			}
 		}
@@ -354,18 +373,23 @@ type sampleFixture struct {
 	played     bool
 }
 
-func createSampleMatch(txApp core.App, matchCol *core.Collection, compID string, f sampleFixture) error {
-	match := core.NewRecord(matchCol)
-	match.Set("competition", compID)
+func (sc *sampleCtx) createMatch(f sampleFixture) error {
+	match := core.NewRecord(sc.matchCol)
+	match.Set("competition", sc.compID)
 	match.Set("round_number", f.round)
 	match.Set("matches_to_win", 1)
 	match.Set("pair1", f.home)
 	match.Set("pair2", f.away)
-	if err := setSampleMatchState(txApp, match, f); err != nil {
+	if err := setSampleMatchState(sc.app, match, f); err != nil {
 		return err
 	}
-	if err := txApp.Save(match); err != nil {
+	if err := sc.app.Save(match); err != nil {
 		return fmt.Errorf("create match round %d: %w", f.round, err)
+	}
+	if f.played && f.round <= 5 {
+		if err := sc.createTimeline(match, f); err != nil {
+			return fmt.Errorf("create timeline round %d: %w", f.round, err)
+		}
 	}
 	return nil
 }
@@ -376,7 +400,7 @@ func createSampleMatch(txApp core.App, matchCol *core.Collection, compID string,
 func setSampleMatchState(txApp core.App, match *core.Record, f sampleFixture) error {
 	switch {
 	case f.played && f.round <= 4:
-		return finalizeSampleMatch(match)
+		return finalizeSampleMatch(txApp, match)
 	case f.played && f.round == 5 && f.idx == 0:
 		return disputeSampleMatch(txApp, match)
 	case f.played && f.round == 5 && f.idx == 1:
@@ -387,13 +411,23 @@ func setSampleMatchState(txApp core.App, match *core.Record, f sampleFixture) er
 	}
 }
 
-func finalizeSampleMatch(match *core.Record) error {
+func finalizeSampleMatch(txApp core.App, match *core.Record) error {
 	winner, err := league.DetermineWinner(match, "6-3 6-3")
 	if err != nil {
 		return fmt.Errorf("determine winner: %w", err)
 	}
+	sub, err := firstPlayerOfPair(txApp, match.GetString("pair1"))
+	if err != nil {
+		return err
+	}
+	conf, err := firstPlayerOfPair(txApp, match.GetString("pair2"))
+	if err != nil {
+		return err
+	}
 	match.Set("scores", "6-3 6-3")
 	match.Set("winner", winner)
+	match.Set("submitted_by", sub)
+	match.Set("confirmed_by", conf)
 	match.Set("status", league.StatusFinal)
 	return nil
 }
@@ -424,6 +458,91 @@ func disputeSampleMatch(txApp core.App, match *core.Record) error {
 	match.Set("disputed_scores", "6-4 4-6 5-7")
 	match.Set("dispute_notes", "No estoy de acuerdo: el tercer set fue 5-7, no 7-5.")
 	return nil
+}
+
+// createSampleTimeline populates a match thread with realistic entries:
+// a scheduling proposal (accepted), then the result events matching the
+// match state. Timestamps are derived from the competition start so the
+// thread reads chronologically.
+func (sc *sampleCtx) createTimeline(match *core.Record, f sampleFixture) error {
+	roundBase := sc.start.Add(time.Duration(f.round-1) * 4 * 24 * time.Hour)
+	proposer, _ := firstPlayerOfPair(sc.app, match.GetString("pair1"))
+	responder, _ := firstPlayerOfPair(sc.app, match.GetString("pair2"))
+
+	venues := []string{"Padel 360", "Wurko", "Tecnisur"}
+	venue := venues[(f.round+f.idx)%len(venues)]
+	playDate := roundBase.Add(3 * 24 * time.Hour)
+
+	// 1. Scheduling proposal
+	proposalTime := roundBase.Add(1 * 24 * time.Hour)
+	pdJSON := fmt.Sprintf(`{"date":"%s","time":"20:00","venue_name":"%s"}`,
+		playDate.Format("02/01/2006"), venue)
+	proposal := core.NewRecord(sc.msgCol)
+	proposal.Set("match", match.Id)
+	proposal.Set("author", proposer)
+	proposal.Set("type", "scheduling_proposal")
+	proposal.Set("proposal_data", pdJSON)
+	proposal.Set("proposal_status", "accepted")
+	proposal.Set("created", proposalTime.Format(time.RFC3339))
+	if err := sc.app.Save(proposal); err != nil {
+		return fmt.Errorf("save proposal: %w", err)
+	}
+
+	submitter := proposer
+	submitterLabel := sampleLabel(sc.app, submitter, match)
+
+	switch {
+	case f.round <= 4:
+		submitTime := playDate.Add(22 * time.Hour)
+		if err := sc.saveEvent(match.Id, submitter, submitterLabel+" registró el resultado", submitTime); err != nil {
+			return err
+		}
+		confirmerLabel := sampleLabel(sc.app, responder, match)
+		confirmTime := submitTime.Add(2 * time.Hour)
+		return sc.saveEvent(match.Id, responder, confirmerLabel+" confirmó el resultado", confirmTime)
+
+	case f.round == 5 && f.idx == 0:
+		submitTime := playDate.Add(22 * time.Hour)
+		if err := sc.saveEvent(match.Id, submitter, submitterLabel+" registró el resultado", submitTime); err != nil {
+			return err
+		}
+		disputerLabel := sampleLabel(sc.app, responder, match)
+		disputeTime := submitTime.Add(1 * time.Hour)
+		return sc.saveEvent(match.Id, responder,
+			disputerLabel+" disputó el resultado (propone 6-4 4-6 5-7)", disputeTime)
+
+	case f.round == 5 && f.idx == 1:
+		submitTime := playDate.Add(22 * time.Hour)
+		return sc.saveEvent(match.Id, submitter, submitterLabel+" registró el resultado", submitTime)
+	}
+	return nil
+}
+
+func (sc *sampleCtx) saveEvent(matchID, actorID, content string, ts time.Time) error {
+	rec := core.NewRecord(sc.msgCol)
+	rec.Set("match", matchID)
+	rec.Set("author", actorID)
+	rec.Set("type", "result_event")
+	rec.Set("content", content)
+	rec.Set("created", ts.Format(time.RFC3339))
+	if err := sc.app.Save(rec); err != nil {
+		return fmt.Errorf("save event: %w", err)
+	}
+	return nil
+}
+
+func sampleLabel(txApp core.App, userID string, match *core.Record) string {
+	name := league.PlayerName(txApp, userID)
+	team, err := league.PlayerTeam(txApp, userID, match)
+	if err != nil || team == 0 {
+		return name
+	}
+	pairID := match.GetString("pair1")
+	if team == 2 {
+		pairID = match.GetString("pair2")
+	}
+	pairName := league.PairNames(txApp, []string{pairID})[pairID]
+	return fmt.Sprintf("%s (%s)", name, pairName)
 }
 
 // createSampleNotifications files bell notifications for the enriched round-5
