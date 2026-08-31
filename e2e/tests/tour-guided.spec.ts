@@ -303,6 +303,55 @@ test.describe('guided navigation tour', () => {
           await expect(page.locator('button:has-text("Estoy libre")')).toHaveCount(0);
           await expect(page.locator('button:has-text("No puedo")')).toHaveCount(0);
           await expect(page.locator('text=Proponer fecha')).toHaveCount(0);
+
+          // Thread tabs: new labels present, old labels absent
+          const filters = page.locator('#timeline-filters');
+          await expect(filters.getByText('Todo')).toBeVisible();
+          await expect(filters.getByText('Mensajes')).toBeVisible();
+          await expect(filters.getByText('Hora/Lugar')).toBeVisible();
+          await expect(filters.getByText('Resultado')).toBeVisible();
+          await expect(filters.getByText('Propuestas')).toHaveCount(0);
+          await expect(filters.getByText('Acciones')).toHaveCount(0);
+
+          // Wait for timeline entries to load via HTMX
+          await page.waitForSelector('#thread-messages-list .entry', { timeout: 5000 });
+
+          // Tab filtering: click "Resultado" and verify only result entries visible
+          await filters.getByText('Resultado').click();
+          const resultEntries = page.locator('#thread-messages-list .entry[data-type="result"]');
+          await expect(resultEntries.first()).toBeVisible();
+          const scheduleWhileResult = page.locator('#thread-messages-list .entry[data-type="schedule"]');
+          for (const el of await scheduleWhileResult.all()) {
+            await expect(el).not.toBeVisible();
+          }
+          const msgWhileResult = page.locator('#thread-messages-list .entry[data-type="message"]');
+          for (const el of await msgWhileResult.all()) {
+            await expect(el).not.toBeVisible();
+          }
+
+          // Result card renders with "Marcador propuesto" label
+          await expect(page.locator('.entry[data-type="result"] .card-body:has-text("Marcador propuesto")')).toBeVisible();
+
+          // Tab filtering: click "Hora/Lugar" — result and message entries must be hidden
+          await filters.getByText('Hora/Lugar').click();
+          for (const el of await page.locator('#thread-messages-list .entry[data-type="result"]').all()) {
+            await expect(el).not.toBeVisible();
+          }
+          for (const el of await page.locator('#thread-messages-list .entry[data-type="message"]').all()) {
+            await expect(el).not.toBeVisible();
+          }
+
+          // Tab filtering: click "Mensajes" — schedule and result entries must be hidden
+          await filters.getByText('Mensajes').click();
+          for (const el of await page.locator('#thread-messages-list .entry[data-type="schedule"]').all()) {
+            await expect(el).not.toBeVisible();
+          }
+          for (const el of await page.locator('#thread-messages-list .entry[data-type="result"]').all()) {
+            await expect(el).not.toBeVisible();
+          }
+
+          // Click "Todo" to restore all entries
+          await filters.getByText('Todo').click();
         }
       }
 

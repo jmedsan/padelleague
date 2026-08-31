@@ -233,7 +233,7 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: userID,
-		Kind: "result_event", Detail: pairPlayerLabel(h.app, userID, match) + " corrigió el resultado: " + scores,
+		Kind: "result_submission", Detail: scores,
 	})
 	h.notifyCorrectionToRival(match, myTeam)
 	return redirectHX(e, "/match/"+id)

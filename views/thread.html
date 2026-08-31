@@ -5,8 +5,8 @@
         <div class="flex gap-1 mb-3" id="timeline-filters">
             <button class="btn btn-xs btn-primary" onclick="filterTimeline('all')">Todo</button>
             <button class="btn btn-xs btn-ghost" onclick="filterTimeline('message')">Mensajes</button>
-            <button class="btn btn-xs btn-ghost" onclick="filterTimeline('proposal')">Propuestas</button>
-            <button class="btn btn-xs btn-ghost" onclick="filterTimeline('action')">Acciones</button>
+            <button class="btn btn-xs btn-ghost" onclick="filterTimeline('schedule')">Hora/Lugar</button>
+            <button class="btn btn-xs btn-ghost" onclick="filterTimeline('result')">Resultado</button>
         </div>
 
         <script>
@@ -14,7 +14,7 @@
             document.querySelectorAll('#thread-messages-list .entry').forEach(function(el) {
                 el.style.display = (type === 'all' || el.dataset.type === type) ? '' : 'none';
             });
-            var labels = {all: 'Todo', message: 'Mensajes', proposal: 'Propuestas', action: 'Acciones'};
+            var labels = {all: 'Todo', message: 'Mensajes', schedule: 'Hora/Lugar', result: 'Resultado'};
             var active = labels[type];
             document.querySelectorAll('#timeline-filters button').forEach(function(btn) {
                 var match = btn.textContent.trim() === active;

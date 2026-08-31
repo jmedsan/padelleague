@@ -488,45 +488,69 @@ func (sc *sampleCtx) createTimeline(match *core.Record, f sampleFixture) error {
 		return fmt.Errorf("save proposal: %w", err)
 	}
 
-	submitter := proposer
-	submitterLabel := sampleLabel(sc.app, submitter, match)
+	responderLabel := sampleLabel(sc.app, responder, match)
+	proposerName := league.PlayerName(sc.app, proposer)
+	acceptTime := proposalTime.Add(4 * time.Hour)
+	acceptDetail := fmt.Sprintf("%s aceptó la propuesta de %s (%s, %s, %s)",
+		responderLabel, proposerName, playDate.Format("02/01/2006"), "20:00", venue)
+	if err := sc.saveEntry(timelineEntry{match.Id, responder, "scheduling_response", acceptDetail, acceptTime}); err != nil {
+		return err
+	}
+
+	return sc.createResultEntries(resultContext{match, f, proposer, responder, playDate})
+}
+
+type resultContext struct {
+	match                *core.Record
+	f                    sampleFixture
+	submitter, responder string
+	playDate             time.Time
+}
+
+func (sc *sampleCtx) createResultEntries(rc resultContext) error {
+	scores := rc.match.GetString("scores")
 
 	switch {
-	case f.round <= 4:
-		submitTime := playDate.Add(22 * time.Hour)
-		if err := sc.saveEvent(match.Id, submitter, submitterLabel+" registró el resultado", submitTime); err != nil {
+	case rc.f.round <= 4:
+		submitTime := rc.playDate.Add(22 * time.Hour)
+		if err := sc.saveEntry(timelineEntry{rc.match.Id, rc.submitter, "result_submission", scores, submitTime}); err != nil {
 			return err
 		}
-		confirmerLabel := sampleLabel(sc.app, responder, match)
+		confirmerLabel := sampleLabel(sc.app, rc.responder, rc.match)
 		confirmTime := submitTime.Add(2 * time.Hour)
-		return sc.saveEvent(match.Id, responder, confirmerLabel+" confirmó el resultado", confirmTime)
+		return sc.saveEntry(timelineEntry{rc.match.Id, rc.responder, "result_event", confirmerLabel + " confirmó el resultado", confirmTime})
 
-	case f.round == 5 && f.idx == 0:
-		submitTime := playDate.Add(22 * time.Hour)
-		if err := sc.saveEvent(match.Id, submitter, submitterLabel+" registró el resultado", submitTime); err != nil {
+	case rc.f.round == 5 && rc.f.idx == 0:
+		submitTime := rc.playDate.Add(22 * time.Hour)
+		if err := sc.saveEntry(timelineEntry{rc.match.Id, rc.submitter, "result_submission", scores, submitTime}); err != nil {
 			return err
 		}
-		disputerLabel := sampleLabel(sc.app, responder, match)
+		disputerLabel := sampleLabel(sc.app, rc.responder, rc.match)
 		disputeTime := submitTime.Add(1 * time.Hour)
-		return sc.saveEvent(match.Id, responder,
-			disputerLabel+" disputó el resultado (propone 6-4 4-6 5-7)", disputeTime)
+		return sc.saveEntry(timelineEntry{rc.match.Id, rc.responder, "result_event",
+			disputerLabel + " disputó el resultado (propone 6-4 4-6 5-7)", disputeTime})
 
-	case f.round == 5 && f.idx == 1:
-		submitTime := playDate.Add(22 * time.Hour)
-		return sc.saveEvent(match.Id, submitter, submitterLabel+" registró el resultado", submitTime)
+	case rc.f.round == 5 && rc.f.idx == 1:
+		submitTime := rc.playDate.Add(22 * time.Hour)
+		return sc.saveEntry(timelineEntry{rc.match.Id, rc.submitter, "result_submission", scores, submitTime})
 	}
 	return nil
 }
 
-func (sc *sampleCtx) saveEvent(matchID, actorID, content string, ts time.Time) error {
+type timelineEntry struct {
+	matchID, actorID, entryType, content string
+	ts                                   time.Time
+}
+
+func (sc *sampleCtx) saveEntry(e timelineEntry) error {
 	rec := core.NewRecord(sc.msgCol)
-	rec.Set("match", matchID)
-	rec.Set("author", actorID)
-	rec.Set("type", "result_event")
-	rec.Set("content", content)
-	rec.Set("created", ts.Format(time.RFC3339))
+	rec.Set("match", e.matchID)
+	rec.Set("author", e.actorID)
+	rec.Set("type", e.entryType)
+	rec.Set("content", e.content)
+	rec.Set("created", e.ts.Format(time.RFC3339))
 	if err := sc.app.Save(rec); err != nil {
-		return fmt.Errorf("save event: %w", err)
+		return fmt.Errorf("save entry: %w", err)
 	}
 	return nil
 }

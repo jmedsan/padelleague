@@ -1,20 +1,9 @@
 {{define "proposalCard"}}
-<div class="entry card bg-base-200/50 border border-base-300 rounded-xl" data-type="proposal">
+<div class="entry card bg-base-200/50 border border-base-300 rounded-xl" data-type="schedule">
     <div class="card-body p-3 sm:p-4">
-        <div class="flex items-center justify-between flex-wrap gap-2">
-            <div class="flex items-center gap-2">
-                <span class="text-sm font-bold">{{.AuthorName}}</span>
-                <span class="text-xs opacity-50">{{.CreatedAt}}</span>
-            </div>
-            {{if eq .Status "pending"}}
-            <span class="badge badge-warning badge-sm">Pendiente</span>
-            {{else if eq .Status "accepted"}}
-            <span class="badge badge-success badge-sm">Aceptada</span>
-            {{else if eq .Status "rejected"}}
-            <span class="badge badge-error badge-sm">Rechazada</span>
-            {{else if eq .Status "superseded"}}
-            <span class="badge badge-ghost badge-sm">Superada</span>
-            {{end}}
+        <div class="flex items-center gap-2">
+            <span class="text-sm font-bold">{{.AuthorName}}</span>
+            <span class="text-xs opacity-50">{{.CreatedAt}}</span>
         </div>
         {{if .ProposalData}}
         <div class="grid grid-cols-3 gap-2 mt-2 text-sm">
@@ -77,14 +66,29 @@
 </div>
 {{end}}
 
-{{define "resultEventLine"}}
-<div class="entry text-center my-2" data-type="action">
+{{define "resultCard"}}
+<div class="entry card bg-base-200/50 border border-base-300 rounded-xl" data-type="result">
+    <div class="card-body p-3 sm:p-4">
+        <div class="flex items-center gap-2">
+            <span class="text-sm font-bold">{{.AuthorName}}</span>
+            <span class="text-xs opacity-50">{{.CreatedAt}}</span>
+        </div>
+        <div class="mt-2">
+            <span class="text-xs opacity-50">Marcador propuesto</span>
+            <p class="font-bold text-lg">{{.Content}}</p>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "eventLine"}}
+<div class="entry text-center my-2" data-type="{{.DataType}}">
     <span class="text-xs opacity-60 bg-base-200 rounded-full px-3 py-1">{{.Content}}</span>
 </div>
 {{end}}
 
 {{define "chatMessage"}}
-<div class="entry chat {{if .IsMyTeam}}chat-end{{else}}chat-start{{end}}" data-type="{{if eq .Type "score_discussion"}}action{{else}}message{{end}}">
+<div class="entry chat {{if .IsMyTeam}}chat-end{{else}}chat-start{{end}}" data-type="message">
     <div class="chat-header text-xs opacity-50 mb-1">
         {{.AuthorName}} <time class="ml-1">{{.CreatedAt}}</time>
     </div>
@@ -97,7 +101,8 @@
 {{define "timelineMessages"}}
 {{range .Messages}}
 {{if eq .Type "scheduling_proposal"}}{{template "proposalCard" .}}
-{{else if or (eq .Type "result_event") (eq .Type "admin_action")}}{{template "resultEventLine" .}}
+{{else if eq .Type "result_submission"}}{{template "resultCard" .}}
+{{else if or (eq .Type "scheduling_response") (eq .Type "result_event") (eq .Type "admin_action")}}{{template "eventLine" .}}
 {{else}}{{template "chatMessage" .}}{{end}}
 {{end}}
 {{end}}

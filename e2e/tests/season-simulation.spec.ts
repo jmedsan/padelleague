@@ -485,7 +485,7 @@ async function playAllMatches(page: Page, fixtures: MatchFixture[]) {
       await adminResolveDispute(page, f.id, f.orientedScore);
       if (i === 8) {
         await page.goto(`/match/${f.id}`);
-        await expect(page.locator('[data-type="action"]', { hasText: /resolvió la disputa/ }))
+        await expect(page.locator('[data-type="result"]', { hasText: /resolvió la disputa/ }))
           .toBeVisible({ timeout: 10000 });
       }
     } else if (i === 10) {

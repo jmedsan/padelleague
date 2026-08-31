@@ -344,13 +344,14 @@ func TestAcceptProposalSupersedesOthers(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var otherMsgID, respondentID string
+	var otherMsgID, respondentID, matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Sup A")
 		p2 := makePairTB(tb, app, "Sup B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
 
 		proposer := p1.GetString("player1")
 		// Create two proposals from the same proposer
@@ -373,6 +374,14 @@ func TestAcceptProposalSupersedesOthers(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "superseded", other.GetString("proposal_status"),
 			"non-accepted pending proposal must be superseded")
+
+		// Acceptance must create a scheduling_response timeline entry
+		responses, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'scheduling_response'", "", 0, 0,
+			map[string]any{"mid": matchID})
+		require.Len(tb, responses, 1, "accept must create one scheduling_response")
+		assert.Equal(tb, respondentID, responses[0].GetString("author"))
+		assert.Contains(tb, responses[0].GetString("content"), "aceptó la propuesta")
 
 		// No admin notification should be created (normal case, no failures)
 		admins, _ := app.FindRecordsByFilter("users", "roles ~ 'admin'", "", 0, 0, nil)
@@ -516,6 +525,46 @@ func TestAcceptProposalOnlySupersedesPending(t *testing.T) {
 	s.Test(t)
 }
 
+func TestRejectProposalCreatesSchedulingResponse(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "rejecting proposal creates scheduling_response entry",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID, respondentID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Rej A")
+		p2 := makePairTB(tb, app, "Rej B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
+
+		proposer := p1.GetString("player1")
+		prop := makeProposal(tb, app, match.Id, proposer)
+
+		respondentID = p2.GetString("player1")
+		respondent, _ := app.FindRecordById("users", respondentID)
+		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/respond", match.Id, prop.Id)
+		s.Body = strings.NewReader("action=reject&rejection_reason=No+puedo+ese+d%C3%ADa")
+		hdrs := authHeaders(tb, respondent)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		responses, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'scheduling_response'", "", 0, 0,
+			map[string]any{"mid": matchID})
+		require.Len(tb, responses, 1, "reject must create one scheduling_response")
+		assert.Equal(tb, respondentID, responses[0].GetString("author"))
+		assert.Contains(tb, responses[0].GetString("content"), "rechazó la propuesta")
+		assert.Contains(tb, responses[0].GetString("content"), "No puedo ese día")
+	}
+	s.Test(t)
+}
+
 func TestThreadWithMessages(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
@@ -634,8 +683,8 @@ func TestThreadMessages_ResultEventRendersAsSystemLine(t *testing.T) {
 
 		s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 			body := readBody(tb, res)
-			assert.Contains(tb, body, `data-type="action"`, "result_event renders as system line")
-			assert.Contains(tb, body, "registró el resultado", "system line content")
+			assert.Contains(tb, body, `data-type="result"`, "result_event renders as event line")
+			assert.Contains(tb, body, "registró el resultado", "event line content")
 			assert.NotContains(tb, body, `data-type="message"`, "result_event must not render as chat bubble")
 		}
 	}
@@ -1123,7 +1172,7 @@ func TestThreadMessages_AdminActionRendersAsSystemLine(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		assert.Contains(tb, body, `data-type="action"`, "admin_action renders as system line")
+		assert.Contains(tb, body, `data-type="result"`, "admin_action renders as event line")
 		assert.Contains(tb, body, "Admin corrigió el resultado")
 		assert.NotContains(tb, body, "chat-bubble", "admin_action must not render as chat")
 	}
@@ -1178,10 +1227,14 @@ func TestThreadMessages_AllTypesRenderCorrectSubDefine(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		assert.Contains(tb, body, `data-type="proposal"`, "proposal renders via proposalCard sub-define")
+		assert.Contains(tb, body, `data-type="schedule"`, "proposal renders via proposalCard")
 		assert.Contains(tb, body, "Padel 360", "proposal card shows venue name")
 		assert.Contains(tb, body, "20:00", "proposal card shows time")
-		assert.Contains(tb, body, `data-type="action"`, "result_event renders via resultEventLine sub-define")
+		assert.Regexp(tb, `\w+ \(SubDef B\)`, body, "proposal author shows PlayerName (PairName)")
+		assert.NotContains(tb, body, "Pendiente", "proposal card has no status badge")
+		assert.NotContains(tb, body, "Aceptada", "proposal card has no status badge")
+		assert.NotContains(tb, body, "Rechazada", "proposal card has no status badge")
+		assert.Contains(tb, body, `data-type="result"`, "result_event renders via eventLine")
 		assert.Contains(tb, body, "registró resultado: 6-2 6-3", "system line shows event content")
 		assert.Contains(tb, body, "chat-bubble", "chat renders via chatMessage sub-define")
 		assert.Contains(tb, body, "Hola desde chat", "chat bubble shows message content")
