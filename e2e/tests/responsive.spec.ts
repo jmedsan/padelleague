@@ -126,7 +126,7 @@ test.describe('responsive - no horizontal overflow', () => {
     }
   });
 
-  test('R-170: dark mode renders readable text and non-pink admin banner', async ({ page }) => {
+  test('R-170: dark mode renders readable text and admin indicator', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.evaluate(() => {
       document.documentElement.setAttribute('data-theme', 'dark');
@@ -135,16 +135,9 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.goto('/admin/competitions');
     await page.waitForLoadState('networkidle');
 
-    // Admin banner should exist and not be hot pink (#f87272 is stock DaisyUI error)
-    const banner = page.locator('text=Modo administrador');
-    await expect(banner).toBeVisible();
-    const bannerColor = await banner.evaluate(el => {
-      const div = el.closest('div')!;
-      return getComputedStyle(div).backgroundColor;
-    });
-    // Stock night theme error is hsl(0 72% 71%) ≈ rgb(229,115,115) or similar;
-    // it should NOT be the hot pink rgb(248,114,114)
-    expect(bannerColor).not.toContain('rgb(248, 114, 114)');
+    // Admin mode indicator (top-bar pill/dropdown) should be visible
+    const indicator = page.locator('[aria-label="cambiar vista"], details:has(a[href="/view/player"]) summary').first();
+    await expect(indicator).toBeVisible();
 
     // Theme should be 'dark', not 'night'
     const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
