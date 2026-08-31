@@ -340,3 +340,27 @@ func TestAPIAdminCannotCreateCompetitionViaRecordAPI(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+// R-179 F1: the users.roles field is hidden from the record API, so an
+// authenticated player cannot enumerate another user's admin/player roles.
+func TestAPIUserRolesHiddenFromPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:     testAppFactory,
+		Name:               "player cannot read another user's roles via the record API (roles hidden)",
+		Method:             http.MethodGet,
+		ExpectedStatus:     200,
+		NotExpectedContent: []string{`"roles"`},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		p1 := makePairTB(tb, app, "A")
+		p2 := makePairTB(tb, app, "B")
+		target, err := app.FindRecordById("users", p2.GetString("player1"))
+		require.NoError(tb, err)
+		s.URL = "/api/collections/users/records/" + target.Id
+		player, err := app.FindRecordById("users", p1.GetString("player1"))
+		require.NoError(tb, err)
+		s.Headers = jsonHeaders(authHeaders(tb, player))
+	}
+	s.Test(t)
+}
