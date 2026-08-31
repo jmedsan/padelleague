@@ -80,6 +80,35 @@ func TestSearch_AdminSeesAdminEntry(t *testing.T) {
 	s.Test(t)
 }
 
+func TestSearch_AdminAsPlayerExcludesAdminEntry(t *testing.T) {
+	t.Parallel()
+	ix := &search.Index{}
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "admin viewing as player must not see admin-only entries",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Public Player Page"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSearchRoutes(tb, app, e, ix)
+		user := makeUserTB(tb, app, "Admin As Player", "")
+		user.Set("roles", []string{"admin"})
+		require.NoError(tb, app.Save(user))
+		seedSearchIndex(tb, app, ix)
+		s.URL = "/search?q=panel"
+		hdrs := authHeaders(tb, user)
+		hdrs["Cookie"] = "view_as=player"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.NotContains(t, body, "Admin Secret Panel",
+			"admin in player-view must not see admin-scoped entries")
+	}
+	s.Test(t)
+}
+
 func TestSearch_QueryRecordedInHistory(t *testing.T) {
 	t.Parallel()
 	ix := &search.Index{}
