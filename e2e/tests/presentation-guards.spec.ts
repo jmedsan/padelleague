@@ -1,14 +1,32 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { loginAs, scratchMatchId, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER3_EMAIL, PLAYER3_PASSWORD } from '../helpers';
+import { loginAs, scratchMatchId, isMobile, navViaDrawer, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER3_EMAIL, PLAYER3_PASSWORD } from '../helpers';
 import { submitScore, confirmScore } from '../tour-helpers';
 
-test.describe('R-178: presentation quality guards', () => {
-  test.beforeEach(({}, testInfo) => {
-    test.skip(testInfo.project.name === 'mobile', 'presentation guards use desktop nav');
-  });
+async function goToPage(page: import('@playwright/test').Page, href: string, label: string): Promise<void> {
+  if (isMobile(page)) {
+    await navViaDrawer(page, href);
+  } else {
+    await page.locator(`a:has-text("${label}")`).first().click();
+    await page.waitForLoadState('networkidle');
+  }
+}
 
+async function switchView(page: import('@playwright/test').Page, target: 'admin' | 'player'): Promise<void> {
+  if (isMobile(page)) {
+    const btn = page.locator('[aria-label="cambiar vista"]');
+    await btn.click();
+    await page.locator(`.dropdown-content a[href="/view/${target}"]`).click();
+  } else {
+    const switcher = page.locator(`details:has(a[href="/view/${target}"])`);
+    await switcher.locator('summary').click();
+    await switcher.locator(`a[href="/view/${target}"]`).click();
+  }
+  await page.waitForLoadState('networkidle');
+}
+
+test.describe('R-178: presentation quality guards', () => {
   test('dark-mode legibility: key containers and text are visible', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 
@@ -18,20 +36,23 @@ test.describe('R-178: presentation quality guards', () => {
       localStorage.setItem('theme', 'dark');
     });
 
-    // Navigate via click to admin competitions
-    await page.locator('a:has-text("Inicio")').first().click();
+    // Navigate to home
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     // Admin mode indicator (top-bar pill/dropdown) should be visible
-    const indicator = page.locator('[aria-label="cambiar vista"], details:has(a[href="/view/player"]) summary').first();
-    await expect(indicator).toBeVisible();
+    if (isMobile(page)) {
+      await expect(page.locator('[aria-label="cambiar vista"]')).toBeVisible();
+    } else {
+      await expect(page.locator('details:has(a[href="/view/player"]) summary')).toBeVisible();
+    }
 
     // Theme attribute is 'dark' (not 'night')
     const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
     expect(theme).toBe('dark');
 
-    // Navigate to competitions via navbar
-    await page.locator('a:has-text("Competiciones")').first().click();
+    // Navigate to admin competitions
+    await page.goto('/admin/competitions');
     await page.waitForLoadState('networkidle');
 
     // Key headings and text are visible
@@ -66,7 +87,7 @@ test.describe('R-178: presentation quality guards', () => {
 
     // Check as player (most common user)
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.locator('a:has-text("Inicio")').first().click();
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     const bodyText = await page.evaluate(() => document.body.innerText);
@@ -78,7 +99,7 @@ test.describe('R-178: presentation quality guards', () => {
 
     // Check admin page too
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.locator('a:has-text("Competiciones")').first().click();
+    await page.goto('/admin/competitions');
     await page.waitForLoadState('networkidle');
 
     const adminText = await page.evaluate(() => document.body.innerText);
@@ -113,7 +134,7 @@ test.describe('R-178: presentation quality guards', () => {
   test('non-empty panels: urgent tasks and standings render content', async ({ page }) => {
     // Login as player who has match data in seed
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.locator('a:has-text("Inicio")').first().click();
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     // Check that "Mis competiciones" section has at least one card
@@ -157,7 +178,7 @@ test.describe('R-178: presentation quality guards', () => {
 
     // Admin: check competitions list is non-empty
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.locator('a:has-text("Competiciones")').first().click();
+    await page.goto('/admin/competitions');
     await page.waitForLoadState('networkidle');
 
     const adminCards = page.locator('a[href^="/admin/competitions/"]');
@@ -166,7 +187,7 @@ test.describe('R-178: presentation quality guards', () => {
 
   test('R-167: onboarding checklist — reglamento deep-links to Documentos tab', async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.locator('a:has-text("Inicio")').first().click();
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     const checklist = page.locator('[data-testid="onboard-checklist"]');
@@ -214,7 +235,7 @@ test.describe('R-178: presentation quality guards', () => {
 
     // Check player home (has dates in next match, proposed dates, etc.)
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.locator('a:has-text("Inicio")').first().click();
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     let bodyText = await page.evaluate(() => document.body.innerText);
@@ -255,7 +276,7 @@ test.describe('R-178: presentation quality guards', () => {
 
     // Check admin competition detail (has round dates, match dates)
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.locator('a:has-text("Competiciones")').first().click();
+    await page.goto('/admin/competitions');
     await page.waitForLoadState('networkidle');
     const adminComp = page.locator('a[href^="/admin/competitions/"]').first();
     if (await adminComp.count() > 0) {
@@ -286,26 +307,28 @@ test.describe('R-178: presentation quality guards', () => {
 
     // Admin clicks the notification bell and sees the match-progress entry
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.locator('a:has-text("Inicio")').first().click();
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // Click the desktop bell dropdown to load notifications
+    // Click the bell dropdown to load notifications
     const bell = page.locator('button[aria-label="notificaciones"]:visible');
     await bell.click();
     await page.waitForTimeout(500);
 
-    // The dropdown should contain a match-progress notification
-    const dropdown = page.locator('#notif-dropdown');
+    // The dropdown should contain a match-progress notification (mobile has no #notif-dropdown id)
+    const dropdown = isMobile(page)
+      ? bell.locator('xpath=..').locator('.dropdown-content')
+      : page.locator('#notif-dropdown');
     await expect(dropdown.locator('text=Progreso de partido').first()).toBeVisible({ timeout: 5000 });
   });
 
   test('R-175: mode-driven home — admin sees dashboard, not player content; player view shows the opposite', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 
-    // Ensure admin view mode (clear any lingering view_as cookie)
+    // Ensure admin view mode
     await page.goto('/view/admin');
     await page.waitForLoadState('networkidle');
-    await page.locator('a:has-text("Inicio")').first().click();
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     // Admin dashboard content should be present
@@ -320,13 +343,10 @@ test.describe('R-178: presentation quality guards', () => {
     expect(bodyText).not.toContain('Administración');
 
     // Flip to player view via the switcher
-    const switcher = page.locator('details:has(a[href="/view/player"])');
-    await switcher.locator('summary').click();
-    await switcher.locator('a[href="/view/player"]').click();
-    await page.waitForLoadState('networkidle');
+    await switchView(page, 'player');
 
     // Now on home in player view
-    await page.locator('a:has-text("Inicio")').first().click();
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     // Admin dashboard content must NOT appear in player view
@@ -336,9 +356,6 @@ test.describe('R-178: presentation quality guards', () => {
     expect(playerBody).not.toContain('Preparar competiciones');
 
     // Switch back to admin view for other tests
-    const switcher2 = page.locator('details:has(a[href="/view/admin"])');
-    await switcher2.locator('summary').click();
-    await switcher2.locator('a[href="/view/admin"]').click();
-    await page.waitForLoadState('networkidle');
+    await switchView(page, 'admin');
   });
 });

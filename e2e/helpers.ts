@@ -100,6 +100,27 @@ async function setAuthCookie(page: Page, token: string) {
   await expect(page).toHaveURL('/', { timeout: 5000 });
 }
 
+export function isMobile(page: Page): boolean {
+  const vp = page.viewportSize();
+  return !!vp && vp.width < 1024;
+}
+
+export async function openDrawer(page: Page): Promise<void> {
+  const toggle = page.locator('label[for="main-drawer"]').first();
+  if (!await toggle.isVisible().catch(() => false)) {
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+  }
+  await toggle.click();
+  await page.locator('.drawer-side .menu').waitFor({ state: 'visible', timeout: 3000 });
+}
+
+export async function navViaDrawer(page: Page, href: string): Promise<void> {
+  await openDrawer(page);
+  await page.locator(`.drawer-side a[href="${href}"]`).click();
+  await page.waitForLoadState('domcontentloaded');
+}
+
 export async function loginViaForm(page: Page, email: string, password: string) {
   await page.goto('/login');
   await page.fill('#email', email);

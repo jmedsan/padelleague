@@ -5,7 +5,7 @@ let suToken = '';
 
 test.describe('scheduling, walkover & bracket', () => {
   test.beforeEach(({}, testInfo) => {
-    test.skip(testInfo.project.name !== 'desktop', 'DB-mutating tests; runs desktop-only');
+    test.skip(testInfo.project.name === 'destructive', 'skip destructive project');
   });
 
   test.describe.configure({ retries: 0 });
