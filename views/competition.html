@@ -89,7 +89,7 @@
     <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Clasificación">
     <div role="tabpanel" class="tab-content pt-6">
         <div class="card bg-base-100 shadow-sm rounded-xl overflow-hidden">
-            {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties)}}
+            {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "PlayerPairIDs" .PlayerPairIDs)}}
         </div>
     </div>
     {{end}}

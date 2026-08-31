@@ -426,6 +426,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	autoExpandRound := firstIncompleteRound(rounds)
 
 	data := h.buildCompetitionData(comp, rounds, pairNames, autoExpandRound)
+	data["PlayerPairIDs"] = playerPairIDs
 	docs := league.AttachedDocuments(h.app, comp)
 	if len(docs) > 0 {
 		docViews := make([]DocumentView, len(docs))
