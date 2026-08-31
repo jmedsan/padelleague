@@ -22,11 +22,11 @@ func TestRecommendedArrangeBy(t *testing.T) {
 		wantTime    time.Time
 		wantOK      bool
 	}{
-		{"round 1 of 4", start, end, 4, 1, time.Date(2026, 9, 6, 0, 0, 0, 0, time.UTC), true},
-		{"round 2 of 4", start, end, 4, 2, time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC), true},
-		{"round 3 of 4", start, end, 4, 3, time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC), true},
-		{"round 4 of 4", start, end, 4, 4, end, true},
-		{"round 1 of 3 (no truncation)", start, end, 3, 1, time.Date(2026, 9, 7, 16, 0, 0, 0, time.UTC), true},
+		{"round 1 of 4", start, end, 4, 1, time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC), true},
+		{"round 2 of 4", start, end, 4, 2, time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC), true},
+		{"round 3 of 4", start, end, 4, 3, time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC), true},
+		{"round 4 of 4", start, end, 4, 4, time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC), true},
+		{"round 1 of 3 (noon-anchored)", start, end, 3, 1, time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC), true},
 		{"zero start", time.Time{}, end, 4, 1, time.Time{}, false},
 		{"zero end", start, time.Time{}, 4, 1, time.Time{}, false},
 		{"both zero", time.Time{}, time.Time{}, 4, 1, time.Time{}, false},
@@ -40,6 +40,29 @@ func TestRecommendedArrangeBy(t *testing.T) {
 			assert.Equal(t, tt.wantOK, ok)
 			assert.Equal(t, tt.wantTime, got)
 		})
+	}
+}
+
+func TestArrangeByDateStableAcrossMidnight(t *testing.T) {
+	t.Parallel()
+	// Start at 23:00 UTC — without noon-anchoring, interpolation can land
+	// at 22:45 UTC on a day, and a UTC+2 display would show the next day.
+	start := time.Date(2026, 10, 1, 23, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 10, 21, 23, 0, 0, 0, time.UTC)
+
+	got, ok := RecommendedArrangeBy(start, end, 4, 1)
+	require.True(t, ok)
+	// Fraction 0.25 of 20 days = 5 days → Oct 6. Without noon-anchoring the
+	// raw result would be Oct 6 23:00 UTC, whose DD/MM in UTC+2 is "07/10".
+	assert.Equal(t, "06/10", got.Format("02/01"))
+	assert.Equal(t, 12, got.Hour(), "anchored to noon UTC")
+
+	// Every round must land at noon UTC regardless of input time-of-day.
+	for r := 1; r <= 4; r++ {
+		d, ok := RecommendedArrangeBy(start, end, 4, r)
+		require.True(t, ok)
+		assert.Equal(t, 12, d.Hour(), "round %d not at noon", r)
+		assert.Equal(t, 0, d.Minute())
 	}
 }
 
@@ -168,10 +191,10 @@ func TestBuildRoundSchedule(t *testing.T) {
 
 	sched := BuildRoundSchedule(start, end, 4)
 	require.Len(t, sched, 4)
-	assert.Equal(t, time.Date(2026, 9, 6, 0, 0, 0, 0, time.UTC), sched[1])
-	assert.Equal(t, time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC), sched[2])
-	assert.Equal(t, time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC), sched[3])
-	assert.Equal(t, end, sched[4])
+	assert.Equal(t, time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC), sched[1])
+	assert.Equal(t, time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC), sched[2])
+	assert.Equal(t, time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC), sched[3])
+	assert.Equal(t, time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC), sched[4])
 
 	assert.Nil(t, BuildRoundSchedule(time.Time{}, end, 4))
 	assert.Nil(t, BuildRoundSchedule(start, time.Time{}, 4))
@@ -181,7 +204,7 @@ func TestBuildRoundSchedule(t *testing.T) {
 	// rounds==1 must produce a 1-entry schedule (kills <1 → <=1 mutant).
 	one := BuildRoundSchedule(start, end, 1)
 	require.Len(t, one, 1)
-	assert.Equal(t, end, one[1])
+	assert.Equal(t, time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC), one[1])
 }
 
 func TestStoreRoundSchedule(t *testing.T) {
@@ -212,7 +235,7 @@ func TestRoundArrangeDate_StoredHit(t *testing.T) {
 
 	got, ok := RoundArrangeDate(comp, 2)
 	require.True(t, ok)
-	assert.Equal(t, time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC), got)
+	assert.Equal(t, time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC), got)
 }
 
 func TestRoundArrangeDate_EmptyFallback(t *testing.T) {
@@ -230,7 +253,7 @@ func TestRoundArrangeDate_EmptyFallback(t *testing.T) {
 
 	got, ok := RoundArrangeDate(comp, 2)
 	require.True(t, ok)
-	assert.Equal(t, time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC), got)
+	assert.Equal(t, time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC), got)
 }
 
 func TestRoundArrangeDate_BadJSON(t *testing.T) {
@@ -246,7 +269,7 @@ func TestRoundArrangeDate_BadJSON(t *testing.T) {
 
 	got, ok := RoundArrangeDate(comp, 1)
 	require.True(t, ok)
-	assert.Equal(t, time.Date(2026, 9, 6, 0, 0, 0, 0, time.UTC), got)
+	assert.Equal(t, time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC), got)
 }
 
 func TestRoundArrangeDate_ZeroRounds(t *testing.T) {

@@ -112,9 +112,9 @@ func TestPlayerTasks_ExactWarnHeadsUp_Boundary(t *testing.T) {
 	comp := makeCompetition(t, app, []*core.Record{p1, p2})
 
 	// headsUpStartDays=5, so WarnHeadsUp triggers when now >= deadline-5d.
-	// With rounds=1, deadline = end. Place now exactly at end - 5 days.
-	now := time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC)
-	end := now.AddDate(0, 0, 5) // deadline = 2026-09-15
+	// With rounds=1, deadline = noon UTC on end date. Place now at noon - 5 days.
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC) // noon-anchored → Sep 15 12:00
 	start := now.AddDate(0, 0, -20)
 	sd, _ := types.ParseDateTime(start)
 	ed, _ := types.ParseDateTime(end)
