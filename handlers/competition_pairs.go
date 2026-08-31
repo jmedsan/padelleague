@@ -8,6 +8,16 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// CompetitionPairsHandler handles pair enrollment for competitions.
+type CompetitionPairsHandler struct {
+	app core.App
+}
+
+// NewCompetitionPairsHandler creates a CompetitionPairsHandler.
+func NewCompetitionPairsHandler(app core.App) *CompetitionPairsHandler {
+	return &CompetitionPairsHandler{app: app}
+}
+
 type pairEntry struct {
 	PairID   string
 	PairName string
@@ -16,7 +26,7 @@ type pairEntry struct {
 }
 
 // AddPair enrolls a pair in a competition, validating player uniqueness.
-func (h *CompetitionHandler) AddPair(e *core.RequestEvent) error {
+func (h *CompetitionPairsHandler) AddPair(e *core.RequestEvent) error {
 	compID := e.Request.PathValue("id")
 	pairID := e.Request.FormValue("pair")
 	seedStr := e.Request.FormValue("seed")
@@ -32,7 +42,7 @@ func (h *CompetitionHandler) AddPair(e *core.RequestEvent) error {
 	}
 
 	existingPairIDs := comp.GetStringSlice("pairs")
-	if err := h.validatePlayerUniqueness(existingPairIDs, pair, ""); err != nil {
+	if err := validatePlayerUniqueness(h.app, existingPairIDs, pair, ""); err != nil {
 		slog.Error("player uniqueness validation failed", "pair", pairID, "err", err)
 		return alertError(e, "Esta pareja tiene jugadores duplicados en la competición")
 	}
@@ -48,7 +58,7 @@ func (h *CompetitionHandler) AddPair(e *core.RequestEvent) error {
 	if seedStr != "" {
 		seed, _ := strconv.Atoi(seedStr)
 		if seed > 0 {
-			seeding := h.getSeeding(comp)
+			seeding := getSeeding(comp)
 			seeding[pairID] = seed
 			comp.Set("seeding", seeding)
 		}
@@ -63,7 +73,7 @@ func (h *CompetitionHandler) AddPair(e *core.RequestEvent) error {
 }
 
 // RemovePair removes a pair from a competition and deletes its pending matches.
-func (h *CompetitionHandler) RemovePair(e *core.RequestEvent) error {
+func (h *CompetitionPairsHandler) RemovePair(e *core.RequestEvent) error {
 	compID := e.Request.PathValue("id")
 	pairID := e.Request.FormValue("pair_id")
 
@@ -81,11 +91,11 @@ func (h *CompetitionHandler) RemovePair(e *core.RequestEvent) error {
 	}
 	comp.Set("pairs", updated)
 
-	seeding := h.getSeeding(comp)
+	seeding := getSeeding(comp)
 	delete(seeding, pairID)
 	comp.Set("seeding", seeding)
 
-	paymentStatus := h.getPaymentStatus(comp)
+	paymentStatus := getPaymentStatus(comp)
 	delete(paymentStatus, pairID)
 	comp.Set("payment_status", paymentStatus)
 
@@ -98,7 +108,7 @@ func (h *CompetitionHandler) RemovePair(e *core.RequestEvent) error {
 }
 
 // CopyPairs imports pairs from a source competition into the target.
-func (h *CompetitionHandler) CopyPairs(e *core.RequestEvent) error {
+func (h *CompetitionPairsHandler) CopyPairs(e *core.RequestEvent) error {
 	targetID := e.Request.PathValue("id")
 	sourceID := e.Request.FormValue("source_competition")
 
@@ -117,9 +127,9 @@ func (h *CompetitionHandler) CopyPairs(e *core.RequestEvent) error {
 	}
 
 	sourcePairIDs := source.GetStringSlice("pairs")
-	sourceSeeding := h.getSeeding(source)
+	sourceSeeding := getSeeding(source)
 	existingPairIDs := target.GetStringSlice("pairs")
-	targetSeeding := h.getSeeding(target)
+	targetSeeding := getSeeding(target)
 
 	existingSet := make(map[string]struct{}, len(existingPairIDs))
 	for _, pid := range existingPairIDs {
@@ -155,7 +165,7 @@ func (h *CompetitionHandler) CopyPairs(e *core.RequestEvent) error {
 	return alertSuccess(e, fmt.Sprintf("%d parejas copiadas, %d omitidas", copied, skipped))
 }
 
-func (h *CompetitionHandler) canCopyPair(pairID string, existingSet map[string]struct{}, existingPairIDs []string) bool {
+func (h *CompetitionPairsHandler) canCopyPair(pairID string, existingSet map[string]struct{}, existingPairIDs []string) bool {
 	if _, ok := existingSet[pairID]; ok {
 		return false
 	}
@@ -163,13 +173,13 @@ func (h *CompetitionHandler) canCopyPair(pairID string, existingSet map[string]s
 	if err != nil {
 		return false
 	}
-	return h.validatePlayerUniqueness(existingPairIDs, pair, "") == nil
+	return validatePlayerUniqueness(h.app, existingPairIDs, pair, "") == nil
 }
 
-func (h *CompetitionHandler) buildPairEntries(pairIDs []string, seeding map[string]int, paymentStatus map[string]bool) []pairEntry {
+func buildPairEntries(app core.App, pairIDs []string, seeding map[string]int, paymentStatus map[string]bool) []pairEntry {
 	var entries []pairEntry
 	for _, pid := range pairIDs {
-		pair, err := h.app.FindRecordById("pairs", pid)
+		pair, err := app.FindRecordById("pairs", pid)
 		if err != nil {
 			continue
 		}
@@ -183,8 +193,8 @@ func (h *CompetitionHandler) buildPairEntries(pairIDs []string, seeding map[stri
 	return entries
 }
 
-func (h *CompetitionHandler) availablePairs(enrolledIDs []string) []*core.Record {
-	allPairsRaw, _ := h.app.FindRecordsByFilter("pairs", "id != ''", "name", 0, 0, nil)
+func availablePairs(app core.App, enrolledIDs []string) []*core.Record {
+	allPairsRaw, _ := app.FindRecordsByFilter("pairs", "id != ''", "name", 0, 0, nil)
 	enrolled := map[string]struct{}{}
 	for _, pid := range enrolledIDs {
 		enrolled[pid] = struct{}{}
@@ -198,7 +208,7 @@ func (h *CompetitionHandler) availablePairs(enrolledIDs []string) []*core.Record
 	return available
 }
 
-func (h *CompetitionHandler) validatePlayerUniqueness(existingPairIDs []string, pair *core.Record, excludePairID string) error {
+func validatePlayerUniqueness(app core.App, existingPairIDs []string, pair *core.Record, excludePairID string) error {
 	p1 := pair.GetString("player1")
 	p2 := pair.GetString("player2")
 
@@ -206,7 +216,7 @@ func (h *CompetitionHandler) validatePlayerUniqueness(existingPairIDs []string, 
 		if excludePairID != "" && pid == excludePairID {
 			continue
 		}
-		otherPair, err := h.app.FindRecordById("pairs", pid)
+		otherPair, err := app.FindRecordById("pairs", pid)
 		if err != nil {
 			continue
 		}

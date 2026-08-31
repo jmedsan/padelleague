@@ -31,6 +31,7 @@ func setupAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	e.Router.GET("/login", auth.Login)
 
 	comp := NewCompetitionHandler(app, svc, notifier, r.Page)
+	dash := NewCompetitionDashboardHandler(app, r.Page)
 	player := NewAdminPlayerHandler(app, r.Page)
 	pair := NewPairHandler(app, r.Page)
 	inv := NewInvitationHandler(app, r.Page)
@@ -39,7 +40,7 @@ func setupAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g := e.Router.Group("/admin")
 	g.BindFunc(requireAuthTest)
 	g.BindFunc(requireAdminTest)
-	g.GET("", comp.Dashboard)
+	g.GET("", dash.Dashboard)
 	g.GET("/competitions/{id}", comp.Detail)
 	g.POST("/competitions", comp.Create)
 	g.GET("/players", player.Players)

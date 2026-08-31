@@ -36,12 +36,12 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 	}
 
 	pairIDs := comp.GetStringSlice("pairs")
-	seeding := h.getSeeding(comp)
-	paymentStatus := h.getPaymentStatus(comp)
+	seeding := getSeeding(comp)
+	paymentStatus := getPaymentStatus(comp)
 	penaltyRows := h.getPenaltyRows(id)
 
-	pairEntries := h.buildPairEntries(pairIDs, seeding, paymentStatus)
-	allPairs := h.availablePairs(pairIDs)
+	pairEntries := buildPairEntries(h.app, pairIDs, seeding, paymentStatus)
+	allPairs := availablePairs(h.app, pairIDs)
 	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != {:cid}", "name", 0, 0, map[string]any{"cid": id})
 
 	matches, _ := h.app.FindRecordsByFilter("matches",
@@ -367,7 +367,7 @@ func (h *CompetitionHandler) getPenaltyRows(compID string) map[string][]PenaltyR
 	return out
 }
 
-func (h *CompetitionHandler) getSeeding(comp *core.Record) map[string]int {
+func getSeeding(comp *core.Record) map[string]int {
 	seeding := make(map[string]int)
 	if err := comp.UnmarshalJSONField("seeding", &seeding); err != nil {
 		slog.Warn("unmarshal seeding", "err", err)
