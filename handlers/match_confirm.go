@@ -143,20 +143,25 @@ func (h *MatchHandler) MatchDispute(e *core.RequestEvent) error {
 		return alertError(e, "Error al disputar el partido")
 	}
 
+	h.recordDispute(match, userID, disputedScores, disputeNotes)
+	h.notifyDisputeToSubmitter(match, myTeam)
+	return redirectHX(e, "/match/"+id)
+}
+
+func (h *MatchHandler) recordDispute(match *core.Record, userID, scores, notes string) {
 	label := pairPlayerLabel(h.app, userID, match)
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: userID,
-		Kind: "result_event", Detail: label + " disputó el resultado (propone " + disputedScores + ")",
+		Kind: "result_event", Detail: label + " disputó el resultado",
 	})
-
-	n := league.NotifAdminDisputed(match.Id, disputeNotes)
+	addTimelineEntry(h.app, timelineEntry{
+		MatchID: match.Id, ActorID: userID,
+		Kind: "result_submission", Detail: scores,
+	})
+	n := league.NotifAdminDisputed(match.Id, notes)
 	if err := h.notifier.NotifyAdmins(n); err != nil {
 		slog.Error("notify admins failed", "err", err)
 	}
-
-	h.notifyDisputeToSubmitter(match, myTeam)
-
-	return redirectHX(e, "/match/"+id)
 }
 
 // notifyDisputeToSubmitter tells the pair whose score was disputed — they'd

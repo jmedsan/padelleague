@@ -527,8 +527,11 @@ func (sc *sampleCtx) createResultEntries(rc resultContext) error {
 		}
 		disputerLabel := sampleLabel(sc.app, rc.responder, rc.match)
 		disputeTime := submitTime.Add(1 * time.Hour)
-		return sc.saveEntry(timelineEntry{rc.match.Id, rc.responder, "result_event",
-			disputerLabel + " disputó el resultado (propone 6-4 4-6 5-7)", disputeTime})
+		if err := sc.saveEntry(timelineEntry{rc.match.Id, rc.responder, "result_event",
+			disputerLabel + " disputó el resultado", disputeTime}); err != nil {
+			return err
+		}
+		return sc.saveEntry(timelineEntry{rc.match.Id, rc.responder, "result_submission", "6-4 4-6 5-7", disputeTime})
 
 	case rc.f.round == 5 && rc.f.idx == 1:
 		submitTime := rc.playDate.Add(22 * time.Hour)
