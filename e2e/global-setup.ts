@@ -128,10 +128,11 @@ async function seedTestData() {
   // means four, since a test that confirms a match leaves nothing pending for
   // the next one.
   // Slots 0-1 use pair1 vs pair2; slot 2 (admin-notif) uses pair1 vs pair3
-  // so the admin is NOT a match participant and receives the notification.
+  // so the admin is NOT a match participant and receives the notification;
+  // slot 3 (mobile-lifecycle) uses pair1 vs pair2.
   // pair3 is NOT added to the competition to avoid changing fixture generation.
-  for (let i = 0; i < 6; i++) {
-    const usePair3 = i >= 4; // slots 0-1 = indices 0-3, slot 2 = indices 4-5
+  for (let i = 0; i < 8; i++) {
+    const usePair3 = i >= 4 && i < 6; // slots 0-1 = indices 0-3, slot 2 = indices 4-5
     const extra = await fetch(`${BASE_URL}/api/collections/matches/records`, {
       method: 'POST',
       headers: { 'Authorization': adminToken, 'Content-Type': 'application/json' },

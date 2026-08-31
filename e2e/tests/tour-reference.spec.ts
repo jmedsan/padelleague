@@ -312,15 +312,15 @@ test.describe('reference navigation tour', () => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
-    // Admin has both roles → "Ver como" switcher visible
-    const verComo = page.locator('summary:has-text("Ver como")');
-    await expect(verComo).toBeVisible();
+    // Admin has both roles → view-switcher visible (shows current mode)
+    const viewSwitcher = page.locator('.menu-horizontal details:has(a[href="/view/player"]) summary');
+    await expect(viewSwitcher).toBeVisible();
     // Default view is admin — Gestión dropdown visible
     await expect(page.locator('summary:has-text("Gestión")')).toBeVisible();
 
     // Switch to player view via desktop nav
     const desktopNav = page.locator('.menu-horizontal');
-    await verComo.click();
+    await viewSwitcher.click();
     await desktopNav.locator('a[href="/view/player"]').click();
     await page.waitForLoadState('domcontentloaded');
     // In player view: Gestión should be hidden, player home content visible
@@ -328,8 +328,8 @@ test.describe('reference navigation tour', () => {
     await expect(page.locator('h1, h2').first()).toBeVisible();
 
     // Switch back to admin view
-    const verComoPlayer = page.locator('.menu-horizontal summary:has-text("Ver como")');
-    await verComoPlayer.click();
+    const viewSwitcherPlayer = page.locator('.menu-horizontal details:has(a[href="/view/admin"]) summary');
+    await viewSwitcherPlayer.click();
     await desktopNav.locator('a[href="/view/admin"]').click();
     await page.waitForLoadState('domcontentloaded');
     // Gestión visible again

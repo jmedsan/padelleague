@@ -325,9 +325,9 @@ test.describe('R-178: presentation quality guards', () => {
     expect(bodyText).not.toContain('Administración');
 
     // Flip to player view via the switcher
-    const switcher = page.locator('details:has(summary:has-text("Ver como"))');
+    const switcher = page.locator('details:has(a[href="/view/player"])');
     await switcher.locator('summary').click();
-    await switcher.locator('a:has-text("Jugador")').click();
+    await switcher.locator('a[href="/view/player"]').click();
     await page.waitForLoadState('networkidle');
 
     // Now on home in player view
@@ -341,9 +341,9 @@ test.describe('R-178: presentation quality guards', () => {
     expect(playerBody).not.toContain('Preparar competiciones');
 
     // Switch back to admin view for other tests
-    const switcher2 = page.locator('details:has(summary:has-text("Ver como"))');
+    const switcher2 = page.locator('details:has(a[href="/view/admin"])');
     await switcher2.locator('summary').click();
-    await switcher2.locator('a:has-text("Admin")').click();
+    await switcher2.locator('a[href="/view/admin"]').click();
     await page.waitForLoadState('networkidle');
   });
 });
