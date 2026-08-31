@@ -1,0 +1,65 @@
+{{define "competitionHeader"}}
+{{if .Admin}}
+<div class="bg-base-200 rounded-box p-6 mb-6">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div class="flex items-center gap-3">
+            <a href="/admin" class="btn btn-ghost btn-sm btn-circle">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </a>
+            <div>
+                <h1 class="text-2xl font-bold">{{.Comp.GetString "name"}}</h1>
+                <div class="flex items-center gap-2 mt-1">
+                    {{if eq (.Comp.GetString "type") "league"}}
+                        <span class="badge badge-primary">Liga</span>
+                    {{else}}
+                        <span class="badge badge-secondary">Playoff</span>
+                    {{end}}
+                    {{if .Comp.GetString "category"}}
+                        <span class="badge badge-outline">{{.Comp.GetString "category"}}</span>
+                    {{end}}
+                    {{if and .IsLeague (ne .PhaseStr "")}}
+                        <span class="badge {{if eq .PhaseStr "recovery"}}badge-secondary{{else if eq .PhaseStr "finished"}}badge-neutral{{else}}badge-outline{{end}}">{{.PhaseLabel}}</span>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <form hx-post="/admin/competitions/{{.Comp.Id}}/toggle" class="flex items-center gap-2">
+                <span class="label-text text-sm">{{if .Comp.GetBool "active"}}Activa{{else}}Inactiva{{end}}</span>
+                <input type="checkbox" class="toggle toggle-success" onchange="this.form.requestSubmit()" {{if .Comp.GetBool "active"}}checked{{end}}>
+            </form>
+            {{if and .IsLeague (or (eq .PhaseStr "playing") (eq .PhaseStr "recovery"))}}
+            <form hx-post="/admin/competitions/{{.Comp.Id}}/finalize" onsubmit="return confirm('¿Finalizar esta liga ahora? Esta acción no se puede deshacer.')">
+                <button type="submit" class="btn btn-warning btn-sm" data-testid="finalize-league">Finalizar liga ahora</button>
+            </form>
+            {{end}}
+            <label for="edit-modal" class="btn btn-ghost btn-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-4 w-4 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                Editar
+            </label>
+        </div>
+    </div>
+</div>
+{{else if .Minimal}}
+<div class="bg-primary text-primary-content rounded-2xl p-6 mb-6 shadow-lg">
+    <h1 class="text-3xl font-bold">{{.Comp.GetString "name"}}</h1>
+</div>
+{{else}}
+<div class="bg-primary text-primary-content rounded-2xl p-6 mb-6 shadow-lg">
+    <h1 class="text-3xl font-bold">{{.Comp.GetString "name"}}</h1>
+    <div class="flex flex-wrap gap-2 mt-3">
+        {{if eq (.Comp.GetString "type") "league"}}
+        <span class="badge badge-lg bg-white/20 border-0 text-primary-content">Liga</span>
+        {{else}}
+        <span class="badge badge-lg bg-white/20 border-0 text-primary-content">Playoff</span>
+        {{end}}
+        {{if .Comp.GetString "category"}}
+        <span class="badge badge-lg bg-white/20 border-0 text-primary-content">{{.Comp.GetString "category"}}</span>
+        {{end}}
+        {{if .IsArchived}}
+        <span class="badge badge-lg bg-black/20 border-0 text-primary-content">Archivada</span>
+        {{end}}
+    </div>
+</div>
+{{end}}
+{{end}}

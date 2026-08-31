@@ -77,7 +77,14 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 
 func (h *CompetitionHandler) addDetailExtras(data map[string]any, comp *core.Record, matches []*core.Record) {
 	if comp.GetString("type") == "league" {
-		data["Standings"], _ = h.leagueSvc.ComputeStandings(comp.Id)
+		standings, _ := h.leagueSvc.ComputeStandings(comp.Id)
+		data["Standings"] = standings
+		for _, s := range standings {
+			if s.Penalty > 0 {
+				data["HasPenalties"] = true
+				break
+			}
+		}
 		if len(matches) > 0 {
 			data["RoundDates"] = h.buildRoundDates(comp)
 		}

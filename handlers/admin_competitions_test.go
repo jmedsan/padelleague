@@ -1506,7 +1506,7 @@ func TestAdminCompDetailWithPenalties(t *testing.T) {
 		Name:            "GET /admin/competitions/{id} with penalties/seeding/payment",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Pen A", "Pen B"},
+		ExpectedContent: []string{"Pen A", "Pen B", "Pen.", "-1"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)

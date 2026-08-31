@@ -6,9 +6,7 @@
     </a>
 </div>
 
-<div class="bg-primary text-primary-content rounded-2xl p-6 mb-6 shadow-lg">
-    <h1 class="text-3xl font-bold">{{.Competition.GetString "name"}}</h1>
-</div>
+{{template "competitionHeader" (dict "Minimal" true "Comp" .Competition)}}
 
 <div class="card bg-base-100 shadow-sm rounded-xl">
     <div class="card-body">
