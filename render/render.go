@@ -33,6 +33,10 @@ func New(viewsFS fs.FS, vapidPublicKey string) *Renderer {
 		"elink": func(id, name string) map[string]string {
 			return map[string]string{"ID": id, "Name": name}
 		},
+		"hasKey": func(m map[string]struct{}, key string) bool {
+			_, ok := m[key]
+			return ok
+		},
 		"dict": func(pairs ...any) map[string]any {
 			m := make(map[string]any, len(pairs)/2)
 			for i := 0; i+1 < len(pairs); i += 2 {
