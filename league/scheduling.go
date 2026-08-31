@@ -10,6 +10,11 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+func truncateToNoonUTC(t time.Time) time.Time {
+	y, m, d := t.UTC().Date()
+	return time.Date(y, m, d, 12, 0, 0, 0, time.UTC)
+}
+
 // Warning represents how urgently a match needs to be arranged.
 type Warning int
 
@@ -60,7 +65,8 @@ func RecommendedArrangeBy(start, end time.Time, rounds, roundNumber int) (time.T
 		return time.Time{}, false
 	}
 	fraction := float64(roundNumber) / float64(rounds)
-	return start.Add(time.Duration(float64(end.Sub(start)) * fraction)), true
+	t := start.Add(time.Duration(float64(end.Sub(start)) * fraction))
+	return truncateToNoonUTC(t), true
 }
 
 // WarningLevel returns the warning severity for a match based on its
@@ -256,7 +262,7 @@ func RoundArrangeDate(comp *core.Record, roundNumber int) (time.Time, bool) {
 		if json.Unmarshal([]byte(raw), &stored) == nil {
 			key := strconv.Itoa(roundNumber)
 			if t, ok := stored[key]; ok {
-				return t, true
+				return truncateToNoonUTC(t), true
 			}
 		}
 	}
