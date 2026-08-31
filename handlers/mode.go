@@ -5,6 +5,7 @@ type Mode struct {
 	Admin    bool
 	Full     bool
 	Editable bool
+	Row      bool
 }
 
 // Mode presets for the common rendering variants.

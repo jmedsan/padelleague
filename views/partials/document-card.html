@@ -1,4 +1,30 @@
 {{define "documentCard"}}
+{{if .Mode.Row}}
+<tr data-testid="document-attach-row">
+    <td class="font-medium">{{.Title}}</td>
+    <td>
+        {{if .OpenURL}}
+        {{if .IsFile}}
+        <a href="{{.OpenURL}}" target="_blank" rel="noopener" class="link link-primary text-sm">Archivo</a>
+        {{else}}
+        <a href="{{.OpenURL}}" target="_blank" rel="noopener" class="link link-primary text-sm">Enlace</a>
+        {{end}}
+        {{else}}
+        <span class="text-sm opacity-60">—</span>
+        {{end}}
+    </td>
+    <td>
+        {{if .IsMandatory}}<span class="badge badge-error badge-sm">Obligatorio</span>{{else}}<span class="text-base-content/60">—</span>{{end}}
+    </td>
+    <td class="text-right">
+        {{if and .Mode.Admin .Mode.Editable}}
+        <form hx-post="/admin/competitions/{{.CompetitionID}}/detach-doc/{{.Document.Id}}" hx-confirm="¿Quitar este documento de la competición?" class="inline">
+            <button type="submit" class="btn btn-ghost btn-xs text-error">Quitar</button>
+        </form>
+        {{end}}
+    </td>
+</tr>
+{{else}}
 <div class="flex items-center justify-between gap-3 p-3 bg-base-200/50 rounded-lg" data-testid="document-card">
     <div class="flex-1 min-w-0">
         <p class="font-medium truncate">{{.Title}}</p>
@@ -31,30 +57,4 @@
     </div>
 </div>
 {{end}}
-
-{{define "documentAttachRow"}}
-<tr data-testid="document-attach-row">
-    <td class="font-medium">{{.Title}}</td>
-    <td>
-        {{if .OpenURL}}
-        {{if .IsFile}}
-        <a href="{{.OpenURL}}" target="_blank" rel="noopener" class="link link-primary text-sm">Archivo</a>
-        {{else}}
-        <a href="{{.OpenURL}}" target="_blank" rel="noopener" class="link link-primary text-sm">Enlace</a>
-        {{end}}
-        {{else}}
-        <span class="text-sm opacity-60">—</span>
-        {{end}}
-    </td>
-    <td>
-        {{if .IsMandatory}}<span class="badge badge-error badge-sm">Obligatorio</span>{{else}}<span class="text-base-content/60">—</span>{{end}}
-    </td>
-    <td class="text-right">
-        {{if and .Mode.Admin .Mode.Editable}}
-        <form hx-post="/admin/competitions/{{.CompetitionID}}/detach-doc/{{.Document.Id}}" hx-confirm="¿Quitar este documento de la competición?" class="inline">
-            <button type="submit" class="btn btn-ghost btn-xs text-error">Quitar</button>
-        </form>
-        {{end}}
-    </td>
-</tr>
 {{end}}
