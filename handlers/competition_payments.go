@@ -6,8 +6,18 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// CompetitionPaymentsHandler handles payment status for competition pairs.
+type CompetitionPaymentsHandler struct {
+	app core.App
+}
+
+// NewCompetitionPaymentsHandler creates a CompetitionPaymentsHandler.
+func NewCompetitionPaymentsHandler(app core.App) *CompetitionPaymentsHandler {
+	return &CompetitionPaymentsHandler{app: app}
+}
+
 // TogglePayment marks a single pair's payment status as paid or unpaid.
-func (h *CompetitionHandler) TogglePayment(e *core.RequestEvent) error {
+func (h *CompetitionPaymentsHandler) TogglePayment(e *core.RequestEvent) error {
 	compID := e.Request.PathValue("id")
 	pairID := e.Request.FormValue("pair_id")
 
@@ -16,7 +26,7 @@ func (h *CompetitionHandler) TogglePayment(e *core.RequestEvent) error {
 		return alertError(e, "Competición no encontrada")
 	}
 
-	paymentStatus := h.getPaymentStatus(comp)
+	paymentStatus := getPaymentStatus(comp)
 	paymentStatus[pairID] = !paymentStatus[pairID]
 	comp.Set("payment_status", paymentStatus)
 
@@ -29,7 +39,7 @@ func (h *CompetitionHandler) TogglePayment(e *core.RequestEvent) error {
 }
 
 // TogglePaymentAll sets all pairs in a competition to paid or unpaid.
-func (h *CompetitionHandler) TogglePaymentAll(e *core.RequestEvent) error {
+func (h *CompetitionPaymentsHandler) TogglePaymentAll(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	comp, err := h.app.FindRecordById("competitions", id)
 	if err != nil {
@@ -50,7 +60,7 @@ func (h *CompetitionHandler) TogglePaymentAll(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions/"+id)
 }
 
-func (h *CompetitionHandler) getPaymentStatus(comp *core.Record) map[string]bool {
+func getPaymentStatus(comp *core.Record) map[string]bool {
 	status := make(map[string]bool)
 	if err := comp.UnmarshalJSONField("payment_status", &status); err != nil {
 		slog.Warn("unmarshal payment_status", "err", err)

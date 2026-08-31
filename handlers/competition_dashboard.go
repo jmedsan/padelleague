@@ -11,6 +11,17 @@ import (
 	"padelleague/render"
 )
 
+// CompetitionDashboardHandler renders the admin competitions overview.
+type CompetitionDashboardHandler struct {
+	app        core.App
+	renderPage RenderFunc
+}
+
+// NewCompetitionDashboardHandler creates a CompetitionDashboardHandler.
+func NewCompetitionDashboardHandler(app core.App, renderPage RenderFunc) *CompetitionDashboardHandler {
+	return &CompetitionDashboardHandler{app: app, renderPage: renderPage}
+}
+
 // AdminIssue represents a problem detected in competition state for the admin dashboard.
 type AdminIssue struct {
 	Type            string
@@ -24,7 +35,7 @@ type AdminIssue struct {
 }
 
 // Dashboard renders the admin competitions overview with active/inactive lists and issues.
-func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
+func (h *CompetitionDashboardHandler) Dashboard(e *core.RequestEvent) error {
 	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != ''", "name", 0, 0, nil)
 
 	var active, inactive []CompetitionView
@@ -52,11 +63,11 @@ func (h *CompetitionHandler) Dashboard(e *core.RequestEvent) error {
 	})
 }
 
-func (h *CompetitionHandler) buildCompetitionView(comp *core.Record) CompetitionView {
+func (h *CompetitionDashboardHandler) buildCompetitionView(comp *core.Record) CompetitionView {
 	return NewCompetitionView(h.app, comp, AdminSummary)
 }
 
-func (h *CompetitionHandler) buildAdminIssues(active []CompetitionView) []AdminIssue {
+func (h *CompetitionDashboardHandler) buildAdminIssues(active []CompetitionView) []AdminIssue {
 	var issues []AdminIssue
 	now := time.Now().UTC()
 	for _, cs := range active {
@@ -88,7 +99,7 @@ type issueContext struct {
 	now         time.Time
 }
 
-func (h *CompetitionHandler) classifyMatchIssues(m *core.Record, ctx issueContext) []AdminIssue {
+func (h *CompetitionDashboardHandler) classifyMatchIssues(m *core.Record, ctx issueContext) []AdminIssue {
 	status := m.GetString("status")
 	base := AdminIssue{
 		CompetitionName: ctx.compName,
@@ -113,7 +124,7 @@ func (h *CompetitionHandler) classifyMatchIssues(m *core.Record, ctx issueContex
 	return nil
 }
 
-func (h *CompetitionHandler) checkQuorumIssue(m *core.Record, base AdminIssue, quorumHours float64, now time.Time) []AdminIssue {
+func (h *CompetitionDashboardHandler) checkQuorumIssue(m *core.Record, base AdminIssue, quorumHours float64, now time.Time) []AdminIssue {
 	if quorumHours <= 0 {
 		return nil
 	}
@@ -142,7 +153,7 @@ func (h *CompetitionHandler) checkQuorumIssue(m *core.Record, base AdminIssue, q
 	return []AdminIssue{issue}
 }
 
-func (h *CompetitionHandler) checkPendingIssues(m *core.Record, base AdminIssue, now time.Time) []AdminIssue {
+func (h *CompetitionDashboardHandler) checkPendingIssues(m *core.Record, base AdminIssue, now time.Time) []AdminIssue {
 	var issues []AdminIssue
 	if d := m.GetString("date"); d != "" {
 		if dt, err := types.ParseDateTime(d); err == nil && dt.Time().Before(now) {
