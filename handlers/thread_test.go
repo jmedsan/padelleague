@@ -1269,3 +1269,156 @@ func TestPlayerProposalBlockedOnFinalizedComp(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func makeResultProposal(tb testing.TB, app core.App, matchID, authorID, scores string) *core.Record { //nolint:unparam
+	tb.Helper()
+	col, err := app.FindCollectionByNameOrId("match_messages")
+	require.NoError(tb, err)
+	msg := core.NewRecord(col)
+	msg.Set("match", matchID)
+	msg.Set("author", authorID)
+	msg.Set("type", "result_submission")
+	msg.Set("proposal_data", `{"scores":"`+scores+`"}`)
+	msg.Set("proposal_status", "pending")
+	msg.Set("content", scores)
+	require.NoError(tb, app.Save(msg))
+	return msg
+}
+
+func TestAcceptResultProposalFinalizesMatch(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "accepting result proposal finalizes the match",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID, proposalID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "RA A")
+		p2 := makePairTB(tb, app, "RA B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+		matchID = match.Id
+
+		proposer := p1.GetString("player1")
+		proposal := makeResultProposal(tb, app, match.Id, proposer, "6-3 6-4")
+		proposalID = proposal.Id
+
+		respondent, _ := app.FindRecordById("users", p2.GetString("player1"))
+		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/respond", match.Id, proposal.Id)
+		s.Body = strings.NewReader("action=accept")
+		hdrs := authHeaders(tb, respondent)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, league.StatusFinal, m.GetString("status"), "match must be finalized")
+		assert.Equal(tb, "6-3 6-4", m.GetString("scores"))
+		assert.NotEmpty(tb, m.GetString("winner"), "winner must be determined")
+
+		prop, _ := app.FindRecordById("match_messages", proposalID)
+		assert.Equal(tb, "accepted", prop.GetString("proposal_status"))
+
+		responses, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_response'", "", 0, 0,
+			map[string]any{"mid": matchID})
+		require.Len(tb, responses, 1, "one result_response must exist")
+		assert.Equal(tb, proposalID, responses[0].GetString("parent"), "response must reference the proposal")
+	}
+	s.Test(t)
+}
+
+func TestRejectResultProposalRequiresCounter(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "rejecting result proposal creates counter-proposal",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID, proposalID, respondentID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "RR A")
+		p2 := makePairTB(tb, app, "RR B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+		matchID = match.Id
+
+		proposer := p1.GetString("player1")
+		proposal := makeResultProposal(tb, app, match.Id, proposer, "6-3 6-4")
+		proposalID = proposal.Id
+
+		respondent, _ := app.FindRecordById("users", p2.GetString("player1"))
+		respondentID = respondent.Id
+		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/respond", match.Id, proposal.Id)
+		s.Body = strings.NewReader("action=reject&counter_scores=6-4+6-3")
+		hdrs := authHeaders(tb, respondent)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "scheduled", m.GetString("status"), "match must stay pre-score")
+
+		prop, _ := app.FindRecordById("match_messages", proposalID)
+		assert.Equal(tb, "superseded", prop.GetString("proposal_status"),
+			"rejected proposal must be superseded")
+
+		responses, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_response' && parent = {:pid}",
+			"", 0, 0,
+			map[string]any{"mid": matchID, "pid": proposalID})
+		require.Len(tb, responses, 1, "one result_response must exist for the rejection")
+
+		counters, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_submission' && author = {:uid} && proposal_status = 'pending'",
+			"", 0, 0,
+			map[string]any{"mid": matchID, "uid": respondentID})
+		require.Len(tb, counters, 1, "a counter-proposal must exist")
+		assert.Equal(tb, "6-4 6-3", ParseProposalData(counters[0].GetString("proposal_data")).Scores)
+
+		// Timeline entry must exist for the rejection
+		timeline, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_response' && parent = {:pid}",
+			"", 0, 0,
+			map[string]any{"mid": matchID, "pid": proposalID})
+		require.Len(tb, timeline, 1, "rejection must create a result_response timeline entry")
+		assert.Contains(tb, timeline[0].GetString("content"), "Resultado rechazado")
+	}
+	s.Test(t)
+}
+
+func TestRejectResultProposalEmptyCounterRejected(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "rejecting result proposal without counter_scores returns error",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Debes proponer un marcador alternativo"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "RE A")
+		p2 := makePairTB(tb, app, "RE B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+
+		proposer := p1.GetString("player1")
+		proposal := makeResultProposal(tb, app, match.Id, proposer, "6-3 6-4")
+
+		respondent, _ := app.FindRecordById("users", p2.GetString("player1"))
+		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/respond", match.Id, proposal.Id)
+		s.Body = strings.NewReader("action=reject&counter_scores=")
+		hdrs := authHeaders(tb, respondent)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}

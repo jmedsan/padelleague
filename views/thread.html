@@ -61,10 +61,17 @@
             </div>
             {{end}}
             {{if .CanPropose}}
+            {{if not .HasDateAndPlace}}
+            <div class="card bg-primary/10 border-2 border-primary/30 rounded-xl mb-3">
+                <div class="card-body p-4">
+                    <h3 class="font-bold text-sm">Proponer fecha y lugar</h3>
+                    <p class="text-xs opacity-70 mb-2">Aún no hay fecha ni lugar confirmados para este partido.</p>
+            {{else}}
             <div class="collapse collapse-arrow bg-base-200 rounded-lg">
                 <input type="checkbox" class="peer">
                 <div class="collapse-title text-sm font-medium py-2 min-h-0">{{if .IsScheduled}}Proponer nueva fecha (reprogramar){{else}}Proponer fecha{{end}}</div>
                 <div class="collapse-content">
+            {{end}}
                     <form id="proposal-form" hx-post="/match/{{.MatchID}}/thread/proposal" hx-target="body">
                         <div class="grid grid-cols-2 gap-3">
                             <div class="form-control">

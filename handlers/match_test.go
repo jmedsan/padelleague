@@ -408,9 +408,8 @@ func TestPlayerNameIfSet(t *testing.T) {
 const (
 	markerCanSubmit   = "Registrar resultado"
 	markerCanWalkover = "Reportar partido no jugado"
-	markerCanConfirm  = "El rival ha enviado este resultado"
 	markerCanCorrect  = "Corregir marcador"
-	markerWaiting     = "Esperando confirmación del rival"
+	markerDateGate    = "Primero propón una fecha y lugar"
 )
 
 type matchViewCase struct {
@@ -419,6 +418,7 @@ type matchViewCase struct {
 	viewer       string // "submitter", "opponent", "outsider", "admin"
 	submitted    bool
 	recentSubmit bool
+	hasDate      bool
 	httpStatus   int // 0 means 200
 	want         []string
 	deny         []string
@@ -427,24 +427,30 @@ type matchViewCase struct {
 func TestBuildMatchViewFlags(t *testing.T) {
 	t.Parallel()
 	cases := []matchViewCase{
-		// Pending
+		// Pending without date → submit gated
 		{
-			name: "pending/submitter-team", status: "pending", viewer: "submitter",
-			want: []string{markerCanSubmit, markerCanWalkover},
-			deny: []string{markerCanConfirm, markerCanCorrect},
+			name: "pending/no-date/submitter", status: "pending", viewer: "submitter",
+			want: []string{markerDateGate, markerCanWalkover},
+			deny: []string{markerCanSubmit, markerCanCorrect},
+		},
+		// Pending with date+place → submit visible
+		{
+			name: "pending/with-date/submitter", status: "pending", viewer: "submitter",
+			hasDate: true,
+			want:    []string{markerCanSubmit, markerCanWalkover},
+			deny:    []string{markerCanCorrect, markerDateGate},
 		},
 		{
-			name: "pending/opponent", status: "pending", viewer: "opponent",
-			want: []string{markerCanSubmit, markerCanWalkover},
-			deny: []string{markerCanConfirm, markerCanCorrect},
+			name: "pending/with-date/opponent", status: "pending", viewer: "opponent",
+			hasDate: true,
+			want:    []string{markerCanSubmit, markerCanWalkover},
+			deny:    []string{markerCanCorrect, markerDateGate},
 		},
 		{
-			// A scheduled match (date accepted, no score yet) is still pre-score:
-			// a participant must be able to submit. Pins IsPreScore's StatusScheduled
-			// clause through CanSubmit at the unit level (R-180 mutation).
 			name: "scheduled/submitter-team", status: "scheduled", viewer: "submitter",
-			want: []string{markerCanSubmit, markerCanWalkover},
-			deny: []string{markerCanConfirm, markerCanCorrect},
+			hasDate: true,
+			want:    []string{markerCanSubmit, markerCanWalkover},
+			deny:    []string{markerCanCorrect},
 		},
 		{
 			name: "pending/outsider", status: "pending", viewer: "outsider",
@@ -453,27 +459,27 @@ func TestBuildMatchViewFlags(t *testing.T) {
 		},
 		{
 			name: "pending/admin", status: "pending", viewer: "admin",
-			deny: []string{markerCanSubmit, markerCanWalkover, markerCanConfirm, markerCanCorrect},
+			deny: []string{markerCanSubmit, markerCanWalkover, markerCanCorrect},
 		},
 
-		// Confirmed with submitter set
+		// Confirmed with submitter set (legacy status — no confirm/dispute buttons)
 		{
 			name: "confirmed/submitter/recent", status: "confirmed", viewer: "submitter",
 			submitted: true, recentSubmit: true,
-			want: []string{markerCanCorrect, markerWaiting, markerCanWalkover},
-			deny: []string{markerCanSubmit, markerCanConfirm},
+			want: []string{markerCanCorrect, markerCanWalkover},
+			deny: []string{markerCanSubmit},
 		},
 		{
 			name: "confirmed/submitter/expired", status: "confirmed", viewer: "submitter",
 			submitted: true, recentSubmit: false,
-			want: []string{markerWaiting, markerCanWalkover},
-			deny: []string{markerCanSubmit, markerCanConfirm, markerCanCorrect},
+			want: []string{markerCanWalkover},
+			deny: []string{markerCanSubmit, markerCanCorrect},
 		},
 		{
 			name: "confirmed/opponent", status: "confirmed", viewer: "opponent",
 			submitted: true,
-			want:      []string{markerCanConfirm, markerCanWalkover},
-			deny:      []string{markerCanSubmit, markerCanCorrect, markerWaiting},
+			want:      []string{markerCanWalkover},
+			deny:      []string{markerCanSubmit, markerCanCorrect},
 		},
 		{
 			name: "confirmed/outsider", status: "confirmed", viewer: "outsider",
@@ -484,13 +490,12 @@ func TestBuildMatchViewFlags(t *testing.T) {
 		{
 			name: "confirmed/admin-nonparticipant", status: "confirmed", viewer: "admin",
 			submitted: true,
-			deny:      []string{markerCanSubmit, markerCanConfirm, markerCanCorrect, markerCanWalkover},
+			deny:      []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
 		},
-		// submittedBy="" → isSubmitter=false → opponent sees CanConfirm (line 93 branch)
 		{
 			name: "confirmed/no-submitter/opponent", status: "confirmed", viewer: "opponent",
 			submitted: false,
-			want:      []string{markerCanConfirm, markerCanWalkover},
+			want:      []string{markerCanWalkover},
 			deny:      []string{markerCanSubmit, markerCanCorrect},
 		},
 
@@ -498,24 +503,24 @@ func TestBuildMatchViewFlags(t *testing.T) {
 		{
 			name: "disputed/submitter", status: "disputed", viewer: "submitter",
 			submitted: true,
-			deny:      []string{markerCanSubmit, markerCanConfirm, markerCanCorrect, markerCanWalkover},
+			deny:      []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
 		},
 		{
 			name: "disputed/opponent", status: "disputed", viewer: "opponent",
 			submitted: true,
-			deny:      []string{markerCanSubmit, markerCanConfirm, markerCanCorrect, markerCanWalkover},
+			deny:      []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
 		},
 
 		// Final
 		{
 			name: "final/submitter", status: "final", viewer: "submitter",
 			submitted: true,
-			deny:      []string{markerCanSubmit, markerCanConfirm, markerCanCorrect, markerCanWalkover},
+			deny:      []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
 		},
 		{
 			name: "final/opponent", status: "final", viewer: "opponent",
 			submitted: true,
-			deny:      []string{markerCanSubmit, markerCanConfirm, markerCanCorrect, markerCanWalkover},
+			deny:      []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
 		},
 	}
 
@@ -552,6 +557,11 @@ func TestBuildMatchViewFlags(t *testing.T) {
 					} else {
 						match.SetRaw("submitted_at", time.Now().Add(-25*time.Hour).UTC().Format(time.RFC3339))
 					}
+				}
+
+				if tc.hasDate {
+					match.Set("date", "2099-06-15")
+					match.Set("club", "Padel 360")
 				}
 
 				// Final status needs a winner to render properly
@@ -860,9 +870,7 @@ func TestReadOnlyCompGuard_AllHandlers(t *testing.T) {
 		path   string
 		body   string
 	}{
-		{"confirm", "confirmed", "/confirm", ""},
-		{"dispute", "confirmed", "/dispute", "disputed_scores=6-4+6-3&dispute_notes=wrong"},
-		{"correct", "confirmed", "/correct", "scores=6-4+6-3"},
+		{"correct", "scheduled", "/correct", "scores=6-4+6-3"},
 		{"report-unplayed", "pending", "/report-unplayed", "reason=test"},
 	}
 
@@ -884,11 +892,11 @@ func TestReadOnlyCompGuard_AllHandlers(t *testing.T) {
 				comp.Set("finalized", true)
 				require.NoError(tb, app.Save(comp))
 				m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, tc.status)
-				if tc.status == "confirmed" {
+				if tc.name == "correct" {
 					m.Set("submitted_by", p1.GetString("player1"))
-					m.Set("scores", "6-3 6-4")
 					m.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
 					require.NoError(tb, app.Save(m))
+					makeResultProposal(tb, app, m.Id, p1.GetString("player1"), "6-3 6-4")
 				}
 				s.URL = "/match/" + m.Id + tc.path
 				user, _ := app.FindRecordById("users", p2.GetString("player1"))
@@ -956,38 +964,213 @@ func TestReadOnlyCompGuard_ThreadHandlers(t *testing.T) {
 	}
 }
 
-func TestAdminConfirmOnFinalizedComp(t *testing.T) {
+func TestMatchSubmitCreatesResultProposal(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "admin can confirm on finalized comp (gated handler bypass)",
+		Name:           "POST /match/{id}/submit creates result_submission proposal",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID string
+	var matchID, submitterID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "AG A")
-		p2 := makePairTB(tb, app, "AG B")
+		p1 := makePairTB(tb, app, "RP A")
+		p2 := makePairTB(tb, app, "RP B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		comp.Set("finalized", true)
-		require.NoError(tb, app.Save(comp))
-		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
-		m.Set("submitted_by", p1.GetString("player1"))
-		m.Set("scores", "6-3 6-4")
-		m.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
-		require.NoError(tb, app.Save(m))
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+
+		submitter, err := app.FindRecordById("users", p1.GetString("player1"))
+		require.NoError(tb, err)
+		submitterID = submitter.Id
 		matchID = m.Id
-		s.URL = "/match/" + m.Id + "/confirm"
-		hdrs := authHeaders(tb, admin)
+		s.URL = "/match/" + m.Id + "/submit"
+		s.Body = strings.NewReader("scores=6-3+6-4")
+		hdrs := authHeaders(tb, submitter)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		m, err := app.FindRecordById("matches", matchID)
 		require.NoError(tb, err)
-		assert.Equal(tb, "final", m.GetString("status"))
+		assert.Equal(tb, "scheduled", m.GetString("status"),
+			"match must stay in pre-score status, not confirmed")
+		assert.Equal(tb, submitterID, m.GetString("submitted_by"),
+			"submitted_by must be set to the submitter")
+		assert.NotEmpty(tb, m.GetString("submitted_at"),
+			"submitted_at must be set")
+		assert.False(tb, m.GetBool("confirm_reminded"),
+			"confirm_reminded must be reset to false")
+
+		proposals, err := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_submission' && author = {:uid}",
+			"-created", 0, 0,
+			map[string]any{"mid": matchID, "uid": submitterID})
+		require.NoError(tb, err)
+		require.Len(tb, proposals, 1, "exactly one result_submission must exist")
+
+		prop := proposals[0]
+		assert.Equal(tb, "pending", prop.GetString("proposal_status"))
+		pd := ParseProposalData(prop.GetString("proposal_data"))
+		require.NotNil(tb, pd, "proposal_data must be parseable")
+		assert.Equal(tb, "6-3 6-4", pd.Scores)
+	}
+	s.Test(t)
+}
+
+func TestMatchSubmitSupersedesPreviousProposal(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /match/{id}/submit supersedes previous pending proposal from same pair",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID, submitterID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "SS A")
+		p2 := makePairTB(tb, app, "SS B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+		matchID = m.Id
+
+		submitter, err := app.FindRecordById("users", p1.GetString("player1"))
+		require.NoError(tb, err)
+		submitterID = submitter.Id
+
+		col, err := app.FindCollectionByNameOrId("match_messages")
+		require.NoError(tb, err)
+		old := core.NewRecord(col)
+		old.Set("match", matchID)
+		old.Set("author", submitterID)
+		old.Set("type", "result_submission")
+		old.Set("proposal_status", "pending")
+		old.Set("proposal_data", `{"scores":"6-0 6-0"}`)
+		old.Set("content", "6-0 6-0")
+		require.NoError(tb, app.Save(old))
+
+		s.URL = "/match/" + m.Id + "/submit"
+		s.Body = strings.NewReader("scores=6-3+6-4")
+		hdrs := authHeaders(tb, submitter)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		pending, err := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_submission' && author = {:uid} && proposal_status = 'pending'",
+			"", 0, 0,
+			map[string]any{"mid": matchID, "uid": submitterID})
+		require.NoError(tb, err)
+		assert.Len(tb, pending, 1, "only one pending proposal must remain")
+		assert.Equal(tb, "6-3 6-4", ParseProposalData(pending[0].GetString("proposal_data")).Scores)
+
+		superseded, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_submission' && author = {:uid} && proposal_status = 'superseded'",
+			"", 0, 0,
+			map[string]any{"mid": matchID, "uid": submitterID})
+		assert.Len(tb, superseded, 1, "old proposal must be superseded")
+	}
+	s.Test(t)
+}
+
+func TestMatchSubmitDeadlockNotifiesAdmin(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /match/{id}/submit detects deadlock and notifies admin",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "DL A")
+		p2 := makePairTB(tb, app, "DL B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+		matchID = m.Id
+
+		p2Player1, err := app.FindRecordById("users", p2.GetString("player1"))
+		require.NoError(tb, err)
+
+		col, err := app.FindCollectionByNameOrId("match_messages")
+		require.NoError(tb, err)
+		opposing := core.NewRecord(col)
+		opposing.Set("match", matchID)
+		opposing.Set("author", p2Player1.Id)
+		opposing.Set("type", "result_submission")
+		opposing.Set("proposal_status", "pending")
+		opposing.Set("proposal_data", `{"scores":"6-4 6-3"}`)
+		opposing.Set("content", "6-4 6-3")
+		require.NoError(tb, app.Save(opposing))
+
+		makeAdminUserTB(tb, app)
+
+		submitter, err := app.FindRecordById("users", p1.GetString("player1"))
+		require.NoError(tb, err)
+		s.URL = "/match/" + m.Id + "/submit"
+		s.Body = strings.NewReader("scores=6-3+6-4")
+		hdrs := authHeaders(tb, submitter)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		admins, _ := app.FindRecordsByFilter("users",
+			"roles ?~ 'admin'", "", 0, 0, nil)
+		require.NotEmpty(tb, admins, "test must have an admin user")
+		notifs, _ := app.FindRecordsByFilter("notifications",
+			"user = {:uid} && type = 'admin_message'", "-created", 0, 0,
+			map[string]any{"uid": admins[0].Id})
+		found := false
+		for _, n := range notifs {
+			title := strings.ToLower(n.GetString("title"))
+			body := strings.ToLower(n.GetString("body"))
+			if strings.Contains(title, "discrepancia") || strings.Contains(body, "discrepancia") {
+				found = true
+				break
+			}
+		}
+		assert.True(tb, found, "admin must be notified of deadlock")
+	}
+	s.Test(t)
+}
+
+func TestMatchSubmitNoDeadlockNoAdminNotif(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /match/{id}/submit without opposing proposal sends no admin notification",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "NDL A")
+		p2 := makePairTB(tb, app, "NDL B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+
+		makeAdminUserTB(tb, app)
+
+		submitter, err := app.FindRecordById("users", p1.GetString("player1"))
+		require.NoError(tb, err)
+		s.URL = "/match/" + m.Id + "/submit"
+		s.Body = strings.NewReader("scores=6-3+6-4")
+		hdrs := authHeaders(tb, submitter)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		admins, _ := app.FindRecordsByFilter("users", "roles ?~ 'admin'", "", 0, 0, nil)
+		require.NotEmpty(tb, admins)
+		notifs, _ := app.FindRecordsByFilter("notifications",
+			"user = {:uid} && type = 'admin_message'", "", 0, 0,
+			map[string]any{"uid": admins[0].Id})
+		for _, n := range notifs {
+			assert.NotContains(tb, strings.ToLower(n.GetString("title")), "discrepancia",
+				"no deadlock notification expected when no opposing proposal exists")
+		}
 	}
 	s.Test(t)
 }

@@ -493,8 +493,15 @@ func (sc *sampleCtx) createTimeline(match *core.Record, f sampleFixture) error {
 	acceptTime := proposalTime.Add(4 * time.Hour)
 	acceptDetail := fmt.Sprintf("%s aceptó la propuesta de %s (%s, %s, %s)",
 		responderLabel, proposerName, playDate.Format("02/01/2006"), "20:00", venue)
-	if err := sc.saveEntry(timelineEntry{match.Id, responder, "scheduling_response", acceptDetail, acceptTime}); err != nil {
-		return err
+	resp := core.NewRecord(sc.msgCol)
+	resp.Set("match", match.Id)
+	resp.Set("author", responder)
+	resp.Set("type", "scheduling_response")
+	resp.Set("content", acceptDetail)
+	resp.Set("parent", proposal.Id)
+	resp.Set("created", acceptTime.Format(time.RFC3339))
+	if err := sc.app.Save(resp); err != nil {
+		return fmt.Errorf("save scheduling response: %w", err)
 	}
 
 	return sc.createResultEntries(resultContext{match, f, proposer, responder, playDate})
@@ -513,47 +520,78 @@ func (sc *sampleCtx) createResultEntries(rc resultContext) error {
 	switch {
 	case rc.f.round <= 4:
 		submitTime := rc.playDate.Add(22 * time.Hour)
-		if err := sc.saveEntry(timelineEntry{rc.match.Id, rc.submitter, "result_submission", scores, submitTime}); err != nil {
+		proposal, err := sc.saveResultProposal(resultProposalArgs{rc.match.Id, rc.submitter, scores, "accepted", submitTime})
+		if err != nil {
 			return err
 		}
 		confirmerLabel := sampleLabel(sc.app, rc.responder, rc.match)
 		confirmTime := submitTime.Add(2 * time.Hour)
-		return sc.saveEntry(timelineEntry{rc.match.Id, rc.responder, "result_event", confirmerLabel + " confirmó el resultado", confirmTime})
+		return sc.saveResultResponse(resultResponseArgs{
+			matchID: rc.match.Id, authorID: rc.responder, parentID: proposal.Id,
+			action: "accept", content: confirmerLabel + " aceptó el resultado", ts: confirmTime,
+		})
 
 	case rc.f.round == 5 && rc.f.idx == 0:
 		submitTime := rc.playDate.Add(22 * time.Hour)
-		if err := sc.saveEntry(timelineEntry{rc.match.Id, rc.submitter, "result_submission", scores, submitTime}); err != nil {
+		proposal, err := sc.saveResultProposal(resultProposalArgs{rc.match.Id, rc.submitter, scores, "superseded", submitTime})
+		if err != nil {
 			return err
 		}
-		disputerLabel := sampleLabel(sc.app, rc.responder, rc.match)
 		disputeTime := submitTime.Add(1 * time.Hour)
-		if err := sc.saveEntry(timelineEntry{rc.match.Id, rc.responder, "result_event",
-			disputerLabel + " disputó el resultado", disputeTime}); err != nil {
+		disputerLabel := sampleLabel(sc.app, rc.responder, rc.match)
+		if err := sc.saveResultResponse(resultResponseArgs{
+			matchID: rc.match.Id, authorID: rc.responder, parentID: proposal.Id,
+			action: "reject", content: disputerLabel + " rechazó el resultado", ts: disputeTime,
+		}); err != nil {
 			return err
 		}
-		return sc.saveEntry(timelineEntry{rc.match.Id, rc.responder, "result_submission", "6-4 4-6 5-7", disputeTime})
+		_, err = sc.saveResultProposal(resultProposalArgs{rc.match.Id, rc.responder, "6-4 4-6 5-7", "pending", disputeTime})
+		return err
 
 	case rc.f.round == 5 && rc.f.idx == 1:
 		submitTime := rc.playDate.Add(22 * time.Hour)
-		return sc.saveEntry(timelineEntry{rc.match.Id, rc.submitter, "result_submission", scores, submitTime})
+		_, err := sc.saveResultProposal(resultProposalArgs{rc.match.Id, rc.submitter, scores, "pending", submitTime})
+		return err
 	}
 	return nil
 }
 
-type timelineEntry struct {
-	matchID, actorID, entryType, content string
-	ts                                   time.Time
+type resultProposalArgs struct {
+	matchID, authorID, scores, status string
+	ts                                time.Time
 }
 
-func (sc *sampleCtx) saveEntry(e timelineEntry) error {
+func (sc *sampleCtx) saveResultProposal(a resultProposalArgs) (*core.Record, error) {
+	pdJSON := fmt.Sprintf(`{"scores":"%s"}`, a.scores)
 	rec := core.NewRecord(sc.msgCol)
-	rec.Set("match", e.matchID)
-	rec.Set("author", e.actorID)
-	rec.Set("type", e.entryType)
-	rec.Set("content", e.content)
-	rec.Set("created", e.ts.Format(time.RFC3339))
+	rec.Set("match", a.matchID)
+	rec.Set("author", a.authorID)
+	rec.Set("type", "result_submission")
+	rec.Set("proposal_data", pdJSON)
+	rec.Set("proposal_status", a.status)
+	rec.Set("created", a.ts.Format(time.RFC3339))
 	if err := sc.app.Save(rec); err != nil {
-		return fmt.Errorf("save entry: %w", err)
+		return nil, fmt.Errorf("save result proposal: %w", err)
+	}
+	return rec, nil
+}
+
+type resultResponseArgs struct {
+	matchID, authorID, parentID, action, content string
+	ts                                           time.Time
+}
+
+func (sc *sampleCtx) saveResultResponse(a resultResponseArgs) error {
+	rec := core.NewRecord(sc.msgCol)
+	rec.Set("match", a.matchID)
+	rec.Set("author", a.authorID)
+	rec.Set("type", "result_response")
+	rec.Set("content", a.content)
+	rec.Set("parent", a.parentID)
+	rec.Set("proposal_data", fmt.Sprintf(`{"action":"%s"}`, a.action))
+	rec.Set("created", a.ts.Format(time.RFC3339))
+	if err := sc.app.Save(rec); err != nil {
+		return fmt.Errorf("save result response: %w", err)
 	}
 	return nil
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"slices"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -44,6 +43,8 @@ type ThreadMessage struct {
 	CanChangeDecision bool
 	DataType          string
 	CreatedAt         string
+	ParentID          string
+	Responses         []ThreadMessage
 }
 
 // ProposalData holds parsed scheduling proposal details from a thread message.
@@ -53,6 +54,7 @@ type ProposalData struct {
 	VenueID   string `json:"venue_id"`
 	VenueName string `json:"venue_name"`
 	VenueText string `json:"venue_text"`
+	Scores    string `json:"scores,omitempty"`
 }
 
 // ParseProposalData decodes a proposal from a raw JSON field value.
@@ -90,57 +92,90 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 	pair2Players := league.PlayersForPair(h.app, match.GetString("pair2"))
 	nameCache := make(map[string]string)
 
-	var threadMessages []ThreadMessage
-	for _, msg := range messages {
-		authorID := msg.GetString("author")
-		authorTeam := playerTeamOf(authorID, pair1Players, pair2Players)
-
-		if _, ok := nameCache[authorID]; !ok {
-			nameCache[authorID] = league.PlayerName(h.app, authorID)
-		}
-
-		msgType := msg.GetString("type")
-		var pd *ProposalData
-		if msgType == "scheduling_proposal" {
-			pd = ParseProposalData(msg.GetString("proposal_data"))
-		}
-
-		authorName := nameCache[authorID]
-		if msgType == "scheduling_proposal" || msgType == "result_submission" || msgType == "scheduling_response" {
-			authorName = pairPlayerLabel(h.app, authorID, match)
-		}
-
-		status := msg.GetString("proposal_status")
-		canRespond, canChangeDecision := proposalActions(msgType, match.GetString("status"), authorTeam == myTeam || myTeam == 0, status)
-		canRespond = canRespond && compModifiable
-		canChangeDecision = canChangeDecision && compModifiable
-
-		threadMessages = append(threadMessages, ThreadMessage{
-			Record:            msg,
-			MatchID:           matchID,
-			AuthorName:        authorName,
-			AuthorTeam:        authorTeam,
-			IsMyTeam:          myTeam != 0 && authorTeam == myTeam,
-			Type:              msgType,
-			Content:           msg.GetString("content"),
-			ProposalData:      pd,
-			Status:            status,
-			RejectionReason:   msg.GetString("rejection_reason"),
-			RejectionText:     msg.GetString("rejection_text"),
-			CanRespond:        canRespond,
-			CanChangeDecision: canChangeDecision,
-			DataType:          dataTypeFor(msgType),
-			CreatedAt:         msg.GetDateTime("created").Time().Format("02/01 15:04"),
-		})
+	bctx := threadBuildCtx{
+		match: match, matchID: matchID, myTeam: myTeam, compModifiable: compModifiable,
+		pair1Players: pair1Players, pair2Players: pair2Players, nameCache: nameCache,
 	}
-	return threadMessages
+	byID := make(map[string]*ThreadMessage)
+	var allMessages []ThreadMessage
+	for _, msg := range messages {
+		tm := h.toThreadMessage(msg, bctx)
+		allMessages = append(allMessages, tm)
+		byID[msg.Id] = &allMessages[len(allMessages)-1]
+	}
+
+	var topLevel []ThreadMessage
+	for i := range allMessages {
+		tm := &allMessages[i]
+		if tm.ParentID != "" {
+			if parent, ok := byID[tm.ParentID]; ok {
+				parent.Responses = append(parent.Responses, *tm)
+				continue
+			}
+		}
+		topLevel = append(topLevel, *tm)
+	}
+	return topLevel
+}
+
+type threadBuildCtx struct {
+	match                      *core.Record
+	matchID                    string
+	myTeam                     int
+	compModifiable             bool
+	pair1Players, pair2Players []string
+	nameCache                  map[string]string
+}
+
+func (h *ThreadHandler) toThreadMessage(msg *core.Record, ctx threadBuildCtx) ThreadMessage {
+	authorID := msg.GetString("author")
+	authorTeam := playerTeamOf(authorID, ctx.pair1Players, ctx.pair2Players)
+
+	if _, ok := ctx.nameCache[authorID]; !ok {
+		ctx.nameCache[authorID] = league.PlayerName(h.app, authorID)
+	}
+
+	msgType := msg.GetString("type")
+	var pd *ProposalData
+	if msgType == "scheduling_proposal" || msgType == "result_submission" {
+		pd = ParseProposalData(msg.GetString("proposal_data"))
+	}
+
+	authorName := ctx.nameCache[authorID]
+	if msgType == "scheduling_proposal" || msgType == "result_submission" || msgType == "scheduling_response" || msgType == "result_response" {
+		authorName = pairPlayerLabel(h.app, authorID, ctx.match)
+	}
+
+	status := msg.GetString("proposal_status")
+	canRespond, canChangeDecision := proposalActions(msgType, ctx.match.GetString("status"), authorTeam == ctx.myTeam || ctx.myTeam == 0, status)
+	canRespond = canRespond && ctx.compModifiable
+	canChangeDecision = canChangeDecision && ctx.compModifiable
+
+	return ThreadMessage{
+		Record:            msg,
+		MatchID:           ctx.matchID,
+		AuthorName:        authorName,
+		AuthorTeam:        authorTeam,
+		IsMyTeam:          ctx.myTeam != 0 && authorTeam == ctx.myTeam,
+		Type:              msgType,
+		Content:           msg.GetString("content"),
+		ProposalData:      pd,
+		Status:            status,
+		RejectionReason:   msg.GetString("rejection_reason"),
+		RejectionText:     msg.GetString("rejection_text"),
+		CanRespond:        canRespond,
+		CanChangeDecision: canChangeDecision,
+		DataType:          dataTypeFor(msgType),
+		CreatedAt:         msg.GetDateTime("created").Time().Format("02/01 15:04"),
+		ParentID:          msg.GetString("parent"),
+	}
 }
 
 func dataTypeFor(msgType string) string {
 	switch msgType {
 	case "scheduling_proposal", "scheduling_response", "availability":
 		return "schedule"
-	case "result_submission", "result_event", "admin_action":
+	case "result_submission", "result_response", "result_event", "admin_action":
 		return "result"
 	default:
 		return "message"
@@ -162,7 +197,8 @@ func playerTeamOf(uid string, pair1Players, pair2Players []string) int {
 }
 
 func proposalActions(msgType, matchStatus string, sameTeamOrOutsider bool, proposalStatus string) (canRespond, canChange bool) {
-	canAct := msgType == "scheduling_proposal" &&
+	isProposal := msgType == "scheduling_proposal" || msgType == "result_submission"
+	canAct := isProposal &&
 		league.IsPreScore(matchStatus) &&
 		!sameTeamOrOutsider
 	return canAct && proposalStatus == "pending",
@@ -183,10 +219,14 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="text-center py-6 opacity-60">Parejas pendientes de asignacion</div>`)
 	}
 
-	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
+	isAdmin := isEffectiveAdmin(e)
 	myTeam, teamErr := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if teamErr != nil && !isAdmin {
 		return alertError(e, "No tienes acceso a este hilo")
+	}
+
+	if err := checkDocGate(h.app, e, match); err != nil {
+		return err
 	}
 
 	isParticipant := myTeam != 0
@@ -220,6 +260,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		"IsPlayoff":            isPlayoff,
 		"CompModifiable":       compModifiable,
 		"IsScheduled":          match.GetString("status") == league.StatusScheduled,
+		"HasDateAndPlace":      match.GetString("date") != "" && match.GetString("club") != "",
 		"Match":                match,
 		"UnpaidWarning":        unpaidWarning,
 		"ProposalDefaultVenue": "",
@@ -248,7 +289,7 @@ func (h *ThreadHandler) ThreadMessages(e *core.RequestEvent) error {
 		return err
 	}
 
-	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
+	isAdmin := isEffectiveAdmin(e)
 	myTeam, teamErr := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if teamErr != nil && !isAdmin {
 		return alertError(e, "No tienes acceso a este hilo")
@@ -275,8 +316,12 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 		return err
 	}
 
+	if err := checkDocGate(h.app, e, match); err != nil {
+		return err
+	}
+
 	myTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
-	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
+	isAdmin := isEffectiveAdmin(e)
 	if myTeam == 0 && !isAdmin {
 		return alertError(e, "No eres participante de este partido")
 	}
@@ -329,6 +374,10 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
 	match, err := findMatchOr404(h.app, e, matchID)
 	if err != nil {
+		return err
+	}
+
+	if err := checkDocGate(h.app, e, match); err != nil {
 		return err
 	}
 
@@ -425,6 +474,10 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 		return err
 	}
 
+	if err := checkDocGate(h.app, e, match); err != nil {
+		return err
+	}
+
 	if err := checkCompModifiable(h.app, e, match); err != nil {
 		return err
 	}
@@ -472,6 +525,19 @@ func (h *ThreadHandler) dispatchProposalAction(e *core.RequestEvent, match, msg 
 		proposerPairID = match.GetString("pair2")
 	}
 	action := e.Request.FormValue("action")
+
+	msgType := msg.GetString("type")
+	if msgType == "result_submission" {
+		switch action {
+		case "accept":
+			return h.acceptResultProposal(e, match, msg, proposerPairID)
+		case "reject":
+			return h.rejectResultProposal(e, match, msg)
+		default:
+			return alertError(e, "Acción no válida")
+		}
+	}
+
 	switch action {
 	case "accept":
 		return h.acceptProposal(e, match, msg, proposerPairID)
@@ -524,8 +590,9 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 	proposerName := league.PlayerName(h.app, msg.GetString("author"))
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: e.Auth.Id,
-		Kind:   "scheduling_response",
-		Detail: responderLabel + " aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
+		Kind:     "scheduling_response",
+		Detail:   responderLabel + " aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
+		ParentID: msg.Id,
 	})
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
@@ -557,12 +624,87 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: e.Auth.Id,
 		Kind: "scheduling_response", Detail: detail,
+		ParentID: msg.Id,
 	})
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	notif := league.NotifProposalRejected(match.Id, league.PlayerName(h.app, e.Auth.Id), reason)
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
 	h.notifier.EmailPlayers(proposerPlayers, notif.Title, notif.Body, "/match/"+match.Id)
+	return nil
+}
+
+func (h *ThreadHandler) acceptResultProposal(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
+	pd := ParseProposalData(msg.Get("proposal_data"))
+	if pd == nil || pd.Scores == "" {
+		return alertError(e, "Error al leer los datos de la propuesta")
+	}
+
+	winner, err := league.DetermineWinner(match, pd.Scores)
+	if err != nil {
+		return alertError(e, "Error al determinar el ganador")
+	}
+
+	match.Set("scores", pd.Scores)
+	match.Set("winner", winner)
+	match.Set("status", league.StatusFinal)
+	if err := h.app.Save(match); err != nil {
+		return alertError(e, "Error al finalizar el partido")
+	}
+
+	msg.Set("proposal_status", "accepted")
+	if err := h.app.Save(msg); err != nil {
+		return alertError(e, "Error al marcar la propuesta como aceptada")
+	}
+
+	addTimelineEntry(h.app, timelineEntry{
+		MatchID: match.Id, ActorID: e.Auth.Id,
+		Kind: "result_response", Detail: "✓ Resultado aceptado: " + pd.Scores,
+		ParentID: msg.Id,
+	})
+
+	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
+	n := league.NotifResultConfirmed(match.Id)
+	h.notifier.NotifyPlayers(proposerPlayers, n)
+	h.notifier.EmailPlayers(proposerPlayers, n.Title, n.Body, "/match/"+match.Id)
+	return nil
+}
+
+func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *core.Record) error {
+	counterScores := e.Request.FormValue("counter_scores")
+	if counterScores == "" {
+		return alertError(e, "Debes proponer un marcador alternativo")
+	}
+	if _, err := league.ParseScore(counterScores); err != nil {
+		return alertError(e, "Marcador no válido")
+	}
+
+	msg.Set("proposal_status", "superseded")
+	if err := h.app.Save(msg); err != nil {
+		return alertError(e, "Error al rechazar la propuesta")
+	}
+
+	addTimelineEntry(h.app, timelineEntry{
+		MatchID: match.Id, ActorID: e.Auth.Id,
+		Kind: "result_response", Detail: "✗ Resultado rechazado: " + msg.GetString("content"),
+		ParentID: msg.Id,
+	})
+
+	col, err := h.app.FindCollectionByNameOrId("match_messages")
+	if err != nil {
+		return alertError(e, "Error interno")
+	}
+	pdJSON, _ := json.Marshal(ProposalData{Scores: counterScores})
+	counter := core.NewRecord(col)
+	counter.Set("match", match.Id)
+	counter.Set("author", e.Auth.Id)
+	counter.Set("type", "result_submission")
+	counter.Set("content", counterScores)
+	counter.Set("proposal_status", "pending")
+	counter.Set("proposal_data", string(pdJSON))
+	if err := h.app.Save(counter); err != nil {
+		return alertError(e, "Error al crear la contrapropuesta")
+	}
 	return nil
 }
 
@@ -624,6 +766,7 @@ func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: e.Auth.Id,
 		Kind: "scheduling_response", Detail: responderLabel + " revocó la aceptación de la propuesta de " + proposerName,
+		ParentID: msg.Id,
 	})
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
@@ -665,8 +808,9 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 	proposerName := league.PlayerName(h.app, msg.GetString("author"))
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: e.Auth.Id,
-		Kind:   "scheduling_response",
-		Detail: responderLabel + " aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
+		Kind:     "scheduling_response",
+		Detail:   responderLabel + " aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
+		ParentID: msg.Id,
 	})
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)

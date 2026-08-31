@@ -235,7 +235,7 @@ func TestHomeGen2_OpponentScoreShowsConfirmAction(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Confirmar resultado: 6-3 6-4", "Acciones pendientes"},
+		ExpectedContent: []string{"Responder resultado: 6-3 6-4", "Acciones pendientes"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -286,8 +286,8 @@ func TestHomeGen2_OwnScoreNoConfirmAction(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		assert.NotContains(tb, body, "Confirmar resultado",
-			"own score should not show confirm action")
+		assert.NotContains(tb, body, "Responder resultado",
+			"own score should not show respond action")
 	}
 	s.Test(t)
 }

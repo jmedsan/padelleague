@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -82,6 +83,10 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		return h.renderErrorPage(e, http.StatusForbidden, "No tienes acceso a este partido")
 	}
 
+	if err := checkDocGate(h.app, e, match); err != nil {
+		return err
+	}
+
 	mode := PlayerFull
 	if render.AdminView(e) {
 		mode = AdminFull
@@ -96,8 +101,6 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 			compName = comp.GetString("name")
 			if !isAdmin && !league.PlayerCanModify(comp, time.Now()) {
 				mc.CanSubmit = false
-				mc.CanConfirm = false
-				mc.CanDispute = false
 				mc.CanEdit = false
 				mc.CanWalkover = false
 				mc.CanCorrect = false
@@ -128,10 +131,14 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
-	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
+	isAdmin := isEffectiveAdmin(e)
 	_, teamErr := league.PlayerTeam(h.app, userID, match)
 	if teamErr != nil && !isAdmin {
 		return alertError(e, "No eres participante de este partido")
+	}
+
+	if err := checkDocGate(h.app, e, match); err != nil {
+		return err
 	}
 
 	if err := checkCompModifiable(h.app, e, match); err != nil {
@@ -155,26 +162,82 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 		return alertError(e, "Marcador no válido")
 	}
 
-	match.Set("scores", scores)
+	if err := h.submitResultProposal(e, match, userID, scores); err != nil {
+		return err
+	}
+	return redirectHX(e, "/match/"+match.Id)
+}
+
+func (h *MatchHandler) submitResultProposal(e *core.RequestEvent, match *core.Record, userID, scores string) error {
 	match.Set("submitted_by", userID)
 	match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
-	match.Set("status", league.StatusConfirmed)
 	match.Set("confirm_reminded", false)
-
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al guardar el resultado")
 	}
 
-	h.notifySubmit(match, userID, scores)
-	return redirectHX(e, "/match/"+match.Id)
+	h.supersedeMyPendingResults(match.Id, userID)
+
+	col, err := h.app.FindCollectionByNameOrId("match_messages")
+	if err != nil {
+		return alertError(e, "Error interno")
+	}
+	pdJSON, _ := json.Marshal(ProposalData{Scores: scores})
+	proposal := core.NewRecord(col)
+	proposal.Set("match", match.Id)
+	proposal.Set("author", userID)
+	proposal.Set("type", "result_submission")
+	proposal.Set("content", scores)
+	proposal.Set("proposal_status", "pending")
+	proposal.Set("proposal_data", string(pdJSON))
+	if err := h.app.Save(proposal); err != nil {
+		return alertError(e, "Error al crear la propuesta de resultado")
+	}
+
+	h.checkResultDeadlock(match, userID)
+	h.notifyResultProposal(match, userID, scores)
+	return nil
 }
 
-func (h *MatchHandler) notifySubmit(match *core.Record, userID, scores string) {
-	addTimelineEntry(h.app, timelineEntry{
-		MatchID: match.Id, ActorID: userID,
-		Kind: "result_submission", Detail: scores,
-	})
+func (h *MatchHandler) supersedeMyPendingResults(matchID, userID string) {
+	pending, _ := h.app.FindRecordsByFilter("match_messages",
+		"match = {:mid} && type = 'result_submission' && author = {:uid} && proposal_status = 'pending'",
+		"", 0, 0,
+		map[string]any{"mid": matchID, "uid": userID})
+	for _, p := range pending {
+		p.Set("proposal_status", "superseded")
+		if err := h.app.Save(p); err != nil {
+			slog.Error("supersede result proposal", "msg", p.Id, "err", err)
+		}
+	}
+}
 
+func (h *MatchHandler) checkResultDeadlock(match *core.Record, submitterID string) {
+	myTeam, _ := league.PlayerTeam(h.app, submitterID, match)
+	rivalPairID := match.GetString("pair2")
+	if myTeam == 2 {
+		rivalPairID = match.GetString("pair1")
+	}
+	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
+
+	for _, rp := range rivalPlayers {
+		opposing, _ := h.app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_submission' && author = {:uid} && proposal_status = 'pending'",
+			"", 1, 0,
+			map[string]any{"mid": match.Id, "uid": rp})
+		if len(opposing) > 0 {
+			_ = h.notifier.NotifyAdmins(league.Notification{
+				Type:    "admin_message",
+				Title:   "Discrepancia de resultado",
+				Body:    "Ambas parejas han propuesto resultados diferentes. Se requiere intervención.",
+				MatchID: match.Id,
+			})
+			return
+		}
+	}
+}
+
+func (h *MatchHandler) notifyResultProposal(match *core.Record, userID, scores string) {
 	myTeam, _ := league.PlayerTeam(h.app, userID, match)
 	rivalPairID := match.GetString("pair2")
 	if myTeam == 2 {
@@ -186,7 +249,7 @@ func (h *MatchHandler) notifySubmit(match *core.Record, userID, scores string) {
 	h.notifier.EmailPlayers(rivalPlayers, n.Title, n.Body, "/match/"+match.Id)
 
 	participants := matchParticipantUserIDs(h.app, match)
-	an := league.NotifAdminMatchProgress(match.Id, "Resultado registrado: "+scores)
+	an := league.NotifAdminMatchProgress(match.Id, "Resultado propuesto: "+scores)
 	if err := h.notifier.NotifyAdmins(an, participants...); err != nil {
 		slog.Error("notify admins match progress failed", "match", match.Id, "err", err)
 	}
@@ -339,6 +402,10 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 	reporterTeam, err := league.PlayerTeam(h.app, userID, match)
 	if err != nil {
 		return alertError(e, "No eres participante de este partido")
+	}
+
+	if err := checkDocGate(h.app, e, match); err != nil {
+		return err
 	}
 
 	if err := checkCompModifiable(h.app, e, match); err != nil {

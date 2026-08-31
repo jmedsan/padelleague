@@ -154,6 +154,12 @@
 <div id="action-result"></div>
 
 {{if .CanSubmit}}
+{{if not .HasDateAndPlace}}
+<div class="alert alert-info mb-4">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+    <span>Primero propón una fecha y lugar en el hilo del partido (abajo).</span>
+</div>
+{{else}}
 <div class="card bg-base-200/50 rounded-xl mb-4">
     <div class="card-body p-4">
         <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Registrar resultado</h3>
@@ -238,7 +244,8 @@ function composeScore(form) {
     return true;
 }
 </script>
-{{end}}
+{{end}}{{/* HasDateAndPlace */}}
+{{end}}{{/* CanSubmit */}}
 
 {{if .CanWalkover}}
 <div class="card bg-base-200/50 rounded-xl mb-4">
@@ -256,37 +263,6 @@ function composeScore(form) {
 </div>
 {{end}}
 
-{{if .CanConfirm}}
-<div class="card bg-info/5 border border-info/20 rounded-xl mb-4">
-    <div class="card-body p-4">
-        <h3 class="font-bold mb-3">El rival ha enviado este resultado</h3>
-        <div class="flex gap-3">
-            <button hx-post="/match/{{.Match.Id}}/confirm" hx-target="#action-result" class="btn btn-success flex-1">Confirmar</button>
-            <button onclick="document.getElementById('dispute-form').classList.toggle('hidden')" class="btn btn-error btn-outline flex-1">Disputar</button>
-        </div>
-        <form id="dispute-form" class="hidden mt-3" hx-post="/match/{{.Match.Id}}/dispute" hx-target="#action-result">
-            <div class="form-control">
-                <label class="label py-1"><span class="label-text text-xs">Marcador correcto (según tú) *</span></label>
-                <input type="text" name="disputed_scores" class="input input-bordered input-sm" placeholder="6-4 4-6 5-7" required>
-            </div>
-            <div class="form-control mt-2">
-                <label class="label py-1"><span class="label-text text-xs">Comentario (opcional)</span></label>
-                <textarea name="dispute_notes" class="textarea textarea-bordered" placeholder="Describe el problema con el resultado..."></textarea>
-            </div>
-            <button type="submit" class="btn btn-error mt-2 w-full">Enviar disputa</button>
-        </form>
-    </div>
-</div>
-{{end}}
-
-{{if eq (.Match.GetString "status") "confirmed"}}
-{{if not .CanConfirm}}
-<div class="alert alert-info mb-4">
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-    <span>Esperando confirmación del rival</span>
-</div>
-{{end}}
-{{end}}
 
 {{if .CanCorrect}}
 <div class="card bg-base-200/50 rounded-xl mb-4">
