@@ -38,6 +38,20 @@
                 <div class="flex-1">
                     <a href="/" class="btn btn-ghost text-xl font-bold normal-case">PadelLeague</a>
                 </div>
+                {{if .HasBothRoles}}
+                <div class="flex-none lg:hidden">
+                    <div class="dropdown dropdown-end">
+                        <button tabindex="0" class="btn btn-sm gap-1{{if eq .ViewAs "admin"}} btn-error{{else}} btn-ghost{{end}}" aria-label="cambiar vista">
+                            {{if eq .ViewAs "admin"}}Admin{{else}}Jugador{{end}}
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+                        </button>
+                        <ul tabindex="0" class="dropdown-content z-30 mt-2 menu bg-base-100 rounded-box shadow-lg w-36 p-2">
+                            <li><a href="/view/admin" class="{{if eq .ViewAs "admin"}}active{{end}}">Admin</a></li>
+                            <li><a href="/view/player" class="{{if eq .ViewAs "player"}}active{{end}}">Jugador</a></li>
+                        </ul>
+                    </div>
+                </div>
+                {{end}}
                 {{if .DisplayName}}
                 <div class="flex-none lg:hidden">
                 <div class="dropdown dropdown-end">
@@ -82,10 +96,10 @@
                         {{if .HasBothRoles}}
                         <li>
                             <details>
-                                <summary class="rounded-lg">Ver como: {{if eq .ViewAs "admin"}}Admin{{else}}Jugador{{end}}</summary>
+                                <summary class="rounded-lg{{if eq .ViewAs "admin"}} bg-error/20 text-error font-semibold{{end}}">{{if eq .ViewAs "admin"}}Admin{{else}}Jugador{{end}}</summary>
                                 <ul class="bg-base-100 rounded-box shadow-lg p-2 z-30 w-40">
-                                    <li><a href="/view/admin">Admin</a></li>
-                                    <li><a href="/view/player">Jugador</a></li>
+                                    <li><a href="/view/admin" class="{{if eq .ViewAs "admin"}}active{{end}}">Admin</a></li>
+                                    <li><a href="/view/player" class="{{if eq .ViewAs "player"}}active{{end}}">Jugador</a></li>
                                 </ul>
                             </details>
                         </li>
@@ -172,11 +186,6 @@
                     <li><a href="/admin/venues" class="rounded-lg">Pistas</a></li>
                     <li><a href="/admin/documents" class="rounded-lg">Documentos</a></li>
                     <li><a href="/admin/settings" class="rounded-lg">Configuración</a></li>
-                    {{end}}
-                    {{if .HasBothRoles}}
-                    <li class="menu-title mt-4 text-xs uppercase tracking-wider opacity-60">Ver como</li>
-                    <li><a href="/view/admin" class="rounded-lg">Admin</a></li>
-                    <li><a href="/view/player" class="rounded-lg">Jugador</a></li>
                     {{end}}
                     <li class="mt-4">
                         <button onclick="toggleTheme()" class="rounded-lg">Cambiar tema</button>
