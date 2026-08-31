@@ -157,6 +157,7 @@ func requestBaseURL(e *core.RequestEvent) string {
 }
 
 func buildResetURL(e *core.RequestEvent, token string) string {
+	// Token in URL is inherent: the reset link requires it; admin-only copy-paste, not logged.
 	return requestBaseURL(e) + "/reset-password?token=" + token
 }
 

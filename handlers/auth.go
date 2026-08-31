@@ -126,7 +126,7 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 
 	inviteEmail := invite.GetString("email")
 	if inviteEmail != "" && !strings.EqualFold(email, inviteEmail) {
-		return alertError(e, fmt.Sprintf("Debes usar el email %s", inviteEmail))
+		return alertError(e, "Esta invitación no es válida o ya fue usada")
 	}
 
 	_, authToken, err := h.registerUser(invite.Id, email, displayName, password)
