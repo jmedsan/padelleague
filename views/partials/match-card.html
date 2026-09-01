@@ -27,19 +27,13 @@
         {{end}}
         {{end}}
 
-        {{/* Result + dispute + actions render here ONLY on summary/row surfaces
-             (home Alertas, admin disputes list). On the dedicated match page
-             (.FactsOnly) the sole result surface is resultPanel in the thread
-             fragment — no duplicate. */}}
-        {{if not .FactsOnly}}
+        {{if not (and .Mode.Full (not .Mode.Editable))}}
         {{if eq (.Match.GetString "status") "disputed"}}
         {{if eq .ReviewType "walkover"}}
         <div class="alert alert-warning mt-3">
             <span>Solicitud de incomparecencia por {{.RequestedBy}}{{if .DisputeNotes}}: {{.DisputeNotes}}{{end}}</span>
         </div>
         {{else if not (and .Mode.Admin .Mode.Editable)}}
-        {{/* Read-only boxes for non-admins; an editable admin gets the clickable
-             copy via matchAdminControls below (no duplicate). */}}
         <div class="space-y-2">
             {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "Score" .SubmittedScore "Note" .DisputeNotes)}}
             {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore)}}{{end}}
@@ -51,7 +45,7 @@
         <a href="/match/{{.Match.Id}}" class="link link-primary text-xs">Ver partido completo →</a>
         {{if .Mode.Editable}}{{template "matchAdminControls" .}}{{end}}
         {{end}}
-        {{end}}{{/* not .Mode.Full */}}
+        {{end}}
     </div>
 </div>
 {{end}}
@@ -354,25 +348,22 @@
 </div>
 {{end}}
 
-{{/* resultBox — one reusable result card (pair + score + optional note).
-     .FillScore set → the whole box is a button that fills the nearest resolve
-     score input. .Compact → smaller (timeline). */}}
 {{define "resultBox"}}
 {{if .FillScore}}
 <button type="button" onclick="fillNearestScore(this, '{{.FillScore}}')"
         class="card bg-base-200/50 border border-base-300 rounded-xl w-full text-left hover:border-primary cursor-pointer transition-colors">
-    <div class="card-body {{if .Compact}}p-2{{else}}p-3{{end}}">{{template "resultBoxBody" .}}</div>
+    <div class="card-body {{if .Mode.Row}}p-2{{else}}p-3{{end}}">{{template "resultBoxBody" .}}</div>
 </button>
 {{else}}
 <div class="card bg-base-200/50 border border-base-300 rounded-xl">
-    <div class="card-body {{if .Compact}}p-2{{else}}p-3{{end}}">{{template "resultBoxBody" .}}</div>
+    <div class="card-body {{if .Mode.Row}}p-2{{else}}p-3{{end}}">{{template "resultBoxBody" .}}</div>
 </div>
 {{end}}
 {{end}}
 
 {{define "resultBoxBody"}}
 {{if .PairLabel}}<div class="flex items-center gap-2"><span class="text-sm font-bold">{{.PairLabel}}</span></div>{{end}}
-<p class="{{if .Compact}}text-base{{else}}text-xl{{end}} font-black tracking-wide my-1">{{.Score}}</p>
+<p class="{{if .Mode.Row}}text-base{{else}}text-xl{{end}} font-black tracking-wide my-1">{{.Score}}</p>
 {{if .Note}}<p class="text-xs opacity-60">{{.Note}}</p>{{end}}
 {{end}}
 
