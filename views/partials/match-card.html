@@ -28,18 +28,21 @@
         {{end}}
 
         {{/* Result + dispute + actions render here ONLY on summary/row surfaces
-             (home Alertas, admin disputes list). On the FULL match page the sole
-             result surface is resultPanel in the thread fragment — no duplicate. */}}
-        {{if not .Mode.Full}}
+             (home Alertas, admin disputes list). On the dedicated match page
+             (.FactsOnly) the sole result surface is resultPanel in the thread
+             fragment — no duplicate. */}}
+        {{if not .FactsOnly}}
         {{if eq (.Match.GetString "status") "disputed"}}
-        {{if not (eq .ReviewType "walkover")}}
+        {{if eq .ReviewType "walkover"}}
+        <div class="alert alert-warning mt-3">
+            <span>Solicitud de incomparecencia por {{.RequestedBy}}{{if .DisputeNotes}}: {{.DisputeNotes}}{{end}}</span>
+        </div>
+        {{else if not (and .Mode.Admin .Mode.Editable)}}
+        {{/* Read-only boxes for non-admins; an editable admin gets the clickable
+             copy via matchAdminControls below (no duplicate). */}}
         <div class="space-y-2">
             {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "Score" .SubmittedScore "Note" .DisputeNotes)}}
             {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore)}}{{end}}
-        </div>
-        {{else}}
-        <div class="alert alert-warning mt-3">
-            <span>Solicitud de incomparecencia por {{.RequestedBy}}{{if .DisputeNotes}}: {{.DisputeNotes}}{{end}}</span>
         </div>
         {{end}}
         {{end}}
