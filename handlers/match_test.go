@@ -23,7 +23,7 @@ func TestStatusLabel(t *testing.T) {
 		{league.StatusPending, "Pendiente"},
 		{league.StatusConfirmed, "Enviado — esperando confirmación"},
 		{league.StatusDisputed, "En disputa"},
-		{league.StatusFinal, "Finalizado"},
+		{league.StatusFinal, "Confirmado"},
 		{"unknown", "unknown"},
 	}
 
@@ -40,8 +40,8 @@ func TestStatusClass(t *testing.T) {
 		status string
 		want   string
 	}{
-		{league.StatusPending, "badge-warning"},
-		{league.StatusConfirmed, "badge-info"},
+		{league.StatusPending, "badge-ghost"},
+		{league.StatusConfirmed, "badge-warning"},
 		{league.StatusDisputed, "badge-error"},
 		{league.StatusFinal, "badge-success"},
 		{"unknown", "badge-ghost"},

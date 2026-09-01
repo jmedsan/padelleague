@@ -112,8 +112,8 @@ test.describe('match thread', () => {
     await expect(page.locator('#thread-timeline button')).toHaveCount(0);
     await expect(page.locator('#thread-timeline form')).toHaveCount(0);
 
-    // dateBox reuse: a scheduled match shows the "Aceptada" marker on its date.
-    await expect(page.getByText('Aceptada').first()).toBeVisible({ timeout: 5000 });
+    // dateBox reuse: a scheduled match shows the "Confirmada" marker on its date.
+    await expect(page.getByText('Confirmada').first()).toBeVisible({ timeout: 5000 });
     // Timeline is a flat list of read-only entries; each entry renders its
     // structured content (dateBox/resultBox) in a small card, but the cards
     // carry no actionable controls (asserted above and below).
@@ -122,10 +122,10 @@ test.describe('match thread', () => {
     const confirmBtn = page.locator('#thread-details button:has-text("Confirmar")');
     await expect(confirmBtn.first()).toBeVisible({ timeout: 5000 });
 
-    // P4: result status badge shows "Propuesta", not "Finalizado", when pending
+    // P4: result status badge shows "Propuesta", not "Confirmado", when pending
     const resultCard = page.locator('#thread-details');
-    await expect(resultCard.getByText('Finalizado')).not.toBeVisible();
-    await expect(resultCard.getByText('Propuesta')).toBeVisible({ timeout: 5000 });
+    await expect(resultCard.getByText('Confirmado')).not.toBeVisible();
+    await expect(resultCard.locator('.badge', { hasText: 'Propuesta' })).toBeVisible({ timeout: 5000 });
 
     // Transition to final via API
     await suPatch(`/api/collections/matches/records/${matchId}`, {
@@ -134,8 +134,8 @@ test.describe('match thread', () => {
     await page.goto(`/match/${matchId}`);
     await page.waitForLoadState('networkidle');
 
-    // P4: now the "Finalizado" result status badge appears
-    await expect(page.locator('#thread-details').getByText('Finalizado')).toBeVisible({ timeout: 10000 });
+    // P4: now the "Confirmado" result status badge appears
+    await expect(page.locator('#thread-details').getByText('Confirmado')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('6-3 6-4').first()).toBeVisible({ timeout: 5000 });
 
     // P6: no actionable score button in timeline — score text is fine as read-only history
@@ -183,6 +183,6 @@ test.describe('match thread', () => {
     await expect(page.locator('#thread-details').getByText('4-6 6-3 7-5')).toBeVisible({ timeout: 5000 });
 
     // Both are pair-labeled
-    await expect(page.locator('#thread-details').getByText('Propuesta')).toBeVisible();
+    await expect(page.locator('#thread-details').locator('.badge', { hasText: 'Propuesta' }).first()).toBeVisible();
   });
 });

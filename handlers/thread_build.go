@@ -152,6 +152,13 @@ func (bc *threadBuildCtx) processMessage(msg *core.Record, authorID, cachedName 
 	if msgType == "result_response" && action == "reject" && bc.matchStatus == league.StatusDisputed {
 		entry.Note = bc.match.GetString("dispute_notes")
 	}
+	if msgType == "scheduling_response" && action == "reject" {
+		if text := msg.GetString("rejection_text"); text != "" {
+			entry.Note = text
+		} else {
+			entry.Note = msg.GetString("rejection_reason")
+		}
+	}
 	td.Timeline = append(td.Timeline, entry)
 	sameTeam := authorTeam == bc.myTeam || bc.myTeam == 0
 	// Only PENDING scheduling proposals belong in the panel. An accepted date is a
@@ -246,19 +253,19 @@ func fillTimelineEntryData(entry *TimelineEntryVM, pd *ProposalData, msgType str
 func timelineEntryText(msgType, action, content string) (verb, statusLabel, statusClass string) {
 	switch msgType {
 	case "scheduling_proposal":
-		return "propuso fecha y lugar", "Propuesta", "badge-info"
+		return "propuso fecha y lugar", "Propuesta", "badge-warning"
 	case "result_submission":
-		return "propuso resultado", "Propuesta", "badge-info"
+		return "propuso resultado", "Propuesta", "badge-warning"
 	case "scheduling_response":
 		if action == "accept" {
-			return "aceptó la propuesta de fecha", "Aceptada", "badge-success"
+			return "confirmó fecha y lugar", "Confirmada", "badge-success"
 		}
-		return content, "Rechazada", "badge-error"
+		return "rechazó fecha y lugar", "Rechazada", "badge-error"
 	case "result_response":
 		if action == "accept" {
-			return "aceptó el resultado", "Aceptada", "badge-success"
+			return "confirmó resultado", "Confirmado", "badge-success"
 		}
-		return "rechazó el resultado", "Rechazada", "badge-error"
+		return "rechazó resultado", "Rechazado", "badge-error"
 	default: // result_event, admin_action, chat
 		return content, "", ""
 	}

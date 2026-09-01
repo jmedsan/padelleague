@@ -34,13 +34,13 @@ func statusLabel(status string) string {
 	case league.StatusPending:
 		return "Pendiente"
 	case league.StatusScheduled:
-		return "Programado"
+		return "Confirmada"
 	case league.StatusConfirmed:
 		return "Enviado — esperando confirmación"
 	case league.StatusDisputed:
 		return "En disputa"
 	case league.StatusFinal:
-		return "Finalizado"
+		return "Confirmado"
 	}
 	return status
 }
@@ -48,11 +48,11 @@ func statusLabel(status string) string {
 func statusClass(status string) string {
 	switch status {
 	case league.StatusPending:
-		return "badge-warning"
+		return "badge-ghost"
 	case league.StatusScheduled:
-		return "badge-info"
+		return "badge-success"
 	case league.StatusConfirmed:
-		return "badge-info"
+		return "badge-warning"
 	case league.StatusDisputed:
 		return "badge-error"
 	case league.StatusFinal:
