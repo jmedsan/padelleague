@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { loginAs, scratchMatchId, isMobile, navViaDrawer, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER3_EMAIL, PLAYER3_PASSWORD } from '../helpers';
+import { loginAs, scratchMatchId, isMobile, navViaDrawer, loadTestData, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER3_EMAIL, PLAYER3_PASSWORD } from '../helpers';
 import { submitScore, confirmScore } from '../tour-helpers';
+import type { APIRequestContext } from '@playwright/test';
 
 async function goToPage(page: import('@playwright/test').Page, href: string, label: string): Promise<void> {
   if (isMobile(page)) {
@@ -183,6 +184,87 @@ test.describe('R-178: presentation quality guards', () => {
 
     const adminCards = page.locator('a[href^="/admin/competitions/"]');
     expect(await adminCards.count(), 'admin should see at least one competition').toBeGreaterThan(0);
+  });
+
+  test('R-231: home pending-actions panel renders when player has actions', async ({ page }) => {
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const actions = page.locator('[data-testid="home-actions"]');
+    await expect(actions, 'pending-actions panel should be visible').toBeVisible({ timeout: 5000 });
+    const actionLinks = actions.locator('a');
+    expect(await actionLinks.count(), 'should have at least one action').toBeGreaterThan(0);
+    await expect(actionLinks.first()).toBeVisible();
+  });
+
+  test('R-231: home recent-results panel renders finalized matches', async ({ page }) => {
+    const data = loadTestData();
+    const suToken = await getSuToken(page.request);
+
+    const compId = await apiCreate(page.request, suToken, 'competitions', {
+      name: 'R231 Results', type: 'league', active: true,
+      pairs: [data.pair1Id, data.pair2Id], rounds: 1,
+    });
+    const matchId = await apiCreate(page.request, suToken, 'matches', {
+      competition: compId, pair1: data.pair1Id, pair2: data.pair2Id,
+      status: 'final', round_number: 1, scores: '6-3 6-4',
+    });
+
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const heading = page.getByText('Últimos resultados');
+    await expect(heading, 'recent-results heading should be visible').toBeVisible({ timeout: 5000 });
+    const resultsSection = heading.locator('xpath=..');
+    const resultEntries = resultsSection.locator('a[href^="/match/"]');
+    expect(await resultEntries.count(), 'should show at least one recent result').toBeGreaterThan(0);
+
+    await apiDelete(page.request, suToken, 'matches', matchId);
+    await apiDelete(page.request, suToken, 'competitions', compId);
+  });
+
+  test('R-231: notifications dropdown shows entries when notifications exist', async ({ page }) => {
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const bell = page.locator('button[aria-label="notificaciones"]:visible');
+    await bell.click();
+    await page.waitForTimeout(500);
+
+    const dropdown = isMobile(page)
+      ? bell.locator('xpath=..').locator('.dropdown-content')
+      : page.locator('#notif-dropdown');
+    const entries = dropdown.locator('a[href^="/match/"], a[href^="/notification"]');
+    expect(await entries.count(), 'notification dropdown should have entries').toBeGreaterThan(0);
+  });
+
+  test('R-231: admin disputes page shows dispute cards when disputes exist', async ({ page }) => {
+    const data = loadTestData();
+    const suToken = await getSuToken(page.request);
+
+    const compId = await apiCreate(page.request, suToken, 'competitions', {
+      name: 'R231 Disputes', type: 'league', active: true,
+      pairs: [data.pair1Id, data.pair2Id], rounds: 1,
+    });
+    const matchId = await apiCreate(page.request, suToken, 'matches', {
+      competition: compId, pair1: data.pair1Id, pair2: data.pair2Id,
+      status: 'disputed', round_number: 1, scores: '6-3 6-4',
+      dispute_notes: 'R-231 test dispute',
+    });
+
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto('/admin/disputes');
+    await page.waitForLoadState('networkidle');
+
+    const cards = page.locator('.card').filter({ hasText: /vs/ });
+    expect(await cards.count(), 'disputes page should show at least one dispute card').toBeGreaterThan(0);
+    await expect(cards.first()).toBeVisible();
+
+    await apiDelete(page.request, suToken, 'matches', matchId);
+    await apiDelete(page.request, suToken, 'competitions', compId);
   });
 
   test('R-167: onboarding checklist — reglamento deep-links to Documentos tab', async ({ page }) => {
@@ -369,3 +451,25 @@ test.describe('R-178: presentation quality guards', () => {
     await switchView(page, 'admin');
   });
 });
+
+async function getSuToken(request: APIRequestContext): Promise<string> {
+  const resp = await request.post('/api/collections/_superusers/auth-with-password', {
+    data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+  });
+  return (await resp.json()).token;
+}
+
+async function apiCreate(request: APIRequestContext, token: string, collection: string, data: Record<string, any>): Promise<string> {
+  const resp = await request.post(`/api/collections/${collection}/records`, {
+    headers: { Authorization: token, 'Content-Type': 'application/json' },
+    data,
+  });
+  if (!resp.ok()) throw new Error(`apiCreate ${collection} failed: ${resp.status()}`);
+  return (await resp.json()).id;
+}
+
+async function apiDelete(request: APIRequestContext, token: string, collection: string, id: string) {
+  await request.delete(`/api/collections/${collection}/records/${id}`, {
+    headers: { Authorization: token },
+  });
+}
