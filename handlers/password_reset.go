@@ -7,6 +7,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/mails"
 
+	"padelleague/middleware"
 	"padelleague/notify"
 )
 
@@ -50,6 +51,17 @@ func (h *PasswordResetHandler) ForgotPasswordSubmit(e *core.RequestEvent) error 
 // ResetPassword renders the reset-password form with the token from the URL.
 func (h *PasswordResetHandler) ResetPassword(e *core.RequestEvent) error {
 	token := e.Request.URL.Query().Get("token")
+	if token == "" {
+		return h.renderPage(e, "reset-password.html", map[string]any{
+			"Expired": true,
+		})
+	}
+	_, err := h.app.FindAuthRecordByToken(token, core.TokenTypePasswordReset)
+	if err != nil {
+		return h.renderPage(e, "reset-password.html", map[string]any{
+			"Expired": true,
+		})
+	}
 	return h.renderPage(e, "reset-password.html", map[string]any{
 		"Token": token,
 	})
@@ -79,5 +91,6 @@ func (h *PasswordResetHandler) ResetPasswordSubmit(e *core.RequestEvent) error {
 		return alertError(e, "Error al cambiar la contraseña.")
 	}
 
+	middleware.ClearAuthCookie(e)
 	return redirectHX(e, "/login")
 }
