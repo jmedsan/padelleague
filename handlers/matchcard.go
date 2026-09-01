@@ -31,25 +31,25 @@ type MatchCard struct {
 	StatusLabel     string
 	StatusClass     string
 
-	Score              string
-	SubmittedScore     string
-	SubmitterPairName  string
-	DisputedScore      string
-	DisputeNotes       string
-	DisputerPairName   string
-	ReviewType         string
-	RequestedBy        string
+	Score             string
+	SubmittedScore    string
+	SubmitterPairName string
+	DisputedScore     string
+	DisputeNotes      string
+	DisputerPairName  string
+	ReviewType        string
+	RequestedBy       string
 
 	Feeder1   string
 	Feeder2   string
 	IsMyMatch bool
 
-	CanSubmit          bool
-	CanEdit            bool
-	CanWalkover        bool
-	CanCorrect         bool
-	HasDateAndPlace    bool
-	PendingConfirmID   string
+	CanSubmit           bool
+	CanEdit             bool
+	CanWalkover         bool
+	CanCorrect          bool
+	HasDateAndPlace     bool
+	PendingConfirmID    string
 	PendingConfirmScore string
 
 	Venues []*core.Record
@@ -69,22 +69,22 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 		competitionName = competition.GetString("name")
 	}
 	c := MatchCard{
-		Mode:            mode,
-		Match:           match,
-		Pair1Name:       pairNames[match.GetString("pair1")],
-		Pair2Name:       pairNames[match.GetString("pair2")],
-		CompetitionName: competitionName,
-		RoundNum:        int(match.GetFloat("round_number")),
-		StatusLabel:     statusLabel(status),
-		StatusClass:     statusClass(status),
-		Score:           match.GetString("scores"),
-		SubmittedScore:  match.GetString("scores"),
-		DisputedScore:   match.GetString("disputed_scores"),
-		DisputeNotes:    match.GetString("dispute_notes"),
-		ReviewType:      match.GetString("review_type"),
+		Mode:              mode,
+		Match:             match,
+		Pair1Name:         pairNames[match.GetString("pair1")],
+		Pair2Name:         pairNames[match.GetString("pair2")],
+		CompetitionName:   competitionName,
+		RoundNum:          int(match.GetFloat("round_number")),
+		StatusLabel:       statusLabel(status),
+		StatusClass:       statusClass(status),
+		Score:             match.GetString("scores"),
+		SubmittedScore:    match.GetString("scores"),
+		DisputedScore:     match.GetString("disputed_scores"),
+		DisputeNotes:      match.GetString("dispute_notes"),
+		ReviewType:        match.GetString("review_type"),
 		SubmitterPairName: userPairName(app, match.GetString("submitted_by"), match, pairNames),
-		DisputerPairName: userPairName(app, match.GetString("disputed_by"), match, pairNames),
-		RequestedBy:     playerNameIfSet(app, match.GetString("walkover_requested_by")),
+		DisputerPairName:  userPairName(app, match.GetString("disputed_by"), match, pairNames),
+		RequestedBy:       playerNameIfSet(app, match.GetString("walkover_requested_by")),
 	}
 	if mode.Editable && !mode.Admin {
 		c.fillPlayerActions(app, match, viewerID)
