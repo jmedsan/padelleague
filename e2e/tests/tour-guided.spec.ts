@@ -6,11 +6,11 @@ import {
 } from '../season-helpers';
 import {
   createPlayer, createPair, addPairToCompetition, markAllPairsPaid,
-  generateFixtures, setDates, submitScore, confirmScore, disputeScore,
-  resolveDispute, createDocument, attachDocumentToCompetition, acceptDocsGate,
+  generateFixtures, setDates, submitScore, confirmScore,
+  createDocument, attachDocumentToCompetition, acceptDocsGate,
   clickAndWaitForHxRedirect,
   assertFinalStandings, assertPlayoffChampion,
-  lookupPlayerId, getRoundMatches, getMatchById,
+  lookupPlayerId, getRoundMatches, getMatchById, setMatchDateAndClub,
   referenceFallback, collectFallbacks, resetFallbacks, assertFallbacksMatch,
 } from '../tour-helpers';
 
@@ -111,9 +111,18 @@ async function gotoMatchViaNextMatch(page: Page): Promise<string> {
 
 async function gotoMatchViaPendingAction(page: Page): Promise<void> {
   await goHome(page);
-  const action = page.locator('a[href^="/match/"]').filter({ hasText: 'Confirmar resultado' }).first();
-  await action.click();
+  const action = page.locator('a[href^="/match/"]').filter({ hasText: 'Responder resultado' }).first();
+  await action.waitFor({ state: 'visible', timeout: 10000 });
+  const href = await action.getAttribute('href');
+  if (!href) throw new Error('Pending action link has no href');
+  await page.goto(href);
   await page.waitForLoadState('domcontentloaded');
+  // Doc gate may redirect to the competition page — accept and re-navigate
+  if (await page.getByRole('heading', { name: 'Documentos obligatorios' }).isVisible().catch(() => false)) {
+    await acceptDocsGate(page);
+    await page.goto(href);
+    await page.waitForLoadState('domcontentloaded');
+  }
 }
 
 async function gotoMatchViaCompCard(page: Page, compId: string, matchId: string): Promise<void> {
@@ -236,41 +245,22 @@ test.describe('guided navigation tour', () => {
       const submitterEmail = playerEmailForPair(f.pair1Label, 0);
       const confirmerEmail = playerEmailForPair(f.pair2Label, 0);
 
-      if (i === 8 || i === 9) {
-        // Dispute flow: submit → dispute → admin resolve via Disputas quick-link
-        await loginAs(page, submitterEmail, PLAYER_PASSWORD);
-        await gotoMatchViaCompCard(page, competitionId, f.id);
-        await submitScore(page, f.orientedScore);
-
-        await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
-        await gotoMatchViaPendingAction(page);
-        await disputeScore(page);
-
-        await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-        await goHome(page);
-        await clickAdminQuickLink(page, 'Disputas');
-        await resolveDispute(page, f.id, f.orientedScore);
-      } else {
-        // Standard flow: submit via home → confirm via PendingActions
-        await loginAs(page, submitterEmail, PLAYER_PASSWORD);
-        await gotoMatchViaCompCard(page, competitionId, f.id);
-
         if (i === 0) {
-          // R-174: proposal accordion visible on pending match
-          const proposalTitle = page.locator('.collapse-title:has-text("Proponer fecha")');
-          await expect(proposalTitle).toBeVisible({ timeout: 3000 });
+          // Check date/place gate BEFORE setting date+club
+          await loginAs(page, submitterEmail, PLAYER_PASSWORD);
+          await gotoMatchViaCompCard(page, competitionId, f.id);
+
+          // Date/place gate: submit form hidden, prominent proposal card visible
+          const dateGateMsg = page.locator('.alert-info:has-text("Primero propón una fecha")');
+          await expect(dateGateMsg).toBeVisible({ timeout: 3000 });
+
+          // R-174: prominent "Proponer fecha" card (not collapsed)
+          const proposalCard = page.locator('.card:has-text("Proponer fecha y lugar")').first();
+          await expect(proposalCard).toBeVisible({ timeout: 3000 });
 
           // R-174: no availability buttons on thread page
           await expect(page.locator('button:has-text("Estoy libre")')).toHaveCount(0);
           await expect(page.locator('button:has-text("No puedo")')).toHaveCount(0);
-
-          // Expand proposal accordion to check venue select
-          const proposalCollapse = page.locator('.collapse:has(select[name="venue_id"])');
-          const proposalCheckbox = proposalCollapse.locator('> input[type="checkbox"]');
-          if (!(await proposalCheckbox.isChecked())) {
-            await proposalCheckbox.check({ force: true });
-            await page.waitForTimeout(300);
-          }
 
           // R-171: venue select must not pre-select any option
           const venueSelect = page.locator('select[name="venue_id"]');
@@ -279,6 +269,12 @@ test.describe('guided navigation tour', () => {
           await expect(selectedOptions).toHaveCount(0);
         }
 
+        // Set date+club via API so score submission is enabled
+        await setMatchDateAndClub(page.request, suToken, f.id, '2025-03-15', 'Padel 360');
+
+        // Standard flow: submit via home → accept via PendingActions
+        await loginAs(page, submitterEmail, PLAYER_PASSWORD);
+        await gotoMatchViaCompCard(page, competitionId, f.id);
         await submitScore(page, f.orientedScore);
 
         await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
@@ -353,7 +349,6 @@ test.describe('guided navigation tour', () => {
           // Click "Todo" to restore all entries
           await filters.getByText('Todo').click();
         }
-      }
 
       // Verify match reached final
       const matchData = await getMatchById(page.request, suToken, f.id);
@@ -452,6 +447,8 @@ test.describe('guided navigation tour', () => {
       const p1Label = idToLabel(m.pair1);
       const oriented = p1Label === winnerLabel ? winnerScore : orientScore(winnerScore, true);
 
+      await setMatchDateAndClub(page.request, suToken, m.id, '2025-04-01', 'Padel 360');
+
       const submitterEmail = playerEmailForPair(p1Label, 0);
       const confirmerEmail = playerEmailForPair(idToLabel(m.pair2), 0);
 
@@ -470,6 +467,8 @@ test.describe('guided navigation tour', () => {
     const final = r2[0];
     expect(idToLabel(final.pair1)).toBe('A');
     expect(idToLabel(final.pair2)).toBe('B');
+
+    await setMatchDateAndClub(page.request, suToken, final.id, '2025-04-05', 'Padel 360');
 
     const finalOriented = idToLabel(final.pair1) === 'A' ? '6-2 6-3' : orientScore('6-2 6-3', true);
     await loginAs(page, playerEmailForPair(idToLabel(final.pair1), 0), PLAYER_PASSWORD);

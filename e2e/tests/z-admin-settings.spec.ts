@@ -1,10 +1,22 @@
-import { test, expect } from '@playwright/test';
-import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { test, expect, Page } from '@playwright/test';
+import { loginAs, isMobile, openDrawer, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+
+async function navToAdmin(page: Page, href: string): Promise<void> {
+  if (isMobile(page)) {
+    await openDrawer(page);
+    await page.locator(`.drawer-side a[href="${href}"]`).click();
+  } else {
+    await page.locator('summary:has-text("Gestión")').click();
+    await page.waitForTimeout(100);
+    await page.locator(`.menu-horizontal a[href="${href}"]`).evaluate(el => (el as HTMLAnchorElement).click());
+  }
+  await page.waitForLoadState('domcontentloaded');
+}
 
 test.describe('admin settings', () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto('/admin/settings');
+    await navToAdmin(page, '/admin/settings');
   });
 
   test('shows reset form with example checkboxes', async ({ page }) => {

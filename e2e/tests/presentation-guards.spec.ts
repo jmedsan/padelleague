@@ -290,8 +290,18 @@ test.describe('R-178: presentation quality guards', () => {
     }
   });
 
-  test('R-173: admin match-progress notification — submit + confirm triggers bell entry', async ({ page }, testInfo) => {
+  test('R-173: admin match-progress notification — submit + accept triggers bell entry', async ({ page }, testInfo) => {
     const matchId = scratchMatchId('admin-notif', testInfo.project.name);
+
+    // Set date+club via superuser API so score submission is enabled
+    const suAuth = await page.request.post('/api/collections/_superusers/auth-with-password', {
+      data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+    });
+    const suToken = (await suAuth.json()).token;
+    await page.request.patch(`/api/collections/matches/records/${matchId}`, {
+      headers: { Authorization: suToken },
+      data: { date: '2025-03-15', club: 'Padel 360' },
+    });
 
     // Player1 submits a score
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);

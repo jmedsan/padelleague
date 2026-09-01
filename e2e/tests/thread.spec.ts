@@ -6,7 +6,7 @@ test.describe('match thread', () => {
     const data = loadTestData();
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${data.matchIds[0]}`);
-    await expect(page.getByText('Hilo del partido')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Hilo del partido' })).toBeVisible({ timeout: 10000 });
     await expect(page.locator('[name="content"]')).toBeVisible({ timeout: 10000 });
   });
 
@@ -27,13 +27,11 @@ test.describe('match thread', () => {
   });
 
   test('player can propose a schedule', async ({ page }, testInfo) => {
-    // Needs a match still pending: the proposal form disappears once a score
-    // is submitted, and another test submits one to the shared match.
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${scratchMatchId("propose-schedule", testInfo.project.name)}`);
-    const collapseTitle = page.locator('.collapse-title', { hasText: /proponer fecha/i });
-    await expect(collapseTitle).toBeVisible({ timeout: 10000 });
-    await collapseTitle.locator('..').locator('input[type="checkbox"]').click();
+    // When no date+place is set, the scheduling form appears as a prominent card
+    const scheduleHeading = page.getByText('Proponer fecha y lugar');
+    await expect(scheduleHeading).toBeVisible({ timeout: 10000 });
     await expect(page.locator('input[type="date"]')).toBeVisible({ timeout: 3000 });
     await expect(page.locator('input[type="time"]')).toBeVisible({ timeout: 3000 });
   });

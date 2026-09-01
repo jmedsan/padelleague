@@ -276,14 +276,25 @@ async function getMatchById(request: APIRequestContext, id: string): Promise<any
   return await resp.json();
 }
 
+async function setDateAndClub(request: APIRequestContext, matchId: string): Promise<void> {
+  await request.patch(
+    `/api/collections/matches/records/${matchId}`,
+    {
+      headers: { Authorization: suToken },
+      data: { date: '2025-03-15', club: 'Padel 360' },
+    },
+  );
+}
+
 function playerEmailForPairId(pairId: string, idx: 0 | 1): string {
   return playerEmailForPair(idToLabel(pairId), idx);
 }
 
-// Play a playoff match: pair1's player submits the winner-oriented score, pair2's player confirms.
+// Play a playoff match: pair1's player submits the winner-oriented score, pair2's player accepts.
 async function playPlayoffMatch(page: Page, match: any, winnerLabel: PairId, winnerScore: string) {
   const p1Label = idToLabel(match.pair1);
   const oriented = p1Label === winnerLabel ? winnerScore : orientScore(winnerScore, true);
+  await setDateAndClub(page.request, match.id);
   await loginAs(page, playerEmailForPairId(match.pair1, 0), PLAYER_PASSWORD);
   await submitScore(page, match.id, oriented);
   await loginAs(page, playerEmailForPairId(match.pair2, 0), PLAYER_PASSWORD);
@@ -392,23 +403,10 @@ async function submitScore(page: Page, matchId: string, score: string) {
 
 async function confirmScore(page: Page, matchId: string) {
   await page.goto(`/match/${matchId}`);
-  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Confirmar")'));
-}
-
-async function disputeScore(page: Page, matchId: string, counterScore: string) {
-  await page.goto(`/match/${matchId}`);
-  await page.locator('button:has-text("Disputar")').click();
-  await page.locator('input[name="disputed_scores"]').fill(counterScore);
-  await page.locator('textarea[name="dispute_notes"]').fill('Score is wrong');
-  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar disputa")'));
-}
-
-async function adminResolveDispute(page: Page, matchId: string, score: string) {
-  await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-  await page.goto('/admin/disputes');
-  const row = page.locator(`form[hx-post*="/admin/disputes/${matchId}/resolve"]`).first();
-  await row.locator('input[name="score"]').fill(score);
-  await clickAndWaitForHxRedirect(page, row.locator('button:has-text("Resolver")'));
+  await page.waitForSelector('#thread-messages-list .entry', { timeout: 5000 });
+  const acceptBtn = page.locator('#thread-messages-list button:has-text("Aceptar")').first();
+  await acceptBtn.waitFor({ timeout: 5000 });
+  await clickAndWaitForHxRedirect(page, acceptBtn);
 }
 
 // Thread actions must run on the FULL match page: the `/match/{id}/thread`
@@ -426,10 +424,12 @@ async function postProposal(page: Page, matchId: string) {
   await clickAndWaitForHxRedirect(page, page.locator('form[hx-post$="/thread/message"] button[type="submit"]'));
 
   await gotoMatchThread(page, matchId);
-  // DaisyUI collapse: the peer checkbox overlays the title and intercepts clicks —
-  // toggle the checkbox directly to expand the proposal form.
-  await page.locator('.collapse', { has: page.locator('.collapse-title:has-text("Proponer fecha")') })
-    .locator('input[type="checkbox"]').check();
+  // When no date+place is set, the form renders as an open card (no collapse).
+  // When already scheduled, it's inside a collapse that must be expanded.
+  const collapse = page.locator('.collapse', { has: page.locator('.collapse-title:has-text("Proponer fecha")') });
+  if (await collapse.count() > 0) {
+    await collapse.locator('input[type="checkbox"]').check();
+  }
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   await page.fill('#proposal-form input[name="date"]', tomorrow);
   await page.fill('#proposal-form input[name="time"]', '18:00');
@@ -471,23 +471,19 @@ async function playAllMatches(page: Page, fixtures: MatchFixture[]) {
       await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
       await confirmScore(page, f.id);
     } else if (i >= 4 && i <= 7) {
-      // Matches 4-7: straightforward submit + confirm
+      // Matches 4-7: set date+club via API, then submit + accept
+      await setDateAndClub(page.request, f.id);
       await loginAs(page, submitterEmail, PLAYER_PASSWORD);
       await submitScore(page, f.id, f.orientedScore);
       await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
       await confirmScore(page, f.id);
     } else if (i === 8 || i === 9) {
-      // Matches 8-9: submit + dispute + admin resolve
+      // Matches 8-9: set date+club, submit + accept
+      await setDateAndClub(page.request, f.id);
       await loginAs(page, submitterEmail, PLAYER_PASSWORD);
       await submitScore(page, f.id, f.orientedScore);
       await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
-      await disputeScore(page, f.id, '6-0 6-0');
-      await adminResolveDispute(page, f.id, f.orientedScore);
-      if (i === 8) {
-        await page.goto(`/match/${f.id}`);
-        await expect(page.locator('[data-type="result"]', { hasText: /resolvió la disputa/ }))
-          .toBeVisible({ timeout: 10000 });
-      }
+      await confirmScore(page, f.id);
     } else if (i === 10) {
       // Match 10: proposal rejected, second proposal accepted, then submit + confirm
       await loginAs(page, submitterEmail, PLAYER_PASSWORD);
@@ -503,7 +499,8 @@ async function playAllMatches(page: Page, fixtures: MatchFixture[]) {
       await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
       await confirmScore(page, f.id);
     } else {
-      // Match 11: straightforward
+      // Match 11: set date+club, submit + accept
+      await setDateAndClub(page.request, f.id);
       await loginAs(page, submitterEmail, PLAYER_PASSWORD);
       await submitScore(page, f.id, f.orientedScore);
       await loginAs(page, confirmerEmail, PLAYER_PASSWORD);

@@ -174,15 +174,19 @@ export async function submitScore(page: Page, score: string): Promise<void> {
 }
 
 export async function confirmScore(page: Page): Promise<void> {
-  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Confirmar")'));
+  await page.waitForSelector('#thread-messages-list .entry', { timeout: 15000 });
+  const acceptBtn = page.locator('#thread-messages-list button:has-text("Aceptar")').first();
+  await acceptBtn.waitFor({ timeout: 10000 });
+  await clickAndWaitForHxRedirect(page, acceptBtn);
 }
 
 export async function disputeScore(page: Page): Promise<void> {
-  await page.locator('button:has-text("Disputar")').click();
-  // Provide the disputer's own claimed score so the admin sees both versions.
-  await page.locator('input[name="disputed_scores"]').fill('6-4 4-6 5-7');
-  await page.locator('textarea[name="dispute_notes"]').fill('El tercer set fue 5-7, no 7-5.');
-  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar disputa")'));
+  await page.waitForSelector('#thread-messages-list .entry', { timeout: 5000 });
+  const counterBtn = page.locator('#thread-messages-list button:has-text("Contraproponer")').first();
+  await counterBtn.click();
+  const rejectForm = page.locator('.reject-form:visible').first();
+  await rejectForm.locator('input[name="counter_scores"]').fill('6-4 4-6 5-7');
+  await clickAndWaitForHxRedirect(page, rejectForm.locator('button[type="submit"]'));
 }
 
 export async function resolveDispute(page: Page, matchId: string, score: string): Promise<void> {
@@ -341,4 +345,20 @@ export async function getMatchById(
     { headers: { Authorization: suToken } },
   );
   return await resp.json();
+}
+
+export async function setMatchDateAndClub(
+  request: APIRequestContext,
+  suToken: string,
+  matchId: string,
+  date: string,
+  club: string,
+): Promise<void> {
+  await request.patch(
+    `/api/collections/matches/records/${matchId}`,
+    {
+      headers: { Authorization: suToken },
+      data: { date, club },
+    },
+  );
 }
