@@ -130,6 +130,8 @@ func (svc *Service) acceptProposalIfExpired(proposal, m, comp *core.Record) {
 		slog.Error("auto-accept proposal: update proposal", "match", m.Id, "err", err)
 	}
 
+	svc.supersedeSiblingResults(m.Id, proposal.Id)
+
 	for _, pid := range []string{fresh.GetString("pair1"), fresh.GetString("pair2")} {
 		players := PlayersForPair(svc.app, pid)
 		svc.notifier.NotifyPlayers(players, Notification{
@@ -138,6 +140,19 @@ func (svc *Service) acceptProposalIfExpired(proposal, m, comp *core.Record) {
 			Body:    "El resultado ha sido confirmado por tiempo de espera.",
 			MatchID: fresh.Id,
 		})
+	}
+}
+
+func (svc *Service) supersedeSiblingResults(matchID, acceptedID string) {
+	siblings, _ := svc.app.FindRecordsByFilter("match_messages",
+		"match = {:mid} && type = 'result_submission' && proposal_status = 'pending' && id != {:eid}",
+		"", 0, 0,
+		map[string]any{"mid": matchID, "eid": acceptedID})
+	for _, s := range siblings {
+		s.Set("proposal_status", "superseded")
+		if err := svc.app.Save(s); err != nil {
+			slog.Error("auto-accept: supersede sibling result", "id", s.Id, "err", err)
+		}
 	}
 }
 

@@ -162,6 +162,10 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 		return alertError(e, "Marcador no válido")
 	}
 
+	if h.rivalHasPendingResult(match, userID) {
+		return alertError(e, "Ya hay una propuesta de resultado del rival pendiente. Revisa el hilo del partido para aceptar o rechazar.")
+	}
+
 	if err := h.submitResultProposal(e, match, userID, scores); err != nil {
 		return err
 	}
@@ -235,6 +239,24 @@ func (h *MatchHandler) checkResultDeadlock(match *core.Record, submitterID strin
 			return
 		}
 	}
+}
+
+func (h *MatchHandler) rivalHasPendingResult(match *core.Record, userID string) bool {
+	myTeam, _ := league.PlayerTeam(h.app, userID, match)
+	rivalPairID := match.GetString("pair2")
+	if myTeam == 2 {
+		rivalPairID = match.GetString("pair1")
+	}
+	for _, rp := range league.PlayersForPair(h.app, rivalPairID) {
+		pending, _ := h.app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_submission' && author = {:uid} && proposal_status = 'pending'",
+			"", 1, 0,
+			map[string]any{"mid": match.Id, "uid": rp})
+		if len(pending) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *MatchHandler) notifyResultProposal(match *core.Record, userID, scores string) {

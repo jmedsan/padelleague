@@ -423,6 +423,57 @@ func TestConfirmStaleMatches_ProposalAutoAccept(t *testing.T) {
 	require.True(t, len(notifier.calls) > 0, "must notify players")
 }
 
+func TestConfirmStaleMatches_AutoAcceptSupersedesSiblings(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "AASS A")
+	p2 := makePair(t, app, "AASS B")
+
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	comp.Set("quorum_timeout_hours", 1)
+	require.NoError(t, app.Save(comp))
+
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "scheduled")
+	match.Set("submitted_by", p1.GetString("player1"))
+	require.NoError(t, app.Save(match))
+
+	proposal := makeResultProposal(t, app, match.Id, p1.GetString("player1"), "6-3 6-4")
+
+	col, _ := app.FindCollectionByNameOrId("match_messages")
+	sibling := core.NewRecord(col)
+	sibling.Set("match", match.Id)
+	sibling.Set("author", p2.GetString("player1"))
+	sibling.Set("type", "result_submission")
+	sibling.Set("proposal_status", "pending")
+	sibling.Set("proposal_data", `{"scores":"6-4 6-3"}`)
+	sibling.Set("content", "6-4 6-3")
+	require.NoError(t, app.Save(sibling))
+
+	staleTime := time.Now().Add(-2 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
+	_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:sa} WHERE id = {:id}").
+		Bind(map[string]any{"sa": staleTime, "id": match.Id}).Execute()
+	require.NoError(t, err)
+
+	notifier := &fakeNotifier{}
+	svc := New(app, notifier)
+	svc.ConfirmStaleMatches()
+
+	updated, _ := app.FindRecordById("matches", match.Id)
+	assert.Equal(t, "final", updated.GetString("status"))
+
+	updatedProposal, _ := app.FindRecordById("match_messages", proposal.Id)
+	assert.Equal(t, "accepted", updatedProposal.GetString("proposal_status"))
+
+	updatedSibling, _ := app.FindRecordById("match_messages", sibling.Id)
+	assert.Equal(t, "superseded", updatedSibling.GetString("proposal_status"),
+		"sibling pending result must be superseded after auto-accept")
+
+	remaining, _ := app.FindRecordsByFilter("match_messages",
+		"match = {:mid} && type = 'result_submission' && proposal_status = 'pending'",
+		"", 0, 0, map[string]any{"mid": match.Id})
+	assert.Empty(t, remaining, "zero pending result proposals must remain after auto-accept")
+}
+
 func TestConfirmStaleMatches_ProposalNotExpired(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)

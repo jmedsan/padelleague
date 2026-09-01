@@ -663,11 +663,26 @@ func (h *ThreadHandler) acceptResultProposal(e *core.RequestEvent, match, msg *c
 		ParentID: msg.Id,
 	})
 
+	h.supersedePendingResults(match.Id, msg.Id)
+
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	n := league.NotifResultConfirmed(match.Id)
 	h.notifier.NotifyPlayers(proposerPlayers, n)
 	h.notifier.EmailPlayers(proposerPlayers, n.Title, n.Body, "/match/"+match.Id)
 	return nil
+}
+
+func (h *ThreadHandler) supersedePendingResults(matchID, excludeMsgID string) {
+	pending, _ := h.app.FindRecordsByFilter("match_messages",
+		"match = {:mid} && type = 'result_submission' && proposal_status = 'pending' && id != {:eid}",
+		"", 0, 0,
+		map[string]any{"mid": matchID, "eid": excludeMsgID})
+	for _, p := range pending {
+		p.Set("proposal_status", "superseded")
+		if err := h.app.Save(p); err != nil {
+			slog.Error("supersede result proposal", "id", p.Id, "err", err)
+		}
+	}
 }
 
 func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
