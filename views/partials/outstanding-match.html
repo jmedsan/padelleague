@@ -1,3 +1,9 @@
+{{/* OutstandingMatch (league.OutstandingMatch) is a triage-list projection —
+     deadline + warning level, no result/action state — not a MatchCard. It
+     has no Mode field: league/ sits below handlers/ (which owns Mode) in the
+     package layering, and both templates below are always admin-only with
+     no variant to gate, so a Mode field would go unread. Kept as its own
+     component rather than folded into matchCard. */}}
 {{define "outstandingMatchDesktopRow"}}
 <tr>
     <td>{{.CompetitionName}}</td>
