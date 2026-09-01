@@ -222,6 +222,7 @@ func registerNotificationRoutes(se *core.ServeEvent, deps Deps, notif *handlers.
 	se.Router.GET("/notifications/count", notif.Count).BindFunc(middleware.RequireAuth)
 	se.Router.GET("/notifications/list", notif.List).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/notifications/{id}/read", notif.MarkRead).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/notifications/{id}/dismiss", notif.Dismiss).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/notifications/read-all", notif.MarkAllRead).BindFunc(middleware.RequireAuth)
 
 	push := handlers.NewPushHandler(deps.App, deps.Notifier)
