@@ -15,6 +15,16 @@
                     </label>
                     <input type="text" id="display_name" name="display_name" class="input input-bordered w-full" placeholder="Tu nombre" required>
                 </div>
+                <div class="form-control mt-3">
+                    <label class="label" for="gender">
+                        <span class="label-text text-xs font-medium">Género</span>
+                    </label>
+                    <select id="gender" name="gender" class="select select-bordered w-full" required>
+                        <option value="" disabled selected>Selecciona</option>
+                        <option value="male">Hombre</option>
+                        <option value="female">Mujer</option>
+                    </select>
+                </div>
                 <div class="form-control mt-6">
                     <button type="submit" class="btn btn-primary w-full">Guardar</button>
                 </div>

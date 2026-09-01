@@ -183,7 +183,7 @@ func TestRegisterSubmit_SingleUse_Count0_Succeeds(t *testing.T) {
 		invID = inv.Id
 		usersBefore = countUsers(tb, app)
 		s.Body = strings.NewReader("token=" + inv.GetString("token") +
-			"&email=newuser1@test.local&display_name=New+User&password=testpass123456&password_confirm=testpass123456")
+			"&email=newuser1@test.local&display_name=New+User&password=testpass123456&password_confirm=testpass123456&gender=male")
 		s.Headers = map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
@@ -215,7 +215,7 @@ func TestRegisterSubmit_SingleUse_Count1_Refused(t *testing.T) {
 		inv := makeInviteWithUses(tb, app, 1, 1)
 		usersBefore = countUsers(tb, app)
 		s.Body = strings.NewReader("token=" + inv.GetString("token") +
-			"&email=rejected1@test.local&display_name=Rejected&password=testpass123456&password_confirm=testpass123456")
+			"&email=rejected1@test.local&display_name=Rejected&password=testpass123456&password_confirm=testpass123456&gender=male")
 		s.Headers = map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
@@ -241,7 +241,7 @@ func TestRegisterSubmit_FiveUse_Count4_Succeeds(t *testing.T) {
 		inv := makeInviteWithUses(tb, app, 5, 4)
 		invID = inv.Id
 		s.Body = strings.NewReader("token=" + inv.GetString("token") +
-			"&email=fiveuse4@test.local&display_name=Five+Four&password=testpass123456&password_confirm=testpass123456")
+			"&email=fiveuse4@test.local&display_name=Five+Four&password=testpass123456&password_confirm=testpass123456&gender=male")
 		s.Headers = map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
@@ -270,7 +270,7 @@ func TestRegisterSubmit_FiveUse_Count5_Refused(t *testing.T) {
 		inv := makeInviteWithUses(tb, app, 5, 5)
 		usersBefore = countUsers(tb, app)
 		s.Body = strings.NewReader("token=" + inv.GetString("token") +
-			"&email=fiveuse5@test.local&display_name=Five+Five&password=testpass123456&password_confirm=testpass123456")
+			"&email=fiveuse5@test.local&display_name=Five+Five&password=testpass123456&password_confirm=testpass123456&gender=male")
 		s.Headers = map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
@@ -296,7 +296,7 @@ func TestRegisterSubmit_MaxUses0_Count0_Succeeds(t *testing.T) {
 		inv := makeInviteWithUses(tb, app, 0, 0)
 		invID = inv.Id
 		s.Body = strings.NewReader("token=" + inv.GetString("token") +
-			"&email=maxzero@test.local&display_name=Max+Zero&password=testpass123456&password_confirm=testpass123456")
+			"&email=maxzero@test.local&display_name=Max+Zero&password=testpass123456&password_confirm=testpass123456&gender=male")
 		s.Headers = map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
@@ -322,7 +322,7 @@ func TestRegisterSubmit_MaxUses0_Count1_Refused(t *testing.T) {
 		setupAllRoutes(tb, app, e)
 		inv := makeInviteWithUses(tb, app, 0, 1)
 		s.Body = strings.NewReader("token=" + inv.GetString("token") +
-			"&email=maxzero1@test.local&display_name=Max+Zero+1&password=testpass123456&password_confirm=testpass123456")
+			"&email=maxzero1@test.local&display_name=Max+Zero+1&password=testpass123456&password_confirm=testpass123456&gender=male")
 		s.Headers = map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
 	}
 	s.Test(t)
@@ -358,7 +358,7 @@ func TestRegisterSubmitNoToken(t *testing.T) {
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
-		s.Body = strings.NewReader("email=new@test.local&password=testpass123456&password_confirm=testpass123456")
+		s.Body = strings.NewReader("email=new@test.local&password=testpass123456&password_confirm=testpass123456&gender=male")
 		s.Headers = map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
 	}
 	s.Test(t)
@@ -382,7 +382,7 @@ func TestRegisterSubmitValidInvite(t *testing.T) {
 		token := invite.GetString("token")
 		n := userSeq.Add(1)
 		regEmail = fmt.Sprintf("reg%d@test.local", n)
-		body := fmt.Sprintf("token=%s&email=%s&display_name=New+Player&password=testpass123456&password_confirm=testpass123456", token, regEmail)
+		body := fmt.Sprintf("token=%s&email=%s&display_name=New+Player&password=testpass123456&password_confirm=testpass123456&gender=male", token, regEmail)
 		s.Body = strings.NewReader(body)
 		s.Headers = map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
 	}

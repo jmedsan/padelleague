@@ -24,6 +24,7 @@
                     <th class="w-14"></th>
                     <th>Nombre</th>
                     <th>Email</th>
+                    <th>Género</th>
                     <th>Rol</th>
                     <th class="w-20"></th>
                 </tr>
@@ -51,6 +52,12 @@
                         {{end}}
                     </td>
                     <td class="opacity-60 text-sm">{{.GetString "email"}}</td>
+                    <td class="text-sm">
+                        {{if eq (.GetString "gender") "male"}}Hombre
+                        {{else if eq (.GetString "gender") "female"}}Mujer
+                        {{else}}<span class="opacity-50 italic">Sin especificar</span>
+                        {{end}}
+                    </td>
                     <td>
                         {{if contains (.GetStringSlice "roles") "admin"}}
                         <span class="badge badge-secondary badge-sm">Admin</span>
@@ -65,7 +72,7 @@
                 </tr>
                 {{else}}
                 <tr>
-                    <td colspan="5" class="text-center py-12 opacity-60">No hay jugadores registrados</td>
+                    <td colspan="6" class="text-center py-12 opacity-60">No hay jugadores registrados</td>
                 </tr>
                 {{end}}
             </tbody>
@@ -84,6 +91,15 @@
                     <span class="label-text text-xs font-medium">Nombre</span>
                 </label>
                 <input type="text" name="display_name" class="input input-bordered w-full" value="{{.GetString "display_name"}}" required>
+            </div>
+            <div class="form-control mt-3">
+                <label class="label">
+                    <span class="label-text text-xs font-medium">Género</span>
+                </label>
+                <select name="gender" class="select select-bordered w-full" required>
+                    <option value="male" {{if eq (.GetString "gender") "male"}}selected{{end}}>Hombre</option>
+                    <option value="female" {{if eq (.GetString "gender") "female"}}selected{{end}}>Mujer</option>
+                </select>
             </div>
             <div class="form-control mt-3">
                 <label class="label">
@@ -133,6 +149,16 @@
                     <span class="label-text text-xs font-medium">Nombre (opcional)</span>
                 </label>
                 <input type="text" name="display_name" class="input input-bordered w-full" placeholder="Nombre del jugador">
+            </div>
+            <div class="form-control mt-3">
+                <label class="label">
+                    <span class="label-text text-xs font-medium">Género</span>
+                </label>
+                <select name="gender" class="select select-bordered w-full" required>
+                    <option value="" disabled selected>Selecciona</option>
+                    <option value="male">Hombre</option>
+                    <option value="female">Mujer</option>
+                </select>
             </div>
             <div class="modal-action">
                 <label for="precreate-modal" class="btn btn-ghost">Cancelar</label>
