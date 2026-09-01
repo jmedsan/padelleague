@@ -44,10 +44,10 @@ type MatchCard struct {
 	Feeder2   string
 	IsMyMatch bool
 
-	CanSubmit           bool
-	CanEdit             bool
-	CanWalkover         bool
-	CanCorrect          bool
+	CanSubmit       bool
+	CanEdit         bool
+	CanWalkover     bool
+	CanCorrect      bool
 	HasDateAndPlace bool
 
 	Venues []*core.Record
