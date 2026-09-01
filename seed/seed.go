@@ -566,6 +566,7 @@ func (sc *sampleCtx) createTimeline(match *core.Record, f sampleFixture) error {
 	resp.Set("type", "scheduling_response")
 	resp.Set("content", acceptDetail)
 	resp.Set("parent", proposal.Id)
+	resp.Set("proposal_data", `{"action":"accept"}`)
 	resp.Set("created", acceptTime.Format(time.RFC3339))
 	if err := sc.app.Save(resp); err != nil {
 		return fmt.Errorf("save scheduling response: %w", err)
@@ -613,7 +614,7 @@ func (sc *sampleCtx) createResultEntries(rc resultContext) error {
 		confirmTime := submitTime.Add(2 * time.Hour)
 		return sc.saveResultResponse(resultResponseArgs{
 			matchID: rc.match.Id, authorID: rc.responder, parentID: proposal.Id,
-			action: "accept", content: confirmerLabel + " aceptó el resultado", ts: confirmTime,
+			action: "accept", content: confirmerLabel + " aceptó el resultado", scores: scores, ts: confirmTime,
 		})
 
 	case rc.f.round == 5 && rc.f.idx == 0:
@@ -626,7 +627,7 @@ func (sc *sampleCtx) createResultEntries(rc resultContext) error {
 		disputerLabel := sampleLabel(sc.app, rc.responder, rc.match)
 		if err := sc.saveResultResponse(resultResponseArgs{
 			matchID: rc.match.Id, authorID: rc.responder, parentID: proposal.Id,
-			action: "reject", content: disputerLabel + " rechazó el resultado", ts: disputeTime,
+			action: "reject", content: disputerLabel + " rechazó el resultado", scores: scores, ts: disputeTime,
 		}); err != nil {
 			return err
 		}
@@ -665,8 +666,8 @@ func (sc *sampleCtx) saveResultProposal(a resultProposalArgs) (*core.Record, err
 }
 
 type resultResponseArgs struct {
-	matchID, authorID, parentID, action, content string
-	ts                                           time.Time
+	matchID, authorID, parentID, action, content, scores string
+	ts                                                   time.Time
 }
 
 func (sc *sampleCtx) saveResultResponse(a resultResponseArgs) error {
@@ -676,7 +677,7 @@ func (sc *sampleCtx) saveResultResponse(a resultResponseArgs) error {
 	rec.Set("type", "result_response")
 	rec.Set("content", a.content)
 	rec.Set("parent", a.parentID)
-	rec.Set("proposal_data", fmt.Sprintf(`{"action":"%s"}`, a.action))
+	rec.Set("proposal_data", fmt.Sprintf(`{"action":"%s","scores":"%s"}`, a.action, a.scores))
 	rec.Set("created", a.ts.Format(time.RFC3339))
 	if err := sc.app.Save(rec); err != nil {
 		return fmt.Errorf("save result response: %w", err)

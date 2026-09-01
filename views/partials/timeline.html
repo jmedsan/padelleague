@@ -1,19 +1,29 @@
-{{/* One flat, independent timeline row per entry — a simple activity log
-     (Jira/AzDO style). No nesting, no indentation, no bubbles: every entry is
-     the same shape (author · content · time), just a border between rows. */}}
+{{/* One flat, independent timeline entry per row — a simple activity log
+     (Jira/AzDO style). No nesting, no bubbles: every entry is a small card
+     with the same shape (author + verb + time on top, the structured
+     component — dateBox/resultBox with its status badge — below). */}}
 {{define "timelineEntry"}}
-<div class="flex items-start gap-2 text-sm py-2 border-b border-base-200 last:border-0">
-    <span class="font-bold whitespace-nowrap">{{.AuthorName}}</span>
-    <span class="flex-1 flex flex-wrap items-center gap-x-2 gap-y-1 {{if eq .Kind "chat"}}opacity-80{{end}}">
+<div class="card bg-base-200/50 rounded-xl mb-2 last:mb-0">
+    <div class="card-body p-3 gap-1">
+        <div class="flex items-baseline gap-2 text-sm {{if eq .Kind "chat"}}opacity-80{{end}}">
+            <span class="font-bold">{{.AuthorName}}</span>
+            <span class="flex-1">{{.Content}}</span>
+            <span class="text-xs opacity-50 whitespace-nowrap">{{.CreatedAt}}</span>
+        </div>
         {{if .Date}}
-        {{/* scheduling proposal — reuse the shared dateBox (inline badges, no card) */}}
-        <span>propuso fecha y lugar:</span>
-        {{template "dateBox" (dict "Date" .Date "Time" .Time "Place" .Place)}}
-        {{else}}
-        <span>{{.Content}}</span>
+        {{/* scheduling proposal/response — reuse the shared dateBox */}}
+        <div class="flex flex-wrap items-center gap-2">
+            {{template "dateBox" (dict "Date" .Date "Time" .Time "Place" .Place)}}
+            {{if .StatusLabel}}<span class="badge badge-sm {{.StatusClass}}">{{.StatusLabel}}</span>{{end}}
+        </div>
+        {{else if .Score}}
+        {{/* result proposal/response — reuse the shared resultBox in row mode */}}
+        <div class="flex flex-wrap items-center gap-2">
+            {{template "resultBox" (dict "Score" .Score "Mode" (dict "Row" true))}}
+            {{if .StatusLabel}}<span class="badge badge-sm {{.StatusClass}}">{{.StatusLabel}}</span>{{end}}
+        </div>
         {{end}}
-    </span>
-    <span class="text-xs opacity-50 whitespace-nowrap">{{.CreatedAt}}</span>
+    </div>
 </div>
 {{end}}
 

@@ -1,9 +1,6 @@
 package handlers
 
 import (
-	"strings"
-	"time"
-
 	"github.com/pocketbase/pocketbase/core"
 
 	"padelleague/league"
@@ -20,15 +17,18 @@ type ThreadData struct {
 
 // TimelineEntryVM is one read-only history line in the timeline.
 type TimelineEntryVM struct {
-	Kind       string // "proposal" | "response" | "event" | "chat"
-	AuthorName string
-	IsMyTeam   bool
-	Content    string
-	CreatedAt  string // render.FmtShortTime — DD/MM HH:MM
-	Score      string // result_submission only
-	Date       string // scheduling_proposal only (stored "2006-01-02")
-	Time       string // scheduling_proposal only
-	Place      string // scheduling_proposal venue name
+	Kind        string // "proposal" | "response" | "event" | "chat"
+	AuthorName  string
+	IsMyTeam    bool
+	Content     string
+	CreatedAt   string // render.FmtShortTime — DD/MM HH:MM
+	Score       string // result_submission only
+	Date        string // scheduling_proposal only (stored "2006-01-02")
+	Time        string // scheduling_proposal only
+	Place       string // scheduling_proposal venue name
+	Status      string // proposal_status; scheduling_proposal/result_submission only
+	StatusLabel string // Spanish label for Status
+	StatusClass string // DaisyUI badge class for Status
 }
 
 // SchedProposalVM is one non-rejected scheduling proposal in the details panel.
@@ -123,27 +123,25 @@ func (bc *threadBuildCtx) processMessage(msg *core.Record, authorID, cachedName 
 		msgType == "scheduling_response" || msgType == "result_response" {
 		authorName = pairPlayerLabel(bc.app, authorID, bc.match)
 	}
+	content := msg.GetString("content")
+	pd := ParseProposalData(msg.GetString("proposal_data"))
 	entry := TimelineEntryVM{
 		Kind:       timelineKind(msgType),
 		AuthorName: authorName,
 		IsMyTeam:   bc.myTeam != 0 && authorTeam == bc.myTeam,
-		Content:    timelineContent(msg, msgType),
 		CreatedAt:  created,
 	}
-	if msgType == "result_submission" {
-		pd := ParseProposalData(msg.GetString("proposal_data"))
-		if pd != nil && pd.Scores != "" {
-			entry.Score = pd.Scores
-		}
+	fillTimelineEntryData(&entry, pd, msgType)
+	// The action text and status shown on a timeline entry are frozen at
+	// insertion time — they reflect what happened at THIS event (from its
+	// own message type and, for a response, its own recorded Action), not
+	// proposal_status (which is the proposal's current, possibly
+	// later-superseded, state).
+	action := ""
+	if pd != nil {
+		action = pd.Action
 	}
-	if msgType == "scheduling_proposal" {
-		pd := ParseProposalData(msg.GetString("proposal_data"))
-		if pd != nil {
-			entry.Date = pd.Date
-			entry.Time = pd.Time
-			entry.Place = pd.VenueName
-		}
-	}
+	entry.Content, entry.StatusLabel, entry.StatusClass = timelineEntryText(msgType, action, content)
 	td.Timeline = append(td.Timeline, entry)
 	sameTeam := authorTeam == bc.myTeam || bc.myTeam == 0
 	// Only PENDING scheduling proposals belong in the panel. An accepted date is a
@@ -208,46 +206,50 @@ func timelineKind(msgType string) string {
 	}
 }
 
-func timelineContent(msg *core.Record, msgType string) string {
+// fillTimelineEntryData sets the score/date fields the timeline template
+// renders through resultBox/dateBox, based on the message type.
+func fillTimelineEntryData(entry *TimelineEntryVM, pd *ProposalData, msgType string) {
+	if pd == nil {
+		return
+	}
+	switch msgType {
+	case "result_submission", "result_response":
+		entry.Score = pd.Scores
+	case "scheduling_proposal":
+		entry.Date = pd.Date
+		entry.Time = pd.Time
+		entry.Place = pd.VenueName
+	}
+}
+
+// timelineEntryText returns the action verb phrase, status label, and status
+// badge class for a timeline entry. The status is frozen at insertion time —
+// derived from the message TYPE and, for a response, its own recorded Action
+// ("accept"/"reject") — never from the proposal's current, possibly
+// later-superseded proposal_status.
+//
+// Scheduling proposals and result submissions carry their date/score in
+// Date/Time/Place/Score instead of inline text — the template renders those
+// through dateBox/resultBox, so the verb here stays value-free.
+func timelineEntryText(msgType, action, content string) (verb, statusLabel, statusClass string) {
 	switch msgType {
 	case "scheduling_proposal":
-		if s := schedProposalSummary(msg); s != "" {
-			return s
-		}
+		return "propuso fecha y lugar", "Propuesta", "badge-ghost"
 	case "result_submission":
-		pd := ParseProposalData(msg.GetString("proposal_data"))
-		if pd != nil && pd.Scores != "" {
-			return "propuso resultado: " + pd.Scores
+		return "propuso resultado", "Propuesta", "badge-ghost"
+	case "scheduling_response":
+		if action == "accept" {
+			return "aceptó la propuesta de fecha", "Aceptada", "badge-success"
 		}
+		return content, "Rechazada", "badge-error"
+	case "result_response":
+		if action == "accept" {
+			return "aceptó el resultado", "Aceptada", "badge-success"
+		}
+		return "rechazó el resultado y contrapropuso", "Rechazada", "badge-error"
+	default: // result_event, admin_action, chat
+		return content, "", ""
 	}
-	return msg.GetString("content")
-}
-
-// schedProposalSummary renders a scheduling proposal as a standard-format
-// timeline verb phrase: "propuso fecha y lugar: DD/MM, HH:MM, Club".
-func schedProposalSummary(msg *core.Record) string {
-	pd := ParseProposalData(msg.GetString("proposal_data"))
-	if pd == nil {
-		return ""
-	}
-	parts := []string{fmtProposalDate(pd.Date)}
-	if pd.Time != "" {
-		parts = append(parts, pd.Time)
-	}
-	if pd.VenueName != "" {
-		parts = append(parts, pd.VenueName)
-	}
-	return "propuso fecha y lugar: " + strings.Join(parts, ", ")
-}
-
-// fmtProposalDate reformats a stored "2006-01-02" proposal date to "DD/MM";
-// returns the input unchanged if it is not in that form.
-func fmtProposalDate(date string) string {
-	t, err := time.Parse("2006-01-02", date)
-	if err != nil {
-		return date
-	}
-	return t.Format("02/01")
 }
 
 func playerTeamOf(uid string, pair1Players, pair2Players []string) int {

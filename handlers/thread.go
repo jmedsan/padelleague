@@ -34,6 +34,9 @@ type ProposalData struct {
 	VenueName string `json:"venue_name"`
 	VenueText string `json:"venue_text"`
 	Scores    string `json:"scores,omitempty"`
+	// Action is set on scheduling_response/result_response entries only:
+	// "accept" or "reject", the decision that produced this entry.
+	Action string `json:"action,omitempty"`
 }
 
 // ParseProposalData decodes a proposal from a raw JSON field value.
@@ -470,6 +473,7 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 		Kind:     "scheduling_response",
 		Detail:   "aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
 		ParentID: msg.Id,
+		Action:   "accept",
 	})
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
@@ -500,7 +504,7 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: e.Auth.Id,
 		Kind: "scheduling_response", Detail: detail,
-		ParentID: msg.Id,
+		ParentID: msg.Id, Action: "reject",
 	})
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
@@ -535,8 +539,8 @@ func (h *ThreadHandler) acceptResultProposal(e *core.RequestEvent, match, msg *c
 
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: e.Auth.Id,
-		Kind: "result_response", Detail: "✓ Resultado aceptado: " + pd.Scores,
-		ParentID: msg.Id,
+		Kind: "result_response", Detail: "Resultado aceptado: " + pd.Scores,
+		ParentID: msg.Id, Action: "accept", Scores: pd.Scores,
 	})
 
 	h.supersedePendingResults(match.Id, msg.Id)
@@ -575,10 +579,11 @@ func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *c
 		return alertError(e, "Error al rechazar la propuesta")
 	}
 
+	rejectedScores := msg.GetString("content")
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: e.Auth.Id,
-		Kind: "result_response", Detail: "✗ Resultado rechazado: " + msg.GetString("content"),
-		ParentID: msg.Id,
+		Kind: "result_response", Detail: "Resultado rechazado: " + rejectedScores,
+		ParentID: msg.Id, Action: "reject", Scores: rejectedScores,
 	})
 
 	col, err := h.app.FindCollectionByNameOrId("match_messages")
@@ -661,7 +666,7 @@ func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: e.Auth.Id,
 		Kind: "scheduling_response", Detail: "revocó la aceptación de la propuesta de " + proposerName,
-		ParentID: msg.Id,
+		ParentID: msg.Id, Action: "reject",
 	})
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
@@ -705,6 +710,7 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 		Kind:     "scheduling_response",
 		Detail:   "aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
 		ParentID: msg.Id,
+		Action:   "accept",
 	})
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
