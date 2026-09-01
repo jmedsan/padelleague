@@ -184,7 +184,7 @@
             <div class="flex items-center gap-2">
                 <span class="text-sm font-bold">{{.AuthorLabel}}</span>
                 <span class="text-xs opacity-50">{{.CreatedAt}}</span>
-                {{if .IsAccepted}}<span class="badge badge-success badge-xs">Aceptada</span>{{end}}
+                {{if .IsAccepted}}<span class="badge badge-success badge-xs">Confirmada</span>{{end}}
                 {{if eq .Status "superseded"}}<span class="badge badge-ghost badge-xs">Sustituida</span>{{end}}
             </div>
             {{if .Data}}
@@ -238,10 +238,10 @@
      caller (thread.html) next to the "Resultado" heading. */}}
 {{define "resultStatusBadge"}}
 {{$status := .Card.Match.GetString "status"}}
-{{if .ResultPanel.HasFinal}}<span class="badge badge-success">Finalizado</span>
+{{if .ResultPanel.HasFinal}}<span class="badge badge-success">Confirmado</span>
 {{else if eq $status "disputed"}}<span class="badge badge-error">En disputa</span>
-{{else if .ResultPanel.Live}}<span class="badge badge-info">Propuesta</span>
-{{else}}<span class="badge badge-warning">Pendiente</span>
+{{else if .ResultPanel.Live}}<span class="badge badge-warning">Propuesta</span>
+{{else}}<span class="badge badge-ghost">Pendiente</span>
 {{end}}
 {{end}}
 
@@ -383,7 +383,7 @@
     {{if .Time}}<span class="badge badge-outline {{if .Mode.Row}}badge-sm{{else}}badge-md{{end}}">{{.Time}}</span>{{end}}
     {{if .Place}}<span class="badge badge-outline {{if .Mode.Row}}badge-sm{{else}}badge-md{{end}}">{{.Place}}</span>{{end}}
     {{if .Court}}<span class="badge badge-outline {{if .Mode.Row}}badge-sm{{else}}badge-md{{end}}">Pista {{.Court}}</span>{{end}}
-    {{if .Accepted}}<span class="badge badge-success {{if .Mode.Row}}badge-sm{{else}}badge-md{{end}}">Aceptada</span>{{end}}
+    {{if .Accepted}}<span class="badge badge-success {{if .Mode.Row}}badge-sm{{else}}badge-md{{end}}">Confirmada</span>{{end}}
 </div>
 {{end}}
 

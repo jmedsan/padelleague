@@ -4,9 +4,9 @@
     <div class="card-body p-4 sm:p-6">
         <div class="flex justify-between items-center mb-3">
             <h3 class="font-bold text-lg">Fecha y lugar</h3>
-            {{if .HasDateAndPlace}}<span class="badge badge-info">Programado</span>
-            {{else if .SchedProposals}}<span class="badge badge-info">Propuesta</span>
-            {{else}}<span class="badge badge-warning">Pendiente</span>
+            {{if .HasDateAndPlace}}<span class="badge badge-success">Confirmada</span>
+            {{else if .SchedProposals}}<span class="badge badge-warning">Propuesta</span>
+            {{else}}<span class="badge badge-ghost">Pendiente</span>
             {{end}}
         </div>
 

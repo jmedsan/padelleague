@@ -118,7 +118,7 @@ func statusLabelShort(status string) string {
 	case league.StatusPending:
 		return "Pendiente"
 	case league.StatusScheduled:
-		return "Programado"
+		return "Confirmada"
 	case league.StatusConfirmed:
 		return "Enviado"
 	case league.StatusDisputed:

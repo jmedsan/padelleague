@@ -1508,6 +1508,7 @@ func makeSchedulingResponse(tb testing.TB, app core.App, matchID, authorID, pare
 	msg.Set("author", authorID)
 	msg.Set("type", "scheduling_response")
 	msg.Set("content", content)
+	msg.Set("proposal_data", `{"action":"accept"}`)
 	msg.Set("parent", parentID)
 	require.NoError(tb, app.Save(msg))
 	return msg
@@ -1540,7 +1541,7 @@ func TestBuildThreadData_TimelineReadOnly(t *testing.T) {
 	for _, entry := range td.Timeline {
 		if entry.Kind == "response" {
 			hasAcceptResponse = true
-			assert.Contains(t, entry.Content, "aceptó la propuesta")
+			assert.Equal(t, "confirmó fecha y lugar", entry.Content)
 		}
 		assert.NotEmpty(t, entry.CreatedAt, "entry must have CreatedAt")
 	}
