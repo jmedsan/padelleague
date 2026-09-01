@@ -4,7 +4,7 @@ import { loginAs, loadTestData, isMobile, PLAYER1_EMAIL, PLAYER1_PASSWORD } from
 async function createNotification(page: import('@playwright/test').Page, userId: string, adminToken: string, title: string) {
   const resp = await page.request.post('/api/collections/notifications/records', {
     headers: { Authorization: adminToken },
-    data: { user: userId, title, type: 'general', read: false, dismissed: false },
+    data: { user: userId, title, type: 'general', read: false },
   });
   if (!resp.ok()) throw new Error(`create notification: ${resp.status()} ${await resp.text()}`);
   return (await resp.json()).id as string;

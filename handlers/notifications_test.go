@@ -278,7 +278,7 @@ func TestDismissNotification(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "POST /notifications/{id}/dismiss sets dismissed and returns OOB badges",
+		Name:           "POST /notifications/{id}/dismiss marks read and returns OOB badges",
 		Method:         http.MethodPost,
 		ExpectedStatus: 200,
 		ExpectedContent: []string{
@@ -378,6 +378,10 @@ func TestDismissMarksRead(t *testing.T) {
 		Name:           "POST /notifications/{id}/dismiss marks read=true",
 		Method:         http.MethodPost,
 		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			`id="notif-badge"`,
+			`hx-swap-oob="innerHTML"`,
+		},
 	}
 	var notifID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
