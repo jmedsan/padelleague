@@ -42,7 +42,7 @@ func (h *VenueHandler) VenuesCreate(e *core.RequestEvent) error {
 	record := core.NewRecord(col)
 	record.Set("name", name)
 	record.Set("address", e.Request.FormValue("address"))
-	record.Set("courts", e.Request.FormValue("courts"))
+
 
 	if err := h.app.Save(record); err != nil {
 		slog.Error("save venue failed", "err", err)
@@ -62,7 +62,7 @@ func (h *VenueHandler) VenuesUpdate(e *core.RequestEvent) error {
 
 	record.Set("name", e.Request.FormValue("name"))
 	record.Set("address", e.Request.FormValue("address"))
-	record.Set("courts", e.Request.FormValue("courts"))
+
 
 	if err := h.app.Save(record); err != nil {
 		slog.Error("update venue failed", "err", err)
