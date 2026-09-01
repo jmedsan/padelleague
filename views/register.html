@@ -11,6 +11,7 @@
                 <div class="mt-6">
                     <a href="/login" class="btn btn-primary btn-sm">Volver a inicio de sesión</a>
                 </div>
+            </div>
                 {{else if .InvalidInvite}}
                 <h2 class="text-2xl font-bold mt-2">Invitación no válida</h2>
                 <div class="alert alert-error mt-4 text-sm">
@@ -19,6 +20,7 @@
                 <div class="mt-4">
                     <a href="/login" class="btn btn-primary btn-sm">Volver a inicio de sesión</a>
                 </div>
+            </div>
                 {{else}}
                 <h2 class="text-2xl font-bold mt-2">Crear cuenta</h2>
                 <p class="text-sm opacity-50 mt-1">Únete a PadelLeague</p>
@@ -63,7 +65,6 @@
                 ¿Ya tienes cuenta? <a href="/login" class="link link-primary font-medium">Inicia sesión</a>
             </p>
                 {{end}}
-            </div>
         </div>
     </div>
 </div>
