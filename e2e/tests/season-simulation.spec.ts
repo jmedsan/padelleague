@@ -1,5 +1,6 @@
 import { test, expect, Page, APIRequestContext } from '@playwright/test';
 import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { enterScore } from '../tour-helpers';
 import {
   setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,
   computeExpected, PlannedMatch, PairId,
@@ -371,10 +372,6 @@ async function mapFixturesToScores(request: APIRequestContext): Promise<MatchFix
 
 // --- T3: Play matches ---
 
-function parseScoreSets(score: string): string[][] {
-  return score.split(/\s+/).map(s => s.split('-'));
-}
-
 function playerEmailForPair(pairLabel: PairId, playerIndex: 0 | 1): string {
   const pairIdx = LABEL_TO_INDEX[pairLabel];
   const playerGlobalIdx = PAIRS[pairIdx][playerIndex === 0 ? 'p1' : 'p2'];
@@ -383,21 +380,7 @@ function playerEmailForPair(pairLabel: PairId, playerIndex: 0 | 1): string {
 
 async function submitScore(page: Page, matchId: string, score: string) {
   await page.goto(`/match/${matchId}`);
-  const sets = parseScoreSets(score);
-  for (const [f, v] of [['s1a', sets[0][0]], ['s1b', sets[0][1]], ['s2a', sets[1][0]], ['s2b', sets[1][1]]]) {
-    await page.$eval(`input[name="${f}"]`, (el, val) => { (el as HTMLInputElement).value = val; }, v);
-  }
-  if (sets.length === 3) {
-    await page.evaluate(() => {
-      for (const id of ['set3-header', 's3a-cell', 's3b-cell']) {
-        const el = document.getElementById(id);
-        if (el) el.style.display = '';
-      }
-    });
-    for (const [f, v] of [['s3a', sets[2][0]], ['s3b', sets[2][1]]]) {
-      await page.$eval(`input[name="${f}"]`, (el, val) => { (el as HTMLInputElement).value = val; }, v);
-    }
-  }
+  await enterScore(page, score);
   await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
 }
 
