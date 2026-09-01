@@ -508,13 +508,7 @@ func setSchedulingFields(record *core.Record, e *core.RequestEvent) error {
 		record.Set("end_date", v)
 	}
 
-	grace := 3
-	if v := e.Request.FormValue("arrange_grace_days"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
-			grace = n
-		}
-	}
-	record.Set("arrange_grace_days", grace)
+	record.Set("arrange_grace_days", formIntDefault(e, "arrange_grace_days", 3))
 
 	ws := e.Request.FormValue("walkover_score")
 	if ws == "" {
@@ -525,22 +519,18 @@ func setSchedulingFields(record *core.Record, e *core.RequestEvent) error {
 	}
 	record.Set("walkover_score", ws)
 
-	dp := 3
-	if v := e.Request.FormValue("default_penalty"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
-			dp = n
-		}
-	}
-	record.Set("default_penalty", dp)
-
-	rd := 14
-	if v := e.Request.FormValue("recovery_days"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
-			rd = n
-		}
-	}
-	record.Set("recovery_days", rd)
+	record.Set("default_penalty", formIntDefault(e, "default_penalty", 3))
+	record.Set("recovery_days", formIntDefault(e, "recovery_days", 14))
 	return nil
+}
+
+func formIntDefault(e *core.RequestEvent, field string, def int) int {
+	if v := e.Request.FormValue(field); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			return n
+		}
+	}
+	return def
 }
 
 // AttachDocument adds a document to a competition's attached documents.
