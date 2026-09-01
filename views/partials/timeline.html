@@ -125,7 +125,7 @@
 {{define "timelineMessages"}}
 {{range .Messages}}
 {{if or (eq .Type "scheduling_proposal") (eq .Type "result_submission")}}{{template "proposalThread" .}}
-{{else if or (eq .Type "scheduling_response") (eq .Type "result_response") (eq .Type "result_event") (eq .Type "admin_action")}}{{template "eventLine" .}}
+{{else if or (eq .Type "result_event") (eq .Type "admin_action")}}{{template "eventLine" .}}
 {{else}}{{template "chatMessage" .}}{{end}}
 {{end}}
 {{end}}
