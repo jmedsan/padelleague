@@ -146,8 +146,8 @@ func TestNotificationCountZero(t *testing.T) {
 		s.Headers = authHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		// Empty response — no badge element
-		assert.NotContains(tb, res.Header.Get("Content-Type"), "badge")
+		body := readBody(tb, res)
+		assert.Empty(tb, body, "zero unread should return empty body (no badge markup)")
 	}
 	s.Test(t)
 }
