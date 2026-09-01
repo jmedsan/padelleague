@@ -45,6 +45,7 @@ type ThreadMessage struct {
 	CreatedAt         string
 	ParentID          string
 	Responses         []ThreadMessage
+	ScoreCounter      ScoreInputVM
 }
 
 // ProposalData holds parsed scheduling proposal details from a thread message.
@@ -90,11 +91,14 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 
 	pair1Players := league.PlayersForPair(h.app, match.GetString("pair1"))
 	pair2Players := league.PlayersForPair(h.app, match.GetString("pair2"))
+	pairNames := league.PairNames(h.app, []string{match.GetString("pair1"), match.GetString("pair2")})
 	nameCache := make(map[string]string)
 
 	bctx := threadBuildCtx{
 		match: match, matchID: matchID, myTeam: myTeam, compModifiable: compModifiable,
-		pair1Players: pair1Players, pair2Players: pair2Players, nameCache: nameCache,
+		pair1Players: pair1Players, pair2Players: pair2Players,
+		pair1Name: pairNames[match.GetString("pair1")], pair2Name: pairNames[match.GetString("pair2")],
+		nameCache: nameCache,
 	}
 	byID := make(map[string]*ThreadMessage)
 	var allMessages []ThreadMessage
@@ -124,6 +128,7 @@ type threadBuildCtx struct {
 	myTeam                     int
 	compModifiable             bool
 	pair1Players, pair2Players []string
+	pair1Name, pair2Name       string
 	nameCache                  map[string]string
 }
 
@@ -151,7 +156,7 @@ func (h *ThreadHandler) toThreadMessage(msg *core.Record, ctx threadBuildCtx) Th
 	canRespond = canRespond && ctx.compModifiable
 	canChangeDecision = canChangeDecision && ctx.compModifiable
 
-	return ThreadMessage{
+	tm := ThreadMessage{
 		Record:            msg,
 		MatchID:           ctx.matchID,
 		AuthorName:        authorName,
@@ -169,6 +174,10 @@ func (h *ThreadHandler) toThreadMessage(msg *core.Record, ctx threadBuildCtx) Th
 		CreatedAt:         msg.GetDateTime("created").Time().Format("02/01 15:04"),
 		ParentID:          msg.GetString("parent"),
 	}
+	if canRespond && msgType == "result_submission" {
+		tm.ScoreCounter = ScoreInputVM{FieldName: "counter_scores", IDSuffix: ctx.matchID + "-counter-" + msg.Id, Pair1Name: ctx.pair1Name, Pair2Name: ctx.pair2Name}
+	}
+	return tm
 }
 
 func dataTypeFor(msgType string) string {
