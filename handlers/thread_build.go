@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"strings"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 
@@ -194,25 +195,37 @@ func timelineContent(msg *core.Record, msgType string) string {
 	case "result_submission":
 		pd := ParseProposalData(msg.GetString("proposal_data"))
 		if pd != nil && pd.Scores != "" {
-			return "Resultado propuesto: " + pd.Scores
+			return "propuso resultado: " + pd.Scores
 		}
 	}
 	return msg.GetString("content")
 }
 
+// schedProposalSummary renders a scheduling proposal as a standard-format
+// timeline verb phrase: "propuso fecha y lugar: DD/MM, HH:MM, Club".
 func schedProposalSummary(msg *core.Record) string {
 	pd := ParseProposalData(msg.GetString("proposal_data"))
 	if pd == nil {
 		return ""
 	}
-	parts := []string{pd.Date}
+	parts := []string{fmtProposalDate(pd.Date)}
 	if pd.Time != "" {
 		parts = append(parts, pd.Time)
 	}
 	if pd.VenueName != "" {
 		parts = append(parts, pd.VenueName)
 	}
-	return "Propuesta: " + strings.Join(parts, ", ")
+	return "propuso fecha y lugar: " + strings.Join(parts, ", ")
+}
+
+// fmtProposalDate reformats a stored "2006-01-02" proposal date to "DD/MM";
+// returns the input unchanged if it is not in that form.
+func fmtProposalDate(date string) string {
+	t, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return date
+	}
+	return t.Format("02/01")
 }
 
 func playerTeamOf(uid string, pair1Players, pair2Players []string) int {

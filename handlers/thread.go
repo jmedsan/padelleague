@@ -443,12 +443,11 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 
 	h.supersedePendingAndNotify(match.Id, msg.Id)
 
-	responderLabel := pairPlayerLabel(h.app, e.Auth.Id, match)
 	proposerName := league.PlayerName(h.app, msg.GetString("author"))
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: e.Auth.Id,
 		Kind:     "scheduling_response",
-		Detail:   responderLabel + " aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
+		Detail:   "aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
 		ParentID: msg.Id,
 	})
 
@@ -470,9 +469,8 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 		return alertError(e, "Error al rechazar la propuesta")
 	}
 
-	responderLabel := pairPlayerLabel(h.app, e.Auth.Id, match)
 	proposerName := league.PlayerName(h.app, msg.GetString("author"))
-	detail := responderLabel + " rechazó la propuesta de " + proposerName
+	detail := "rechazó la propuesta de " + proposerName
 	if text != "" {
 		detail += ": " + text
 	} else if reason != "" {
@@ -638,11 +636,10 @@ func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.
 		return alertError(e, "Error al actualizar el partido")
 	}
 
-	responderLabel := pairPlayerLabel(h.app, e.Auth.Id, match)
 	proposerName := league.PlayerName(h.app, msg.GetString("author"))
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: e.Auth.Id,
-		Kind: "scheduling_response", Detail: responderLabel + " revocó la aceptación de la propuesta de " + proposerName,
+		Kind: "scheduling_response", Detail: "revocó la aceptación de la propuesta de " + proposerName,
 		ParentID: msg.Id,
 	})
 
@@ -681,12 +678,11 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 	}
 	h.supersedePendingAndNotify(match.Id, msg.Id)
 
-	responderLabel := pairPlayerLabel(h.app, e.Auth.Id, match)
 	proposerName := league.PlayerName(h.app, msg.GetString("author"))
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: e.Auth.Id,
 		Kind:     "scheduling_response",
-		Detail:   responderLabel + " aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
+		Detail:   "aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
 		ParentID: msg.Id,
 	})
 
