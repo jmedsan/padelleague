@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"sort"
 	"strconv"
@@ -157,7 +158,9 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 		record.Set("quorum_timeout_hours", hours)
 	}
 
-	setSchedulingFields(record, e)
+	if err := setSchedulingFields(record, e); err != nil {
+		return alertError(e, "Marcador de walkover inválido. Usa el formato: 6-0 6-0")
+	}
 
 	if err := h.app.Save(record); err != nil {
 		slog.Error("create competition failed", "err", err)
@@ -200,7 +203,9 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 		record.Set("quorum_timeout_hours", hours)
 	}
 
-	setSchedulingFields(record, e)
+	if err := setSchedulingFields(record, e); err != nil {
+		return alertError(e, "Marcador de walkover inválido. Usa el formato: 6-0 6-0")
+	}
 
 	if err := h.app.Save(record); err != nil {
 		slog.Error("update competition failed", "err", err)
@@ -490,7 +495,7 @@ func (h *CompetitionHandler) RegenerateRoundDates(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions/"+id)
 }
 
-func setSchedulingFields(record *core.Record, e *core.RequestEvent) {
+func setSchedulingFields(record *core.Record, e *core.RequestEvent) error {
 	if v := e.Request.FormValue("start_date"); v != "" {
 		record.Set("start_date", v)
 	}
@@ -512,6 +517,9 @@ func setSchedulingFields(record *core.Record, e *core.RequestEvent) {
 	if ws == "" {
 		ws = "6-0 6-0"
 	}
+	if _, err := league.ParseScore(ws); err != nil {
+		return fmt.Errorf("walkover_score inválido: %s", ws)
+	}
 	record.Set("walkover_score", ws)
 
 	dp := 3
@@ -529,6 +537,7 @@ func setSchedulingFields(record *core.Record, e *core.RequestEvent) {
 		}
 	}
 	record.Set("recovery_days", rd)
+	return nil
 }
 
 // AttachDocument adds a document to a competition's attached documents.
