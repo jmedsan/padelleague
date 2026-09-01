@@ -1340,7 +1340,7 @@ func TestRejectResultProposalRequiresCounter(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID, proposalID, respondentID string
+	var matchID, proposalID, respondentID, proposerPairID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "RR A")
@@ -1348,6 +1348,7 @@ func TestRejectResultProposalRequiresCounter(t *testing.T) {
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
 		matchID = match.Id
+		proposerPairID = p1.Id
 
 		proposer := p1.GetString("player1")
 		proposal := makeResultProposal(tb, app, match.Id, proposer, "6-3 6-4")
@@ -1390,6 +1391,18 @@ func TestRejectResultProposalRequiresCounter(t *testing.T) {
 			map[string]any{"mid": matchID, "pid": proposalID})
 		require.Len(tb, timeline, 1, "rejection must create a result_response timeline entry")
 		assert.Contains(tb, timeline[0].GetString("content"), "Resultado rechazado")
+
+		proposerPair, _ := app.FindRecordById("pairs", proposerPairID)
+		for _, field := range []string{"player1", "player2"} {
+			uid := proposerPair.GetString(field)
+			if uid == "" {
+				continue
+			}
+			notifs, _ := app.FindRecordsByFilter("notifications",
+				"user = {:uid} && title = 'Resultado disputado'",
+				"", 0, 0, map[string]any{"uid": uid})
+			assert.NotEmpty(tb, notifs, "proposer pair member %s must be notified of counter-proposal", uid)
+		}
 	}
 	s.Test(t)
 }
