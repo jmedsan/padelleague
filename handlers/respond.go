@@ -65,8 +65,12 @@ func checkDocGate(app core.App, e *core.RequestEvent, match *core.Record) error 
 		return nil
 	}
 	if pending := league.UnacknowledgedMandatory(app, comp, userID); len(pending) > 0 {
-		e.Response.Header().Set("HX-Redirect", "/competition/"+compID)
-		return e.NoContent(http.StatusNoContent)
+		target := "/competition/" + compID
+		if e.Request.Header.Get("HX-Request") == "true" {
+			e.Response.Header().Set("HX-Redirect", target)
+			return e.NoContent(http.StatusNoContent)
+		}
+		return e.Redirect(http.StatusFound, target)
 	}
 	return nil
 }
