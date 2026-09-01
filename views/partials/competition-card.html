@@ -16,9 +16,6 @@
                 {{end}}
             </div>
         </div>
-        {{if .Competition.GetString "category"}}
-        <p class="text-sm text-base-content/60">{{.Competition.GetString "category"}}</p>
-        {{end}}
         <div class="flex items-center gap-4 text-sm">
             <span class="font-medium">{{.PairsCount}} parejas</span>
             <span class="text-base-content/60">·</span>
@@ -38,9 +35,6 @@
                 <h2 class="card-title text-lg">
                     {{.Name}}
                 </h2>
-                {{if .Competition.GetString "category"}}
-                <span class="badge badge-outline badge-sm mt-1">{{.Competition.GetString "category"}}</span>
-                {{end}}
             </div>
             {{if eq (.Competition.GetString "type") "league"}}
             <span class="badge badge-primary">Liga</span>
@@ -78,9 +72,6 @@
             <span class="badge badge-secondary badge-outline badge-sm">Playoff</span>
             {{end}}
         </div>
-        {{if .Competition.GetString "category"}}
-        <p class="text-xs text-base-content/60">{{.Competition.GetString "category"}}</p>
-        {{end}}
         <div class="text-xs text-base-content/60">
             {{.PairsCount}} parejas · {{.PlayedMatches}}/{{.TotalMatches}} partidos
         </div>
