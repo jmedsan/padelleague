@@ -1489,3 +1489,175 @@ func TestRejectResultProposalEmptyCounterRejected(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+// --- buildThreadData unit tests (match-thread-split spec) ---
+
+func makeProposalWithStatus(tb testing.TB, app core.App, matchID, authorID, status string) *core.Record {
+	tb.Helper()
+	msg := makeProposal(tb, app, matchID, authorID)
+	msg.Set("proposal_status", status)
+	require.NoError(tb, app.Save(msg))
+	return msg
+}
+
+func makeSchedulingResponse(tb testing.TB, app core.App, matchID, authorID, parentID, content string) *core.Record {
+	tb.Helper()
+	col, err := app.FindCollectionByNameOrId("match_messages")
+	require.NoError(tb, err)
+	msg := core.NewRecord(col)
+	msg.Set("match", matchID)
+	msg.Set("author", authorID)
+	msg.Set("type", "scheduling_response")
+	msg.Set("content", content)
+	msg.Set("parent", parentID)
+	require.NoError(tb, app.Save(msg))
+	return msg
+}
+
+func TestBuildThreadData_TimelineReadOnly(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+
+	p1 := makePairTB(t, app, "TL-RO A")
+	p2 := makePairTB(t, app, "TL-RO B")
+	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
+	match := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
+
+	proposer := p1.GetString("player1")
+	responder := p2.GetString("player1")
+
+	prop := makeProposal(t, app, match.Id, proposer)
+	makeProposalWithStatus(t, app, match.Id, proposer, "rejected")
+	accepted := makeProposalWithStatus(t, app, match.Id, proposer, "accepted")
+	makeSchedulingResponse(t, app, match.Id, responder, accepted.Id,
+		responder+" aceptó la propuesta de "+proposer)
+
+	h := &ThreadHandler{app: app}
+	td := h.buildThreadData(match, match.Id, 2, true)
+
+	require.NotEmpty(t, td.Timeline, "timeline must have entries")
+
+	var hasAcceptResponse bool
+	for _, entry := range td.Timeline {
+		if entry.Kind == "response" {
+			hasAcceptResponse = true
+			assert.Contains(t, entry.Content, "aceptó la propuesta")
+		}
+		assert.NotEmpty(t, entry.CreatedAt, "entry must have CreatedAt")
+	}
+	assert.True(t, hasAcceptResponse, "acceptance response must appear as top-level timeline entry (P7)")
+
+	var proposalCount int
+	for _, entry := range td.Timeline {
+		if entry.Kind == "proposal" {
+			proposalCount++
+		}
+	}
+	assert.GreaterOrEqual(t, proposalCount, 1, "proposals must appear in timeline")
+
+	_ = td.Timeline[0].Kind
+	_ = td.Timeline[0].AuthorName
+	_ = td.Timeline[0].Content
+	_ = td.Timeline[0].CreatedAt
+	_ = td.Timeline[0].IsMyTeam
+
+	require.NotEmpty(t, td.SchedProposals)
+	found := false
+	for _, sp := range td.SchedProposals {
+		if sp.RecordID == prop.Id {
+			found = true
+			assert.Equal(t, "pending", sp.Status)
+		}
+	}
+	assert.True(t, found, "pending proposal must be in SchedProposals")
+}
+
+func TestBuildThreadData_HidesRejectedSched(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+
+	p1 := makePairTB(t, app, "HR A")
+	p2 := makePairTB(t, app, "HR B")
+	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
+	match := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
+
+	proposer := p1.GetString("player1")
+
+	pending := makeProposal(t, app, match.Id, proposer)
+	rejected := makeProposalWithStatus(t, app, match.Id, proposer, "rejected")
+
+	h := &ThreadHandler{app: app}
+	td := h.buildThreadData(match, match.Id, 2, true)
+
+	var ids []string
+	for _, sp := range td.SchedProposals {
+		ids = append(ids, sp.RecordID)
+	}
+	assert.Contains(t, ids, pending.Id, "pending proposal must appear")
+	assert.NotContains(t, ids, rejected.Id, "rejected proposal must be hidden (P2)")
+}
+
+func TestBuildThreadData_NoFinalUntilQuorum(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+
+	p1 := makePairTB(t, app, "NF A")
+	p2 := makePairTB(t, app, "NF B")
+	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
+	match := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "scheduled")
+
+	proposer := p1.GetString("player1")
+	makeResultProposal(t, app, match.Id, proposer, "6-3 6-4")
+
+	h := &ThreadHandler{app: app}
+
+	td := h.buildThreadData(match, match.Id, 2, true)
+	assert.False(t, td.ResultPanel.HasFinal, "must not show final before quorum (P4)")
+	require.Len(t, td.ResultPanel.Live, 1, "one live result proposal")
+	assert.Equal(t, "6-3 6-4", td.ResultPanel.Live[0].Score)
+
+	winner, _ := league.DetermineWinner(match, "6-3 6-4")
+	match.Set("status", league.StatusFinal)
+	match.Set("scores", "6-3 6-4")
+	match.Set("winner", winner)
+	require.NoError(t, app.Save(match))
+
+	td2 := h.buildThreadData(match, match.Id, 2, true)
+	assert.True(t, td2.ResultPanel.HasFinal, "must show final after quorum (P4)")
+	assert.Equal(t, "6-3 6-4", td2.ResultPanel.FinalScore)
+	assert.NotEmpty(t, td2.ResultPanel.WinnerName)
+	assert.Empty(t, td2.ResultPanel.Live, "no live proposals when final")
+}
+
+func TestBuildThreadData_BothLiveProposals(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+
+	p1 := makePairTB(t, app, "BL A")
+	p2 := makePairTB(t, app, "BL B")
+	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
+	match := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "scheduled")
+
+	p1Player := p1.GetString("player1")
+	p2Player := p2.GetString("player1")
+
+	makeResultProposal(t, app, match.Id, p1Player, "6-3 6-4")
+	makeResultProposal(t, app, match.Id, p2Player, "3-6 6-4 6-3")
+
+	h := &ThreadHandler{app: app}
+
+	td := h.buildThreadData(match, match.Id, 2, true)
+	require.Len(t, td.ResultPanel.Live, 2, "deadlock: both proposals live (P5)")
+
+	for _, lp := range td.ResultPanel.Live {
+		assert.NotEmpty(t, lp.PairLabel, "each live proposal must have PairLabel")
+	}
+
+	awaitingCount := 0
+	for _, lp := range td.ResultPanel.Live {
+		if lp.AwaitingMe {
+			awaitingCount++
+		}
+	}
+	assert.Equal(t, 1, awaitingCount, "exactly one proposal awaiting viewer (P5)")
+}
