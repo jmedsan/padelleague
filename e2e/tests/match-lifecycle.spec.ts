@@ -12,15 +12,27 @@ test.describe('match lifecycle', () => {
 
   test('player can submit score', async ({ page }, testInfo) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.goto(`/match/${scratchMatchId("submit-score", testInfo.project.name)}`);
+    const matchId = scratchMatchId("submit-score", testInfo.project.name);
+
+    // Set date+club via superuser API so score form is visible
+    const suAuth = await page.request.post('/api/collections/_superusers/auth-with-password', {
+      data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+    });
+    const suToken = (await suAuth.json()).token;
+    await page.request.patch(`/api/collections/matches/records/${matchId}`, {
+      headers: { Authorization: suToken },
+      data: { date: '2025-03-15', club: 'Padel 360' },
+    });
+
+    await page.goto(`/match/${matchId}`);
     await expect(page.locator('.score-btn').first()).toBeVisible({ timeout: 5000 });
     for (const [f, v] of [['s1a','6'],['s1b','3'],['s2a','6'],['s2b','4']]) {
       await page.$eval(`input[name="${f}"]`, (el, val) => { (el as HTMLInputElement).value = val; }, v);
     }
     await page.getByRole('button', { name: 'Enviar resultado' }).click();
     await page.waitForLoadState('networkidle');
+    // After proposal-based flow, the result appears as a proposal in the thread
     await expect(page.getByText('6-3 6-4').first()).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText(/esperando confirmaci[oó]n/i).first()).toBeVisible({ timeout: 5000 });
   });
 
   test('home page shows matches', async ({ page }) => {

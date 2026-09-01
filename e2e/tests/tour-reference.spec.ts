@@ -6,11 +6,11 @@ import {
 } from '../season-helpers';
 import {
   createPlayer, createCompetition, createPair, addPairToCompetition, markAllPairsPaid,
-  generateFixtures, submitScore, confirmScore, disputeScore, resolveDispute,
+  generateFixtures, submitScore, confirmScore,
   createDocument, attachDocumentToCompetition, acceptDocsGate,
   clickAndWaitForHxRedirect,
   assertFinalStandings, assertPlayoffChampion,
-  lookupPlayerId, getRoundMatches, getMatchById,
+  lookupPlayerId, getRoundMatches, getMatchById, setMatchDateAndClub,
 } from '../tour-helpers';
 
 const RUN_ID = uniqueSuffix();
@@ -193,25 +193,18 @@ test.describe('reference navigation tour', () => {
       const submitterEmail = playerEmailForPair(f.pair1Label, 0);
       const confirmerEmail = playerEmailForPair(f.pair2Label, 0);
 
+      // Set date+club so score submission is enabled
+      await setMatchDateAndClub(page.request, suToken, f.id, '2025-03-15', 'Padel 360');
+
       // Submitter logs in, navigates to match page
       await loginAs(page, submitterEmail, PLAYER_PASSWORD);
       await gotoMatchViaCompetition(page, f.id);
       await submitScore(page, f.orientedScore);
 
-      // Confirmer logs in, navigates to match
+      // Opponent accepts the result proposal
       await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
       await gotoMatchViaCompetition(page, f.id);
-      if (fixtureIndex === 0) {
-        await disputeScore(page);
-        await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-        await gotoMatchViaCompetition(page, f.id);
-        const resolveForm = page.locator(`form[hx-post="/admin/disputes/${f.id}/resolve"]`);
-        await expect(resolveForm).toBeVisible();
-        await expect(resolveForm.locator('input[name="score"]')).toHaveValue(f.orientedScore);
-        await resolveDispute(page, f.id, f.orientedScore);
-      } else {
-        await confirmScore(page);
-      }
+      await confirmScore(page);
 
       // Verify final
       const matchData = await getMatchById(page.request, suToken, f.id);
@@ -364,8 +357,15 @@ test.describe('reference navigation tour', () => {
 // ---------------------------------------------------------------------------
 
 async function gotoMatchViaCompetition(page: Page, matchId: string): Promise<void> {
-  await page.goto(`/match/${matchId}`);
+  const url = `/match/${matchId}`;
+  await page.goto(url);
   await page.waitForLoadState('domcontentloaded');
+  // Doc gate may redirect to the competition page — accept and re-navigate
+  if (await page.getByRole('heading', { name: 'Documentos obligatorios' }).isVisible().catch(() => false)) {
+    await acceptDocsGate(page);
+    await page.goto(url);
+    await page.waitForLoadState('domcontentloaded');
+  }
 }
 
 async function mapFixturesToScores(request: APIRequestContext): Promise<MatchFixture[]> {
@@ -402,6 +402,8 @@ async function mapFixturesToScores(request: APIRequestContext): Promise<MatchFix
 async function playPlayoffMatch(page: Page, match: any, winnerLabel: PairId, winnerScore: string) {
   const p1Label = idToLabel(match.pair1);
   const oriented = p1Label === winnerLabel ? winnerScore : orientScore(winnerScore, true);
+
+  await setMatchDateAndClub(page.request, suToken, match.id, '2025-03-15', 'Padel 360');
 
   const submitterEmail = playerEmailForPair(p1Label, 0);
   const confirmerEmail = playerEmailForPair(idToLabel(match.pair2), 0);
