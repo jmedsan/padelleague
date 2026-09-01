@@ -101,11 +101,14 @@ test.describe('notification dismiss and history', () => {
     const dismissRow = mobileDropdownContainer.locator(`#notif-row-${dismissId}`);
     await expect(dismissRow).toBeVisible({ timeout: 5000 });
 
-    // Dismiss — click and wait for network response before checking DOM
-    const dismissResponse = dismissRow.locator('button[aria-label="descartar"]').click();
-    await dismissResponse;
+    // Dismiss — click and wait for the HTMX request to complete
+    const dismissBtn = dismissRow.locator('button[aria-label="descartar"]');
+    await Promise.all([
+      page.waitForResponse(resp => resp.url().includes('/dismiss') && resp.status() === 200),
+      dismissBtn.click(),
+    ]);
 
-    // Mobile badge decremented (OOB swap updates it even if dropdown closed)
+    // Wait for OOB swap to update badge
     await expect(mobileBadge).toContainText('1', { timeout: 10000 });
 
     // Re-open dropdown to verify row is gone
