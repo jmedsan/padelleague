@@ -55,11 +55,11 @@ func TestHomeGen2_NextMatchFromFirstPending(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "home sets nextMatch from first pending match",
+		Name:            "home synthesizes organize action for unscheduled next match",
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"NMOpp", "Sin programar"},
+		ExpectedContent: []string{"NMOpp", "Propón una fecha"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -116,11 +116,11 @@ func TestHomeGen2_AcceptedProposalShowsConfirmado(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "accepted proposal shows Confirmado with date",
+		Name:            "accepted proposal shows play action with date and venue",
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Confirmado", "15/09/2026 18:00", "Padel 360"},
+		ExpectedContent: []string{"Próximo partido", "15/09/2026 18:00", "Padel 360"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -142,11 +142,11 @@ func TestHomeGen2_PendingProposalShowsPropuestaEnviada(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "pending proposal shows Propuesta enviada with date",
+		Name:            "pending proposal shows play action with date",
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Propuesta enviada", "01/10/2026 20:00"},
+		ExpectedContent: []string{"Próximo partido", "01/10/2026 20:00"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -588,14 +588,14 @@ func TestHome_UrgentTasksRanking(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "urgent tasks: dispute hero > play > organize in También",
+		Name:           "unified actions: dispute > play > organize ordered",
 		Method:         http.MethodGet,
 		URL:            "/",
 		ExpectedStatus: 200,
 		ExpectedContent: []string{
 			"Disputa abierta",
 			"DisputeOpp",
-			"También",
+			"Acciones pendientes",
 		},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -633,9 +633,7 @@ func TestHome_UrgentTasksRanking(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		// Hero card is the dispute (bg-error)
-		assert.Contains(tb, body, "bg-error text-error-content", "hero card must be dispute (error color)")
-		// También section has play and organize
+		assert.Contains(tb, body, "bg-error/10", "dispute action must use error accent")
 		assert.Contains(tb, body, "PlayOpp", "play task must appear")
 		assert.Contains(tb, body, "Próximo partido", "play task description")
 		assert.Contains(tb, body, "OrgOpp", "organize task must appear")
@@ -648,11 +646,11 @@ func TestHome_OrganizeWarningBadges(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "organize tasks show correct warning badges",
+		Name:            "organize tasks show correct warning accent",
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Vencido"},
+		ExpectedContent: []string{"Organiza antes del"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -676,7 +674,7 @@ func TestHome_OrganizeWarningBadges(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		assert.Contains(tb, body, "bg-warning text-warning-content", "overdue hero card must use warning color")
+		assert.Contains(tb, body, "bg-error/10", "overdue organize action must use error accent")
 		assert.Contains(tb, body, "Organiza antes del", "deadline text must appear")
 	}
 	s.Test(t)
@@ -1338,11 +1336,11 @@ func TestBuildHomeActions_NextMatchSynthesized(t *testing.T) {
 	assert.Contains(t, actions[0].Title, "Propón")
 
 	next.ScheduleStatus = "confirmed"
-	next.ProposedDate = "15/03 18:00"
+	next.ProposedDate = "2026-03-15 18:00"
 	actions = buildHomeActions(nil, nil, next)
 	require.Len(t, actions, 1)
 	assert.Equal(t, "play", actions[0].Kind, "scheduled NextMatch becomes play")
-	assert.Contains(t, actions[0].Detail, "15/03 18:00")
+	assert.Contains(t, actions[0].Detail, "15/03/2026 18:00")
 }
 
 func TestBuildHomeActions_NextMatchDedupWithTask(t *testing.T) {
