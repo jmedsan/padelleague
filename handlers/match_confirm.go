@@ -12,6 +12,8 @@ import (
 	"padelleague/league"
 )
 
+const ResultCorrectionWindow = 24 * time.Hour
+
 // MatchCorrect allows the submitting team to correct a pending result proposal.
 func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
@@ -123,7 +125,7 @@ func (h *MatchHandler) validateCorrectionWindow(e *core.RequestEvent, match *cor
 		return alertError(e, "No se encontró la fecha de envío")
 	}
 	dt, err := types.ParseDateTime(submittedAt)
-	if err != nil || time.Since(dt.Time()) >= 24*time.Hour {
+	if err != nil || time.Since(dt.Time()) >= ResultCorrectionWindow {
 		return alertError(e, "El plazo de 24 horas para corregir ha expirado")
 	}
 	return nil
