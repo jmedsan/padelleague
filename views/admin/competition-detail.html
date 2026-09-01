@@ -58,12 +58,6 @@
                         <input type="number" name="arrange_grace_days" value="{{or (.Competition.GetFloat "arrange_grace_days") 3}}" min="0" class="input input-bordered input-sm">
                     </div>
                     <div class="form-control mb-3">
-                        <label class="label cursor-pointer justify-start gap-3">
-                            <input type="checkbox" name="auto_flag" class="checkbox checkbox-sm" {{if .Competition.GetBool "auto_flag"}}checked{{end}}>
-                            <span class="label-text">Marcado automático de partidos</span>
-                        </label>
-                    </div>
-                    <div class="form-control mb-3">
                         <label class="label"><span class="label-text">Marcador walkover</span></label>
                         <input type="text" name="walkover_score" value="{{or (.Competition.GetString "walkover_score") "6-0 6-0"}}" class="input input-bordered input-sm">
                     </div>
