@@ -29,9 +29,11 @@ test.describe('match lifecycle', () => {
 
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${matchId}`);
+    await page.waitForLoadState('networkidle');
     await expect(page.locator('.score-cell').first()).toBeVisible({ timeout: 5000 });
     await enterScore(page, '6-3 6-4');
     await page.getByRole('button', { name: 'Enviar resultado' }).click();
+    await page.waitForURL(`**/match/${matchId}`, { timeout: 10000 });
     await page.waitForLoadState('networkidle');
     await expect(page.getByText('6-3 6-4').first()).toBeVisible({ timeout: 5000 });
   });
@@ -95,10 +97,14 @@ test.describe('match lifecycle', () => {
       data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
     });
     const suToken = (await suAuth.json()).token;
-    await page.request.patch(`/api/collections/matches/records/${matchId}`, {
+    const resolveResp = await page.request.patch(`/api/collections/matches/records/${matchId}`, {
       headers: { Authorization: suToken },
       data: { status: 'disputed', scores: '6-3 6-4', disputed_scores: '4-6 6-3 7-5', review_type: 'score' },
     });
+    if (!resolveResp.ok()) {
+      const body = await resolveResp.text();
+      throw new Error(`admin-resolve patch failed: ${resolveResp.status()} ${body}`);
+    }
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto(`/match/${matchId}`);
     const resolveForm = page.locator('form[hx-post*="disputes"]').filter({ has: page.locator('button:has-text("Resolver")') });
