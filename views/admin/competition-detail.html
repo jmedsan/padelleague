@@ -144,33 +144,6 @@
     </div>
 </div>
 
-<!-- Fechas de jornada (accordion — collapsed once started) -->
-{{if and .IsLeague .RoundDates}}
-<div class="collapse collapse-arrow bg-base-100 shadow mb-6" data-testid="section-round-dates" id="round-schedule">
-    <input type="checkbox" {{if not .HasFixtures}}checked{{end}}>
-    <div class="collapse-title text-lg font-bold">Fechas límite por jornada</div>
-    <div class="collapse-content">
-        <div class="flex justify-end mb-2">
-            <button hx-post="/admin/competitions/{{.Competition.Id}}/round-dates/regenerate"
-                    hx-confirm="¿Regenerar las fechas? Esto sobrescribe las fechas editadas."
-                    class="btn btn-ghost btn-sm">Regenerar fechas</button>
-        </div>
-        <form hx-post="/admin/competitions/{{.Competition.Id}}/round-dates" class="space-y-2">
-            {{range .RoundDates}}
-            <div class="flex items-center gap-3">
-                <span class="text-sm font-medium w-24">Jornada {{.Number}}</span>
-                <input type="date" name="round_date_{{.Number}}" value="{{.Date}}"
-                       class="input input-bordered input-sm flex-1 max-w-xs">
-            </div>
-            {{end}}
-            <div class="mt-3">
-                <button type="submit" class="btn btn-primary btn-sm">Guardar fechas</button>
-            </div>
-        </form>
-    </div>
-</div>
-{{end}}
-
 <!-- Parejas (accordion — collapsed when started and all paid) -->
 <div class="collapse collapse-arrow bg-base-100 shadow mb-6" data-testid="section-parejas">
     <input type="checkbox" {{if not (and .HasFixtures (not .HasUnpaid))}}checked{{end}}>
@@ -340,6 +313,33 @@
         </div>
     </div>
 </div>
+
+<!-- Fechas de jornada (accordion — collapsed once started) -->
+{{if and .IsLeague .RoundDates}}
+<div class="collapse collapse-arrow bg-base-100 shadow mb-6" data-testid="section-round-dates" id="round-schedule">
+    <input type="checkbox" {{if not .HasFixtures}}checked{{end}}>
+    <div class="collapse-title text-lg font-bold">Fechas límite por jornada</div>
+    <div class="collapse-content">
+        <div class="flex justify-end mb-2">
+            <button hx-post="/admin/competitions/{{.Competition.Id}}/round-dates/regenerate"
+                    hx-confirm="¿Regenerar las fechas? Esto sobrescribe las fechas editadas."
+                    class="btn btn-ghost btn-sm">Regenerar fechas</button>
+        </div>
+        <form hx-post="/admin/competitions/{{.Competition.Id}}/round-dates" class="space-y-2">
+            {{range .RoundDates}}
+            <div class="flex items-center gap-3">
+                <span class="text-sm font-medium w-24">Jornada {{.Number}}</span>
+                <input type="date" name="round_date_{{.Number}}" value="{{.Date}}"
+                       class="input input-bordered input-sm flex-1 max-w-xs">
+            </div>
+            {{end}}
+            <div class="mt-3">
+                <button type="submit" class="btn btn-primary btn-sm">Guardar fechas</button>
+            </div>
+        </form>
+    </div>
+</div>
+{{end}}
 
 <!-- Documentos -->
 <div class="card bg-base-100 shadow mb-6">
