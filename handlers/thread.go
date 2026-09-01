@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -121,6 +122,196 @@ func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, 
 		topLevel = append(topLevel, *tm)
 	}
 	return topLevel
+}
+
+// ThreadData is the full match-thread view-model: read-only history plus the
+// action panels (scheduling proposals and the result box).
+type ThreadData struct {
+	Timeline       []TimelineEntryVM // read-only history lines, oldest→newest
+	SchedProposals []SchedProposalVM // non-rejected scheduling proposals, newest first
+	ResultPanel    ResultPanelVM     // live result proposal(s) or the final result
+}
+
+// TimelineEntryVM is one read-only history line in the timeline.
+type TimelineEntryVM struct {
+	Kind       string // "proposal" | "response" | "event" | "chat"
+	AuthorName string
+	IsMyTeam   bool
+	Content    string
+	CreatedAt  string // render.FmtShortTime — DD/MM HH:MM
+}
+
+// SchedProposalVM is one non-rejected scheduling proposal in the details panel.
+type SchedProposalVM struct {
+	RecordID          string
+	MatchID           string
+	AuthorLabel       string
+	Data              *ProposalData
+	Status            string // "pending" | "accepted" | "superseded"
+	IsAccepted        bool
+	CanRespond        bool
+	CanChangeDecision bool
+	CreatedAt         string
+}
+
+// ResultPanelVM is the result box: the final result once quorum is reached,
+// otherwise the live result proposal(s) awaiting a response.
+type ResultPanelVM struct {
+	HasFinal   bool
+	FinalScore string
+	WinnerName string
+	Live       []ResultProposalVM
+}
+
+// ResultProposalVM is one live result proposal in the result box.
+type ResultProposalVM struct {
+	RecordID     string
+	MatchID      string
+	PairLabel    string
+	Score        string
+	AwaitingMe   bool
+	CanRespond   bool
+	ScoreCounter ScoreInputVM
+}
+
+func (h *ThreadHandler) buildThreadData(match *core.Record, matchID string, myTeam int, compModifiable bool) ThreadData {
+	messages, _ := h.app.FindRecordsByFilter("match_messages",
+		"match = {:mid}", "created", 0, 0,
+		map[string]any{"mid": matchID})
+
+	pair1Players := league.PlayersForPair(h.app, match.GetString("pair1"))
+	pair2Players := league.PlayersForPair(h.app, match.GetString("pair2"))
+	pairNames := league.PairNames(h.app, []string{match.GetString("pair1"), match.GetString("pair2")})
+	nameCache := make(map[string]string)
+
+	var td ThreadData
+
+	matchStatus := match.GetString("status")
+
+	if matchStatus == league.StatusFinal {
+		td.ResultPanel.HasFinal = true
+		td.ResultPanel.FinalScore = match.GetString("scores")
+		winnerID := match.GetString("winner")
+		if name, ok := pairNames[winnerID]; ok {
+			td.ResultPanel.WinnerName = name
+		}
+	}
+
+	for _, msg := range messages {
+		authorID := msg.GetString("author")
+		authorTeam := playerTeamOf(authorID, pair1Players, pair2Players)
+		if _, ok := nameCache[authorID]; !ok {
+			nameCache[authorID] = league.PlayerName(h.app, authorID)
+		}
+
+		msgType := msg.GetString("type")
+		status := msg.GetString("proposal_status")
+		created := render.FmtShortTime(msg.GetDateTime("created").Time())
+
+		authorName := nameCache[authorID]
+		if msgType == "scheduling_proposal" || msgType == "result_submission" ||
+			msgType == "scheduling_response" || msgType == "result_response" {
+			authorName = pairPlayerLabel(h.app, authorID, match)
+		}
+
+		kind := timelineKind(msgType)
+		content := timelineContent(msg, msgType)
+
+		td.Timeline = append(td.Timeline, TimelineEntryVM{
+			Kind:       kind,
+			AuthorName: authorName,
+			IsMyTeam:   myTeam != 0 && authorTeam == myTeam,
+			Content:    content,
+			CreatedAt:  created,
+		})
+
+		if msgType == "scheduling_proposal" && status != "rejected" {
+			sameTeamOrOutsider := authorTeam == myTeam || myTeam == 0
+			canRespond, canChange := proposalActions(msgType, matchStatus, sameTeamOrOutsider, status)
+			canRespond = canRespond && compModifiable
+			canChange = canChange && compModifiable
+
+			td.SchedProposals = append(td.SchedProposals, SchedProposalVM{
+				RecordID:          msg.Id,
+				MatchID:           matchID,
+				AuthorLabel:       authorName,
+				Data:              ParseProposalData(msg.GetString("proposal_data")),
+				Status:            status,
+				IsAccepted:        status == "accepted",
+				CanRespond:        canRespond,
+				CanChangeDecision: canChange,
+				CreatedAt:         created,
+			})
+		}
+
+		if msgType == "result_submission" && status == "pending" && !td.ResultPanel.HasFinal {
+			sameTeamOrOutsider := authorTeam == myTeam || myTeam == 0
+			canRespond, _ := proposalActions(msgType, matchStatus, sameTeamOrOutsider, status)
+			canRespond = canRespond && compModifiable
+
+			rp := ResultProposalVM{
+				RecordID:   msg.Id,
+				MatchID:    matchID,
+				PairLabel:  authorName,
+				Score:      msg.GetString("content"),
+				AwaitingMe: myTeam != 0 && authorTeam != myTeam,
+				CanRespond: canRespond,
+			}
+			if canRespond {
+				rp.ScoreCounter = ScoreInputVM{
+					FieldName: "counter_scores",
+					IDSuffix:  matchID + "-counter-" + msg.Id,
+					Pair1Name: pairNames[match.GetString("pair1")],
+					Pair2Name: pairNames[match.GetString("pair2")],
+				}
+			}
+			td.ResultPanel.Live = append(td.ResultPanel.Live, rp)
+		}
+	}
+
+	// Reverse SchedProposals so newest is first
+	for i, j := 0, len(td.SchedProposals)-1; i < j; i, j = i+1, j-1 {
+		td.SchedProposals[i], td.SchedProposals[j] = td.SchedProposals[j], td.SchedProposals[i]
+	}
+
+	return td
+}
+
+func timelineKind(msgType string) string {
+	switch msgType {
+	case "scheduling_proposal", "result_submission":
+		return "proposal"
+	case "scheduling_response", "result_response":
+		return "response"
+	case "result_event", "admin_action":
+		return "event"
+	default:
+		return "chat"
+	}
+}
+
+func timelineContent(msg *core.Record, msgType string) string {
+	content := msg.GetString("content")
+	if msgType == "scheduling_proposal" {
+		pd := ParseProposalData(msg.GetString("proposal_data"))
+		if pd != nil {
+			parts := []string{pd.Date}
+			if pd.Time != "" {
+				parts = append(parts, pd.Time)
+			}
+			if pd.VenueName != "" {
+				parts = append(parts, pd.VenueName)
+			}
+			return "Propuesta: " + fmt.Sprintf("%s", strings.Join(parts, ", "))
+		}
+	}
+	if msgType == "result_submission" {
+		pd := ParseProposalData(msg.GetString("proposal_data"))
+		if pd != nil && pd.Scores != "" {
+			return "Resultado propuesto: " + pd.Scores
+		}
+	}
+	return content
 }
 
 type threadBuildCtx struct {
