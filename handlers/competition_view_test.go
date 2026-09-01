@@ -77,7 +77,7 @@ func TestCompetitionCardAdminSummaryHasStats(t *testing.T) {
 		TestAppFactory: testAppFactory,
 		Name:           "admin dashboard competition card shows stats",
 		Method:         http.MethodGet,
-		URL:            "/admin",
+		URL:            "/admin/competitions",
 		ExpectedStatus: http.StatusOK,
 		ExpectedContent: []string{
 			"CV Admin League",

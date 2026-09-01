@@ -40,7 +40,8 @@ func setupAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g := e.Router.Group("/admin")
 	g.BindFunc(requireAuthTest)
 	g.BindFunc(requireAdminTest)
-	g.GET("", dash.Dashboard)
+	g.GET("", dash.AdminEntry)
+	g.GET("/competitions", dash.Dashboard)
 	g.GET("/competitions/{id}", comp.Detail)
 	g.POST("/competitions", comp.Create)
 	g.GET("/players", player.Players)
@@ -114,9 +115,9 @@ func TestAdminWithAdminAuth(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "GET /admin with admin auth returns dashboard",
+		Name:            "GET /admin/competitions with admin auth returns dashboard",
 		Method:          http.MethodGet,
-		URL:             "/admin",
+		URL:             "/admin/competitions",
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Competiciones"},
 	}
@@ -240,7 +241,7 @@ func TestDashboardWithIssues(t *testing.T) {
 		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin dashboard exercises issue classification",
 		Method:          http.MethodGet,
-		URL:             "/admin",
+		URL:             "/admin/competitions",
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Competiciones"},
 	}

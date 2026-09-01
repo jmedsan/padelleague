@@ -64,6 +64,7 @@ test.describe('admin management', () => {
     await page.getByRole('button', { name: /nueva invitaci[oó]n/i }).click();
     const invEmail = `inv-${Date.now()}@test.com`;
     await page.locator('#modal-create input[name="email"]').fill(invEmail);
+    await page.locator('#modal-create select[name="competition"]').selectOption({ index: 1 });
     await Promise.all([
       page.waitForEvent('load', { timeout: 10000 }),
       page.locator('#modal-create button[type="submit"]').click(),
@@ -86,10 +87,10 @@ test.describe('admin management', () => {
 
   test('R-168: competition detail sections are collapsed accordions when started', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await navToAdmin(page, '/admin');
-    await page.waitForLoadState('networkidle');
-    const compLink = page.locator('a[href^="/admin/competitions/"]').first();
-    await compLink.click();
+    // Navigate to dashboard, then click into the first competition
+    await page.goto('/admin/competitions');
+    await page.waitForLoadState('domcontentloaded');
+    await page.locator('a[href^="/admin/competitions/"]').first().click();
     await page.waitForLoadState('networkidle');
 
     // Verify accordion sections exist with collapse class
@@ -120,7 +121,8 @@ test.describe('admin management', () => {
 
   test('R-226: gender_type field is a dropdown with Spanish labels', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await navToAdmin(page, '/admin');
+    await page.goto('/admin/competitions');
+    await page.waitForLoadState('domcontentloaded');
     await page.getByRole('button', { name: /crear competici[oó]n/i }).first().click();
     const dialog = page.locator('dialog#modal-create');
     await expect(dialog).toBeVisible();
