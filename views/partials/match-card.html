@@ -27,65 +27,44 @@
         {{end}}
         {{end}}
 
+        {{/* Result + dispute + actions render here ONLY on summary/row surfaces
+             (home Alertas, admin disputes list). On the FULL match page the sole
+             result surface is resultPanel in the thread fragment — no duplicate. */}}
+        {{if not .Mode.Full}}
         {{if eq (.Match.GetString "status") "disputed"}}
-        {{/* Read-only disputed results as boxes (context for everyone). The admin
-             gets a clickable copy in the resolve area below. */}}
         {{if not (eq .ReviewType "walkover")}}
-        {{if not (and .Mode.Admin .Mode.Editable)}}
         <div class="space-y-2">
             {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "Score" .SubmittedScore "Note" .DisputeNotes)}}
-            {{if .DisputedScore}}
-            {{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore)}}
-            {{end}}
+            {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore)}}{{end}}
         </div>
-        {{end}}
-        {{end}}
-        {{if eq .ReviewType "walkover"}}
+        {{else}}
         <div class="alert alert-warning mt-3">
             <span>Solicitud de incomparecencia por {{.RequestedBy}}{{if .DisputeNotes}}: {{.DisputeNotes}}{{end}}</span>
         </div>
         {{end}}
         {{end}}
 
-        {{if and .Mode.Admin (not .Mode.Full)}}
+        {{if .Mode.Admin}}
         <a href="/match/{{.Match.Id}}" class="link link-primary text-xs">Ver partido completo →</a>
+        {{if .Mode.Editable}}{{template "matchAdminControls" .}}{{end}}
         {{end}}
-
-        {{if and .Mode.Admin .Mode.Editable}}
-        {{template "matchAdminControls" .}}
-        {{end}}
-
-        {{if and .Mode.Editable (not .Mode.Admin)}}
-        {{template "matchPlayerActions" .}}
-        {{end}}
+        {{end}}{{/* not .Mode.Full */}}
     </div>
 </div>
 {{end}}
 
+{{/* matchAdminControls — summary-surface admin block (disputes list). The full
+     match page uses resultPanel instead. Admin-override lives here + in resultPanel
+     via the shared "adminOverride" define. */}}
 {{define "matchAdminControls"}}
 <div class="divider my-2"></div>
 {{if eq (.Match.GetString "status") "disputed"}}
-    {{if eq .ReviewType "walkover"}}
-    <form hx-post="/admin/disputes/{{.Match.Id}}/walkover-approve" hx-target="closest .card" hx-swap="outerHTML">
-        <div class="flex flex-wrap gap-3 items-end">
-            <div class="form-control">
-                <label class="label"><span class="label-text">Ganador</span></label>
-                <select name="winner" class="select select-bordered select-sm" required>
-                    <option value="">Seleccionar</option>
-                    <option value="{{.Match.GetString "pair1"}}">{{.Pair1Name}}</option>
-                    <option value="{{.Match.GetString "pair2"}}">{{.Pair2Name}}</option>
-                </select>
-            </div>
-            <button type="submit" class="btn btn-warning btn-sm">Aprobar incomparecencia</button>
-        </div>
-    </form>
+    {{if eq .ReviewType "walkover"}}{{template "matchWalkoverApprove" .}}
     {{else}}
     <div class="dispute-resolve">
         <div class="space-y-2 mb-3">
             {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "Score" .SubmittedScore "Note" .DisputeNotes "FillScore" .SubmittedScore)}}
-            {{if .DisputedScore}}
-            {{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore "FillScore" .DisputedScore)}}
-            {{end}}
+            {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore "FillScore" .DisputedScore)}}{{end}}
         </div>
         <form hx-post="/admin/disputes/{{.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
             <label class="label"><span class="label-text">Marcador final</span></label>
@@ -94,7 +73,28 @@
         </form>
     </div>
     {{end}}
-{{else}}
+{{else}}{{template "adminOverride" .}}{{end}}
+{{end}}
+
+{{/* matchWalkoverApprove — admin approves an incomparecencia. */}}
+{{define "matchWalkoverApprove"}}
+<form hx-post="/admin/disputes/{{.Match.Id}}/walkover-approve" hx-target="closest .card" hx-swap="outerHTML" class="mt-2">
+    <div class="flex flex-wrap gap-3 items-end">
+        <div class="form-control">
+            <label class="label"><span class="label-text">Ganador</span></label>
+            <select name="winner" class="select select-bordered select-sm" required>
+                <option value="">Seleccionar</option>
+                <option value="{{.Match.GetString "pair1"}}">{{.Pair1Name}}</option>
+                <option value="{{.Match.GetString "pair2"}}">{{.Pair2Name}}</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-warning btn-sm">Aprobar incomparecencia</button>
+    </div>
+</form>
+{{end}}
+
+{{/* adminOverride — admin correction (score/date/place) for a non-disputed match. */}}
+{{define "adminOverride"}}
 <div class="card bg-warning/5 border border-warning/20 rounded-xl">
     <div class="collapse collapse-arrow">
         <input type="checkbox" class="peer">
@@ -119,9 +119,7 @@
                     <label class="label py-1"><span class="label-text text-xs">Club</span></label>
                     <select name="venue_id" class="select select-bordered select-sm w-full">
                         <option value="">Sin cambios</option>
-                        {{range .Venues}}
-                        <option value="{{.Id}}">{{.GetString "name"}}</option>
-                        {{end}}
+                        {{range .Venues}}<option value="{{.Id}}">{{.GetString "name"}}</option>{{end}}
                     </select>
                 </div>
                 <div class="form-control mb-3">
@@ -134,40 +132,14 @@
     </div>
 </div>
 {{end}}
-{{end}}
 
-{{define "matchPlayerActions"}}
-<div id="action-result"></div>
-
-{{if .CanSubmit}}
-{{if not .HasDateAndPlace}}
-<div class="alert alert-info mb-4">
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-    <span>Primero propón una fecha y lugar en el hilo del partido.</span>
-</div>
-{{else}}
-<div class="card bg-base-200/50 rounded-xl mb-4">
-    <div class="card-body p-4">
-        <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Registrar resultado</h3>
-        <form hx-post="/match/{{.Match.Id}}/submit" hx-target="#action-result">
-            <label class="label py-1"><span class="label-text text-xs">Resultado</span></label>
-            {{template "scoreInput" .ScoreSubmit}}
-            <button type="submit" class="btn btn-primary mt-4 w-full">Enviar resultado</button>
-        </form>
-    </div>
-</div>
-{{end}}{{/* HasDateAndPlace */}}
-{{end}}{{/* CanSubmit */}}
-
-{{if .CanWalkover}}
-<div class="text-center mb-4">
-    <button type="button" class="link link-warning text-xs" onclick="document.getElementById('walkover-modal-{{.Match.Id}}').showModal()">Reportar partido no jugado</button>
-</div>
+{{/* walkoverModal — player reports a match unplayed (used by resultPanel). */}}
+{{define "walkoverModal"}}
 <dialog id="walkover-modal-{{.Match.Id}}" class="modal">
     <div class="modal-box">
         <h3 class="font-bold text-lg mb-2">Reportar partido no jugado</h3>
         <p class="text-sm opacity-70 mb-4">Pasará a revisión del administrador. Si se aprueba como incomparecencia, se registrará el resultado por defecto y podría aplicarse una penalización de puntos al equipo responsable.</p>
-        <form hx-post="/match/{{.Match.Id}}/report-unplayed" hx-target="#action-result">
+        <form hx-post="/match/{{.Match.Id}}/report-unplayed" hx-target="body">
             <div class="form-control">
                 <label class="label py-1"><span class="label-text text-xs">Motivo</span></label>
                 <textarea name="reason" class="textarea textarea-bordered w-full" placeholder="¿Por qué no se jugó? (p. ej. el rival no se presentó)" required></textarea>
@@ -180,28 +152,6 @@
     </div>
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
-{{end}}
-
-
-{{if .CanCorrect}}
-<div class="card bg-base-200/50 rounded-xl mb-4">
-    <div class="card-body p-4">
-        <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Corregir marcador</h3>
-        <form hx-post="/match/{{.Match.Id}}/correct" hx-target="#action-result">
-            <label class="label py-1"><span class="label-text text-xs">Nuevo marcador</span></label>
-            {{template "scoreInput" .ScoreCorrect}}
-            <button type="submit" class="btn btn-warning mt-3 w-full">Corregir resultado</button>
-        </form>
-    </div>
-</div>
-{{end}}
-
-{{if eq (.Match.GetString "status") "disputed"}}
-<div class="alert alert-warning mb-4">
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-    <span>En disputa — esperando resolución del administrador</span>
-</div>
-{{end}}
 {{end}}
 
 {{define "matchRow"}}
@@ -291,19 +241,59 @@
 {{end}}
 {{end}}
 
+{{/* resultPanel — THE single result component. All result logic/actions/
+     presentation, gated by state (final | disputed | pending | can-submit) and
+     mode (player vs admin). No other component renders result forms. */}}
 {{define "resultPanel"}}
-<div class="mt-4">
+{{$c := .Card}}
+{{$status := $c.Match.GetString "status"}}
+<div class="mt-4" id="result-panel">
     {{if .ResultPanel.HasFinal}}
+    {{/* State: FINAL / accepted */}}
     <div class="card bg-success/10 border border-success/20 rounded-xl">
         <div class="card-body p-4 text-center">
             <h3 class="font-bold text-sm uppercase tracking-wider opacity-50">Resultado final</h3>
             <p class="text-2xl font-black tracking-wide my-2">{{.ResultPanel.FinalScore}}</p>
-            {{if .ResultPanel.WinnerName}}
-            <p class="text-sm font-medium text-success">Ganador: {{.ResultPanel.WinnerName}}</p>
-            {{end}}
+            {{if .ResultPanel.WinnerName}}<p class="text-sm font-medium text-success">Ganador: {{.ResultPanel.WinnerName}}</p>{{end}}
         </div>
     </div>
+    {{if $c.CanCorrect}}
+    <div class="card bg-base-200/50 rounded-xl mt-3">
+        <div class="card-body p-4">
+            <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Corregir marcador</h3>
+            <form hx-post="/match/{{$c.Match.Id}}/correct" hx-target="body">
+                {{template "scoreInput" $c.ScoreCorrect}}
+                <button type="submit" class="btn btn-warning mt-3 w-full">Corregir resultado</button>
+            </form>
+        </div>
+    </div>
+    {{end}}
+
+    {{else if eq $status "disputed"}}
+    {{/* State: DISPUTED — the two proposals; admin gets clickable-to-fill + resolve */}}
+    <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Resultado en disputa</h3>
+    {{if eq $c.ReviewType "walkover"}}
+    <div class="alert alert-warning">
+        <span>Solicitud de incomparecencia por {{$c.RequestedBy}}{{if $c.DisputeNotes}}: {{$c.DisputeNotes}}{{end}}</span>
+    </div>
+    {{if and $c.Mode.Admin $c.Mode.Editable}}{{template "matchWalkoverApprove" $c}}{{end}}
+    {{else}}
+    {{$canResolve := and $c.Mode.Admin $c.Mode.Editable}}
+    <div class="dispute-resolve space-y-2">
+        {{template "resultBox" (dict "PairLabel" (or $c.SubmitterPairName "Propuesta") "Score" $c.SubmittedScore "Note" $c.DisputeNotes "FillScore" (ternary $canResolve $c.SubmittedScore ""))}}
+        {{if $c.DisputedScore}}{{template "resultBox" (dict "PairLabel" (or $c.DisputerPairName "Contrapropuesta") "Score" $c.DisputedScore "FillScore" (ternary $canResolve $c.DisputedScore ""))}}{{end}}
+        {{if $canResolve}}
+        <form hx-post="/admin/disputes/{{$c.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML" class="mt-2">
+            <label class="label"><span class="label-text">Marcador final</span></label>
+            {{template "scoreInput" $c.ScoreResolve}}
+            <button type="submit" class="btn btn-primary btn-sm mt-2">Resolver</button>
+        </form>
+        {{end}}
+    </div>
+    {{end}}
+
     {{else if .ResultPanel.Live}}
+    {{/* State: PENDING — rival proposal to confirm/counter */}}
     <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Resultado pendiente</h3>
     <div class="space-y-3">
         {{range .ResultPanel.Live}}
@@ -325,6 +315,33 @@
         {{end}}
         {{end}}
     </div>
+
+    {{else if $c.CanSubmit}}
+    {{/* State: NO RESULT YET — submit (needs date/place first) */}}
+    {{if $c.HasDateAndPlace}}
+    <div class="card bg-base-200/50 rounded-xl">
+        <div class="card-body p-4">
+            <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Registrar resultado</h3>
+            <form hx-post="/match/{{$c.Match.Id}}/submit" hx-target="body">
+                {{template "scoreInput" $c.ScoreSubmit}}
+                <button type="submit" class="btn btn-primary mt-4 w-full">Enviar resultado</button>
+            </form>
+        </div>
+    </div>
+    {{end}}
+    {{end}}
+
+    {{if $c.CanWalkover}}
+    <div class="text-center mt-3">
+        <button type="button" class="link link-warning text-xs" onclick="document.getElementById('walkover-modal-{{$c.Match.Id}}').showModal()">Reportar partido no jugado</button>
+    </div>
+    {{template "walkoverModal" $c}}
+    {{end}}
+
+    {{/* Admin override — always available to an admin (except while disputed, which
+         has its own resolve above). The single admin correction affordance. */}}
+    {{if and $c.Mode.Admin $c.Mode.Editable (ne $status "disputed")}}
+    <div class="mt-3">{{template "adminOverride" $c}}</div>
     {{end}}
 </div>
 {{end}}

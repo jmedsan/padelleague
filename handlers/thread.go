@@ -96,6 +96,21 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	venues, _ := h.app.FindRecordsByFilter("venues", "id != ''", "name", 0, 0, nil)
 	canPropose := isParticipant && league.IsPreScore(match.GetString("status")) && !isPlayoff && compModifiable
 
+	// The result surface lives ONLY here (resultPanel). Build the match card for
+	// the viewer so resultPanel can use the same submit/correct/walkover
+	// capability logic — no second result component in the top card.
+	resultMode := PlayerFull
+	if isAdmin {
+		resultMode = AdminFull
+	}
+	resultCard := NewMatchCard(h.app, match, resultMode, e.Auth.Id)
+	resultCard.Venues = venues
+	if !compModifiable {
+		resultCard.CanSubmit = false
+		resultCard.CanCorrect = false
+		resultCard.CanWalkover = false
+	}
+
 	var unpaidWarning string
 	if canPropose {
 		unpaidWarning = h.checkUnpaid(match, pair1ID, pair2ID)
@@ -106,6 +121,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		"Timeline":             td.Timeline,
 		"SchedProposals":       td.SchedProposals,
 		"ResultPanel":          td.ResultPanel,
+		"Card":                 resultCard,
 		"Venues":               venues,
 		"CanPost":              isParticipant || isAdmin,
 		"CanPropose":           canPropose,

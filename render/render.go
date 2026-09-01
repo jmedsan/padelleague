@@ -47,6 +47,12 @@ func New(viewsFS fs.FS, vapidPublicKey string) *Renderer {
 			}
 			return m
 		},
+		"ternary": func(cond bool, ifTrue, ifFalse any) any {
+			if cond {
+				return ifTrue
+			}
+			return ifFalse
+		},
 	})
 	return &Renderer{
 		registry:       reg,
