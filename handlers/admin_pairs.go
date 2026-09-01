@@ -42,6 +42,7 @@ func (h *PairHandler) Pairs(e *core.RequestEvent) error {
 	return h.renderPage(e, "admin/pairs.html", map[string]any{
 		"Pairs": views,
 		"Users": users,
+		"Mode":  AdminSummary,
 	})
 }
 

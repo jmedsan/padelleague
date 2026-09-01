@@ -1,9 +1,9 @@
 {{define "pairPlayers"}}
-{{if .Admin}}
+{{if .Mode.Admin}}
 <div class="flex items-center gap-3 mt-1">
-    {{template "playerCardIdentity" (dict "ID" .Player1ID "Name" .Player1Name "Linked" true)}}
+    {{template "playerCardIdentity" (dict "Mode" .Mode "ID" .Player1ID "Name" .Player1Name)}}
     <span class="text-base-content/60 text-xs font-bold">&amp;</span>
-    {{template "playerCardIdentity" (dict "ID" .Player2ID "Name" .Player2Name "Linked" true)}}
+    {{template "playerCardIdentity" (dict "Mode" .Mode "ID" .Player2ID "Name" .Player2Name)}}
 </div>
 {{else}}
 <table class="table table-sm">

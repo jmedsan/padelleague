@@ -1,22 +1,22 @@
 {{define "playerCardIdentity"}}
 <div class="flex items-center gap-3">
     <div class="avatar placeholder">
-        <div class="bg-primary/10 text-primary {{if .Large}}w-12{{else}}w-9{{end}} rounded-full">
+        <div class="bg-primary/10 text-primary {{if .Mode.Full}}w-12{{else}}w-9{{end}} rounded-full">
             {{if .Name}}
-            <span class="{{if .Large}}text-lg{{else}}text-sm{{end}} font-bold">{{slice .Name 0 1}}</span>
+            <span class="{{if .Mode.Full}}text-lg{{else}}text-sm{{end}} font-bold">{{slice .Name 0 1}}</span>
             {{else}}
-            <span class="{{if .Large}}text-lg{{else}}text-sm{{end}} font-bold">?</span>
+            <span class="{{if .Mode.Full}}text-lg{{else}}text-sm{{end}} font-bold">?</span>
             {{end}}
         </div>
     </div>
     <div>
-        {{if .Large}}<h1 class="text-2xl font-bold">{{end}}
-        {{if .Linked}}
+        {{if .Mode.Full}}<h1 class="text-2xl font-bold">{{end}}
+        {{if not .Mode.Row}}
         <a href="{{entityURL "player" .ID}}" class="font-medium link link-hover">{{if .Name}}{{.Name}}{{else}}<span class="opacity-60 italic">Sin nombre</span>{{end}}</a>
         {{else}}
         <span>{{if .Name}}{{.Name}}{{else}}<span class="opacity-60 italic">Sin nombre</span>{{end}}</span>
         {{end}}
-        {{if .Large}}</h1>{{end}}
+        {{if .Mode.Full}}</h1>{{end}}
         {{if not .Name}}<span class="badge badge-warning badge-xs ml-1">Pendiente</span>{{end}}
         {{if .Roles}}
         <div class="flex gap-1 mt-0.5">
