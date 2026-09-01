@@ -116,6 +116,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	actions := buildHomeActions(urgentTasks, pendingActions, nextMatch)
 
 	data["Competitions"] = comps
+	data["CompCount"] = len(comps)
 	data["Actions"] = actions
 	data["RecentResults"] = recentResults
 

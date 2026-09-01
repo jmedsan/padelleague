@@ -165,20 +165,31 @@
 </div>
 {{end}}
 
-{{if .Competitions}}
+{{if eq .CompCount 0}}
+<div class="card bg-base-100 shadow-md">
+    <div class="card-body text-center py-12">
+        <p class="text-lg opacity-60">No participas en ninguna competición activa</p>
+        <p class="text-sm opacity-40 mt-1">Pide a tu administrador que te añada a una competición</p>
+    </div>
+</div>
+{{else if eq .CompCount 1}}
+{{with index .Competitions 0}}
+<a href="{{.URL}}" class="card bg-primary text-primary-content shadow-lg" data-testid="single-comp-entry">
+    <div class="card-body">
+        <h2 class="card-title text-xl">Entrar a {{.Name}}</h2>
+        <p class="text-sm opacity-70">{{.PendingCount}} partidos pendientes</p>
+        <div class="card-actions mt-2">
+            <span class="btn btn-sm bg-white/20 border-0 hover:bg-white/30">Ver competición</span>
+        </div>
+    </div>
+</a>
+{{end}}
+{{else}}
 <h2 class="text-xl font-bold mb-4" data-testid="player-competitions-heading">Mis competiciones</h2>
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
     {{range .Competitions}}
     {{template "competitionCard" .}}
     {{end}}
-</div>
-{{else}}
-<div class="card bg-base-100 shadow-md">
-    <div class="card-body text-center py-12">
-        <span class="text-5xl mb-4 opacity-60">🏅</span>
-        <p class="text-lg opacity-60">No participas en ninguna competición activa</p>
-        <p class="text-sm opacity-40 mt-1">Pide a tu administrador que te añada a una competición</p>
-    </div>
 </div>
 {{end}}
 
