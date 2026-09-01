@@ -45,6 +45,10 @@ test.describe('match lifecycle', () => {
     await page.goto(`/match/${data.matchIds[0]}`);
     await expect(page.getByText('Pareja Alpha').first()).toBeVisible();
     await expect(page.getByText('Pareja Beta').first()).toBeVisible();
+    // Competition + round live in the breadcrumb; the match card must NOT repeat
+    // them on the full match page (kills the .Mode.Full gate if reverted).
+    await expect(page.locator('.breadcrumbs').getByText('Jornada', { exact: false })).toBeVisible();
+    await expect(page.locator('.card').getByText(/Jornada \d/)).toHaveCount(0);
   });
 
   test('player can submit score', async ({ page }, testInfo) => {

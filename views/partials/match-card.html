@@ -6,7 +6,9 @@
             <span class="badge {{.StatusClass}}">{{.StatusLabel}}</span>
         </div>
 
+        {{if not .Mode.Full}}
         <p class="text-sm opacity-60">{{if .CompetitionName}}{{.CompetitionName}} · {{end}}Jornada {{.RoundNum}}</p>
+        {{end}}
 
         {{if .Match.GetString "date"}}
         {{template "dateBox" (dict "Date" (.Match.GetString "date") "Time" (.Match.GetString "time") "Place" (.Match.GetString "club") "Court" (.Match.GetString "court_number") "Accepted" (or (eq (.Match.GetString "status") "scheduled") (eq (.Match.GetString "status") "final")))}}
