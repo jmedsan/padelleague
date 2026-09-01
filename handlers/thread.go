@@ -328,6 +328,9 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 	if err := checkDocGate(h.app, e, match); err != nil {
 		return err
 	}
+	if err := checkCompModifiable(h.app, e, match); err != nil {
+		return err
+	}
 
 	myTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
 	isAdmin := isEffectiveAdmin(e)
@@ -880,6 +883,9 @@ func (h *ThreadHandler) ProposalChangeDecision(e *core.RequestEvent) error {
 func (h *ThreadHandler) validateChangeDecision(e *core.RequestEvent, matchID, msgID string) (*core.Record, *core.Record, int, error) {
 	match, err := findMatchOr404(h.app, e, matchID)
 	if err != nil {
+		return nil, nil, 0, err
+	}
+	if err := checkDocGate(h.app, e, match); err != nil {
 		return nil, nil, 0, err
 	}
 	if err := checkCompModifiable(h.app, e, match); err != nil {
