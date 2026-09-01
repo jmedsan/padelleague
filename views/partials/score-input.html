@@ -1,30 +1,24 @@
+{{define "scoreOptions"}}<option value=""></option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>{{end}}
+
 {{define "scoreInput"}}
-<div class="score-input" data-suffix="{{.IDSuffix}}"{{if .Value}} data-value="{{.Value}}"{{end}}>
-    <div class="overflow-x-auto pb-2">
-        <table class="table table-compact w-full text-center">
-            <thead>
-                <tr>
-                    <th class="text-xs w-16"></th>
-                    <th class="text-xs">Set 1</th>
-                    <th class="text-xs">Set 2</th>
-                    <th class="text-xs set3-group hidden">Set 3</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td class="text-xs font-bold text-left py-1">{{.Pair1Name}}</td>
-                    <td class="py-1"><input type="text" name="s1a" inputmode="numeric" maxlength="1" class="input input-bordered input-sm w-10 text-center score-cell" autocomplete="off"></td>
-                    <td class="py-1"><input type="text" name="s2a" inputmode="numeric" maxlength="1" class="input input-bordered input-sm w-10 text-center score-cell" autocomplete="off"></td>
-                    <td class="py-1 set3-group hidden"><input type="text" name="s3a" inputmode="numeric" maxlength="2" class="input input-bordered input-sm w-12 text-center score-cell" autocomplete="off"></td>
-                </tr>
-                <tr>
-                    <td class="text-xs font-bold text-left py-1">{{.Pair2Name}}</td>
-                    <td class="py-1"><input type="text" name="s1b" inputmode="numeric" maxlength="1" class="input input-bordered input-sm w-10 text-center score-cell" autocomplete="off"></td>
-                    <td class="py-1"><input type="text" name="s2b" inputmode="numeric" maxlength="1" class="input input-bordered input-sm w-10 text-center score-cell" autocomplete="off"></td>
-                    <td class="py-1 set3-group hidden"><input type="text" name="s3b" inputmode="numeric" maxlength="2" class="input input-bordered input-sm w-12 text-center score-cell" autocomplete="off"></td>
-                </tr>
-            </tbody>
-        </table>
+<div class="score-input" data-suffix="{{.IDSuffix}}" data-pair1="{{.Pair1Name}}" data-pair2="{{.Pair2Name}}"{{if .Value}} data-value="{{.Value}}"{{end}}>
+    <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-1 score-set-group" data-set="1">
+            <select name="s1a" class="select select-bordered select-sm w-14 score-cell" aria-label="Set 1">{{template "scoreOptions"}}</select>
+            <span class="opacity-50">-</span>
+            <select name="s1b" class="select select-bordered select-sm w-14 score-cell" aria-label="Set 1">{{template "scoreOptions"}}</select>
+        </div>
+        <div class="flex items-center gap-1 score-set-group" data-set="2">
+            <select name="s2a" class="select select-bordered select-sm w-14 score-cell" aria-label="Set 2">{{template "scoreOptions"}}</select>
+            <span class="opacity-50">-</span>
+            <select name="s2b" class="select select-bordered select-sm w-14 score-cell" aria-label="Set 2">{{template "scoreOptions"}}</select>
+        </div>
+        <div class="flex items-center gap-1 score-set-group set3-group hidden" data-set="3">
+            <select name="s3a" class="select select-bordered select-sm w-14 score-cell" aria-label="Set 3">{{template "scoreOptions"}}</select>
+            <span class="opacity-50">-</span>
+            <select name="s3b" class="select select-bordered select-sm w-14 score-cell" aria-label="Set 3">{{template "scoreOptions"}}</select>
+        </div>
+        <span class="text-sm font-medium text-success score-winner"></span>
     </div>
     <input type="hidden" name="{{.FieldName}}" class="score-composed">
 </div>
