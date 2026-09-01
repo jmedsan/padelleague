@@ -46,13 +46,14 @@ type PlayerData struct {
 	Recent           []RecentMatch
 }
 
-// CompetitionStat holds win/loss totals for one competition on a player's profile.
+// CompetitionStat holds win/loss totals for one competition on a player or pair profile.
 type CompetitionStat struct {
-	CompID string
-	Name   string
-	Wins   int
-	Losses int
-	Played int
+	CompID   string
+	CompName string
+	Position int
+	Wins     int
+	Losses   int
+	Played   int
 }
 
 // RecentMatch holds a finalized match for the player's recent-results list.
@@ -289,7 +290,7 @@ func computeCompetitionStats(app core.App, results []matchResult) []CompetitionS
 			if comp, err := app.FindRecordById("competitions", r.compID); err == nil {
 				compName = comp.GetString("name")
 			}
-			cs = &CompetitionStat{Name: compName, CompID: r.compID}
+			cs = &CompetitionStat{CompName: compName, CompID: r.compID}
 			compStatsMap[r.compID] = cs
 		}
 		cs.Played++
@@ -307,7 +308,7 @@ func computeCompetitionStats(app core.App, results []matchResult) []CompetitionS
 	// order, so without this the profile table reordered on every page load.
 	// Do not remove this as redundant — it is the fix for that bug.
 	sort.Slice(compStats, func(i, j int) bool {
-		return compStats[i].Name < compStats[j].Name
+		return compStats[i].CompName < compStats[j].CompName
 	})
 	return compStats
 }

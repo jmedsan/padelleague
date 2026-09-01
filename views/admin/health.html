@@ -15,7 +15,7 @@
             {{if .Items}}
             <div class="space-y-1 mt-2">
                 {{range .Items}}
-                <a href="{{.URL}}" class="block px-3 py-2 text-sm rounded-lg hover:bg-base-200 transition-colors">{{.Label}}</a>
+                {{template "simpleLinkRow" .}}
                 {{end}}
             </div>
             {{if .ListURL}}

@@ -19,19 +19,7 @@
             </thead>
             <tbody>
                 {{range .Matches}}
-                <tr>
-                    <td>{{.CompetitionName}}</td>
-                    <td>{{.RoundNumber}}</td>
-                    <td>{{.Pair1}}</td>
-                    <td>{{.Pair2}}</td>
-                    <td>{{.Status}}</td>
-                    <td>{{if .ArrangeBy}}{{.ArrangeBy}}{{else}}—{{end}}</td>
-                    <td>
-                        {{if .ArrangeBy}}
-                        {{template "warningBadge" .Warning}}
-                        {{end}}
-                    </td>
-                </tr>
+                {{template "outstandingMatchDesktopRow" .}}
                 {{end}}
             </tbody>
         </table>
@@ -40,23 +28,7 @@
     <!-- Phone cards -->
     <div class="md:hidden space-y-3">
         {{range .Matches}}
-        <div class="card bg-base-100 shadow">
-            <div class="card-body p-4">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="font-medium">{{.Pair1}} vs {{.Pair2}}</p>
-                        <p class="text-sm opacity-60">{{.CompetitionName}} — Jornada {{.RoundNumber}}</p>
-                    </div>
-                    {{if .ArrangeBy}}
-                    {{template "warningBadge" .Warning}}
-                    {{end}}
-                </div>
-                <div class="text-sm opacity-60 mt-2">
-                    <p>Estado: {{.Status}}</p>
-                    <p>Fecha límite: {{if .ArrangeBy}}{{.ArrangeBy}}{{else}}—{{end}}</p>
-                </div>
-            </div>
-        </div>
+        {{template "outstandingMatchCard" .}}
         {{end}}
     </div>
 </div>
