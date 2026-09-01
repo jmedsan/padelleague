@@ -10,6 +10,7 @@
         <p class="text-sm opacity-60">{{if .CompetitionName}}{{.CompetitionName}} · {{end}}Jornada {{.RoundNum}}</p>
         {{end}}
 
+        {{if not (and .Mode.Full (not .Mode.Editable))}}
         {{if .Match.GetString "date"}}
         {{template "dateBox" (dict "Date" (.Match.GetString "date") "Time" (.Match.GetString "time") "Place" (.Match.GetString "club") "Court" (.Match.GetString "court_number") "Accepted" (or (eq (.Match.GetString "status") "scheduled") (eq (.Match.GetString "status") "final")))}}
         {{end}}
@@ -26,8 +27,6 @@
         </div>
         {{end}}
         {{end}}
-
-        {{if not (and .Mode.Full (not .Mode.Editable))}}
         {{if eq (.Match.GetString "status") "disputed"}}
         {{if eq .ReviewType "walkover"}}
         <div class="alert alert-warning mt-3">
