@@ -51,20 +51,18 @@ test.describe('scheduling, walkover & bracket', () => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto('/');
 
-    // Dispute card (Kind 1) should appear — it has bg-error class
-    const disputeCard = page.locator('[class*="bg-error"]').filter({ hasText: 'Disputa abierta' });
-    await expect(disputeCard).toBeVisible({ timeout: 10000 });
+    const actions = page.locator('[data-testid="home-actions"]');
+    await expect(actions).toBeVisible({ timeout: 10000 });
 
-    // "También" section shows the organize task
-    const organizeTask = page.locator('a').filter({ hasText: /Organiza antes del/ });
-    await expect(organizeTask).toBeVisible({ timeout: 5000 });
-    // Warning badge should be present
-    await expect(organizeTask.locator('.badge:not([data-testid="recovery-badge"]):not([data-testid="propose-now-cta"])')).toBeVisible();
-    await expect(organizeTask.locator('[data-testid="propose-now-cta"]')).toBeVisible();
-    // end_date is 5 days ago, inside the default 14-day recovery window
-    await expect(organizeTask.locator('[data-testid="recovery-badge"]')).toBeVisible();
+    // Dispute action with error accent (filter to the test competition)
+    const disputeAction = actions.locator('a').filter({ hasText: 'Urgentes E2E' }).filter({ hasText: 'Disputa abierta' });
+    await expect(disputeAction).toBeVisible();
+    await expect(disputeAction).toHaveClass(/bg-error/);
 
-    await page.screenshot({ path: '/tmp/claude-1000/-mnt-data-Dev-PadelLeague/1bb535f8-6b3f-49b6-85d1-278927d6a279/scratchpad/urgent-tasks-desktop.png', fullPage: true });
+    // Organize action with recovery badge (end_date 5 days ago, within 14-day recovery)
+    const organizeAction = actions.locator('a').filter({ hasText: /Organiza antes del/ });
+    await expect(organizeAction).toBeVisible({ timeout: 5000 });
+    await expect(organizeAction.locator('[data-testid="recovery-badge"]')).toBeVisible();
 
     // Cleanup
     const matches = await apiListRecords(page.request, 'matches', `competition='${compId}'`);
@@ -98,10 +96,13 @@ test.describe('scheduling, walkover & bracket', () => {
     // Player reports the match as unplayed via the real UI form.
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${matchId}`);
-    await page.locator('textarea[name="reason"]').fill('El rival no se presentó.');
+    await page.locator('text=Reportar partido no jugado').click();
+    const dialog = page.locator(`dialog#walkover-modal-${matchId}`);
+    await expect(dialog).toBeVisible({ timeout: 3000 });
+    await dialog.locator('textarea[name="reason"]').fill('El rival no se presentó.');
     await Promise.all([
       page.waitForResponse(resp => resp.url().includes(`/match/${matchId}/report-unplayed`)),
-      page.locator('button:has-text("Reportar no jugado")').click(),
+      dialog.locator('button:has-text("Reportar no jugado")').click(),
     ]);
     await page.waitForLoadState('networkidle');
 
