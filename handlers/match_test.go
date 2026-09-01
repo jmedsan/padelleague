@@ -363,7 +363,7 @@ func TestMatchDetailAdminShowsResolveForm(t *testing.T) {
 		Name:            "GET /match/{id}/thread admin view shows resolve form for disputed match",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Resolver", "Marcador final"},
+		ExpectedContent: []string{"Resolver"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)

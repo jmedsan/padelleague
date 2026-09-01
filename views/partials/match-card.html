@@ -12,7 +12,7 @@
 
         {{if not (and .Mode.Full (not .Mode.Editable))}}
         {{if .Match.GetString "date"}}
-        {{template "dateBox" (dict "Date" (.Match.GetString "date") "Time" (.Match.GetString "time") "Place" (.Match.GetString "club") "Court" (.Match.GetString "court_number") "Accepted" (or (eq (.Match.GetString "status") "scheduled") (eq (.Match.GetString "status") "final")))}}
+        {{template "dateBox" (dict "Date" (.Match.GetString "date") "Time" (.Match.GetString "time") "Place" (.Match.GetString "club") "Court" (.Match.GetString "court_number") "Accepted" (or (eq (.Match.GetString "status") "scheduled") (eq (.Match.GetString "status") "final")) "Mode" (dict "Row" true))}}
         {{end}}
 
         {{if eq (.Match.GetString "status") "final"}}
@@ -63,7 +63,6 @@
             {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore "Note" .DisputeNotes "FillScore" .DisputedScore)}}{{end}}
         </div>
         <form hx-post="/admin/disputes/{{.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
-            <label class="label"><span class="label-text">Marcador final</span></label>
             {{template "scoreInput" .ScoreResolve}}
             <button type="submit" class="btn btn-primary btn-sm mt-2">Resolver</button>
         </form>
@@ -189,7 +188,7 @@
             </div>
             {{if .Data}}
             <div class="mt-2">
-                {{template "dateBox" (dict "Date" .Data.Date "Time" .Data.Time "Place" .Data.VenueName)}}
+                {{template "dateBox" (dict "Date" .Data.Date "Time" .Data.Time "Place" .Data.VenueName "Mode" (dict "Row" true))}}
             </div>
             {{end}}
             {{if .CanChangeDecision}}
@@ -234,15 +233,25 @@
 {{/* resultPanel — THE single result component. All result logic/actions/
      presentation, gated by state (final | disputed | pending | can-submit) and
      mode (player vs admin). No other component renders result forms. */}}
+{{/* resultStatusBadge — the result section's status badge, shown by the
+     caller (thread.html) next to the "Resultado" heading. */}}
+{{define "resultStatusBadge"}}
+{{$status := .Card.Match.GetString "status"}}
+{{if .ResultPanel.HasFinal}}<span class="badge badge-success">Finalizado</span>
+{{else if eq $status "disputed"}}<span class="badge badge-error">En disputa</span>
+{{else if .ResultPanel.Live}}<span class="badge badge-info">Propuesta</span>
+{{else}}<span class="badge badge-warning">Pendiente</span>
+{{end}}
+{{end}}
+
 {{define "resultPanel"}}
 {{$c := .Card}}
 {{$status := $c.Match.GetString "status"}}
-<div class="mt-4" id="result-panel">
+<div id="result-panel">
     {{if .ResultPanel.HasFinal}}
     {{/* State: FINAL / accepted */}}
     <div class="card bg-success/10 border border-success/20 rounded-xl">
         <div class="card-body p-4 text-center">
-            <h3 class="font-bold text-sm uppercase tracking-wider opacity-50">Resultado final</h3>
             <p class="text-2xl font-black tracking-wide my-2">{{.ResultPanel.FinalScore}}</p>
             {{if .ResultPanel.WinnerName}}<p class="text-sm font-medium text-success">Ganador: {{.ResultPanel.WinnerName}}</p>{{end}}
         </div>
@@ -250,7 +259,6 @@
 
     {{else if eq $status "disputed"}}
     {{/* State: DISPUTED — the two proposals; admin gets clickable-to-fill + resolve */}}
-    <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Resultado en disputa</h3>
     {{if eq $c.ReviewType "walkover"}}
     <div class="alert alert-warning">
         <span>Solicitud de incomparecencia por {{$c.RequestedBy}}{{if $c.DisputeNotes}}: {{$c.DisputeNotes}}{{end}}</span>
@@ -258,12 +266,12 @@
     {{if and $c.Mode.Admin $c.Mode.Editable}}{{template "matchWalkoverApprove" $c}}{{end}}
     {{else}}
     {{$canResolve := and $c.Mode.Admin $c.Mode.Editable}}
+    <h4 class="font-bold text-xs uppercase tracking-wider opacity-50 mb-2">Propuestas</h4>
     <div class="dispute-resolve space-y-2">
         {{template "resultBox" (dict "PairLabel" (or $c.SubmitterPairName "Propuesta") "Score" $c.SubmittedScore "FillScore" (ternary $canResolve $c.SubmittedScore ""))}}
         {{if $c.DisputedScore}}{{template "resultBox" (dict "PairLabel" (or $c.DisputerPairName "Contrapropuesta") "Score" $c.DisputedScore "Note" $c.DisputeNotes "FillScore" (ternary $canResolve $c.DisputedScore ""))}}{{end}}
         {{if $canResolve}}
         <form hx-post="/admin/disputes/{{$c.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML" class="mt-2">
-            <label class="label"><span class="label-text">Marcador final</span></label>
             {{template "scoreInput" $c.ScoreResolve}}
             <button type="submit" class="btn btn-primary btn-sm mt-2">Resolver</button>
         </form>
@@ -273,7 +281,6 @@
 
     {{else if .ResultPanel.Live}}
     {{/* State: PENDING — rival proposal to confirm/counter */}}
-    <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Resultado pendiente</h3>
     <div class="space-y-3">
         {{range .ResultPanel.Live}}
         {{template "resultBox" (dict "PairLabel" .PairLabel "Score" .Score)}}
@@ -360,14 +367,16 @@
 {{if .Note}}<p class="text-xs opacity-60">{{.Note}}</p>{{end}}
 {{end}}
 
-{{/* dateBox — one reusable date/time/place row, with an accepted marker. */}}
+{{/* dateBox — one reusable date/time/place row, with an accepted marker.
+     Full size (badge-md) unless Mode.Row asks for the timeline-reduced
+     inline form (badge-sm). */}}
 {{define "dateBox"}}
 <div class="flex flex-wrap gap-2 items-center">
-    {{if .Date}}<span class="badge badge-outline badge-sm">{{fmtDate .Date}}</span>{{end}}
-    {{if .Time}}<span class="badge badge-outline badge-sm">{{.Time}}</span>{{end}}
-    {{if .Place}}<span class="badge badge-outline badge-sm">{{.Place}}</span>{{end}}
-    {{if .Court}}<span class="badge badge-outline badge-sm">Pista {{.Court}}</span>{{end}}
-    {{if .Accepted}}<span class="badge badge-success badge-sm">Aceptada</span>{{end}}
+    {{if .Date}}<span class="badge badge-outline {{if .Mode.Row}}badge-sm{{else}}badge-md{{end}}">{{fmtDate .Date}}</span>{{end}}
+    {{if .Time}}<span class="badge badge-outline {{if .Mode.Row}}badge-sm{{else}}badge-md{{end}}">{{.Time}}</span>{{end}}
+    {{if .Place}}<span class="badge badge-outline {{if .Mode.Row}}badge-sm{{else}}badge-md{{end}}">{{.Place}}</span>{{end}}
+    {{if .Court}}<span class="badge badge-outline {{if .Mode.Row}}badge-sm{{else}}badge-md{{end}}">Pista {{.Court}}</span>{{end}}
+    {{if .Accepted}}<span class="badge badge-success {{if .Mode.Row}}badge-sm{{else}}badge-md{{end}}">Aceptada</span>{{end}}
 </div>
 {{end}}
 

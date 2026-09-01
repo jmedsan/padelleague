@@ -185,7 +185,7 @@ func TestMatchCardAdminFullShowsScoresAndResolveEndpoint(t *testing.T) {
 		Name:            "admin thread panel shows both scores and resolve endpoint",
 		Method:          http.MethodGet,
 		ExpectedStatus:  http.StatusOK,
-		ExpectedContent: []string{"Marcador final", "Full A", "Full B"},
+		ExpectedContent: []string{"Resolver", "Full A", "Full B"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -253,7 +253,7 @@ func TestMatchCardCrossRoleLeakGuard(t *testing.T) {
 			Name:            "admin full has no player submit or confirm forms",
 			Method:          http.MethodGet,
 			ExpectedStatus:  http.StatusOK,
-			ExpectedContent: []string{"Resolver", "Marcador final"},
+			ExpectedContent: []string{"Resolver"},
 			NotExpectedContent: []string{
 				"Registrar resultado",
 				"Confirmar",
