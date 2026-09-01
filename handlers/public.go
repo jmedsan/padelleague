@@ -433,7 +433,14 @@ func taskToAction(t league.PlayerTask) HomeAction {
 	case league.TaskPlay:
 		a.Kind = "play"
 		a.Title = "Próximo partido"
-		a.Detail = fmt.Sprintf("vs %s · %s J%d", t.Opponent, t.CompetitionName, t.RoundNumber)
+		detail := fmt.Sprintf("vs %s · %s J%d", t.Opponent, t.CompetitionName, t.RoundNumber)
+		if t.ProposedDate != "" {
+			detail += " · " + render.FmtDate(t.ProposedDate)
+		}
+		if t.ProposedVenue != "" {
+			detail += " · " + t.ProposedVenue
+		}
+		a.Detail = detail
 		a.Accent = "info"
 		a.SortKey = fmt.Sprintf("3-%05d", t.RoundNumber)
 	}
@@ -479,7 +486,7 @@ func nextMatchAction(next *NextMatch) HomeAction {
 	a.Title = "Próximo partido"
 	detail := fmt.Sprintf("vs %s · %s", next.Opponent, next.CompetitionName)
 	if next.ProposedDate != "" {
-		detail += " · " + next.ProposedDate
+		detail += " · " + render.FmtDate(next.ProposedDate)
 	}
 	if next.ProposedVenue != "" {
 		detail += " · " + next.ProposedVenue
