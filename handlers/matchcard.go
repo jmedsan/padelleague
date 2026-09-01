@@ -32,11 +32,8 @@ type MatchCard struct {
 	StatusClass     string
 
 	Score              string
-	SubmittedBy        string
-	ConfirmedBy        string
 	SubmittedScore     string
 	SubmitterPairName  string
-	DisputedBy         string
 	DisputedScore      string
 	DisputeNotes       string
 	DisputerPairName   string
@@ -85,10 +82,7 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 		DisputedScore:   match.GetString("disputed_scores"),
 		DisputeNotes:    match.GetString("dispute_notes"),
 		ReviewType:      match.GetString("review_type"),
-		SubmittedBy:      pairPlayerLabel(app, match.GetString("submitted_by"), match),
-		ConfirmedBy:      pairPlayerLabel(app, match.GetString("confirmed_by"), match),
 		SubmitterPairName: userPairName(app, match.GetString("submitted_by"), match, pairNames),
-		DisputedBy:       pairPlayerLabel(app, match.GetString("disputed_by"), match),
 		DisputerPairName: userPairName(app, match.GetString("disputed_by"), match, pairNames),
 		RequestedBy:     playerNameIfSet(app, match.GetString("walkover_requested_by")),
 	}
