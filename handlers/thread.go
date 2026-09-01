@@ -28,28 +28,6 @@ func NewThreadHandler(app core.App, notifier *notify.Notifier, renderPage Render
 	return &ThreadHandler{app: app, notifier: notifier, renderPage: renderPage, renderPartial: renderPartial}
 }
 
-// ThreadMessage holds a thread message record with display-ready fields.
-type ThreadMessage struct {
-	Record            *core.Record
-	MatchID           string
-	AuthorName        string
-	AuthorTeam        int
-	IsMyTeam          bool
-	Type              string
-	Content           string
-	ProposalData      *ProposalData
-	Status            string
-	RejectionReason   string
-	RejectionText     string
-	CanRespond        bool
-	CanChangeDecision bool
-	DataType          string
-	CreatedAt         string
-	ParentID          string
-	Responses         []ThreadMessage
-	ScoreCounter      ScoreInputVM
-}
-
 // ProposalData holds parsed scheduling proposal details from a thread message.
 type ProposalData struct {
 	Date      string `json:"date"`
@@ -84,44 +62,6 @@ func ParseProposalData(raw any) *ProposalData {
 		}
 	}
 	return &pd
-}
-
-func (h *ThreadHandler) buildThreadMessages(match *core.Record, matchID string, myTeam int, compModifiable bool) []ThreadMessage {
-	messages, _ := h.app.FindRecordsByFilter("match_messages",
-		"match = {:mid}", "created", 0, 0,
-		map[string]any{"mid": matchID})
-
-	pair1Players := league.PlayersForPair(h.app, match.GetString("pair1"))
-	pair2Players := league.PlayersForPair(h.app, match.GetString("pair2"))
-	pairNames := league.PairNames(h.app, []string{match.GetString("pair1"), match.GetString("pair2")})
-	nameCache := make(map[string]string)
-
-	bctx := threadBuildCtx{
-		match: match, matchID: matchID, myTeam: myTeam, compModifiable: compModifiable,
-		pair1Players: pair1Players, pair2Players: pair2Players,
-		pair1Name: pairNames[match.GetString("pair1")], pair2Name: pairNames[match.GetString("pair2")],
-		nameCache: nameCache,
-	}
-	byID := make(map[string]*ThreadMessage)
-	var allMessages []ThreadMessage
-	for _, msg := range messages {
-		tm := h.toThreadMessage(msg, bctx)
-		allMessages = append(allMessages, tm)
-		byID[msg.Id] = &allMessages[len(allMessages)-1]
-	}
-
-	var topLevel []ThreadMessage
-	for i := range allMessages {
-		tm := &allMessages[i]
-		if tm.ParentID != "" {
-			if parent, ok := byID[tm.ParentID]; ok {
-				parent.Responses = append(parent.Responses, *tm)
-				continue
-			}
-		}
-		topLevel = append(topLevel, *tm)
-	}
-	return topLevel
 }
 
 // ThreadData is the full match-thread view-model: read-only history plus the
@@ -314,75 +254,6 @@ func timelineContent(msg *core.Record, msgType string) string {
 	return content
 }
 
-type threadBuildCtx struct {
-	match                      *core.Record
-	matchID                    string
-	myTeam                     int
-	compModifiable             bool
-	pair1Players, pair2Players []string
-	pair1Name, pair2Name       string
-	nameCache                  map[string]string
-}
-
-func (h *ThreadHandler) toThreadMessage(msg *core.Record, ctx threadBuildCtx) ThreadMessage {
-	authorID := msg.GetString("author")
-	authorTeam := playerTeamOf(authorID, ctx.pair1Players, ctx.pair2Players)
-
-	if _, ok := ctx.nameCache[authorID]; !ok {
-		ctx.nameCache[authorID] = league.PlayerName(h.app, authorID)
-	}
-
-	msgType := msg.GetString("type")
-	var pd *ProposalData
-	if msgType == "scheduling_proposal" || msgType == "result_submission" {
-		pd = ParseProposalData(msg.GetString("proposal_data"))
-	}
-
-	authorName := ctx.nameCache[authorID]
-	if msgType == "scheduling_proposal" || msgType == "result_submission" || msgType == "scheduling_response" || msgType == "result_response" {
-		authorName = pairPlayerLabel(h.app, authorID, ctx.match)
-	}
-
-	status := msg.GetString("proposal_status")
-	canRespond, canChangeDecision := proposalActions(msgType, ctx.match.GetString("status"), authorTeam == ctx.myTeam || ctx.myTeam == 0, status)
-	canRespond = canRespond && ctx.compModifiable
-	canChangeDecision = canChangeDecision && ctx.compModifiable
-
-	tm := ThreadMessage{
-		Record:            msg,
-		MatchID:           ctx.matchID,
-		AuthorName:        authorName,
-		AuthorTeam:        authorTeam,
-		IsMyTeam:          ctx.myTeam != 0 && authorTeam == ctx.myTeam,
-		Type:              msgType,
-		Content:           msg.GetString("content"),
-		ProposalData:      pd,
-		Status:            status,
-		RejectionReason:   msg.GetString("rejection_reason"),
-		RejectionText:     msg.GetString("rejection_text"),
-		CanRespond:        canRespond,
-		CanChangeDecision: canChangeDecision,
-		DataType:          dataTypeFor(msgType),
-		CreatedAt:         render.FmtShortTime(msg.GetDateTime("created").Time()),
-		ParentID:          msg.GetString("parent"),
-	}
-	if canRespond && msgType == "result_submission" {
-		tm.ScoreCounter = ScoreInputVM{FieldName: "counter_scores", IDSuffix: ctx.matchID + "-counter-" + msg.Id, Pair1Name: ctx.pair1Name, Pair2Name: ctx.pair2Name}
-	}
-	return tm
-}
-
-func dataTypeFor(msgType string) string {
-	switch msgType {
-	case "scheduling_proposal", "scheduling_response", "availability":
-		return "schedule"
-	case "result_submission", "result_response", "result_event", "admin_action":
-		return "result"
-	default:
-		return "message"
-	}
-}
-
 func playerTeamOf(uid string, pair1Players, pair2Players []string) int {
 	for _, p := range pair1Players {
 		if p == uid {
@@ -439,7 +310,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		compModifiable = isAdmin || league.PlayerCanModify(comp, time.Now())
 	}
 
-	threadMessages := h.buildThreadMessages(match, matchID, myTeam, compModifiable)
+	td := h.buildThreadData(match, matchID, myTeam, compModifiable)
 
 	venues, _ := h.app.FindRecordsByFilter("venues",
 		"id != ''", "name", 0, 0, nil)
@@ -452,7 +323,9 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 
 	return h.renderPartial(e, "thread.html", map[string]any{
 		"MatchID":              matchID,
-		"Messages":             threadMessages,
+		"Timeline":             td.Timeline,
+		"SchedProposals":       td.SchedProposals,
+		"ResultPanel":          td.ResultPanel,
 		"Venues":               venues,
 		"CanPost":              canPost,
 		"CanPropose":           canPropose,
@@ -501,11 +374,11 @@ func (h *ThreadHandler) ThreadMessages(e *core.RequestEvent) error {
 		compModifiable = isAdmin || league.PlayerCanModify(comp, time.Now())
 	}
 
-	threadMessages := h.buildThreadMessages(match, matchID, myTeam, compModifiable)
+	td := h.buildThreadData(match, matchID, myTeam, compModifiable)
 
 	return h.renderPartial(e, "thread-messages.html", map[string]any{
 		"MatchID":  matchID,
-		"Messages": threadMessages,
+		"Timeline": td.Timeline,
 	})
 }
 

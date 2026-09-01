@@ -2,43 +2,12 @@
     <div class="card-body p-4 sm:p-6">
         <h3 class="font-bold text-lg mb-4">Hilo del partido</h3>
 
-        <div id="thread-messages-list"
-             hx-get="/match/{{.MatchID}}/thread-messages"
-             hx-trigger="load, every 15s"
-             hx-swap="innerHTML">
-        </div>
+        <div id="thread-details">
+            {{template "schedProposalPanel" .}}
+            {{template "resultPanel" .}}
 
-        {{if .CanPost}}
-        <div class="border-t border-base-300 pt-4">
-            {{if and .IsAdmin (not .IsParticipant)}}
-            <div class="text-center text-xs opacity-60 mb-2">Escribiendo como administrador</div>
-            {{end}}
-            <form hx-post="/match/{{.MatchID}}/thread/message" hx-target="body" class="flex gap-2 mb-3">
-                <input type="hidden" name="type" value="chat">
-                <input type="text" name="content" class="input input-bordered input-sm flex-1" placeholder="Escribe un mensaje..." required>
-                <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
-            </form>
-
-            {{if .IsPlayoff}}
-            {{if .Match.GetString "date"}}
-            <div class="alert bg-base-200 text-sm mt-3">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 opacity-60"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
-                <span>Fecha: <strong>{{fmtDate (.Match.GetString "date")}}</strong>{{if .Match.GetString "time"}} a las <strong>{{.Match.GetString "time"}}</strong>{{end}}{{if .Match.GetString "club"}} en <strong>{{.Match.GetString "club"}}</strong>{{end}}</span>
-            </div>
-            {{else}}
-            <div class="alert bg-base-200 text-sm mt-3 opacity-60">
-                <span>Fecha pendiente de asignación por el administrador</span>
-            </div>
-            {{end}}
-            {{end}}
-
-            {{if .UnpaidWarning}}
-            <div class="alert alert-warning text-sm py-2 mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                <span>{{.UnpaidWarning}}</span>
-            </div>
-            {{end}}
             {{if .CanPropose}}
+            <div class="mt-4">
             {{if not .HasDateAndPlace}}
             <div class="card bg-primary/10 border-2 border-primary/30 rounded-xl mb-3">
                 <div class="card-body p-4">
@@ -92,7 +61,46 @@
                 });
             })();
             </script>
+            </div>
             {{end}}
+        </div>
+
+        {{if .UnpaidWarning}}
+        <div class="alert alert-warning text-sm py-2 mb-2">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <span>{{.UnpaidWarning}}</span>
+        </div>
+        {{end}}
+
+        {{if .IsPlayoff}}
+        {{if .Match.GetString "date"}}
+        <div class="alert bg-base-200 text-sm mt-3">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 opacity-60"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
+            <span>Fecha: <strong>{{fmtDate (.Match.GetString "date")}}</strong>{{if .Match.GetString "time"}} a las <strong>{{.Match.GetString "time"}}</strong>{{end}}{{if .Match.GetString "club"}} en <strong>{{.Match.GetString "club"}}</strong>{{end}}</span>
+        </div>
+        {{else}}
+        <div class="alert bg-base-200 text-sm mt-3 opacity-60">
+            <span>Fecha pendiente de asignación por el administrador</span>
+        </div>
+        {{end}}
+        {{end}}
+
+        <div id="thread-messages-list"
+             hx-get="/match/{{.MatchID}}/thread-messages"
+             hx-trigger="load, every 15s"
+             hx-swap="innerHTML">
+        </div>
+
+        {{if .CanPost}}
+        <div class="border-t border-base-300 pt-4">
+            {{if and .IsAdmin (not .IsParticipant)}}
+            <div class="text-center text-xs opacity-60 mb-2">Escribiendo como administrador</div>
+            {{end}}
+            <form hx-post="/match/{{.MatchID}}/thread/message" hx-target="body" class="flex gap-2 mb-3">
+                <input type="hidden" name="type" value="chat">
+                <input type="text" name="content" class="input input-bordered input-sm flex-1" placeholder="Escribe un mensaje..." required>
+                <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
+            </form>
         </div>
         {{end}}
     </div>
