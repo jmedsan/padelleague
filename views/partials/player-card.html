@@ -10,11 +10,13 @@
         </div>
     </div>
     <div>
+        {{if .Large}}<h1 class="text-2xl font-bold">{{end}}
         {{if .Linked}}
-        <a href="{{entityURL "player" .ID}}" class="font-medium link link-hover {{if .Large}}text-2xl font-bold{{end}}">{{if .Name}}{{.Name}}{{else}}<span class="opacity-60 italic">Sin nombre</span>{{end}}</a>
+        <a href="{{entityURL "player" .ID}}" class="font-medium link link-hover">{{if .Name}}{{.Name}}{{else}}<span class="opacity-60 italic">Sin nombre</span>{{end}}</a>
         {{else}}
-        <span class="{{if .Large}}text-2xl font-bold{{end}}">{{if .Name}}{{.Name}}{{else}}<span class="opacity-60 italic">Sin nombre</span>{{end}}</span>
+        <span>{{if .Name}}{{.Name}}{{else}}<span class="opacity-60 italic">Sin nombre</span>{{end}}</span>
         {{end}}
+        {{if .Large}}</h1>{{end}}
         {{if not .Name}}<span class="badge badge-warning badge-xs ml-1">Pendiente</span>{{end}}
         {{if .Roles}}
         <div class="flex gap-1 mt-0.5">
