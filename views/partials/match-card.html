@@ -34,8 +34,8 @@
         </div>
         {{else if not (and .Mode.Admin .Mode.Editable)}}
         <div class="space-y-2">
-            {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "Score" .SubmittedScore "Note" .DisputeNotes)}}
-            {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore)}}{{end}}
+            {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "Score" .SubmittedScore)}}
+            {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore "Note" .DisputeNotes)}}{{end}}
         </div>
         {{end}}
         {{end}}
@@ -59,8 +59,8 @@
     {{else}}
     <div class="dispute-resolve">
         <div class="space-y-2 mb-3">
-            {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "Score" .SubmittedScore "Note" .DisputeNotes "FillScore" .SubmittedScore)}}
-            {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore "FillScore" .DisputedScore)}}{{end}}
+            {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "Score" .SubmittedScore "FillScore" .SubmittedScore)}}
+            {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore "Note" .DisputeNotes "FillScore" .DisputedScore)}}{{end}}
         </div>
         <form hx-post="/admin/disputes/{{.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
             <label class="label"><span class="label-text">Marcador final</span></label>
@@ -259,8 +259,8 @@
     {{else}}
     {{$canResolve := and $c.Mode.Admin $c.Mode.Editable}}
     <div class="dispute-resolve space-y-2">
-        {{template "resultBox" (dict "PairLabel" (or $c.SubmitterPairName "Propuesta") "Score" $c.SubmittedScore "Note" $c.DisputeNotes "FillScore" (ternary $canResolve $c.SubmittedScore ""))}}
-        {{if $c.DisputedScore}}{{template "resultBox" (dict "PairLabel" (or $c.DisputerPairName "Contrapropuesta") "Score" $c.DisputedScore "FillScore" (ternary $canResolve $c.DisputedScore ""))}}{{end}}
+        {{template "resultBox" (dict "PairLabel" (or $c.SubmitterPairName "Propuesta") "Score" $c.SubmittedScore "FillScore" (ternary $canResolve $c.SubmittedScore ""))}}
+        {{if $c.DisputedScore}}{{template "resultBox" (dict "PairLabel" (or $c.DisputerPairName "Contrapropuesta") "Score" $c.DisputedScore "Note" $c.DisputeNotes "FillScore" (ternary $canResolve $c.DisputedScore ""))}}{{end}}
         {{if $canResolve}}
         <form hx-post="/admin/disputes/{{$c.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML" class="mt-2">
             <label class="label"><span class="label-text">Marcador final</span></label>
