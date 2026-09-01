@@ -242,7 +242,7 @@ func TestResetLoadCompetitionNotPlayed(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		comps, err := app.FindRecordsByFilter("competitions", "id != ''", "", 0, 0)
 		require.NoError(tb, err)
-		assert.Len(tb, comps, 1, "the sample competition should be loaded")
+		assert.Len(tb, comps, 2, "the sample competitions should be loaded")
 
 		matches, err := app.FindRecordsByFilter("matches", "id != ''", "", 0, 0)
 		require.NoError(tb, err)
@@ -280,7 +280,7 @@ func TestResetLoadPlayoff(t *testing.T) {
 
 		league, err := app.FindRecordsByFilter("competitions", "type = 'league'", "", 0, 0)
 		require.NoError(tb, err)
-		assert.Len(tb, league, 1, "league should also exist")
+		assert.Len(tb, league, 2, "leagues should also exist (main + mixed)")
 
 		assert.NotEmpty(tb, comps[0].GetStringSlice("documents"),
 			"playoff should have default documents attached")
@@ -317,8 +317,14 @@ func TestResetLoadDocuments(t *testing.T) {
 
 		comp, err := app.FindRecordsByFilter("competitions", "type = 'league'", "", 0, 0)
 		require.NoError(tb, err)
-		require.Len(tb, comp, 1)
-		assert.NotEmpty(tb, comp[0].GetStringSlice("documents"), "documents should be attached to the league competition")
+		require.Len(tb, comp, 2)
+		docsAttached := false
+		for _, c := range comp {
+			if len(c.GetStringSlice("documents")) > 0 {
+				docsAttached = true
+			}
+		}
+		assert.True(tb, docsAttached, "documents should be attached to at least one league competition")
 	}
 	s.Test(t)
 }
