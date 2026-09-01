@@ -1332,6 +1332,60 @@ func TestAcceptResultProposalFinalizesMatch(t *testing.T) {
 	s.Test(t)
 }
 
+func TestAcceptResultSupersedesSiblings(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "accepting result proposal supersedes sibling pending proposals",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID, siblingID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "AS A")
+		p2 := makePairTB(tb, app, "AS B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+		matchID = match.Id
+
+		proposer := p1.GetString("player1")
+		proposal := makeResultProposal(tb, app, match.Id, proposer, "6-3 6-4")
+
+		col, _ := app.FindCollectionByNameOrId("match_messages")
+		sibling := core.NewRecord(col)
+		sibling.Set("match", matchID)
+		sibling.Set("author", p2.GetString("player1"))
+		sibling.Set("type", "result_submission")
+		sibling.Set("proposal_status", "pending")
+		sibling.Set("proposal_data", `{"scores":"6-4 6-3"}`)
+		sibling.Set("content", "6-4 6-3")
+		require.NoError(tb, app.Save(sibling))
+		siblingID = sibling.Id
+
+		respondent, _ := app.FindRecordById("users", p2.GetString("player1"))
+		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/respond", match.Id, proposal.Id)
+		s.Body = strings.NewReader("action=accept")
+		hdrs := authHeaders(tb, respondent)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		m, _ := app.FindRecordById("matches", matchID)
+		assert.Equal(tb, league.StatusFinal, m.GetString("status"))
+
+		sib, _ := app.FindRecordById("match_messages", siblingID)
+		assert.Equal(tb, "superseded", sib.GetString("proposal_status"),
+			"sibling pending result proposal must be superseded after accept")
+
+		remaining, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_submission' && proposal_status = 'pending'",
+			"", 0, 0, map[string]any{"mid": matchID})
+		assert.Empty(tb, remaining, "zero pending result proposals must remain after accept")
+	}
+	s.Test(t)
+}
+
 func TestRejectResultProposalRequiresCounter(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

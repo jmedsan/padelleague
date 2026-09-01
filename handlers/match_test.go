@@ -1074,22 +1074,21 @@ func TestMatchSubmitSupersedesPreviousProposal(t *testing.T) {
 	s.Test(t)
 }
 
-func TestMatchSubmitDeadlockNotifiesAdmin(t *testing.T) {
+func TestMatchSubmitRejectsWhenRivalHasPending(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "POST /match/{id}/submit detects deadlock and notifies admin",
-		Method:         http.MethodPost,
-		ExpectedStatus: 204,
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /match/{id}/submit rejects when rival has pending result",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Ya hay una propuesta de resultado del rival pendiente"},
 	}
-	var matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "DL A")
 		p2 := makePairTB(tb, app, "DL B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
-		matchID = m.Id
 
 		p2Player1, err := app.FindRecordById("users", p2.GetString("player1"))
 		require.NoError(tb, err)
@@ -1097,15 +1096,13 @@ func TestMatchSubmitDeadlockNotifiesAdmin(t *testing.T) {
 		col, err := app.FindCollectionByNameOrId("match_messages")
 		require.NoError(tb, err)
 		opposing := core.NewRecord(col)
-		opposing.Set("match", matchID)
+		opposing.Set("match", m.Id)
 		opposing.Set("author", p2Player1.Id)
 		opposing.Set("type", "result_submission")
 		opposing.Set("proposal_status", "pending")
 		opposing.Set("proposal_data", `{"scores":"6-4 6-3"}`)
 		opposing.Set("content", "6-4 6-3")
 		require.NoError(tb, app.Save(opposing))
-
-		makeAdminUserTB(tb, app)
 
 		submitter, err := app.FindRecordById("users", p1.GetString("player1"))
 		require.NoError(tb, err)
@@ -1114,24 +1111,6 @@ func TestMatchSubmitDeadlockNotifiesAdmin(t *testing.T) {
 		hdrs := authHeaders(tb, submitter)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
-	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		admins, _ := app.FindRecordsByFilter("users",
-			"roles ?~ 'admin'", "", 0, 0, nil)
-		require.NotEmpty(tb, admins, "test must have an admin user")
-		notifs, _ := app.FindRecordsByFilter("notifications",
-			"user = {:uid} && type = 'admin_message'", "-created", 0, 0,
-			map[string]any{"uid": admins[0].Id})
-		found := false
-		for _, n := range notifs {
-			title := strings.ToLower(n.GetString("title"))
-			body := strings.ToLower(n.GetString("body"))
-			if strings.Contains(title, "discrepancia") || strings.Contains(body, "discrepancia") {
-				found = true
-				break
-			}
-		}
-		assert.True(tb, found, "admin must be notified of deadlock")
 	}
 	s.Test(t)
 }
