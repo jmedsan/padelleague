@@ -96,20 +96,8 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	venues, _ := h.app.FindRecordsByFilter("venues", "id != ''", "name", 0, 0, nil)
 	canPropose := isParticipant && league.IsPreScore(match.GetString("status")) && !isPlayoff && compModifiable
 
-	// The result surface lives ONLY here (resultPanel). Build the match card for
-	// the viewer so resultPanel can use the same submit/correct/walkover
-	// capability logic — no second result component in the top card.
-	resultMode := PlayerFull
-	if isAdmin {
-		resultMode = AdminFull
-	}
-	resultCard := NewMatchCard(h.app, match, resultMode, e.Auth.Id)
+	resultCard := h.buildResultCard(match, e.Auth.Id, isAdmin, compModifiable)
 	resultCard.Venues = venues
-	if !compModifiable {
-		resultCard.CanSubmit = false
-		resultCard.CanCorrect = false
-		resultCard.CanWalkover = false
-	}
 
 	var unpaidWarning string
 	if canPropose {
@@ -136,6 +124,23 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		"ProposalDefaultVenue": "",
 		"ProposalDefaultTime":  "20:00",
 	})
+}
+
+// buildResultCard builds the viewer's match card for the single result panel, so
+// resultPanel reuses the same submit/correct/walkover capability logic — the result
+// surface lives only there, never duplicated in the top card.
+func (h *ThreadHandler) buildResultCard(match *core.Record, viewerID string, isAdmin, compModifiable bool) MatchCard {
+	mode := PlayerFull
+	if isAdmin {
+		mode = AdminFull
+	}
+	c := NewMatchCard(h.app, match, mode, viewerID)
+	if !compModifiable {
+		c.CanSubmit = false
+		c.CanCorrect = false
+		c.CanWalkover = false
+	}
+	return c
 }
 
 func (h *ThreadHandler) checkUnpaid(match *core.Record, pair1ID, pair2ID string) string {

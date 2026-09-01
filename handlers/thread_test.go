@@ -683,7 +683,9 @@ func TestThreadMessages_ResultEventRendersAsSystemLine(t *testing.T) {
 
 		s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 			body := readBody(tb, res)
-			assert.Contains(tb, body, `text-center`, "result_event renders as centered event pill")
+			// Flat timeline: the event is a plain read-only row (not a chat bubble),
+			// inside the timeline log.
+			assert.Contains(tb, body, `id="thread-timeline"`, "event renders in the timeline log")
 			assert.Contains(tb, body, "registró el resultado", "event line content")
 			assert.NotContains(tb, body, `chat-bubble`, "result_event must not render as chat bubble")
 		}
@@ -1172,7 +1174,7 @@ func TestThreadMessages_AdminActionRendersAsSystemLine(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		assert.Contains(tb, body, `text-center`, "admin_action renders as centered event pill")
+		assert.Contains(tb, body, `id="thread-timeline"`, "admin_action renders in the flat timeline")
 		assert.Contains(tb, body, "Admin corrigió el resultado")
 		assert.NotContains(tb, body, "chat-bubble", "admin_action must not render as chat")
 	}
@@ -1227,13 +1229,15 @@ func TestThreadMessages_AllTypesRenderCorrectSubDefine(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
+		// Flat timeline: every type renders as a plain read-only row in the log —
+		// no chat bubbles, no centered pills, no nested boxes.
 		assert.Contains(tb, body, "Padel 360", "proposal shows venue name")
 		assert.Contains(tb, body, "20:00", "proposal shows time")
 		assert.Regexp(tb, `\w+ \(SubDef B\)`, body, "proposal author shows PlayerName (PairName)")
-		assert.Contains(tb, body, `text-center`, "result_event renders as centered event pill")
-		assert.Contains(tb, body, "registró resultado: 6-2 6-3", "system line shows event content")
-		assert.Contains(tb, body, "chat-bubble", "chat renders via chatMessage sub-define")
-		assert.Contains(tb, body, "Hola desde chat", "chat bubble shows message content")
+		assert.Contains(tb, body, `id="thread-timeline"`, "entries render in the flat timeline")
+		assert.Contains(tb, body, "registró resultado: 6-2 6-3", "event content shown")
+		assert.Contains(tb, body, "Hola desde chat", "chat content shown as a flat row")
+		assert.NotContains(tb, body, "chat-bubble", "no chat bubbles in the flat timeline")
 	}
 	s.Test(t)
 }

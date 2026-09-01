@@ -257,17 +257,6 @@
             {{if .ResultPanel.WinnerName}}<p class="text-sm font-medium text-success">Ganador: {{.ResultPanel.WinnerName}}</p>{{end}}
         </div>
     </div>
-    {{if $c.CanCorrect}}
-    <div class="card bg-base-200/50 rounded-xl mt-3">
-        <div class="card-body p-4">
-            <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Corregir marcador</h3>
-            <form hx-post="/match/{{$c.Match.Id}}/correct" hx-target="body">
-                {{template "scoreInput" $c.ScoreCorrect}}
-                <button type="submit" class="btn btn-warning mt-3 w-full">Corregir resultado</button>
-            </form>
-        </div>
-    </div>
-    {{end}}
 
     {{else if eq $status "disputed"}}
     {{/* State: DISPUTED — the two proposals; admin gets clickable-to-fill + resolve */}}
@@ -328,7 +317,23 @@
             </form>
         </div>
     </div>
+    {{else}}
+    <div class="alert alert-info">
+        <span>Primero propón una fecha y lugar en el hilo del partido.</span>
+    </div>
     {{end}}
+    {{end}}
+
+    {{if $c.CanCorrect}}
+    <div class="card bg-base-200/50 rounded-xl mt-3">
+        <div class="card-body p-4">
+            <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Corregir marcador</h3>
+            <form hx-post="/match/{{$c.Match.Id}}/correct" hx-target="body">
+                {{template "scoreInput" $c.ScoreCorrect}}
+                <button type="submit" class="btn btn-warning mt-3 w-full">Corregir resultado</button>
+            </form>
+        </div>
+    </div>
     {{end}}
 
     {{if $c.CanWalkover}}

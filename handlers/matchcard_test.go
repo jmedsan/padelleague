@@ -182,7 +182,7 @@ func TestMatchCardAdminFullShowsScoresAndResolveEndpoint(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "admin full match card shows both scores and resolve endpoint",
+		Name:            "admin thread panel shows both scores and resolve endpoint",
 		Method:          http.MethodGet,
 		ExpectedStatus:  http.StatusOK,
 		ExpectedContent: []string{"Marcador final", "Full A", "Full B"},
@@ -198,7 +198,8 @@ func TestMatchCardAdminFullShowsScoresAndResolveEndpoint(t *testing.T) {
 		match.Set("disputed_by", p2.GetString("player1"))
 		match.Set("disputed_scores", "6-4 6-3")
 		require.NoError(tb, app.Save(match))
-		s.URL = "/match/" + match.Id
+		// The single result panel (with the resolve endpoint) is in the thread fragment.
+		s.URL = "/match/" + match.Id + "/thread"
 		s.ExpectedContent = append(s.ExpectedContent, `hx-post="/admin/disputes/`+match.Id+`/resolve"`)
 		s.Headers = authHeaders(tb, makeAdminUserTB(tb, app))
 	}
@@ -269,7 +270,8 @@ func TestMatchCardCrossRoleLeakGuard(t *testing.T) {
 			match.Set("disputed_by", p2.GetString("player1"))
 			match.Set("disputed_scores", "6-4 6-3")
 			require.NoError(tb, app.Save(match))
-			s.URL = "/match/" + match.Id
+			// The single result panel (resolve for admin) is in the thread fragment.
+			s.URL = "/match/" + match.Id + "/thread"
 			s.Headers = authHeaders(tb, makeAdminUserTB(tb, app))
 		}
 		s.Test(t)

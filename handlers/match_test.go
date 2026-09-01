@@ -357,7 +357,7 @@ func TestMatchDetailAdminShowsResolveForm(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "GET /match/{id} admin view shows resolve form for disputed match",
+		Name:            "GET /match/{id}/thread admin view shows resolve form for disputed match",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Resolver", "Marcador final"},
@@ -373,7 +373,8 @@ func TestMatchDetailAdminShowsResolveForm(t *testing.T) {
 		m.Set("disputed_by", p2.GetString("player1"))
 		m.Set("disputed_scores", "6-4 6-3")
 		require.NoError(tb, app.Save(m))
-		s.URL = "/match/" + m.Id
+		// The result surface (resolve form) now lives in the thread fragment.
+		s.URL = "/match/" + m.Id + "/thread"
 		s.ExpectedContent = append(s.ExpectedContent, `hx-post="/admin/disputes/`+m.Id+`/resolve"`)
 		admin := makeAdminUserTB(tb, app)
 		s.Headers = authHeaders(tb, admin)
@@ -572,7 +573,13 @@ func TestBuildMatchViewFlags(t *testing.T) {
 
 				require.NoError(tb, app.Save(match))
 
-				s.URL = "/match/" + match.Id
+				// Access-control cases (non-200) test the page guard; content cases
+				// test the thread fragment where the single result panel renders.
+				if tc.httpStatus != 0 && tc.httpStatus != 200 {
+					s.URL = "/match/" + match.Id
+				} else {
+					s.URL = "/match/" + match.Id + "/thread"
+				}
 
 				var viewerUser *core.Record
 				switch tc.viewer {
