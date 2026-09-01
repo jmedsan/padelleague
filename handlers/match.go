@@ -92,6 +92,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		mode = AdminFull
 	}
 	mc := NewMatchCard(h.app, match, mode, userID)
+	mc.FactsOnly = true // the thread fragment's resultPanel is the sole result surface here
 
 	compName := ""
 	compID := match.GetString("competition")

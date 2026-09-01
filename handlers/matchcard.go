@@ -50,6 +50,12 @@ type MatchCard struct {
 	CanCorrect      bool
 	HasDateAndPlace bool
 
+	// FactsOnly suppresses the top card's result/dispute/action blocks — set only
+	// on the dedicated match page, where the thread fragment's resultPanel is the
+	// single result surface. Summary surfaces (disputes list, home) leave it false
+	// so they still show the disputed context + admin controls inline.
+	FactsOnly bool
+
 	Venues []*core.Record
 
 	ScoreSubmit   ScoreInputVM
