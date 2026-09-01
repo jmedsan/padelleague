@@ -174,7 +174,7 @@ test.describe('reference navigation tour', () => {
     // vertically center on the card's variable height (a mandatory badge adds a row).
     // Assert the layout contract directly (deterministic): the card uses
     // sm:items-start + flex-col, which reverting to `items-center` removes.
-    const docCard = page.locator('[data-testid="document-card"]', { hasText: 'Reglamento de prueba' });
+    const docCard = page.locator('[data-testid="document-card"]', { hasText: 'Reglamento de prueba' }).first();
     await expect(docCard).toBeVisible();
     const cls = await docCard.getAttribute('class');
     expect(cls).toContain('sm:items-start'); // top-anchored, not items-center
