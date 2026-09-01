@@ -2,8 +2,8 @@
 <tr>
     <td>{{.CompetitionName}}</td>
     <td>{{.RoundNumber}}</td>
-    <td>{{.Pair1}}</td>
-    <td>{{.Pair2}}</td>
+    <td>{{template "pairLink" (elink .Pair1ID .Pair1)}}</td>
+    <td>{{template "pairLink" (elink .Pair2ID .Pair2)}}</td>
     <td>{{.Status}}</td>
     <td>{{if .ArrangeBy}}{{.ArrangeBy}}{{else}}—{{end}}</td>
     <td>{{if .ArrangeBy}}{{template "warningBadge" .Warning}}{{end}}</td>
@@ -15,7 +15,7 @@
     <div class="card-body p-4">
         <div class="flex justify-between items-start">
             <div>
-                <p class="font-medium">{{.Pair1}} vs {{.Pair2}}</p>
+                <p class="font-medium">{{template "pairLink" (elink .Pair1ID .Pair1)}} vs {{template "pairLink" (elink .Pair2ID .Pair2)}}</p>
                 <p class="text-sm opacity-60">{{.CompetitionName}} — Jornada {{.RoundNumber}}</p>
             </div>
             {{if .ArrangeBy}}{{template "warningBadge" .Warning}}{{end}}

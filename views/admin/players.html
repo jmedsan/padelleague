@@ -30,7 +30,7 @@
             <tbody>
                 {{range .Players}}
                 <tr class="hover">
-                    <td>{{template "playerCardIdentity" (dict "ID" .Id "Name" (.GetString "display_name") "Roles" (.GetStringSlice "roles") "Linked" true)}}</td>
+                    <td>{{template "playerCardIdentity" (dict "Mode" $.Mode "ID" .Id "Name" (.GetString "display_name") "Roles" (.GetStringSlice "roles"))}}</td>
                     <td class="opacity-60 text-sm">{{.GetString "email"}}</td>
                     <td class="text-sm">
                         {{if eq (.GetString "gender") "male"}}Hombre

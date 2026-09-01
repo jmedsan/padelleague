@@ -89,5 +89,6 @@ func (h *PairPageHandler) PairPage(e *core.RequestEvent) error {
 
 	return h.renderPage(e, "pair.html", map[string]any{
 		"Data": data,
+		"Mode": PlayerSummary,
 	})
 }

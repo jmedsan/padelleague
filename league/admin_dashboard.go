@@ -27,7 +27,9 @@ type CompSetup struct {
 type AdminAlert struct {
 	Kind        string // "dispute", "overdue", "walkover"
 	MatchID     string
+	Pair1ID     string
 	Pair1       string
+	Pair2ID     string
 	Pair2       string
 	CompName    string
 	RoundNumber int
@@ -107,7 +109,8 @@ func buildAlerts(app core.App, c *core.Record, now time.Time) []AdminAlert {
 		}
 		alerts = append(alerts, AdminAlert{
 			Kind: "dispute", MatchID: m.Id,
-			Pair1: p1, Pair2: p2,
+			Pair1ID: m.GetString("pair1"), Pair1: p1,
+			Pair2ID: m.GetString("pair2"), Pair2: p2,
 			CompName: compName, RoundNumber: m.GetInt("round_number"),
 			Description: desc,
 		})
@@ -140,7 +143,8 @@ func pendingAlerts(app core.App, c *core.Record, pending []*core.Record, now tim
 			p1, p2 := pairNamesForMatch(app, m)
 			alerts = append(alerts, AdminAlert{
 				Kind: "walkover", MatchID: m.Id,
-				Pair1: p1, Pair2: p2,
+				Pair1ID: m.GetString("pair1"), Pair1: p1,
+				Pair2ID: m.GetString("pair2"), Pair2: p2,
 				CompName: compName, RoundNumber: rn,
 				Description: "Incomparecencia pendiente de aprobación",
 			})
@@ -160,7 +164,8 @@ func pendingAlerts(app core.App, c *core.Record, pending []*core.Record, now tim
 			p1, p2 := pairNamesForMatch(app, m)
 			alerts = append(alerts, AdminAlert{
 				Kind: "overdue", MatchID: m.Id,
-				Pair1: p1, Pair2: p2,
+				Pair1ID: m.GetString("pair1"), Pair1: p1,
+				Pair2ID: m.GetString("pair2"), Pair2: p2,
 				CompName: compName, RoundNumber: rn,
 				Description: "Vencido — sin organizar",
 				Recovery:    recovery,
@@ -173,14 +178,15 @@ func pendingAlerts(app core.App, c *core.Record, pending []*core.Record, now tim
 // OutstandingMatch is one non-final match decorated with its deadline and
 // warning level for the admin outstanding-matches view.
 type OutstandingMatch struct {
-	MatchID         string
-	CompetitionName string
-	RoundNumber     int
-	Pair1, Pair2    string
-	Status          string
-	ArrangeBy       string // "DD/MM", or "" when no schedule (e.g. playoffs)
-	Warning         Warning
-	deadline        time.Time // sort key backing ArrangeBy; zero when unset
+	MatchID          string
+	CompetitionName  string
+	RoundNumber      int
+	Pair1ID, Pair2ID string
+	Pair1, Pair2     string
+	Status           string
+	ArrangeBy        string // "DD/MM", or "" when no schedule (e.g. playoffs)
+	Warning          Warning
+	deadline         time.Time // sort key backing ArrangeBy; zero when unset
 }
 
 // OutstandingMatches returns every non-final match in an active competition,
@@ -218,7 +224,9 @@ func outstandingForComp(app core.App, c *core.Record, now time.Time) []Outstandi
 			MatchID:         m.Id,
 			CompetitionName: compName,
 			RoundNumber:     m.GetInt("round_number"),
+			Pair1ID:         m.GetString("pair1"),
 			Pair1:           p1,
+			Pair2ID:         m.GetString("pair2"),
 			Pair2:           p2,
 			Status:          m.GetString("status"),
 		}

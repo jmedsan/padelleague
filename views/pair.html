@@ -6,7 +6,7 @@
 
 <h2 class="text-lg font-semibold mb-2">Jugadores</h2>
 <div class="overflow-x-auto mb-6">
-    {{template "pairPlayers" (dict "Player1ID" .Data.Player1.ID "Player1Name" .Data.Player1.Name "Player2ID" .Data.Player2.ID "Player2Name" .Data.Player2.Name)}}
+    {{template "pairPlayers" (dict "Mode" .Mode "Player1ID" .Data.Player1.ID "Player1Name" .Data.Player1.Name "Player2ID" .Data.Player2.ID "Player2Name" .Data.Player2.Name)}}
 </div>
 
 {{if .Data.Competitions}}

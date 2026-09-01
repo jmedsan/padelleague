@@ -95,6 +95,7 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 
 	return h.renderPage(e, "player.html", map[string]any{
 		"Data": data,
+		"Mode": PlayerFull,
 	})
 }
 
