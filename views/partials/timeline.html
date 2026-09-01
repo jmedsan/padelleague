@@ -19,18 +19,12 @@
     <span class="text-xs opacity-50 whitespace-nowrap">{{.CreatedAt}}</span>
 </div>
 {{else}}
-<div class="text-sm py-1">
-    <div class="flex items-center gap-2 mb-1">
-        <span class="font-bold">{{.AuthorName}}</span>
-        <span class="text-xs opacity-50">{{.CreatedAt}}</span>
-    </div>
-    {{if .Score}}
-    {{template "resultBox" (dict "PairLabel" .AuthorName "Score" .Score "Compact" true)}}
-    {{else if .Date}}
-    {{template "dateBox" (dict "Date" .Date "Time" .Time "Place" .Place)}}
-    {{else}}
-    <span>{{.Content}}</span>
-    {{end}}
+{{/* proposal — a flat one-line history entry (Jira/AzDO style), no nested box.
+     Content already reads "propuso resultado: 6-3 6-4" / "propuso fecha y lugar: …". */}}
+<div class="flex items-start gap-2 text-sm py-1">
+    <span class="font-bold whitespace-nowrap">{{.AuthorName}}</span>
+    <span class="flex-1">{{.Content}}</span>
+    <span class="text-xs opacity-50 whitespace-nowrap">{{.CreatedAt}}</span>
 </div>
 {{end}}
 {{end}}

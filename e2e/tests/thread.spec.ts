@@ -112,12 +112,10 @@ test.describe('match thread', () => {
     await expect(page.locator('#thread-timeline button')).toHaveCount(0);
     await expect(page.locator('#thread-timeline form')).toHaveCount(0);
 
-    // dateBox reuse: a scheduled match shows the "Aceptada" marker on its date
-    // (kills the dateBox .Accepted mutant).
+    // dateBox reuse: a scheduled match shows the "Aceptada" marker on its date.
     await expect(page.getByText('Aceptada').first()).toBeVisible({ timeout: 5000 });
-    // resultBox compact reuse: the timeline result entry uses the compact size
-    // (text-base font-black), not the full text-xl (kills the .Compact mutant).
-    await expect(page.locator('#thread-timeline p.text-base.font-black').first()).toBeVisible({ timeout: 5000 });
+    // Timeline is flat one-line history — no nested result-box card inside it.
+    await expect(page.locator('#thread-timeline .card')).toHaveCount(0);
 
     // P1 positive control: result panel has visible Confirmar button
     const confirmBtn = page.locator('#thread-details button:has-text("Confirmar")');

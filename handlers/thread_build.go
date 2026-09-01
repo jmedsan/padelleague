@@ -146,7 +146,10 @@ func (bc *threadBuildCtx) processMessage(msg *core.Record, authorID, cachedName 
 	}
 	td.Timeline = append(td.Timeline, entry)
 	sameTeam := authorTeam == bc.myTeam || bc.myTeam == 0
-	if msgType == "scheduling_proposal" && status != "rejected" {
+	// Only PENDING scheduling proposals belong in the panel. An accepted date is a
+	// settled fact shown once in the match header; superseded/rejected are history
+	// (timeline only). No repeats.
+	if msgType == "scheduling_proposal" && status == "pending" {
 		td.SchedProposals = append(td.SchedProposals, bc.schedProposal(msg, authorName, created, sameTeam))
 	}
 	if msgType == "result_submission" && status == "pending" && !td.ResultPanel.HasFinal {
