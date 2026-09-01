@@ -27,7 +27,7 @@ func NewNotificationHandler(app core.App, renderPage RenderFunc) *NotificationHa
 func (h *NotificationHandler) Count(e *core.RequestEvent) error {
 	count := 0
 	records, err := h.app.FindRecordsByFilter("notifications",
-		"user = {:uid} && read = false",
+		"user = {:uid} && read = false && dismissed = false",
 		"", 0, 0,
 		map[string]any{"uid": e.Auth.Id})
 	if err == nil {
@@ -43,7 +43,7 @@ func (h *NotificationHandler) Count(e *core.RequestEvent) error {
 // List renders the notification dropdown with recent notifications.
 func (h *NotificationHandler) List(e *core.RequestEvent) error {
 	records, err := h.app.FindRecordsByFilter("notifications",
-		"user = {:uid}",
+		"user = {:uid} && dismissed = false",
 		"-created", 10, 0,
 		map[string]any{"uid": e.Auth.Id})
 	if err != nil {
@@ -93,6 +93,7 @@ func (h *NotificationHandler) MarkRead(e *core.RequestEvent) error {
 	}
 
 	record.Set("read", true)
+	record.Set("dismissed", true)
 	if err := h.app.Save(record); err != nil {
 		slog.Error("mark notification read", "id", id, "err", err)
 	}
@@ -114,6 +115,7 @@ func (h *NotificationHandler) MarkAllRead(e *core.RequestEvent) error {
 
 	for _, r := range records {
 		r.Set("read", true)
+		r.Set("dismissed", true)
 		if err := h.app.Save(r); err != nil {
 			slog.Error("mark notification read", "id", r.Id, "err", err)
 		}
