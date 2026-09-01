@@ -180,7 +180,7 @@ func TestCompCreateInvalidWalkoverScore(t *testing.T) {
 		Name:            "POST /admin/competitions rejects invalid walkover_score",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"walkover inválido"},
+		ExpectedContent: []string{"incomparecencia inválido"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupCompRoutes(tb, app, e)
@@ -201,7 +201,7 @@ func TestCompUpdateInvalidWalkoverScore(t *testing.T) {
 		Name:            "POST /admin/competitions/{id} rejects invalid walkover_score",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"walkover inválido"},
+		ExpectedContent: []string{"incomparecencia inválido"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupCompRoutes(tb, app, e)

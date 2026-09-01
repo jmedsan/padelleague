@@ -45,7 +45,7 @@ func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 	}
 
 	if match.GetString("review_type") != "walkover" {
-		return alertError(e, "Este partido no es una solicitud de walkover")
+		return alertError(e, "Este partido no es una solicitud de incomparecencia")
 	}
 	if match.GetString("status") == league.StatusFinal {
 		return alertError(e, "Este partido ya está resuelto")
@@ -67,7 +67,7 @@ func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 		woScore = "6-0 6-0"
 	}
 	if _, err := league.ParseScore(woScore); err != nil {
-		return alertError(e, "El marcador de walkover configurado no es válido: "+woScore)
+		return alertError(e, "El marcador de incomparecencia configurado no es válido:"+woScore)
 	}
 
 	loserID := match.GetString("pair2")
@@ -80,17 +80,17 @@ func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 	match.Set("status", league.StatusFinal)
 
 	if err := h.app.Save(match); err != nil {
-		return alertError(e, "Error al aprobar el walkover")
+		return alertError(e, "Error al aprobar la incomparecencia")
 	}
 
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: e.Auth.Id, Kind: "result_event",
-		Detail: league.PlayerName(h.app, e.Auth.Id) + " (admin) aprobó walkover a favor de " + league.PairNames(h.app, []string{winnerID})[winnerID],
+		Detail: league.PlayerName(h.app, e.Auth.Id) + " (admin) aprobó incomparecencia a favor de " + league.PairNames(h.app, []string{winnerID})[winnerID],
 	})
 	if penalty := comp.GetFloat("default_penalty"); penalty > 0 {
-		if err := league.ApplyPenalty(h.app, league.PenaltyInput{CompetitionID: compID, PairID: loserID, Reason: "Walkover aprobado", AdminID: e.Auth.Id, Amount: penalty}); err != nil {
+		if err := league.ApplyPenalty(h.app, league.PenaltyInput{CompetitionID: compID, PairID: loserID, Reason: "Incomparecencia aprobada", AdminID: e.Auth.Id, Amount: penalty}); err != nil {
 			slog.Error("apply walkover penalty", "comp", compID, "pair", loserID, "err", err)
-			return alertError(e, "Walkover aprobado, pero no se pudo aplicar la penalización. Aplícala manualmente.")
+			return alertError(e, "Incomparecencia aprobada, pero no se pudo aplicar la penalización. Aplícala manualmente.")
 		}
 	}
 

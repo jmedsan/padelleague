@@ -38,7 +38,7 @@ func (h *AdminHealthHandler) Health(e *core.RequestEvent) error {
 
 func (h *AdminHealthHandler) build() []healthGroup {
 	disputes := healthGroup{Title: "Disputas abiertas", ListURL: "/admin/disputes"}
-	walkovers := healthGroup{Title: "Walkovers pendientes"}
+	walkovers := healthGroup{Title: "Incomparecencias pendientes"}
 	overdue := healthGroup{Title: "Partidos vencidos", ListURL: "/admin/outstanding"}
 	unpaid := healthGroup{Title: "Parejas sin pagar"}
 	unscheduled := healthGroup{Title: "Partidos sin fecha", ListURL: "/admin/outstanding"}

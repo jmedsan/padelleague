@@ -28,7 +28,7 @@ func TestHealth_AdminSeesGroups(t *testing.T) {
 		ExpectedStatus: 200,
 		ExpectedContent: []string{
 			"Disputas abiertas",
-			"Walkovers pendientes",
+			"Incomparecencias pendientes",
 			"Partidos vencidos",
 			"Parejas sin pagar",
 			"Partidos sin fecha",

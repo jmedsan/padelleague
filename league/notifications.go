@@ -6,7 +6,7 @@ import "fmt"
 func NotifResultSubmitted(matchID string) Notification {
 	return Notification{
 		Type: "quorum_request", Title: "Resultado enviado",
-		Body: "Tu rival ha registrado un resultado. Confirma o disputa.", MatchID: matchID,
+		Body: "Tu rival ha registrado un resultado. Confirma o contrapropón.", MatchID: matchID,
 	}
 }
 
@@ -30,7 +30,7 @@ func NotifResultConfirmed(matchID string) Notification {
 func NotifResultCorrected(matchID string) Notification {
 	return Notification{
 		Type: "quorum_request", Title: "Resultado corregido",
-		Body: "El rival ha corregido el resultado. Confirma o disputa.", MatchID: matchID,
+		Body: "El rival ha corregido el resultado. Confirma o contrapropón.", MatchID: matchID,
 	}
 }
 
@@ -106,8 +106,8 @@ func NotifSchedulingReminder(matchID, levelLabel string) Notification {
 // NotifWalkoverApproved notifies players that an admin approved a walkover.
 func NotifWalkoverApproved(matchID string) Notification {
 	return Notification{
-		Type: "general", Title: "Walkover aprobado",
-		Body: "Un administrador ha resuelto el partido como walkover.", MatchID: matchID,
+		Type: "general", Title: "Incomparecencia aprobada",
+		Body: "Un administrador ha resuelto el partido como incomparecencia.", MatchID: matchID,
 	}
 }
 

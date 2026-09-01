@@ -44,7 +44,7 @@
         </div>
         {{if eq .ReviewType "walkover"}}
         <div class="alert alert-warning mt-3">
-            <span>Solicitud de walkover por {{.RequestedBy}}</span>
+            <span>Solicitud de incomparecencia por {{.RequestedBy}}</span>
         </div>
         {{end}}
         {{end}}
@@ -93,7 +93,7 @@
                     <option value="{{.Match.GetString "pair2"}}">{{.Pair2Name}}</option>
                 </select>
             </div>
-            <button type="submit" class="btn btn-warning btn-sm">Aprobar walkover</button>
+            <button type="submit" class="btn btn-warning btn-sm">Aprobar incomparecencia</button>
         </div>
     </form>
     {{else}}
@@ -181,7 +181,7 @@
 <dialog id="walkover-modal-{{.Match.Id}}" class="modal">
     <div class="modal-box">
         <h3 class="font-bold text-lg mb-2">Reportar partido no jugado</h3>
-        <p class="text-sm opacity-70 mb-4">Pasará a revisión del administrador. Si se aprueba como walkover, se registrará el resultado por defecto y podría aplicarse una penalización de puntos al equipo responsable.</p>
+        <p class="text-sm opacity-70 mb-4">Pasará a revisión del administrador. Si se aprueba como incomparecencia, se registrará el resultado por defecto y podría aplicarse una penalización de puntos al equipo responsable.</p>
         <form hx-post="/match/{{.Match.Id}}/report-unplayed" hx-target="#action-result">
             <div class="form-control">
                 <label class="label py-1"><span class="label-text text-xs">Motivo</span></label>

@@ -11,7 +11,7 @@ func TestNotificationConstructors(t *testing.T) {
 		{
 			name: "ResultSubmitted",
 			got:  NotifResultSubmitted("m1"),
-			want: Notification{Type: "quorum_request", Title: "Resultado enviado", Body: "Tu rival ha registrado un resultado. Confirma o disputa.", MatchID: "m1"},
+			want: Notification{Type: "quorum_request", Title: "Resultado enviado", Body: "Tu rival ha registrado un resultado. Confirma o contrapropón.", MatchID: "m1"},
 		},
 		{
 			name: "MatchReportedUnplayed",
@@ -26,7 +26,7 @@ func TestNotificationConstructors(t *testing.T) {
 		{
 			name: "ResultCorrected",
 			got:  NotifResultCorrected("m1"),
-			want: Notification{Type: "quorum_request", Title: "Resultado corregido", Body: "El rival ha corregido el resultado. Confirma o disputa.", MatchID: "m1"},
+			want: Notification{Type: "quorum_request", Title: "Resultado corregido", Body: "El rival ha corregido el resultado. Confirma o contrapropón.", MatchID: "m1"},
 		},
 		{
 			name: "NewMessage",
@@ -71,7 +71,7 @@ func TestNotificationConstructors(t *testing.T) {
 		{
 			name: "WalkoverApproved",
 			got:  NotifWalkoverApproved("m1"),
-			want: Notification{Type: "general", Title: "Walkover aprobado", Body: "Un administrador ha resuelto el partido como walkover.", MatchID: "m1"},
+			want: Notification{Type: "general", Title: "Incomparecencia aprobada", Body: "Un administrador ha resuelto el partido como incomparecencia.", MatchID: "m1"},
 		},
 		{
 			name: "DisputeResolved",

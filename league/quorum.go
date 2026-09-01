@@ -390,7 +390,7 @@ func (svc *Service) remindIfDue(m *core.Record, comp *core.Record, now time.Time
 	}
 
 	title := "Resultado pendiente de confirmar"
-	body := fmt.Sprintf("Tu rival envió un resultado hace más de %d horas. Confirma o disputa.", threshold)
+	body := fmt.Sprintf("Tu rival envió un resultado hace más de %d horas. Confirma o contrapropón.", threshold)
 	link := "/match/" + fresh.Id
 
 	svc.notifier.NotifyPlayers(players, Notification{

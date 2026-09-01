@@ -787,7 +787,7 @@ func TestHome_AdminWalkoverAlert(t *testing.T) {
 		ExpectedContent: []string{
 			"Walkover League",
 			"Walkover A",
-			"Solicitud de walkover por Walkover A P1",
+			"Solicitud de incomparecencia por Walkover A P1",
 			"Motivo del walkover",
 			"Ver partido completo",
 		},

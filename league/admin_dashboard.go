@@ -142,7 +142,7 @@ func pendingAlerts(app core.App, c *core.Record, pending []*core.Record, now tim
 				Kind: "walkover", MatchID: m.Id,
 				Pair1: p1, Pair2: p2,
 				CompName: compName, RoundNumber: rn,
-				Description: "Walkover pendiente de aprobación",
+				Description: "Incomparecencia pendiente de aprobación",
 			})
 			continue
 		}
