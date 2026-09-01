@@ -98,25 +98,6 @@
 </div>
 {{end}}
 
-<!-- Clasificación -->
-{{if .IsLeague}}
-<div class="card bg-base-100 shadow mb-6">
-    <div class="card-body">
-        <h2 class="card-title text-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-            Clasificación
-        </h2>
-        {{if .Standings}}
-        {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "Admin" true)}}
-        {{else}}
-        <div class="text-center py-6 text-base-content/60">
-            <p class="text-sm">No hay datos de clasificación todavía</p>
-        </div>
-        {{end}}
-    </div>
-</div>
-{{end}}
-
 <!-- Calendario -->
 <div class="card bg-base-100 shadow mb-6">
     <div class="card-body">
@@ -162,55 +143,32 @@
     </div>
 </div>
 
-<!-- Documentos -->
-<div class="card bg-base-100 shadow mb-6">
-    <div class="card-body">
-        <h2 class="card-title text-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            Documentos
-            {{if .AttachedDocs}}<span class="badge badge-neutral badge-sm">{{len .AttachedDocs}}</span>{{end}}
-        </h2>
-
-        {{if .AttachedDocViews}}
-        <div class="overflow-x-auto">
-            <table class="table table-zebra">
-                <thead>
-                    <tr>
-                        <th>Título</th>
-                        <th>Tipo</th>
-                        <th>Obligatorio</th>
-                        <th class="text-right">Acción</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{range .AttachedDocViews}}
-                    {{template "documentCard" .}}
-                    {{end}}
-                </tbody>
-            </table>
+<!-- Fechas de jornada (accordion — collapsed once started) -->
+{{if and .IsLeague .RoundDates}}
+<div class="collapse collapse-arrow bg-base-100 shadow mb-6" data-testid="section-round-dates" id="round-schedule">
+    <input type="checkbox" {{if not .HasFixtures}}checked{{end}}>
+    <div class="collapse-title text-lg font-bold">Fechas límite por jornada</div>
+    <div class="collapse-content">
+        <div class="flex justify-end mb-2">
+            <button hx-post="/admin/competitions/{{.Competition.Id}}/round-dates/regenerate"
+                    hx-confirm="¿Regenerar las fechas? Esto sobrescribe las fechas editadas."
+                    class="btn btn-ghost btn-sm">Regenerar fechas</button>
         </div>
-        {{else}}
-        <div class="text-center py-6 text-base-content/60">
-            <p class="text-sm">No hay documentos adjuntos</p>
-        </div>
-        {{end}}
-
-        {{if .UnattachedDocs}}
-        <div class="divider text-xs uppercase tracking-wider">Adjuntar documento</div>
-        <form hx-post="/admin/competitions/{{.Competition.Id}}/attach-doc" class="flex items-end gap-3">
-            <div class="form-control flex-1">
-                <select name="document" class="select select-bordered select-sm w-full" required>
-                    <option value="">Seleccionar documento…</option>
-                    {{range .UnattachedDocs}}
-                    <option value="{{.Id}}">{{.GetString "title"}}</option>
-                    {{end}}
-                </select>
+        <form hx-post="/admin/competitions/{{.Competition.Id}}/round-dates" class="space-y-2">
+            {{range .RoundDates}}
+            <div class="flex items-center gap-3">
+                <span class="text-sm font-medium w-24">Jornada {{.Number}}</span>
+                <input type="date" name="round_date_{{.Number}}" value="{{.Date}}"
+                       class="input input-bordered input-sm flex-1 max-w-xs">
             </div>
-            <button type="submit" class="btn btn-primary btn-sm">Adjuntar</button>
+            {{end}}
+            <div class="mt-3">
+                <button type="submit" class="btn btn-primary btn-sm">Guardar fechas</button>
+            </div>
         </form>
-        {{end}}
     </div>
 </div>
+{{end}}
 
 <!-- Parejas (accordion — collapsed when started and all paid) -->
 <div class="collapse collapse-arrow bg-base-100 shadow mb-6" data-testid="section-parejas">
@@ -382,29 +340,71 @@
     </div>
 </div>
 
-<!-- Fechas de jornada (accordion — collapsed once started) -->
-{{if and .IsLeague .RoundDates}}
-<div class="collapse collapse-arrow bg-base-100 shadow mb-6" data-testid="section-round-dates" id="round-schedule">
-    <input type="checkbox" {{if not .HasFixtures}}checked{{end}}>
-    <div class="collapse-title text-lg font-bold">Fechas límite por jornada</div>
-    <div class="collapse-content">
-        <div class="flex justify-end mb-2">
-            <button hx-post="/admin/competitions/{{.Competition.Id}}/round-dates/regenerate"
-                    hx-confirm="¿Regenerar las fechas? Esto sobrescribe las fechas editadas."
-                    class="btn btn-ghost btn-sm">Regenerar fechas</button>
+<!-- Documentos -->
+<div class="card bg-base-100 shadow mb-6">
+    <div class="card-body">
+        <h2 class="card-title text-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Documentos
+            {{if .AttachedDocs}}<span class="badge badge-neutral badge-sm">{{len .AttachedDocs}}</span>{{end}}
+        </h2>
+
+        {{if .AttachedDocViews}}
+        <div class="overflow-x-auto">
+            <table class="table table-zebra">
+                <thead>
+                    <tr>
+                        <th>Título</th>
+                        <th>Tipo</th>
+                        <th>Obligatorio</th>
+                        <th class="text-right">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .AttachedDocViews}}
+                    {{template "documentCard" .}}
+                    {{end}}
+                </tbody>
+            </table>
         </div>
-        <form hx-post="/admin/competitions/{{.Competition.Id}}/round-dates" class="space-y-2">
-            {{range .RoundDates}}
-            <div class="flex items-center gap-3">
-                <span class="text-sm font-medium w-24">Jornada {{.Number}}</span>
-                <input type="date" name="round_date_{{.Number}}" value="{{.Date}}"
-                       class="input input-bordered input-sm flex-1 max-w-xs">
+        {{else}}
+        <div class="text-center py-6 text-base-content/60">
+            <p class="text-sm">No hay documentos adjuntos</p>
+        </div>
+        {{end}}
+
+        {{if .UnattachedDocs}}
+        <div class="divider text-xs uppercase tracking-wider">Adjuntar documento</div>
+        <form hx-post="/admin/competitions/{{.Competition.Id}}/attach-doc" class="flex items-end gap-3">
+            <div class="form-control flex-1">
+                <select name="document" class="select select-bordered select-sm w-full" required>
+                    <option value="">Seleccionar documento…</option>
+                    {{range .UnattachedDocs}}
+                    <option value="{{.Id}}">{{.GetString "title"}}</option>
+                    {{end}}
+                </select>
             </div>
-            {{end}}
-            <div class="mt-3">
-                <button type="submit" class="btn btn-primary btn-sm">Guardar fechas</button>
-            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Adjuntar</button>
         </form>
+        {{end}}
+    </div>
+</div>
+
+<!-- Clasificación -->
+{{if .IsLeague}}
+<div class="card bg-base-100 shadow mb-6">
+    <div class="card-body">
+        <h2 class="card-title text-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            Clasificación
+        </h2>
+        {{if .Standings}}
+        {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "Admin" true)}}
+        {{else}}
+        <div class="text-center py-6 text-base-content/60">
+            <p class="text-sm">No hay datos de clasificación todavía</p>
+        </div>
+        {{end}}
     </div>
 </div>
 {{end}}
