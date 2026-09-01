@@ -1,5 +1,5 @@
 <!-- Status + actions panel — its own top-level card, NOT nested with the timeline. -->
-{{if or .SchedProposals .ResultPanel.Live .ResultPanel.HasFinal .CanPropose .UnpaidWarning .IsPlayoff}}
+{{if or .SchedProposals .ResultPanel.Live .ResultPanel.HasFinal .CanPropose .UnpaidWarning .IsPlayoff (eq (.Match.GetString "status") "disputed") .Card.CanSubmit .Card.CanCorrect .Card.CanWalkover (and .Card.Mode.Admin .Card.Mode.Editable)}}
 <div id="thread-details" class="card bg-base-100 shadow-lg rounded-2xl overflow-hidden mb-4">
     <div class="card-body p-4 sm:p-6">
         {{if .UnpaidWarning}}

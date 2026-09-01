@@ -1,32 +1,12 @@
+{{/* One flat, independent timeline row per entry — a simple activity log
+     (Jira/AzDO style). No nesting, no indentation, no bubbles: every entry is
+     the same shape (author · content · time), just a border between rows. */}}
 {{define "timelineEntry"}}
-{{if eq .Kind "event"}}
-<div class="text-center my-2">
-    <span class="text-xs opacity-60 bg-base-200 rounded-full px-3 py-1">{{.Content}}</span>
-</div>
-{{else if eq .Kind "chat"}}
-<div class="chat {{if .IsMyTeam}}chat-end{{else}}chat-start{{end}}">
-    <div class="chat-header text-xs opacity-50 mb-1">
-        {{.AuthorName}} <time class="ml-1">{{.CreatedAt}}</time>
-    </div>
-    <div class="chat-bubble {{if .IsMyTeam}}chat-bubble-primary{{end}} text-sm">
-        {{.Content}}
-    </div>
-</div>
-{{else if eq .Kind "response"}}
-<div class="flex items-start gap-2 text-sm ml-4 border-l-2 border-base-300 pl-3 py-1">
-    <span class="font-medium">{{.AuthorName}}</span>
-    <span class="opacity-60 flex-1">{{.Content}}</span>
-    <span class="text-xs opacity-50 whitespace-nowrap">{{.CreatedAt}}</span>
-</div>
-{{else}}
-{{/* proposal — a flat one-line history entry (Jira/AzDO style), no nested box.
-     Content already reads "propuso resultado: 6-3 6-4" / "propuso fecha y lugar: …". */}}
-<div class="flex items-start gap-2 text-sm py-1">
+<div class="flex items-start gap-2 text-sm py-2 border-b border-base-200 last:border-0">
     <span class="font-bold whitespace-nowrap">{{.AuthorName}}</span>
-    <span class="flex-1">{{.Content}}</span>
+    <span class="flex-1 {{if eq .Kind "chat"}}opacity-80{{end}}">{{.Content}}</span>
     <span class="text-xs opacity-50 whitespace-nowrap">{{.CreatedAt}}</span>
 </div>
-{{end}}
 {{end}}
 
 {{define "timelineMessages"}}

@@ -76,6 +76,8 @@ test.describe('match lifecycle', () => {
     const matchId = scratchMatchId('lifecycle-ui', testInfo.project.name);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto(`/match/${matchId}`);
+    // The admin override lives in the single result panel (lazy thread fragment).
+    await page.waitForSelector('#result-panel', { timeout: 10000 });
     const collapseTitle = page.locator('.collapse-title', { hasText: /corrección de administrador/i });
     await expect(collapseTitle).toBeVisible({ timeout: 5000 });
     await collapseTitle.locator('..').locator('input[type="checkbox"]').click();
