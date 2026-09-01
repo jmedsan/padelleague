@@ -6,7 +6,7 @@
     </a>
 </div>
 
-{{template "competitionHeader" (dict "Comp" .Competition "IsArchived" .IsArchived)}}
+{{template "competitionHeader" (dict "Mode" .Mode "Comp" .Competition "IsArchived" .IsArchived)}}
 
 {{if .Awards}}
 <div class="mb-6">
@@ -104,7 +104,7 @@
     <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Clasificación">
     <div role="tabpanel" class="tab-content pt-6">
         <div class="card bg-base-100 shadow-sm rounded-xl overflow-hidden">
-            {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "PlayerPairIDs" .PlayerPairIDs)}}
+            {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "PlayerPairIDs" .PlayerPairIDs "Mode" .Mode)}}
         </div>
     </div>
     {{end}}

@@ -71,6 +71,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"HasUnpaid":       anyUnpaid(pairEntries),
 		"UnpaidCount":     countUnpaid(pairEntries),
 		"Phase":           league.PhaseOf(comp, time.Now()),
+		"Mode":            AdminFull,
 	}
 	h.addDetailExtras(data, comp, matches)
 	return h.renderPage(e, "admin/competition-detail.html", data)

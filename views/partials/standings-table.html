@@ -1,24 +1,24 @@
 {{define "standingsTable"}}
 <div class="overflow-x-auto">
-    <table class="table table-zebra {{if .Admin}}table-sm{{end}}">
+    <table class="table table-zebra {{if .Mode.Admin}}table-sm{{end}}">
         <thead>
-            <tr {{if not .Admin}}class="bg-base-200"{{end}}>
-                <th class="{{if .Admin}}w-10{{else}}w-12 text-center{{end}}">#</th>
+            <tr {{if not .Mode.Admin}}class="bg-base-200"{{end}}>
+                <th class="{{if .Mode.Admin}}w-10{{else}}w-12 text-center{{end}}">#</th>
                 <th>Pareja</th>
                 <th class="text-center">PJ</th>
                 <th class="text-center">PG</th>
                 <th class="text-center">PP</th>
                 <th class="text-center">Sets</th>
                 <th class="text-center">Juegos</th>
-                <th class="text-center {{if not .Admin}}font-bold {{end}}">Pts</th>
+                <th class="text-center {{if not .Mode.Admin}}font-bold {{end}}">Pts</th>
                 {{if .HasPenalties}}<th class="text-center">Pen.</th>{{end}}
             </tr>
         </thead>
         <tbody>
             {{range .Standings}}
-            <tr {{if $.Admin}}{{if le .Position 3}}class="font-medium"{{end}}{{else}}class="hover {{if and $.PlayerPairIDs (hasKey $.PlayerPairIDs .PairID)}}bg-primary/10 font-bold{{end}}"{{end}}>
-                <td {{if not $.Admin}}class="text-center"{{end}}>
-                    {{if $.Admin}}
+            <tr {{if $.Mode.Admin}}{{if le .Position 3}}class="font-medium"{{end}}{{else}}class="hover {{if and $.PlayerPairIDs (hasKey $.PlayerPairIDs .PairID)}}bg-primary/10 font-bold{{end}}"{{end}}>
+                <td {{if not $.Mode.Admin}}class="text-center"{{end}}>
+                    {{if $.Mode.Admin}}
                         {{if eq .Position 1}}<span class="text-warning">🥇</span>
                         {{else if eq .Position 2}}<span class="text-base-content/60">🥈</span>
                         {{else if eq .Position 3}}<span class="text-accent">🥉</span>
@@ -29,13 +29,13 @@
                         </div>
                     {{end}}
                 </td>
-                <td {{if not $.Admin}}class="font-medium"{{end}}>{{template "pairLink" (elink .PairID .PairName)}}</td>
+                <td {{if not $.Mode.Admin}}class="font-medium"{{end}}>{{template "pairLink" (elink .PairID .PairName)}}</td>
                 <td class="text-center">{{.Played}}</td>
-                <td class="text-center {{if not $.Admin}}text-success{{end}}">{{.Wins}}</td>
-                <td class="text-center {{if not $.Admin}}text-error{{end}}">{{.Losses}}</td>
+                <td class="text-center {{if not $.Mode.Admin}}text-success{{end}}">{{.Wins}}</td>
+                <td class="text-center {{if not $.Mode.Admin}}text-error{{end}}">{{.Losses}}</td>
                 <td class="text-center text-sm">{{.SetsWon}}/{{.SetsLost}}</td>
                 <td class="text-center text-sm">{{.GamesWon}}/{{.GamesLost}}</td>
-                <td class="text-center {{if not $.Admin}}text-lg {{end}}font-bold">{{.Points}}</td>
+                <td class="text-center {{if not $.Mode.Admin}}text-lg {{end}}font-bold">{{.Points}}</td>
                 {{if $.HasPenalties}}<td class="text-center">
                     {{if gt .Penalty 0}}<span class="text-error font-medium">-{{.Penalty}}</span>{{else}}<span class="opacity-60">—</span>{{end}}
                 </td>{{end}}
