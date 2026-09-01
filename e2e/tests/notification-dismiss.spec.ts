@@ -10,54 +10,109 @@ async function createNotification(page: import('@playwright/test').Page, userId:
   return (await resp.json()).id as string;
 }
 
+async function dismissAllExisting(page: import('@playwright/test').Page, userId: string, adminToken: string) {
+  const resp = await page.request.get(`/api/collections/notifications/records?filter=user="${userId}"&&dismissed=false`, {
+    headers: { Authorization: adminToken },
+  });
+  if (!resp.ok()) return;
+  const body = await resp.json();
+  for (const item of body.items || []) {
+    await page.request.patch(`/api/collections/notifications/records/${item.id}`, {
+      headers: { Authorization: adminToken },
+      data: { dismissed: true },
+    });
+  }
+}
+
 test.describe('notification dismiss and history', () => {
-  test('dismiss removes notification from bell, history shows all', async ({ page }) => {
+  test('desktop: dismiss via bell, badge decrements, history shows all', async ({ page }) => {
+    if (isMobile(page)) { test.skip(); return; }
+
     const data = loadTestData();
+    await dismissAllExisting(page, data.player1.id, data.adminToken);
+
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
 
     const dismissId = await createNotification(page, data.player1.id, data.adminToken, 'E2E Dismiss Test');
     const keepId = await createNotification(page, data.player1.id, data.adminToken, 'E2E Keep Test');
 
-    if (isMobile(page)) {
-      await page.goto('/notifications/history');
-      await page.waitForLoadState('domcontentloaded');
-      await expect(page.getByText('E2E Dismiss Test')).toBeVisible();
-      await expect(page.getByText('E2E Keep Test')).toBeVisible();
-      return;
-    }
+    // Reload to pick up new notifications in badge
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
 
-    // Desktop: open the bell dropdown
+    // Badge shows count (2 unread)
+    const badge = page.locator('#notif-badge');
+    await expect(badge).toContainText('2', { timeout: 5000 });
+
+    // Open bell dropdown
     const bellButton = page.locator('.dropdown:has(#notif-dropdown) button[aria-label="notificaciones"]');
     await bellButton.click();
 
     const dropdown = page.locator('#notif-dropdown');
-    await expect(dropdown).toBeVisible();
-
-    // Wait for HTMX to load notifications, then verify our rows
     const dismissRow = dropdown.locator(`#notif-row-${dismissId}`);
-    const keepRow = dropdown.locator(`#notif-row-${keepId}`);
     await expect(dismissRow).toBeVisible({ timeout: 5000 });
-    await expect(keepRow).toBeVisible();
 
     // Dismiss via × button
     await dismissRow.locator('button[aria-label="descartar"]').click();
 
-    // Dismissed row removed from DOM
+    // Row removed
     await expect(dismissRow).not.toBeAttached({ timeout: 5000 });
 
-    // Re-open dropdown (dismiss click may close it)
+    // Badge decremented to 1
+    await expect(badge).toContainText('1', { timeout: 5000 });
+
+    // Re-open dropdown, kept row still present
     await bellButton.click();
-    await expect(dropdown.locator('[id^="notif-row-"]').first()).toBeVisible({ timeout: 5000 });
+    const keepRow = dropdown.locator(`#notif-row-${keepId}`);
+    await expect(keepRow).toBeVisible({ timeout: 5000 });
 
-    // Keep row still present, dismiss row gone
-    await expect(keepRow).toBeVisible();
-    await expect(dismissRow).not.toBeAttached();
-
-    // Navigate to history — both appear (dismissed one faded)
+    // Navigate to history — both appear
     await page.goto('/notifications/history');
     await page.waitForLoadState('domcontentloaded');
     await expect(page.getByRole('heading', { name: 'Historial de notificaciones' })).toBeVisible();
     await expect(page.getByText('E2E Dismiss Test')).toBeVisible();
     await expect(page.getByText('E2E Keep Test')).toBeVisible();
+  });
+
+  test('mobile: dismiss via bell, badge decrements', async ({ page }) => {
+    if (!isMobile(page)) { test.skip(); return; }
+
+    const data = loadTestData();
+    await dismissAllExisting(page, data.player1.id, data.adminToken);
+
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+
+    const dismissId = await createNotification(page, data.player1.id, data.adminToken, 'E2E Mobile Dismiss');
+    await createNotification(page, data.player1.id, data.adminToken, 'E2E Mobile Keep');
+
+    // Reload to pick up badge count
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+
+    // Mobile badge shows count
+    const mobileBadge = page.locator('#notif-badge-mobile');
+    await expect(mobileBadge).toContainText('2', { timeout: 5000 });
+
+    // Open mobile bell dropdown
+    const mobileBell = page.locator('.lg\\:hidden button[aria-label="notificaciones"]');
+    await mobileBell.click();
+
+    // Wait for dropdown to load
+    const mobileDropdown = mobileBell.locator('..').locator('.dropdown-content');
+    const dismissRow = mobileDropdown.locator(`#notif-row-${dismissId}`);
+    await expect(dismissRow).toBeVisible({ timeout: 5000 });
+
+    // Dismiss
+    await dismissRow.locator('button[aria-label="descartar"]').click();
+    await expect(dismissRow).not.toBeAttached({ timeout: 5000 });
+
+    // Mobile badge decremented
+    await expect(mobileBadge).toContainText('1', { timeout: 5000 });
+
+    // History page shows both
+    await page.goto('/notifications/history');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.getByText('E2E Mobile Dismiss')).toBeVisible();
+    await expect(page.getByText('E2E Mobile Keep')).toBeVisible();
   });
 });
