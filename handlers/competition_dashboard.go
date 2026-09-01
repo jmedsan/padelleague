@@ -76,7 +76,7 @@ func (h *CompetitionDashboardHandler) buildAdminIssues(active []CompetitionView)
 		quorumHours := comp.GetFloat("quorum_timeout_hours")
 
 		matches, _ := h.app.FindRecordsByFilter("matches",
-			"competition = {:cid}", "", 0, 0,
+			"competition = {:cid}", "round_number", 0, 0,
 			map[string]any{"cid": comp.Id})
 		pairIDs := make([]string, 0)
 		for _, m := range matches {

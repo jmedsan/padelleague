@@ -306,7 +306,7 @@ func (h *PublicHandler) findLegacyConfirmed(c *core.Record, playerPairIDs map[st
 	var actions []PendingAction
 	confirmed, _ := h.app.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'confirmed'",
-		"", 0, 0, map[string]any{"cid": c.Id})
+		"-created", 0, 0, map[string]any{"cid": c.Id})
 	for _, m := range confirmed {
 		if !isRivalAction(h.app, m, m.GetString("submitted_by"), playerPairIDs) {
 			continue
@@ -325,7 +325,7 @@ func (h *PublicHandler) findPendingProposals(c *core.Record, playerPairIDs map[s
 	var actions []PendingAction
 	proposals, _ := h.app.FindRecordsByFilter("match_messages",
 		"type = 'result_submission' && proposal_status = 'pending'",
-		"", 0, 0, nil)
+		"-created", 0, 0, nil)
 	for _, p := range proposals {
 		m, err := h.app.FindRecordById("matches", p.GetString("match"))
 		if err != nil || m.GetString("competition") != c.Id {

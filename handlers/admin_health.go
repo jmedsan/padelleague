@@ -65,7 +65,7 @@ func (h *AdminHealthHandler) build() []healthGroup {
 }
 
 func (h *AdminHealthHandler) buildUnpaid(g *healthGroup) {
-	comps, err := h.app.FindRecordsByFilter("competitions", "active = true", "", 0, 0, nil)
+	comps, err := h.app.FindRecordsByFilter("competitions", "active = true", "name", 0, 0, nil)
 	if err != nil {
 		return
 	}
@@ -89,7 +89,7 @@ func (h *AdminHealthHandler) buildUnpaid(g *healthGroup) {
 
 func (h *AdminHealthHandler) buildUnscheduled(g *healthGroup) {
 	matches, err := h.app.FindRecordsByFilter("matches",
-		"status != 'final' && date = ''", "", 0, 0, nil)
+		"status != 'final' && date = ''", "round_number", 0, 0, nil)
 	if err != nil {
 		slog.Warn("health: unscheduled query failed", "err", err)
 		return

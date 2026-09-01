@@ -346,7 +346,7 @@ func (h *PlayerHandler) H2H(e *core.RequestEvent) error {
 
 	matches, _ := h.app.FindRecordsByFilter("matches",
 		"((pair1 = {:p1} && pair2 = {:p2}) || (pair1 = {:p2} && pair2 = {:p1})) && status = 'final'",
-		"", 0, 0,
+		"-created", 0, 0,
 		map[string]any{"p1": p1, "p2": p2})
 
 	data := tallyH2H(p1, p2, matches, pairNames)

@@ -88,7 +88,7 @@ func PlayersForPair(app core.App, pairID string) []string {
 func PairsForPlayer(app core.App, userID string) ([]*core.Record, error) {
 	return app.FindRecordsByFilter("pairs",
 		"player1 = {:uid} || player2 = {:uid}",
-		"", 0, 0,
+		"name", 0, 0,
 		map[string]any{"uid": userID})
 }
 

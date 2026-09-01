@@ -136,7 +136,7 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 
 	allMatches, _ := h.app.FindRecordsByFilter("matches",
 		"competition = {:cid}",
-		"", 0, 0,
+		"round_number", 0, 0,
 		map[string]any{"cid": id})
 
 	datedMatches, pairNames := h.filterDatedMatches(allMatches, compPairIDs)
