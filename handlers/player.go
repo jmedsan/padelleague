@@ -140,17 +140,22 @@ func tallyScore(t *playerTotals, score string, isPair1 bool) {
 func (h *PlayerHandler) buildPlayerStats(user *core.Record, pairs []*core.Record, pairInfos []PairInfo) PlayerData {
 	var totals playerTotals
 	var allResults []matchResult
+	seen := map[string]bool{}
 
 	for _, p := range pairs {
 		results := pairMatchResults(h.app, p.Id)
 		for _, r := range results {
+			if seen[r.matchID] {
+				continue
+			}
+			seen[r.matchID] = true
 			totals.played++
 			if r.won {
 				totals.wins++
 			}
 			tallyScore(&totals, r.score, r.isPair1)
+			allResults = append(allResults, r)
 		}
-		allResults = append(allResults, results...)
 	}
 
 	sort.Slice(allResults, func(i, j int) bool {
@@ -258,27 +263,21 @@ func computeBestStreak(results []matchResult) string {
 	if len(results) == 0 {
 		return ""
 	}
-	bestWin, bestLoss := 0, 0
-	curWin, curLoss := 0, 0
+	best, cur := 0, 0
 	for _, r := range results {
 		if r.won {
-			curWin++
-			curLoss = 0
-			if curWin > bestWin {
-				bestWin = curWin
+			cur++
+			if cur > best {
+				best = cur
 			}
 		} else {
-			curLoss++
-			curWin = 0
-			if curLoss > bestLoss {
-				bestLoss = curLoss
-			}
+			cur = 0
 		}
 	}
-	if bestWin >= bestLoss {
-		return fmt.Sprintf("%dV", bestWin)
+	if best == 0 {
+		return "0V"
 	}
-	return fmt.Sprintf("%dD", bestLoss)
+	return fmt.Sprintf("%dV", best)
 }
 
 func computeCompetitionStats(app core.App, results []matchResult) []CompetitionStat {
