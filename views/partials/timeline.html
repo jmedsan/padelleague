@@ -78,10 +78,8 @@
         {{if and .ProposalData .ProposalData.Scores}}
         <form class="reject-form hidden mt-3" hx-post="/match/{{.MatchID}}/thread/proposal/{{.Record.Id}}/respond" hx-target="#thread-messages-list">
             <input type="hidden" name="action" value="reject">
-            <div class="form-control">
-                <label class="label py-1"><span class="label-text text-xs">Tu marcador *</span></label>
-                <input type="text" name="counter_scores" class="input input-bordered input-sm" placeholder="6-4 4-6 5-7" required>
-            </div>
+            <label class="label py-1"><span class="label-text text-xs">Tu marcador *</span></label>
+            {{template "scoreInput" .ScoreCounter}}
             <button type="submit" class="btn btn-error btn-sm w-full mt-2">Enviar contrapropuesta</button>
         </form>
         {{else}}

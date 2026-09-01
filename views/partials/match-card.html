@@ -93,19 +93,15 @@
     </form>
     {{else}}
     <form hx-post="/admin/disputes/{{.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
-        <div class="flex flex-wrap gap-3 items-end">
-            <div class="form-control">
-                <label class="label"><span class="label-text">Marcador final</span></label>
-                <input type="text" name="score" id="final-{{.Match.Id}}" value="{{.SubmittedScore}}" class="input input-bordered input-sm w-40">
-                <div class="flex gap-1 mt-1">
-                    <button type="button" onclick="document.getElementById('final-{{.Match.Id}}').value='{{.SubmittedScore}}'" class="btn btn-xs btn-outline">{{.SubmittedScore}}</button>
-                    {{if .DisputedScore}}
-                    <button type="button" onclick="document.getElementById('final-{{.Match.Id}}').value='{{.DisputedScore}}'" class="btn btn-xs btn-outline">{{.DisputedScore}}</button>
-                    {{end}}
-                </div>
-            </div>
-            <button type="submit" class="btn btn-primary btn-sm">Resolver</button>
+        <label class="label"><span class="label-text">Marcador final</span></label>
+        {{template "scoreInput" .ScoreResolve}}
+        <div class="flex gap-1 mt-1">
+            <button type="button" onclick="fillCells(this,'{{.SubmittedScore}}')" class="btn btn-xs btn-outline">{{.SubmittedScore}}</button>
+            {{if .DisputedScore}}
+            <button type="button" onclick="fillCells(this,'{{.DisputedScore}}')" class="btn btn-xs btn-outline">{{.DisputedScore}}</button>
+            {{end}}
         </div>
+        <button type="submit" class="btn btn-primary btn-sm mt-2">Resolver</button>
     </form>
     {{end}}
 {{else}}
@@ -115,9 +111,9 @@
         <div class="collapse-title font-bold text-sm uppercase tracking-wider opacity-50">Corrección de administrador</div>
         <div class="collapse-content">
             <form hx-post="/match/{{.Match.Id}}/admin-override" hx-target="body">
-                <div class="form-control mb-3">
-                    <label class="label py-1"><span class="label-text text-xs">Resultado (ej: 6-3 4-6 7-5)</span></label>
-                    <input type="text" name="scores" class="input input-bordered input-sm" placeholder="6-3 4-6 7-5" value="{{.Match.GetString "scores"}}">
+                <div class="mb-3">
+                    <label class="label py-1"><span class="label-text text-xs">Resultado</span></label>
+                    {{template "scoreInput" .ScoreOverride}}
                 </div>
                 <div class="grid grid-cols-2 gap-3 mb-3">
                     <div class="form-control">
@@ -163,87 +159,13 @@
 <div class="card bg-base-200/50 rounded-xl mb-4">
     <div class="card-body p-4">
         <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Registrar resultado</h3>
-        <form hx-post="/match/{{.Match.Id}}/submit" hx-target="#action-result" onsubmit="return composeScore(this)">
-            <div>
-                <label class="label py-1"><span class="label-text text-xs">Resultado</span></label>
-                <div class="overflow-x-auto pb-2">
-                    <table class="table table-compact w-full text-center">
-                        <thead>
-                            <tr>
-                                <th class="text-xs w-16"></th>
-                                <th class="text-xs">Set 1</th>
-                                <th class="text-xs">Set 2</th>
-                                <th class="text-xs" id="set3-header" style="display:none">Set 3</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td class="text-xs font-bold text-left py-1">{{.Pair1Name}}</td>
-                                <td class="py-1"><button type="button" class="btn btn-circle btn-sm btn-ghost score-btn" data-field="s1a" onclick="incScore(this)"><span>-</span></button><input type="hidden" name="s1a" value=""></td>
-                                <td class="py-1"><button type="button" class="btn btn-circle btn-sm btn-ghost score-btn" data-field="s2a" onclick="incScore(this)"><span>-</span></button><input type="hidden" name="s2a" value=""></td>
-                                <td class="py-1" id="s3a-cell" style="display:none"><button type="button" class="btn btn-circle btn-sm btn-ghost score-btn" data-field="s3a" onclick="incScore(this)"><span>-</span></button><input type="hidden" name="s3a" value=""></td>
-                            </tr>
-                            <tr>
-                                <td class="text-xs font-bold text-left py-1">{{.Pair2Name}}</td>
-                                <td class="py-1"><button type="button" class="btn btn-circle btn-sm btn-ghost score-btn" data-field="s1b" onclick="incScore(this)"><span>-</span></button><input type="hidden" name="s1b" value=""></td>
-                                <td class="py-1"><button type="button" class="btn btn-circle btn-sm btn-ghost score-btn" data-field="s2b" onclick="incScore(this)"><span>-</span></button><input type="hidden" name="s2b" value=""></td>
-                                <td class="py-1" id="s3b-cell" style="display:none"><button type="button" class="btn btn-circle btn-sm btn-ghost score-btn" data-field="s3b" onclick="incScore(this)"><span>-</span></button><input type="hidden" name="s3b" value=""></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <input type="hidden" name="scores" id="scores-hidden">
-            </div>
+        <form hx-post="/match/{{.Match.Id}}/submit" hx-target="#action-result">
+            <label class="label py-1"><span class="label-text text-xs">Resultado</span></label>
+            {{template "scoreInput" .ScoreSubmit}}
             <button type="submit" class="btn btn-primary mt-4 w-full">Enviar resultado</button>
         </form>
     </div>
 </div>
-<script>
-function incScore(btn) {
-    var field = btn.dataset.field;
-    var inp = btn.parentElement.querySelector('input[name="'+field+'"]');
-    var cur = inp.value === '' ? -1 : parseInt(inp.value);
-    var next = cur >= 7 ? '' : String(cur + 1);
-    inp.value = next;
-    btn.querySelector('span').textContent = next === '' ? '-' : next;
-    btn.classList.toggle('btn-primary', next !== '');
-    btn.classList.toggle('btn-ghost', next === '');
-    checkThirdSet();
-}
-function checkThirdSet() {
-    var s1a = document.querySelector('[name=s1a]').value;
-    var s1b = document.querySelector('[name=s1b]').value;
-    var s2a = document.querySelector('[name=s2a]').value;
-    var s2b = document.querySelector('[name=s2b]').value;
-    var show = false;
-    if (s1a !== '' && s1b !== '' && s2a !== '' && s2b !== '') {
-        var w1 = (parseInt(s1a) > parseInt(s1b) ? 1 : 0) + (parseInt(s2a) > parseInt(s2b) ? 1 : 0);
-        show = (w1 === 1);
-    }
-    var d = show ? '' : 'none';
-    document.getElementById('set3-header').style.display = d;
-    var c1 = document.getElementById('s3a-cell'); if (c1) c1.style.display = d;
-    var c2 = document.getElementById('s3b-cell'); if (c2) c2.style.display = d;
-    if (!show) {
-        var s3a = document.querySelector('[name=s3a]');
-        var s3b = document.querySelector('[name=s3b]');
-        if (s3a) { s3a.value = ''; var b = s3a.previousElementSibling; if (b) { b.querySelector('span').textContent = '-'; b.classList.remove('btn-primary'); b.classList.add('btn-ghost'); } }
-        if (s3b) { s3b.value = ''; var b = s3b.previousElementSibling; if (b) { b.querySelector('span').textContent = '-'; b.classList.remove('btn-primary'); b.classList.add('btn-ghost'); } }
-    }
-}
-function composeScore(form) {
-    var parts = [];
-    for (var i = 1; i <= 3; i++) {
-        var a = form.querySelector('[name=s'+i+'a]');
-        var b = form.querySelector('[name=s'+i+'b]');
-        if (a && b && a.value !== '' && b.value !== '') {
-            parts.push(a.value + '-' + b.value);
-        }
-    }
-    document.getElementById('scores-hidden').value = parts.join(' ');
-    return true;
-}
-</script>
 {{end}}{{/* HasDateAndPlace */}}
 {{end}}{{/* CanSubmit */}}
 
@@ -269,10 +191,8 @@ function composeScore(form) {
     <div class="card-body p-4">
         <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Corregir marcador</h3>
         <form hx-post="/match/{{.Match.Id}}/correct" hx-target="#action-result">
-            <div class="form-control">
-                <label class="label py-1"><span class="label-text text-xs">Nuevo marcador (ej: 6-3 4-6 7-5)</span></label>
-                <input type="text" name="scores" class="input input-bordered" placeholder="6-3 4-6 7-5" value="{{.Match.GetString "scores"}}" required>
-            </div>
+            <label class="label py-1"><span class="label-text text-xs">Nuevo marcador</span></label>
+            {{template "scoreInput" .ScoreCorrect}}
             <button type="submit" class="btn btn-warning mt-3 w-full">Corregir resultado</button>
         </form>
     </div>
