@@ -246,7 +246,7 @@ func timelineEntryText(msgType, action, content string) (verb, statusLabel, stat
 		if action == "accept" {
 			return "aceptó el resultado", "Aceptada", "badge-success"
 		}
-		return "rechazó el resultado y contrapropuso", "Rechazada", "badge-error"
+		return "rechazó el resultado", "Rechazada", "badge-error"
 	default: // result_event, admin_action, chat
 		return content, "", ""
 	}

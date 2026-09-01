@@ -85,7 +85,7 @@ func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: e.Auth.Id, Kind: "result_event",
-		Detail: league.PlayerName(h.app, e.Auth.Id) + " (admin) aprobó incomparecencia a favor de " + league.PairNames(h.app, []string{winnerID})[winnerID],
+		Detail: "aprobó incomparecencia a favor de " + league.PairNames(h.app, []string{winnerID})[winnerID],
 	})
 	if penalty := comp.GetFloat("default_penalty"); penalty > 0 {
 		if err := league.ApplyPenalty(h.app, league.PenaltyInput{CompetitionID: compID, PairID: loserID, Reason: "Incomparecencia aprobada", AdminID: e.Auth.Id, Amount: penalty}); err != nil {
@@ -133,7 +133,7 @@ func (h *DisputeHandler) DisputesResolve(e *core.RequestEvent) error {
 
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: e.Auth.Id, Kind: "result_event",
-		Detail: league.PlayerName(h.app, e.Auth.Id) + " (admin) resolvió la disputa: " + score,
+		Detail: "resolvió la disputa: " + score,
 	})
 	n := league.NotifDisputeResolved(match.Id)
 	h.notifyMatchPlayers(match, n.Type, n.Title, n.Body)

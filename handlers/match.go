@@ -321,10 +321,9 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 		return alertError(e, "Error al guardar")
 	}
 
-	adminName := league.PlayerName(h.app, e.Auth.Id)
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: id, ActorID: e.Auth.Id,
-		Kind: "admin_action", Detail: adminName + " (admin): " + strings.Join(changes, "; "),
+		Kind: "admin_action", Detail: strings.Join(changes, "; "),
 	})
 
 	return redirectHX(e, "/match/"+id)
@@ -466,10 +465,9 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 		return alertError(e, "Error al reportar")
 	}
 
-	label := pairPlayerLabel(h.app, userID, match)
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: userID,
-		Kind: "result_event", Detail: label + " reportó el partido como no jugado",
+		Kind: "result_event", Detail: "reportó el partido como no jugado",
 	})
 
 	an := league.NotifAdminMatchUnplayed(id)
