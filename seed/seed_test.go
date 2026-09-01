@@ -272,7 +272,7 @@ func TestSampleLeague(t *testing.T) {
 	assert.Equal(t, 1, walkoverCount, "one walkover match")
 
 	// One pair should be unpaid
-	comp := comps[0]
+	comp := mainComp
 	ps := comp.Get("payment_status")
 	if pm, ok := ps.(map[string]any); ok {
 		unpaidCount := 0
