@@ -2,6 +2,42 @@ import { test, expect } from '@playwright/test';
 import { loginAs, scratchMatchId, loadTestData, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { enterScore } from '../tour-helpers';
 
+const BASE = 'http://localhost:8099';
+
+function suToken(): string {
+  return loadTestData().adminToken;
+}
+
+async function suPatch(path: string, data: Record<string, unknown>): Promise<void> {
+  const resp = await fetch(`${BASE}${path}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: suToken() },
+    body: JSON.stringify(data),
+  });
+  if (!resp.ok) {
+    throw new Error(`suPatch ${path}: ${resp.status} ${await resp.text()}`);
+  }
+}
+
+async function suPost(path: string, data: Record<string, unknown>): Promise<any> {
+  const resp = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: suToken() },
+    body: JSON.stringify(data),
+  });
+  if (!resp.ok) {
+    throw new Error(`suPost ${path}: ${resp.status} ${await resp.text()}`);
+  }
+  return resp.json();
+}
+
+async function suGet(path: string): Promise<any> {
+  const resp = await fetch(`${BASE}${path}`, {
+    headers: { Authorization: suToken() },
+  });
+  return resp.json();
+}
+
 test.describe('match lifecycle', () => {
   test('player can view match detail', async ({ page }) => {
     const data = loadTestData();
@@ -13,19 +49,7 @@ test.describe('match lifecycle', () => {
 
   test('player can submit score', async ({ page }, testInfo) => {
     const matchId = scratchMatchId("submit-score", testInfo.project.name);
-
-    // Set date+club via superuser API so score form is visible (before login to avoid cookie interference)
-    const suAuth = await page.request.post('/api/collections/_superusers/auth-with-password', {
-      data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-    });
-    const suToken = (await suAuth.json()).token;
-    const patchResp = await page.request.patch(`/api/collections/matches/records/${matchId}`, {
-      headers: { Authorization: suToken },
-      data: { date: '2025-03-15', club: 'Padel 360' },
-    });
-    if (!patchResp.ok()) {
-      throw new Error(`Patch failed: ${patchResp.status()} ${await patchResp.text()}`);
-    }
+    await suPatch(`/api/collections/matches/records/${matchId}`, { date: '2025-03-15', club: 'Padel 360' });
 
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${matchId}`);
@@ -57,30 +81,16 @@ test.describe('match lifecycle', () => {
   });
 
   test('counter-propose uses masked score component', async ({ page }, testInfo) => {
-    const data = loadTestData();
     const matchId = scratchMatchId('lifecycle-ui', testInfo.project.name);
-    const suAuth = await page.request.post('/api/collections/_superusers/auth-with-password', {
-      data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+    const adminId = (await suGet(`/api/collections/users/records?filter=email='${ADMIN_EMAIL}'`)).items[0].id;
+    await suPatch(`/api/collections/matches/records/${matchId}`, {
+      status: 'scheduled', submitted_by: adminId, date: '2025-03-15', club: 'Padel 360',
     });
-    const suToken = (await suAuth.json()).token;
-    // Look up admin user ID (admin is in pair2 = Pareja Beta)
-    const adminResp = await page.request.get(
-      `/api/collections/users/records?filter=email='${ADMIN_EMAIL}'`,
-      { headers: { Authorization: suToken } },
-    );
-    const adminId = (await adminResp.json()).items[0].id;
-    // Set match to scheduled with a submission from pair2 (admin)
-    await page.request.patch(`/api/collections/matches/records/${matchId}`, {
-      headers: { Authorization: suToken },
-      data: { status: 'scheduled', submitted_by: adminId, date: '2025-03-15', club: 'Padel 360' },
+    await suPost('/api/collections/match_messages/records', {
+      match: matchId, type: 'result_submission', proposal_status: 'pending',
+      proposal_data: JSON.stringify({ scores: '6-3 6-4' }),
+      author: adminId,
     });
-    await page.request.post(`/api/collections/match_messages/records`, {
-      headers: { Authorization: suToken },
-      data: { match: matchId, type: 'result_submission', proposal_status: 'pending',
-              proposal_data: JSON.stringify({ scores: '6-3 6-4' }),
-              author: adminId },
-    });
-    // Player2 is in pair1 (opposing team) — should see counter-propose
     await loginAs(page, PLAYER2_EMAIL, PLAYER2_PASSWORD);
     await page.goto(`/match/${matchId}`);
     const counterBtn = page.locator('#thread-messages-list button:has-text("Contraproponer")').first();
@@ -93,18 +103,9 @@ test.describe('match lifecycle', () => {
 
   test('admin resolve uses masked score component', async ({ page }, testInfo) => {
     const matchId = scratchMatchId('lifecycle-ui', testInfo.project.name);
-    const suAuth = await page.request.post('/api/collections/_superusers/auth-with-password', {
-      data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+    await suPatch(`/api/collections/matches/records/${matchId}`, {
+      status: 'disputed', scores: '6-3 6-4', disputed_scores: '4-6 6-3 7-5', review_type: 'score',
     });
-    const suToken = (await suAuth.json()).token;
-    const resolveResp = await page.request.patch(`/api/collections/matches/records/${matchId}`, {
-      headers: { Authorization: suToken },
-      data: { status: 'disputed', scores: '6-3 6-4', disputed_scores: '4-6 6-3 7-5', review_type: 'score' },
-    });
-    if (!resolveResp.ok()) {
-      const body = await resolveResp.text();
-      throw new Error(`admin-resolve patch failed: ${resolveResp.status()} ${body}`);
-    }
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto(`/match/${matchId}`);
     const resolveForm = page.locator('form[hx-post*="disputes"]').filter({ has: page.locator('button:has-text("Resolver")') });
