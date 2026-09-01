@@ -32,7 +32,7 @@ test.describe('match thread', () => {
     const data = loadTestData();
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${data.matchIds[0]}`);
-    await expect(page.getByRole('heading', { name: 'Hilo del partido' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Historial del partido' })).toBeVisible({ timeout: 10000 });
     await expect(page.locator('[name="content"]')).toBeVisible({ timeout: 10000 });
   });
 

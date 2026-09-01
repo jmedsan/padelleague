@@ -1,76 +1,16 @@
-<div class="card bg-base-100 shadow-lg rounded-2xl overflow-hidden">
+<!-- Status + actions panel — its own top-level card, NOT nested with the timeline. -->
+{{if or .SchedProposals .ResultPanel.Live .ResultPanel.HasFinal .CanPropose .UnpaidWarning}}
+<div id="thread-details" class="card bg-base-100 shadow-lg rounded-2xl overflow-hidden mb-4">
     <div class="card-body p-4 sm:p-6">
-        <h3 class="font-bold text-lg mb-4">Hilo del partido</h3>
-
-        <div id="thread-details">
-            {{template "schedProposalPanel" .}}
-            {{template "resultPanel" .}}
-
-            {{if .CanPropose}}
-            <div class="mt-4">
-            {{if not .HasDateAndPlace}}
-            <div class="card bg-primary/10 border-2 border-primary/30 rounded-xl mb-3">
-                <div class="card-body p-4">
-                    <h3 class="font-bold text-sm">Proponer fecha y lugar</h3>
-                    <p class="text-xs opacity-70 mb-2">Aún no hay fecha ni lugar confirmados para este partido.</p>
-            {{else}}
-            <div class="collapse collapse-arrow bg-base-200 rounded-lg">
-                <input type="checkbox" class="peer">
-                <div class="collapse-title text-sm font-medium py-2 min-h-0">{{if .IsScheduled}}Proponer nueva fecha (reprogramar){{else}}Proponer fecha{{end}}</div>
-                <div class="collapse-content">
-            {{end}}
-                    <form id="proposal-form" hx-post="/match/{{.MatchID}}/thread/proposal" hx-target="body">
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="form-control">
-                                <label class="label py-1"><span class="label-text text-xs">Fecha</span></label>
-                                <input type="date" name="date" class="input input-bordered input-sm">
-                            </div>
-                            <div class="form-control">
-                                <label class="label py-1"><span class="label-text text-xs">Hora</span></label>
-                                <input type="time" name="time" class="input input-bordered input-sm" value="{{.ProposalDefaultTime}}">
-                            </div>
-                        </div>
-                        <div class="form-control mt-3">
-                            <label class="label py-1"><span class="label-text text-xs">Club</span></label>
-                            <select name="venue_id" class="select select-bordered select-sm w-full" onchange="document.getElementById('venue-text-wrap').classList.toggle('hidden', this.value !== 'otro')">
-                                <option value="">Seleccionar...</option>
-                                {{range .Venues}}
-                                <option value="{{.Id}}" {{if eq (.GetString "name") $.ProposalDefaultVenue}}selected{{end}}>{{.GetString "name"}}</option>
-                                {{end}}
-                                <option value="otro">Otro</option>
-                            </select>
-                        </div>
-                        <div id="venue-text-wrap" class="form-control mt-2 hidden">
-                            <input type="text" name="venue_text" class="input input-bordered input-sm" placeholder="Nombre del club">
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-sm w-full mt-3">Proponer fecha</button>
-                    </form>
-                </div>
-            </div>
-            <script>
-            (function() {
-                var f = document.getElementById('proposal-form');
-                if (f) f.addEventListener('submit', function(ev) {
-                    var d = f.querySelector('[name=date]').value;
-                    var t = f.querySelector('[name=time]').value;
-                    var v = f.querySelector('[name=venue_id]').value;
-                    if ((d || t || v) && !(d && t && v)) {
-                        ev.preventDefault();
-                        alert('Completa todos los campos de la propuesta');
-                    }
-                });
-            })();
-            </script>
-            </div>
-            {{end}}
-        </div>
-
         {{if .UnpaidWarning}}
-        <div class="alert alert-warning text-sm py-2 mb-2">
+        <div class="alert alert-warning text-sm py-2 mb-3">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             <span>{{.UnpaidWarning}}</span>
         </div>
         {{end}}
+
+        {{template "schedProposalPanel" .}}
+        {{template "resultPanel" .}}
 
         {{if .IsPlayoff}}
         {{if .Match.GetString "date"}}
@@ -85,6 +25,34 @@
         {{end}}
         {{end}}
 
+        {{if .CanPropose}}
+        {{if not .HasDateAndPlace}}
+        <div class="card bg-primary/10 border-2 border-primary/30 rounded-xl mt-3">
+            <div class="card-body p-4">
+                <h3 class="font-bold text-sm">Proponer fecha y lugar</h3>
+                <p class="text-xs opacity-70 mb-2">Aún no hay fecha ni lugar confirmados para este partido.</p>
+                {{template "proposalForm" .}}
+            </div>
+        </div>
+        {{else}}
+        <div class="collapse collapse-arrow bg-base-200 rounded-lg mt-3">
+            <input type="checkbox" class="peer">
+            <div class="collapse-title text-sm font-medium py-2 min-h-0">{{if .IsScheduled}}Proponer nueva fecha (reprogramar){{else}}Proponer fecha{{end}}</div>
+            <div class="collapse-content">
+                {{template "proposalForm" .}}
+            </div>
+        </div>
+        {{end}}
+        {{end}}
+    </div>
+</div>
+{{end}}
+
+<!-- Timeline — pure read-only chronological log + chat composer. Its own card. -->
+<div class="card bg-base-100 shadow-lg rounded-2xl overflow-hidden">
+    <div class="card-body p-4 sm:p-6">
+        <h3 class="font-bold text-lg mb-4">Historial del partido</h3>
+
         <div id="thread-messages-list"
              hx-get="/match/{{.MatchID}}/thread-messages"
              hx-trigger="load, every 15s"
@@ -92,11 +60,11 @@
         </div>
 
         {{if .CanPost}}
-        <div class="border-t border-base-300 pt-4">
+        <div class="border-t border-base-300 pt-4 mt-4">
             {{if and .IsAdmin (not .IsParticipant)}}
             <div class="text-center text-xs opacity-60 mb-2">Escribiendo como administrador</div>
             {{end}}
-            <form hx-post="/match/{{.MatchID}}/thread/message" hx-target="body" class="flex gap-2 mb-3">
+            <form hx-post="/match/{{.MatchID}}/thread/message" hx-target="body" class="flex gap-2">
                 <input type="hidden" name="type" value="chat">
                 <input type="text" name="content" class="input input-bordered input-sm flex-1" placeholder="Escribe un mensaje..." required>
                 <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
@@ -105,3 +73,46 @@
         {{end}}
     </div>
 </div>
+
+{{define "proposalForm"}}
+<form id="proposal-form" hx-post="/match/{{.MatchID}}/thread/proposal" hx-target="body">
+    <div class="grid grid-cols-2 gap-3">
+        <div class="form-control">
+            <label class="label py-1"><span class="label-text text-xs">Fecha</span></label>
+            <input type="date" name="date" class="input input-bordered input-sm">
+        </div>
+        <div class="form-control">
+            <label class="label py-1"><span class="label-text text-xs">Hora</span></label>
+            <input type="time" name="time" class="input input-bordered input-sm" value="{{.ProposalDefaultTime}}">
+        </div>
+    </div>
+    <div class="form-control mt-3">
+        <label class="label py-1"><span class="label-text text-xs">Club</span></label>
+        <select name="venue_id" class="select select-bordered select-sm w-full" onchange="document.getElementById('venue-text-wrap').classList.toggle('hidden', this.value !== 'otro')">
+            <option value="">Seleccionar...</option>
+            {{range .Venues}}
+            <option value="{{.Id}}" {{if eq (.GetString "name") $.ProposalDefaultVenue}}selected{{end}}>{{.GetString "name"}}</option>
+            {{end}}
+            <option value="otro">Otro</option>
+        </select>
+    </div>
+    <div id="venue-text-wrap" class="form-control mt-2 hidden">
+        <input type="text" name="venue_text" class="input input-bordered input-sm" placeholder="Nombre del club">
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm w-full mt-3">Proponer fecha</button>
+</form>
+<script>
+(function() {
+    var f = document.getElementById('proposal-form');
+    if (f) f.addEventListener('submit', function(ev) {
+        var d = f.querySelector('[name=date]').value;
+        var t = f.querySelector('[name=time]').value;
+        var v = f.querySelector('[name=venue_id]').value;
+        if ((d || t || v) && !(d && t && v)) {
+            ev.preventDefault();
+            alert('Completa todos los campos de la propuesta');
+        }
+    });
+})();
+</script>
+{{end}}
