@@ -114,7 +114,7 @@ test.describe('scheduling, walkover & bracket', () => {
     // Admin approves via disputes page
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin/disputes');
-    await expect(page.getByText('Solicitud de walkover')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Solicitud de incomparecencia')).toBeVisible({ timeout: 10000 });
 
     const woForm = page.locator(`form[hx-post*="/admin/disputes/${matchId}/walkover-approve"]`);
     await woForm.locator('select[name="winner"]').selectOption(data.pair1Id);
