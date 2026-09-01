@@ -10,16 +10,26 @@ async function createNotification(page: import('@playwright/test').Page, userId:
   return (await resp.json()).id as string;
 }
 
+// Delete every notification for the user, repeating until none remain. A
+// preceding test (e.g. mobile-lifecycle's accept → NotifResultConfirmed to
+// player1) can write a notification asynchronously that lands just after a
+// single delete pass; polling to empty flushes that in-flight leak so this
+// test starts from a genuinely clean baseline and its absolute count holds.
 async function deleteAllExisting(page: import('@playwright/test').Page, userId: string, adminToken: string) {
-  const resp = await page.request.get(`/api/collections/notifications/records?filter=user="${userId}"&perPage=200`, {
-    headers: { Authorization: adminToken },
-  });
-  if (!resp.ok()) return;
-  const body = await resp.json();
-  for (const item of body.items || []) {
-    await page.request.delete(`/api/collections/notifications/records/${item.id}`, {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const resp = await page.request.get(`/api/collections/notifications/records?filter=user="${userId}"&perPage=200`, {
       headers: { Authorization: adminToken },
     });
+    if (!resp.ok()) return;
+    const items = (await resp.json()).items || [];
+    if (items.length === 0) return;
+    for (const item of items) {
+      await page.request.delete(`/api/collections/notifications/records/${item.id}`, {
+        headers: { Authorization: adminToken },
+      });
+    }
+    // brief wait so any in-flight cross-test notification settles before re-checking
+    await page.waitForTimeout(300);
   }
 }
 
