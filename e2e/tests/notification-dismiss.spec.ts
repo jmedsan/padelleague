@@ -49,9 +49,12 @@ test.describe('notification dismiss and history', () => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
-    // Badge shows count (2 unread)
+    // Badge shows at least the 2 unread we created (a concurrent notification
+    // from another flow may add more — assert relative, not an absolute count).
     const badge = page.locator('#notif-badge');
-    await expect(badge).toContainText('2', { timeout: 5000 });
+    await expect(badge).toBeVisible({ timeout: 5000 });
+    const before = parseInt((await badge.textContent())?.trim() || '0', 10);
+    expect(before).toBeGreaterThanOrEqual(2);
 
     // Open bell dropdown
     const bellButton = page.locator('.dropdown:has(#notif-dropdown) button[aria-label="notificaciones"]');
@@ -67,8 +70,9 @@ test.describe('notification dismiss and history', () => {
     // Row removed
     await expect(dismissRow).not.toBeAttached({ timeout: 5000 });
 
-    // Badge decremented to 1
-    await expect(badge).toContainText('1', { timeout: 5000 });
+    // Badge decremented by exactly one (the OOB swap) — relative to `before`,
+    // immune to a concurrent notification changing the absolute count.
+    await expect(badge).toContainText(String(before - 1), { timeout: 5000 });
 
     // Re-open dropdown, kept row still present
     await bellButton.click();
@@ -98,9 +102,12 @@ test.describe('notification dismiss and history', () => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
-    // Mobile badge shows count
+    // Mobile badge shows at least our 2 (relative, not absolute — a concurrent
+    // notification from another flow may add more).
     const mobileBadge = page.locator('#notif-badge-mobile');
-    await expect(mobileBadge).toContainText('2', { timeout: 5000 });
+    await expect(mobileBadge).toBeVisible({ timeout: 5000 });
+    const before = parseInt((await mobileBadge.textContent())?.trim() || '0', 10);
+    expect(before).toBeGreaterThanOrEqual(2);
 
     // Open mobile bell dropdown
     const mobileDropdownContainer = page.locator('.lg\\:hidden .dropdown');
@@ -118,8 +125,8 @@ test.describe('notification dismiss and history', () => {
       dismissBtn.click(),
     ]);
 
-    // Wait for OOB swap to update badge
-    await expect(mobileBadge).toContainText('1', { timeout: 10000 });
+    // Wait for OOB swap to decrement the badge by one (relative to `before`).
+    await expect(mobileBadge).toContainText(String(before - 1), { timeout: 10000 });
 
     // Re-open dropdown to verify row is gone
     await mobileBell.click();
