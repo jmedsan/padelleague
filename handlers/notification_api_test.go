@@ -38,6 +38,7 @@ func setupNotifRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	e.Router.GET("/notifications/list", notif.List).BindFunc(requireAuthTest)
 	e.Router.POST("/notifications/{id}/read", notif.MarkRead).BindFunc(requireAuthTest)
 	e.Router.POST("/notifications/read-all", notif.MarkAllRead).BindFunc(requireAuthTest)
+	e.Router.POST("/notifications/{id}/dismiss", notif.Dismiss).BindFunc(requireAuthTest)
 
 	e.Router.GET("/profile/notifications", notif.Prefs).BindFunc(requireAuthTest)
 	e.Router.POST("/profile/notifications", notif.PrefsSave).BindFunc(requireAuthTest)

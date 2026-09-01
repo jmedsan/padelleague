@@ -80,6 +80,39 @@ func (h *NotificationHandler) List(e *core.RequestEvent) error {
 	return e.HTML(http.StatusOK, out)
 }
 
+// Dismiss removes a notification from the user's list without navigating.
+func (h *NotificationHandler) Dismiss(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	record, err := h.app.FindRecordById("notifications", id)
+	if err != nil {
+		return e.NoContent(http.StatusNoContent)
+	}
+
+	if record.GetString("user") != e.Auth.Id {
+		return e.NoContent(http.StatusNoContent)
+	}
+
+	record.Set("dismissed", true)
+	if err := h.app.Save(record); err != nil {
+		slog.Error("dismiss notification", "id", id, "err", err)
+	}
+
+	remaining, _ := h.app.FindRecordsByFilter("notifications",
+		"user = {:uid} && read = false && dismissed = false",
+		"", 0, 0,
+		map[string]any{"uid": e.Auth.Id})
+	count := len(remaining)
+
+	badge := ""
+	if count > 0 {
+		badge = fmt.Sprintf(`%d`, count)
+	}
+
+	out := fmt.Sprintf(`<span id="notif-badge" hx-swap-oob="innerHTML">%s</span>`, badge)
+	out += fmt.Sprintf(`<span id="notif-badge-mobile" hx-swap-oob="innerHTML">%s</span>`, badge)
+	return e.HTML(http.StatusOK, out)
+}
+
 // MarkRead marks a single notification as read.
 func (h *NotificationHandler) MarkRead(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
