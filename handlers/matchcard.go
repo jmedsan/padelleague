@@ -153,7 +153,7 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 	if canCorrectStatus && team > 0 && isSubmitter {
 		if submittedAt := match.GetString("submitted_at"); submittedAt != "" {
 			if dt, err := types.ParseDateTime(submittedAt); err == nil {
-				c.CanCorrect = time.Since(dt.Time()) < ResultCorrectionWindow
+				c.CanCorrect = time.Since(dt.Time()) < resultCorrectionWindow
 			}
 		}
 	}
