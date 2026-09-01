@@ -450,6 +450,29 @@ test.describe('R-178: presentation quality guards', () => {
     // Switch back to admin view for other tests
     await switchView(page, 'admin');
   });
+
+  test('R-209: pairs create form disables selected player in sibling dropdown', async ({ page }) => {
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto('/admin/pairs');
+    await page.waitForLoadState('networkidle');
+
+    await page.evaluate(() => {
+      (document.getElementById('modal-create') as HTMLDialogElement)?.showModal();
+    });
+    const dialog = page.locator('dialog#modal-create');
+    const player1 = dialog.locator('select[name="player1"]');
+    const player2 = dialog.locator('select[name="player2"]');
+
+    await player1.waitFor({ state: 'visible', timeout: 5000 });
+    const options = await player1.locator('option:not([value=""])').all();
+    expect(options.length, 'should have player options').toBeGreaterThan(0);
+
+    const firstValue = await options[0].getAttribute('value');
+    await player1.selectOption(firstValue!);
+
+    const disabled = await player2.locator(`option[value="${firstValue}"]`).getAttribute('disabled');
+    expect(disabled, 'selected player1 should be disabled in player2 dropdown').not.toBeNull();
+  });
 });
 
 async function getSuToken(request: APIRequestContext): Promise<string> {
