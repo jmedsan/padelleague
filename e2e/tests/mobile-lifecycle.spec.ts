@@ -35,8 +35,8 @@ test.describe('mobile match lifecycle', () => {
     await page.goto('/view/player');
     await page.waitForLoadState('networkidle');
     await page.goto(`/match/${matchId}`);
-    await page.waitForSelector('#thread-messages-list .entry', { timeout: 5000 });
-    const acceptBtn = page.locator('#thread-messages-list button:has-text("Aceptar")').first();
+    await page.waitForSelector('#thread-details', { timeout: 5000 });
+    const acceptBtn = page.locator('#thread-details button:has-text("Confirmar")').first();
     await acceptBtn.waitFor({ timeout: 5000 });
     await acceptBtn.click();
     await page.waitForLoadState('networkidle');

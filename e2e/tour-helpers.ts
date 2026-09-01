@@ -176,22 +176,22 @@ export async function submitScore(page: Page, score: string): Promise<void> {
 }
 
 export async function confirmScore(page: Page): Promise<void> {
-  await page.waitForSelector('#thread-messages-list .entry', { timeout: 15000 });
-  const acceptBtn = page.locator('#thread-messages-list button:has-text("Aceptar")').first();
+  await page.waitForSelector('#thread-details', { timeout: 15000 });
+  const acceptBtn = page.locator('#thread-details button:has-text("Confirmar")').first();
   await acceptBtn.waitFor({ timeout: 10000 });
   await clickAndWaitForHxRedirect(page, acceptBtn);
 }
 
 export async function disputeScore(page: Page, counterScore = '6-4 4-6 5-7'): Promise<void> {
-  await page.waitForSelector('#thread-messages-list .entry', { timeout: 5000 });
-  const counterBtn = page.locator('#thread-messages-list button:has-text("Contraproponer")').first();
+  await page.waitForSelector('#thread-details', { timeout: 5000 });
+  const counterBtn = page.locator('#thread-details button:has-text("Contraproponer")').first();
   await counterBtn.click();
-  const rejectForm = page.locator('.reject-form:visible').first();
-  const scoreInput = rejectForm.locator('.score-input').first();
+  const counterForm = page.locator('.counter-form:visible').first();
+  const scoreInput = counterForm.locator('.score-input').first();
   await scoreInput.waitFor({ state: 'visible', timeout: 3000 });
   const suffix = await scoreInput.getAttribute('data-suffix') ?? undefined;
   await enterScore(page, counterScore, { suffix });
-  await clickAndWaitForHxRedirect(page, rejectForm.locator('button[type="submit"]'));
+  await clickAndWaitForHxRedirect(page, counterForm.locator('button[type="submit"]'));
 }
 
 export async function resolveDispute(page: Page, matchId: string, score: string): Promise<void> {
