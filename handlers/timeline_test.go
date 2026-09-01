@@ -203,7 +203,7 @@ func TestWalkoverApproveCreatesTimelineEntry(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		entries := findResultEvents(app, matchID)
 		require.Len(tb, entries, 1, "walkover approve must write one result_event")
-		assert.Contains(tb, entries[0].GetString("content"), "aprobó walkover")
+		assert.Contains(tb, entries[0].GetString("content"), "aprobó incomparecencia")
 	}
 	s.Test(t)
 }

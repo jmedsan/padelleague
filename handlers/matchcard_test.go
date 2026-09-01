@@ -128,7 +128,7 @@ func TestMatchCardPlayerModeHidesAdminControls(t *testing.T) {
 		Method:             http.MethodGet,
 		ExpectedStatus:     http.StatusOK,
 		ExpectedContent:    []string{"Player Card A:", "Player Card B:"},
-		NotExpectedContent: []string{"Resolver", "Aprobar walkover", "Corrección de administrador"},
+		NotExpectedContent: []string{"Resolver", "Aprobar incomparecencia", "Corrección de administrador"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -158,7 +158,7 @@ func TestMatchCardAdminSummaryIsReadOnly(t *testing.T) {
 		URL:                "/",
 		ExpectedStatus:     http.StatusOK,
 		ExpectedContent:    []string{"Summary League", "Summary A:", "Summary B:", "Ver partido completo"},
-		NotExpectedContent: []string{"Resolver", "Aprobar walkover", "Corrección de administrador"},
+		NotExpectedContent: []string{"Resolver", "Aprobar incomparecencia", "Corrección de administrador"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -218,7 +218,7 @@ func TestMatchCardCrossRoleLeakGuard(t *testing.T) {
 			ExpectedContent: []string{"En disputa", "Leak Guard A:"},
 			NotExpectedContent: []string{
 				"Resolver",
-				"Aprobar walkover",
+				"Aprobar incomparecencia",
 				"Corrección de administrador",
 				`hx-post="/admin/disputes/`,
 				`admin-override`,

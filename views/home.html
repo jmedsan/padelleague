@@ -70,7 +70,7 @@
                 <p class="text-xs opacity-60">{{.Description}} — {{.CompName}} J{{.RoundNumber}}</p>
             </div>
             <span class="badge badge-sm {{if eq .Kind "dispute"}}badge-error{{else if eq .Kind "walkover"}}badge-info{{else}}badge-warning{{end}}">
-                {{if eq .Kind "dispute"}}Disputa{{else if eq .Kind "walkover"}}Walkover{{else}}Vencido{{end}}
+                {{if eq .Kind "dispute"}}Disputa{{else if eq .Kind "walkover"}}Incomparecencia{{else}}Vencido{{end}}
             </span>
             {{if .Recovery}}<span class="badge badge-sm badge-secondary" data-testid="recovery-badge">En recuperación</span>{{end}}
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 opacity-40 flex-none"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>

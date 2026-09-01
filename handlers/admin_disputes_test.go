@@ -271,7 +271,7 @@ func TestWalkoverApprove(t *testing.T) {
 		require.NoError(tb, err)
 		require.Len(tb, rows, 1, "losing pair must have penalty applied")
 		assert.Equal(tb, 5.0, rows[0].GetFloat("amount"))
-		assert.Equal(tb, "Walkover aprobado", rows[0].GetString("reason"))
+		assert.Equal(tb, "Incomparecencia aprobada", rows[0].GetString("reason"))
 		assert.NotEmpty(tb, rows[0].GetString("applied_by"), "walkover penalty must record approving admin")
 	}
 	s.Test(t)
@@ -382,7 +382,7 @@ func TestWalkoverApprove_AlreadyFinal_RejectedNoDoublePenalty(t *testing.T) {
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("default_penalty", 5)
 		comp.Set("walkover_score", "6-0 6-0")
-		makePenaltyTB(tb, app, comp.Id, p2.Id, 5, "Walkover aprobado", admin.Id, false)
+		makePenaltyTB(tb, app, comp.Id, p2.Id, 5, "Incomparecencia aprobada", admin.Id, false)
 		compID = comp.Id
 		// Simulates the state right after a first, successful approval.
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
@@ -415,7 +415,7 @@ func TestWalkoverApprove_NotWalkover(t *testing.T) {
 		Name:            "POST /admin/disputes/{id}/walkover-approve rejects non-walkover",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"no es una solicitud de walkover"},
+		ExpectedContent: []string{"no es una solicitud de incomparecencia"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupCompRoutes(tb, app, e)
