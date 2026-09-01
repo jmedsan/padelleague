@@ -133,30 +133,14 @@ func statusLabelShort(status string) string {
 
 func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID string) {
 	status := match.GetString("status")
-	submittedBy := match.GetString("submitted_by")
-
 	team, _ := league.PlayerTeam(app, viewerID, match)
-	isSubmitter := false
-	if submittedBy != "" {
-		submitterTeam, err := league.PlayerTeam(app, submittedBy, match)
-		if err == nil {
-			isSubmitter = (submitterTeam == team)
-		}
-	}
+	isSubmitter := viewerIsSubmitter(app, match, team)
 
 	c.HasDateAndPlace = match.GetString("date") != "" && match.GetString("club") != ""
 	c.CanSubmit = league.IsPreScore(status) && team > 0
 	c.CanEdit = league.IsPreScore(status) && team > 0
 	c.CanWalkover = canReportUnplayed(status, team)
-
-	canCorrectStatus := league.IsPreScore(status) || status == league.StatusConfirmed
-	if canCorrectStatus && team > 0 && isSubmitter {
-		if submittedAt := match.GetString("submitted_at"); submittedAt != "" {
-			if dt, err := types.ParseDateTime(submittedAt); err == nil {
-				c.CanCorrect = time.Since(dt.Time()) < resultCorrectionWindow
-			}
-		}
-	}
+	c.CanCorrect = isSubmitter && canCorrectNow(match, status)
 
 	mid := match.Id
 	c.ScoreSubmit = ScoreInputVM{FieldName: "scores", IDSuffix: mid, Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
@@ -165,6 +149,27 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 	if team > 0 && !isSubmitter {
 		c.fillPendingConfirm(app, match, team)
 	}
+}
+
+func viewerIsSubmitter(app core.App, match *core.Record, viewerTeam int) bool {
+	submittedBy := match.GetString("submitted_by")
+	if submittedBy == "" || viewerTeam == 0 {
+		return false
+	}
+	submitterTeam, err := league.PlayerTeam(app, submittedBy, match)
+	return err == nil && submitterTeam == viewerTeam
+}
+
+func canCorrectNow(match *core.Record, status string) bool {
+	if !league.IsPreScore(status) && status != league.StatusConfirmed {
+		return false
+	}
+	submittedAt := match.GetString("submitted_at")
+	if submittedAt == "" {
+		return false
+	}
+	dt, err := types.ParseDateTime(submittedAt)
+	return err == nil && time.Since(dt.Time()) < resultCorrectionWindow
 }
 
 func (c *MatchCard) fillPendingConfirm(app core.App, match *core.Record, viewerTeam int) {

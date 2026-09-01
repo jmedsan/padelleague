@@ -200,11 +200,6 @@ func FmtShortTime(t time.Time) string {
 	return t.In(madrid).Format("02/01 15:04")
 }
 
-// FmtShortDate formats a time.Time in Europe/Madrid as DD/MM.
-func FmtShortDate(t time.Time) string {
-	return t.In(madrid).Format("02/01")
-}
-
 // Partial renders an HTML fragment without the site layout.
 func (r *Renderer) Partial(e *core.RequestEvent, page string, data map[string]any) error {
 	if data == nil {
