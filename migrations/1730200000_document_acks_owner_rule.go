@@ -6,7 +6,7 @@ import (
 )
 
 // Scope document_acks list/view to the owning user. The original rule
-// (@request.auth.id != '') let any authenticated user read every player's
+// (@request.auth.id != ”) let any authenticated user read every player's
 // acknowledgment records via the auto-API; all app reads go through
 // server-side queries that bypass API rules, so owner-scoping is safe.
 func init() {
