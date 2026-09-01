@@ -134,7 +134,10 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 		return alertError(e, "El género es obligatorio")
 	}
 
-	_, authToken, err := h.registerUser(invite.Id, email, displayName, password, gender)
+	_, authToken, err := h.registerUser(registerParams{
+		inviteID: invite.Id, email: email, displayName: displayName,
+		password: password, gender: gender,
+	})
 
 	if err != nil {
 		return alertError(e, "Error al crear la cuenta. Verifica los datos e intenta de nuevo.")
@@ -148,7 +151,11 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 	return e.Redirect(http.StatusFound, "/")
 }
 
-func (h *AuthHandler) registerUser(inviteID, email, displayName, password, gender string) (*core.Record, string, error) {
+type registerParams struct {
+	inviteID, email, displayName, password, gender string
+}
+
+func (h *AuthHandler) registerUser(p registerParams) (*core.Record, string, error) {
 	var userRecord *core.Record
 	var authToken string
 
@@ -159,19 +166,19 @@ func (h *AuthHandler) registerUser(inviteID, email, displayName, password, gende
 		}
 
 		userRecord = core.NewRecord(collection)
-		userRecord.Set("email", email)
-		userRecord.Set("display_name", displayName)
+		userRecord.Set("email", p.email)
+		userRecord.Set("display_name", p.displayName)
 		userRecord.Set("roles", []string{"player"})
-		if gender != "" {
-			userRecord.Set("gender", gender)
+		if p.gender != "" {
+			userRecord.Set("gender", p.gender)
 		}
-		userRecord.SetPassword(password)
+		userRecord.SetPassword(p.password)
 
 		if err := txApp.Save(userRecord); err != nil {
 			return err
 		}
 
-		if err := consumeInvite(txApp, inviteID, userRecord.Id); err != nil {
+		if err := consumeInvite(txApp, p.inviteID, userRecord.Id); err != nil {
 			return err
 		}
 

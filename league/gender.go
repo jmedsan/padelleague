@@ -23,7 +23,7 @@ func ValidatePairComposition(genderType, g1, g2 string) error {
 			return fmt.Errorf("esta competición es solo femenina")
 		}
 	case "mixed":
-		if !((g1 == "male" && g2 == "female") || (g1 == "female" && g2 == "male")) {
+		if (g1 != "male" || g2 != "female") && (g1 != "female" || g2 != "male") {
 			return fmt.Errorf("las parejas mixtas deben tener un jugador y una jugadora")
 		}
 	}

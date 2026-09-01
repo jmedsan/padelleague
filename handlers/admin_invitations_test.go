@@ -42,7 +42,7 @@ func TestInvitationRequiresCompetition(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		invites, _ := app.FindRecordsByFilter("invitations", "status = 'pending'", "", 0, 0, nil)
 		assert.Equal(tb, 0, len(invites), "no invitation should be created without competition")
 	}
