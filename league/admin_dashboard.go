@@ -225,7 +225,7 @@ func outstandingForComp(app core.App, c *core.Record, now time.Time) []Outstandi
 		if !isPlayoff {
 			if deadline, ok := RoundArrangeDate(c, om.RoundNumber); ok {
 				om.deadline = deadline
-				om.ArrangeBy = deadline.Format("02/01")
+				om.ArrangeBy = fmtShortDate(deadline)
 				om.Warning = WarningLevel(deadline, graceDays, now)
 			}
 		}

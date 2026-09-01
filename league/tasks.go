@@ -154,8 +154,8 @@ func pendingMatchTasks(app core.App, comp *core.Record, playerPairIDs map[string
 			tasks = append(tasks, PlayerTask{
 				Kind: TaskOrganize, MatchID: m.Id, Opponent: opponent,
 				CompetitionName: compName, RoundNumber: roundNum,
-				Description: fmt.Sprintf("Organiza antes del %s", deadline.Format("02/01")),
-				ArrangeBy:   deadline.Format("02/01"), Warning: wl,
+				Description: fmt.Sprintf("Organiza antes del %s", fmtShortDate(deadline)),
+				ArrangeBy:   fmtShortDate(deadline), Warning: wl,
 				Recovery: recovery,
 			})
 		}

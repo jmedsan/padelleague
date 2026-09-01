@@ -271,3 +271,15 @@ func RoundArrangeDate(comp *core.Record, roundNumber int) (time.Time, bool) {
 	rounds := comp.GetInt("rounds")
 	return RecommendedArrangeBy(start, end, rounds, roundNumber)
 }
+
+var madrid = func() *time.Location {
+	loc, err := time.LoadLocation("Europe/Madrid")
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}()
+
+func fmtShortDate(t time.Time) string {
+	return t.In(madrid).Format("02/01")
+}

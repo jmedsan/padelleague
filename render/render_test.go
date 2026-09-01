@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/router"
@@ -232,10 +233,10 @@ func TestFmtDate(t *testing.T) {
 	}{
 		{"empty", "", ""},
 		{"PB datetime midnight", "2026-08-28 00:00:00.000Z", "28/08/2026"},
-		{"PB datetime with time", "2026-08-28 19:30:00.000Z", "28/08/2026 19:30"},
+		{"PB datetime with time", "2026-08-28 19:30:00.000Z", "28/08/2026 21:30"},
 		{"date only", "2026-08-28", "28/08/2026"},
-		{"RFC3339", "2026-08-28T19:30:00Z", "28/08/2026 19:30"},
-		{"date + time no seconds", "2026-10-15 19:30", "15/10/2026 19:30"},
+		{"RFC3339", "2026-08-28T19:30:00Z", "28/08/2026 21:30"},
+		{"date + time no seconds (wall-clock)", "2026-10-15 19:30", "15/10/2026 19:30"},
 		{"unparseable", "not-a-date", "not-a-date"},
 	}
 	for _, tt := range tests {
@@ -243,4 +244,35 @@ func TestFmtDate(t *testing.T) {
 			assert.Equal(t, tt.want, FmtDate(tt.input))
 		})
 	}
+}
+
+func TestFmtDate_MadridTimezone(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name, input, want string
+	}{
+		{"summer UTC+2", "2026-07-15 22:00:00.000Z", "16/07/2026 00:00"},
+		{"winter UTC+1", "2026-12-15 23:30:00.000Z", "16/12/2026 00:30"},
+		{"summer date rollover", "2026-08-01 23:00:00.000Z", "02/08/2026 01:00"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FmtDate(tt.input)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestFmtTime_MadridTimezone(t *testing.T) {
+	t.Parallel()
+	utc := time.Date(2026, 7, 15, 22, 0, 0, 0, time.UTC)
+	got := FmtTime(utc)
+	assert.Equal(t, "16/07/2026", got, "22:00 UTC = 00:00+1d CEST, midnight omits time")
+}
+
+func TestFmtShortTime_MadridTimezone(t *testing.T) {
+	t.Parallel()
+	utc := time.Date(2026, 12, 15, 23, 30, 0, 0, time.UTC)
+	got := FmtShortTime(utc)
+	assert.Equal(t, "16/12 00:30", got, "23:30 UTC = 00:30+1d CET")
 }
