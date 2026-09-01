@@ -198,10 +198,12 @@
                                     <form hx-post="/admin/competitions/{{$.Competition.Id}}/penalty" class="inline">
                                         <input type="hidden" name="action" value="remove">
                                         <input type="hidden" name="penalty_id" value="{{.ID}}">
-                                        <button type="submit" class="btn btn-ghost btn-xs">Quitar</button>
+                                        <button type="submit" class="btn btn-ghost btn-xs btn-circle opacity-50" aria-label="quitar penalización">&#10005;</button>
                                     </form>
                                 </div>
                                 {{end}}
+                            </div>
+                            <div class="mt-2">
                                 <label for="penalty-modal-{{.PairID}}" class="btn btn-ghost btn-xs text-warning">Penalizar</label>
                             </div>
                         </td>
