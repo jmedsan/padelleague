@@ -27,7 +27,7 @@ func NewNotificationHandler(app core.App, renderPage RenderFunc) *NotificationHa
 func (h *NotificationHandler) Count(e *core.RequestEvent) error {
 	count := 0
 	records, err := h.app.FindRecordsByFilter("notifications",
-		"user = {:uid} && read = false && dismissed = false",
+		"user = {:uid} && read = false",
 		"", 0, 0,
 		map[string]any{"uid": e.Auth.Id})
 	if err == nil {
@@ -43,7 +43,7 @@ func (h *NotificationHandler) Count(e *core.RequestEvent) error {
 // List renders the notification dropdown with recent notifications.
 func (h *NotificationHandler) List(e *core.RequestEvent) error {
 	records, err := h.app.FindRecordsByFilter("notifications",
-		"user = {:uid} && dismissed = false",
+		"user = {:uid} && read = false",
 		"-created", 10, 0,
 		map[string]any{"uid": e.Auth.Id})
 	if err != nil {
@@ -61,18 +61,14 @@ func (h *NotificationHandler) List(e *core.RequestEvent) error {
 		out += `<p class="text-sm text-base-content/50">No tienes notificaciones</p>`
 	} else {
 		for _, r := range records {
-			readClass := ""
-			if !r.GetBool("read") {
-				readClass = "bg-primary/5 font-medium"
-			}
-			out += fmt.Sprintf(`<div id="notif-row-%s" class="flex items-start gap-1 %s rounded p-1">`, r.Id, readClass)
+			out += fmt.Sprintf(`<div id="notif-row-%s" class="flex items-start gap-1 bg-primary/5 font-medium rounded p-1">`, r.Id)
 			out += fmt.Sprintf(`<a hx-post="/notifications/%s/read" hx-swap="none" class="flex-1 block p-1 hover:bg-base-200 cursor-pointer rounded">`, r.Id)
 			out += fmt.Sprintf(`<p class="text-sm">%s</p>`, html.EscapeString(r.GetString("title")))
 			if body := r.GetString("body"); body != "" {
 				out += fmt.Sprintf(`<p class="text-xs text-base-content/60">%s</p>`, html.EscapeString(league.Truncate(body, 80)))
 			}
 			out += `</a>`
-			out += fmt.Sprintf(`<button hx-post="/notifications/%s/dismiss" hx-target="#notif-row-%s" hx-swap="delete" class="btn btn-ghost btn-xs btn-circle opacity-50 hover:opacity-100" aria-label="descartar">&#10005;</button>`, r.Id, r.Id)
+			out += fmt.Sprintf(`<button hx-post="/notifications/%s/dismiss" hx-target="#notif-row-%s" hx-swap="delete" class="btn btn-ghost btn-xs btn-circle opacity-50 hover:opacity-100" aria-label="marcar leída">&#10005;</button>`, r.Id, r.Id)
 			out += `</div>`
 		}
 	}
@@ -86,7 +82,7 @@ func (h *NotificationHandler) List(e *core.RequestEvent) error {
 	return e.HTML(http.StatusOK, out)
 }
 
-// Dismiss removes a notification from the user's list without navigating.
+// Dismiss marks a notification as read and removes it from the bell.
 func (h *NotificationHandler) Dismiss(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	record, err := h.app.FindRecordById("notifications", id)
@@ -98,13 +94,13 @@ func (h *NotificationHandler) Dismiss(e *core.RequestEvent) error {
 		return e.NoContent(http.StatusNoContent)
 	}
 
-	record.Set("dismissed", true)
+	record.Set("read", true)
 	if err := h.app.Save(record); err != nil {
 		slog.Error("dismiss notification", "id", id, "err", err)
 	}
 
 	remaining, _ := h.app.FindRecordsByFilter("notifications",
-		"user = {:uid} && read = false && dismissed = false",
+		"user = {:uid} && read = false",
 		"", 0, 0,
 		map[string]any{"uid": e.Auth.Id})
 	count := len(remaining)
@@ -132,7 +128,6 @@ func (h *NotificationHandler) MarkRead(e *core.RequestEvent) error {
 	}
 
 	record.Set("read", true)
-	record.Set("dismissed", true)
 	if err := h.app.Save(record); err != nil {
 		slog.Error("mark notification read", "id", id, "err", err)
 	}
@@ -154,7 +149,6 @@ func (h *NotificationHandler) MarkAllRead(e *core.RequestEvent) error {
 
 	for _, r := range records {
 		r.Set("read", true)
-		r.Set("dismissed", true)
 		if err := h.app.Save(r); err != nil {
 			slog.Error("mark notification read", "id", r.Id, "err", err)
 		}
