@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loginAs, scratchMatchId, PLAYER1_EMAIL, PLAYER1_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { enterScore } from '../tour-helpers';
 
 test.describe('mobile match lifecycle', () => {
   test.beforeEach(({ }, testInfo) => {
@@ -23,11 +24,8 @@ test.describe('mobile match lifecycle', () => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${matchId}`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('.score-btn').first()).toBeVisible({ timeout: 5000 });
-
-    for (const [f, v] of [['s1a', '6'], ['s1b', '2'], ['s2a', '7'], ['s2b', '5']] as const) {
-      await page.$eval(`input[name="${f}"]`, (el, val) => { (el as HTMLInputElement).value = val; }, v);
-    }
+    await expect(page.locator('.score-cell').first()).toBeVisible({ timeout: 5000 });
+    await enterScore(page, '6-2 7-5');
     await page.getByRole('button', { name: 'Enviar resultado' }).click();
     await page.waitForLoadState('networkidle');
     await expect(page.getByText('6-2 7-5').first()).toBeVisible({ timeout: 5000 });

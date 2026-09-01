@@ -154,22 +154,28 @@ export async function markAllPairsPaid(page: Page): Promise<void> {
   await expect(btn).toHaveCount(0);
 }
 
-export async function submitScore(page: Page, score: string): Promise<void> {
+export async function enterScore(page: Page, score: string, opts?: { suffix?: string }): Promise<void> {
+  const root = opts?.suffix
+    ? page.locator(`.score-input[data-suffix="${opts.suffix}"]`)
+    : page.locator('.score-input').first();
   const sets = score.split(/\s+/).map(s => s.split('-'));
-  for (const [f, v] of [['s1a', sets[0][0]], ['s1b', sets[0][1]], ['s2a', sets[1][0]], ['s2b', sets[1][1]]]) {
-    await page.$eval(`input[name="${f}"]`, (el, val) => { (el as HTMLInputElement).value = val; }, v);
+  const fields = ['s1a', 's1b', 's2a', 's2b'];
+  const values = [sets[0][0], sets[0][1], sets[1][0], sets[1][1]];
+  for (let i = 0; i < fields.length; i++) {
+    const cell = root.locator(`input[name="${fields[i]}"]`);
+    await cell.fill(values[i]);
   }
   if (sets.length === 3) {
-    await page.evaluate(() => {
-      for (const id of ['set3-header', 's3a-cell', 's3b-cell']) {
-        const el = document.getElementById(id);
-        if (el) el.style.display = '';
-      }
-    });
+    await root.locator('.set3-group').first().waitFor({ state: 'visible', timeout: 3000 });
     for (const [f, v] of [['s3a', sets[2][0]], ['s3b', sets[2][1]]]) {
-      await page.$eval(`input[name="${f}"]`, (el, val) => { (el as HTMLInputElement).value = val; }, v);
+      await root.locator(`input[name="${f}"]`).fill(v);
     }
   }
+}
+
+/** @deprecated Use enterScore instead */
+export async function submitScore(page: Page, score: string): Promise<void> {
+  await enterScore(page, score);
   await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
 }
 
@@ -180,18 +186,24 @@ export async function confirmScore(page: Page): Promise<void> {
   await clickAndWaitForHxRedirect(page, acceptBtn);
 }
 
-export async function disputeScore(page: Page): Promise<void> {
+export async function disputeScore(page: Page, counterScore = '6-4 4-6 5-7'): Promise<void> {
   await page.waitForSelector('#thread-messages-list .entry', { timeout: 5000 });
   const counterBtn = page.locator('#thread-messages-list button:has-text("Contraproponer")').first();
   await counterBtn.click();
   const rejectForm = page.locator('.reject-form:visible').first();
-  await rejectForm.locator('input[name="counter_scores"]').fill('6-4 4-6 5-7');
+  const scoreInput = rejectForm.locator('.score-input').first();
+  await scoreInput.waitFor({ state: 'visible', timeout: 3000 });
+  const suffix = await scoreInput.getAttribute('data-suffix') ?? undefined;
+  await enterScore(page, counterScore, { suffix });
   await clickAndWaitForHxRedirect(page, rejectForm.locator('button[type="submit"]'));
 }
 
 export async function resolveDispute(page: Page, matchId: string, score: string): Promise<void> {
   const row = page.locator(`form[hx-post*="/admin/disputes/${matchId}/resolve"]`).first();
-  await row.locator('input[name="score"]').fill(score);
+  const scoreInput = row.locator('.score-input').first();
+  await scoreInput.waitFor({ state: 'visible', timeout: 3000 });
+  const suffix = await scoreInput.getAttribute('data-suffix') ?? undefined;
+  await enterScore(page, score, { suffix });
   await clickAndWaitForHxRedirect(page, row.locator('button:has-text("Resolver")'));
 }
 
