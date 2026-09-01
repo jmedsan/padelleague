@@ -149,6 +149,10 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 		return alertError(e, "Este partido ya tiene un resultado registrado")
 	}
 
+	if match.GetString("date") == "" || match.GetString("club") == "" {
+		return alertError(e, "Primero acuerda una fecha y lugar para el partido")
+	}
+
 	scores := e.Request.FormValue("scores")
 	if scores == "" {
 		return alertError(e, "Debes indicar el marcador")

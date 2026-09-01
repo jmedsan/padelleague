@@ -41,6 +41,9 @@ func TestSubmitCreatesTimelineEntry(t *testing.T) {
 		p2 := makePairTB(tb, app, "TL Sub B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		m.Set("date", "2026-09-01")
+		m.Set("club", "Padel 360")
+		require.NoError(tb, app.Save(m))
 		matchID = m.Id
 		playerID = p1.GetString("player1")
 		player, err := app.FindRecordById("users", playerID)
