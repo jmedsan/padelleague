@@ -37,13 +37,18 @@
         {{end}}
 
         {{if eq (.Match.GetString "status") "disputed"}}
-        <div class="grid grid-cols-2 gap-2 text-sm">
-            <span class="opacity-60">{{if .SubmitterPairName}}{{.SubmitterPairName}}{{else}}Propuesta{{end}}:</span><span class="font-medium">{{.SubmittedScore}}</span>
+        {{/* Read-only disputed results as boxes (context for everyone). The admin
+             gets a clickable copy in the resolve area below. */}}
+        {{if not (eq .ReviewType "walkover")}}
+        {{if not (and .Mode.Admin .Mode.Editable)}}
+        <div class="space-y-2">
+            {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "Score" .SubmittedScore "Note" .DisputeNotes)}}
             {{if .DisputedScore}}
-            <span class="opacity-60">{{if .DisputerPairName}}{{.DisputerPairName}}{{else}}Contrapropuesta{{end}}:</span><span class="font-medium">{{.DisputedScore}}</span>
+            {{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore)}}
             {{end}}
-            {{if .DisputeNotes}}<span class="opacity-60">Motivo:</span><span>{{.DisputeNotes}}</span>{{end}}
         </div>
+        {{end}}
+        {{end}}
         {{if eq .ReviewType "walkover"}}
         <div class="alert alert-warning mt-3">
             <span>Solicitud de incomparecencia por {{.RequestedBy}}</span>
@@ -84,17 +89,20 @@
         </div>
     </form>
     {{else}}
-    <form hx-post="/admin/disputes/{{.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
-        <label class="label"><span class="label-text">Marcador final</span></label>
-        {{template "scoreInput" .ScoreResolve}}
-        <div class="flex gap-1 mt-1">
-            <button type="button" onclick="fillCells(this,'{{.SubmittedScore}}')" class="btn btn-xs btn-outline">{{if .SubmitterPairName}}Usar propuesta de {{.SubmitterPairName}}{{else}}Usar propuesta{{end}}</button>
+    <div class="dispute-resolve">
+        <p class="text-xs opacity-60 mb-2">Toca un resultado propuesto para usarlo, o edita el marcador final.</p>
+        <div class="space-y-2 mb-3">
+            {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "Score" .SubmittedScore "Note" .DisputeNotes "FillScore" .SubmittedScore)}}
             {{if .DisputedScore}}
-            <button type="button" onclick="fillCells(this,'{{.DisputedScore}}')" class="btn btn-xs btn-outline">{{if .DisputerPairName}}Usar contrapropuesta de {{.DisputerPairName}}{{else}}Usar contrapropuesta{{end}}</button>
+            {{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore "FillScore" .DisputedScore)}}
             {{end}}
         </div>
-        <button type="submit" class="btn btn-primary btn-sm mt-2">Resolver</button>
-    </form>
+        <form hx-post="/admin/disputes/{{.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
+            <label class="label"><span class="label-text">Marcador final</span></label>
+            {{template "scoreInput" .ScoreResolve}}
+            <button type="submit" class="btn btn-primary btn-sm mt-2">Resolver</button>
+        </form>
+    </div>
     {{end}}
 {{else}}
 <div class="card bg-warning/5 border border-warning/20 rounded-xl">
@@ -335,6 +343,39 @@
         {{end}}
     </div>
     {{end}}
+</div>
+{{end}}
+
+{{/* resultBox — one reusable result card (pair + score + optional note).
+     .FillScore set → the whole box is a button that fills the nearest resolve
+     score input. .Compact → smaller (timeline). */}}
+{{define "resultBox"}}
+{{if .FillScore}}
+<button type="button" onclick="fillNearestScore(this, '{{.FillScore}}')"
+        class="card bg-base-200/50 border border-base-300 rounded-xl w-full text-left hover:border-primary cursor-pointer transition-colors">
+    <div class="card-body {{if .Compact}}p-2{{else}}p-3{{end}}">{{template "resultBoxBody" .}}</div>
+</button>
+{{else}}
+<div class="card bg-base-200/50 border border-base-300 rounded-xl">
+    <div class="card-body {{if .Compact}}p-2{{else}}p-3{{end}}">{{template "resultBoxBody" .}}</div>
+</div>
+{{end}}
+{{end}}
+
+{{define "resultBoxBody"}}
+{{if .PairLabel}}<div class="flex items-center gap-2"><span class="text-sm font-bold">{{.PairLabel}}</span></div>{{end}}
+<p class="{{if .Compact}}text-base{{else}}text-xl{{end}} font-black tracking-wide my-1">{{.Score}}</p>
+{{if .Note}}<p class="text-xs opacity-60">{{.Note}}</p>{{end}}
+{{end}}
+
+{{/* dateBox — one reusable date/time/place row, with an accepted marker. */}}
+{{define "dateBox"}}
+<div class="flex flex-wrap gap-2 items-center">
+    {{if .Date}}<span class="badge badge-outline badge-sm">{{fmtDate .Date}}</span>{{end}}
+    {{if .Time}}<span class="badge badge-outline badge-sm">{{.Time}}</span>{{end}}
+    {{if .Place}}<span class="badge badge-outline badge-sm">{{.Place}}</span>{{end}}
+    {{if .Court}}<span class="badge badge-outline badge-sm">Pista {{.Court}}</span>{{end}}
+    {{if .Accepted}}<span class="badge badge-success badge-sm">Aceptada</span>{{end}}
 </div>
 {{end}}
 

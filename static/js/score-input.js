@@ -96,6 +96,15 @@
         compose(si);
     };
 
+    // fillNearestScore — from a clickable result box, find the score-input in the
+    // enclosing form/section and fill it with the box's score. Lets the whole box
+    // be the fill affordance without being inside the score-input.
+    window.fillNearestScore = function(el, scoreStr) {
+        var scope = el.closest('form') || el.closest('.dispute-resolve') || document;
+        var si = scope.querySelector('.score-input');
+        if (si) window.fillCells(si, scoreStr);
+    };
+
     document.addEventListener('input', function(e) {
         if (!e.target.classList.contains('score-cell')) return;
         var si = root(e.target);
