@@ -518,7 +518,7 @@ func walkoverSampleMatch(txApp core.App, match *core.Record) error {
 	if err := league.ApplyPenalty(txApp, league.PenaltyInput{
 		CompetitionID: compID,
 		PairID:        loser,
-		Reason:        "Walkover aprobado",
+		Reason:        "Incomparecencia aprobada",
 		AdminID:       "",
 		Amount:        3,
 	}); err != nil {
