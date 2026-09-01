@@ -2,28 +2,6 @@
     <div class="card-body p-4 sm:p-6">
         <h3 class="font-bold text-lg mb-4">Hilo del partido</h3>
 
-        <div class="flex gap-1 mb-3" id="timeline-filters">
-            <button class="btn btn-xs btn-primary" onclick="filterTimeline('all')">Todo</button>
-            <button class="btn btn-xs btn-ghost" onclick="filterTimeline('message')">Mensajes</button>
-            <button class="btn btn-xs btn-ghost" onclick="filterTimeline('schedule')">Hora/Lugar</button>
-            <button class="btn btn-xs btn-ghost" onclick="filterTimeline('result')">Resultado</button>
-        </div>
-
-        <script>
-        function filterTimeline(type) {
-            document.querySelectorAll('#thread-messages-list .entry').forEach(function(el) {
-                el.style.display = (type === 'all' || el.dataset.type === type) ? '' : 'none';
-            });
-            var labels = {all: 'Todo', message: 'Mensajes', schedule: 'Hora/Lugar', result: 'Resultado'};
-            var active = labels[type];
-            document.querySelectorAll('#timeline-filters button').forEach(function(btn) {
-                var match = btn.textContent.trim() === active;
-                btn.classList.toggle('btn-primary', match);
-                btn.classList.toggle('btn-ghost', !match);
-            });
-        }
-        </script>
-
         <div id="thread-messages-list"
              hx-get="/match/{{.MatchID}}/thread-messages"
              hx-trigger="load, every 15s"
