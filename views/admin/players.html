@@ -21,36 +21,16 @@
         <table class="table table-zebra" id="players-table">
             <thead>
                 <tr>
-                    <th class="w-14"></th>
-                    <th>Nombre</th>
+                    <th>Jugador</th>
                     <th>Email</th>
                     <th>Género</th>
-                    <th>Rol</th>
                     <th class="w-20"></th>
                 </tr>
             </thead>
             <tbody>
                 {{range .Players}}
                 <tr class="hover">
-                    <td>
-                        <div class="avatar placeholder">
-                            <div class="bg-primary/10 text-primary w-9 rounded-full">
-                                {{if .GetString "display_name"}}
-                                <span class="text-sm font-bold">{{slice (.GetString "display_name") 0 1}}</span>
-                                {{else}}
-                                <span class="text-sm font-bold">?</span>
-                                {{end}}
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        {{if .GetString "display_name"}}
-                        <a href="/player/{{.Id}}" class="font-medium link link-hover">{{.GetString "display_name"}}</a>
-                        {{else}}
-                        <span class="opacity-60 italic">Sin nombre</span>
-                        <span class="badge badge-warning badge-xs ml-1">Pendiente</span>
-                        {{end}}
-                    </td>
+                    <td>{{template "playerCardIdentity" (dict "ID" .Id "Name" (.GetString "display_name") "Roles" (.GetStringSlice "roles") "Linked" true)}}</td>
                     <td class="opacity-60 text-sm">{{.GetString "email"}}</td>
                     <td class="text-sm">
                         {{if eq (.GetString "gender") "male"}}Hombre
@@ -59,20 +39,12 @@
                         {{end}}
                     </td>
                     <td>
-                        {{if contains (.GetStringSlice "roles") "admin"}}
-                        <span class="badge badge-secondary badge-sm">Admin</span>
-                        {{end}}
-                        {{if contains (.GetStringSlice "roles") "player"}}
-                        <span class="badge badge-outline badge-sm">Jugador</span>
-                        {{end}}
-                    </td>
-                    <td>
                         <label for="edit-player-{{.Id}}" class="btn btn-ghost btn-xs">Editar</label>
                     </td>
                 </tr>
                 {{else}}
                 <tr>
-                    <td colspan="6" class="text-center py-12 opacity-60">No hay jugadores registrados</td>
+                    <td colspan="4" class="text-center py-12 opacity-60">No hay jugadores registrados</td>
                 </tr>
                 {{end}}
             </tbody>

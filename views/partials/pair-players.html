@@ -1,23 +1,9 @@
 {{define "pairPlayers"}}
 {{if .Admin}}
 <div class="flex items-center gap-3 mt-1">
-    <div class="flex items-center gap-2">
-        <div class="avatar placeholder">
-            <div class="bg-primary/10 text-primary w-8 rounded-full">
-                <span class="text-xs font-bold">{{slice .Player1Name 0 1}}</span>
-            </div>
-        </div>
-        <span class="text-sm">{{template "playerLink" (elink .Player1ID .Player1Name)}}</span>
-    </div>
+    {{template "playerCardIdentity" (dict "ID" .Player1ID "Name" .Player1Name "Linked" true)}}
     <span class="text-base-content/60 text-xs font-bold">&amp;</span>
-    <div class="flex items-center gap-2">
-        <div class="avatar placeholder">
-            <div class="bg-secondary/10 text-secondary w-8 rounded-full">
-                <span class="text-xs font-bold">{{slice .Player2Name 0 1}}</span>
-            </div>
-        </div>
-        <span class="text-sm">{{template "playerLink" (elink .Player2ID .Player2Name)}}</span>
-    </div>
+    {{template "playerCardIdentity" (dict "ID" .Player2ID "Name" .Player2Name "Linked" true)}}
 </div>
 {{else}}
 <table class="table table-sm">
