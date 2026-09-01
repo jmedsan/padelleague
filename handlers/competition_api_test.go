@@ -435,6 +435,63 @@ func TestCompAddPairOverlappingPlayer(t *testing.T) {
 	s.Test(t)
 }
 
+func TestCompAddPairGenderRejected(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/competitions/{id}/pairs rejects wrong gender",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"solo masculina"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		pair := makePairWithGendersTB(tb, app, "MixedPair", "male", "female")
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		comp.Set("gender_type", "male")
+		require.NoError(tb, app.Save(comp))
+		s.URL = "/admin/competitions/" + comp.Id + "/pairs"
+		s.Body = strings.NewReader("pair=" + pair.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestCompAddPairGenderAccepted(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/pairs accepts matching gender",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, pairID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		pair := makePairWithGendersTB(tb, app, "MixedOK", "male", "female")
+		pairID = pair.Id
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		comp.Set("gender_type", "mixed")
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/pairs"
+		s.Body = strings.NewReader("pair=" + pair.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Contains(tb, c.GetStringSlice("pairs"), pairID)
+	}
+	s.Test(t)
+}
+
 func TestCompRemovePairCleansUpMetadata(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
