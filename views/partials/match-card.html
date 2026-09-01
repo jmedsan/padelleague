@@ -16,7 +16,7 @@
 
         {{if eq (.Match.GetString "status") "final"}}
         {{if .Score}}
-        <p class="text-2xl font-black tracking-wide text-center my-2">{{.Score}}</p>
+        {{template "resultBox" (dict "Score" .Score)}}
         {{end}}
 
         {{if .Match.GetString "winner"}}
@@ -151,13 +151,18 @@
 </dialog>
 {{end}}
 
+{{/* matchRow — same MatchCard VM as matchCard (built via NewMatchRow, Mode:
+     PlayerRow), but a horizontal list-row layout instead of a full card. Kept
+     as a separate define rather than a Mode.Row branch inside matchCard:
+     the layouts don't share markup (flex row vs. card+sections), so
+     branching would only add an if/else around otherwise-unrelated HTML. */}}
 {{define "matchRow"}}
 <a href="/match/{{.Match.Id}}" class="block rounded-xl py-3 px-3 transition-all duration-150 hover:shadow-md {{if .IsMyMatch}}bg-primary/5 border-l-4 border-l-primary hover:bg-primary/10{{else}}bg-base-200/50 hover:bg-base-200{{end}}">
     <div class="flex items-center justify-between gap-2 min-w-0">
         <span class="font-medium flex-1 text-right text-sm sm:text-base truncate min-w-0">{{if .Pair1Name}}{{.Pair1Name}}{{else if .Feeder1}}{{.Feeder1}}{{else}}Por definir{{end}}</span>
         <div class="flex-none px-3">
             {{if .Score}}
-            <span class="font-bold text-lg">{{.Score}}</span>
+            {{template "resultBox" (dict "Score" .Score "Mode" (dict "Row" true))}}
             {{else}}
             <span class="text-sm opacity-60">vs</span>
             {{end}}
@@ -184,19 +189,8 @@
                 {{if eq .Status "superseded"}}<span class="badge badge-ghost badge-xs">Sustituida</span>{{end}}
             </div>
             {{if .Data}}
-            <div class="grid grid-cols-3 gap-2 mt-2 text-sm">
-                <div>
-                    <span class="opacity-50 text-xs">Fecha</span>
-                    <p class="font-medium">{{fmtDate .Data.Date}}</p>
-                </div>
-                <div>
-                    <span class="opacity-50 text-xs">Hora</span>
-                    <p class="font-medium">{{.Data.Time}}</p>
-                </div>
-                <div>
-                    <span class="opacity-50 text-xs">Club</span>
-                    <p class="font-medium">{{.Data.VenueName}}</p>
-                </div>
+            <div class="mt-2">
+                {{template "dateBox" (dict "Date" .Data.Date "Time" .Data.Time "Place" .Data.VenueName)}}
             </div>
             {{end}}
             {{if .CanChangeDecision}}
@@ -378,6 +372,10 @@
 </div>
 {{end}}
 
+{{/* matchBracketCell — same MatchCard VM as matchRow/matchCard, but a
+     stacked-pair-names bracket-grid cell (fixed width, divider between
+     pairs, winner highlighted). Genuinely distinct layout from matchRow's
+     horizontal row; kept separate rather than forced into one template. */}}
 {{define "matchBracketCell"}}
 <a href="/match/{{.Match.Id}}" class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md transition-shadow">
     <div class="card-body p-3 gap-1">
