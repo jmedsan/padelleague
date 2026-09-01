@@ -1,5 +1,5 @@
 {{define "scoreInput"}}
-<div class="score-input" data-suffix="{{.IDSuffix}}">
+<div class="score-input" data-suffix="{{.IDSuffix}}"{{if .Value}} data-value="{{.Value}}"{{end}}>
     <div class="overflow-x-auto pb-2">
         <table class="table table-compact w-full text-center">
             <thead>
