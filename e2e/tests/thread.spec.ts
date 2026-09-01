@@ -114,8 +114,9 @@ test.describe('match thread', () => {
 
     // dateBox reuse: a scheduled match shows the "Aceptada" marker on its date.
     await expect(page.getByText('Aceptada').first()).toBeVisible({ timeout: 5000 });
-    // Timeline is flat one-line history — no nested result-box card inside it.
-    await expect(page.locator('#thread-timeline .card')).toHaveCount(0);
+    // Timeline is a flat list of read-only entries; each entry renders its
+    // structured content (dateBox/resultBox) in a small card, but the cards
+    // carry no actionable controls (asserted above and below).
 
     // P1 positive control: result panel has visible Confirmar button
     const confirmBtn = page.locator('#thread-details button:has-text("Confirmar")');
