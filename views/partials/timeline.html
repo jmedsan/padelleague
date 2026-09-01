@@ -13,7 +13,7 @@
         {{if .Date}}
         {{/* scheduling proposal/response — reuse the shared dateBox */}}
         <div class="flex flex-wrap items-center gap-2">
-            {{template "dateBox" (dict "Date" .Date "Time" .Time "Place" .Place)}}
+            {{template "dateBox" (dict "Date" .Date "Time" .Time "Place" .Place "Mode" (dict "Row" true))}}
             {{if .StatusLabel}}<span class="badge badge-sm {{.StatusClass}}">{{.StatusLabel}}</span>{{end}}
         </div>
         {{else if .Score}}
@@ -22,6 +22,7 @@
             {{template "resultBox" (dict "Score" .Score "Mode" (dict "Row" true))}}
             {{if .StatusLabel}}<span class="badge badge-sm {{.StatusClass}}">{{.StatusLabel}}</span>{{end}}
         </div>
+        {{if .Note}}<p class="text-xs opacity-60">{{.Note}}</p>{{end}}
         {{end}}
     </div>
 </div>

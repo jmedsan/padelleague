@@ -21,6 +21,7 @@ type TimelineEntryVM struct {
 	AuthorName  string
 	IsMyTeam    bool
 	Content     string
+	Note        string // rejection reason, shown below the dateBox/resultBox
 	CreatedAt   string // render.FmtShortTime — DD/MM HH:MM
 	Score       string // result_submission only
 	Date        string // scheduling_proposal only (stored "2006-01-02")
@@ -142,6 +143,9 @@ func (bc *threadBuildCtx) processMessage(msg *core.Record, authorID, cachedName 
 		action = pd.Action
 	}
 	entry.Content, entry.StatusLabel, entry.StatusClass = timelineEntryText(msgType, action, content)
+	if msgType == "result_response" && action == "reject" && bc.matchStatus == league.StatusDisputed {
+		entry.Note = bc.match.GetString("dispute_notes")
+	}
 	td.Timeline = append(td.Timeline, entry)
 	sameTeam := authorTeam == bc.myTeam || bc.myTeam == 0
 	// Only PENDING scheduling proposals belong in the panel. An accepted date is a
@@ -236,9 +240,9 @@ func fillTimelineEntryData(entry *TimelineEntryVM, pd *ProposalData, msgType str
 func timelineEntryText(msgType, action, content string) (verb, statusLabel, statusClass string) {
 	switch msgType {
 	case "scheduling_proposal":
-		return "propuso fecha y lugar", "Propuesta", "badge-ghost"
+		return "propuso fecha y lugar", "Propuesta", "badge-info"
 	case "result_submission":
-		return "propuso resultado", "Propuesta", "badge-ghost"
+		return "propuso resultado", "Propuesta", "badge-info"
 	case "scheduling_response":
 		if action == "accept" {
 			return "aceptó la propuesta de fecha", "Aceptada", "badge-success"
