@@ -362,12 +362,13 @@
 {{end}}
 
 {{define "resultBoxBody"}}
-{{if .PairLabel}}<div class="flex items-center gap-2"><span class="text-sm font-bold">{{.PairLabel}}</span></div>{{end}}
-<p class="{{if .Mode.Row}}text-base{{else}}text-xl{{end}} font-black tracking-wide my-1">{{.Score}}</p>
-{{if and .Pair1Name .Pair2Name (not .Mode.Row)}}
-{{$winner := scoreWinner .Score .Pair1Name .Pair2Name}}
-{{if $winner}}<p class="text-sm font-medium text-success">{{$winner}} gana</p>{{end}}
-{{end}}
+{{$winner := ""}}
+{{if and .Pair1Name .Pair2Name}}{{$winner = scoreWinner .Score .Pair1Name .Pair2Name}}{{end}}
+<div class="flex items-baseline gap-2 my-1 flex-wrap">
+    {{if .PairLabel}}<span class="{{if .Mode.Row}}text-sm{{else}}text-base{{end}} font-bold">{{.PairLabel}}</span>{{end}}
+    <span class="{{if .Mode.Row}}text-base{{else}}text-xl{{end}} font-black tracking-wide">{{.Score}}</span>
+    {{if $winner}}<span class="text-sm font-medium text-success">Gana {{$winner}}</span>{{end}}
+</div>
 {{if .Note}}<p class="text-xs opacity-60">{{.Note}}</p>{{end}}
 {{end}}
 

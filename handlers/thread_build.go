@@ -24,6 +24,8 @@ type TimelineEntryVM struct {
 	Note        string // rejection reason, shown below the dateBox/resultBox
 	CreatedAt   string // render.FmtShortTime — DD/MM HH:MM
 	Score       string // result_submission only
+	Pair1Name   string // result_submission only, for the winner-name calculation
+	Pair2Name   string // result_submission only, for the winner-name calculation
 	Date        string // scheduling_proposal only (stored "2006-01-02")
 	Time        string // scheduling_proposal only
 	Place       string // scheduling_proposal venue name
@@ -133,6 +135,10 @@ func (bc *threadBuildCtx) processMessage(msg *core.Record, authorID, cachedName 
 		CreatedAt:  created,
 	}
 	fillTimelineEntryData(&entry, pd, msgType)
+	if msgType == "result_submission" || msgType == "result_response" {
+		entry.Pair1Name = bc.pairNames[bc.match.GetString("pair1")]
+		entry.Pair2Name = bc.pairNames[bc.match.GetString("pair2")]
+	}
 	// The action text and status shown on a timeline entry are frozen at
 	// insertion time — they reflect what happened at THIS event (from its
 	// own message type and, for a response, its own recorded Action), not

@@ -19,7 +19,7 @@
         {{else if .Score}}
         {{/* result proposal/response — reuse the shared resultBox in row mode */}}
         <div class="flex flex-wrap items-center gap-2">
-            {{template "resultBox" (dict "Score" .Score "Mode" (dict "Row" true))}}
+            {{template "resultBox" (dict "Score" .Score "Pair1Name" .Pair1Name "Pair2Name" .Pair2Name "Mode" (dict "Row" true))}}
             {{if .StatusLabel}}<span class="badge badge-sm {{.StatusClass}}">{{.StatusLabel}}</span>{{end}}
         </div>
         {{if .Note}}<p class="text-xs opacity-60">{{.Note}}</p>{{end}}
