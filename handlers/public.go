@@ -15,13 +15,14 @@ import (
 
 // HomeAction is a unified to-do entry on the player dashboard.
 type HomeAction struct {
-	Kind    string // "dispute" | "confirm" | "respond" | "organize" | "play"
-	MatchID string
-	Title   string
-	Detail  string
-	URL     string
-	SortKey string
-	Accent  string
+	Kind     string // "dispute" | "confirm" | "respond" | "organize" | "play"
+	MatchID  string
+	Title    string
+	Detail   string
+	URL      string
+	SortKey  string
+	Accent   string
+	Recovery bool
 }
 
 var actionKindPriority = map[string]int{
@@ -417,7 +418,7 @@ func buildHomeActions(tasks []league.PlayerTask, pending []PendingAction, next *
 }
 
 func taskToAction(t league.PlayerTask) HomeAction {
-	a := HomeAction{MatchID: t.MatchID, URL: "/match/" + t.MatchID}
+	a := HomeAction{MatchID: t.MatchID, URL: "/match/" + t.MatchID, Recovery: t.Recovery}
 	switch t.Kind {
 	case league.TaskDispute:
 		a.Kind = "dispute"

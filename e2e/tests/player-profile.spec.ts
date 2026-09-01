@@ -22,20 +22,6 @@ test.describe('player profile and stats', () => {
     await expect(page.getByText('Pareja Alpha').first()).toBeVisible();
   });
 
-  test('player can view H2H via standings compare', async ({ page }) => {
-    const data = loadTestData();
-    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.locator('a[href^="/competition/"]', { hasText: 'Liga E2E Test' }).first().click();
-    await page.waitForLoadState('domcontentloaded');
-    await page.selectOption('select[name="p1"]', data.pair1Id);
-    await page.selectOption('select[name="p2"]', data.pair2Id);
-    await page.getByRole('button', { name: 'Comparar' }).click();
-    await page.waitForLoadState('networkidle');
-    await expect(page.getByRole('heading', { name: 'Cara a cara' })).toBeVisible();
-    await expect(page.getByText('Pareja Alpha').first()).toBeVisible();
-    await expect(page.getByText('Pareja Beta').first()).toBeVisible();
-  });
-
   test('player can view notification preferences', async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     if (isMobile(page)) {

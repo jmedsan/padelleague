@@ -21,7 +21,14 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await checkNoOverflow(page);
-    await expect(page.locator('[data-testid="player-competitions-heading"]')).toContainText('Mis competiciones');
+    const singleEntry = page.locator('[data-testid="single-comp-entry"]');
+    const multiHeading = page.locator('[data-testid="player-competitions-heading"]');
+    const hasSingle = await singleEntry.isVisible().catch(() => false);
+    if (hasSingle) {
+      await expect(singleEntry).toContainText('Liga E2E Test');
+    } else {
+      await expect(multiHeading).toContainText('Mis competiciones');
+    }
     await expect(page.getByText('Liga E2E Test').first()).toBeVisible();
   });
 
