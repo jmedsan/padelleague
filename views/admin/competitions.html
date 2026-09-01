@@ -108,6 +108,15 @@
                 </select>
             </div>
             <div class="form-control w-full mt-3">
+                <label class="label"><span class="label-text font-medium">Modalidad de género</span></label>
+                <select name="gender_type" class="select select-bordered w-full">
+                    <option value="free" selected>Libre</option>
+                    <option value="male">Masculina</option>
+                    <option value="female">Femenina</option>
+                    <option value="mixed">Mixta</option>
+                </select>
+            </div>
+            <div class="form-control w-full mt-3">
                 <label class="label"><span class="label-text font-medium">Tiempo de espera para confirmación (horas)</span></label>
                 <input type="number" name="quorum_timeout_hours" value="48" min="0" class="input input-bordered w-full" placeholder="0 = desactivado">
                 <label class="label"><span class="label-text-alt opacity-50">0 = desactivado</span></label>
