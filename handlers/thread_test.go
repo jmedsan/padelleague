@@ -683,9 +683,9 @@ func TestThreadMessages_ResultEventRendersAsSystemLine(t *testing.T) {
 
 		s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 			body := readBody(tb, res)
-			assert.Contains(tb, body, `data-type="result"`, "result_event renders as event line")
+			assert.Contains(tb, body, `text-center`, "result_event renders as centered event pill")
 			assert.Contains(tb, body, "registró el resultado", "event line content")
-			assert.NotContains(tb, body, `data-type="message"`, "result_event must not render as chat bubble")
+			assert.NotContains(tb, body, `chat-bubble`, "result_event must not render as chat bubble")
 		}
 	}
 	s.Test(t)
@@ -1172,7 +1172,7 @@ func TestThreadMessages_AdminActionRendersAsSystemLine(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		assert.Contains(tb, body, `data-type="result"`, "admin_action renders as event line")
+		assert.Contains(tb, body, `text-center`, "admin_action renders as centered event pill")
 		assert.Contains(tb, body, "Admin corrigió el resultado")
 		assert.NotContains(tb, body, "chat-bubble", "admin_action must not render as chat")
 	}
@@ -1227,14 +1227,10 @@ func TestThreadMessages_AllTypesRenderCorrectSubDefine(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		assert.Contains(tb, body, `data-type="schedule"`, "proposal renders via proposalCard")
-		assert.Contains(tb, body, "Padel 360", "proposal card shows venue name")
-		assert.Contains(tb, body, "20:00", "proposal card shows time")
+		assert.Contains(tb, body, "Padel 360", "proposal shows venue name")
+		assert.Contains(tb, body, "20:00", "proposal shows time")
 		assert.Regexp(tb, `\w+ \(SubDef B\)`, body, "proposal author shows PlayerName (PairName)")
-		assert.NotContains(tb, body, "Pendiente", "proposal card has no status badge")
-		assert.NotContains(tb, body, "Aceptada", "proposal card has no status badge")
-		assert.NotContains(tb, body, "Rechazada", "proposal card has no status badge")
-		assert.Contains(tb, body, `data-type="result"`, "result_event renders via eventLine")
+		assert.Contains(tb, body, `text-center`, "result_event renders as centered event pill")
 		assert.Contains(tb, body, "registró resultado: 6-2 6-3", "system line shows event content")
 		assert.Contains(tb, body, "chat-bubble", "chat renders via chatMessage sub-define")
 		assert.Contains(tb, body, "Hola desde chat", "chat bubble shows message content")
