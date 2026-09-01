@@ -179,6 +179,7 @@ func registerAdminPlayerRoutes(g *router.RouterGroup[*core.RequestEvent], deps D
 	g.GET("/players", h.Players)
 	g.POST("/players/pre-create", h.PlayerPreCreate)
 	g.POST("/players/{id}", h.PlayerUpdate)
+	g.POST("/players/{id}/regenerate-link", h.RegenerateLink)
 }
 
 func registerAdminVenueRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {

@@ -22,7 +22,7 @@ func TestPlayerPreCreate(t *testing.T) {
 		Method:          http.MethodPost,
 		URL:             "/admin/players/pre-create",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"alert-success", "reset-password"},
+		ExpectedContent: []string{"Usuario creado", "reset-password", "Volver a jugadores"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
@@ -31,6 +31,25 @@ func TestPlayerPreCreate(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 		s.Body = strings.NewReader("email=newplayer@test.local&display_name=New+Player&gender=male")
+	}
+	s.Test(t)
+}
+
+func TestRegenerateLink(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/players/{id}/regenerate-link returns reset link panel",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Enlace regenerado", "reset-password", "Volver a jugadores"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAdminRoutes(tb, app, e)
+		player := makeUserTB(tb, app, "RegenTest", "")
+		admin := makeAdminUser(tb, app)
+		s.URL = "/admin/players/" + player.Id + "/regenerate-link"
+		s.Headers = authHeaders(tb, admin)
 	}
 	s.Test(t)
 }

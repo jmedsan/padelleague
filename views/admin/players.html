@@ -38,8 +38,9 @@
                         {{else}}<span class="opacity-50 italic">Sin especificar</span>
                         {{end}}
                     </td>
-                    <td>
+                    <td class="flex gap-1">
                         <label for="edit-player-{{.Id}}" class="btn btn-ghost btn-xs">Editar</label>
+                        <button class="btn btn-ghost btn-xs" hx-post="/admin/players/{{.Id}}/regenerate-link" hx-target="#regen-result" hx-swap="innerHTML">Regenerar enlace</button>
                     </td>
                 </tr>
                 {{else}}
@@ -51,6 +52,8 @@
         </table>
     </div>
 </div>
+
+<div id="regen-result" class="mt-4"></div>
 
 {{range .Players}}
 <input type="checkbox" id="edit-player-{{.Id}}" class="modal-toggle">
@@ -109,7 +112,7 @@
     <div class="modal-box">
         <h3 class="font-bold text-lg mb-2">Pre-crear usuario</h3>
         <p class="text-sm opacity-60 mb-4">Crea un usuario y genera una invitación vinculada a su email.</p>
-        <form hx-post="/admin/players/pre-create" hx-target="body">
+        <form hx-post="/admin/players/pre-create" hx-target="#regen-result" hx-swap="innerHTML">
             <div class="form-control">
                 <label class="label">
                     <span class="label-text text-xs font-medium">Email</span>
