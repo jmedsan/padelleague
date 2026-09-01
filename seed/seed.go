@@ -568,7 +568,7 @@ func (sc *sampleCtx) createSchedulingEntries(c schedulingContext) error {
 	proposal.Set("type", "scheduling_proposal")
 	proposal.Set("proposal_data", pdJSON)
 	proposal.Set("proposal_status", "accepted")
-	proposal.Set("created", proposalTime.Format(time.RFC3339))
+	proposal.SetRaw("created", proposalTime.Format(time.RFC3339))
 	if err := sc.app.Save(proposal); err != nil {
 		return fmt.Errorf("save proposal: %w", err)
 	}
@@ -587,7 +587,7 @@ func (sc *sampleCtx) createSchedulingEntries(c schedulingContext) error {
 	resp.Set("content", acceptDetail)
 	resp.Set("parent", proposal.Id)
 	resp.Set("proposal_data", respPDJSON)
-	resp.Set("created", acceptTime.Format(time.RFC3339))
+	resp.SetRaw("created", acceptTime.Format(time.RFC3339))
 	if err := sc.app.Save(resp); err != nil {
 		return fmt.Errorf("save scheduling response: %w", err)
 	}
@@ -673,7 +673,7 @@ func (sc *sampleCtx) saveResultProposal(a resultProposalArgs) (*core.Record, err
 	rec.Set("type", "result_submission")
 	rec.Set("proposal_data", pdJSON)
 	rec.Set("proposal_status", a.status)
-	rec.Set("created", a.ts.Format(time.RFC3339))
+	rec.SetRaw("created", a.ts.Format(time.RFC3339))
 	if err := sc.app.Save(rec); err != nil {
 		return nil, fmt.Errorf("save result proposal: %w", err)
 	}
@@ -693,7 +693,7 @@ func (sc *sampleCtx) saveResultResponse(a resultResponseArgs) error {
 	rec.Set("content", a.content)
 	rec.Set("parent", a.parentID)
 	rec.Set("proposal_data", fmt.Sprintf(`{"action":"%s","scores":"%s"}`, a.action, a.scores))
-	rec.Set("created", a.ts.Format(time.RFC3339))
+	rec.SetRaw("created", a.ts.Format(time.RFC3339))
 	if err := sc.app.Save(rec); err != nil {
 		return fmt.Errorf("save result response: %w", err)
 	}
