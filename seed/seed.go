@@ -25,6 +25,7 @@ type User struct {
 	Collection  string
 	Roles       []string
 	DisplayName string
+	Gender      string
 }
 
 // Run creates any users that do not already exist in the database.
@@ -50,6 +51,9 @@ func Run(app core.App, users []User) {
 		}
 		if u.DisplayName != "" {
 			record.Set("display_name", u.DisplayName)
+		}
+		if u.Gender != "" {
+			record.Set("gender", u.Gender)
 		}
 		record.SetVerified(true)
 		if err := app.Save(record); err != nil {
@@ -221,6 +225,9 @@ func SampleLeaguePartial(app core.App, opts SampleOptions) error {
 		if err := populateSampleLeague(txApp, comp, pairIDs, opts); err != nil {
 			return err
 		}
+		if err := createMixedCompetition(txApp, pairIDs[:1]); err != nil {
+			return err
+		}
 		return nil
 	})
 }
@@ -264,6 +271,7 @@ func createSamplePlayers(txApp core.App) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	genders := []string{"male", "female", "male", "male", "female", "female", "male", "female"}
 	ids := make([]string, 0, 8)
 	for i := range sampleCount {
 		rec := core.NewRecord(col)
@@ -271,6 +279,7 @@ func createSamplePlayers(txApp core.App) ([]string, error) {
 		rec.SetPassword(SamplePlayerPassword)
 		rec.Set("roles", []string{"player"})
 		rec.Set("display_name", fmt.Sprintf("Jugador %d", i+1))
+		rec.Set("gender", genders[i])
 		rec.SetVerified(true)
 		if err := txApp.Save(rec); err != nil {
 			return nil, fmt.Errorf("create player %d: %w", i+1, err)
@@ -303,6 +312,23 @@ func createSamplePairs(txApp core.App, playerIDs []string) ([]string, error) {
 	return ids, nil
 }
 
+func createMixedCompetition(txApp core.App, pairIDs []string) error {
+	col, err := txApp.FindCollectionByNameOrId("competitions")
+	if err != nil {
+		return err
+	}
+	comp := core.NewRecord(col)
+	comp.Set("name", "Liga mixta de ejemplo")
+	comp.Set("type", "league")
+	comp.Set("gender_type", "mixed")
+	comp.Set("active", true)
+	comp.Set("pairs", pairIDs)
+	if err := txApp.Save(comp); err != nil {
+		return fmt.Errorf("create mixed competition: %w", err)
+	}
+	return nil
+}
+
 func createSampleCompetition(txApp core.App, pairIDs []string) (*core.Record, error) {
 	col, err := txApp.FindCollectionByNameOrId("competitions")
 	if err != nil {
@@ -316,6 +342,7 @@ func createSampleCompetition(txApp core.App, pairIDs []string) (*core.Record, er
 	comp := core.NewRecord(col)
 	comp.Set("name", "Liga de ejemplo")
 	comp.Set("type", "league")
+	comp.Set("gender_type", "free")
 	comp.Set("active", true)
 	comp.Set("play_twice", true)
 	comp.Set("pairs", pairIDs)
