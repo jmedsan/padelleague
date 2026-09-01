@@ -48,9 +48,7 @@ type MatchCard struct {
 	CanEdit             bool
 	CanWalkover         bool
 	CanCorrect          bool
-	HasDateAndPlace     bool
-	PendingConfirmID    string
-	PendingConfirmScore string
+	HasDateAndPlace bool
 
 	Venues []*core.Record
 
@@ -146,9 +144,6 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 	c.ScoreSubmit = ScoreInputVM{FieldName: "scores", IDSuffix: mid, Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
 	c.ScoreCorrect = ScoreInputVM{FieldName: "scores", Value: match.GetString("scores"), IDSuffix: mid + "-correct", Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
 
-	if team > 0 && !isSubmitter {
-		c.fillPendingConfirm(app, match, team)
-	}
 }
 
 func viewerIsSubmitter(app core.App, match *core.Record, viewerTeam int) bool {
@@ -170,29 +165,6 @@ func canCorrectNow(match *core.Record, status string) bool {
 	}
 	dt, err := types.ParseDateTime(submittedAt)
 	return err == nil && time.Since(dt.Time()) < resultCorrectionWindow
-}
-
-func (c *MatchCard) fillPendingConfirm(app core.App, match *core.Record, viewerTeam int) {
-	rivalPairID := match.GetString("pair2")
-	if viewerTeam == 2 {
-		rivalPairID = match.GetString("pair1")
-	}
-	for _, rp := range league.PlayersForPair(app, rivalPairID) {
-		pending, _ := app.FindRecordsByFilter("match_messages",
-			"match = {:mid} && type = 'result_submission' && author = {:uid} && proposal_status = 'pending'",
-			"-created", 1, 0,
-			map[string]any{"mid": match.Id, "uid": rp})
-		if len(pending) > 0 {
-			c.PendingConfirmID = pending[0].Id
-			var pd map[string]any
-			if err := pending[0].UnmarshalJSONField("proposal_data", &pd); err == nil {
-				if scores, ok := pd["scores"].(string); ok {
-					c.PendingConfirmScore = scores
-				}
-			}
-			return
-		}
-	}
 }
 
 func (c *MatchCard) fillAdminScoreVMs(match *core.Record) {
