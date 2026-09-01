@@ -34,6 +34,14 @@ func NotifResultCorrected(matchID string) Notification {
 	}
 }
 
+// NotifResultCountered notifies the original proposer that their result was countered.
+func NotifResultCountered(matchID string) Notification {
+	return Notification{
+		Type: "quorum_request", Title: "Resultado disputado",
+		Body: "Tu rival ha rechazado el resultado y propuesto uno alternativo. Revisa la contrapropuesta.", MatchID: matchID,
+	}
+}
+
 // NotifNewMessage notifies the rival of a new thread message.
 func NotifNewMessage(matchID, authorName, content string) Notification {
 	return Notification{

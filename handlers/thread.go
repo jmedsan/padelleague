@@ -532,7 +532,7 @@ func (h *ThreadHandler) dispatchProposalAction(e *core.RequestEvent, match, msg 
 		case "accept":
 			return h.acceptResultProposal(e, match, msg, proposerPairID)
 		case "reject":
-			return h.rejectResultProposal(e, match, msg)
+			return h.rejectResultProposal(e, match, msg, proposerPairID)
 		default:
 			return alertError(e, "Acción no válida")
 		}
@@ -670,7 +670,7 @@ func (h *ThreadHandler) acceptResultProposal(e *core.RequestEvent, match, msg *c
 	return nil
 }
 
-func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *core.Record) error {
+func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
 	counterScores := e.Request.FormValue("counter_scores")
 	if counterScores == "" {
 		return alertError(e, "Debes proponer un marcador alternativo")
@@ -705,6 +705,11 @@ func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *c
 	if err := h.app.Save(counter); err != nil {
 		return alertError(e, "Error al crear la contrapropuesta")
 	}
+
+	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
+	notif := league.NotifResultCountered(match.Id)
+	h.notifier.NotifyPlayers(proposerPlayers, notif)
+	h.notifier.EmailPlayers(proposerPlayers, notif.Title, notif.Body, "/match/"+match.Id)
 	return nil
 }
 
