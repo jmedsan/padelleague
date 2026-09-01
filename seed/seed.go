@@ -671,6 +671,7 @@ func (sc *sampleCtx) saveResultProposal(a resultProposalArgs) (*core.Record, err
 	rec.Set("match", a.matchID)
 	rec.Set("author", a.authorID)
 	rec.Set("type", "result_submission")
+	rec.Set("content", a.scores)
 	rec.Set("proposal_data", pdJSON)
 	rec.Set("proposal_status", a.status)
 	rec.SetRaw("created", a.ts.Format(time.RFC3339))
