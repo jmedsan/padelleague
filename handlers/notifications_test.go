@@ -95,7 +95,6 @@ func TestMarkReadNotificationWithRelatedMatch(t *testing.T) {
 		n, err := app.FindRecordById("notifications", notifID)
 		require.NoError(tb, err)
 		assert.True(tb, n.GetBool("read"), "notification must be marked read")
-		assert.True(tb, n.GetBool("dismissed"), "notification must be dismissed")
 	}
 	s.Test(t)
 }
@@ -124,7 +123,6 @@ func TestMarkReadNotificationNoRelatedMatch(t *testing.T) {
 		n, err := app.FindRecordById("notifications", notifID)
 		require.NoError(tb, err)
 		assert.True(tb, n.GetBool("read"), "notification must be marked read")
-		assert.True(tb, n.GetBool("dismissed"), "notification must be dismissed")
 	}
 	s.Test(t)
 }
@@ -244,7 +242,6 @@ func TestMarkAllReadVerifyDB(t *testing.T) {
 			n, err := app.FindRecordById("notifications", id)
 			require.NoError(tb, err)
 			assert.True(tb, n.GetBool("read"), "notification %s must be marked read", id)
-			assert.True(tb, n.GetBool("dismissed"), "notification %s must be dismissed", id)
 		}
 		unread, err := app.FindRecordsByFilter("notifications",
 			"user = {:uid} && read = false", "", 0, 0,
@@ -303,8 +300,7 @@ func TestDismissNotification(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
 		n, err := app.FindRecordById("notifications", notifID)
 		require.NoError(tb, err)
-		assert.True(tb, n.GetBool("dismissed"), "notification must be dismissed")
-		assert.False(tb, n.GetBool("read"), "dismiss should not mark as read")
+		assert.True(tb, n.GetBool("read"), "dismiss must mark as read")
 
 		body, _ := io.ReadAll(res.Body)
 		assert.Contains(tb, string(body), ">1<", "badge should show 1 remaining unread")
@@ -330,7 +326,7 @@ func TestDismissNotificationOtherUser(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		recs, err := app.FindRecordsByFilter("notifications",
-			"dismissed = true", "", 0, 0, nil)
+			"read = true", "", 0, 0, nil)
 		require.NoError(tb, err)
 		assert.Equal(tb, 0, len(recs), "non-owner dismiss must not modify anything")
 	}
@@ -341,19 +337,17 @@ func TestNotificationHistory(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "GET /notifications/history shows all including dismissed",
+		Name:            "GET /notifications/history shows all including read",
 		Method:          http.MethodGet,
 		URL:             "/notifications/history",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Historial de notificaciones", "Active One", "Dismissed One"},
+		ExpectedContent: []string{"Historial de notificaciones", "Active One", "Read One"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupNotifRoutes(tb, app, e)
 		user := makeUserTB(tb, app, "History User", "")
 		makeNotification(t, app, user.Id, "Active One", "", false)
-		dismissed := makeNotification(t, app, user.Id, "Dismissed One", "", false)
-		dismissed.Set("dismissed", true)
-		require.NoError(tb, app.Save(dismissed))
+		makeNotification(t, app, user.Id, "Read One", "", true)
 		s.Headers = authHeaders(tb, user)
 	}
 	s.Test(t)
@@ -373,6 +367,59 @@ func TestNotificationHistoryEmpty(t *testing.T) {
 		setupNotifRoutes(tb, app, e)
 		user := makeUserTB(tb, app, "Empty History", "")
 		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestDismissMarksRead(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /notifications/{id}/dismiss marks read=true",
+		Method:         http.MethodPost,
+		ExpectedStatus: 200,
+	}
+	var notifID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupNotifRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Dismiss Read", "")
+		n1 := makeNotification(t, app, user.Id, "To Dismiss", "", false)
+		makeNotification(t, app, user.Id, "Keep Unread", "", false)
+		notifID = n1.Id
+		s.URL = "/notifications/" + n1.Id + "/dismiss"
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		n, err := app.FindRecordById("notifications", notifID)
+		require.NoError(tb, err)
+		assert.True(tb, n.GetBool("read"), "dismiss must set read=true")
+
+		body, _ := io.ReadAll(res.Body)
+		assert.Contains(tb, string(body), ">1<", "badge should show 1 remaining unread")
+	}
+	s.Test(t)
+}
+
+func TestListShowsUnreadOnly(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /notifications/list excludes read notifications",
+		Method:          http.MethodGet,
+		URL:             "/notifications/list",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Still Unread"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupNotifRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "List Filter", "")
+		makeNotification(t, app, user.Id, "Still Unread", "", false)
+		makeNotification(t, app, user.Id, "Already Read", "", true)
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.NotContains(tb, body, "Already Read", "read notifications must not appear in bell list")
 	}
 	s.Test(t)
 }
