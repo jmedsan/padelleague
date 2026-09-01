@@ -300,8 +300,8 @@ test.describe('guided navigation tour', () => {
           await expect(page.locator('button:has-text("No puedo")')).toHaveCount(0);
           await expect(page.locator('text=Proponer fecha')).toHaveCount(0);
 
-          // Wait for timeline entries to load via HTMX
-          await page.waitForSelector('#thread-messages-list .entry', { timeout: 5000 });
+          // Wait for timeline to load via HTMX
+          await page.waitForSelector('#thread-timeline', { timeout: 5000 });
 
         }
 

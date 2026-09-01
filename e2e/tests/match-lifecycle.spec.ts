@@ -93,12 +93,12 @@ test.describe('match lifecycle', () => {
     });
     await loginAs(page, PLAYER2_EMAIL, PLAYER2_PASSWORD);
     await page.goto(`/match/${matchId}`);
-    const counterBtn = page.locator('#thread-messages-list button:has-text("Contraproponer")').first();
+    const counterBtn = page.locator('#thread-details button:has-text("Contraproponer")').first();
     await expect(counterBtn).toBeVisible({ timeout: 10000 });
     await counterBtn.click();
-    const rejectForm = page.locator('.reject-form:visible').first();
-    await expect(rejectForm.locator('.score-input')).toBeVisible({ timeout: 3000 });
-    await expect(rejectForm.locator('.score-cell').first()).toBeVisible();
+    const counterForm = page.locator('.counter-form:visible').first();
+    await expect(counterForm.locator('.score-input')).toBeVisible({ timeout: 3000 });
+    await expect(counterForm.locator('.score-cell').first()).toBeVisible();
   });
 
   test('admin resolve uses masked score component', async ({ page }, testInfo) => {
