@@ -40,7 +40,7 @@
         {{end}}
         {{if eq .ReviewType "walkover"}}
         <div class="alert alert-warning mt-3">
-            <span>Solicitud de incomparecencia por {{.RequestedBy}}</span>
+            <span>Solicitud de incomparecencia por {{.RequestedBy}}{{if .DisputeNotes}}: {{.DisputeNotes}}{{end}}</span>
         </div>
         {{end}}
         {{end}}
