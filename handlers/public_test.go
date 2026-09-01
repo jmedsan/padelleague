@@ -380,31 +380,6 @@ func TestCompetitionGen2_AutoExpandRound(t *testing.T) {
 	s.Test(t)
 }
 
-// Cluster 8: buildCompPairs from playoff (no standings)
-
-func TestCompetitionGen2_CompPairsFromPlayoff(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "playoff competition populates CompPairs from match names",
-		Method:          http.MethodGet,
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"Comparar parejas", "POffA", "POffB"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "POffA")
-		p2 := makePairTB(tb, app, "POffB")
-		comp := makeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2})
-		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-
-		s.URL = "/competition/" + comp.Id
-		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
-	}
-	s.Test(t)
-}
-
 // Helpers
 
 func createProposal(tb testing.TB, app core.App, matchID, authorID, status, proposalData string) {

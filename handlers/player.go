@@ -67,18 +67,6 @@ type RecentMatch struct {
 	Date      string
 }
 
-// H2HData holds head-to-head statistics between two pairs.
-type H2HData struct {
-	Pair1Name string
-	Pair2Name string
-	Pair1ID   string
-	Pair2ID   string
-	Total     int
-	Wins1     int
-	Wins2     int
-	Recent    []RecentMatch
-}
-
 // Player renders the player profile page with stats and recent matches.
 func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
@@ -322,72 +310,4 @@ func computeCompetitionStats(app core.App, results []matchResult) []CompetitionS
 		return compStats[i].Name < compStats[j].Name
 	})
 	return compStats
-}
-
-// H2H renders the head-to-head comparison page between two pairs.
-func (h *PlayerHandler) H2H(e *core.RequestEvent) error {
-	p1 := e.Request.URL.Query().Get("p1")
-	p2 := e.Request.URL.Query().Get("p2")
-
-	if p1 == "" && p2 == "" {
-		return e.Redirect(http.StatusFound, "/")
-	}
-	if p2 == "" {
-		return e.Redirect(http.StatusFound, "/player/"+p1)
-	}
-	if p1 == "" {
-		return e.Redirect(http.StatusFound, "/player/"+p2)
-	}
-	if p1 == p2 {
-		return h.renderErrorPage(e, http.StatusBadRequest, "Debes elegir dos parejas distintas")
-	}
-
-	pairNames := league.PairNames(h.app, []string{p1, p2})
-
-	matches, _ := h.app.FindRecordsByFilter("matches",
-		"((pair1 = {:p1} && pair2 = {:p2}) || (pair1 = {:p2} && pair2 = {:p1})) && status = 'final'",
-		"-created", 0, 0,
-		map[string]any{"p1": p1, "p2": p2})
-
-	data := tallyH2H(p1, p2, matches, pairNames)
-
-	return h.renderPage(e, "h2h.html", map[string]any{
-		"Data": data,
-	})
-}
-
-func tallyH2H(p1, p2 string, matches []*core.Record, pairNames map[string]string) H2HData {
-	var wins1, wins2 int
-	var recent []RecentMatch
-	for _, m := range matches {
-		winner := m.GetString("winner")
-		switch winner {
-		case p1:
-			wins1++
-		case p2:
-			wins2++
-		}
-		if len(recent) < 5 {
-			recent = append(recent, RecentMatch{
-				MatchID:   m.Id,
-				Pair1ID:   m.GetString("pair1"),
-				Pair2ID:   m.GetString("pair2"),
-				PairName1: pairNames[m.GetString("pair1")],
-				PairName2: pairNames[m.GetString("pair2")],
-				Score:     m.GetString("scores"),
-				Won:       winner == p1,
-				Date:      m.GetString("date"),
-			})
-		}
-	}
-	return H2HData{
-		Pair1Name: pairNames[p1],
-		Pair2Name: pairNames[p2],
-		Pair1ID:   p1,
-		Pair2ID:   p2,
-		Total:     len(matches),
-		Wins1:     wins1,
-		Wins2:     wins2,
-		Recent:    recent,
-	}
 }

@@ -598,11 +598,17 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 
 	pairNames := collectPairNames(h.app, matches)
 
-	rounds := buildRounds(matches, pairNames, playerPairIDs)
+	showAll := e.Request.URL.Query().Get("all") == "1"
+	isPlayoff := league.IsPlayoff(comp)
+	if isPlayoff {
+		showAll = true
+	}
+	rounds := buildRounds(matches, pairNames, playerPairIDs, showAll)
 	autoExpandRound := firstIncompleteRound(rounds)
 
-	data := h.buildCompetitionData(comp, rounds, pairNames, autoExpandRound)
+	data := h.buildCompetitionData(comp, rounds, autoExpandRound)
 	data["PlayerPairIDs"] = playerPairIDs
+	data["ShowAll"] = showAll
 	docs := league.AttachedDocuments(h.app, comp)
 	if len(docs) > 0 {
 		docViews := make([]DocumentView, len(docs))
@@ -632,7 +638,7 @@ func (h *PublicHandler) AcceptDocs(e *core.RequestEvent) error {
 	return redirectHX(e, "/competition/"+comp.Id)
 }
 
-func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundView, pairNames map[string]string, autoExpandRound int) map[string]any {
+func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundView, autoExpandRound int) map[string]any {
 	id := comp.Id
 	var standings []league.StandingRowFull
 	hasPenalties := false
@@ -651,8 +657,6 @@ func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundVi
 		awards = h.leagueSvc.Awards(id)
 	}
 
-	compPairs := buildCompPairs(standings, pairNames)
-
 	isPlayoff := league.IsPlayoff(comp)
 	var bracket []BracketRound
 	if isPlayoff && len(rounds) > 0 {
@@ -668,15 +672,9 @@ func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundVi
 		"IsArchived":      !comp.GetBool("active"),
 		"AutoExpandRound": autoExpandRound,
 		"HasPenalties":    hasPenalties,
-		"CompPairs":       compPairs,
 		"IsPlayoff":       isPlayoff,
 		"Bracket":         bracket,
 	}
-}
-
-type pairOption struct {
-	ID   string
-	Name string
 }
 
 func collectPairNames(app core.App, matches []*core.Record) map[string]string {
@@ -692,28 +690,15 @@ func collectPairNames(app core.App, matches []*core.Record) map[string]string {
 	return league.PairNames(app, slice)
 }
 
-func buildCompPairs(standings []league.StandingRowFull, pairNames map[string]string) []pairOption {
-	if len(standings) > 0 {
-		pairs := make([]pairOption, 0, len(standings))
-		for _, s := range standings {
-			pairs = append(pairs, pairOption{ID: s.PairID, Name: s.PairName})
-		}
-		return pairs
-	}
-	var pairs []pairOption
-	for id, name := range pairNames {
-		if id != "" {
-			pairs = append(pairs, pairOption{ID: id, Name: name})
-		}
-	}
-	return pairs
-}
-
-func buildRounds(matches []*core.Record, pairNames map[string]string, playerPairIDs map[string]struct{}) []RoundView {
+func buildRounds(matches []*core.Record, pairNames map[string]string, playerPairIDs map[string]struct{}, showAll bool) []RoundView {
 	roundMap := map[int][]MatchCard{}
 	for _, m := range matches {
+		mc := NewMatchRow(m, pairNames, playerPairIDs)
+		if !showAll && !mc.IsMyMatch {
+			continue
+		}
 		rn := int(m.GetFloat("round_number"))
-		roundMap[rn] = append(roundMap[rn], NewMatchRow(m, pairNames, playerPairIDs))
+		roundMap[rn] = append(roundMap[rn], mc)
 	}
 	for rn, ms := range roundMap {
 		sort.SliceStable(ms, func(i, j int) bool {
