@@ -176,6 +176,49 @@ func TestCompUpdateSchedulingFields(t *testing.T) {
 	s.Test(t)
 }
 
+func TestCompCreateInvalidWalkoverScore(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/competitions rejects invalid walkover_score",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"walkover inválido"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.URL = "/admin/competitions"
+		s.Body = strings.NewReader("name=BadWO&type=league&walkover_score=abc")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestCompUpdateInvalidWalkoverScore(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/competitions/{id} rejects invalid walkover_score",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"walkover inválido"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Body = strings.NewReader("name=Updated&type=league&walkover_score=invalid")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
 func TestCompToggle(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
