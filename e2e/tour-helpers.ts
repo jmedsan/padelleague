@@ -68,7 +68,12 @@ export async function createCompetition(
   type: 'league' | 'playoff',
   options?: { playTwice?: boolean; suToken?: string },
 ): Promise<string> {
-  await page.getByRole('button', { name: /crear competición/i }).first().click();
+  const btn = page.getByRole('button', { name: /crear competición/i }).first();
+  if (!await btn.isVisible().catch(() => false)) {
+    await page.goto('/admin/competitions');
+    await page.waitForLoadState('domcontentloaded');
+  }
+  await btn.click();
   const dialog = page.locator('dialog#modal-create');
   await dialog.locator('input[name="name"]').fill(name);
   await dialog.locator('select[name="type"]').selectOption(type);
