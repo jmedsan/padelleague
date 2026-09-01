@@ -18,6 +18,9 @@
                 <a href="{{.URL}}" class="block px-3 py-2 text-sm rounded-lg hover:bg-base-200 transition-colors">{{.Label}}</a>
                 {{end}}
             </div>
+            {{if .ListURL}}
+            <a href="{{.ListURL}}" class="link link-hover text-sm mt-2 inline-block">Ver todas →</a>
+            {{end}}
             {{else}}
             <p class="text-sm text-base-content/60 mt-1">Sin pendientes</p>
             {{end}}

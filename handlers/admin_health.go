@@ -12,8 +12,9 @@ import (
 type healthItem struct{ Label, URL string }
 
 type healthGroup struct {
-	Title string
-	Items []healthItem
+	Title   string
+	Items   []healthItem
+	ListURL string
 }
 
 // AdminHealthHandler serves the consolidated league health dashboard.
@@ -36,11 +37,11 @@ func (h *AdminHealthHandler) Health(e *core.RequestEvent) error {
 }
 
 func (h *AdminHealthHandler) build() []healthGroup {
-	disputes := healthGroup{Title: "Disputas abiertas"}
+	disputes := healthGroup{Title: "Disputas abiertas", ListURL: "/admin/disputes"}
 	walkovers := healthGroup{Title: "Walkovers pendientes"}
-	overdue := healthGroup{Title: "Partidos vencidos"}
+	overdue := healthGroup{Title: "Partidos vencidos", ListURL: "/admin/outstanding"}
 	unpaid := healthGroup{Title: "Parejas sin pagar"}
-	unscheduled := healthGroup{Title: "Partidos sin fecha"}
+	unscheduled := healthGroup{Title: "Partidos sin fecha", ListURL: "/admin/outstanding"}
 
 	_, alerts, err := league.AdminDashboard(h.app, time.Now())
 	if err != nil {
