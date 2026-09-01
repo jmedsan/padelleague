@@ -31,25 +31,29 @@ type MatchCard struct {
 	StatusLabel     string
 	StatusClass     string
 
-	Score          string
-	SubmittedBy    string
-	ConfirmedBy    string
-	SubmittedScore string
-	DisputedBy     string
-	DisputedScore  string
-	DisputeNotes   string
-	ReviewType     string
-	RequestedBy    string
+	Score              string
+	SubmittedBy        string
+	ConfirmedBy        string
+	SubmittedScore     string
+	SubmitterPairName  string
+	DisputedBy         string
+	DisputedScore      string
+	DisputeNotes       string
+	DisputerPairName   string
+	ReviewType         string
+	RequestedBy        string
 
 	Feeder1   string
 	Feeder2   string
 	IsMyMatch bool
 
-	CanSubmit       bool
-	CanEdit         bool
-	CanWalkover     bool
-	CanCorrect      bool
-	HasDateAndPlace bool
+	CanSubmit          bool
+	CanEdit            bool
+	CanWalkover        bool
+	CanCorrect         bool
+	HasDateAndPlace    bool
+	PendingConfirmID   string
+	PendingConfirmScore string
 
 	Venues []*core.Record
 
@@ -81,9 +85,11 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 		DisputedScore:   match.GetString("disputed_scores"),
 		DisputeNotes:    match.GetString("dispute_notes"),
 		ReviewType:      match.GetString("review_type"),
-		SubmittedBy:     pairPlayerLabel(app, match.GetString("submitted_by"), match),
-		ConfirmedBy:     pairPlayerLabel(app, match.GetString("confirmed_by"), match),
-		DisputedBy:      pairPlayerLabel(app, match.GetString("disputed_by"), match),
+		SubmittedBy:      pairPlayerLabel(app, match.GetString("submitted_by"), match),
+		ConfirmedBy:      pairPlayerLabel(app, match.GetString("confirmed_by"), match),
+		SubmitterPairName: userPairName(app, match.GetString("submitted_by"), match, pairNames),
+		DisputedBy:       pairPlayerLabel(app, match.GetString("disputed_by"), match),
+		DisputerPairName: userPairName(app, match.GetString("disputed_by"), match, pairNames),
 		RequestedBy:     playerNameIfSet(app, match.GetString("walkover_requested_by")),
 	}
 	if mode.Editable && !mode.Admin {
@@ -153,7 +159,7 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 	if canCorrectStatus && team > 0 && isSubmitter {
 		if submittedAt := match.GetString("submitted_at"); submittedAt != "" {
 			if dt, err := types.ParseDateTime(submittedAt); err == nil {
-				c.CanCorrect = time.Since(dt.Time()) < 24*time.Hour
+				c.CanCorrect = time.Since(dt.Time()) < ResultCorrectionWindow
 			}
 		}
 	}
@@ -161,6 +167,33 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 	mid := match.Id
 	c.ScoreSubmit = ScoreInputVM{FieldName: "scores", IDSuffix: mid, Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
 	c.ScoreCorrect = ScoreInputVM{FieldName: "scores", Value: match.GetString("scores"), IDSuffix: mid + "-correct", Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
+
+	if team > 0 && !isSubmitter {
+		c.fillPendingConfirm(app, match, team)
+	}
+}
+
+func (c *MatchCard) fillPendingConfirm(app core.App, match *core.Record, viewerTeam int) {
+	rivalPairID := match.GetString("pair2")
+	if viewerTeam == 2 {
+		rivalPairID = match.GetString("pair1")
+	}
+	for _, rp := range league.PlayersForPair(app, rivalPairID) {
+		pending, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_submission' && author = {:uid} && proposal_status = 'pending'",
+			"-created", 1, 0,
+			map[string]any{"mid": match.Id, "uid": rp})
+		if len(pending) > 0 {
+			c.PendingConfirmID = pending[0].Id
+			var pd map[string]any
+			if err := pending[0].UnmarshalJSONField("proposal_data", &pd); err == nil {
+				if scores, ok := pd["scores"].(string); ok {
+					c.PendingConfirmScore = scores
+				}
+			}
+			return
+		}
+	}
 }
 
 func (c *MatchCard) fillAdminScoreVMs(match *core.Record) {
@@ -210,4 +243,19 @@ func pairPlayerLabel(app core.App, userID string, match *core.Record) string {
 	}
 	pairName := league.PairNames(app, []string{pairID})[pairID]
 	return fmt.Sprintf("%s (%s)", name, pairName)
+}
+
+func userPairName(app core.App, userID string, match *core.Record, pairNames map[string]string) string {
+	if userID == "" {
+		return ""
+	}
+	team, err := league.PlayerTeam(app, userID, match)
+	if err != nil || team == 0 {
+		return ""
+	}
+	pairID := match.GetString("pair1")
+	if team == 2 {
+		pairID = match.GetString("pair2")
+	}
+	return pairNames[pairID]
 }

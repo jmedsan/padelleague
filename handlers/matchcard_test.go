@@ -127,7 +127,7 @@ func TestMatchCardPlayerModeHidesAdminControls(t *testing.T) {
 		Name:               "player match card has no admin controls",
 		Method:             http.MethodGet,
 		ExpectedStatus:     http.StatusOK,
-		ExpectedContent:    []string{"Marcador de Player Card A P1 (Player Card A):", "Marcador de Player Card B P1 (Player Card B):"},
+		ExpectedContent:    []string{"Player Card A:", "Player Card B:"},
 		NotExpectedContent: []string{"Resolver", "Aprobar walkover", "Corrección de administrador"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -157,7 +157,7 @@ func TestMatchCardAdminSummaryIsReadOnly(t *testing.T) {
 		Method:             http.MethodGet,
 		URL:                "/",
 		ExpectedStatus:     http.StatusOK,
-		ExpectedContent:    []string{"Summary League", "Marcador de Summary A P1 (Summary A):", "Marcador de Summary B P1 (Summary B):", "Ver partido completo"},
+		ExpectedContent:    []string{"Summary League", "Summary A:", "Summary B:", "Ver partido completo"},
 		NotExpectedContent: []string{"Resolver", "Aprobar walkover", "Corrección de administrador"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -185,7 +185,7 @@ func TestMatchCardAdminFullShowsScoresAndResolveEndpoint(t *testing.T) {
 		Name:            "admin full match card shows both scores and resolve endpoint",
 		Method:          http.MethodGet,
 		ExpectedStatus:  http.StatusOK,
-		ExpectedContent: []string{"Marcador final", "Marcador de Full A P1 (Full A):", "Marcador de Full B P1 (Full B):"},
+		ExpectedContent: []string{"Marcador final", "Full A:", "Full B:"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -215,7 +215,7 @@ func TestMatchCardCrossRoleLeakGuard(t *testing.T) {
 			Name:            "player full has no admin resolve or walkover-approve or override forms",
 			Method:          http.MethodGet,
 			ExpectedStatus:  http.StatusOK,
-			ExpectedContent: []string{"En disputa", "Marcador de Leak Guard A"},
+			ExpectedContent: []string{"En disputa", "Leak Guard A:"},
 			NotExpectedContent: []string{
 				"Resolver",
 				"Aprobar walkover",
