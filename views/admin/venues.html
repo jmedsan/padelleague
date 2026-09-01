@@ -17,7 +17,6 @@
                 <tr>
                     <th>Nombre</th>
                     <th class="hidden sm:table-cell">Dirección</th>
-                    <th>Pistas</th>
                     <th class="text-right">Acciones</th>
                 </tr>
             </thead>
@@ -26,7 +25,6 @@
                 <tr class="hover">
                     <td class="font-medium">{{.GetString "name"}}</td>
                     <td class="hidden sm:table-cell opacity-60 text-sm">{{if .GetString "address"}}{{.GetString "address"}}{{else}}<span class="opacity-60">—</span>{{end}}</td>
-                    <td>{{if .GetFloat "courts"}}<span class="badge badge-outline badge-sm">{{.GetFloat "courts"}}</span>{{else}}<span class="opacity-60">—</span>{{end}}</td>
                     <td class="text-right">
                         <button class="btn btn-ghost btn-xs" onclick="document.getElementById('modal-edit-venue-{{.Id}}').showModal()">Editar</button>
                         <form hx-post="/admin/venues/{{.Id}}/delete" hx-confirm="¿Eliminar este club?">
@@ -36,7 +34,7 @@
                 </tr>
                 {{else}}
                 <tr>
-                    <td colspan="4" class="text-center py-12 opacity-60">No hay clubs registrados</td>
+                    <td colspan="3" class="text-center py-12 opacity-60">No hay clubs registrados</td>
                 </tr>
                 {{end}}
             </tbody>
@@ -57,10 +55,6 @@
             <div class="form-control mt-3">
                 <label class="label"><span class="label-text font-medium">Dirección</span></label>
                 <input type="text" name="address" value="{{.GetString "address"}}" class="input input-bordered w-full">
-            </div>
-            <div class="form-control mt-3">
-                <label class="label"><span class="label-text font-medium">Pistas</span></label>
-                <input type="number" name="courts" value="{{.GetFloat "courts"}}" class="input input-bordered w-full" min="0">
             </div>
             <div class="modal-action">
                 <button type="submit" class="btn btn-primary">Guardar</button>
@@ -84,10 +78,6 @@
             <div class="form-control mt-3">
                 <label class="label"><span class="label-text font-medium">Dirección</span></label>
                 <input type="text" name="address" class="input input-bordered w-full" placeholder="Dirección">
-            </div>
-            <div class="form-control mt-3">
-                <label class="label"><span class="label-text font-medium">Pistas</span></label>
-                <input type="number" name="courts" class="input input-bordered w-full" min="0" placeholder="0">
             </div>
             <div class="modal-action">
                 <button type="submit" class="btn btn-primary">Crear</button>
