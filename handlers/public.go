@@ -612,15 +612,22 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	data["PlayerPairIDs"] = playerPairIDs
 	data["ShowAll"] = showAll
 	data["Mode"] = PlayerSummary
-	docs := league.AttachedDocuments(h.app, comp)
-	if len(docs) > 0 {
-		docViews := make([]DocumentView, len(docs))
-		for i, d := range docs {
-			docViews[i] = NewDocumentView(d, PlayerSummary)
-		}
-		data["DocumentViews"] = docViews
-	}
+	h.addCompetitionDocViews(data, comp)
 	return h.renderPage(e, "competition.html", data)
+}
+
+// addCompetitionDocViews sets DocumentView entries on data when the
+// competition has attached documents.
+func (h *PublicHandler) addCompetitionDocViews(data map[string]any, comp *core.Record) {
+	docs := league.AttachedDocuments(h.app, comp)
+	if len(docs) == 0 {
+		return
+	}
+	docViews := make([]DocumentView, len(docs))
+	for i, d := range docs {
+		docViews[i] = NewDocumentView(d, PlayerSummary)
+	}
+	data["DocumentViews"] = docViews
 }
 
 // AcceptDocs records that the player has read the competition's mandatory documents.
