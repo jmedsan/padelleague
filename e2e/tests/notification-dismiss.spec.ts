@@ -51,10 +51,11 @@ test.describe('notification dismiss and history', () => {
 
     // Badge shows at least the 2 unread we created (a concurrent notification
     // from another flow may add more — assert relative, not an absolute count).
+    // Poll for the count to land (badge populates via hx-trigger="load").
     const badge = page.locator('#notif-badge');
-    await expect(badge).toBeVisible({ timeout: 5000 });
+    await expect.poll(async () => parseInt((await badge.textContent())?.trim() || '0', 10),
+      { timeout: 5000 }).toBeGreaterThanOrEqual(2);
     const before = parseInt((await badge.textContent())?.trim() || '0', 10);
-    expect(before).toBeGreaterThanOrEqual(2);
 
     // Open bell dropdown
     const bellButton = page.locator('.dropdown:has(#notif-dropdown) button[aria-label="notificaciones"]');
@@ -103,11 +104,11 @@ test.describe('notification dismiss and history', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // Mobile badge shows at least our 2 (relative, not absolute — a concurrent
-    // notification from another flow may add more).
+    // notification from another flow may add more). Poll for the count to land.
     const mobileBadge = page.locator('#notif-badge-mobile');
-    await expect(mobileBadge).toBeVisible({ timeout: 5000 });
+    await expect.poll(async () => parseInt((await mobileBadge.textContent())?.trim() || '0', 10),
+      { timeout: 5000 }).toBeGreaterThanOrEqual(2);
     const before = parseInt((await mobileBadge.textContent())?.trim() || '0', 10);
-    expect(before).toBeGreaterThanOrEqual(2);
 
     // Open mobile bell dropdown
     const mobileDropdownContainer = page.locator('.lg\\:hidden .dropdown');
