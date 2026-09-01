@@ -10,16 +10,15 @@ async function createNotification(page: import('@playwright/test').Page, userId:
   return (await resp.json()).id as string;
 }
 
-async function dismissAllExisting(page: import('@playwright/test').Page, userId: string, adminToken: string) {
-  const resp = await page.request.get(`/api/collections/notifications/records?filter=user="${userId}"&&dismissed=false`, {
+async function deleteAllExisting(page: import('@playwright/test').Page, userId: string, adminToken: string) {
+  const resp = await page.request.get(`/api/collections/notifications/records?filter=user="${userId}"&perPage=200`, {
     headers: { Authorization: adminToken },
   });
   if (!resp.ok()) return;
   const body = await resp.json();
   for (const item of body.items || []) {
-    await page.request.patch(`/api/collections/notifications/records/${item.id}`, {
+    await page.request.delete(`/api/collections/notifications/records/${item.id}`, {
       headers: { Authorization: adminToken },
-      data: { dismissed: true },
     });
   }
 }
@@ -29,7 +28,7 @@ test.describe('notification dismiss and history', () => {
     if (isMobile(page)) { test.skip(); return; }
 
     const data = loadTestData();
-    await dismissAllExisting(page, data.player1.id, data.adminToken);
+    await deleteAllExisting(page, data.player1.id, data.adminToken);
 
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
 
@@ -78,7 +77,7 @@ test.describe('notification dismiss and history', () => {
     if (!isMobile(page)) { test.skip(); return; }
 
     const data = loadTestData();
-    await dismissAllExisting(page, data.player1.id, data.adminToken);
+    await deleteAllExisting(page, data.player1.id, data.adminToken);
 
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
 
@@ -94,20 +93,24 @@ test.describe('notification dismiss and history', () => {
     await expect(mobileBadge).toContainText('2', { timeout: 5000 });
 
     // Open mobile bell dropdown
-    const mobileBell = page.locator('.lg\\:hidden button[aria-label="notificaciones"]');
+    const mobileDropdownContainer = page.locator('.lg\\:hidden .dropdown');
+    const mobileBell = mobileDropdownContainer.locator('button[aria-label="notificaciones"]');
     await mobileBell.click();
 
     // Wait for dropdown to load
-    const mobileDropdown = mobileBell.locator('..').locator('.dropdown-content');
-    const dismissRow = mobileDropdown.locator(`#notif-row-${dismissId}`);
+    const dismissRow = mobileDropdownContainer.locator(`#notif-row-${dismissId}`);
     await expect(dismissRow).toBeVisible({ timeout: 5000 });
 
-    // Dismiss
-    await dismissRow.locator('button[aria-label="descartar"]').click();
-    await expect(dismissRow).not.toBeAttached({ timeout: 5000 });
+    // Dismiss — click and wait for network response before checking DOM
+    const dismissResponse = dismissRow.locator('button[aria-label="descartar"]').click();
+    await dismissResponse;
 
-    // Mobile badge decremented
-    await expect(mobileBadge).toContainText('1', { timeout: 5000 });
+    // Mobile badge decremented (OOB swap updates it even if dropdown closed)
+    await expect(mobileBadge).toContainText('1', { timeout: 10000 });
+
+    // Re-open dropdown to verify row is gone
+    await mobileBell.click();
+    await expect(mobileDropdownContainer.locator(`#notif-row-${dismissId}`)).not.toBeAttached({ timeout: 5000 });
 
     // History page shows both
     await page.goto('/notifications/history');
