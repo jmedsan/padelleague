@@ -182,8 +182,7 @@ func FmtDate(raw string) string {
 func hasExplicitUTC(raw string) bool {
 	return strings.HasSuffix(raw, "Z") ||
 		strings.Contains(raw, "+00:00") ||
-		strings.Contains(raw, "+0000") ||
-		strings.Contains(raw, "T")
+		strings.Contains(raw, "+0000")
 }
 
 // FmtTime formats a time.Time in Europe/Madrid as DD/MM/YYYY, appending
