@@ -99,34 +99,28 @@ func TestGen2_BestStreak(t *testing.T) {
 	}{
 		{"empty", nil, ""},
 		{"all wins", []matchResult{{won: true}, {won: true}, {won: true}}, "3V"},
-		{"all losses", []matchResult{{won: false}, {won: false}}, "2D"},
+		{"all losses", []matchResult{{won: false}, {won: false}}, "0V"},
 		{
-			"win streak beats loss streak",
-			// W W W L L => bestWin=3, bestLoss=2 => 3V (3 >= 2)
+			"win streak ignores losses",
+			// W W W L L => bestWin=3
 			[]matchResult{{won: true}, {won: true}, {won: true}, {won: false}, {won: false}},
 			"3V",
 		},
 		{
-			"loss streak beats win streak",
-			// W L L L => bestWin=1, bestLoss=3 => 3D (1 < 3)
+			"only losses returns 0V",
+			// W L L L => bestWin=1
 			[]matchResult{{won: true}, {won: false}, {won: false}, {won: false}},
-			"3D",
+			"1V",
 		},
 		{
-			"tie favors win streak (>= boundary)",
-			// W W L L => bestWin=2, bestLoss=2 => 2V (2 >= 2)
-			[]matchResult{{won: true}, {won: true}, {won: false}, {won: false}},
-			"2V",
-		},
-		{
-			"interleaved picks longest",
+			"interleaved picks longest win run",
 			// W W L W W W L => bestWin=3
 			[]matchResult{{won: true}, {won: true}, {won: false}, {won: true}, {won: true}, {won: true}, {won: false}},
 			"3V",
 		},
 		{
-			"resets on direction change",
-			// L W W => curLoss resets when win starts, bestLoss=1, bestWin=2 => 2V
+			"resets on loss",
+			// L W W => bestWin=2
 			[]matchResult{{won: false}, {won: true}, {won: true}},
 			"2V",
 		},
@@ -348,6 +342,69 @@ func indexOf(s, sub string) int {
 		}
 	}
 	return -1
+}
+
+// R-237: dedup — a player on both pairs of a match should count it once
+
+func TestGen2_PlayerProfile_DedupMultiPair(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player on both pairs counts match once",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"PadelLeague"},
+	}
+
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+
+		shared := makeUserTB(tb, app, "Shared", "shared@test.local")
+		other1 := makeUserTB(tb, app, "Other1", "other1@test.local")
+		other2 := makeUserTB(tb, app, "Other2", "other2@test.local")
+
+		pairCol, err := app.FindCollectionByNameOrId("pairs")
+		require.NoError(tb, err)
+
+		pairA := core.NewRecord(pairCol)
+		pairA.Set("name", "PairA")
+		pairA.Set("player1", shared.Id)
+		pairA.Set("player2", other1.Id)
+		require.NoError(tb, app.Save(pairA))
+
+		pairB := core.NewRecord(pairCol)
+		pairB.Set("name", "PairB")
+		pairB.Set("player1", other2.Id)
+		pairB.Set("player2", shared.Id)
+		require.NoError(tb, app.Save(pairB))
+
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pairA, pairB})
+
+		matchCol, err := app.FindCollectionByNameOrId("matches")
+		require.NoError(tb, err)
+		m := core.NewRecord(matchCol)
+		m.Set("competition", comp.Id)
+		m.Set("pair1", pairA.Id)
+		m.Set("pair2", pairB.Id)
+		m.Set("status", "final")
+		m.Set("scores", "6-3 6-4")
+		m.Set("winner", pairA.Id)
+		m.Set("round_number", 1)
+		m.Set("date", "2026-03-01")
+		require.NoError(tb, app.Save(m))
+
+		s.URL = "/player/" + shared.Id
+		s.Headers = authHeaders(tb, shared)
+	}
+
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, ">1</div>", "TotalPlayed should be 1 (not 2)")
+		assert.Contains(tb, body, "100%", "WinRate should be 100%")
+		assert.Contains(tb, body, "1V", "best streak should be 1V")
+	}
+
+	s.Test(t)
 }
 
 // Competition stats: per-comp played/wins/losses
