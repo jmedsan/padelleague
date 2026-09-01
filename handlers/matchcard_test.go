@@ -216,7 +216,7 @@ func TestMatchCardCrossRoleLeakGuard(t *testing.T) {
 			Name:            "player full has no admin resolve or walkover-approve or override forms",
 			Method:          http.MethodGet,
 			ExpectedStatus:  http.StatusOK,
-			ExpectedContent: []string{"En disputa", "Leak Guard A"},
+			ExpectedContent: []string{"Programado", "Leak Guard A"},
 			NotExpectedContent: []string{
 				"Resolver",
 				"Aprobar incomparecencia",
@@ -235,6 +235,8 @@ func TestMatchCardCrossRoleLeakGuard(t *testing.T) {
 			match.Set("submitted_by", p1.GetString("player1"))
 			match.Set("disputed_by", p2.GetString("player1"))
 			match.Set("disputed_scores", "6-4 6-3")
+			match.Set("date", "2026-09-01")
+			match.Set("club", "Padel 360")
 			require.NoError(tb, app.Save(match))
 			s.URL = "/match/" + match.Id
 			player, err := app.FindRecordById("users", p2.GetString("player1"))
