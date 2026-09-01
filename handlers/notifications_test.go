@@ -94,6 +94,7 @@ func TestMarkReadNotificationWithRelatedMatch(t *testing.T) {
 		n, err := app.FindRecordById("notifications", notifID)
 		require.NoError(tb, err)
 		assert.True(tb, n.GetBool("read"), "notification must be marked read")
+		assert.True(tb, n.GetBool("dismissed"), "notification must be dismissed")
 	}
 	s.Test(t)
 }
@@ -122,6 +123,7 @@ func TestMarkReadNotificationNoRelatedMatch(t *testing.T) {
 		n, err := app.FindRecordById("notifications", notifID)
 		require.NoError(tb, err)
 		assert.True(tb, n.GetBool("read"), "notification must be marked read")
+		assert.True(tb, n.GetBool("dismissed"), "notification must be dismissed")
 	}
 	s.Test(t)
 }
@@ -241,6 +243,7 @@ func TestMarkAllReadVerifyDB(t *testing.T) {
 			n, err := app.FindRecordById("notifications", id)
 			require.NoError(tb, err)
 			assert.True(tb, n.GetBool("read"), "notification %s must be marked read", id)
+			assert.True(tb, n.GetBool("dismissed"), "notification %s must be dismissed", id)
 		}
 		unread, err := app.FindRecordsByFilter("notifications",
 			"user = {:uid} && read = false", "", 0, 0,
