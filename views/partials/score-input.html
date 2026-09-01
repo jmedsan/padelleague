@@ -1,0 +1,31 @@
+{{define "scoreInput"}}
+<div class="score-input" data-suffix="{{.IDSuffix}}">
+    <div class="overflow-x-auto pb-2">
+        <table class="table table-compact w-full text-center">
+            <thead>
+                <tr>
+                    <th class="text-xs w-16"></th>
+                    <th class="text-xs">Set 1</th>
+                    <th class="text-xs">Set 2</th>
+                    <th class="text-xs set3-group hidden">Set 3</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="text-xs font-bold text-left py-1">{{.Pair1Name}}</td>
+                    <td class="py-1"><input type="text" name="s1a" inputmode="numeric" maxlength="1" class="input input-bordered input-sm w-10 text-center score-cell" autocomplete="off"></td>
+                    <td class="py-1"><input type="text" name="s2a" inputmode="numeric" maxlength="1" class="input input-bordered input-sm w-10 text-center score-cell" autocomplete="off"></td>
+                    <td class="py-1 set3-group hidden"><input type="text" name="s3a" inputmode="numeric" maxlength="2" class="input input-bordered input-sm w-12 text-center score-cell" autocomplete="off"></td>
+                </tr>
+                <tr>
+                    <td class="text-xs font-bold text-left py-1">{{.Pair2Name}}</td>
+                    <td class="py-1"><input type="text" name="s1b" inputmode="numeric" maxlength="1" class="input input-bordered input-sm w-10 text-center score-cell" autocomplete="off"></td>
+                    <td class="py-1"><input type="text" name="s2b" inputmode="numeric" maxlength="1" class="input input-bordered input-sm w-10 text-center score-cell" autocomplete="off"></td>
+                    <td class="py-1 set3-group hidden"><input type="text" name="s3b" inputmode="numeric" maxlength="2" class="input input-bordered input-sm w-12 text-center score-cell" autocomplete="off"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <input type="hidden" name="{{.FieldName}}" class="score-composed">
+</div>
+{{end}}
