@@ -71,6 +71,16 @@ invariants:
 		echo "FAIL: static/css/styles.css is stale — run 'make css' and commit it (the Dockerfile embeds the committed CSS without rebuilding)"; fail=1; \
 	fi; \
 	rm -f /tmp/styles-css-check.css; \
+	n=$$(grep -rn 'FactsOnly' --include='*.go' . | wc -l); \
+	if [ "$$n" != "0" ]; then \
+		echo "FAIL: $$n use(s) of the retired FactsOnly ad-hoc flag — express via Mode (see .claude/steering/component-modes.md)"; \
+		grep -rn 'FactsOnly' --include='*.go' .; fail=1; \
+	fi; \
+	n=$$(grep -rn '"Compact"\|"Large"\|"Linked"' --include='*.html' views/ | grep -v '{{/\*' | wc -l); \
+	if [ "$$n" != "0" ]; then \
+		echo "FAIL: $$n use(s) of a retired ad-hoc dict flag (Compact/Large/Linked) in templates — express via Mode (see .claude/steering/component-modes.md)"; \
+		grep -rn '"Compact"\|"Large"\|"Linked"' --include='*.html' views/ | grep -v '{{/\*'; fail=1; \
+	fi; \
 	if [ "$$fail" != "0" ]; then exit 1; fi; \
 	echo "invariants hold"
 
