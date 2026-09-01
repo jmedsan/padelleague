@@ -150,6 +150,11 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 	record.Set("type", e.Request.FormValue("type"))
 	record.Set("active", e.Request.FormValue("active") == "on")
 	record.Set("play_twice", e.Request.FormValue("play_twice") == "on")
+	if gt := e.Request.FormValue("gender_type"); gt != "" {
+		record.Set("gender_type", gt)
+	} else {
+		record.Set("gender_type", "free")
+	}
 
 	if v := e.Request.FormValue("quorum_timeout_hours"); v != "" {
 		hours, _ := strconv.Atoi(v)
@@ -194,6 +199,9 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 	record.Set("name", e.Request.FormValue("name"))
 	record.Set("type", e.Request.FormValue("type"))
 	record.Set("play_twice", e.Request.FormValue("play_twice") == "on")
+	if gt := e.Request.FormValue("gender_type"); gt != "" {
+		record.Set("gender_type", gt)
+	}
 
 	if v := e.Request.FormValue("quorum_timeout_hours"); v != "" {
 		hours, _ := strconv.Atoi(v)
