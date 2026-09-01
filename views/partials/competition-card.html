@@ -1,6 +1,7 @@
 {{define "competitionCard"}}
 {{if .Mode.Admin}}
-{{/* AdminSummary: outer anchor card with stats, links to admin detail */}}
+{{if .Competition.GetBool "active"}}
+{{/* AdminSummary, active: outer anchor card with stats, links to admin detail */}}
 <a href="{{.URL}}" class="card bg-base-100 shadow-sm border-l-4 border-success hover:shadow-md transition-shadow">
     <div class="card-body gap-3">
         <div class="flex justify-between items-start">
@@ -26,6 +27,24 @@
         {{end}}
     </div>
 </a>
+{{else}}
+{{/* AdminSummary, inactive: muted card, no dispute badge/progress */}}
+<a href="{{.URL}}" class="card bg-base-100 shadow-sm border-l-4 border-base-300 opacity-75 hover:opacity-100 hover:shadow-md transition-all">
+    <div class="card-body py-4 gap-2">
+        <div class="flex justify-between items-start">
+            <h3 class="card-title text-sm">{{.Name}}</h3>
+            {{if eq (.Competition.GetString "type") "league"}}
+            <span class="badge badge-primary badge-outline badge-sm">Liga</span>
+            {{else}}
+            <span class="badge badge-secondary badge-outline badge-sm">Playoff</span>
+            {{end}}
+        </div>
+        <div class="text-xs text-base-content/60">
+            {{.PairsCount}} parejas · {{.PlayedMatches}}/{{.TotalMatches}} partidos
+        </div>
+    </div>
+</a>
+{{end}}
 {{else}}
 {{/* PlayerRow: card with name link + pending details */}}
 <div class="card bg-base-100 shadow-md hover:shadow-xl transition-all duration-200 hover:-translate-y-1 border-l-4 overflow-hidden {{if eq (.Competition.GetString "type") "league"}}border-l-primary{{else}}border-l-secondary{{end}}">
@@ -59,22 +78,4 @@
     </div>
 </div>
 {{end}}
-{{end}}
-
-{{define "competitionCardInactive"}}
-<a href="{{.URL}}" class="card bg-base-100 shadow-sm border-l-4 border-base-300 opacity-75 hover:opacity-100 hover:shadow-md transition-all">
-    <div class="card-body py-4 gap-2">
-        <div class="flex justify-between items-start">
-            <h3 class="card-title text-sm">{{.Name}}</h3>
-            {{if eq (.Competition.GetString "type") "league"}}
-            <span class="badge badge-primary badge-outline badge-sm">Liga</span>
-            {{else}}
-            <span class="badge badge-secondary badge-outline badge-sm">Playoff</span>
-            {{end}}
-        </div>
-        <div class="text-xs text-base-content/60">
-            {{.PairsCount}} parejas · {{.PlayedMatches}}/{{.TotalMatches}} partidos
-        </div>
-    </div>
-</a>
 {{end}}

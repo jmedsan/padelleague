@@ -1,5 +1,5 @@
 {{define "content"}}
-{{template "competitionHeader" (dict "Admin" true "Comp" .Competition "IsLeague" .IsLeague "PhaseStr" .Phase.String "PhaseLabel" .Phase.Label)}}
+{{template "competitionHeader" (dict "Mode" .Mode "Comp" .Competition "IsLeague" .IsLeague "PhaseStr" .Phase.String "PhaseLabel" .Phase.Label)}}
 
 <!-- Edit modal -->
 <input type="checkbox" id="edit-modal" class="modal-toggle">
@@ -401,7 +401,7 @@
             Clasificación
         </h2>
         {{if .Standings}}
-        {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "Admin" true)}}
+        {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "Mode" .Mode)}}
         {{else}}
         <div class="text-center py-6 text-base-content/60">
             <p class="text-sm">No hay datos de clasificación todavía</p>

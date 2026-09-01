@@ -1,5 +1,5 @@
 {{define "competitionHeader"}}
-{{if .Admin}}
+{{if .Mode.Admin}}
 <div class="bg-base-200 rounded-box p-6 mb-6">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div class="flex items-center gap-3">
@@ -37,7 +37,7 @@
         </div>
     </div>
 </div>
-{{else if .Minimal}}
+{{else if .Mode.Row}}
 <div class="bg-primary text-primary-content rounded-2xl p-6 mb-6 shadow-lg">
     <h1 class="text-3xl font-bold">{{.Comp.GetString "name"}}</h1>
 </div>

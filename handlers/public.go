@@ -588,6 +588,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 				"Competition":   comp,
 				"DocumentViews": docViews,
 				"MandatoryIDs":  mandatoryIDs,
+				"Mode":          PlayerRow,
 			})
 		}
 	}
@@ -610,6 +611,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	data := h.buildCompetitionData(comp, rounds, autoExpandRound)
 	data["PlayerPairIDs"] = playerPairIDs
 	data["ShowAll"] = showAll
+	data["Mode"] = PlayerSummary
 	docs := league.AttachedDocuments(h.app, comp)
 	if len(docs) > 0 {
 		docViews := make([]DocumentView, len(docs))
