@@ -1,131 +1,36 @@
-{{define "proposalThread"}}
-<div class="entry card bg-base-200/50 border border-base-300 rounded-xl" data-type="{{.DataType}}">
-    <div class="card-body p-3 sm:p-4">
-        <div class="flex items-center gap-2">
-            <span class="text-sm font-bold">{{.AuthorName}}</span>
-            <span class="text-xs opacity-50">{{.CreatedAt}}</span>
-            {{if eq .Status "superseded"}}<span class="badge badge-ghost badge-xs">Sustituida</span>{{end}}
-            {{if eq .Status "accepted"}}<span class="badge badge-success badge-xs">Aceptada</span>{{end}}
-            {{if eq .Status "rejected"}}<span class="badge badge-error badge-xs">Rechazada</span>{{end}}
-        </div>
-
-        {{if and .ProposalData .ProposalData.Scores}}
-        <div class="mt-2">
-            <span class="text-xs opacity-50">Marcador propuesto</span>
-            <p class="font-bold text-lg">{{.ProposalData.Scores}}</p>
-        </div>
-        {{else if .ProposalData}}
-        <div class="grid grid-cols-3 gap-2 mt-2 text-sm">
-            <div>
-                <span class="opacity-50 text-xs">Fecha</span>
-                <p class="font-medium">{{fmtDate .ProposalData.Date}}</p>
-            </div>
-            <div>
-                <span class="opacity-50 text-xs">Hora</span>
-                <p class="font-medium">{{.ProposalData.Time}}</p>
-            </div>
-            <div>
-                <span class="opacity-50 text-xs">Club</span>
-                <p class="font-medium">{{.ProposalData.VenueName}}</p>
-            </div>
-        </div>
-        {{else}}
-        <p class="mt-2 font-bold text-lg">{{.Content}}</p>
-        {{end}}
-
-        {{if eq .Status "rejected"}}
-        {{if .RejectionReason}}
-        <div class="mt-2 text-sm">
-            <span class="opacity-50">Motivo:</span>
-            <span>{{.RejectionReason}}</span>
-            {{if .RejectionText}}
-            <p class="text-xs opacity-60 mt-1">{{.RejectionText}}</p>
-            {{end}}
-        </div>
-        {{end}}
-        {{end}}
-
-        {{if .Responses}}
-        <div class="ml-4 mt-3 space-y-2 border-l-2 border-base-300 pl-3">
-            {{range .Responses}}
-            <div class="flex items-start gap-2 text-sm {{if eq .Status "accepted"}}text-success{{end}}">
-                <span class="font-medium">{{.AuthorName}}</span>
-                <span class="opacity-60">{{.Content}}</span>
-                <span class="text-xs opacity-60 ml-auto whitespace-nowrap">{{.CreatedAt}}</span>
-            </div>
-            {{end}}
-        </div>
-        {{end}}
-
-        {{if .CanChangeDecision}}
-        <div class="mt-2">
-            <form hx-post="/match/{{.MatchID}}/thread/proposal/{{.Record.Id}}/change-decision" hx-target="#thread-messages-list">
-                <button type="submit" class="btn btn-ghost btn-xs">Cambiar decisión</button>
-            </form>
-        </div>
-        {{end}}
-
-        {{if .CanRespond}}
-        <div class="flex gap-2 mt-3">
-            <form hx-post="/match/{{.MatchID}}/thread/proposal/{{.Record.Id}}/respond" hx-target="#thread-messages-list" class="flex-1">
-                <input type="hidden" name="action" value="accept">
-                <button type="submit" class="btn btn-success btn-sm w-full">Aceptar</button>
-            </form>
-            <button type="button" class="btn btn-error btn-outline btn-sm flex-1" onclick="this.closest('.card-body').querySelector('.reject-form').classList.toggle('hidden')">
-                {{if and .ProposalData .ProposalData.Scores}}Contraproponer{{else}}Rechazar{{end}}
-            </button>
-        </div>
-        {{if and .ProposalData .ProposalData.Scores}}
-        <form class="reject-form hidden mt-3" hx-post="/match/{{.MatchID}}/thread/proposal/{{.Record.Id}}/respond" hx-target="#thread-messages-list">
-            <input type="hidden" name="action" value="reject">
-            <label class="label py-1"><span class="label-text text-xs">Tu marcador *</span></label>
-            {{template "scoreInput" .ScoreCounter}}
-            <button type="submit" class="btn btn-error btn-sm w-full mt-2">Enviar contrapropuesta</button>
-        </form>
-        {{else}}
-        <form class="reject-form hidden mt-3" hx-post="/match/{{.MatchID}}/thread/proposal/{{.Record.Id}}/respond" hx-target="#thread-messages-list">
-            <input type="hidden" name="action" value="reject">
-            <div class="form-control">
-                <select name="rejection_reason" class="select select-bordered select-sm w-full" required onchange="this.closest('form').querySelector('.rejection-text-wrap').classList.toggle('hidden', this.value !== 'Otro')">
-                    <option value="">Motivo...</option>
-                    <option value="No puedo ese día">No puedo ese día</option>
-                    <option value="Prefiero otro horario">Prefiero otro horario</option>
-                    <option value="Prefiero otra pista">Prefiero otra pista</option>
-                    <option value="Otro">Otro</option>
-                </select>
-            </div>
-            <div class="form-control mt-2 rejection-text-wrap hidden">
-                <textarea name="rejection_text" class="textarea textarea-bordered textarea-sm w-full" placeholder="Explica el motivo..."></textarea>
-            </div>
-            <button type="submit" class="btn btn-error btn-sm w-full mt-2">Enviar rechazo</button>
-        </form>
-        {{end}}
-        {{end}}
-    </div>
-</div>
-{{end}}
-
-{{define "eventLine"}}
-<div class="entry text-center my-2" data-type="{{.DataType}}">
+{{define "timelineEntry"}}
+{{if eq .Kind "event"}}
+<div class="text-center my-2">
     <span class="text-xs opacity-60 bg-base-200 rounded-full px-3 py-1">{{.Content}}</span>
 </div>
-{{end}}
-
-{{define "chatMessage"}}
-<div class="entry chat {{if .IsMyTeam}}chat-end{{else}}chat-start{{end}}" data-type="message">
+{{else if eq .Kind "chat"}}
+<div class="chat {{if .IsMyTeam}}chat-end{{else}}chat-start{{end}}">
     <div class="chat-header text-xs opacity-50 mb-1">
         {{.AuthorName}} <time class="ml-1">{{.CreatedAt}}</time>
     </div>
-    <div class="chat-bubble {{if eq .Type "score_discussion"}}chat-bubble-warning{{else if .IsMyTeam}}chat-bubble-primary{{end}} text-sm">
+    <div class="chat-bubble {{if .IsMyTeam}}chat-bubble-primary{{end}} text-sm">
         {{.Content}}
     </div>
 </div>
+{{else if eq .Kind "response"}}
+<div class="flex items-start gap-2 text-sm ml-4 border-l-2 border-base-300 pl-3 py-1">
+    <span class="font-medium">{{.AuthorName}}</span>
+    <span class="opacity-60 flex-1">{{.Content}}</span>
+    <span class="text-xs opacity-50 whitespace-nowrap">{{.CreatedAt}}</span>
+</div>
+{{else}}
+<div class="flex items-start gap-2 text-sm py-1">
+    <span class="font-bold">{{.AuthorName}}</span>
+    <span class="flex-1">{{.Content}}</span>
+    <span class="text-xs opacity-50 whitespace-nowrap">{{.CreatedAt}}</span>
+</div>
+{{end}}
 {{end}}
 
 {{define "timelineMessages"}}
-{{range .Messages}}
-{{if or (eq .Type "scheduling_proposal") (eq .Type "result_submission")}}{{template "proposalThread" .}}
-{{else if or (eq .Type "result_event") (eq .Type "admin_action")}}{{template "eventLine" .}}
-{{else}}{{template "chatMessage" .}}{{end}}
+<div id="thread-timeline">
+{{range .Timeline}}
+{{template "timelineEntry" .}}
 {{end}}
+</div>
 {{end}}
