@@ -43,7 +43,6 @@ func (h *VenueHandler) VenuesCreate(e *core.RequestEvent) error {
 	record.Set("name", name)
 	record.Set("address", e.Request.FormValue("address"))
 
-
 	if err := h.app.Save(record); err != nil {
 		slog.Error("save venue failed", "err", err)
 		return alertError(e, "Error al guardar el club")
@@ -62,7 +61,6 @@ func (h *VenueHandler) VenuesUpdate(e *core.RequestEvent) error {
 
 	record.Set("name", e.Request.FormValue("name"))
 	record.Set("address", e.Request.FormValue("address"))
-
 
 	if err := h.app.Save(record); err != nil {
 		slog.Error("update venue failed", "err", err)
