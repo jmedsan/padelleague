@@ -17,8 +17,11 @@ type timelineEntry struct {
 	// entries — stored in proposal_data so the timeline can show the frozen
 	// per-event status without re-parsing Detail's prose.
 	Action string
-	// Scores is the result score this entry refers to (result_response only),
-	// stored in proposal_data so the timeline can render it via resultBox.
+	// Data carries the parent proposal's date/time/venue or score, so a
+	// response entry renders the identical dateBox/resultBox as its
+	// proposal, just with a different status badge. Scores set here wins
+	// over Data.Scores for a result_response (Data may be nil).
+	Data   *ProposalData
 	Scores string
 }
 
@@ -37,7 +40,14 @@ func addTimelineEntry(app core.App, e timelineEntry) {
 		rec.Set("parent", e.ParentID)
 	}
 	if e.Action != "" {
-		pdJSON, _ := json.Marshal(ProposalData{Action: e.Action, Scores: e.Scores})
+		pd := ProposalData{Action: e.Action, Scores: e.Scores}
+		if e.Data != nil {
+			pd.Date, pd.Time, pd.VenueName = e.Data.Date, e.Data.Time, e.Data.VenueName
+			if pd.Scores == "" {
+				pd.Scores = e.Data.Scores
+			}
+		}
+		pdJSON, _ := json.Marshal(pd)
 		rec.Set("proposal_data", string(pdJSON))
 	}
 	if err := app.Save(rec); err != nil {

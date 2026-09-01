@@ -207,7 +207,9 @@ func timelineKind(msgType string) string {
 }
 
 // fillTimelineEntryData sets the score/date fields the timeline template
-// renders through resultBox/dateBox, based on the message type.
+// renders through resultBox/dateBox, based on the message type. Response
+// entries (accept/reject) carry the same proposal data as their parent
+// proposal, so they render the identical component with a different badge.
 func fillTimelineEntryData(entry *TimelineEntryVM, pd *ProposalData, msgType string) {
 	if pd == nil {
 		return
@@ -215,7 +217,7 @@ func fillTimelineEntryData(entry *TimelineEntryVM, pd *ProposalData, msgType str
 	switch msgType {
 	case "result_submission", "result_response":
 		entry.Score = pd.Scores
-	case "scheduling_proposal":
+	case "scheduling_proposal", "scheduling_response":
 		entry.Date = pd.Date
 		entry.Time = pd.Time
 		entry.Place = pd.VenueName

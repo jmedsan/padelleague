@@ -540,13 +540,31 @@ func (sc *sampleCtx) createTimeline(match *core.Record, f sampleFixture) error {
 	venue := venues[(f.round+f.idx)%len(venues)]
 	playDate := roundBase.Add(3 * 24 * time.Hour)
 
-	// 1. Scheduling proposal
-	proposalTime := roundBase.Add(1 * 24 * time.Hour)
+	sched := schedulingContext{match, roundBase, playDate, venue, proposer, responder}
+	if err := sc.createSchedulingEntries(sched); err != nil {
+		return err
+	}
+
+	return sc.createResultEntries(resultContext{match, f, proposer, responder, playDate})
+}
+
+type schedulingContext struct {
+	match               *core.Record
+	roundBase, playDate time.Time
+	venue               string
+	proposer, responder string
+}
+
+// createSchedulingEntries writes the proposal + acceptance timeline entries
+// for a match, and mirrors the acceptance onto the match record itself (date
+// header card reads match.date directly rather than the thread history).
+func (sc *sampleCtx) createSchedulingEntries(c schedulingContext) error {
+	proposalTime := c.roundBase.Add(1 * 24 * time.Hour)
 	pdJSON := fmt.Sprintf(`{"date":"%s","time":"20:00","venue_name":"%s"}`,
-		playDate.Format("02/01/2006"), venue)
+		c.playDate.Format("02/01/2006"), c.venue)
 	proposal := core.NewRecord(sc.msgCol)
-	proposal.Set("match", match.Id)
-	proposal.Set("author", proposer)
+	proposal.Set("match", c.match.Id)
+	proposal.Set("author", c.proposer)
 	proposal.Set("type", "scheduling_proposal")
 	proposal.Set("proposal_data", pdJSON)
 	proposal.Set("proposal_status", "accepted")
@@ -555,42 +573,39 @@ func (sc *sampleCtx) createTimeline(match *core.Record, f sampleFixture) error {
 		return fmt.Errorf("save proposal: %w", err)
 	}
 
-	responderLabel := sampleLabel(sc.app, responder, match)
-	proposerName := league.PlayerName(sc.app, proposer)
+	responderLabel := sampleLabel(sc.app, c.responder, c.match)
+	proposerName := league.PlayerName(sc.app, c.proposer)
 	acceptTime := proposalTime.Add(4 * time.Hour)
 	acceptDetail := fmt.Sprintf("%s aceptó la propuesta de %s (%s, %s, %s)",
-		responderLabel, proposerName, playDate.Format("02/01/2006"), "20:00", venue)
+		responderLabel, proposerName, c.playDate.Format("02/01/2006"), "20:00", c.venue)
+	respPDJSON := fmt.Sprintf(`{"action":"accept","date":"%s","time":"20:00","venue_name":"%s"}`,
+		c.playDate.Format("02/01/2006"), c.venue)
 	resp := core.NewRecord(sc.msgCol)
-	resp.Set("match", match.Id)
-	resp.Set("author", responder)
+	resp.Set("match", c.match.Id)
+	resp.Set("author", c.responder)
 	resp.Set("type", "scheduling_response")
 	resp.Set("content", acceptDetail)
 	resp.Set("parent", proposal.Id)
-	resp.Set("proposal_data", `{"action":"accept"}`)
+	resp.Set("proposal_data", respPDJSON)
 	resp.Set("created", acceptTime.Format(time.RFC3339))
 	if err := sc.app.Save(resp); err != nil {
 		return fmt.Errorf("save scheduling response: %w", err)
 	}
 
-	// Mirror what ThreadHandler.acceptProposal does on a real accept: the
-	// match record itself carries the scheduled date/time/club, since the
-	// header card reads match.date directly rather than the thread history.
-	// match.date uses the same "2006-01-02" layout the <input type="date">
-	// form field submits. Reload from the DB first: match was created via
-	// NewRecord() and never PostScan()-ed, so its Original() snapshot is
-	// blank and the status-transition hook would reject this update.
-	stored, err := sc.app.FindRecordById(sc.matchCol, match.Id)
+	// Reload from the DB first: match was created via NewRecord() and never
+	// PostScan()-ed, so its Original() snapshot is blank and the
+	// status-transition hook would reject this update.
+	stored, err := sc.app.FindRecordById(sc.matchCol, c.match.Id)
 	if err != nil {
 		return fmt.Errorf("reload match for schedule: %w", err)
 	}
-	stored.Set("date", playDate.Format("2006-01-02"))
+	stored.Set("date", c.playDate.Format("2006-01-02"))
 	stored.Set("time", "20:00")
-	stored.Set("club", venue)
+	stored.Set("club", c.venue)
 	if err := sc.app.Save(stored); err != nil {
 		return fmt.Errorf("save match schedule: %w", err)
 	}
-
-	return sc.createResultEntries(resultContext{match, f, proposer, responder, playDate})
+	return nil
 }
 
 type resultContext struct {
