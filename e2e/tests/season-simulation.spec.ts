@@ -170,6 +170,7 @@ async function preCreatePlayer(page: Page, email: string, displayName: string): 
   const modal = page.locator('.modal[role="dialog"]').filter({ hasText: 'Pre-crear usuario' });
   await modal.locator('input[name="email"]').fill(email);
   await modal.locator('input[name="display_name"]').fill(displayName);
+  await modal.locator('select[name="gender"]').selectOption('male');
 
   const responsePromise = page.waitForResponse(
     resp => resp.url().includes('/admin/players/pre-create'),
