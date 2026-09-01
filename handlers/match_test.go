@@ -306,6 +306,9 @@ func TestMatchSubmitNotifiesRival(t *testing.T) {
 		pair2Player1ID = p2.GetString("player1")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		m.Set("date", "2026-09-01")
+		m.Set("club", "Padel 360")
+		require.NoError(tb, app.Save(m))
 
 		submitter, err := app.FindRecordById("users", p1.GetString("player1"))
 		require.NoError(tb, err)
@@ -756,6 +759,32 @@ func TestMatchSubmitAlreadyScored(t *testing.T) {
 	s.Test(t)
 }
 
+func TestMatchSubmitRejectsWithoutDateOrPlace(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /match/{id}/submit rejects when no date/place agreed",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Primero acuerda"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "NoDate A")
+		p2 := makePairTB(tb, app, "NoDate B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		s.URL = "/match/" + m.Id + "/submit"
+		s.Body = strings.NewReader("scores=6-3+6-4")
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		hdrs := authHeaders(tb, user)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
 func TestAdminOverrideCourtNumber(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
@@ -986,6 +1015,9 @@ func TestMatchSubmitCreatesResultProposal(t *testing.T) {
 		p2 := makePairTB(tb, app, "RP B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+		m.Set("date", "2026-09-01")
+		m.Set("club", "Padel 360")
+		require.NoError(tb, app.Save(m))
 
 		submitter, err := app.FindRecordById("users", p1.GetString("player1"))
 		require.NoError(tb, err)
@@ -1040,6 +1072,9 @@ func TestMatchSubmitSupersedesPreviousProposal(t *testing.T) {
 		p2 := makePairTB(tb, app, "SS B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+		m.Set("date", "2026-09-01")
+		m.Set("club", "Padel 360")
+		require.NoError(tb, app.Save(m))
 		matchID = m.Id
 
 		submitter, err := app.FindRecordById("users", p1.GetString("player1"))
@@ -1096,6 +1131,9 @@ func TestMatchSubmitRejectsWhenRivalHasPending(t *testing.T) {
 		p2 := makePairTB(tb, app, "DL B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+		m.Set("date", "2026-09-01")
+		m.Set("club", "Padel 360")
+		require.NoError(tb, app.Save(m))
 
 		p2Player1, err := app.FindRecordById("users", p2.GetString("player1"))
 		require.NoError(tb, err)
@@ -1136,6 +1174,9 @@ func TestMatchSubmitNoDeadlockNoAdminNotif(t *testing.T) {
 		p2 := makePairTB(tb, app, "NDL B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+		m.Set("date", "2026-09-01")
+		m.Set("club", "Padel 360")
+		require.NoError(tb, app.Save(m))
 
 		makeAdminUserTB(tb, app)
 
