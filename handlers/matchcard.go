@@ -10,6 +10,15 @@ import (
 	"padelleague/league"
 )
 
+// ScoreInputVM drives the shared score-entry partial (views/partials/score-input.html).
+type ScoreInputVM struct {
+	FieldName string // hidden field the handler reads: "scores" | "score" | "counter_scores"
+	Value     string // prefill value, e.g. "6-3 4-6"; empty for blank entry
+	IDSuffix  string // unique per instance on a page (usually the match ID)
+	Pair1Name string
+	Pair2Name string
+}
+
 // MatchCard is the neutral view-model for a match, rendered by
 // views/partials/match-card.html gated by Mode axes.
 type MatchCard struct {
@@ -43,6 +52,11 @@ type MatchCard struct {
 	HasDateAndPlace bool
 
 	Venues []*core.Record
+
+	ScoreSubmit  ScoreInputVM
+	ScoreCorrect ScoreInputVM
+	ScoreResolve ScoreInputVM
+	ScoreOverride ScoreInputVM
 }
 
 // NewMatchCard builds the neutral match view-model for the given render mode.
@@ -74,6 +88,9 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 	}
 	if mode.Editable && !mode.Admin {
 		c.fillPlayerActions(app, match, viewerID)
+	}
+	if mode.Editable && mode.Admin {
+		c.fillAdminScoreVMs(match)
 	}
 	return c
 }
@@ -140,6 +157,16 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 			}
 		}
 	}
+
+	mid := match.Id
+	c.ScoreSubmit = ScoreInputVM{FieldName: "scores", IDSuffix: mid, Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
+	c.ScoreCorrect = ScoreInputVM{FieldName: "scores", Value: match.GetString("scores"), IDSuffix: mid + "-correct", Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
+}
+
+func (c *MatchCard) fillAdminScoreVMs(match *core.Record) {
+	mid := match.Id
+	c.ScoreResolve = ScoreInputVM{FieldName: "score", Value: c.SubmittedScore, IDSuffix: mid + "-resolve", Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
+	c.ScoreOverride = ScoreInputVM{FieldName: "scores", Value: match.GetString("scores"), IDSuffix: mid + "-override", Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
 }
 
 // PopulateFeeder sets the playoff placeholder text for unresolved pairs.
