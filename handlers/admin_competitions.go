@@ -13,6 +13,7 @@ import (
 
 	"padelleague/league"
 	"padelleague/notify"
+	"padelleague/render"
 )
 
 // CompetitionHandler handles admin CRUD and management operations for competitions.
@@ -378,7 +379,7 @@ func (h *CompetitionHandler) getPenaltyRows(compID string) map[string][]PenaltyR
 			Amount:    r.GetFloat("amount"),
 			Reason:    r.GetString("reason"),
 			AdminName: adminName,
-			Date:      r.GetDateTime("created").Time().Format("02/01/2006"),
+			Date:      render.FmtTime(r.GetDateTime("created").Time()),
 		})
 	}
 	return out

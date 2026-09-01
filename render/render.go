@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -146,8 +147,18 @@ var dateLayouts = []string{
 	"2006-01-02",
 }
 
+var madrid = func() *time.Location {
+	loc, err := time.LoadLocation("Europe/Madrid")
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}()
+
 // FmtDate parses a date string and returns it in Spanish DD/MM/YYYY format.
-// Times at midnight are omitted; otherwise HH:MM is appended.
+// Timestamps with an explicit UTC marker (Z or +00:00) are converted to
+// Europe/Madrid; wall-clock values from datetime-local inputs are rendered
+// as-is.
 func FmtDate(raw string) string {
 	if raw == "" {
 		return ""
@@ -157,12 +168,42 @@ func FmtDate(raw string) string {
 		if err != nil {
 			continue
 		}
-		if t.Hour() == 0 && t.Minute() == 0 {
+		if t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 {
 			return t.Format("02/01/2006")
+		}
+		if hasExplicitUTC(raw) {
+			t = t.In(madrid)
 		}
 		return t.Format("02/01/2006 15:04")
 	}
 	return raw
+}
+
+func hasExplicitUTC(raw string) bool {
+	return strings.HasSuffix(raw, "Z") ||
+		strings.Contains(raw, "+00:00") ||
+		strings.Contains(raw, "+0000") ||
+		strings.Contains(raw, "T")
+}
+
+// FmtTime formats a time.Time in Europe/Madrid as DD/MM/YYYY, appending
+// HH:MM when the local time is not midnight.
+func FmtTime(t time.Time) string {
+	t = t.In(madrid)
+	if t.Hour() == 0 && t.Minute() == 0 {
+		return t.Format("02/01/2006")
+	}
+	return t.Format("02/01/2006 15:04")
+}
+
+// FmtShortTime formats a time.Time in Europe/Madrid as DD/MM HH:MM.
+func FmtShortTime(t time.Time) string {
+	return t.In(madrid).Format("02/01 15:04")
+}
+
+// FmtShortDate formats a time.Time in Europe/Madrid as DD/MM.
+func FmtShortDate(t time.Time) string {
+	return t.In(madrid).Format("02/01")
 }
 
 // Partial renders an HTML fragment without the site layout.

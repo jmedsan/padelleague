@@ -46,7 +46,7 @@
                         {{.GetString "use_count"}}/{{if and (.GetString "max_uses") (ne (.GetString "max_uses") "0")}}{{.GetString "max_uses"}}{{else}}1{{end}}
                     </td>
                     <td class="hidden md:table-cell text-sm opacity-60">
-                        {{(.GetDateTime "expires_at").Time.Format "02/01/2006"}}
+                        {{fmtDate (.GetString "expires_at")}}
                     </td>
                     <td>
                         {{if eq (.GetString "status") "pending"}}

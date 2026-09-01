@@ -11,6 +11,7 @@ import (
 
 	"padelleague/league"
 	"padelleague/notify"
+	"padelleague/render"
 )
 
 // ThreadHandler handles the match thread: messages, scheduling proposals, and responses.
@@ -171,7 +172,7 @@ func (h *ThreadHandler) toThreadMessage(msg *core.Record, ctx threadBuildCtx) Th
 		CanRespond:        canRespond,
 		CanChangeDecision: canChangeDecision,
 		DataType:          dataTypeFor(msgType),
-		CreatedAt:         msg.GetDateTime("created").Time().Format("02/01 15:04"),
+		CreatedAt:         render.FmtShortTime(msg.GetDateTime("created").Time()),
 		ParentID:          msg.GetString("parent"),
 	}
 	if canRespond && msgType == "result_submission" {
