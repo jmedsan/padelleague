@@ -170,6 +170,16 @@ test.describe('reference navigation tour', () => {
       mandatory: true,
     });
 
+    // Doc-card actions must anchor to the title line and stack on mobile, not
+    // vertically center on the card's variable height (a mandatory badge adds a row).
+    // Assert the layout contract directly (deterministic): the card uses
+    // sm:items-start + flex-col, which reverting to `items-center` removes.
+    const docCard = page.locator('[data-testid="document-card"]', { hasText: 'Reglamento de prueba' });
+    await expect(docCard).toBeVisible();
+    const cls = await docCard.getAttribute('class');
+    expect(cls).toContain('sm:items-start'); // top-anchored, not items-center
+    expect(cls).toContain('flex-col'); // stacks on mobile (title not truncated by inline actions)
+
     // Attach it to the league competition
     await navTo(page, 'Panel');
     await page.locator(`a:has-text("${COMP_NAME}")`).first().click();
