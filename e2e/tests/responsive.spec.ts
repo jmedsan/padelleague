@@ -70,6 +70,18 @@ test.describe('responsive - no horizontal overflow', () => {
     await checkNoOverflow(page);
   });
 
+  test('admin competition detail', async ({ page }) => {
+    const data = loadTestData();
+    await page.setViewportSize(MOBILE);
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/admin/competitions/${data.competitionId}`);
+    await page.waitForLoadState('domcontentloaded');
+    await checkNoOverflow(page);
+    const standingsCard = page.locator('.card', { has: page.getByRole('heading', { name: 'Clasificación' }) });
+    await expect(standingsCard).toBeVisible();
+    await expect(standingsCard.getByText('Pareja Alpha').first()).toBeVisible();
+  });
+
   test('admin pairs', async ({ page }) => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
