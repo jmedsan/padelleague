@@ -131,7 +131,7 @@ func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], d
 	payments := handlers.NewCompetitionPaymentsHandler(deps.App)
 	fixture := handlers.NewFixtureHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page)
 
-	g.GET("", dash.Dashboard)
+	g.GET("", dash.AdminEntry)
 	g.GET("/competitions", dash.Dashboard)
 	g.POST("/competitions", comp.Create)
 	g.GET("/competitions/{id}", comp.Detail)

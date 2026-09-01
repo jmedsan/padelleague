@@ -27,7 +27,7 @@ func TestDashboardSummaryCounts(t *testing.T) {
 		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin dashboard shows correct summary counts",
 		Method:          http.MethodGet,
-		URL:             "/admin",
+		URL:             "/admin/competitions",
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Test Comp"},
 	}
@@ -69,7 +69,7 @@ func TestDashboardQuorumIssue(t *testing.T) {
 		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin shows quorum issue for expired submission",
 		Method:          http.MethodGet,
-		URL:             "/admin",
+		URL:             "/admin/competitions",
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Quorum", "enviado hace"},
 	}
@@ -100,7 +100,7 @@ func TestDashboardQuorumNoIssueWhenFresh(t *testing.T) {
 		TestAppFactory:     testAppFactory,
 		Name:               "GET /admin no quorum issue when submission is recent",
 		Method:             http.MethodGet,
-		URL:                "/admin",
+		URL:                "/admin/competitions",
 		ExpectedStatus:     200,
 		NotExpectedContent: []string{"Quorum"},
 	}
@@ -131,7 +131,7 @@ func TestDashboardQuorumZeroHoursNoIssue(t *testing.T) {
 		TestAppFactory:     testAppFactory,
 		Name:               "GET /admin no quorum issue when quorum_timeout_hours is 0",
 		Method:             http.MethodGet,
-		URL:                "/admin",
+		URL:                "/admin/competitions",
 		ExpectedStatus:     200,
 		NotExpectedContent: []string{"Quorum"},
 	}
@@ -162,7 +162,7 @@ func TestDashboardQuorumShowsHoursWhenLessThanDay(t *testing.T) {
 		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin quorum shows hours when less than 1 day",
 		Method:          http.MethodGet,
-		URL:             "/admin",
+		URL:             "/admin/competitions",
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Quorum"},
 	}
@@ -205,7 +205,7 @@ func TestDashboardOverdueMatch(t *testing.T) {
 		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin shows overdue issue for past-dated pending match",
 		Method:          http.MethodGet,
-		URL:             "/admin",
+		URL:             "/admin/competitions",
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Vencido"},
 	}
@@ -229,7 +229,7 @@ func TestDashboardNotOverdueForFutureDate(t *testing.T) {
 		TestAppFactory:     testAppFactory,
 		Name:               "GET /admin no overdue for future-dated pending match",
 		Method:             http.MethodGet,
-		URL:                "/admin",
+		URL:                "/admin/competitions",
 		ExpectedStatus:     200,
 		NotExpectedContent: []string{"Vencido"},
 	}
@@ -253,7 +253,7 @@ func TestDashboardStaleMatch(t *testing.T) {
 		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin shows stale issue for inactive pending match",
 		Method:          http.MethodGet,
-		URL:             "/admin",
+		URL:             "/admin/competitions",
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Inactivo", "sin actividad"},
 	}
@@ -1278,7 +1278,7 @@ func TestDashboardAllMatchesFinal(t *testing.T) {
 		TestAppFactory:  testAppFactory,
 		Name:            "GET /admin all-final matches shows correct played count",
 		Method:          http.MethodGet,
-		URL:             "/admin",
+		URL:             "/admin/competitions",
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"2/2"},
 	}
@@ -1314,7 +1314,7 @@ func TestDashboardNoDisputedMatches(t *testing.T) {
 		TestAppFactory:     testAppFactory,
 		Name:               "GET /admin no disputes when no disputed matches",
 		Method:             http.MethodGet,
-		URL:                "/admin",
+		URL:                "/admin/competitions",
 		ExpectedStatus:     200,
 		ExpectedContent:    []string{"sin disputas"},
 		NotExpectedContent: []string{"en disputa"},

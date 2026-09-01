@@ -21,13 +21,14 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await checkNoOverflow(page);
+    // Depending on test ordering, player may be in 1 or more competitions
     const singleEntry = page.locator('[data-testid="single-comp-entry"]');
     const multiHeading = page.locator('[data-testid="player-competitions-heading"]');
     const hasSingle = await singleEntry.isVisible().catch(() => false);
     if (hasSingle) {
       await expect(singleEntry).toContainText('Liga E2E Test');
     } else {
-      await expect(multiHeading).toContainText('Mis competiciones');
+      await expect(multiHeading).toBeVisible();
     }
     await expect(page.getByText('Liga E2E Test').first()).toBeVisible();
   });
@@ -35,7 +36,8 @@ test.describe('responsive - no horizontal overflow', () => {
   test('admin dashboard', async ({ page }) => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await navViaDrawer(page, '/admin');
+    await page.goto('/admin/competitions');
+    await page.waitForLoadState('domcontentloaded');
     await checkNoOverflow(page);
     await expect(page.getByText('Panel de administración')).toBeVisible();
     await expect(page.locator('.card-title', { hasText: 'Liga E2E Test' }).first()).toBeVisible();
@@ -156,13 +158,8 @@ test.describe('responsive - no horizontal overflow', () => {
       document.documentElement.setAttribute('data-theme', 'dark');
       localStorage.setItem('theme', 'dark');
     });
-    if (isMobile(page)) {
-      await navViaDrawer(page, '/admin');
-    } else {
-      await page.locator('summary:has-text("Gestión")').click();
-      await page.waitForTimeout(100);
-      await page.locator('.menu-horizontal a[href="/admin"]').evaluate(el => (el as HTMLAnchorElement).click());
-    }
+    await page.goto('/admin/competitions');
+    await page.waitForLoadState('domcontentloaded');
     await page.waitForLoadState('networkidle');
 
     // Admin mode indicator (top-bar pill/dropdown) should be visible

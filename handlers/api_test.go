@@ -173,9 +173,9 @@ func TestAdminDashboard(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "GET /admin with admin auth returns dashboard",
+		Name:            "GET /admin/competitions with admin auth returns dashboard",
 		Method:          http.MethodGet,
-		URL:             "/admin",
+		URL:             "/admin/competitions",
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Competiciones"},
 	}

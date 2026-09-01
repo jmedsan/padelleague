@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -32,6 +33,17 @@ type AdminIssue struct {
 	Pair2Name       string
 	MatchID         string
 	Detail          string
+}
+
+// AdminEntry redirects to the single active competition detail when exactly
+// one exists; otherwise falls through to the full dashboard.
+func (h *CompetitionDashboardHandler) AdminEntry(e *core.RequestEvent) error {
+	activeComps, _ := h.app.FindRecordsByFilter("competitions",
+		"active = true", "", 0, 0, nil)
+	if len(activeComps) == 1 {
+		return e.Redirect(http.StatusFound, "/admin/competitions/"+activeComps[0].Id)
+	}
+	return h.Dashboard(e)
 }
 
 // Dashboard renders the admin competitions overview with active/inactive lists and issues.
