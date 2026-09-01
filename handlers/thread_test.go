@@ -1551,11 +1551,8 @@ func TestBuildThreadData_TimelineReadOnly(t *testing.T) {
 	}
 	assert.GreaterOrEqual(t, proposalCount, 1, "proposals must appear in timeline")
 
-	_ = td.Timeline[0].Kind
-	_ = td.Timeline[0].AuthorName
-	_ = td.Timeline[0].Content
-	_ = td.Timeline[0].CreatedAt
-	_ = td.Timeline[0].IsMyTeam
+	// Viewer is team 2; proposer is team 1 → first entry's IsMyTeam must be false
+	assert.False(t, td.Timeline[0].IsMyTeam, "team-1 author must not be IsMyTeam for team-2 viewer")
 
 	require.NotEmpty(t, td.SchedProposals)
 	found := false
@@ -1563,6 +1560,12 @@ func TestBuildThreadData_TimelineReadOnly(t *testing.T) {
 		if sp.RecordID == prop.Id {
 			found = true
 			assert.Equal(t, "pending", sp.Status)
+			assert.False(t, sp.IsAccepted, "pending proposal must not be IsAccepted")
+			assert.True(t, sp.CanRespond, "opposing team can respond to pending proposal")
+		}
+		if sp.RecordID == accepted.Id {
+			assert.True(t, sp.IsAccepted, "accepted proposal must be IsAccepted")
+			assert.True(t, sp.CanChangeDecision, "opposing team can change decision on accepted proposal")
 		}
 	}
 	assert.True(t, found, "pending proposal must be in SchedProposals")
@@ -1653,7 +1656,11 @@ func TestBuildThreadData_BothLiveProposals(t *testing.T) {
 	for _, lp := range td.ResultPanel.Live {
 		if lp.AwaitingMe {
 			awaitingCount++
+			assert.True(t, lp.CanRespond, "awaiting proposal must be respondable")
 		}
 	}
 	assert.Equal(t, 1, awaitingCount, "exactly one proposal awaiting viewer (P5)")
+	// The proposal from the opposing team (p1) is the one awaiting the viewer (team 2)
+	assert.True(t, td.ResultPanel.Live[0].AwaitingMe, "proposal from p1 (team 1) awaits team-2 viewer")
+	assert.False(t, td.ResultPanel.Live[1].AwaitingMe, "proposal from p2 (team 2) does not await same-team viewer")
 }
