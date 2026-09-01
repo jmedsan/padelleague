@@ -88,9 +88,9 @@
         <label class="label"><span class="label-text">Marcador final</span></label>
         {{template "scoreInput" .ScoreResolve}}
         <div class="flex gap-1 mt-1">
-            <button type="button" onclick="fillCells(this,'{{.SubmittedScore}}')" class="btn btn-xs btn-outline">{{.SubmittedScore}}</button>
+            <button type="button" onclick="fillCells(this,'{{.SubmittedScore}}')" class="btn btn-xs btn-outline">{{if .SubmitterPairName}}Usar propuesta de {{.SubmitterPairName}}{{else}}Usar propuesta{{end}}</button>
             {{if .DisputedScore}}
-            <button type="button" onclick="fillCells(this,'{{.DisputedScore}}')" class="btn btn-xs btn-outline">{{.DisputedScore}}</button>
+            <button type="button" onclick="fillCells(this,'{{.DisputedScore}}')" class="btn btn-xs btn-outline">{{if .DisputerPairName}}Usar contrapropuesta de {{.DisputerPairName}}{{else}}Usar contrapropuesta{{end}}</button>
             {{end}}
         </div>
         <button type="submit" class="btn btn-primary btn-sm mt-2">Resolver</button>
