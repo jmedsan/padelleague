@@ -49,13 +49,10 @@ test.describe('notification dismiss and history', () => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
-    // Badge shows at least the 2 unread we created (a concurrent notification
-    // from another flow may add more — assert relative, not an absolute count).
-    // Poll for the count to land (badge populates via hx-trigger="load").
+    // Badge shows the 2 unread we created (badge populates via hx-trigger="load").
     const badge = page.locator('#notif-badge');
     await expect.poll(async () => parseInt((await badge.textContent())?.trim() || '0', 10),
       { timeout: 5000 }).toBeGreaterThanOrEqual(2);
-    const before = parseInt((await badge.textContent())?.trim() || '0', 10);
 
     // Open bell dropdown
     const bellButton = page.locator('.dropdown:has(#notif-dropdown) button[aria-label="notificaciones"]');
@@ -65,27 +62,34 @@ test.describe('notification dismiss and history', () => {
     const dismissRow = dropdown.locator(`#notif-row-${dismissId}`);
     await expect(dismissRow).toBeVisible({ timeout: 5000 });
 
-    // Dismiss via × button
-    await dismissRow.locator('button[aria-label="descartar"]').click();
+    // Dismiss via × button ("marcar leída")
+    await dismissRow.locator('button[aria-label="marcar leída"]').click();
 
-    // Row removed
+    // Row removed from the bell
     await expect(dismissRow).not.toBeAttached({ timeout: 5000 });
 
-    // Badge decremented by exactly one (the OOB swap) — relative to `before`,
-    // immune to a concurrent notification changing the absolute count.
-    await expect(badge).toContainText(String(before - 1), { timeout: 5000 });
+    // The "×" marks the notification read (deterministic contract, immune to any
+    // concurrent notification perturbing the global badge count).
+    await expect.poll(async () => {
+      const r = await page.request.get(`/api/collections/notifications/records/${dismissId}`,
+        { headers: { Authorization: data.adminToken } });
+      return r.ok() ? (await r.json()).read : null;
+    }, { timeout: 5000 }).toBe(true);
 
     // Re-open dropdown, kept row still present
     await bellButton.click();
     const keepRow = dropdown.locator(`#notif-row-${keepId}`);
     await expect(keepRow).toBeVisible({ timeout: 5000 });
 
-    // Navigate to history — both appear
+    // Navigate to history — both appear (the dismissed one is retained), and the
+    // history page has NO remove/dismiss control (permanent record, P2).
     await page.goto('/notifications/history');
     await page.waitForLoadState('domcontentloaded');
     await expect(page.getByRole('heading', { name: 'Historial de notificaciones' })).toBeVisible();
     await expect(page.getByText('E2E Dismiss Test')).toBeVisible();
     await expect(page.getByText('E2E Keep Test')).toBeVisible();
+    await expect(page.locator('button[aria-label="marcar leída"]')).toHaveCount(0);
+    await expect(page.locator('button[aria-label="descartar"]')).toHaveCount(0);
   });
 
   test('mobile: dismiss via bell, badge decrements', async ({ page }) => {
@@ -103,12 +107,10 @@ test.describe('notification dismiss and history', () => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
-    // Mobile badge shows at least our 2 (relative, not absolute — a concurrent
-    // notification from another flow may add more). Poll for the count to land.
+    // Mobile badge shows our 2 (populates via hx-trigger="load").
     const mobileBadge = page.locator('#notif-badge-mobile');
     await expect.poll(async () => parseInt((await mobileBadge.textContent())?.trim() || '0', 10),
       { timeout: 5000 }).toBeGreaterThanOrEqual(2);
-    const before = parseInt((await mobileBadge.textContent())?.trim() || '0', 10);
 
     // Open mobile bell dropdown
     const mobileDropdownContainer = page.locator('.lg\\:hidden .dropdown');
@@ -120,14 +122,19 @@ test.describe('notification dismiss and history', () => {
     await expect(dismissRow).toBeVisible({ timeout: 5000 });
 
     // Dismiss — click and wait for the HTMX request to complete
-    const dismissBtn = dismissRow.locator('button[aria-label="descartar"]');
+    const dismissBtn = dismissRow.locator('button[aria-label="marcar leída"]');
     await Promise.all([
       page.waitForResponse(resp => resp.url().includes('/dismiss') && resp.status() === 200),
       dismissBtn.click(),
     ]);
 
-    // Wait for OOB swap to decrement the badge by one (relative to `before`).
-    await expect(mobileBadge).toContainText(String(before - 1), { timeout: 10000 });
+    // The "×" marks the notification read (deterministic contract, immune to a
+    // concurrent notification perturbing the global badge count).
+    await expect.poll(async () => {
+      const r = await page.request.get(`/api/collections/notifications/records/${dismissId}`,
+        { headers: { Authorization: data.adminToken } });
+      return r.ok() ? (await r.json()).read : null;
+    }, { timeout: 5000 }).toBe(true);
 
     // Re-open dropdown to verify row is gone
     await mobileBell.click();
