@@ -129,7 +129,12 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 		return alertError(e, "Esta invitación no es válida o ya fue usada")
 	}
 
-	_, authToken, err := h.registerUser(invite.Id, email, displayName, password)
+	gender := e.Request.FormValue("gender")
+	if gender != "male" && gender != "female" {
+		return alertError(e, "El género es obligatorio")
+	}
+
+	_, authToken, err := h.registerUser(invite.Id, email, displayName, password, gender)
 
 	if err != nil {
 		return alertError(e, "Error al crear la cuenta. Verifica los datos e intenta de nuevo.")
@@ -143,7 +148,7 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 	return e.Redirect(http.StatusFound, "/")
 }
 
-func (h *AuthHandler) registerUser(inviteID, email, displayName, password string) (*core.Record, string, error) {
+func (h *AuthHandler) registerUser(inviteID, email, displayName, password, gender string) (*core.Record, string, error) {
 	var userRecord *core.Record
 	var authToken string
 
@@ -157,6 +162,9 @@ func (h *AuthHandler) registerUser(inviteID, email, displayName, password string
 		userRecord.Set("email", email)
 		userRecord.Set("display_name", displayName)
 		userRecord.Set("roles", []string{"player"})
+		if gender != "" {
+			userRecord.Set("gender", gender)
+		}
 		userRecord.SetPassword(password)
 
 		if err := txApp.Save(userRecord); err != nil {
@@ -207,7 +215,13 @@ func (h *AuthHandler) ProfileCompleteSubmit(e *core.RequestEvent) error {
 		return alertError(e, "El nombre es obligatorio")
 	}
 
+	gender := e.Request.FormValue("gender")
+	if gender != "male" && gender != "female" {
+		return alertError(e, "El género es obligatorio")
+	}
+
 	e.Auth.Set("display_name", displayName)
+	e.Auth.Set("gender", gender)
 	if err := h.app.Save(e.Auth); err != nil {
 		return alertError(e, "Error al guardar el perfil")
 	}

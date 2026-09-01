@@ -58,7 +58,13 @@ func (h *AdminPlayerHandler) PlayerUpdate(e *core.RequestEvent) error {
 		roles = []string{"player"}
 	}
 
+	gender := e.Request.FormValue("gender")
+	if gender != "male" && gender != "female" {
+		return alertError(e, "El género es obligatorio")
+	}
+
 	user.Set("display_name", displayName)
+	user.Set("gender", gender)
 	user.Set("roles", roles)
 
 	if err := h.app.Save(user); err != nil {
@@ -85,9 +91,15 @@ func (h *AdminPlayerHandler) PlayerPreCreate(e *core.RequestEvent) error {
 
 	tempPassword := security.RandomString(16)
 
+	gender := e.Request.FormValue("gender")
+	if gender != "male" && gender != "female" {
+		return alertError(e, "El género es obligatorio")
+	}
+
 	user := core.NewRecord(collection)
 	user.Set("email", email)
 	user.Set("display_name", displayName)
+	user.Set("gender", gender)
 	user.Set("roles", []string{"player"})
 	user.SetPassword(tempPassword)
 

@@ -218,7 +218,7 @@ func TestProfileCompleteSubmit(t *testing.T) {
 		Name:           "POST /profile/complete sets display name",
 		Method:         http.MethodPost,
 		URL:            "/profile/complete",
-		Body:           strings.NewReader("display_name=NuevoNombre"),
+		Body:           strings.NewReader("display_name=NuevoNombre&gender=female"),
 		ExpectedStatus: 302,
 	}
 	var userID string

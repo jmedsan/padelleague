@@ -30,7 +30,7 @@ func TestPlayerPreCreate(t *testing.T) {
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
-		s.Body = strings.NewReader("email=newplayer@test.local&display_name=New+Player")
+		s.Body = strings.NewReader("email=newplayer@test.local&display_name=New+Player&gender=male")
 	}
 	s.Test(t)
 }
@@ -50,7 +50,7 @@ func TestPlayerUpdate(t *testing.T) {
 		player := makeUserTB(tb, app, "Old Name", "")
 		playerID = player.Id
 		s.URL = "/admin/players/" + player.Id
-		s.Body = strings.NewReader("display_name=New+Name&role=player")
+		s.Body = strings.NewReader("display_name=New+Name&gender=female&role=player")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs

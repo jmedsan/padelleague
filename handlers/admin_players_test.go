@@ -32,7 +32,7 @@ func TestPreCreateResetURLWithForwardedProto(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		hdrs["X-Forwarded-Proto"] = "https"
 		s.Headers = hdrs
-		s.Body = strings.NewReader("email=fwdproto@test.local&display_name=FwdProto")
+		s.Body = strings.NewReader("email=fwdproto@test.local&display_name=FwdProto&gender=male")
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body, err := io.ReadAll(res.Body)
@@ -70,7 +70,7 @@ func TestPreCreateResetURLNoTLS(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		// No X-Forwarded-Proto, test HTTP client has no TLS → scheme = http
 		s.Headers = hdrs
-		s.Body = strings.NewReader("email=notls@test.local&display_name=NoTLS")
+		s.Body = strings.NewReader("email=notls@test.local&display_name=NoTLS&gender=female")
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body, err := io.ReadAll(res.Body)
@@ -99,7 +99,7 @@ func TestPlayerUpdateInvalidRole(t *testing.T) {
 		player := makeUserTB(tb, app, "Role Test", "roletest@test.local")
 		playerID = player.Id
 		s.URL = "/admin/players/" + player.Id
-		s.Body = strings.NewReader("display_name=Role+Test&roles=superadmin")
+		s.Body = strings.NewReader("display_name=Role+Test&gender=male&roles=superadmin")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -130,7 +130,7 @@ func TestPlayerUpdateEmptyRolesDefaultsToPlayer(t *testing.T) {
 		player := makeUserTB(tb, app, "Empty Role", "emptyrole@test.local")
 		playerID = player.Id
 		s.URL = "/admin/players/" + player.Id
-		s.Body = strings.NewReader("display_name=Empty+Role")
+		s.Body = strings.NewReader("display_name=Empty+Role&gender=male")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -164,7 +164,7 @@ func TestPreCreateInvitationExpiry48h(t *testing.T) {
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
-		s.Body = strings.NewReader("email=expiry48@test.local&display_name=Expiry48")
+		s.Body = strings.NewReader("email=expiry48@test.local&display_name=Expiry48&gender=male")
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		invites, err := app.FindRecordsByFilter("invitations",
@@ -199,7 +199,7 @@ func TestPreCreateSendsOnboardingEmail(t *testing.T) {
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
-		s.Body = strings.NewReader("email=onboard@test.local&display_name=OnboardUser")
+		s.Body = strings.NewReader("email=onboard@test.local&display_name=OnboardUser&gender=female")
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		require.Equal(tb, 1, app.TestMailer.TotalSend(), "expected one onboarding email")
