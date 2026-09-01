@@ -62,9 +62,10 @@
             {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "Score" .SubmittedScore "FillScore" .SubmittedScore "Pair1Name" .Pair1Name "Pair2Name" .Pair2Name)}}
             {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore "Note" .DisputeNotes "FillScore" .DisputedScore "Pair1Name" .Pair1Name "Pair2Name" .Pair2Name)}}{{end}}
         </div>
+        <div class="divider my-2"></div>
         <form hx-post="/admin/disputes/{{.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
             {{template "scoreInput" .ScoreResolve}}
-            <button type="submit" class="btn btn-primary btn-sm mt-2">Resolver</button>
+            <button type="submit" class="btn btn-primary btn-sm mt-4">Resolver</button>
         </form>
     </div>
     {{end}}
@@ -271,9 +272,10 @@
         {{template "resultBox" (dict "PairLabel" (or $c.SubmitterPairName "Propuesta") "Score" $c.SubmittedScore "FillScore" (ternary $canResolve $c.SubmittedScore "") "Pair1Name" $c.Pair1Name "Pair2Name" $c.Pair2Name)}}
         {{if $c.DisputedScore}}{{template "resultBox" (dict "PairLabel" (or $c.DisputerPairName "Contrapropuesta") "Score" $c.DisputedScore "Note" $c.DisputeNotes "FillScore" (ternary $canResolve $c.DisputedScore "") "Pair1Name" $c.Pair1Name "Pair2Name" $c.Pair2Name)}}{{end}}
         {{if $canResolve}}
-        <form hx-post="/admin/disputes/{{$c.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML" class="mt-2">
+        <div class="divider my-2"></div>
+        <form hx-post="/admin/disputes/{{$c.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
             {{template "scoreInput" $c.ScoreResolve}}
-            <button type="submit" class="btn btn-primary btn-sm mt-2">Resolver</button>
+            <button type="submit" class="btn btn-primary btn-sm mt-4">Resolver</button>
         </form>
         {{end}}
     </div>
