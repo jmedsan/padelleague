@@ -336,3 +336,43 @@ func TestDismissNotificationOtherUser(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestNotificationHistory(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /notifications/history shows all including dismissed",
+		Method:          http.MethodGet,
+		URL:             "/notifications/history",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Historial de notificaciones", "Active One", "Dismissed One"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupNotifRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "History User", "")
+		makeNotification(t, app, user.Id, "Active One", "", false)
+		dismissed := makeNotification(t, app, user.Id, "Dismissed One", "", false)
+		dismissed.Set("dismissed", true)
+		require.NoError(tb, app.Save(dismissed))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestNotificationHistoryEmpty(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /notifications/history with no notifications shows empty",
+		Method:          http.MethodGet,
+		URL:             "/notifications/history",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"No tienes notificaciones"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupNotifRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Empty History", "")
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}

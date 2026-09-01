@@ -163,6 +163,21 @@ func (h *NotificationHandler) MarkAllRead(e *core.RequestEvent) error {
 	return redirectHX(e, "/")
 }
 
+// History renders the full notification history page.
+func (h *NotificationHandler) History(e *core.RequestEvent) error {
+	records, err := h.app.FindRecordsByFilter("notifications",
+		"user = {:uid}",
+		"-created", 50, 0,
+		map[string]any{"uid": e.Auth.Id})
+	if err != nil {
+		records = []*core.Record{}
+	}
+
+	return h.renderPage(e, "notification-history.html", map[string]any{
+		"Notifications": records,
+	})
+}
+
 // Prefs renders the notification preferences page.
 func (h *NotificationHandler) Prefs(e *core.RequestEvent) error {
 	prefs := notify.NotificationPrefs(e.Auth)
