@@ -60,6 +60,7 @@ type MatchCard struct {
 
 // NewMatchCard builds the neutral match view-model for the given render mode.
 func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) MatchCard {
+	status := match.GetString("status")
 	pairNames := league.PairNames(app, []string{match.GetString("pair1"), match.GetString("pair2")})
 	competitionName := ""
 	if competition, err := app.FindRecordById("competitions", match.GetString("competition")); err == nil {
@@ -72,8 +73,8 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 		Pair2Name:         pairNames[match.GetString("pair2")],
 		CompetitionName:   competitionName,
 		RoundNum:          int(match.GetFloat("round_number")),
-		StatusLabel:       headerStatusLabel(mode, match),
-		StatusClass:       headerStatusClass(mode, match),
+		StatusLabel:       statusLabel(status),
+		StatusClass:       statusClass(status),
 		Score:             match.GetString("scores"),
 		SubmittedScore:    match.GetString("scores"),
 		DisputedScore:     match.GetString("disputed_scores"),

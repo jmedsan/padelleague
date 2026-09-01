@@ -3,7 +3,7 @@
     <div class="card-body">
         <div class="flex items-center justify-between">
             <h2 class="card-title text-lg">{{template "pairLink" (elink (.Match.GetString "pair1") .Pair1Name)}} vs {{template "pairLink" (elink (.Match.GetString "pair2") .Pair2Name)}}</h2>
-            <span class="badge {{.StatusClass}}">{{.StatusLabel}}</span>
+            {{if not (and .Mode.Full (not .Mode.Editable))}}<span class="badge {{.StatusClass}}">{{.StatusLabel}}</span>{{end}}
         </div>
 
         {{if not .Mode.Full}}

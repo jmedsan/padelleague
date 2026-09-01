@@ -216,7 +216,7 @@ func TestMatchCardCrossRoleLeakGuard(t *testing.T) {
 			Name:            "player full has no admin resolve or walkover-approve or override forms",
 			Method:          http.MethodGet,
 			ExpectedStatus:  http.StatusOK,
-			ExpectedContent: []string{"Programado", "Leak Guard A"},
+			ExpectedContent: []string{"Leak Guard A"},
 			NotExpectedContent: []string{
 				"Resolver",
 				"Aprobar incomparecencia",
