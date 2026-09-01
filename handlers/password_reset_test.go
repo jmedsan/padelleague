@@ -167,6 +167,13 @@ func TestResetPasswordSubmitValidToken(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		assert.Equal(tb, "/login", res.Header.Get("HX-Redirect"))
+		cookieCleared := false
+		for _, c := range res.Cookies() {
+			if c.Name == "pb_auth" && c.MaxAge < 0 {
+				cookieCleared = true
+			}
+		}
+		assert.True(tb, cookieCleared, "pb_auth cookie must be cleared after password reset")
 	}
 	s.Test(t)
 }
@@ -263,18 +270,53 @@ func TestForgotPasswordSubmit(t *testing.T) {
 	s.Test(t)
 }
 
-func TestResetPasswordPage(t *testing.T) {
+func TestResetPasswordPageExpiredToken(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "GET /reset-password returns form",
+		Name:            "GET /reset-password with invalid token shows expired state",
 		Method:          http.MethodGet,
-		URL:             "/reset-password?token=test",
+		URL:             "/reset-password?token=invalid_token",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Enlace caducado o ya usado"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+	}
+	s.Test(t)
+}
+
+func TestResetPasswordPageNoToken(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /reset-password with no token shows expired state",
+		Method:          http.MethodGet,
+		URL:             "/reset-password",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Enlace caducado o ya usado"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+	}
+	s.Test(t)
+}
+
+func TestResetPasswordPageValidToken(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /reset-password with valid token shows form",
+		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Nueva contrase"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "RPV User", "rpv@test.local")
+		token, err := user.NewPasswordResetToken()
+		require.NoError(tb, err)
+		s.URL = "/reset-password?token=" + token
 	}
 	s.Test(t)
 }
