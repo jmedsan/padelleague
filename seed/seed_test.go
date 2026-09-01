@@ -236,9 +236,15 @@ func TestSampleLeague(t *testing.T) {
 
 	comps, err := app.FindRecordsByFilter("competitions", "id != ''", "", 0, 0)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(comps))
-	assert.Equal(t, "Liga de ejemplo", comps[0].GetString("name"))
-	assert.Equal(t, 6, comps[0].GetInt("rounds"))
+	require.Equal(t, 2, len(comps))
+	var mainComp *core.Record
+	for _, c := range comps {
+		if c.GetString("name") == "Liga de ejemplo" {
+			mainComp = c
+		}
+	}
+	require.NotNil(t, mainComp, "main competition must exist")
+	assert.Equal(t, 6, mainComp.GetInt("rounds"))
 
 	matches, err := app.FindRecordsByFilter("matches", "id != ''", "", 0, 0)
 	require.NoError(t, err)
@@ -312,7 +318,7 @@ func TestSampleLeagueWithPlayoff(t *testing.T) {
 
 	comps, err := app.FindRecordsByFilter("competitions", "id != ''", "name", 0, 0)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(comps), "league + playoff")
+	require.Equal(t, 3, len(comps), "league + mixed + playoff")
 
 	var playoff *core.Record
 	for _, c := range comps {
