@@ -263,8 +263,35 @@ test.describe('R-178: presentation quality guards', () => {
     expect(await cards.count(), 'disputes page should show at least one dispute card').toBeGreaterThan(0);
     await expect(cards.first()).toBeVisible();
 
+    // A disputed (non-final) match must NOT show the big headline score — that
+    // provisional-result leak is the bug the status=="final" gate fixes (P5).
+    // The pair-labeled disputed summary still shows the score as context.
+    const disputeCard = cards.first();
+    await expect(disputeCard.locator('p.text-2xl.font-black')).toHaveCount(0);
+    await expect(disputeCard.getByText('6-3 6-4')).toBeVisible();
+
     await apiDelete(page.request, suToken, 'matches', matchId);
     await apiDelete(page.request, suToken, 'competitions', compId);
+  });
+
+  test('penalty log: no "Quitar" text button in the penalty form; Penalizar is a distinct action', async ({ page }) => {
+    // The penalty column's per-entry remove is a de-emphasized × icon inside the
+    // penalty <form>, NOT a "Quitar" text button woven into the log (P4). Reverting
+    // T6 brings the "Quitar" text button back → this fails. "Penalizar" renders as
+    // a distinct control. (Asserted on a seeded competition that renders pairs.)
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto('/admin/competitions');
+    await page.waitForLoadState('domcontentloaded');
+    await page.locator('a[href^="/admin/competitions/"]').first().click();
+    await page.waitForLoadState('networkidle');
+    const parejas = page.locator('[data-testid="section-parejas"]');
+    await parejas.locator('> input[type="checkbox"]').check({ force: true });
+    await page.waitForTimeout(300);
+
+    // No "Quitar" text button inside a penalty form (the old woven-in control).
+    await expect(parejas.locator('form[hx-post*="/penalty"] button:has-text("Quitar")')).toHaveCount(0);
+    // "Penalizar" renders as a distinct action for each pair row.
+    await expect(parejas.locator('label:has-text("Penalizar")').first()).toBeVisible();
   });
 
   test('R-167: onboarding checklist — reglamento deep-links to Documentos tab', async ({ page }) => {

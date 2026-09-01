@@ -111,8 +111,12 @@ test.describe('match lifecycle', () => {
     const resolveForm = page.locator('form[hx-post*="disputes"]').filter({ has: page.locator('button:has-text("Resolver")') });
     await expect(resolveForm.locator('.score-input')).toBeVisible({ timeout: 5000 });
     await expect(resolveForm.locator('.score-cell').first()).toBeVisible();
-    const quickFill = resolveForm.locator('button:has-text("6-3 6-4")');
+    // The fill-button is labeled by role ("Usar propuesta …"), not by the raw
+    // score — the score renders once as context in the summary, not duplicated
+    // as an identical button label (P6).
+    const quickFill = resolveForm.locator('button:has-text("Usar propuesta")');
     await expect(quickFill).toBeVisible();
+    await expect(resolveForm.locator('button:has-text("6-3 6-4")')).toHaveCount(0);
   });
 
   test('player cannot access match of another competition', async ({ page }) => {
