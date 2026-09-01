@@ -118,17 +118,18 @@ test.describe('admin management', () => {
     }
   });
 
-  test('R-166: category field is a dropdown with Spanish labels', async ({ page }) => {
+  test('R-226: gender_type field is a dropdown with Spanish labels', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await navToAdmin(page, '/admin');
     await page.getByRole('button', { name: /crear competici[oó]n/i }).first().click();
     const dialog = page.locator('dialog#modal-create');
     await expect(dialog).toBeVisible();
-    const select = dialog.locator('select[name="category"]');
+    const select = dialog.locator('select[name="gender_type"]');
     await expect(select).toBeVisible();
     const options = await select.locator('option').allTextContents();
-    expect(options).toContain('1ª categoría');
+    expect(options).toContain('Libre');
     expect(options).toContain('Mixta');
+    expect(options).toContain('Masculina');
     expect(options).toContain('Femenina');
   });
 });
