@@ -474,6 +474,7 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 		Detail:   "aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
 		ParentID: msg.Id,
 		Action:   "accept",
+		Data:     pd,
 	})
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
@@ -505,6 +506,7 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 		MatchID: match.Id, ActorID: e.Auth.Id,
 		Kind: "scheduling_response", Detail: detail,
 		ParentID: msg.Id, Action: "reject",
+		Data: ParseProposalData(msg.Get("proposal_data")),
 	})
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
@@ -667,6 +669,7 @@ func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.
 		MatchID: match.Id, ActorID: e.Auth.Id,
 		Kind: "scheduling_response", Detail: "revocó la aceptación de la propuesta de " + proposerName,
 		ParentID: msg.Id, Action: "reject",
+		Data: ParseProposalData(msg.Get("proposal_data")),
 	})
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
@@ -711,6 +714,7 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 		Detail:   "aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
 		ParentID: msg.Id,
 		Action:   "accept",
+		Data:     pd,
 	})
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
