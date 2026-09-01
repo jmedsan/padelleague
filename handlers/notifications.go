@@ -65,16 +65,22 @@ func (h *NotificationHandler) List(e *core.RequestEvent) error {
 			if !r.GetBool("read") {
 				readClass = "bg-primary/5 font-medium"
 			}
-			out += fmt.Sprintf(`<a hx-post="/notifications/%s/read" hx-swap="none" class="block p-2 rounded hover:bg-base-200 cursor-pointer %s">`, r.Id, readClass)
+			out += fmt.Sprintf(`<div id="notif-row-%s" class="flex items-start gap-1 %s rounded p-1">`, r.Id, readClass)
+			out += fmt.Sprintf(`<a hx-post="/notifications/%s/read" hx-swap="none" class="flex-1 block p-1 hover:bg-base-200 cursor-pointer rounded">`, r.Id)
 			out += fmt.Sprintf(`<p class="text-sm">%s</p>`, html.EscapeString(r.GetString("title")))
 			if body := r.GetString("body"); body != "" {
 				out += fmt.Sprintf(`<p class="text-xs text-base-content/60">%s</p>`, html.EscapeString(league.Truncate(body, 80)))
 			}
 			out += `</a>`
+			out += fmt.Sprintf(`<button hx-post="/notifications/%s/dismiss" hx-target="#notif-row-%s" hx-swap="delete" class="btn btn-ghost btn-xs btn-circle opacity-50 hover:opacity-100" aria-label="descartar">&#10005;</button>`, r.Id, r.Id)
+			out += `</div>`
 		}
 	}
 
-	out += `<div class="mt-2"><a href="/profile/notifications" class="text-xs link">Preferencias</a></div>`
+	out += `<div class="mt-2 flex justify-between items-center">`
+	out += `<a href="/notifications/history" class="text-xs link">Ver todas →</a>`
+	out += `<a href="/profile/notifications" class="text-xs link">Preferencias</a>`
+	out += `</div>`
 	out += `</div></div>`
 
 	return e.HTML(http.StatusOK, out)
