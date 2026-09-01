@@ -131,7 +131,7 @@ async function seedTestData() {
   // so the admin is NOT a match participant and receives the notification;
   // slot 3 (mobile-lifecycle) uses pair1 vs pair2.
   // pair3 is NOT added to the competition to avoid changing fixture generation.
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 10; i++) {
     const usePair3 = i >= 4 && i < 6; // slots 0-1 = indices 0-3, slot 2 = indices 4-5
     const extra = await fetch(`${BASE_URL}/api/collections/matches/records`, {
       method: 'POST',

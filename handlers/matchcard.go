@@ -53,9 +53,9 @@ type MatchCard struct {
 
 	Venues []*core.Record
 
-	ScoreSubmit  ScoreInputVM
-	ScoreCorrect ScoreInputVM
-	ScoreResolve ScoreInputVM
+	ScoreSubmit   ScoreInputVM
+	ScoreCorrect  ScoreInputVM
+	ScoreResolve  ScoreInputVM
 	ScoreOverride ScoreInputVM
 }
 
