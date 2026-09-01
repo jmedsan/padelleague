@@ -398,7 +398,7 @@ func TestCreateCompetition(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		admin := makeAdminUserTB(tb, app)
-		s.Body = strings.NewReader("name=Nueva+Liga&type=league&category=A&active=on&play_twice=on&quorum_timeout_hours=48")
+		s.Body = strings.NewReader("name=Nueva+Liga&type=league&active=on&play_twice=on&quorum_timeout_hours=48")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -429,7 +429,7 @@ func TestCreateCompetitionInactive(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		admin := makeAdminUserTB(tb, app)
-		s.Body = strings.NewReader("name=Inactive+Comp&type=league&category=A")
+		s.Body = strings.NewReader("name=Inactive+Comp&type=league")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -460,7 +460,7 @@ func TestUpdateCompetition(t *testing.T) {
 		comp := makeCompetitionTB(tb, app, "league", nil)
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id
-		s.Body = strings.NewReader("name=Updated&type=playoff&category=B&play_twice=on&quorum_timeout_hours=72&default_penalty=5")
+		s.Body = strings.NewReader("name=Updated&type=playoff&play_twice=on&quorum_timeout_hours=72&default_penalty=5")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -563,7 +563,7 @@ func TestUpdateCompetitionPlayTwiceOff(t *testing.T) {
 		require.NoError(tb, app.Save(comp))
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id
-		s.Body = strings.NewReader("name=NoTwice&type=league&category=A")
+		s.Body = strings.NewReader("name=NoTwice&type=league")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs

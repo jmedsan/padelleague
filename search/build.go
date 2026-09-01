@@ -63,7 +63,7 @@ func buildCompetitions(app core.App) []Entry {
 		}
 		entries = append(entries, NewEntry(Entry{
 			Label:     c.GetString("name"),
-			Secondary: c.GetString("category"),
+			Secondary: "",
 			Type:      "competición",
 			URL:       league.EntityURL("competition", c.Id),
 			Keywords:  kw,

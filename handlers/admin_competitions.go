@@ -70,7 +70,6 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"HasUnpaid":       anyUnpaid(pairEntries),
 		"UnpaidCount":     countUnpaid(pairEntries),
 		"Phase":           league.PhaseOf(comp, time.Now()),
-		"Categories":      league.Categories(),
 	}
 	h.addDetailExtras(data, comp, matches)
 	return h.renderPage(e, "admin/competition-detail.html", data)
@@ -149,7 +148,6 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 	record := core.NewRecord(col)
 	record.Set("name", e.Request.FormValue("name"))
 	record.Set("type", e.Request.FormValue("type"))
-	record.Set("category", e.Request.FormValue("category"))
 	record.Set("active", e.Request.FormValue("active") == "on")
 	record.Set("play_twice", e.Request.FormValue("play_twice") == "on")
 
@@ -195,7 +193,6 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 
 	record.Set("name", e.Request.FormValue("name"))
 	record.Set("type", e.Request.FormValue("type"))
-	record.Set("category", e.Request.FormValue("category"))
 	record.Set("play_twice", e.Request.FormValue("play_twice") == "on")
 
 	if v := e.Request.FormValue("quorum_timeout_hours"); v != "" {

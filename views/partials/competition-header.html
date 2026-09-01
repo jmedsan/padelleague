@@ -14,9 +14,6 @@
                     {{else}}
                         <span class="badge badge-secondary">Playoff</span>
                     {{end}}
-                    {{if .Comp.GetString "category"}}
-                        <span class="badge badge-outline">{{.Comp.GetString "category"}}</span>
-                    {{end}}
                     {{if and .IsLeague (ne .PhaseStr "")}}
                         <span class="badge {{if eq .PhaseStr "recovery"}}badge-secondary{{else if eq .PhaseStr "finished"}}badge-neutral{{else}}badge-outline{{end}}">{{.PhaseLabel}}</span>
                     {{end}}
@@ -52,9 +49,6 @@
         <span class="badge badge-lg bg-white/20 border-0 text-primary-content">Liga</span>
         {{else}}
         <span class="badge badge-lg bg-white/20 border-0 text-primary-content">Playoff</span>
-        {{end}}
-        {{if .Comp.GetString "category"}}
-        <span class="badge badge-lg bg-white/20 border-0 text-primary-content">{{.Comp.GetString "category"}}</span>
         {{end}}
         {{if .IsArchived}}
         <span class="badge badge-lg bg-black/20 border-0 text-primary-content">Archivada</span>

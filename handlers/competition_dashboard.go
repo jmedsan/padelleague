@@ -59,7 +59,6 @@ func (h *CompetitionDashboardHandler) Dashboard(e *core.RequestEvent) error {
 		"DisputeCount": len(totalDisputes),
 		"Issues":       issues,
 		"IssueCount":   len(issues),
-		"Categories":   league.Categories(),
 	})
 }
 

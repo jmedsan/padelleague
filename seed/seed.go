@@ -94,12 +94,12 @@ type WipeOptions struct {
 func WipeSelective(app core.App, opts WipeOptions) (WipeSummary, error) {
 	var summary WipeSummary
 	err := app.RunInTransaction(func(txApp core.App) error {
-		return wipeCategories(txApp, opts, &summary)
+		return wipeAll(txApp, opts, &summary)
 	})
 	return summary, err
 }
 
-func wipeCategories(txApp core.App, opts WipeOptions, summary *WipeSummary) error {
+func wipeAll(txApp core.App, opts WipeOptions, summary *WipeSummary) error {
 	if opts.Matches {
 		if err := wipeMatches(txApp, summary); err != nil {
 			return err

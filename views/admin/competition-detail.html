@@ -19,16 +19,6 @@
                 </select>
             </div>
             <div class="form-control mb-3">
-                <label class="label"><span class="label-text">Categoría</span></label>
-                <select name="category" class="select select-bordered w-full">
-                    <option value="">Sin categoría</option>
-                    {{$current := .Competition.GetString "category"}}
-                    {{range .Categories}}
-                    <option value="{{.}}" {{if eq . $current}}selected{{end}}>{{.}}</option>
-                    {{end}}
-                </select>
-            </div>
-            <div class="form-control mb-3">
                 <label class="label"><span class="label-text">Tiempo de espera para confirmación (horas)</span></label>
                 <input type="number" name="quorum_timeout_hours" value="{{.Competition.GetFloat "quorum_timeout_hours"}}" min="0" class="input input-bordered" placeholder="0 = desactivado">
                 <label class="label"><span class="label-text-alt opacity-50">0 = desactivado</span></label>
