@@ -571,6 +571,24 @@ func (sc *sampleCtx) createTimeline(match *core.Record, f sampleFixture) error {
 		return fmt.Errorf("save scheduling response: %w", err)
 	}
 
+	// Mirror what ThreadHandler.acceptProposal does on a real accept: the
+	// match record itself carries the scheduled date/time/club, since the
+	// header card reads match.date directly rather than the thread history.
+	// match.date uses the same "2006-01-02" layout the <input type="date">
+	// form field submits. Reload from the DB first: match was created via
+	// NewRecord() and never PostScan()-ed, so its Original() snapshot is
+	// blank and the status-transition hook would reject this update.
+	stored, err := sc.app.FindRecordById(sc.matchCol, match.Id)
+	if err != nil {
+		return fmt.Errorf("reload match for schedule: %w", err)
+	}
+	stored.Set("date", playDate.Format("2006-01-02"))
+	stored.Set("time", "20:00")
+	stored.Set("club", venue)
+	if err := sc.app.Save(stored); err != nil {
+		return fmt.Errorf("save match schedule: %w", err)
+	}
+
 	return sc.createResultEntries(resultContext{match, f, proposer, responder, playDate})
 }
 
