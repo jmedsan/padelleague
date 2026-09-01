@@ -198,7 +198,6 @@ func (h *MatchHandler) submitResultProposal(e *core.RequestEvent, match *core.Re
 		return alertError(e, "Error al crear la propuesta de resultado")
 	}
 
-	h.checkResultDeadlock(match, userID)
 	h.notifyResultProposal(match, userID, scores)
 	return nil
 }
@@ -212,31 +211,6 @@ func (h *MatchHandler) supersedeMyPendingResults(matchID, userID string) {
 		p.Set("proposal_status", "superseded")
 		if err := h.app.Save(p); err != nil {
 			slog.Error("supersede result proposal", "msg", p.Id, "err", err)
-		}
-	}
-}
-
-func (h *MatchHandler) checkResultDeadlock(match *core.Record, submitterID string) {
-	myTeam, _ := league.PlayerTeam(h.app, submitterID, match)
-	rivalPairID := match.GetString("pair2")
-	if myTeam == 2 {
-		rivalPairID = match.GetString("pair1")
-	}
-	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-
-	for _, rp := range rivalPlayers {
-		opposing, _ := h.app.FindRecordsByFilter("match_messages",
-			"match = {:mid} && type = 'result_submission' && author = {:uid} && proposal_status = 'pending'",
-			"", 1, 0,
-			map[string]any{"mid": match.Id, "uid": rp})
-		if len(opposing) > 0 {
-			_ = h.notifier.NotifyAdmins(league.Notification{
-				Type:    "admin_message",
-				Title:   "Discrepancia de resultado",
-				Body:    "Ambas parejas han propuesto resultados diferentes. Se requiere intervención.",
-				MatchID: match.Id,
-			})
-			return
 		}
 	}
 }
