@@ -25,6 +25,10 @@ type TimelineEntryVM struct {
 	IsMyTeam   bool
 	Content    string
 	CreatedAt  string // render.FmtShortTime — DD/MM HH:MM
+	Score      string // result_submission only
+	Date       string // scheduling_proposal only (stored "2006-01-02")
+	Time       string // scheduling_proposal only
+	Place      string // scheduling_proposal venue name
 }
 
 // SchedProposalVM is one non-rejected scheduling proposal in the details panel.
@@ -119,13 +123,28 @@ func (bc *threadBuildCtx) processMessage(msg *core.Record, authorID, cachedName 
 		msgType == "scheduling_response" || msgType == "result_response" {
 		authorName = pairPlayerLabel(bc.app, authorID, bc.match)
 	}
-	td.Timeline = append(td.Timeline, TimelineEntryVM{
+	entry := TimelineEntryVM{
 		Kind:       timelineKind(msgType),
 		AuthorName: authorName,
 		IsMyTeam:   bc.myTeam != 0 && authorTeam == bc.myTeam,
 		Content:    timelineContent(msg, msgType),
 		CreatedAt:  created,
-	})
+	}
+	if msgType == "result_submission" {
+		pd := ParseProposalData(msg.GetString("proposal_data"))
+		if pd != nil && pd.Scores != "" {
+			entry.Score = pd.Scores
+		}
+	}
+	if msgType == "scheduling_proposal" {
+		pd := ParseProposalData(msg.GetString("proposal_data"))
+		if pd != nil {
+			entry.Date = pd.Date
+			entry.Time = pd.Time
+			entry.Place = pd.VenueName
+		}
+	}
+	td.Timeline = append(td.Timeline, entry)
 	sameTeam := authorTeam == bc.myTeam || bc.myTeam == 0
 	if msgType == "scheduling_proposal" && status != "rejected" {
 		td.SchedProposals = append(td.SchedProposals, bc.schedProposal(msg, authorName, created, sameTeam))
