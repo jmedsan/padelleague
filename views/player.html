@@ -55,28 +55,7 @@
 
 {{if .Data.CompetitionStats}}
 <h2 class="text-lg font-semibold mb-2">Por competición</h2>
-<div class="overflow-x-auto mb-6">
-    <table class="table table-sm">
-        <thead>
-            <tr>
-                <th>Competición</th>
-                <th class="text-center">PJ</th>
-                <th class="text-center">PG</th>
-                <th class="text-center">PP</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Data.CompetitionStats}}
-            <tr>
-                <td class="font-medium"><a href="{{entityURL "competition" .CompID}}" class="link link-hover">{{.Name}}</a></td>
-                <td class="text-center">{{.Played}}</td>
-                <td class="text-center text-success">{{.Wins}}</td>
-                <td class="text-center text-error">{{.Losses}}</td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-</div>
+{{template "competitionStatsTable" (dict "Stats" .Data.CompetitionStats)}}
 {{end}}
 
 {{if .Data.Recent}}

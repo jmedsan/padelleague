@@ -25,7 +25,7 @@
         <div class="mb-3">
             <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/60 mb-1 px-1">Tu próxima acción</h3>
             {{range .Obligations}}
-            <a href="{{.URL}}" class="block px-3 py-2 text-sm rounded-lg hover:bg-base-200 transition-colors">{{.Label}}</a>
+            {{template "simpleLinkRow" .}}
             {{end}}
         </div>
         {{end}}
@@ -33,7 +33,7 @@
         <div class="mb-3">
             <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/60 mb-1 px-1">Tus competiciones</h3>
             {{range .Competitions}}
-            <a href="{{.URL}}" class="block px-3 py-2 text-sm rounded-lg hover:bg-base-200 transition-colors">{{.Label}}</a>
+            {{template "simpleLinkRow" .}}
             {{end}}
         </div>
         {{end}}
@@ -49,7 +49,7 @@
         <div class="mb-3">
             <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/60 mb-1 px-1">Ir a</h3>
             {{range .QuickNav}}
-            <a href="{{.URL}}" class="block px-3 py-2 text-sm rounded-lg hover:bg-base-200 transition-colors">{{.Label}}</a>
+            {{template "simpleLinkRow" .}}
             {{end}}
         </div>
         {{end}}

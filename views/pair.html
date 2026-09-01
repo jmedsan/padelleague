@@ -11,30 +11,7 @@
 
 {{if .Data.Competitions}}
 <h2 class="text-lg font-semibold mb-2">Competiciones</h2>
-<div class="overflow-x-auto mb-6">
-    <table class="table table-sm">
-        <thead>
-            <tr>
-                <th>Competición</th>
-                <th class="text-center">Pos</th>
-                <th class="text-center">PJ</th>
-                <th class="text-center">PG</th>
-                <th class="text-center">PP</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Data.Competitions}}
-            <tr>
-                <td class="font-medium"><a href="{{entityURL "competition" .CompID}}" class="link link-hover">{{.CompName}}</a></td>
-                <td class="text-center">{{if .Position}}{{.Position}}{{else}}-{{end}}</td>
-                <td class="text-center">{{.Played}}</td>
-                <td class="text-center text-success">{{.Wins}}</td>
-                <td class="text-center text-error">{{.Losses}}</td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-</div>
+{{template "competitionStatsTable" (dict "Stats" .Data.Competitions "ShowPosition" true)}}
 {{end}}
 
 {{if .Data.Recent}}

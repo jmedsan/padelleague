@@ -27,22 +27,13 @@ type pairPlayerLink struct {
 	Name string
 }
 
-type pairCompStat struct {
-	CompID   string
-	CompName string
-	Position int
-	Wins     int
-	Losses   int
-	Played   int
-}
-
 // PairPageData bundles all data for the pair page.
 type PairPageData struct {
 	Pair         *core.Record
 	PairName     string
 	Player1      pairPlayerLink
 	Player2      pairPlayerLink
-	Competitions []pairCompStat
+	Competitions []CompetitionStat
 	Recent       []RecentMatch
 }
 
@@ -69,7 +60,7 @@ func (h *PairPageHandler) PairPage(e *core.RequestEvent) error {
 		map[string]any{"pid": id})
 
 	for _, c := range comps {
-		cs := pairCompStat{
+		cs := CompetitionStat{
 			CompID:   c.Id,
 			CompName: c.GetString("name"),
 		}
