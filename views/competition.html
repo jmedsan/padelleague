@@ -29,6 +29,7 @@
 {{if .IsPlayoff}}
 <div class="mb-6">
     <h2 class="text-lg font-bold mb-3">Cuadro</h2>
+    {{if .Bracket}}
     <div class="overflow-x-auto pb-4">
         <div class="flex gap-4 min-w-max">
             {{range .Bracket}}
@@ -45,6 +46,9 @@
             {{end}}
         </div>
     </div>
+    {{else}}
+    <p class="text-sm opacity-60">El cuadro aún no se ha generado.</p>
+    {{end}}
 </div>
 {{end}}
 

@@ -2,9 +2,12 @@
 package seed
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"math"
 	"slices"
 	"strings"
 	"time"
@@ -232,6 +235,12 @@ func populateSampleLeague(txApp core.App, comp *core.Record, pairIDs []string, o
 	if err := createSampleDocuments(txApp, comp, opts.StaticFS); err != nil {
 		return err
 	}
+	if err := createSampleVenues(txApp); err != nil {
+		return err
+	}
+	if err := createSampleInvitations(txApp, comp.Id); err != nil {
+		return err
+	}
 	if opts.Playoff {
 		if err := createSamplePlayoff(txApp, pairIDs); err != nil {
 			return err
@@ -301,8 +310,8 @@ func createSampleCompetition(txApp core.App, pairIDs []string) (*core.Record, er
 	}
 	now := time.Now().UTC()
 	payment := make(map[string]bool, len(pairIDs))
-	for _, pid := range pairIDs {
-		payment[pid] = true
+	for i, pid := range pairIDs {
+		payment[pid] = i != len(pairIDs)-1
 	}
 	comp := core.NewRecord(col)
 	comp.Set("name", "Liga de ejemplo")
@@ -386,7 +395,7 @@ func (sc *sampleCtx) createMatch(f sampleFixture) error {
 	if err := sc.app.Save(match); err != nil {
 		return fmt.Errorf("create match round %d: %w", f.round, err)
 	}
-	if f.played && f.round <= 5 {
+	if f.played && f.round <= 6 {
 		if err := sc.createTimeline(match, f); err != nil {
 			return fmt.Errorf("create timeline round %d: %w", f.round, err)
 		}
@@ -405,6 +414,11 @@ func setSampleMatchState(txApp core.App, match *core.Record, f sampleFixture) er
 		return disputeSampleMatch(txApp, match)
 	case f.played && f.round == 5 && f.idx == 1:
 		return submitSampleScore(txApp, match, league.StatusConfirmed, "6-2 6-2")
+	case f.played && f.round == 6 && f.idx == 0:
+		match.Set("status", league.StatusScheduled)
+		return nil
+	case f.played && f.round == 6 && f.idx == 1:
+		return walkoverSampleMatch(txApp, match)
 	default:
 		match.Set("status", league.StatusPending)
 		return nil
@@ -457,6 +471,33 @@ func disputeSampleMatch(txApp core.App, match *core.Record) error {
 	match.Set("disputed_by", disputer)
 	match.Set("disputed_scores", "6-4 4-6 5-7")
 	match.Set("dispute_notes", "No estoy de acuerdo: el tercer set fue 5-7, no 7-5.")
+	return nil
+}
+
+func walkoverSampleMatch(txApp core.App, match *core.Record) error {
+	winner := match.GetString("pair1")
+	loser := match.GetString("pair2")
+	requester, err := firstPlayerOfPair(txApp, loser)
+	if err != nil {
+		return err
+	}
+	match.Set("scores", "6-0 6-0")
+	match.Set("winner", winner)
+	match.Set("status", league.StatusFinal)
+	match.Set("review_type", "walkover")
+	match.Set("walkover_requested_by", requester)
+	match.Set("dispute_notes", "[No jugado] El rival no se presentó.")
+
+	compID := match.GetString("competition")
+	if err := league.ApplyPenalty(txApp, league.PenaltyInput{
+		CompetitionID: compID,
+		PairID:        loser,
+		Reason:        "Walkover aprobado",
+		AdminID:       "",
+		Amount:        3,
+	}); err != nil {
+		return fmt.Errorf("apply walkover penalty: %w", err)
+	}
 	return nil
 }
 
@@ -552,6 +593,9 @@ func (sc *sampleCtx) createResultEntries(rc resultContext) error {
 		submitTime := rc.playDate.Add(22 * time.Hour)
 		_, err := sc.saveResultProposal(resultProposalArgs{rc.match.Id, rc.submitter, scores, "pending", submitTime})
 		return err
+
+	case rc.f.round == 6:
+		return nil
 	}
 	return nil
 }
@@ -760,6 +804,144 @@ func createSamplePlayoff(txApp core.App, pairIDs []string) error {
 	}
 	if err := txApp.Save(comp); err != nil {
 		return fmt.Errorf("create sample playoff: %w", err)
+	}
+	return generateSampleBracket(txApp, comp.Id, pairIDs)
+}
+
+func generateSampleBracket(txApp core.App, compID string, pairIDs []string) error {
+	n := len(pairIDs)
+	if n < 2 {
+		return nil
+	}
+	numRounds := int(math.Ceil(math.Log2(float64(n))))
+	bracketSize := 1 << numRounds
+
+	slots := make([]string, bracketSize)
+	copy(slots, pairIDs)
+
+	matchCol, err := txApp.FindCollectionByNameOrId("matches")
+	if err != nil {
+		return err
+	}
+
+	advancers := make([]string, bracketSize/2)
+	for i := 0; i < bracketSize/2; i++ {
+		p1, p2 := slots[i], slots[bracketSize-1-i]
+		if p1 == "" && p2 == "" {
+			continue
+		}
+		if p2 == "" {
+			advancers[i] = p1
+			continue
+		}
+		if p1 == "" {
+			advancers[i] = p2
+			continue
+		}
+		match := core.NewRecord(matchCol)
+		match.Set("competition", compID)
+		match.Set("round_number", 1)
+		match.Set("matches_to_win", 1)
+		match.Set("pair1", p1)
+		match.Set("pair2", p2)
+		match.Set("status", league.StatusPending)
+		if err := txApp.Save(match); err != nil {
+			return fmt.Errorf("create playoff match r1: %w", err)
+		}
+	}
+
+	for r := 2; len(advancers) >= 2; r++ {
+		numMatches := len(advancers) / 2
+		nextAdvancers := make([]string, numMatches)
+		for i := 0; i < numMatches; i++ {
+			p1 := advancers[i*2]
+			p2 := advancers[i*2+1]
+			match := core.NewRecord(matchCol)
+			match.Set("competition", compID)
+			match.Set("round_number", r)
+			match.Set("matches_to_win", 1)
+			if p1 != "" {
+				match.Set("pair1", p1)
+			}
+			if p2 != "" {
+				match.Set("pair2", p2)
+			}
+			match.Set("status", league.StatusPending)
+			if err := txApp.Save(match); err != nil {
+				return fmt.Errorf("create playoff match r%d: %w", r, err)
+			}
+			nextAdvancers[i] = ""
+		}
+		advancers = nextAdvancers
+	}
+	return nil
+}
+
+func createSampleVenues(txApp core.App) error {
+	existing, _ := txApp.FindRecordsByFilter("venues", "id != ''", "", 1, 0)
+	if len(existing) > 0 {
+		return nil
+	}
+	col, err := txApp.FindCollectionByNameOrId("venues")
+	if err != nil {
+		return err
+	}
+	venues := []struct{ name, address string }{
+		{"Padel 360", "Calle del Deporte 12"},
+		{"Wurko", "Avda. de la Constitución 45"},
+		{"Tecnisur", "Camino Viejo de Málaga 8"},
+	}
+	for _, v := range venues {
+		rec := core.NewRecord(col)
+		rec.Set("name", v.name)
+		rec.Set("address", v.address)
+		if err := txApp.Save(rec); err != nil {
+			return fmt.Errorf("create sample venue %s: %w", v.name, err)
+		}
+	}
+	return nil
+}
+
+func createSampleInvitations(txApp core.App, compID string) error {
+	col, err := txApp.FindCollectionByNameOrId("invitations")
+	if err != nil {
+		return err
+	}
+	admins, _ := txApp.FindRecordsByFilter("users", "roles ~ 'admin'", "", 1, 0)
+	var creatorID string
+	if len(admins) > 0 {
+		creatorID = admins[0].Id
+	} else {
+		users, _ := txApp.FindRecordsByFilter("users", "id != ''", "", 1, 0)
+		if len(users) == 0 {
+			return nil
+		}
+		creatorID = users[0].Id
+	}
+
+	for _, inv := range []struct {
+		email  string
+		status string
+	}{
+		{"invitado@example.com", "pending"},
+		{"", "pending"},
+	} {
+		token := make([]byte, 16)
+		if _, err := rand.Read(token); err != nil {
+			return fmt.Errorf("generate invitation token: %w", err)
+		}
+		rec := core.NewRecord(col)
+		rec.Set("token", hex.EncodeToString(token))
+		rec.Set("email", inv.email)
+		rec.Set("competition", compID)
+		rec.Set("created_by", creatorID)
+		rec.Set("status", inv.status)
+		rec.Set("max_uses", 1)
+		rec.Set("use_count", 0)
+		rec.Set("expires_at", time.Now().UTC().Add(7*24*time.Hour))
+		if err := txApp.Save(rec); err != nil {
+			return fmt.Errorf("create sample invitation: %w", err)
+		}
 	}
 	return nil
 }

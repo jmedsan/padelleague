@@ -250,17 +250,84 @@ func TestSampleLeague(t *testing.T) {
 			finalCount++
 		}
 	}
-	assert.Equal(t, 8, finalCount, "rounds 1-4 should have 2 matches each = 8 final")
+	assert.Equal(t, 9, finalCount, "rounds 1-4 (8 matches) + round 6 walkover (1) = 9 final")
+
+	scheduledCount := 0
+	walkoverCount := 0
+	for _, m := range matches {
+		if m.GetString("status") == league.StatusScheduled {
+			scheduledCount++
+		}
+		if m.GetString("review_type") == "walkover" {
+			walkoverCount++
+		}
+	}
+	assert.Equal(t, 1, scheduledCount, "one arranged-but-unplayed match")
+	assert.Equal(t, 1, walkoverCount, "one walkover match")
+
+	// One pair should be unpaid
+	comp := comps[0]
+	ps := comp.Get("payment_status")
+	if pm, ok := ps.(map[string]any); ok {
+		unpaidCount := 0
+		for _, paid := range pm {
+			if p, ok := paid.(bool); ok && !p {
+				unpaidCount++
+			}
+		}
+		assert.Equal(t, 1, unpaidCount, "one pair should be unpaid")
+	}
+
+	// Invitations should exist
+	invites, err := app.FindRecordsByFilter("invitations", "id != ''", "", 0, 0)
+	require.NoError(t, err)
+	assert.Equal(t, 2, len(invites), "two sample invitations")
+
+	// Venues should exist
+	venues, err := app.FindRecordsByFilter("venues", "id != ''", "", 0, 0)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(venues), 3, "at least 3 venue records")
 
 	// Standings should compute without error
 	svc = league.New(app, nil)
-	standings, err := svc.ComputeStandings(comps[0].Id)
+	standings, err := svc.ComputeStandings(comp.Id)
 	require.NoError(t, err)
 	assert.Equal(t, 4, len(standings))
 
 	for i, s := range standings {
 		t.Logf("standing %d: pair=%s pts=%d", i, s.PairName, s.Points)
 	}
+}
+
+func TestSampleLeagueWithPlayoff(t *testing.T) {
+	app := newTestApp(t)
+
+	notifier := notify.NewNotifier(app, "", "")
+	svc := league.New(app, notifier)
+	hooks.Register(app, svc, notifier, nil)
+
+	require.NoError(t, SampleLeaguePartial(app, SampleOptions{
+		Players: true, Pairs: true, Competitions: true, Matches: true, Playoff: true,
+	}))
+
+	comps, err := app.FindRecordsByFilter("competitions", "id != ''", "name", 0, 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(comps), "league + playoff")
+
+	var playoff *core.Record
+	for _, c := range comps {
+		if c.GetString("type") == "playoff" {
+			playoff = c
+		}
+	}
+	require.NotNil(t, playoff, "playoff competition must exist")
+	assert.Equal(t, "Playoff de ejemplo", playoff.GetString("name"))
+
+	playoffMatches, err := app.FindRecordsByFilter("matches",
+		"competition = {:cid}", "", 0, 0,
+		map[string]any{"cid": playoff.Id})
+	require.NoError(t, err)
+	assert.Greater(t, len(playoffMatches), 0, "playoff bracket must have matches")
 }
 
 func TestWipeSelective_PlayersOnly(t *testing.T) {
