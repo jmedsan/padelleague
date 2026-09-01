@@ -1270,3 +1270,87 @@ func TestHome_OnboardChecklist_HiddenForAdminView(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestBuildHomeActions_AllKindsMap(t *testing.T) {
+	tasks := []league.PlayerTask{
+		{Kind: league.TaskDispute, MatchID: "m1", Opponent: "Rival", CompetitionName: "Liga", RoundNumber: 1},
+		{Kind: league.TaskOrganize, MatchID: "m2", Opponent: "Rival2", CompetitionName: "Liga", RoundNumber: 2, Warning: league.WarnUrgent, Description: "Organiza antes del 15/03"},
+		{Kind: league.TaskPlay, MatchID: "m3", Opponent: "Rival3", CompetitionName: "Liga", RoundNumber: 3},
+	}
+	pending := []PendingAction{
+		{MatchID: "m4", Opponent: "Rival4", ActionType: "confirm_score", Description: "6-4 6-3"},
+		{MatchID: "m5", Opponent: "Rival5", ActionType: "respond_result", Description: "pendiente"},
+		{MatchID: "m6", Opponent: "Rival6", ActionType: "respond_proposal", Description: "Propuesta de horario pendiente"},
+	}
+	actions := buildHomeActions(tasks, pending, nil)
+	require.Len(t, actions, 6)
+
+	kinds := map[string]bool{}
+	for _, a := range actions {
+		kinds[a.Kind] = true
+		assert.NotEmpty(t, a.URL, "URL must be set for %s", a.MatchID)
+		assert.NotEmpty(t, a.Accent, "Accent must be set for %s", a.MatchID)
+	}
+	assert.True(t, kinds["dispute"], "dispute kind must be present")
+	assert.True(t, kinds["confirm"], "confirm kind must be present")
+	assert.True(t, kinds["respond"], "respond kind must be present")
+	assert.True(t, kinds["organize"], "organize kind must be present")
+	assert.True(t, kinds["play"], "play kind must be present")
+}
+
+func TestBuildHomeActions_DedupByMatchID(t *testing.T) {
+	tasks := []league.PlayerTask{
+		{Kind: league.TaskOrganize, MatchID: "m1", Opponent: "Rival", CompetitionName: "Liga", Warning: league.WarnHeadsUp, Description: "Organiza"},
+	}
+	pending := []PendingAction{
+		{MatchID: "m1", Opponent: "Rival", ActionType: "confirm_score", Description: "6-4 6-3"},
+	}
+	actions := buildHomeActions(tasks, pending, nil)
+	require.Len(t, actions, 1, "same MatchID should dedup to one action")
+	assert.Equal(t, "confirm", actions[0].Kind, "confirm beats organize in priority")
+}
+
+func TestBuildHomeActions_OrderingPriority(t *testing.T) {
+	tasks := []league.PlayerTask{
+		{Kind: league.TaskPlay, MatchID: "m3", Opponent: "R3", CompetitionName: "L", RoundNumber: 1},
+		{Kind: league.TaskDispute, MatchID: "m1", Opponent: "R1", CompetitionName: "L", RoundNumber: 1},
+		{Kind: league.TaskOrganize, MatchID: "m4", Opponent: "R4", CompetitionName: "L", Warning: league.WarnUrgent, Description: "Organiza"},
+	}
+	pending := []PendingAction{
+		{MatchID: "m2", Opponent: "R2", ActionType: "confirm_score", Description: "6-4 6-3"},
+	}
+	actions := buildHomeActions(tasks, pending, nil)
+	require.Len(t, actions, 4)
+	assert.Equal(t, "dispute", actions[0].Kind)
+	assert.Equal(t, "confirm", actions[1].Kind)
+	assert.Equal(t, "organize", actions[2].Kind)
+	assert.Equal(t, "play", actions[3].Kind)
+}
+
+func TestBuildHomeActions_NextMatchSynthesized(t *testing.T) {
+	next := &NextMatch{
+		MatchID: "m1", Opponent: "Rival", CompetitionName: "Liga",
+		RoundNumber: 2, ScheduleStatus: "unscheduled",
+	}
+	actions := buildHomeActions(nil, nil, next)
+	require.Len(t, actions, 1)
+	assert.Equal(t, "organize", actions[0].Kind, "unscheduled NextMatch synthesizes organize")
+	assert.Contains(t, actions[0].Title, "Propón")
+
+	next.ScheduleStatus = "confirmed"
+	next.ProposedDate = "15/03 18:00"
+	actions = buildHomeActions(nil, nil, next)
+	require.Len(t, actions, 1)
+	assert.Equal(t, "play", actions[0].Kind, "scheduled NextMatch becomes play")
+	assert.Contains(t, actions[0].Detail, "15/03 18:00")
+}
+
+func TestBuildHomeActions_NextMatchDedupWithTask(t *testing.T) {
+	tasks := []league.PlayerTask{
+		{Kind: league.TaskDispute, MatchID: "m1", Opponent: "R", CompetitionName: "L", RoundNumber: 1},
+	}
+	next := &NextMatch{MatchID: "m1", Opponent: "R", CompetitionName: "L", ScheduleStatus: "confirmed"}
+	actions := buildHomeActions(tasks, nil, next)
+	require.Len(t, actions, 1, "NextMatch deduped with existing task")
+	assert.Equal(t, "dispute", actions[0].Kind, "dispute wins over play from NextMatch")
+}

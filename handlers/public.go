@@ -13,6 +13,22 @@ import (
 	"padelleague/render"
 )
 
+// HomeAction is a unified to-do entry on the player dashboard.
+type HomeAction struct {
+	Kind    string // "dispute" | "confirm" | "respond" | "organize" | "play"
+	MatchID string
+	Title   string
+	Detail  string
+	URL     string
+	SortKey string
+	Accent  string
+}
+
+var actionKindPriority = map[string]int{
+	"dispute": 0, "confirm": 1, "respond": 1,
+	"organize": 2, "play": 3,
+}
+
 // PublicHandler serves player-facing pages like the dashboard and competition views.
 type PublicHandler struct {
 	app             core.App
@@ -97,12 +113,11 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	}
 
 	urgentTasks, _ := league.PlayerTasks(h.app, userID, time.Now())
+	actions := buildHomeActions(urgentTasks, pendingActions, nextMatch)
 
 	data["Competitions"] = comps
-	data["NextMatch"] = nextMatch
-	data["PendingActions"] = pendingActions
+	data["Actions"] = actions
 	data["RecentResults"] = recentResults
-	data["UrgentTasks"] = urgentTasks
 
 	if slices.Contains(e.Auth.GetStringSlice("roles"), "player") {
 		if steps := h.onboardingSteps(e.Auth, activeComps); len(steps) > 0 {
@@ -375,6 +390,124 @@ func (h *PublicHandler) findRecentResults(c *core.Record) []MatchCard {
 		results = append(results, mc)
 	}
 	return results
+}
+
+func buildHomeActions(tasks []league.PlayerTask, pending []PendingAction, next *NextMatch) []HomeAction {
+	seen := map[string]HomeAction{}
+	for _, t := range tasks {
+		mergeAction(seen, taskToAction(t))
+	}
+	for _, p := range pending {
+		mergeAction(seen, pendingToAction(p))
+	}
+	if next != nil {
+		if _, exists := seen[next.MatchID]; !exists {
+			mergeAction(seen, nextMatchAction(next))
+		}
+	}
+	actions := make([]HomeAction, 0, len(seen))
+	for _, a := range seen {
+		actions = append(actions, a)
+	}
+	sort.Slice(actions, func(i, j int) bool {
+		return actions[i].SortKey < actions[j].SortKey
+	})
+	return actions
+}
+
+func taskToAction(t league.PlayerTask) HomeAction {
+	a := HomeAction{MatchID: t.MatchID, URL: "/match/" + t.MatchID}
+	switch t.Kind {
+	case league.TaskDispute:
+		a.Kind = "dispute"
+		a.Title = "Disputa abierta"
+		a.Detail = fmt.Sprintf("vs %s · %s", t.Opponent, t.CompetitionName)
+		a.Accent = "error"
+		a.SortKey = fmt.Sprintf("0-%d", t.RoundNumber)
+	case league.TaskOrganize:
+		a.Kind = "organize"
+		a.Title = t.Description
+		a.Detail = fmt.Sprintf("vs %s · %s", t.Opponent, t.CompetitionName)
+		a.Accent = warningAccent(t.Warning)
+		a.SortKey = fmt.Sprintf("2-%d", t.Warning)
+	case league.TaskPlay:
+		a.Kind = "play"
+		a.Title = "Próximo partido"
+		a.Detail = fmt.Sprintf("vs %s · %s J%d", t.Opponent, t.CompetitionName, t.RoundNumber)
+		a.Accent = "info"
+		a.SortKey = fmt.Sprintf("3-%05d", t.RoundNumber)
+	}
+	return a
+}
+
+func pendingToAction(p PendingAction) HomeAction {
+	a := HomeAction{MatchID: p.MatchID, URL: "/match/" + p.MatchID, Accent: "warning"}
+	switch p.ActionType {
+	case "confirm_score":
+		a.Kind = "confirm"
+		a.Title = "Confirmar resultado"
+		a.Detail = fmt.Sprintf("vs %s · %s", p.Opponent, p.Description)
+		a.SortKey = "1-confirm"
+	case "respond_result":
+		a.Kind = "confirm"
+		a.Title = "Responder resultado"
+		a.Detail = fmt.Sprintf("vs %s · %s", p.Opponent, p.Description)
+		a.SortKey = "1-respond-result"
+	case "respond_proposal":
+		a.Kind = "respond"
+		a.Title = "Responder propuesta"
+		a.Detail = fmt.Sprintf("vs %s · %s", p.Opponent, p.Description)
+		a.SortKey = "1-respond-proposal"
+	}
+	return a
+}
+
+func nextMatchAction(next *NextMatch) HomeAction {
+	a := HomeAction{
+		MatchID: next.MatchID,
+		URL:     "/match/" + next.MatchID,
+		Accent:  "info",
+	}
+	if next.ScheduleStatus == "unscheduled" {
+		a.Kind = "organize"
+		a.Title = "Propón una fecha"
+		a.Detail = fmt.Sprintf("vs %s · %s", next.Opponent, next.CompetitionName)
+		a.SortKey = "2-0"
+		return a
+	}
+	a.Kind = "play"
+	a.Title = "Próximo partido"
+	detail := fmt.Sprintf("vs %s · %s", next.Opponent, next.CompetitionName)
+	if next.ProposedDate != "" {
+		detail += " · " + next.ProposedDate
+	}
+	if next.ProposedVenue != "" {
+		detail += " · " + next.ProposedVenue
+	}
+	a.Detail = detail
+	a.SortKey = fmt.Sprintf("3-%05d", next.RoundNumber)
+	return a
+}
+
+func mergeAction(seen map[string]HomeAction, a HomeAction) {
+	if a.MatchID == "" || a.Kind == "" {
+		return
+	}
+	existing, exists := seen[a.MatchID]
+	if !exists || actionKindPriority[a.Kind] < actionKindPriority[existing.Kind] {
+		seen[a.MatchID] = a
+	}
+}
+
+func warningAccent(w league.Warning) string {
+	switch {
+	case w >= league.WarnOverdue:
+		return "error"
+	case w >= league.WarnUrgent:
+		return "warning"
+	default:
+		return "info"
+	}
 }
 
 // RoundView groups matches by round number for the competition page.
