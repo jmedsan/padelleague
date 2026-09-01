@@ -61,41 +61,6 @@ func statusClass(status string) string {
 	return "badge-ghost"
 }
 
-// isFullReadOnly reports whether mode is the dedicated match-page header
-// surface (full detail, no action controls) as opposed to a summary card.
-func isFullReadOnly(mode Mode) bool {
-	return mode.Full && !mode.Editable
-}
-
-// headerStatusLabel returns the match's status label, except on the full
-// read-only match-page header: there, a disputed-but-scheduled match shows
-// its scheduling status instead — the dispute is about the result, which
-// the resultPanel's own "Resultado en disputa" heading already conveys.
-// Summary surfaces (disputes list, home alerts) keep "En disputa" since
-// that's the action-relevant status there.
-func headerStatusLabel(mode Mode, match *core.Record) string {
-	status := match.GetString("status")
-	if isFullReadOnly(mode) && status == league.StatusDisputed {
-		if match.GetString("date") != "" {
-			return statusLabel(league.StatusScheduled)
-		}
-		return statusLabel(league.StatusPending)
-	}
-	return statusLabel(status)
-}
-
-// headerStatusClass mirrors headerStatusLabel's status substitution.
-func headerStatusClass(mode Mode, match *core.Record) string {
-	status := match.GetString("status")
-	if isFullReadOnly(mode) && status == league.StatusDisputed {
-		if match.GetString("date") != "" {
-			return statusClass(league.StatusScheduled)
-		}
-		return statusClass(league.StatusPending)
-	}
-	return statusClass(status)
-}
-
 // canReportUnplayed mirrors the status precondition ReportUnplayed enforces.
 func canReportUnplayed(status string, team int) bool {
 	return team > 0 && (league.IsPreScore(status) || status == league.StatusConfirmed)
