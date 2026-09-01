@@ -10,32 +10,15 @@
 
     {{template "matchCard" .Card}}
 
-    {{if eq (.Card.Match.GetString "status") "final"}}
+    {{if and (eq (.Card.Match.GetString "status") "final") .ShareText}}
     <div class="flex flex-wrap gap-2 mt-4">
-        {{if .ShareText}}
         <button onclick="shareOrCopy('{{.ShareText}}', '{{.ShareURL}}')" class="btn btn-primary btn-sm gap-2 flex-1">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0-12.814a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186-9.566 5.314M16.783 17.093a2.25 2.25 0 1 0 0 2.186" />
             </svg>
             Compartir
         </button>
-        {{end}}
-        {{if .Card.Match.GetString "date"}}
-        <a href="/ical/match/{{.Card.Match.Id}}" class="btn btn-ghost btn-sm gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
-            Añadir al calendario
-        </a>
-        {{end}}
     </div>
-    {{else}}
-    {{if .Card.Match.GetString "date"}}
-    <div class="mt-4">
-        <a href="/ical/match/{{.Card.Match.Id}}" class="btn btn-ghost btn-sm gap-2 opacity-60">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
-            Añadir al calendario
-        </a>
-    </div>
-    {{end}}
     {{end}}
 
     <div class="mt-6" id="match-thread"
