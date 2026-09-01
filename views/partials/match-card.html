@@ -17,7 +17,7 @@
 
         {{if eq (.Match.GetString "status") "final"}}
         {{if .Score}}
-        {{template "resultBox" (dict "Score" .Score)}}
+        {{template "resultBox" (dict "Score" .Score "Pair1Name" .Pair1Name "Pair2Name" .Pair2Name)}}
         {{end}}
 
         {{if .Match.GetString "winner"}}
@@ -34,8 +34,8 @@
         </div>
         {{else if not (and .Mode.Admin .Mode.Editable)}}
         <div class="space-y-2">
-            {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "Score" .SubmittedScore)}}
-            {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore "Note" .DisputeNotes)}}{{end}}
+            {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "Score" .SubmittedScore "Pair1Name" .Pair1Name "Pair2Name" .Pair2Name)}}
+            {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore "Note" .DisputeNotes "Pair1Name" .Pair1Name "Pair2Name" .Pair2Name)}}{{end}}
         </div>
         {{end}}
         {{end}}
@@ -59,8 +59,8 @@
     {{else}}
     <div class="dispute-resolve">
         <div class="space-y-2 mb-3">
-            {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "Score" .SubmittedScore "FillScore" .SubmittedScore)}}
-            {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore "Note" .DisputeNotes "FillScore" .DisputedScore)}}{{end}}
+            {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "Score" .SubmittedScore "FillScore" .SubmittedScore "Pair1Name" .Pair1Name "Pair2Name" .Pair2Name)}}
+            {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore "Note" .DisputeNotes "FillScore" .DisputedScore "Pair1Name" .Pair1Name "Pair2Name" .Pair2Name)}}{{end}}
         </div>
         <form hx-post="/admin/disputes/{{.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
             {{template "scoreInput" .ScoreResolve}}
@@ -268,8 +268,8 @@
     {{$canResolve := and $c.Mode.Admin $c.Mode.Editable}}
     <h4 class="font-bold text-xs uppercase tracking-wider opacity-50 mb-2">Propuestas</h4>
     <div class="dispute-resolve space-y-2">
-        {{template "resultBox" (dict "PairLabel" (or $c.SubmitterPairName "Propuesta") "Score" $c.SubmittedScore "FillScore" (ternary $canResolve $c.SubmittedScore ""))}}
-        {{if $c.DisputedScore}}{{template "resultBox" (dict "PairLabel" (or $c.DisputerPairName "Contrapropuesta") "Score" $c.DisputedScore "Note" $c.DisputeNotes "FillScore" (ternary $canResolve $c.DisputedScore ""))}}{{end}}
+        {{template "resultBox" (dict "PairLabel" (or $c.SubmitterPairName "Propuesta") "Score" $c.SubmittedScore "FillScore" (ternary $canResolve $c.SubmittedScore "") "Pair1Name" $c.Pair1Name "Pair2Name" $c.Pair2Name)}}
+        {{if $c.DisputedScore}}{{template "resultBox" (dict "PairLabel" (or $c.DisputerPairName "Contrapropuesta") "Score" $c.DisputedScore "Note" $c.DisputeNotes "FillScore" (ternary $canResolve $c.DisputedScore "") "Pair1Name" $c.Pair1Name "Pair2Name" $c.Pair2Name)}}{{end}}
         {{if $canResolve}}
         <form hx-post="/admin/disputes/{{$c.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML" class="mt-2">
             {{template "scoreInput" $c.ScoreResolve}}
@@ -283,7 +283,7 @@
     {{/* State: PENDING — rival proposal to confirm/counter */}}
     <div class="space-y-3">
         {{range .ResultPanel.Live}}
-        {{template "resultBox" (dict "PairLabel" .PairLabel "Score" .Score)}}
+        {{template "resultBox" (dict "PairLabel" .PairLabel "Score" .Score "Pair1Name" $c.Pair1Name "Pair2Name" $c.Pair2Name)}}
         {{if .CanRespond}}
         <div class="flex gap-2 mt-2">
             <form hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/respond" hx-target="body" class="flex-1">
@@ -364,6 +364,10 @@
 {{define "resultBoxBody"}}
 {{if .PairLabel}}<div class="flex items-center gap-2"><span class="text-sm font-bold">{{.PairLabel}}</span></div>{{end}}
 <p class="{{if .Mode.Row}}text-base{{else}}text-xl{{end}} font-black tracking-wide my-1">{{.Score}}</p>
+{{if and .Pair1Name .Pair2Name (not .Mode.Row)}}
+{{$winner := scoreWinner .Score .Pair1Name .Pair2Name}}
+{{if $winner}}<p class="text-sm font-medium text-success">{{$winner}} gana</p>{{end}}
+{{end}}
 {{if .Note}}<p class="text-xs opacity-60">{{.Note}}</p>{{end}}
 {{end}}
 

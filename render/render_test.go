@@ -276,3 +276,22 @@ func TestFmtShortTime_MadridTimezone(t *testing.T) {
 	got := FmtShortTime(utc)
 	assert.Equal(t, "16/12 00:30", got, "23:30 UTC = 00:30+1d CET")
 }
+
+func TestScoreWinner(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name, score, want string
+	}{
+		{"pair1 wins in two sets", "6-3 6-4", "Pareja A"},
+		{"pair2 wins in two sets", "3-6 4-6", "Pareja B"},
+		{"pair2 wins in three sets", "6-4 4-6 5-7", "Pareja B"},
+		{"empty score", "", ""},
+		{"incomplete: only one set", "6-3", ""},
+		{"invalid: tied set", "6-6 6-4", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, scoreWinner(tt.score, "Pareja A", "Pareja B"))
+		})
+	}
+}

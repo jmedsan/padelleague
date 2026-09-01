@@ -53,6 +53,7 @@ func New(viewsFS fs.FS, vapidPublicKey string) *Renderer {
 			}
 			return ifFalse
 		},
+		"scoreWinner": scoreWinner,
 	})
 	return &Renderer{
 		registry:       reg,
@@ -189,6 +190,19 @@ func hasExplicitUTC(raw string) bool {
 	return strings.HasSuffix(raw, "Z") ||
 		strings.Contains(raw, "+00:00") ||
 		strings.Contains(raw, "+0000")
+}
+
+// scoreWinner returns the winning pair's name for a complete, valid padel
+// score, or "" when the score is empty, incomplete, or invalid.
+func scoreWinner(score, pair1Name, pair2Name string) string {
+	s, err := league.ParseScore(score)
+	if err != nil {
+		return ""
+	}
+	if s.Sets1 > s.Sets2 {
+		return pair1Name
+	}
+	return pair2Name
 }
 
 // FmtTime formats a time.Time in Europe/Madrid as DD/MM/YYYY, appending
