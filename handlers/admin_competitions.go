@@ -511,8 +511,6 @@ func setSchedulingFields(record *core.Record, e *core.RequestEvent) error {
 	}
 	record.Set("arrange_grace_days", grace)
 
-	record.Set("auto_flag", e.Request.FormValue("auto_flag") == "on")
-
 	ws := e.Request.FormValue("walkover_score")
 	if ws == "" {
 		ws = "6-0 6-0"
