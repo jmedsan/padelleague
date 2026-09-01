@@ -4,7 +4,15 @@
 {{define "timelineEntry"}}
 <div class="flex items-start gap-2 text-sm py-2 border-b border-base-200 last:border-0">
     <span class="font-bold whitespace-nowrap">{{.AuthorName}}</span>
-    <span class="flex-1 {{if eq .Kind "chat"}}opacity-80{{end}}">{{.Content}}</span>
+    <span class="flex-1 flex flex-wrap items-center gap-x-2 gap-y-1 {{if eq .Kind "chat"}}opacity-80{{end}}">
+        {{if .Date}}
+        {{/* scheduling proposal — reuse the shared dateBox (inline badges, no card) */}}
+        <span>propuso fecha y lugar:</span>
+        {{template "dateBox" (dict "Date" .Date "Time" .Time "Place" .Place)}}
+        {{else}}
+        <span>{{.Content}}</span>
+        {{end}}
+    </span>
     <span class="text-xs opacity-50 whitespace-nowrap">{{.CreatedAt}}</span>
 </div>
 {{end}}
