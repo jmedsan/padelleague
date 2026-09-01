@@ -339,6 +339,29 @@ func makePairTB(t testing.TB, app core.App, name string) *core.Record {
 	return record
 }
 
+func makePairWithGendersTB(t testing.TB, app core.App, name, g1, g2 string) *core.Record {
+	t.Helper()
+	n := pairSeq.Add(1)
+	u1 := makeUserTB(t, app, name+" P1", fmt.Sprintf("pair%dp1@test.local", n))
+	if g1 != "" {
+		u1.Set("gender", g1)
+		require.NoError(t, app.Save(u1))
+	}
+	u2 := makeUserTB(t, app, name+" P2", fmt.Sprintf("pair%dp2@test.local", n))
+	if g2 != "" {
+		u2.Set("gender", g2)
+		require.NoError(t, app.Save(u2))
+	}
+	col, err := app.FindCollectionByNameOrId("pairs")
+	require.NoError(t, err)
+	record := core.NewRecord(col)
+	record.Set("name", name)
+	record.Set("player1", u1.Id)
+	record.Set("player2", u2.Id)
+	require.NoError(t, app.Save(record))
+	return record
+}
+
 func makeCompetitionTB(t testing.TB, app core.App, compType string, pairs []*core.Record) *core.Record {
 	t.Helper()
 	col, err := app.FindCollectionByNameOrId("competitions")

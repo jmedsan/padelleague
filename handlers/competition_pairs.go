@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/pocketbase/pocketbase/core"
+	"padelleague/league"
 )
 
 // CompetitionPairsHandler handles pair enrollment for competitions.
@@ -45,6 +46,10 @@ func (h *CompetitionPairsHandler) AddPair(e *core.RequestEvent) error {
 	if err := validatePlayerUniqueness(h.app, existingPairIDs, pair, ""); err != nil {
 		slog.Error("player uniqueness validation failed", "pair", pairID, "err", err)
 		return alertError(e, "Esta pareja tiene jugadores duplicados en la competición")
+	}
+
+	if err := validatePairGender(h.app, comp, pairID); err != nil {
+		return alertError(e, err.Error())
 	}
 
 	for _, pid := range existingPairIDs {
@@ -140,7 +145,7 @@ func (h *CompetitionPairsHandler) CopyPairs(e *core.RequestEvent) error {
 	skipped := 0
 	isPlayoff := target.GetString("type") == "playoff"
 	for _, pairID := range sourcePairIDs {
-		if !h.canCopyPair(pairID, existingSet, existingPairIDs) {
+		if !h.canCopyPair(pairID, existingSet, existingPairIDs, target) {
 			skipped++
 			continue
 		}
@@ -165,7 +170,7 @@ func (h *CompetitionPairsHandler) CopyPairs(e *core.RequestEvent) error {
 	return alertSuccess(e, fmt.Sprintf("%d parejas copiadas, %d omitidas", copied, skipped))
 }
 
-func (h *CompetitionPairsHandler) canCopyPair(pairID string, existingSet map[string]struct{}, existingPairIDs []string) bool {
+func (h *CompetitionPairsHandler) canCopyPair(pairID string, existingSet map[string]struct{}, existingPairIDs []string, comp *core.Record) bool {
 	if _, ok := existingSet[pairID]; ok {
 		return false
 	}
@@ -173,7 +178,10 @@ func (h *CompetitionPairsHandler) canCopyPair(pairID string, existingSet map[str
 	if err != nil {
 		return false
 	}
-	return validatePlayerUniqueness(h.app, existingPairIDs, pair, "") == nil
+	if validatePlayerUniqueness(h.app, existingPairIDs, pair, "") != nil {
+		return false
+	}
+	return validatePairGender(h.app, comp, pairID) == nil
 }
 
 func buildPairEntries(app core.App, pairIDs []string, seeding map[string]int, paymentStatus map[string]bool) []pairEntry {
@@ -227,4 +235,24 @@ func validatePlayerUniqueness(app core.App, existingPairIDs []string, pair *core
 		}
 	}
 	return nil
+}
+
+func validatePairGender(app core.App, comp *core.Record, pairID string) error {
+	genderType := comp.GetString("gender_type")
+	if genderType == "" || genderType == "free" {
+		return nil
+	}
+	playerIDs := league.PlayersForPair(app, pairID)
+	var g1, g2 string
+	if len(playerIDs) > 0 {
+		if u, err := app.FindRecordById("users", playerIDs[0]); err == nil {
+			g1 = u.GetString("gender")
+		}
+	}
+	if len(playerIDs) > 1 {
+		if u, err := app.FindRecordById("users", playerIDs[1]); err == nil {
+			g2 = u.GetString("gender")
+		}
+	}
+	return league.ValidatePairComposition(genderType, g1, g2)
 }
