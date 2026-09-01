@@ -87,12 +87,11 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		return err
 	}
 
-	mode := PlayerFull
+	mode := PlayerReadOnly
 	if render.AdminView(e) {
-		mode = AdminFull
+		mode = AdminReadOnly
 	}
 	mc := NewMatchCard(h.app, match, mode, userID)
-	mc.FactsOnly = true // the thread fragment's resultPanel is the sole result surface here
 
 	compName := ""
 	compID := match.GetString("competition")
