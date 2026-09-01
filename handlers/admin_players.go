@@ -123,7 +123,11 @@ func (h *AdminPlayerHandler) PlayerPreCreate(e *core.RequestEvent) error {
 	notify.SendEmail(h.app, email, "Bienvenido a PadelLeague",
 		buildOnboardingEmail(email, resetURL))
 
-	return renderResetLinkPanel(e, email, displayName, resetURL, true)
+	name := displayName
+	if name == "" {
+		name = email
+	}
+	return renderResetLinkPanel(e, name, resetURL, true)
 }
 
 // RegenerateLink reissues a password-reset token for an existing player.
@@ -141,17 +145,17 @@ func (h *AdminPlayerHandler) RegenerateLink(e *core.RequestEvent) error {
 	}
 
 	resetURL := buildResetURL(e, resetToken)
-	return renderResetLinkPanel(e, user.GetString("email"), user.GetString("display_name"), resetURL, false)
+	name := user.GetString("display_name")
+	if name == "" {
+		name = user.GetString("email")
+	}
+	return renderResetLinkPanel(e, name, resetURL, false)
 }
 
-func renderResetLinkPanel(e *core.RequestEvent, email, displayName, resetURL string, isNew bool) error {
+func renderResetLinkPanel(e *core.RequestEvent, name, resetURL string, isNew bool) error {
 	title := "Enlace regenerado"
 	if isNew {
 		title = "Usuario creado"
-	}
-	name := displayName
-	if name == "" {
-		name = email
 	}
 	uid := fmt.Sprintf("pwd-link-%s", security.RandomString(6))
 	return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="card bg-base-100 shadow-sm border border-base-300 p-4">
