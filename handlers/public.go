@@ -582,7 +582,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 			}
 			docViews := make([]DocumentView, len(allDocs))
 			for i, d := range allDocs {
-				docViews[i] = NewDocumentView(d, PlayerRow)
+				docViews[i] = NewDocumentView(d, PlayerSummary)
 			}
 			return h.renderPage(e, "competition-docs-gate.html", map[string]any{
 				"Competition":   comp,
@@ -614,7 +614,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	if len(docs) > 0 {
 		docViews := make([]DocumentView, len(docs))
 		for i, d := range docs {
-			docViews[i] = NewDocumentView(d, PlayerRow)
+			docViews[i] = NewDocumentView(d, PlayerSummary)
 		}
 		data["DocumentViews"] = docViews
 	}
