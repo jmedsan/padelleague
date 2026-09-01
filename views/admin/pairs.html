@@ -107,13 +107,40 @@
 </dialog>
 
 <script>
+function syncSelects(a, b) {
+    var val = a.value;
+    for (var i = 0; i < b.options.length; i++) {
+        b.options[i].disabled = b.options[i].value !== '' && b.options[i].value === val;
+    }
+}
+
+function wireSelectPair(s1, s2) {
+    s1.addEventListener('change', function() { syncSelects(s1, s2); });
+    s2.addEventListener('change', function() { syncSelects(s2, s1); });
+}
+
+(function() {
+    var ep1 = document.getElementById('edit-player1');
+    var ep2 = document.getElementById('edit-player2');
+    wireSelectPair(ep1, ep2);
+
+    var createForm = document.querySelector('#modal-create form[hx-post]');
+    var cp1 = createForm.querySelector('select[name="player1"]');
+    var cp2 = createForm.querySelector('select[name="player2"]');
+    wireSelectPair(cp1, cp2);
+})();
+
 function openEditPair(id, name, p1, p2) {
     var form = document.getElementById('edit-form');
     form.setAttribute('hx-post', '/admin/pairs/' + id);
     htmx.process(form);
     document.getElementById('edit-name').value = name;
-    document.getElementById('edit-player1').value = p1;
-    document.getElementById('edit-player2').value = p2;
+    var ep1 = document.getElementById('edit-player1');
+    var ep2 = document.getElementById('edit-player2');
+    ep1.value = p1;
+    ep2.value = p2;
+    syncSelects(ep1, ep2);
+    syncSelects(ep2, ep1);
     document.getElementById('edit-error').innerHTML = '';
     document.getElementById('modal-edit').showModal();
 }
