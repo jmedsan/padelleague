@@ -48,8 +48,8 @@ func (h *CompetitionPairsHandler) AddPair(e *core.RequestEvent) error {
 		return alertError(e, "Esta pareja tiene jugadores duplicados en la competición")
 	}
 
-	if err := validatePairGender(h.app, comp, pairID); err != nil {
-		return alertError(e, err.Error())
+	if msg := validatePairGender(h.app, comp, pairID); msg != "" {
+		return alertError(e, msg)
 	}
 
 	for _, pid := range existingPairIDs {
@@ -181,7 +181,7 @@ func (h *CompetitionPairsHandler) canCopyPair(pairID string, existingSet map[str
 	if validatePlayerUniqueness(h.app, existingPairIDs, pair, "") != nil {
 		return false
 	}
-	return validatePairGender(h.app, comp, pairID) == nil
+	return validatePairGender(h.app, comp, pairID) == ""
 }
 
 func buildPairEntries(app core.App, pairIDs []string, seeding map[string]int, paymentStatus map[string]bool) []pairEntry {
@@ -237,10 +237,10 @@ func validatePlayerUniqueness(app core.App, existingPairIDs []string, pair *core
 	return nil
 }
 
-func validatePairGender(app core.App, comp *core.Record, pairID string) error {
+func validatePairGender(app core.App, comp *core.Record, pairID string) string {
 	genderType := comp.GetString("gender_type")
 	if genderType == "" || genderType == "free" {
-		return nil
+		return ""
 	}
 	playerIDs := league.PlayersForPair(app, pairID)
 	var g1, g2 string
@@ -254,5 +254,8 @@ func validatePairGender(app core.App, comp *core.Record, pairID string) error {
 			g2 = u.GetString("gender")
 		}
 	}
-	return league.ValidatePairComposition(genderType, g1, g2)
+	if err := league.ValidatePairComposition(genderType, g1, g2); err != nil {
+		return fmt.Sprint(err)
+	}
+	return ""
 }
