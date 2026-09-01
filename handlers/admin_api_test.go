@@ -214,12 +214,13 @@ func TestAdminCreateInvitation(t *testing.T) {
 		Name:           "POST /admin/invitations creates invite",
 		Method:         http.MethodPost,
 		URL:            "/admin/invitations",
-		Body:           strings.NewReader("email=invite@test.com"),
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		s.Body = strings.NewReader("email=invite@test.com&competition=" + comp.Id)
 		s.Headers = authHeaders(tb, admin)
 		s.Headers["Content-Type"] = "application/x-www-form-urlencoded"
 	}

@@ -180,12 +180,14 @@ func makeFinalMatch(t *testing.T, app core.App, compID, p1ID, p2ID, score, winne
 func makeInvitation(t *testing.T, app core.App, expiresAt time.Time) *core.Record {
 	t.Helper()
 	creator := makeUser(t, app, "Inviter", "")
+	comp := makeCompetition(t, app, nil)
 	col, err := app.FindCollectionByNameOrId("invitations")
 	require.NoError(t, err)
 	n := userSeq.Add(1)
 	record := core.NewRecord(col)
 	record.Set("token", fmt.Sprintf("tok%d", n))
 	record.Set("created_by", creator.Id)
+	record.Set("competition", comp.Id)
 	record.Set("status", "pending")
 	if !expiresAt.IsZero() {
 		record.Set("expires_at", expiresAt.UTC().Format("2006-01-02 15:04:05.000Z"))
@@ -396,12 +398,14 @@ func makeVenueTB(t testing.TB, app core.App, name string) *core.Record {
 
 func makeInvitationTB(t testing.TB, app core.App, creatorID string, expiresAt time.Time) *core.Record {
 	t.Helper()
+	comp := makeCompetitionTB(t, app, "league", nil)
 	col, err := app.FindCollectionByNameOrId("invitations")
 	require.NoError(t, err)
 	n := userSeq.Add(1)
 	record := core.NewRecord(col)
 	record.Set("token", fmt.Sprintf("tok%d", n))
 	record.Set("created_by", creatorID)
+	record.Set("competition", comp.Id)
 	record.Set("status", "pending")
 	if !expiresAt.IsZero() {
 		record.Set("expires_at", expiresAt.UTC().Format("2006-01-02 15:04:05.000Z"))

@@ -46,6 +46,9 @@ func (h *InvitationHandler) InvitationsList(e *core.RequestEvent) error {
 func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 	email := e.Request.FormValue("email")
 	competition := e.Request.FormValue("competition")
+	if competition == "" {
+		return alertError(e, "La competición es obligatoria")
+	}
 
 	token, err := generateInviteToken()
 	if err != nil {
@@ -58,13 +61,11 @@ func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 	}
 
 	maxUses := 1
-	if email == "" {
-		if v := e.Request.FormValue("max_uses"); v != "" {
-			maxUses, _ = strconv.Atoi(v)
-		}
-		if maxUses < 1 {
-			maxUses = 1
-		}
+	if v := e.Request.FormValue("max_uses"); v != "" {
+		maxUses, _ = strconv.Atoi(v)
+	}
+	if maxUses < 1 {
+		maxUses = 1
 	}
 
 	expirationDays := 7
