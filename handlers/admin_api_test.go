@@ -46,6 +46,7 @@ func setupAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.GET("/players", player.Players)
 	g.POST("/players/pre-create", player.PlayerPreCreate)
 	g.POST("/players/{id}", player.PlayerUpdate)
+	g.POST("/players/{id}/regenerate-link", player.RegenerateLink)
 	g.GET("/pairs", pair.Pairs)
 	g.POST("/pairs", pair.PairsCreate)
 	g.POST("/pairs/{id}", pair.PairsUpdate)

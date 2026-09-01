@@ -123,16 +123,49 @@ func (h *AdminPlayerHandler) PlayerPreCreate(e *core.RequestEvent) error {
 	notify.SendEmail(h.app, email, "Bienvenido a PadelLeague",
 		buildOnboardingEmail(email, resetURL))
 
-	return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="alert alert-success">
-	<div class="w-full">
-		<p class="font-medium">Usuario creado: %s</p>
-		<p class="text-sm mt-1">Enlace para establecer contraseña:</p>
-		<div class="flex gap-2 mt-2">
-			<input type="text" value="%s" class="input input-bordered input-sm flex-1" readonly id="pwd-link">
-			<button onclick="navigator.clipboard.writeText(document.getElementById('pwd-link').value).then(function(){this.textContent='Copiado!';setTimeout(function(){document.getElementById('copy-btn').textContent='Copiar'},2000)}.bind(this))" class="btn btn-sm btn-ghost" id="copy-btn">Copiar</button>
-		</div>
+	return renderResetLinkPanel(e, email, displayName, resetURL, true)
+}
+
+// RegenerateLink reissues a password-reset token for an existing player.
+func (h *AdminPlayerHandler) RegenerateLink(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	user, err := h.app.FindRecordById("users", id)
+	if err != nil {
+		return alertError(e, "Usuario no encontrado")
+	}
+
+	resetToken, err := user.NewPasswordResetToken()
+	if err != nil {
+		slog.Error("generate password reset token failed", "user", user.Id, "err", err)
+		return alertError(e, "No se pudo generar enlace de contraseña")
+	}
+
+	resetURL := buildResetURL(e, resetToken)
+	return renderResetLinkPanel(e, user.GetString("email"), user.GetString("display_name"), resetURL, false)
+}
+
+func renderResetLinkPanel(e *core.RequestEvent, email, displayName, resetURL string, isNew bool) error {
+	title := "Enlace regenerado"
+	if isNew {
+		title = "Usuario creado"
+	}
+	name := displayName
+	if name == "" {
+		name = email
+	}
+	uid := fmt.Sprintf("pwd-link-%s", security.RandomString(6))
+	return e.HTML(http.StatusOK, fmt.Sprintf(`<div class="card bg-base-100 shadow-sm border border-base-300 p-4">
+	<h3 class="font-bold text-lg mb-2">%s</h3>
+	<p class="text-sm">%s</p>
+	<p class="text-sm mt-2 opacity-60">Enlace para establecer contraseña:</p>
+	<div class="flex gap-2 mt-2">
+		<input type="text" value="%s" class="input input-bordered input-sm flex-1" readonly id="%s">
+		<button onclick="navigator.clipboard.writeText(document.getElementById('%s').value).then(function(){this.textContent='Copiado!'}.bind(this))" class="btn btn-sm btn-ghost">Copiar</button>
 	</div>
-</div>`, html.EscapeString(email), html.EscapeString(resetURL)))
+	<div class="mt-4">
+		<a href="/admin/players" class="link link-hover text-sm">&larr; Volver a jugadores</a>
+	</div>
+</div>`, html.EscapeString(title), html.EscapeString(name), html.EscapeString(resetURL), uid, uid))
 }
 
 func (h *AdminPlayerHandler) createPlayerInvitation(email, createdBy string) error {
