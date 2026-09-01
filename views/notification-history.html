@@ -5,15 +5,7 @@
     {{if .Notifications}}
     <div class="space-y-2">
         {{range .Notifications}}
-        <div class="flex items-start gap-2 p-3 rounded-lg {{if not (.GetBool "read")}}bg-primary/5 font-medium{{end}}">
-            <a hx-post="/notifications/{{.Id}}/read" hx-swap="none" class="flex-1 cursor-pointer hover:bg-base-200 rounded p-1">
-                <p class="text-sm">{{.GetString "title"}}</p>
-                {{with .GetString "body"}}
-                <p class="text-xs text-base-content/60">{{.}}</p>
-                {{end}}
-                <p class="text-xs text-base-content/40 mt-1">{{.GetDateTime "created"}}</p>
-            </a>
-        </div>
+        {{template "notificationRow" .}}
         {{end}}
     </div>
     {{else}}
