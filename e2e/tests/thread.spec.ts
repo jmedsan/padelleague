@@ -122,9 +122,10 @@ test.describe('match thread', () => {
     const confirmBtn = page.locator('#thread-details button:has-text("Confirmar")');
     await expect(confirmBtn.first()).toBeVisible({ timeout: 5000 });
 
-    // P4: no final headline when pending
-    await expect(page.getByText('Resultado final')).not.toBeVisible();
-    await expect(page.getByText('Resultado pendiente')).toBeVisible({ timeout: 5000 });
+    // P4: result status badge shows "Propuesta", not "Finalizado", when pending
+    const resultCard = page.locator('#thread-details');
+    await expect(resultCard.getByText('Finalizado')).not.toBeVisible();
+    await expect(resultCard.getByText('Propuesta')).toBeVisible({ timeout: 5000 });
 
     // Transition to final via API
     await suPatch(`/api/collections/matches/records/${matchId}`, {
@@ -133,8 +134,8 @@ test.describe('match thread', () => {
     await page.goto(`/match/${matchId}`);
     await page.waitForLoadState('networkidle');
 
-    // P4: now final score headline appears
-    await expect(page.getByText('Resultado final')).toBeVisible({ timeout: 10000 });
+    // P4: now the "Finalizado" result status badge appears
+    await expect(page.locator('#thread-details').getByText('Finalizado')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('6-3 6-4').first()).toBeVisible({ timeout: 5000 });
 
     // P6: no actionable score button in timeline — score text is fine as read-only history
@@ -182,6 +183,6 @@ test.describe('match thread', () => {
     await expect(page.locator('#thread-details').getByText('4-6 6-3 7-5')).toBeVisible({ timeout: 5000 });
 
     // Both are pair-labeled
-    await expect(page.getByText('Resultado pendiente')).toBeVisible();
+    await expect(page.locator('#thread-details').getByText('Propuesta')).toBeVisible();
   });
 });

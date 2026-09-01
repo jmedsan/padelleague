@@ -1,26 +1,24 @@
-<!-- Status + actions panel — its own top-level card, NOT nested with the timeline. -->
-{{if or .SchedProposals .ResultPanel.Live .ResultPanel.HasFinal .CanPropose .UnpaidWarning .IsPlayoff .HasDateAndPlace (eq (.Match.GetString "status") "disputed") .Card.CanSubmit .Card.CanCorrect .Card.CanWalkover (and .Card.Mode.Admin .Card.Mode.Editable)}}
-<div id="thread-details" class="card bg-base-100 shadow-lg rounded-2xl overflow-hidden mb-4">
+<!-- Date/place section — its own top-level card, separate from the result. -->
+{{if or .SchedProposals .CanPropose .IsPlayoff .HasDateAndPlace}}
+<div id="thread-schedule" class="card bg-base-100 shadow-lg rounded-2xl overflow-hidden mb-4">
     <div class="card-body p-4 sm:p-6">
-        {{if .UnpaidWarning}}
-        <div class="alert alert-warning text-sm py-2 mb-3">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-            <span>{{.UnpaidWarning}}</span>
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="font-bold text-lg">Fecha y lugar</h3>
+            {{if .HasDateAndPlace}}<span class="badge badge-info">Programado</span>
+            {{else if .SchedProposals}}<span class="badge badge-info">Propuesta</span>
+            {{else}}<span class="badge badge-warning">Pendiente</span>
+            {{end}}
+        </div>
+
+        {{if .Match.GetString "date"}}
+        {{template "dateBox" (dict "Date" (.Match.GetString "date") "Time" (.Match.GetString "time") "Place" (.Match.GetString "club"))}}
+        {{else if .IsPlayoff}}
+        <div class="alert bg-base-200 text-sm opacity-60">
+            <span>Fecha pendiente de asignación por el administrador</span>
         </div>
         {{end}}
 
         {{template "schedProposalPanel" .}}
-        {{template "resultPanel" .}}
-
-        {{if .Match.GetString "date"}}
-        <div class="mt-3">
-            {{template "dateBox" (dict "Date" (.Match.GetString "date") "Time" (.Match.GetString "time") "Place" (.Match.GetString "club") "Accepted" .HasDateAndPlace)}}
-        </div>
-        {{else if .IsPlayoff}}
-        <div class="alert bg-base-200 text-sm mt-3 opacity-60">
-            <span>Fecha pendiente de asignación por el administrador</span>
-        </div>
-        {{end}}
 
         {{if .CanPropose}}
         {{if not .HasDateAndPlace}}
@@ -41,6 +39,27 @@
         </div>
         {{end}}
         {{end}}
+    </div>
+</div>
+{{end}}
+
+<!-- Result section — its own top-level card, separate from date/place. -->
+{{if or .ResultPanel.Live .ResultPanel.HasFinal (eq (.Match.GetString "status") "disputed") .Card.CanSubmit .Card.CanCorrect .Card.CanWalkover (and .Card.Mode.Admin .Card.Mode.Editable)}}
+<div id="thread-details" class="card bg-base-100 shadow-lg rounded-2xl overflow-hidden mb-4">
+    <div class="card-body p-4 sm:p-6">
+        {{if .UnpaidWarning}}
+        <div class="alert alert-warning text-sm py-2 mb-3">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <span>{{.UnpaidWarning}}</span>
+        </div>
+        {{end}}
+
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="font-bold text-lg">Resultado</h3>
+            {{template "resultStatusBadge" .}}
+        </div>
+
+        {{template "resultPanel" .}}
     </div>
 </div>
 {{end}}
