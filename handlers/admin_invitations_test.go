@@ -27,11 +27,11 @@ func findLatestInvitation(tb testing.TB, app *tests.TestApp) *core.Record {
 func TestInvitationRequiresCompetition(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "POST /admin/invitations without competition is rejected",
-		Method:         http.MethodPost,
-		URL:            "/admin/invitations",
-		ExpectedStatus: 200,
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/invitations without competition is rejected",
+		Method:          http.MethodPost,
+		URL:             "/admin/invitations",
+		ExpectedStatus:  200,
 		ExpectedContent: []string{"La competición es obligatoria"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {

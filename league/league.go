@@ -17,7 +17,6 @@ type Notifier interface {
 	EmailPlayers(playerUserIDs []string, subject, body, link string)
 }
 
-
 // Service provides domain operations for competitions, matches, and standings.
 type Service struct {
 	app      core.App
