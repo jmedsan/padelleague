@@ -85,7 +85,6 @@ func registerPublicRoutes(se *core.ServeEvent, deps Deps) {
 
 	player := handlers.NewPlayerHandler(deps.App, deps.Renderer.Page, deps.Renderer.ErrorPage)
 	se.Router.GET("/player/{id}", player.Player).BindFunc(middleware.RequireAuth)
-	se.Router.GET("/h2h", player.H2H).BindFunc(middleware.RequireAuth)
 
 	pair := handlers.NewPairPageHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page, deps.Renderer.ErrorPage)
 	se.Router.GET("/pair/{id}", pair.PairPage).BindFunc(middleware.RequireAuth)

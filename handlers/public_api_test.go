@@ -37,7 +37,6 @@ func setupPublicRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 
 	player := NewPlayerHandler(app, r.Page, r.ErrorPage)
 	e.Router.GET("/player/{id}", player.Player).BindFunc(requireAuthTest)
-	e.Router.GET("/h2h", player.H2H).BindFunc(requireAuthTest)
 
 	pair := NewPairPageHandler(app, svc, r.Page, r.ErrorPage)
 	e.Router.GET("/pair/{id}", pair.PairPage).BindFunc(requireAuthTest)
@@ -86,6 +85,68 @@ func TestCompetitionPage(t *testing.T) {
 	s.Test(t)
 }
 
+func TestCompetitionMineOnly(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /competition/{id} default hides non-own matches",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"MineA", "MineB"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "MineA")
+		p2 := makePairTB(tb, app, "MineB")
+		p3 := makePairTB(tb, app, "OtherC")
+		p4 := makePairTB(tb, app, "OtherD")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3, p4})
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		makeMatchTB(tb, app, comp.Id, p3.Id, p4.Id, "pending")
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		matchLinks := strings.Count(body, "href=\"/match/")
+		assert.Equal(tb, 1, matchLinks, "only own match link in rounds")
+		assert.Contains(tb, body, "Mis partidos")
+		assert.Contains(tb, body, "Todos")
+	}
+	s.Test(t)
+}
+
+func TestCompetitionShowAll(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /competition/{id}?all=1 shows all matches",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"PadelLeague"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "AllA")
+		p2 := makePairTB(tb, app, "AllB")
+		p3 := makePairTB(tb, app, "AllC")
+		p4 := makePairTB(tb, app, "AllD")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3, p4})
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		makeMatchTB(tb, app, comp.Id, p3.Id, p4.Id, "pending")
+		s.URL = "/competition/" + comp.Id + "?all=1"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		matchLinks := strings.Count(body, "href=\"/match/")
+		assert.Equal(tb, 2, matchLinks, "all=1 shows both matches")
+	}
+	s.Test(t)
+}
+
 func TestPlayerProfilePage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
@@ -99,45 +160,6 @@ func TestPlayerProfilePage(t *testing.T) {
 		setupPublicRoutes(tb, app, e)
 		user := makeUserTB(tb, app, "Profile Viewer", "")
 		s.URL = "/player/" + user.Id
-		s.Headers = authHeaders(tb, user)
-	}
-	s.Test(t)
-}
-
-func TestH2HPage(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "GET /h2h shows both player names",
-		Method:          http.MethodGet,
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"H2H P1", "H2H P2"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "H2H P1")
-		p2 := makePairTB(tb, app, "H2H P2")
-		s.URL = "/h2h?p1=" + p1.Id + "&p2=" + p2.Id
-		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
-	}
-	s.Test(t)
-}
-
-func TestH2HSamePairReturnsError(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "GET /h2h with same pair returns error",
-		Method:          http.MethodGet,
-		ExpectedStatus:  400,
-		ExpectedContent: []string{"distintas"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "SameP")
-		s.URL = "/h2h?p1=" + p1.Id + "&p2=" + p1.Id
-		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		s.Headers = authHeaders(tb, user)
 	}
 	s.Test(t)

@@ -55,6 +55,17 @@
 <div role="tablist" class="tabs tabs-boxed bg-base-100 shadow-sm mb-6 p-1">
     <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Jornadas" checked>
     <div role="tabpanel" class="tab-content pt-6">
+        {{if not .IsPlayoff}}
+        <div class="flex justify-end mb-3" data-testid="mine-only-toggle">
+            {{if .ShowAll}}
+            <a href="/competition/{{.Competition.Id}}" class="btn btn-sm btn-ghost gap-1">Mis partidos</a>
+            <span class="btn btn-sm btn-primary gap-1">Todos</span>
+            {{else}}
+            <span class="btn btn-sm btn-primary gap-1">Mis partidos</span>
+            <a href="/competition/{{.Competition.Id}}?all=1" class="btn btn-sm btn-ghost gap-1">Todos</a>
+            {{end}}
+        </div>
+        {{end}}
         {{if .Rounds}}
         <div class="space-y-3">
         {{range .Rounds}}
@@ -98,31 +109,6 @@
     </div>
     {{end}}
 </div>
-
-{{if ge (len .CompPairs) 2}}
-<div class="card bg-base-100 shadow-sm rounded-xl mt-6">
-    <div class="card-body p-4">
-        <h3 class="card-title text-sm">Comparar parejas</h3>
-        <form action="/h2h" method="GET" class="flex flex-wrap items-end gap-2">
-            <div class="form-control flex-1 min-w-[120px]">
-                <label class="label py-1"><span class="label-text text-xs">Pareja 1</span></label>
-                <select name="p1" class="select select-bordered select-sm w-full" required>
-                    <option value="" disabled selected>Elegir...</option>
-                    {{range .CompPairs}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
-                </select>
-            </div>
-            <div class="form-control flex-1 min-w-[120px]">
-                <label class="label py-1"><span class="label-text text-xs">Pareja 2</span></label>
-                <select name="p2" class="select select-bordered select-sm w-full" required>
-                    <option value="" disabled selected>Elegir...</option>
-                    {{range .CompPairs}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
-                </select>
-            </div>
-            <button type="submit" class="btn btn-primary btn-sm">Comparar</button>
-        </form>
-    </div>
-</div>
-{{end}}
 
 <div class="mt-6">
     <a href="/ical/competition/{{.Competition.Id}}" class="btn btn-outline btn-primary btn-sm gap-2">

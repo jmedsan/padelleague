@@ -50,6 +50,7 @@ export async function createPlayer(page: Page, email: string, displayName: strin
   const modal = page.locator('.modal[role="dialog"]').filter({ hasText: 'Pre-crear usuario' });
   await modal.locator('input[name="email"]').fill(email);
   await modal.locator('input[name="display_name"]').fill(displayName);
+  await modal.locator('select[name="gender"]').selectOption('male');
   const responsePromise = page.waitForResponse(
     resp => resp.url().includes('/admin/players/pre-create'),
   );
@@ -158,19 +159,9 @@ export async function enterScore(page: Page, score: string, opts?: { suffix?: st
   const root = opts?.suffix
     ? page.locator(`.score-input[data-suffix="${opts.suffix}"]`)
     : page.locator('.score-input').first();
-  const sets = score.split(/\s+/).map(s => s.split('-'));
-  const fields = ['s1a', 's1b', 's2a', 's2b'];
-  const values = [sets[0][0], sets[0][1], sets[1][0], sets[1][1]];
-  for (let i = 0; i < fields.length; i++) {
-    const cell = root.locator(`input[name="${fields[i]}"]`);
-    await cell.fill(values[i]);
-  }
-  if (sets.length === 3) {
-    await root.locator('.set3-group').first().waitFor({ state: 'visible', timeout: 3000 });
-    for (const [f, v] of [['s3a', sets[2][0]], ['s3b', sets[2][1]]]) {
-      await root.locator(`input[name="${f}"]`).fill(v);
-    }
-  }
+  await root.evaluate((el, s) => {
+    (window as any).fillCells(el, s);
+  }, score);
 }
 
 /** @deprecated Use enterScore instead */
