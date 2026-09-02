@@ -67,7 +67,9 @@ func (h *PairPageHandler) PairPage(e *core.RequestEvent) error {
 		if rows, err := h.leagueSvc.ComputeStandings(c.Id); err == nil {
 			for _, r := range rows {
 				if r.PairID == id {
-					cs.Position = r.Position
+					if !league.IsPlayoff(c) {
+						cs.Position = r.Position
+					}
 					cs.Wins = r.Wins
 					cs.Losses = r.Losses
 					cs.Played = r.Played
