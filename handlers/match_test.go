@@ -466,8 +466,8 @@ func TestBuildMatchViewFlags(t *testing.T) {
 		},
 		{
 			name: "confirmed/outsider", status: "confirmed", viewer: "outsider",
-			submitted:  true,
-			deny:       []string{markerCanSubmit, markerCanCorrect},
+			submitted: true,
+			deny:      []string{markerCanSubmit, markerCanCorrect},
 		},
 		{
 			name: "confirmed/admin-nonparticipant", status: "confirmed", viewer: "admin",
