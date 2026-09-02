@@ -364,3 +364,356 @@ func TestAPIUserRolesHiddenFromPlayer(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+// All writes to pairs go through server-side app.Save in admin handlers; the
+// record API is locked to superuser-only.
+func TestAPIPairCreateForbiddenForPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot create a pair via the record API",
+		Method:          http.MethodPost,
+		URL:             "/api/collections/pairs/records",
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		player := makeUserTB(tb, app, "Player", "")
+		s.Body = strings.NewReader(`{"name":"Forged","player1":"` + player.Id + `","player2":"` + player.Id + `"}`)
+		s.Headers = jsonHeaders(authHeaders(tb, player))
+	}
+	s.Test(t)
+}
+
+func TestAPIPairUpdateForbiddenForPlayer(t *testing.T) {
+	t.Parallel()
+	var pairID string
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot update a pair via the record API",
+		Method:          http.MethodPatch,
+		Body:            strings.NewReader(`{"name":"Renamed"}`),
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		p1 := makePairTB(tb, app, "A")
+		pairID = p1.Id
+		s.URL = "/api/collections/pairs/records/" + pairID
+		player, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = jsonHeaders(authHeaders(tb, player))
+	}
+	s.Test(t)
+}
+
+func TestAPIPairDeleteForbiddenForPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot delete a pair via the record API",
+		Method:          http.MethodDelete,
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		p1 := makePairTB(tb, app, "A")
+		s.URL = "/api/collections/pairs/records/" + p1.Id
+		player, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, player)
+	}
+	s.Test(t)
+}
+
+// All writes to venues go through server-side app.Save in admin handlers; the
+// record API is locked to superuser-only.
+func TestAPIVenueCreateForbiddenForPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot create a venue via the record API",
+		Method:          http.MethodPost,
+		URL:             "/api/collections/venues/records",
+		Body:            strings.NewReader(`{"name":"Forged Venue"}`),
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		player := makeUserTB(tb, app, "Player", "")
+		s.Headers = jsonHeaders(authHeaders(tb, player))
+	}
+	s.Test(t)
+}
+
+func TestAPIVenueUpdateForbiddenForPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot update a venue via the record API",
+		Method:          http.MethodPatch,
+		Body:            strings.NewReader(`{"name":"Renamed"}`),
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		venue := makeVenueTB(tb, app, "Padel 360")
+		s.URL = "/api/collections/venues/records/" + venue.Id
+		player := makeUserTB(tb, app, "Player", "")
+		s.Headers = jsonHeaders(authHeaders(tb, player))
+	}
+	s.Test(t)
+}
+
+func TestAPIVenueDeleteForbiddenForPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot delete a venue via the record API",
+		Method:          http.MethodDelete,
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		venue := makeVenueTB(tb, app, "Padel 360")
+		s.URL = "/api/collections/venues/records/" + venue.Id
+		player := makeUserTB(tb, app, "Player", "")
+		s.Headers = authHeaders(tb, player)
+	}
+	s.Test(t)
+}
+
+// push_subscriptions holds per-device webpush endpoint + auth keys — the most
+// sensitive per-user data of any collection. ListRule/ViewRule scope to
+// `user = @request.auth.id`; this pins that another player cannot enumerate
+// or view a victim's subscription.
+func TestAPIPushSubscriptionListExcludesOtherUsers(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot list another user's push subscriptions via the record API",
+		Method:          http.MethodGet,
+		URL:             "/api/collections/push_subscriptions/records",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{`"totalItems":0`},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		victim := makeUserTB(tb, app, "Victim", "")
+		col, err := app.FindCollectionByNameOrId("push_subscriptions")
+		require.NoError(tb, err)
+		sub := core.NewRecord(col)
+		sub.Set("user", victim.Id)
+		sub.Set("endpoint", "https://push.example/victim-endpoint")
+		sub.Set("p256dh", "victim-p256dh")
+		sub.Set("auth", "victim-auth")
+		require.NoError(tb, app.Save(sub))
+
+		attacker := makeUserTB(tb, app, "Attacker", "")
+		s.Headers = authHeaders(tb, attacker)
+	}
+	s.Test(t)
+}
+
+func TestAPIPushSubscriptionViewBlockedForOtherUser(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot view another user's push subscription via the record API",
+		Method:          http.MethodGet,
+		ExpectedStatus:  404,
+		ExpectedContent: []string{"\"status\":404"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		victim := makeUserTB(tb, app, "Victim", "")
+		col, err := app.FindCollectionByNameOrId("push_subscriptions")
+		require.NoError(tb, err)
+		sub := core.NewRecord(col)
+		sub.Set("user", victim.Id)
+		sub.Set("endpoint", "https://push.example/victim-endpoint")
+		sub.Set("p256dh", "victim-p256dh")
+		sub.Set("auth", "victim-auth")
+		require.NoError(tb, app.Save(sub))
+		s.URL = "/api/collections/push_subscriptions/records/" + sub.Id
+
+		attacker := makeUserTB(tb, app, "Attacker", "")
+		s.Headers = authHeaders(tb, attacker)
+	}
+	s.Test(t)
+}
+
+// documents (the reference-document library) are readable by any
+// authenticated user; ListRule ("@request.auth.id != ”") filters an
+// unauthenticated request's results to zero rather than 403ing the whole
+// request (PocketBase's ListRule is a row filter, not an access gate).
+func TestAPIDocumentListEmptyForAnon(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "unauthenticated client sees zero documents via the record API",
+		Method:          http.MethodGet,
+		URL:             "/api/collections/documents/records",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{`"totalItems":0`},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		makeDocumentTB(tb, app, "Reglamento", true, "https://example.com/rules.pdf")
+	}
+	s.Test(t)
+}
+
+// document_acks previously (R-review history) allowed any authenticated user
+// to list every user's acknowledgement records; it is now scoped to
+// `user = @request.auth.id`. This pins the fix against regression.
+func TestAPIDocumentAckListExcludesOtherUsers(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot list another user's document_acks via the record API",
+		Method:          http.MethodGet,
+		URL:             "/api/collections/document_acks/records",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{`"totalItems":0`},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		victim := makeUserTB(tb, app, "Victim", "")
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		col, err := app.FindCollectionByNameOrId("document_acks")
+		require.NoError(tb, err)
+		ack := core.NewRecord(col)
+		ack.Set("user", victim.Id)
+		ack.Set("competition", comp.Id)
+		require.NoError(tb, app.Save(ack))
+
+		attacker := makeUserTB(tb, app, "Attacker", "")
+		s.Headers = authHeaders(tb, attacker)
+	}
+	s.Test(t)
+}
+
+func TestAPIDocumentAckViewBlockedForOtherUser(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot view another user's document_acks via the record API",
+		Method:          http.MethodGet,
+		ExpectedStatus:  404,
+		ExpectedContent: []string{"\"status\":404"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		victim := makeUserTB(tb, app, "Victim", "")
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		col, err := app.FindCollectionByNameOrId("document_acks")
+		require.NoError(tb, err)
+		ack := core.NewRecord(col)
+		ack.Set("user", victim.Id)
+		ack.Set("competition", comp.Id)
+		require.NoError(tb, app.Save(ack))
+		s.URL = "/api/collections/document_acks/records/" + ack.Id
+
+		attacker := makeUserTB(tb, app, "Attacker", "")
+		s.Headers = authHeaders(tb, attacker)
+	}
+	s.Test(t)
+}
+
+// search_history — a player's search queries could reveal who/what they were
+// investigating (opponents, disputes); ListRule scopes to
+// `user = @request.auth.id`.
+func TestAPISearchHistoryListExcludesOtherUsers(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot list another user's search history via the record API",
+		Method:          http.MethodGet,
+		URL:             "/api/collections/search_history/records",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{`"totalItems":0`},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		victim := makeUserTB(tb, app, "Victim", "")
+		col, err := app.FindCollectionByNameOrId("search_history")
+		require.NoError(tb, err)
+		entry := core.NewRecord(col)
+		entry.Set("user", victim.Id)
+		entry.Set("query", "secret opponent scouting")
+		require.NoError(tb, app.Save(entry))
+
+		attacker := makeUserTB(tb, app, "Attacker", "")
+		s.Headers = authHeaders(tb, attacker)
+	}
+	s.Test(t)
+}
+
+func TestAPISearchHistoryViewBlockedForOtherUser(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot view another user's search history via the record API",
+		Method:          http.MethodGet,
+		ExpectedStatus:  404,
+		ExpectedContent: []string{"\"status\":404"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		victim := makeUserTB(tb, app, "Victim", "")
+		col, err := app.FindCollectionByNameOrId("search_history")
+		require.NoError(tb, err)
+		entry := core.NewRecord(col)
+		entry.Set("user", victim.Id)
+		entry.Set("query", "secret opponent scouting")
+		require.NoError(tb, app.Save(entry))
+		s.URL = "/api/collections/search_history/records/" + entry.Id
+
+		attacker := makeUserTB(tb, app, "Attacker", "")
+		s.Headers = authHeaders(tb, attacker)
+	}
+	s.Test(t)
+}
+
+// penalties has no explicit ListRule/ViewRule set anywhere in its migration,
+// so PocketBase defaults both to nil (superuser-only, fail-closed).
+func TestAPIPenaltyListBlockedForPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot list penalties via the record API",
+		Method:          http.MethodGet,
+		URL:             "/api/collections/penalties/records",
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		p1 := makePairTB(tb, app, "A")
+		p2 := makePairTB(tb, app, "B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		makePenaltyTB(tb, app, comp.Id, p1.Id, 3, "Walkover", "", false)
+
+		player, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, player)
+	}
+	s.Test(t)
+}
+
+func TestAPIPenaltyViewBlockedForPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot view a penalty via the record API",
+		Method:          http.MethodGet,
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		p1 := makePairTB(tb, app, "A")
+		p2 := makePairTB(tb, app, "B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		makePenaltyTB(tb, app, comp.Id, p1.Id, 3, "Walkover", "", false)
+
+		penalties, err := app.FindRecordsByFilter("penalties", "competition = {:comp}", "", 1, 0,
+			map[string]any{"comp": comp.Id})
+		require.NoError(tb, err)
+		require.Len(tb, penalties, 1)
+		s.URL = "/api/collections/penalties/records/" + penalties[0].Id
+
+		player, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, player)
+	}
+	s.Test(t)
+}
