@@ -19,11 +19,17 @@
         </div>
         <div class="flex items-center gap-4 text-sm">
             <span class="font-medium">{{.PairsCount}} pareja{{if ne .PairsCount 1}}s{{end}}</span>
+            {{if gt .TotalMatches 0}}
             <span class="text-base-content/60">·</span>
             <span>{{.PlayedMatches}}/{{.TotalMatches}} partidos</span>
+            {{end}}
         </div>
         {{if gt .TotalMatches 0}}
         <progress class="progress progress-success w-full" value="{{.PlayedMatches}}" max="{{.TotalMatches}}"></progress>
+        {{else if lt .PairsCount 2}}
+        <p class="text-xs text-warning">Necesita al menos 2 parejas para generar el calendario</p>
+        {{else}}
+        <p class="text-xs text-warning">Calendario aún no generado</p>
         {{end}}
     </div>
 </a>
