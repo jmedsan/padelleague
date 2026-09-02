@@ -2,23 +2,25 @@ import { test, expect, Page } from '@playwright/test';
 import { loginAs, isMobile, openDrawer, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 
 const NAV_LABELS: Record<string, string> = {
-  '/admin': 'Panel',
-  '/admin/pairs': 'Parejas',
+  '/admin/competitions': 'Competiciones',
+  '/admin/health': 'Salud',
   '/admin/players': 'Jugadores',
-  '/admin/disputes': 'Disputas',
   '/admin/venues': 'Pistas',
-  '/admin/settings': 'Configuración',
 };
 
 async function navToAdmin(page: Page, href: string): Promise<void> {
-  if (isMobile(page)) {
-    await openDrawer(page);
-    await page.locator(`.drawer-side a[href="${href}"]`).click();
+  if (NAV_LABELS[href]) {
+    if (isMobile(page)) {
+      await openDrawer(page);
+      await page.locator(`.drawer-side a[href="${href}"]`).click();
+    } else {
+      await page.locator('summary:has-text("Gestión")').click();
+      await page.waitForTimeout(100);
+      const link = page.locator(`.menu-horizontal a:has-text("${NAV_LABELS[href]}")`);
+      await link.evaluate(el => (el as HTMLAnchorElement).click());
+    }
   } else {
-    await page.locator('summary:has-text("Gestión")').click();
-    await page.waitForTimeout(100);
-    const link = page.locator(`.menu-horizontal a:has-text("${NAV_LABELS[href]}")`);
-    await link.evaluate(el => (el as HTMLAnchorElement).click());
+    await page.goto(href);
   }
   await page.waitForLoadState('domcontentloaded');
 }

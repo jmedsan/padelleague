@@ -215,7 +215,7 @@ test.describe('R-178: presentation quality guards', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    const heading = page.getByText('Últimos resultados');
+    const heading = page.getByText('Mis últimos partidos');
     await expect(heading, 'recent-results heading should be visible').toBeVisible({ timeout: 5000 });
     const resultsSection = heading.locator('xpath=..');
     const resultEntries = resultsSection.locator('a[href^="/match/"]');
