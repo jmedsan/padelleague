@@ -93,9 +93,19 @@ async function goHome(page: Page): Promise<void> {
   await page.waitForLoadState('domcontentloaded');
 }
 
+// clickAdminQuickLink opens the top-nav Gestión menu and clicks one of its
+// entries. The home page's own nav-button strip was removed (R-1: the
+// Gestión menu is the one place these links live now), so this is the real
+// affordance an admin uses, on desktop or via the drawer on mobile.
 async function clickAdminQuickLink(page: Page, label: string): Promise<void> {
-  const link = page.locator(`a:has-text("${label}")`).filter({ has: page.locator('svg') });
-  await link.last().click();
+  const desktopSummary = page.locator('.hidden.lg\\:flex details summary', { hasText: 'Gestión' });
+  if (await desktopSummary.isVisible()) {
+    await desktopSummary.click();
+    await page.locator('.hidden.lg\\:flex ul.bg-base-100').getByRole('link', { name: label, exact: true }).click();
+  } else {
+    await page.locator('label[for="main-drawer"]').first().click();
+    await page.locator('.drawer-side').getByRole('link', { name: label, exact: true }).click();
+  }
   await page.waitForLoadState('domcontentloaded');
 }
 

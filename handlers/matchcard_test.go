@@ -155,11 +155,11 @@ func TestMatchCardAdminSummaryIsReadOnly(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:     testAppFactory,
-		Name:               "admin summary match card is read-only",
+		Name:               "admin home dispute row is a compact link, not an editable match card",
 		Method:             http.MethodGet,
 		URL:                "/",
 		ExpectedStatus:     http.StatusOK,
-		ExpectedContent:    []string{"Summary League", "Summary A", "Summary B", "Ver partido completo"},
+		ExpectedContent:    []string{"Summary League", "Summary A", "Summary B"},
 		NotExpectedContent: []string{"Resolver", "Aprobar incomparecencia", "Corrección de administrador"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {

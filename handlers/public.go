@@ -131,13 +131,37 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 }
 
 func (h *PublicHandler) addAdminHomeData(data map[string]any, activeComps []*core.Record) {
-	setups, alerts, _ := league.AdminDashboard(h.app, time.Now())
+	setups, _, _ := league.AdminDashboard(h.app, time.Now())
 	data["AdminSetups"] = setups
-	data["AdminCards"], data["AdminAlerts"] = h.splitAdminAlerts(alerts)
+	data["UrgentItems"] = urgentHealthItems(league.HealthReport(h.app, time.Now()))
 
 	existing, _ := h.app.FindRecordsByFilter("competitions", "", "", 1, 0, nil)
 	data["AdminBootstrap"] = len(existing) == 0
 	data["PlayoffPrompts"] = league.PlayoffPrompts(h.app, activeComps, time.Now())
+}
+
+// UrgentHealthItem is a compact home-page row: one HealthItem plus the
+// category label it belongs to (disputes/walkovers only — see
+// urgentHealthItems). Deliberately not a MatchCard: the home alert strip is
+// a row, not a full match card.
+type UrgentHealthItem struct {
+	league.HealthItem
+	CategoryTitle string
+}
+
+// urgentHealthItems flattens HealthReport's urgent categories (disputes,
+// walkovers) into the compact rows the home page shows admins.
+func urgentHealthItems(categories []league.HealthCategory) []UrgentHealthItem {
+	var out []UrgentHealthItem
+	for _, cat := range categories {
+		if !cat.Urgent {
+			continue
+		}
+		for _, item := range cat.Items {
+			out = append(out, UrgentHealthItem{HealthItem: item, CategoryTitle: cat.Title})
+		}
+	}
+	return out
 }
 
 // onboardingSteps returns the player onboarding checklist, or nil when every
@@ -163,21 +187,6 @@ func (h *PublicHandler) onboardingSteps(user *core.Record, activeComps []*core.R
 		{Label: "Completa tu perfil", URL: "/profile/complete", Done: profileDone},
 		{Label: "Lee los documentos", URL: reglamentoURL, Done: reglamentoDone},
 	}
-}
-
-func (h *PublicHandler) splitAdminAlerts(alerts []league.AdminAlert) ([]MatchCard, []league.AdminAlert) {
-	var cards []MatchCard
-	var otherAlerts []league.AdminAlert
-	for _, alert := range alerts {
-		if alert.Kind == "dispute" || alert.Kind == "walkover" {
-			if match, err := h.app.FindRecordById("matches", alert.MatchID); err == nil {
-				cards = append(cards, NewMatchCard(h.app, match, AdminSummary, ""))
-				continue
-			}
-		}
-		otherAlerts = append(otherAlerts, alert)
-	}
-	return cards, otherAlerts
 }
 
 func (h *PublicHandler) playerInCompetition(c *core.Record, playerPairIDs map[string]struct{}) bool {
