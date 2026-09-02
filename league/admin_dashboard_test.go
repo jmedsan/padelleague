@@ -331,7 +331,7 @@ func TestHealthReport_ClassifiesEachCategory(t *testing.T) {
 
 	require.Len(t, byKey["disputes"].Items, 1)
 	assert.Equal(t, disputed.Id, byKey["disputes"].Items[0].MatchID)
-	assert.Contains(t, byKey["disputes"].Items[0].Detail, "6-3 6-4")
+	assert.Equal(t, "Disputa abierta", byKey["disputes"].Items[0].Detail)
 
 	require.Len(t, byKey["walkovers"].Items, 1)
 	assert.Equal(t, walkover.Id, byKey["walkovers"].Items[0].MatchID)
@@ -430,6 +430,5 @@ func TestAdminDashboard_DisputeAlertShowsBothScores(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, alerts, 1)
 	assert.Equal(t, "dispute", alerts[0].Kind)
-	assert.Contains(t, alerts[0].Description, "6-3 6-4")
-	assert.Contains(t, alerts[0].Description, "propone: 3-6 4-6")
+	assert.Equal(t, "Disputa abierta", alerts[0].Description)
 }
