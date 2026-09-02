@@ -102,7 +102,7 @@
                 </select>
             </div>
             <div class="form-control w-full mt-3">
-                <label class="label"><span class="label-text font-medium">Modalidad de género</span></label>
+                <label class="label"><span class="label-text font-medium">Modalidad de género <span class="tooltip tooltip-right" data-tip="Limita las parejas que pueden inscribirse según el género de sus jugadores"><span class="text-info cursor-help">ⓘ</span></span></span></label>
                 <select name="gender_type" class="select select-bordered w-full">
                     <option value="free" selected>Libre</option>
                     <option value="male">Masculina</option>
@@ -111,7 +111,7 @@
                 </select>
             </div>
             <div class="form-control w-full mt-3">
-                <label class="label"><span class="label-text font-medium">Tiempo de espera para confirmación (horas)</span></label>
+                <label class="label"><span class="label-text font-medium">Tiempo de espera para confirmación (horas) <span class="tooltip tooltip-right" data-tip="Si el rival no confirma ni disputa un resultado en este tiempo, se acepta automáticamente"><span class="text-info cursor-help">ⓘ</span></span></span></label>
                 <input type="number" name="quorum_timeout_hours" value="48" min="0" class="input input-bordered w-full" placeholder="0 = desactivado">
                 <label class="label"><span class="label-text-alt opacity-50">0 = desactivado</span></label>
             </div>
@@ -129,7 +129,7 @@
             <div class="form-control">
                 <label class="label cursor-pointer justify-start gap-3">
                     <input type="checkbox" name="play_twice" class="checkbox checkbox-sm">
-                    <span class="label-text">Ida y vuelta</span>
+                    <span class="label-text">Ida y vuelta <span class="tooltip tooltip-right" data-tip="Cada pareja juega contra todas las demás dos veces en lugar de una"><span class="text-info cursor-help">ⓘ</span></span></span>
                 </label>
             </div>
             <div class="form-control">
@@ -151,7 +151,7 @@
                         <input type="text" name="walkover_score" value="6-0 6-0" class="input input-bordered input-sm" placeholder="6-0 6-0">
                     </div>
                     <div class="form-control mb-3">
-                        <label class="label"><span class="label-text">Penalización por defecto (puntos)</span></label>
+                        <label class="label"><span class="label-text">Penalización por defecto (puntos) <span class="tooltip tooltip-right" data-tip="Puntos que se restan al aprobar una incomparecencia. El admin puede cambiar el valor en cada caso"><span class="text-info cursor-help">ⓘ</span></span></span></label>
                         <input type="number" name="default_penalty" value="3" min="0" class="input input-bordered input-sm">
                     </div>
                     <div class="form-control">

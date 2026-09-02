@@ -62,7 +62,7 @@
                         <input type="text" name="walkover_score" value="{{or (.Competition.GetString "walkover_score") "6-0 6-0"}}" class="input input-bordered input-sm">
                     </div>
                     <div class="form-control mb-3">
-                        <label class="label"><span class="label-text">Penalización por defecto (puntos)</span></label>
+                        <label class="label"><span class="label-text">Penalización por defecto (puntos) <span class="tooltip tooltip-right" data-tip="Puntos que se restan al aprobar una incomparecencia. El admin puede cambiar el valor en cada caso"><span class="text-info cursor-help">ⓘ</span></span></span></label>
                         <input type="number" name="default_penalty" value="{{or (.Competition.GetFloat "default_penalty") 3}}" min="0" class="input input-bordered input-sm">
                     </div>
                     <div class="form-control">
@@ -387,6 +387,162 @@
         {{end}}
     </div>
 </div>
+
+<!-- Invitaciones -->
+<div class="card bg-base-100 shadow mb-6">
+    <div class="card-body">
+        <div class="flex justify-between items-center">
+            <h2 class="card-title text-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                Invitaciones
+                {{if .Invitations}}<span class="badge badge-neutral badge-sm">{{len .Invitations}}</span>{{end}}
+            </h2>
+            <button class="btn btn-primary btn-sm" onclick="document.getElementById('modal-create-invite').showModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                Nueva invitación
+            </button>
+        </div>
+
+        {{if .Invitations}}
+        <div class="hidden sm:block overflow-x-auto">
+            <table class="table table-zebra">
+                <thead>
+                    <tr>
+                        <th>Destinatario</th>
+                        <th>Estado</th>
+                        <th>Usos</th>
+                        <th class="hidden md:table-cell">Expira</th>
+                        <th>Enlace</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Invitations}}
+                    <tr class="hover">
+                        <td>
+                            <span class="text-sm">{{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="badge badge-info badge-sm">Enlace genérico</span>{{end}}</span>
+                        </td>
+                        <td>
+                            {{if eq (.GetString "status") "pending"}}
+                            <span class="badge badge-warning badge-sm">Pendiente</span>
+                            {{else if eq (.GetString "status") "used"}}
+                            <span class="badge badge-success badge-sm">Usada</span>
+                            {{else}}
+                            <span class="badge badge-error badge-sm">Expirada</span>
+                            {{end}}
+                        </td>
+                        <td class="text-sm">
+                            {{.GetString "use_count"}}/{{if and (.GetString "max_uses") (ne (.GetString "max_uses") "0")}}{{.GetString "max_uses"}}{{else}}1{{end}}
+                        </td>
+                        <td class="hidden md:table-cell text-sm opacity-60">
+                            {{fmtDate (.GetString "expires_at")}}
+                        </td>
+                        <td>
+                            {{if eq (.GetString "status") "pending"}}
+                            <button class="btn btn-ghost btn-xs" onclick="copyInviteLink('{{.GetString "token"}}', this)" title="Copiar enlace">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 7.5V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.057 1.123-.08M15.75 18H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08M15.75 18.75v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5A3.375 3.375 0 006.375 7.5H6M15.75 18.75h-6a2.25 2.25 0 01-2.25-2.25V7.5m0 0h2.25M6 7.5h-.75A2.25 2.25 0 003 9.75v8.25A2.25 2.25 0 005.25 20.25h7.5" /></svg>
+                                Copiar
+                            </button>
+                            {{else}}
+                            <span class="text-xs opacity-60">-</span>
+                            {{end}}
+                        </td>
+                        <td>
+                            {{if eq (.GetString "status") "pending"}}
+                            <form hx-post="/admin/invitations/{{.Id}}/revoke" hx-confirm="¿Revocar esta invitación?">
+                                <button type="submit" class="btn btn-ghost btn-xs text-error">Revocar</button>
+                            </form>
+                            {{end}}
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        <div class="sm:hidden divide-y divide-base-300">
+            {{range .Invitations}}
+            <div class="py-3 flex flex-col gap-2">
+                <div class="flex justify-between items-start gap-2">
+                    <span class="text-sm font-medium">{{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="badge badge-info badge-sm">Enlace genérico</span>{{end}}</span>
+                    {{if eq (.GetString "status") "pending"}}
+                    <span class="badge badge-warning badge-sm">Pendiente</span>
+                    {{else if eq (.GetString "status") "used"}}
+                    <span class="badge badge-success badge-sm">Usada</span>
+                    {{else}}
+                    <span class="badge badge-error badge-sm">Expirada</span>
+                    {{end}}
+                </div>
+                <p class="text-sm opacity-60">
+                    {{.GetString "use_count"}}/{{if and (.GetString "max_uses") (ne (.GetString "max_uses") "0")}}{{.GetString "max_uses"}}{{else}}1{{end}} usos
+                    · Expira {{fmtDate (.GetString "expires_at")}}
+                </p>
+                {{if eq (.GetString "status") "pending"}}
+                <div class="flex gap-2">
+                    <button class="btn btn-outline btn-sm" onclick="copyInviteLink('{{.GetString "token"}}', this)" title="Copiar enlace">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 7.5V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.057 1.123-.08M15.75 18H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08M15.75 18.75v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5A3.375 3.375 0 006.375 7.5H6M15.75 18.75h-6a2.25 2.25 0 01-2.25-2.25V7.5m0 0h2.25M6 7.5h-.75A2.25 2.25 0 003 9.75v8.25A2.25 2.25 0 005.25 20.25h7.5" /></svg>
+                        Copiar
+                    </button>
+                    <form hx-post="/admin/invitations/{{.Id}}/revoke" hx-confirm="¿Revocar esta invitación?">
+                        <button type="submit" class="btn btn-outline btn-sm text-error">Revocar</button>
+                    </form>
+                </div>
+                {{end}}
+            </div>
+            {{end}}
+        </div>
+        {{else}}
+        <div class="text-center py-6 text-base-content/60">
+            <p class="text-sm">No hay invitaciones para esta competición</p>
+        </div>
+        {{end}}
+    </div>
+</div>
+
+<dialog id="modal-create-invite" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box">
+        <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">&times;</button></form>
+        <h3 class="text-lg font-bold mb-4">Nueva invitación</h3>
+        <div id="create-invite-error" class="mb-2"></div>
+        <form hx-post="/admin/invitations" hx-target="#create-invite-error">
+            <input type="hidden" name="competition" value="{{.Competition.Id}}">
+            <div class="form-control w-full">
+                <label class="label"><span class="label-text font-medium">Email (opcional)</span></label>
+                <input type="email" name="email" id="invite-email" class="input input-bordered w-full" placeholder="jugador@email.com" oninput="toggleGenericFields()">
+                <label class="label"><span class="label-text-alt opacity-50">Vacío = enlace genérico que cualquiera puede usar</span></label>
+            </div>
+            <div id="generic-fields">
+                <div class="form-control w-full mt-3">
+                    <label class="label"><span class="label-text font-medium">Usos máximos <span class="tooltip tooltip-right" data-tip="Número de veces que se puede usar este enlace de invitación"><span class="text-info cursor-help">ⓘ</span></span></span></label>
+                    <input type="number" name="max_uses" class="input input-bordered w-full" value="10" min="1">
+                </div>
+            </div>
+            <div class="form-control w-full mt-3">
+                <label class="label"><span class="label-text font-medium">Días de validez</span></label>
+                <input type="number" name="expiration_days" class="input input-bordered w-full" value="7" min="1">
+            </div>
+            <div class="modal-action">
+                <button type="submit" class="btn btn-primary">Crear invitación</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>cerrar</button></form>
+</dialog>
+
+<script>
+function toggleGenericFields() {
+    var email = document.getElementById('invite-email').value.trim();
+    document.getElementById('generic-fields').classList.toggle('hidden', email !== '');
+}
+
+function copyInviteLink(token, btn) {
+    var url = window.location.origin + '/register?token=' + token;
+    navigator.clipboard.writeText(url).then(function() {
+        var orig = btn.innerHTML;
+        btn.innerHTML = '<span class="text-success text-xs">¡Copiado!</span>';
+        setTimeout(function() { btn.innerHTML = orig; }, 2000);
+    });
+}
+</script>
 
 <!-- Clasificación -->
 {{if .IsLeague}}
