@@ -101,7 +101,7 @@ func TestDashboardOverdueMatch(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body, err := io.ReadAll(res.Body)
 		require.NoError(tb, err)
-		assert.Contains(tb, string(body), `link link-hover text-error">1<`, "IssueCount must count the overdue match")
+		assert.Contains(tb, string(body), `<span class="font-bold">1</span> incidencias`, "IssueCount must count the overdue match")
 	}
 	s.Test(t)
 }
@@ -136,7 +136,7 @@ func TestDashboardNotOverdueForFutureDeadline(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body, err := io.ReadAll(res.Body)
 		require.NoError(tb, err)
-		assert.Contains(tb, string(body), `link link-hover ">0<`, "IssueCount must not include a match before its round deadline")
+		assert.Contains(tb, string(body), `<span class="font-bold">0</span> incidencias`, "IssueCount must not include a match before its round deadline")
 	}
 	s.Test(t)
 }
@@ -247,7 +247,7 @@ func TestDetailPageDisputesUseCompactRowsLinkingToMatch(t *testing.T) {
 		Name:            "detail page dispute rows link to the match page instead of duplicating the resolve form",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Disputas"},
+		ExpectedContent: []string{"Alertas"},
 		NotExpectedContent: []string{
 			"resolve\" hx-target=\"closest .card\"",
 			"Resolver",
@@ -271,6 +271,39 @@ func TestDetailPageDisputesUseCompactRowsLinkingToMatch(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		assert.Contains(tb, body, `href="/match/`+matchID+`"`, "dispute row must link to the match page")
+	}
+	s.Test(t)
+}
+
+func TestDetailPageShowsDisputesForInactiveCompetition(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "an inactive competition's detail page still shows its open disputes",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Alertas"},
+	}
+	var matchID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "InactA")
+		p2 := makePairTB(tb, app, "InactB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("active", false)
+		require.NoError(tb, app.Save(comp))
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		m.Set("scores", "6-3 6-4")
+		require.NoError(tb, app.Save(m))
+		matchID = m.Id
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, `href="/match/`+matchID+`"`,
+			"HealthReport only scans active competitions; the detail page must use league.CompHealthItems instead so an inactive competition still shows its own disputes")
 	}
 	s.Test(t)
 }
@@ -1196,7 +1229,7 @@ func TestDashboardAllMatchesFinal(t *testing.T) {
 		require.NoError(tb, err)
 		b := string(body)
 		assert.Contains(tb, b, `value="2"`, "progress bar value must be exactly 2")
-		assert.Contains(tb, b, "sin disputas", "no disputes when all matches final")
+		assert.Contains(tb, b, `<span class="font-bold">0</span> disputas`, "no disputes when all matches final")
 	}
 	s.Test(t)
 }
@@ -1209,7 +1242,7 @@ func TestDashboardNoDisputedMatches(t *testing.T) {
 		Method:             http.MethodGet,
 		URL:                "/admin/competitions",
 		ExpectedStatus:     200,
-		ExpectedContent:    []string{"sin disputas"},
+		ExpectedContent:    []string{`<span class="font-bold">0</span> disputas`},
 		NotExpectedContent: []string{"en disputa"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {

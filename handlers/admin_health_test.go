@@ -69,7 +69,7 @@ func TestHealth_MixedShowsOnlyNonEmptyCategories(t *testing.T) {
 		URL:                "/admin/health",
 		ExpectedStatus:     200,
 		ExpectedContent:    []string{"card-title text-base"},
-		NotExpectedContent: []string{"Sin incidencias — todo en orden", "Parejas sin pagar"},
+		NotExpectedContent: []string{"Sin incidencias — todo en orden", "Sin pagar"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupHealthRoute(tb, app, e)

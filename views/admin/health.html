@@ -14,7 +14,7 @@
         <div class="card-body p-4">
             <h2 class="card-title text-base">
                 {{if .ListURL}}<a href="{{.ListURL}}" class="link link-hover">{{.Title}}</a>{{else}}{{.Title}}{{end}}
-                <span class="badge badge-warning badge-sm">{{len .Items}}</span>
+                <span class="badge {{if .Urgent}}badge-error{{else}}badge-warning{{end}} badge-sm">{{len .Items}}</span>
             </h2>
             <div class="space-y-1 mt-2">
                 {{range .Items}}

@@ -26,10 +26,7 @@
     </div>
     {{else}}
     <div class="col-span-full">
-        <div class="text-center py-12 opacity-60">
-            <p class="text-lg">No hay parejas creadas</p>
-            <p class="text-sm mt-1">Crea la primera pareja para empezar</p>
-        </div>
+        {{template "emptyState" "No hay parejas creadas — crea la primera pareja para empezar"}}
     </div>
     {{end}}
 </div>

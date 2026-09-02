@@ -54,7 +54,7 @@ func TestAdminDashboard_FinishedByDate_SkipsOverdueButKeepsWalkover(t *testing.T
 	comp.Set("recovery_days", 14)
 	require.NoError(t, app.Save(comp))
 
-	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusPending)
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusDisputed)
 	m.Set("review_type", "walkover")
 	require.NoError(t, app.Save(m))
 
@@ -316,7 +316,7 @@ func TestHealthReport_ClassifiesEachCategory(t *testing.T) {
 	disputed.Set("scores", "6-3 6-4")
 	require.NoError(t, app.Save(disputed))
 
-	walkover := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusPending)
+	walkover := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusDisputed)
 	walkover.Set("review_type", "walkover")
 	require.NoError(t, app.Save(walkover))
 
@@ -392,21 +392,24 @@ func TestHealthReport_UnscheduledMatchWithNoDate(t *testing.T) {
 	assert.Equal(t, m.Id, unscheduled.Items[0].MatchID)
 }
 
-func TestHealthReport_WalkoverExcludedFromUnscheduled(t *testing.T) {
+func TestHealthReport_WalkoverExcludedFromUnscheduledAndOverdue(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 	p1 := makePair(t, app, "HRWalkA")
 	p2 := makePair(t, app, "HRWalkB")
 	comp := makeCompetition(t, app, []*core.Record{p1, p2})
 
-	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusPending)
+	// review_type=walkover is always paired with status=disputed
+	// (handlers/match.go's ReportUnplayed) — unscheduled/overdue only scan
+	// status=pending matches, so a walkover must never appear there.
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusDisputed)
 	m.Set("review_type", "walkover")
 	require.NoError(t, app.Save(m))
 
 	report := HealthReport(app, time.Now())
 	for _, cat := range report {
-		if cat.Key == "unscheduled" {
-			assert.Empty(t, cat.Items, "a walkover-pending match belongs only in walkovers, not unscheduled")
+		if cat.Key == "unscheduled" || cat.Key == "overdue" {
+			assert.Empty(t, cat.Items, "a walkover match must not appear in %s", cat.Key)
 		}
 	}
 }

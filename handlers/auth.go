@@ -27,7 +27,7 @@ func (h *AuthHandler) Login(e *core.RequestEvent) error {
 	if e.Auth != nil {
 		return e.Redirect(http.StatusFound, "/")
 	}
-	return h.renderPage(e, "login.html", map[string]any{})
+	return h.renderPage(e, "login.html", map[string]any{"PageTitle": "Iniciar sesión"})
 }
 
 // LoginSubmit processes the login form and sets the auth cookie on success.
