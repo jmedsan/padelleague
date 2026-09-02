@@ -487,10 +487,14 @@ func (sc *sampleCtx) createResultEntries(rc resultContext) error {
 
 	case rc.f.round == 6 && rc.f.idx == 1:
 		reportTime := rc.playDate.Add(20 * time.Hour)
+		adminID := rc.submitter
+		if admins, err := sc.app.FindRecordsByFilter("users", "roles ~ 'admin'", "", 1, 0, nil); err == nil && len(admins) > 0 {
+			adminID = admins[0].Id
+		}
 		rec := core.NewRecord(sc.msgCol)
 		rec.Set("match", rc.match.Id)
-		rec.Set("author", rc.submitter)
-		rec.Set("type", "admin_action")
+		rec.Set("author", adminID)
+		rec.Set("type", "result_event")
 		winnerName := league.PairNames(sc.app, []string{rc.match.GetString("pair1")})[rc.match.GetString("pair1")]
 		rec.Set("content", "aprobó incomparecencia a favor de "+winnerName)
 		rec.SetRaw("created", reportTime.UTC().Format("2006-01-02 15:04:05.000Z"))

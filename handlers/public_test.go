@@ -534,6 +534,11 @@ func TestHome_RecentResultsNonEmpty(t *testing.T) {
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 
 		col, _ := app.FindCollectionByNameOrId("matches")
+		// Match date deliberately inverted from insertion (creation) order,
+		// so the assertion below only passes if the query sorts by -date —
+		// sorting by -created would put "6-1 6-2" (created first, dated
+		// later) in the wrong position instead.
+		dates := []string{"2026-01-20", "2026-01-05"}
 		for i, score := range []string{"6-1 6-2", "6-3 6-4"} {
 			m := core.NewRecord(col)
 			m.Set("competition", comp.Id)
@@ -543,6 +548,7 @@ func TestHome_RecentResultsNonEmpty(t *testing.T) {
 			m.Set("scores", score)
 			m.Set("winner", p1.Id)
 			m.Set("round_number", i+1)
+			m.Set("date", dates[i])
 			require.NoError(tb, app.Save(m))
 		}
 
@@ -554,6 +560,11 @@ func TestHome_RecentResultsNonEmpty(t *testing.T) {
 		assert.Contains(tb, body, "6-1 6-2", "first final match score must appear")
 		assert.Contains(tb, body, "6-3 6-4", "second final match score must appear")
 		assert.Contains(tb, body, "Mis últimos partidos", "recent results heading must appear")
+		newerIdx := strings.Index(body, "6-1 6-2")
+		olderIdx := strings.Index(body, "6-3 6-4")
+		require.NotEqual(tb, -1, olderIdx)
+		require.NotEqual(tb, -1, newerIdx)
+		assert.Less(tb, newerIdx, olderIdx, "the more recent match (by date) must render first")
 	}
 	s.Test(t)
 }
