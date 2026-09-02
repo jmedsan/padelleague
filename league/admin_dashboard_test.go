@@ -280,6 +280,110 @@ func TestSortAlerts_OrderByKind(t *testing.T) {
 	assert.Equal(t, "d", alerts[1].MatchID)
 }
 
+func TestHealthReport_AlwaysReturnsAllCategories(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+
+	report := HealthReport(app, time.Now())
+
+	require.Len(t, report, 5, "HealthReport must always return the fixed category set")
+	wantKeys := []string{"disputes", "walkovers", "overdue", "unscheduled", "unpaid"}
+	for i, key := range wantKeys {
+		assert.Equal(t, key, report[i].Key)
+		assert.Empty(t, report[i].Items, "an empty league must yield empty categories, not omit them")
+	}
+}
+
+func TestHealthReport_ClassifiesEachCategory(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "HRA")
+	p2 := makePair(t, app, "HRB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	start := time.Now().AddDate(0, 0, -40)
+	end := time.Now().AddDate(0, 0, -20)
+	sd, _ := types.ParseDateTime(start)
+	ed, _ := types.ParseDateTime(end)
+	comp.Set("start_date", sd)
+	comp.Set("end_date", ed)
+	comp.Set("rounds", 1)
+	comp.Set("recovery_days", 9999) // stay out of PhaseFinished
+	comp.Set("payment_status", map[string]any{p1.Id: true, p2.Id: false})
+	require.NoError(t, app.Save(comp))
+
+	disputed := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusDisputed)
+	disputed.Set("scores", "6-3 6-4")
+	require.NoError(t, app.Save(disputed))
+
+	walkover := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusPending)
+	walkover.Set("review_type", "walkover")
+	require.NoError(t, app.Save(walkover))
+
+	overdue := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusPending)
+	require.NoError(t, app.Save(overdue))
+
+	report := HealthReport(app, time.Now())
+	byKey := make(map[string]HealthCategory, len(report))
+	for _, cat := range report {
+		byKey[cat.Key] = cat
+	}
+
+	require.Len(t, byKey["disputes"].Items, 1)
+	assert.Equal(t, disputed.Id, byKey["disputes"].Items[0].MatchID)
+	assert.Contains(t, byKey["disputes"].Items[0].Detail, "6-3 6-4")
+
+	require.Len(t, byKey["walkovers"].Items, 1)
+	assert.Equal(t, walkover.Id, byKey["walkovers"].Items[0].MatchID)
+
+	require.Len(t, byKey["overdue"].Items, 1)
+	assert.Equal(t, overdue.Id, byKey["overdue"].Items[0].MatchID)
+	assert.Equal(t, WarnOverdue, byKey["overdue"].Items[0].Warning)
+
+	require.Len(t, byKey["unpaid"].Items, 1, "only the unpaid pair must appear")
+	assert.Equal(t, "HRB", byKey["unpaid"].Items[0].Pair1)
+}
+
+func TestHealthReport_UnscheduledMatchWithNoDate(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "HRUnschedA")
+	p2 := makePair(t, app, "HRUnschedB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusPending)
+	require.Empty(t, m.GetString("date"), "seed helper must leave date unset for this case")
+
+	report := HealthReport(app, time.Now())
+	var unscheduled HealthCategory
+	for _, cat := range report {
+		if cat.Key == "unscheduled" {
+			unscheduled = cat
+		}
+	}
+	require.Len(t, unscheduled.Items, 1)
+	assert.Equal(t, m.Id, unscheduled.Items[0].MatchID)
+}
+
+func TestHealthReport_WalkoverExcludedFromUnscheduled(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "HRWalkA")
+	p2 := makePair(t, app, "HRWalkB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusPending)
+	m.Set("review_type", "walkover")
+	require.NoError(t, app.Save(m))
+
+	report := HealthReport(app, time.Now())
+	for _, cat := range report {
+		if cat.Key == "unscheduled" {
+			assert.Empty(t, cat.Items, "a walkover-pending match belongs only in walkovers, not unscheduled")
+		}
+	}
+}
+
 func TestAdminDashboard_DisputeAlertShowsBothScores(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)

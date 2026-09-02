@@ -37,7 +37,202 @@ type AdminAlert struct {
 	Recovery    bool // true when the competition is in its recovery window
 }
 
+// HealthItem is one entry inside a HealthCategory: a match needing attention,
+// or (for the unpaid category) a pair with an outstanding balance.
+type HealthItem struct {
+	MatchID  string // empty for unpaid items, which are per-pair not per-match
+	CompID   string
+	Pair1    string
+	Pair2    string
+	CompName string
+	Round    int
+	Detail   string
+	Warning  Warning
+	Recovery bool
+}
+
+// HealthCategory groups every HealthItem of one kind for the admin health
+// dashboard. Always present in HealthReport's result, even when Items is
+// empty, so the dashboard shows a fixed set of categories.
+type HealthCategory struct {
+	Key     string // "disputes", "walkovers", "overdue", "unscheduled", "unpaid"
+	Title   string
+	Items   []HealthItem
+	ListURL string
+	Urgent  bool
+}
+
+// healthCategoryDefs is the fixed, ordered set of categories HealthReport
+// always returns.
+var healthCategoryDefs = []HealthCategory{
+	{Key: "disputes", Title: "Disputas abiertas", ListURL: "/admin/disputes", Urgent: true},
+	{Key: "walkovers", Title: "Incomparecencias pendientes", ListURL: "/admin/disputes", Urgent: true},
+	{Key: "overdue", Title: "Partidos vencidos", ListURL: "/admin/outstanding"},
+	{Key: "unscheduled", Title: "Partidos sin fecha", ListURL: "/admin/outstanding"},
+	{Key: "unpaid", Title: "Parejas sin pagar", ListURL: "/admin/health"},
+}
+
+// HealthReport merges every admin-facing match/payment issue across active
+// competitions into a fixed set of categories: disputes, walkovers, overdue
+// (round deadline + grace — the same definition the reminder cron uses),
+// unscheduled (no date set), and unpaid. Always returns all categories, even
+// when empty, so a surface rendering this list shows the full picture.
+func HealthReport(app core.App, now time.Time) []HealthCategory {
+	categories := make(map[string]*HealthCategory, len(healthCategoryDefs))
+	report := make([]HealthCategory, len(healthCategoryDefs))
+	for i, def := range healthCategoryDefs {
+		report[i] = def
+		categories[def.Key] = &report[i]
+	}
+
+	activeComps, err := app.FindRecordsByFilter("competitions", "active = true", "name", 0, 0, nil)
+	if err != nil {
+		slog.Error("health report: load active competitions", "err", err)
+		return report
+	}
+	for _, c := range activeComps {
+		addCompHealth(app, c, now, categories)
+	}
+	addUnpaidHealth(app, activeComps, categories["unpaid"])
+
+	for i := range report {
+		sortHealthItems(report[i].Items)
+	}
+	return report
+}
+
+// compHealthCtx bundles the per-competition values used while classifying
+// its pending matches into health categories.
+type compHealthCtx struct {
+	comp      *core.Record
+	compName  string
+	graceDays int
+	phase     Phase
+	recovery  bool
+	now       time.Time
+}
+
+func addCompHealth(app core.App, c *core.Record, now time.Time, categories map[string]*HealthCategory) {
+	phase := PhaseOf(c, now)
+	ctx := compHealthCtx{
+		comp:      c,
+		compName:  c.GetString("name"),
+		graceDays: c.GetInt("arrange_grace_days"),
+		phase:     phase,
+		recovery:  phase == PhaseRecovery,
+		now:       now,
+	}
+
+	disputed, _ := app.FindRecordsByFilter("matches",
+		"competition = {:cid} && status = 'disputed'",
+		"round_number", 0, 0,
+		map[string]any{"cid": c.Id})
+	for _, m := range disputed {
+		categories["disputes"].Items = append(categories["disputes"].Items,
+			disputeHealthItem(app, m, ctx.compName))
+	}
+
+	pending, _ := app.FindRecordsByFilter("matches",
+		"competition = {:cid} && status = 'pending'",
+		"round_number", 0, 0,
+		map[string]any{"cid": c.Id})
+	for _, m := range pending {
+		addPendingHealth(app, m, ctx, categories)
+	}
+}
+
+func addPendingHealth(app core.App, m *core.Record, ctx compHealthCtx, categories map[string]*HealthCategory) {
+	rn := m.GetInt("round_number")
+	item := healthItem(app, m, ctx.compName, rn)
+
+	if m.GetString("review_type") == "walkover" {
+		item.Detail = "Incomparecencia pendiente de aprobación"
+		categories["walkovers"].Items = append(categories["walkovers"].Items, item)
+		return
+	}
+
+	if m.GetString("date") == "" {
+		unscheduled := item
+		unscheduled.Detail = "Sin fecha propuesta"
+		categories["unscheduled"].Items = append(categories["unscheduled"].Items, unscheduled)
+	}
+
+	if ctx.phase == PhaseFinished {
+		return
+	}
+	deadline, ok := RoundArrangeDate(ctx.comp, rn)
+	if !ok {
+		return
+	}
+	wl := WarningLevel(deadline, ctx.graceDays, ctx.now)
+	if wl >= WarnOverdue {
+		item.Detail = "Vencido — sin organizar"
+		item.Warning = wl
+		item.Recovery = ctx.recovery
+		categories["overdue"].Items = append(categories["overdue"].Items, item)
+	}
+}
+
+func disputeHealthItem(app core.App, m *core.Record, compName string) HealthItem {
+	item := healthItem(app, m, compName, m.GetInt("round_number"))
+	item.Detail = "Disputa abierta"
+	if s := m.GetString("scores"); s != "" {
+		item.Detail = s
+		if ds := m.GetString("disputed_scores"); ds != "" {
+			item.Detail += " → propone: " + ds
+		}
+	}
+	return item
+}
+
+func healthItem(app core.App, m *core.Record, compName string, round int) HealthItem {
+	p1, p2 := pairNamesForMatch(app, m)
+	return HealthItem{
+		MatchID: m.Id, CompID: m.GetString("competition"),
+		Pair1: p1, Pair2: p2, CompName: compName, Round: round,
+	}
+}
+
+func addUnpaidHealth(app core.App, activeComps []*core.Record, unpaid *HealthCategory) {
+	for _, comp := range activeComps {
+		ps := make(map[string]bool)
+		_ = comp.UnmarshalJSONField("payment_status", &ps)
+		pairIDs := comp.GetStringSlice("pairs")
+		pairNames := PairNames(app, pairIDs)
+		compName := comp.GetString("name")
+		for _, pid := range pairIDs {
+			if ps[pid] {
+				continue
+			}
+			unpaid.Items = append(unpaid.Items, HealthItem{
+				CompID: comp.Id, Pair1: pairNames[pid], CompName: compName,
+				Detail: "Pago pendiente",
+			})
+		}
+	}
+}
+
+// sortHealthItems orders most-urgent first: warning desc, competition name,
+// round number, match ID.
+func sortHealthItems(items []HealthItem) {
+	slices.SortStableFunc(items, func(a, b HealthItem) int {
+		if a.Warning != b.Warning {
+			return cmp.Compare(b.Warning, a.Warning)
+		}
+		if c := cmp.Compare(a.CompName, b.CompName); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.Round, b.Round); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.MatchID, b.MatchID)
+	})
+}
+
 // AdminDashboard returns setup checklists and alerts for the admin home.
+// Alerts are derived from HealthReport's urgent categories (disputes,
+// walkovers) and its overdue category, so all three surfaces share one
+// classification.
 func AdminDashboard(app core.App, now time.Time) ([]CompSetup, []AdminAlert, error) {
 	allComps, err := app.FindRecordsByFilter("competitions",
 		"", "name", 0, 0, nil)
@@ -46,20 +241,35 @@ func AdminDashboard(app core.App, now time.Time) ([]CompSetup, []AdminAlert, err
 	}
 
 	var setups []CompSetup
-	var alerts []AdminAlert
-
 	for _, c := range allComps {
 		if !c.GetBool("active") {
-			setup := buildSetup(app, c)
-			setups = append(setups, setup)
-			continue
+			setups = append(setups, buildSetup(app, c))
 		}
-		compAlerts := buildAlerts(app, c, now)
-		alerts = append(alerts, compAlerts...)
 	}
 
-	sortAlerts(alerts)
+	alerts := alertsFromHealthReport(HealthReport(app, now))
 	return setups, alerts, nil
+}
+
+func alertsFromHealthReport(categories []HealthCategory) []AdminAlert {
+	kindByKey := map[string]string{"disputes": "dispute", "walkovers": "walkover", "overdue": "overdue"}
+	var alerts []AdminAlert
+	for _, cat := range categories {
+		kind, ok := kindByKey[cat.Key]
+		if !ok {
+			continue
+		}
+		for _, item := range cat.Items {
+			alerts = append(alerts, AdminAlert{
+				Kind: kind, MatchID: item.MatchID,
+				Pair1: item.Pair1, Pair2: item.Pair2,
+				CompName: item.CompName, RoundNumber: item.Round,
+				Description: item.Detail, Recovery: item.Recovery,
+			})
+		}
+	}
+	sortAlerts(alerts)
+	return alerts
 }
 
 func buildSetup(app core.App, c *core.Record) CompSetup {
@@ -88,91 +298,6 @@ func buildSetup(app core.App, c *core.Record) CompSetup {
 		Items:    items,
 		Ready:    ready,
 	}
-}
-
-func buildAlerts(app core.App, c *core.Record, now time.Time) []AdminAlert {
-	compName := c.GetString("name")
-	var alerts []AdminAlert
-
-	disputed, _ := app.FindRecordsByFilter("matches",
-		"competition = {:cid} && status = 'disputed'",
-		"round_number", 0, 0,
-		map[string]any{"cid": c.Id})
-	for _, m := range disputed {
-		p1, p2 := pairNamesForMatch(app, m)
-		desc := "Disputa abierta"
-		if s := m.GetString("scores"); s != "" {
-			desc = s
-			if ds := m.GetString("disputed_scores"); ds != "" {
-				desc += " → propone: " + ds
-			}
-		}
-		alerts = append(alerts, AdminAlert{
-			Kind: "dispute", MatchID: m.Id,
-			Pair1ID: m.GetString("pair1"), Pair1: p1,
-			Pair2ID: m.GetString("pair2"), Pair2: p2,
-			CompName: compName, RoundNumber: m.GetInt("round_number"),
-			Description: desc,
-		})
-	}
-
-	pending, _ := app.FindRecordsByFilter("matches",
-		"competition = {:cid} && status = 'pending'",
-		"round_number", 0, 0,
-		map[string]any{"cid": c.Id})
-	alerts = append(alerts, pendingAlerts(app, c, pending, now)...)
-
-	return alerts
-}
-
-// pendingAlerts builds walkover-approval and overdue alerts for a
-// competition's pending matches. A walkover approval is always surfaced; an
-// overdue nudge is skipped once the competition has finished.
-func pendingAlerts(app core.App, c *core.Record, pending []*core.Record, now time.Time) []AdminAlert {
-	compName := c.GetString("name")
-	graceDays := c.GetInt("arrange_grace_days")
-
-	phase := PhaseOf(c, now)
-	recovery := phase == PhaseRecovery
-
-	var alerts []AdminAlert
-	for _, m := range pending {
-		rn := m.GetInt("round_number")
-
-		if m.GetString("review_type") == "walkover" {
-			p1, p2 := pairNamesForMatch(app, m)
-			alerts = append(alerts, AdminAlert{
-				Kind: "walkover", MatchID: m.Id,
-				Pair1ID: m.GetString("pair1"), Pair1: p1,
-				Pair2ID: m.GetString("pair2"), Pair2: p2,
-				CompName: compName, RoundNumber: rn,
-				Description: "Incomparecencia pendiente de aprobación",
-			})
-			continue
-		}
-
-		if phase == PhaseFinished {
-			continue
-		}
-
-		deadline, ok := RoundArrangeDate(c, rn)
-		if !ok {
-			continue
-		}
-		wl := WarningLevel(deadline, graceDays, now)
-		if wl >= WarnOverdue {
-			p1, p2 := pairNamesForMatch(app, m)
-			alerts = append(alerts, AdminAlert{
-				Kind: "overdue", MatchID: m.Id,
-				Pair1ID: m.GetString("pair1"), Pair1: p1,
-				Pair2ID: m.GetString("pair2"), Pair2: p2,
-				CompName: compName, RoundNumber: rn,
-				Description: "Vencido — sin organizar",
-				Recovery:    recovery,
-			})
-		}
-	}
-	return alerts
 }
 
 // OutstandingMatch is one non-final match decorated with its deadline and

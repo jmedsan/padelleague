@@ -5,22 +5,31 @@
 </div>
 
 <div class="grid gap-4">
-    {{range .Groups}}
+    {{range .Categories}}
     <div class="card bg-base-100 shadow-sm">
         <div class="card-body p-4">
             <h2 class="card-title text-base">
-                {{.Title}}
+                <a href="{{.ListURL}}" class="link link-hover">{{.Title}}</a>
                 <span class="badge {{if .Items}}badge-warning{{else}}badge-success{{end}} badge-sm">{{len .Items}}</span>
             </h2>
             {{if .Items}}
             <div class="space-y-1 mt-2">
                 {{range .Items}}
-                {{template "simpleLinkRow" .}}
+                {{if .MatchID}}
+                <a href="/match/{{.MatchID}}" class="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-base-200 transition-colors">
+                    <span class="flex-1 truncate">{{.Pair1}} vs {{.Pair2}} — {{.CompName}} J{{.Round}}</span>
+                    <span class="text-xs opacity-60 whitespace-nowrap">{{.Detail}}</span>
+                    {{if .Warning}}{{template "warningBadge" .Warning}}{{end}}
+                    {{if .Recovery}}<span class="badge badge-sm badge-secondary" data-testid="recovery-badge">En recuperación</span>{{end}}
+                </a>
+                {{else}}
+                <a href="/admin/competitions/{{.CompID}}" class="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-base-200 transition-colors">
+                    <span class="flex-1 truncate">{{.Pair1}} — {{.CompName}}</span>
+                    <span class="text-xs opacity-60 whitespace-nowrap">{{.Detail}}</span>
+                </a>
+                {{end}}
                 {{end}}
             </div>
-            {{if .ListURL}}
-            <a href="{{.ListURL}}" class="link link-hover text-sm mt-2 inline-block">Ver todas →</a>
-            {{end}}
             {{else}}
             <p class="text-sm text-base-content/60 mt-1">Sin pendientes</p>
             {{end}}
