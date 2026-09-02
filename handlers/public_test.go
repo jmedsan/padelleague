@@ -1215,7 +1215,7 @@ func TestHome_OnboardChecklist_ShownWhenMandatoryDocPending(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "onboarding checklist hidden when profile done despite unacked docs",
+		Name:            "onboarding checklist hidden when profile done, but a docs action shows on home",
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
@@ -1245,7 +1245,7 @@ func TestHome_OnboardChecklist_ShownWhenMandatoryDocPending(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		assert.NotContains(tb, body, "onboard-checklist", "checklist hidden when profile done")
-		assert.NotContains(tb, body, "Lee los documentos", "docs step is per-competition, not on home")
+		assert.Contains(tb, body, "Lee los documentos", "a docs home action must flag the unacked mandatory doc")
 	}
 	s.Test(t)
 }
@@ -1288,7 +1288,7 @@ func TestBuildHomeActions_AllKindsMap(t *testing.T) {
 		{MatchID: "m5", Opponent: "Rival5", ActionType: "respond_result", Description: "pendiente"},
 		{MatchID: "m6", Opponent: "Rival6", ActionType: "respond_proposal", Description: "Propuesta de horario pendiente"},
 	}
-	actions := buildHomeActions(tasks, pending, nil)
+	actions := buildHomeActions(tasks, pending, nil, nil)
 	require.Len(t, actions, 6)
 
 	kinds := map[string]bool{}
@@ -1311,7 +1311,7 @@ func TestBuildHomeActions_DedupByMatchID(t *testing.T) {
 	pending := []PendingAction{
 		{MatchID: "m1", Opponent: "Rival", ActionType: "confirm_score", Description: "6-4 6-3"},
 	}
-	actions := buildHomeActions(tasks, pending, nil)
+	actions := buildHomeActions(tasks, pending, nil, nil)
 	require.Len(t, actions, 1, "same MatchID should dedup to one action")
 	assert.Equal(t, "confirm", actions[0].Kind, "confirm beats organize in priority")
 }
@@ -1325,7 +1325,7 @@ func TestBuildHomeActions_OrderingPriority(t *testing.T) {
 	pending := []PendingAction{
 		{MatchID: "m2", Opponent: "R2", ActionType: "confirm_score", Description: "6-4 6-3"},
 	}
-	actions := buildHomeActions(tasks, pending, nil)
+	actions := buildHomeActions(tasks, pending, nil, nil)
 	require.Len(t, actions, 4)
 	assert.Equal(t, "dispute", actions[0].Kind)
 	assert.Equal(t, "confirm", actions[1].Kind)
@@ -1333,19 +1333,34 @@ func TestBuildHomeActions_OrderingPriority(t *testing.T) {
 	assert.Equal(t, "play", actions[3].Kind)
 }
 
+func TestBuildHomeActions_DocsRankedAboveOrganize(t *testing.T) {
+	tasks := []league.PlayerTask{
+		{Kind: league.TaskOrganize, MatchID: "m1", Opponent: "R1", CompetitionName: "L", Warning: league.WarnUrgent, Description: "Organiza"},
+	}
+	docs := []DocsAction{{CompID: "c1", CompName: "Liga Docs"}}
+	actions := buildHomeActions(tasks, nil, nil, docs)
+	require.Len(t, actions, 2)
+	assert.Equal(t, "docs", actions[0].Kind, "docs must rank above organize")
+	assert.Equal(t, "organize", actions[1].Kind)
+	assert.Equal(t, "Lee los documentos", actions[0].Title)
+	assert.Equal(t, "Liga Docs", actions[0].Detail)
+	assert.Equal(t, "/competition/c1", actions[0].URL)
+	assert.Equal(t, "warning", actions[0].Accent)
+}
+
 func TestBuildHomeActions_NextMatchSynthesized(t *testing.T) {
 	next := &NextMatch{
 		MatchID: "m1", Opponent: "Rival", CompetitionName: "Liga",
 		RoundNumber: 2, ScheduleStatus: "unscheduled",
 	}
-	actions := buildHomeActions(nil, nil, next)
+	actions := buildHomeActions(nil, nil, next, nil)
 	require.Len(t, actions, 1)
 	assert.Equal(t, "organize", actions[0].Kind, "unscheduled NextMatch synthesizes organize")
 	assert.Contains(t, actions[0].Title, "Propón")
 
 	next.ScheduleStatus = "confirmed"
 	next.ProposedDate = "2026-03-15 18:00"
-	actions = buildHomeActions(nil, nil, next)
+	actions = buildHomeActions(nil, nil, next, nil)
 	require.Len(t, actions, 1)
 	assert.Equal(t, "play", actions[0].Kind, "scheduled NextMatch becomes play")
 	assert.Contains(t, actions[0].Detail, "15/03/2026 18:00")
@@ -1356,7 +1371,7 @@ func TestBuildHomeActions_NextMatchDedupWithTask(t *testing.T) {
 		{Kind: league.TaskDispute, MatchID: "m1", Opponent: "R", CompetitionName: "L", RoundNumber: 1},
 	}
 	next := &NextMatch{MatchID: "m1", Opponent: "R", CompetitionName: "L", ScheduleStatus: "confirmed"}
-	actions := buildHomeActions(tasks, nil, next)
+	actions := buildHomeActions(tasks, nil, next, nil)
 	require.Len(t, actions, 1, "NextMatch deduped with existing task")
 	assert.Equal(t, "dispute", actions[0].Kind, "dispute wins over play from NextMatch")
 }

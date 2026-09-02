@@ -22,7 +22,7 @@ func StatusLabel(status string) string {
 	case StatusPending:
 		return "Pendiente"
 	case StatusScheduled:
-		return "Confirmada"
+		return "Confirmado"
 	case StatusConfirmed:
 		return "Propuesta"
 	case StatusDisputed:

@@ -344,6 +344,33 @@ func TestHealthReport_ClassifiesEachCategory(t *testing.T) {
 	assert.Equal(t, "HRB", byKey["unpaid"].Items[0].Pair1)
 }
 
+// TestHealthReport_PlayoffExcludedFromUnpaid pins the product decision:
+// playoffs have no per-pair fees in this app, so an unpaid playoff pair must
+// never surface as a health item — only league competitions collect payment.
+func TestHealthReport_PlayoffExcludedFromUnpaid(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "HRPOA")
+	p2 := makePair(t, app, "HRPOB")
+
+	col, err := app.FindCollectionByNameOrId("competitions")
+	require.NoError(t, err)
+	playoff := core.NewRecord(col)
+	playoff.Set("name", "Playoff Unpaid Test")
+	playoff.Set("type", "playoff")
+	playoff.Set("active", true)
+	playoff.Set("pairs", []string{p1.Id, p2.Id})
+	playoff.Set("payment_status", map[string]any{p1.Id: false, p2.Id: false})
+	require.NoError(t, app.Save(playoff))
+
+	report := HealthReport(app, time.Now())
+	byKey := make(map[string]HealthCategory, len(report))
+	for _, cat := range report {
+		byKey[cat.Key] = cat
+	}
+	assert.Empty(t, byKey["unpaid"].Items, "playoff pairs must never appear as unpaid")
+}
+
 // TestHealthReport_DisputedWalkoverGoesToWalkovers pins the R-13 bug fix:
 // ReportUnplayed sets status=disputed + review_type=walkover (handlers/match.go),
 // so a walkover must be classified from the disputed-matches query too, not

@@ -256,6 +256,9 @@ func healthItem(app core.App, m *core.Record, compName string, round int) Health
 
 func addUnpaidHealth(app core.App, activeComps []*core.Record, unpaid *HealthCategory) {
 	for _, comp := range activeComps {
+		if comp.GetString("type") == "playoff" {
+			continue // playoffs have no per-pair fees in this app
+		}
 		ps := make(map[string]bool)
 		_ = comp.UnmarshalJSONField("payment_status", &ps)
 		pairIDs := comp.GetStringSlice("pairs")
