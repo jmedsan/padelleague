@@ -18,6 +18,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// DTSTART/DTEND carry a TZID parameter, so parseVEvents keys them by their
+// full property name including the parameter.
+const (
+	dtStartKey = "DTSTART;TZID=Europe/Madrid"
+	dtEndKey   = "DTEND;TZID=Europe/Madrid"
+)
+
 // parseVEvents splits an iCal body into VEVENT blocks and parses each into
 // a map of property → value. Handles only single-value properties (no folding).
 func parseVEvents(body string) []map[string]string {
@@ -70,8 +77,8 @@ func TestICalMatch_Duration2Hours(t *testing.T) {
 		ev := events[0]
 
 		// 18:30 → DTSTART=20260915T183000, DTEND=20260915T203000
-		assert.Equal(tb, "20260915T183000", ev["DTSTART"])
-		assert.Equal(tb, "20260915T203000", ev["DTEND"])
+		assert.Equal(tb, "20260915T183000", ev[dtStartKey])
+		assert.Equal(tb, "20260915T203000", ev[dtEndKey])
 	}
 	s.Test(t)
 }
@@ -103,31 +110,36 @@ func TestICalMatch_DefaultTime1900(t *testing.T) {
 		body := readBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events))
-		assert.Equal(tb, "20260915T190000", events[0]["DTSTART"])
-		assert.Equal(tb, "20260915T210000", events[0]["DTEND"])
+		assert.Equal(tb, "20260915T190000", events[0][dtStartKey])
+		assert.Equal(tb, "20260915T210000", events[0][dtEndKey])
 	}
 	s.Test(t)
 }
 
-// LOCATION carries the venue
+// LOCATION carries the venue name and address
 
 func TestICalMatch_LocationFromClub(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		Name:            "GET /ical/match/{id} includes LOCATION from club field",
+		Name:            "GET /ical/match/{id} includes LOCATION with venue address",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"VCALENDAR"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
+		// Distinct from the migration-seeded "Padel 360" venue (no address),
+		// so the LOCATION lookup unambiguously matches this record.
+		venue := makeVenueTB(tb, app, "Padel Test Club")
+		venue.Set("address", "Calle Falsa 123, Madrid")
+		require.NoError(tb, app.Save(venue))
 		p1 := makePairTB(tb, app, "LocA")
 		p2 := makePairTB(tb, app, "LocB")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("date", "2026-09-15")
 		match.Set("time", "20:00")
-		match.Set("club", "Padel 360")
+		match.Set("club", "Padel Test Club")
 		require.NoError(tb, app.Save(match))
 		s.URL = "/ical/match/" + match.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
@@ -137,7 +149,40 @@ func TestICalMatch_LocationFromClub(t *testing.T) {
 		body := readBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events))
-		assert.Equal(tb, "Padel 360", events[0]["LOCATION"])
+		assert.Equal(tb, `Padel Test Club\, Calle Falsa 123\, Madrid`, events[0]["LOCATION"])
+	}
+	s.Test(t)
+}
+
+// LOCATION falls back to the club name alone when no matching venue exists
+
+func TestICalMatch_LocationFallsBackWithoutVenue(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		Name:            "GET /ical/match/{id} falls back to club name when no venue record matches",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"VCALENDAR"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "LocFbA")
+		p2 := makePairTB(tb, app, "LocFbB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match.Set("date", "2026-09-15")
+		match.Set("time", "20:00")
+		match.Set("club", "Unlisted Court")
+		require.NoError(tb, app.Save(match))
+		s.URL = "/ical/match/" + match.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		events := parseVEvents(body)
+		require.Equal(tb, 1, len(events))
+		assert.Equal(tb, "Unlisted Court", events[0]["LOCATION"])
 	}
 	s.Test(t)
 }
@@ -347,8 +392,74 @@ func TestICalMatch_TruncatesLongDate(t *testing.T) {
 		body := readBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events))
-		assert.Equal(tb, "20260915T180000", events[0]["DTSTART"],
+		assert.Equal(tb, "20260915T180000", events[0][dtStartKey],
 			"should parse date correctly even with datetime suffix")
+	}
+	s.Test(t)
+}
+
+// DTSTAMP is required by RFC 5545 in every VEVENT
+
+func TestICalMatch_DTStampPresent(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		Name:            "GET /ical/match/{id} includes a DTSTAMP",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"VCALENDAR"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "StampA")
+		p2 := makePairTB(tb, app, "StampB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match.Set("date", "2026-09-15")
+		match.Set("time", "20:00")
+		require.NoError(tb, app.Save(match))
+		s.URL = "/ical/match/" + match.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		events := parseVEvents(body)
+		require.Equal(tb, 1, len(events))
+		dtStamp := events[0]["DTSTAMP"]
+		assert.NotEmpty(tb, dtStamp)
+		assert.True(tb, strings.HasSuffix(dtStamp, "Z"), "DTSTAMP must be UTC (Z suffix), got %q", dtStamp)
+	}
+	s.Test(t)
+}
+
+// SUMMARY escapes RFC 5545 special characters (comma in a pair name)
+
+func TestICalMatch_SummaryEscapesComma(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		Name:            "GET /ical/match/{id} escapes commas in SUMMARY",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"VCALENDAR"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Pérez, Gómez")
+		p2 := makePairTB(tb, app, "EscB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match.Set("date", "2026-09-15")
+		match.Set("time", "20:00")
+		require.NoError(tb, app.Save(match))
+		s.URL = "/ical/match/" + match.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		events := parseVEvents(body)
+		require.Equal(tb, 1, len(events))
+		assert.Equal(tb, `Pérez\, Gómez vs EscB`, events[0]["SUMMARY"])
 	}
 	s.Test(t)
 }

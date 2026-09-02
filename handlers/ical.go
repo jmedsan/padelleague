@@ -21,6 +21,16 @@ func NewICalHandler(app core.App) *ICalHandler {
 	return &ICalHandler{app: app}
 }
 
+// madrid is the league's fixed timezone for event times. Northflank's system
+// clock runs UTC, so time.Local cannot be used to mean "Spain time."
+var madrid = func() *time.Location {
+	loc, err := time.LoadLocation("Europe/Madrid")
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}()
+
 func formatICalDate(dateStr, timeStr string) (string, string) {
 	if len(dateStr) > 10 {
 		dateStr = dateStr[:10]
@@ -35,15 +45,24 @@ func formatICalDate(dateStr, timeStr string) (string, string) {
 		_, _ = fmt.Sscanf(timeStr, "%d:%d", &hour, &min)
 	}
 
-	start := time.Date(t.Year(), t.Month(), t.Day(), hour, min, 0, 0, time.Local)
+	start := time.Date(t.Year(), t.Month(), t.Day(), hour, min, 0, 0, madrid)
 	end := start.Add(2 * time.Hour)
 
 	const icalFmt = "20060102T150405"
 	return start.Format(icalFmt), end.Format(icalFmt)
 }
 
+// icsEscape escapes text-value special characters per RFC 5545 §3.3.11.
+func icsEscape(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, ";", `\;`)
+	s = strings.ReplaceAll(s, ",", `\,`)
+	return s
+}
+
 type vEvent struct {
 	UID         string
+	DTStamp     string
 	DTStart     string
 	DTEnd       string
 	Summary     string
@@ -55,21 +74,27 @@ func buildVEvent(ev vEvent) string {
 	var b strings.Builder
 	b.WriteString("BEGIN:VEVENT\r\n")
 	b.WriteString("UID:" + ev.UID + "\r\n")
-	b.WriteString("DTSTART:" + ev.DTStart + "\r\n")
-	b.WriteString("DTEND:" + ev.DTEnd + "\r\n")
-	b.WriteString("SUMMARY:" + ev.Summary + "\r\n")
+	b.WriteString("DTSTAMP:" + ev.DTStamp + "\r\n")
+	b.WriteString("DTSTART;TZID=Europe/Madrid:" + ev.DTStart + "\r\n")
+	b.WriteString("DTEND;TZID=Europe/Madrid:" + ev.DTEnd + "\r\n")
+	b.WriteString("SUMMARY:" + icsEscape(ev.Summary) + "\r\n")
 	if ev.Location != "" {
-		b.WriteString("LOCATION:" + ev.Location + "\r\n")
+		b.WriteString("LOCATION:" + icsEscape(ev.Location) + "\r\n")
 	}
 	if ev.Description != "" {
-		b.WriteString("DESCRIPTION:" + ev.Description + "\r\n")
+		b.WriteString("DESCRIPTION:" + icsEscape(ev.Description) + "\r\n")
 	}
 	b.WriteString("END:VEVENT\r\n")
 	return b.String()
 }
 
 func wrapVCalendar(events string) string {
-	return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//PadelLeague//ES\r\n" + events + "END:VCALENDAR\r\n"
+	return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//PadelLeague//ES\r\n" +
+		"BEGIN:VTIMEZONE\r\nTZID:Europe/Madrid\r\n" +
+		"BEGIN:STANDARD\r\nDTSTART:19701025T030000\r\nRRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10\r\nTZOFFSETFROM:+0200\r\nTZOFFSETTO:+0100\r\nTZNAME:CET\r\nEND:STANDARD\r\n" +
+		"BEGIN:DAYLIGHT\r\nDTSTART:19700329T020000\r\nRRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=3\r\nTZOFFSETFROM:+0100\r\nTZOFFSETTO:+0200\r\nTZNAME:CEST\r\nEND:DAYLIGHT\r\n" +
+		"END:VTIMEZONE\r\n" +
+		events + "END:VCALENDAR\r\n"
 }
 
 // Match serves an iCalendar file for a single match event.
@@ -96,7 +121,7 @@ func (h *ICalHandler) Match(e *core.RequestEvent) error {
 	}
 
 	summary := pairNames[match.GetString("pair1")] + " vs " + pairNames[match.GetString("pair2")]
-	location := match.GetString("club")
+	location := h.venueLocation(match.GetString("club"))
 
 	description := fmt.Sprintf("Jornada %d", int(match.GetFloat("round_number")))
 	if cid := match.GetString("competition"); cid != "" {
@@ -108,6 +133,7 @@ func (h *ICalHandler) Match(e *core.RequestEvent) error {
 
 	event := buildVEvent(vEvent{
 		UID:         match.Id + "@padelleague",
+		DTStamp:     time.Now().UTC().Format("20060102T150405Z"),
 		DTStart:     dtStart,
 		DTEnd:       dtEnd,
 		Summary:     summary,
@@ -149,12 +175,13 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 		}
 
 		summary := pairNames[m.GetString("pair1")] + " vs " + pairNames[m.GetString("pair2")]
-		location := m.GetString("club")
+		location := h.venueLocation(m.GetString("club"))
 
 		description := fmt.Sprintf("Jornada %d", int(m.GetFloat("round_number")))
 
 		events.WriteString(buildVEvent(vEvent{
 			UID:         m.Id + "@padelleague",
+			DTStamp:     time.Now().UTC().Format("20060102T150405Z"),
 			DTStart:     dtStart,
 			DTEnd:       dtEnd,
 			Summary:     summary,
@@ -171,6 +198,24 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 	return e.String(http.StatusOK, ics)
 }
 
+// venueLocation appends the venue's address to its name, when a venue
+// matching club is on record with a non-empty address.
+func (h *ICalHandler) venueLocation(club string) string {
+	if club == "" {
+		return ""
+	}
+	venues, _ := h.app.FindRecordsByFilter("venues",
+		"name = {:n}", "", 1, 0, map[string]any{"n": club})
+	if len(venues) == 0 {
+		return club
+	}
+	addr := venues[0].GetString("address")
+	if addr == "" {
+		return club
+	}
+	return club + ", " + addr
+}
+
 func (h *ICalHandler) filterDatedMatches(allMatches []*core.Record, compPairIDs map[string]struct{}) ([]*core.Record, map[string]string) {
 	seen := make(map[string]struct{})
 	pairIDSet := make(map[string]struct{})
@@ -183,6 +228,9 @@ func (h *ICalHandler) filterDatedMatches(allMatches []*core.Record, compPairIDs 
 		if !hasP1 && !hasP2 {
 			continue
 		}
+		// Defensive: allMatches comes from a single FindRecordsByFilter call,
+		// which returns distinct records, so dup cannot occur today. The
+		// guard protects against a future caller passing duplicates.
 		if _, dup := seen[m.Id]; dup || m.GetString("date") == "" {
 			continue
 		}
