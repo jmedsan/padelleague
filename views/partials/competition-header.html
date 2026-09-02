@@ -20,14 +20,14 @@
                 </div>
             </div>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-2">
             <form hx-post="/admin/competitions/{{.Comp.Id}}/toggle" class="flex items-center gap-2">
                 <span class="label-text text-sm">{{if .Comp.GetBool "active"}}Activa{{else}}Inactiva{{end}}</span>
                 <input type="checkbox" class="toggle toggle-success" onchange="this.form.requestSubmit()" {{if .Comp.GetBool "active"}}checked{{end}}>
             </form>
             {{if and .IsLeague (or (eq .PhaseStr "playing") (eq .PhaseStr "recovery"))}}
             <form hx-post="/admin/competitions/{{.Comp.Id}}/finalize" onsubmit="return confirm('¿Finalizar esta liga ahora? Esta acción no se puede deshacer.')">
-                <button type="submit" class="btn btn-warning btn-sm" data-testid="finalize-league">Finalizar liga ahora</button>
+                <button type="submit" class="btn btn-warning btn-xs sm:btn-sm" data-testid="finalize-league">Finalizar</button>
             </form>
             {{end}}
             <label for="edit-modal" class="btn btn-ghost btn-sm">

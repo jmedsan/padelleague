@@ -373,10 +373,10 @@
 
         {{if .UnattachedDocs}}
         <div class="divider text-xs uppercase tracking-wider">Adjuntar documento</div>
-        <form hx-post="/admin/competitions/{{.Competition.Id}}/attach-doc" class="flex items-end gap-3">
-            <div class="form-control flex-1">
+        <form hx-post="/admin/competitions/{{.Competition.Id}}/attach-doc" class="flex items-end gap-2">
+            <div class="form-control flex-1 min-w-0">
                 <select name="document" class="select select-bordered select-sm w-full" required>
-                    <option value="">Seleccionar documento…</option>
+                    <option value="">Documento…</option>
                     {{range .UnattachedDocs}}
                     <option value="{{.Id}}">{{.GetString "title"}}</option>
                     {{end}}
