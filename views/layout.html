@@ -6,7 +6,7 @@
     <title>{{if .PageTitle}}{{.PageTitle}} — {{end}}Dale Fuerte a la Bola</title>
     <link rel="stylesheet" href="/static/css/styles.css">
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#115E59">
+    <meta name="theme-color" content="#0B0B0B">
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/score-input.js"></script>
     <script>
@@ -28,7 +28,7 @@
     <div class="drawer">
         <input id="main-drawer" type="checkbox" class="drawer-toggle" tabindex="-1">
         <div class="drawer-content flex flex-col overflow-x-hidden">
-            <div class="navbar bg-primary text-primary-content shadow-lg sticky top-0 z-30">
+            <div class="navbar bg-neutral text-neutral-content shadow-lg sticky top-0 z-30">
                 {{if .DisplayName}}<div class="flex-none lg:hidden">
                     <label for="main-drawer" aria-label="abrir menú" class="btn btn-square btn-ghost">
                         <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" class="inline-block h-5 w-5 stroke-current">
@@ -37,9 +37,8 @@
                     </label>
                 </div>{{end}}
                 <div class="flex-1">
-                    <a href="/" class="btn btn-ghost normal-case text-primary-content hover:bg-white/10 gap-2 px-2">
-                        <img src="/static/img/logo.jpg" alt="Logo" class="w-8 h-8 rounded-full">
-                        <span class="text-lg font-bold hidden sm:inline">Dale Fuerte a la Bola</span>
+                    <a href="/" class="btn btn-ghost normal-case hover:bg-white/10 px-2">
+                        <span class="font-black italic uppercase tracking-tight text-neutral-content">Dale <span class="text-primary">Fuerte</span> a la Bola</span>
                     </a>
                 </div>
                 {{if .HasBothRoles}}
@@ -75,7 +74,7 @@
                 </div>
                 </div>
                 {{end}}
-                <div class="hidden lg:flex items-center gap-1 text-primary-content">
+                <div class="hidden lg:flex items-center gap-1 text-neutral-content">
                     <ul class="menu menu-horizontal px-1 gap-1">
                         <li><a href="/" class="rounded-lg hover:bg-white/10">Inicio</a></li>
                         {{if .AdminView}}
@@ -107,7 +106,7 @@
                     {{if .DisplayName}}
                     <div class="dropdown dropdown-end">
                         <div class="form-control">
-                            <input id="global-search" type="text" placeholder="Buscar…" class="input input-sm w-40 lg:w-56 bg-white/15 border-white/20 placeholder-white/50 text-primary-content focus:bg-white/25"
+                            <input id="global-search" type="text" placeholder="Buscar…" class="input input-sm w-40 lg:w-56 bg-white/15 border-white/20 placeholder-white/50 text-neutral-content focus:bg-white/25"
                                    hx-get="/search" hx-trigger="keyup changed delay:200ms, focus" hx-target="#search-results-dropdown" name="q" autocomplete="off">
                         </div>
                         <div id="search-results-dropdown" tabindex="0" class="dropdown-content z-40 mt-1 w-80 max-h-96 overflow-y-auto bg-base-100 text-base-content rounded-box shadow-xl"></div>
@@ -152,16 +151,15 @@
             <main class="flex-1 container mx-auto px-4 py-6 max-w-5xl">
                 {{block "content" .}}{{end}}
             </main>
-            <footer class="footer footer-center p-6 bg-secondary text-secondary-content">
+            <footer class="footer footer-center p-6 bg-neutral text-neutral-content">
                 <p class="text-sm opacity-70">Dale Fuerte a la Bola &copy; 2026</p>
             </footer>
         </div>
         <div class="drawer-side z-40">
             <label for="main-drawer" aria-label="cerrar menú" class="drawer-overlay"></label>
             <div class="bg-base-100 min-h-full w-72 p-0">
-                <div class="p-4 bg-primary text-primary-content flex items-center gap-3">
-                    <img src="/static/img/logo.jpg" alt="Logo" class="w-10 h-10 rounded-full ring-2 ring-white/20">
-                    <span class="text-lg font-bold">Dale Fuerte</span>
+                <div class="p-4 bg-neutral text-neutral-content">
+                    <span class="font-black italic uppercase tracking-tight">Dale <span class="text-primary">Fuerte</span> a la Bola</span>
                 </div>
                 {{if .DisplayName}}
                 <div class="p-4 pb-0 relative z-20">
