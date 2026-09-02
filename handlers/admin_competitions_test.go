@@ -240,6 +240,41 @@ func TestDetailPageShowsDisputes(t *testing.T) {
 	s.Test(t)
 }
 
+func TestDetailPageDisputesUseCompactRowsLinkingToMatch(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "detail page dispute rows link to the match page instead of duplicating the resolve form",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Disputas"},
+		NotExpectedContent: []string{
+			"resolve\" hx-target=\"closest .card\"",
+			"Resolver",
+		},
+	}
+	var matchID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "CR A")
+		p2 := makePairTB(tb, app, "CR B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		m.Set("scores", "6-3 6-4")
+		m.Set("submitted_by", p1.GetString("player1"))
+		require.NoError(tb, app.Save(m))
+		matchID = m.Id
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, `href="/match/`+matchID+`"`, "dispute row must link to the match page")
+	}
+	s.Test(t)
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Group 6+7: Create and Update competition
 // ═══════════════════════════════════════════════════════════════════════

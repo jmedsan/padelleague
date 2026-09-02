@@ -89,9 +89,9 @@
             Disputas
             <span class="badge badge-error badge-sm">{{len .Disputes}}</span>
         </h2>
-        <div class="space-y-3 mt-2">
+        <div class="space-y-2 mt-2">
             {{range .Disputes}}
-            {{template "matchCard" .}}
+            {{template "matchRow" .}}
             {{end}}
         </div>
     </div>

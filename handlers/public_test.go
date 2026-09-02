@@ -725,19 +725,17 @@ func TestHome_AdminAlerts(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "admin sees alerts: dispute ranked first, then overdue",
+		Name:           "admin sees an urgent (dispute) alert as a compact row; overdue is not urgent so it's absent",
 		Method:         http.MethodGet,
 		URL:            "/",
 		ExpectedStatus: 200,
 		ExpectedContent: []string{
-			"Alertas",
+			"admin-urgent-items",
 			"AlertDispP1",
 			"Test Competition",
-			"En disputa",
-			"Ver partido completo",
-			"Vencido",
-			"AlertOvdP1",
+			"Disputas abiertas",
 		},
+		NotExpectedContent: []string{"AlertOvdP1"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -768,12 +766,6 @@ func TestHome_AdminAlerts(t *testing.T) {
 		admin := makeAdminUserTB(tb, app)
 		s.Headers = authHeaders(tb, admin)
 	}
-	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
-		dispIdx := indexOf(body, "AlertDispP1")
-		ovdIdx := indexOf(body, "Vencido")
-		assert.Greater(tb, ovdIdx, dispIdx, "dispute must appear before overdue")
-	}
 	s.Test(t)
 }
 
@@ -781,16 +773,14 @@ func TestHome_AdminWalkoverAlert(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "admin sees walkover context in summary card",
+		Name:           "admin sees walkover as an urgent compact row on home",
 		Method:         http.MethodGet,
 		URL:            "/",
 		ExpectedStatus: 200,
 		ExpectedContent: []string{
 			"Walkover League",
 			"Walkover A",
-			"Solicitud de incomparecencia por Walkover A P1",
-			"Motivo del walkover",
-			"Ver partido completo",
+			"Incomparecencias pendientes",
 		},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -801,10 +791,9 @@ func TestHome_AdminWalkoverAlert(t *testing.T) {
 		comp.Set("name", "Walkover League")
 		require.NoError(tb, app.Save(comp))
 
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("review_type", "walkover")
 		match.Set("walkover_requested_by", p1.GetString("player1"))
-		match.Set("dispute_notes", "Motivo del walkover")
 		require.NoError(tb, app.Save(match))
 
 		admin := makeAdminUserTB(tb, app)
