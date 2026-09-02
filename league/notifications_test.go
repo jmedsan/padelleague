@@ -74,10 +74,10 @@ func TestNotificationConstructors(t *testing.T) {
 		{
 			name: "SchedulingReminder",
 			got: NotifSchedulingReminder(SchedulingReminderParams{
-				MatchID: "m1", Opponent: "Pareja A", CompName: "Liga Primavera", LevelLabel: "Urgente",
+				MatchID: "m1", Opponent: "Pareja A", CompName: "Liga Primavera", Level: WarnUrgent,
 				Deadline: time.Date(2026, 3, 15, 0, 0, 0, 0, madrid),
 			}),
-			want: Notification{Type: "scheduling", Title: "Recordatorio: organiza tu partido", Body: "Tu partido vs Pareja A · Liga Primavera vence el 15/03. Urgente", MatchID: "m1"},
+			want: Notification{Type: "scheduling", Title: "Recordatorio: organiza tu partido", Body: "Tu partido vs Pareja A · Liga Primavera vence el 15/03. Quedan pocos días.", MatchID: "m1"},
 		},
 		{
 			name: "WalkoverApproved",

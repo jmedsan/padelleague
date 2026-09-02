@@ -104,15 +104,23 @@ func NotifDecisionChangedToAccepted(matchID, responderName, date, timeStr string
 
 // SchedulingReminderParams holds the dynamic parts for a scheduling reminder notification.
 type SchedulingReminderParams struct {
-	MatchID, Opponent, CompName, LevelLabel string
-	Deadline                                time.Time
+	MatchID, Opponent, CompName string
+	Deadline                    time.Time
+	Level                       Warning
 }
 
 // NotifSchedulingReminder reminds players to arrange their match.
 func NotifSchedulingReminder(p SchedulingReminderParams) Notification {
+	urgency := ""
+	switch p.Level {
+	case WarnOverdue:
+		urgency = " El plazo ha vencido."
+	case WarnUrgent:
+		urgency = " Quedan pocos días."
+	}
 	return Notification{
 		Type: "scheduling", Title: "Recordatorio: organiza tu partido",
-		Body:    fmt.Sprintf("Tu partido vs %s · %s vence el %s. %s", p.Opponent, p.CompName, fmtShortDate(p.Deadline), p.LevelLabel),
+		Body:    fmt.Sprintf("Tu partido vs %s · %s vence el %s.%s", p.Opponent, p.CompName, fmtShortDate(p.Deadline), urgency),
 		MatchID: p.MatchID,
 	}
 }
