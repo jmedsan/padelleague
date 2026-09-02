@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -12,47 +11,70 @@ import (
 	"padelleague/middleware"
 )
 
-func setupViewRoute(_ *tests.TestApp, e *core.ServeEvent) {
-	e.Router.BindFunc(middleware.CookieAuth)
-	view := NewViewHandler()
-	e.Router.GET("/view/{mode}", view.Switch).BindFunc(requireAuthTest)
+func setupViewRoute(_ testing.TB, _ *tests.TestApp, e *core.ServeEvent) {
+	h := NewViewHandler()
+	e.Router.GET("/view/{mode}", h.Switch).BindFunc(middleware.RequireAuth)
 }
 
-func TestViewSwitchSetsCookie(t *testing.T) {
+func TestViewSwitch_ValidRefererRedirectsBack(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "GET /view/player sets the view_as cookie and redirects",
+		Name:           "view switch redirects to the Referer path",
 		Method:         http.MethodGet,
 		URL:            "/view/player",
 		ExpectedStatus: 302,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupViewRoute(app, e)
-		s.Headers = authHeaders(tb, makeAdminUser(tb, app))
+		setupViewRoute(tb, app, e)
+		user := makeUserTB(tb, app, "View Switch User", "")
+		s.Headers = authHeaders(tb, user)
+		s.Headers["Referer"] = "/competition/abc123"
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		assert.Contains(tb, res.Header.Get("Set-Cookie"), "view_as=player")
+		assert.Equal(tb, "/competition/abc123", res.Header.Get("Location"))
 	}
 	s.Test(t)
 }
 
-func TestViewSwitchRejectsUnknownMode(t *testing.T) {
+func TestViewSwitch_ExternalRefererFallsBackToHome(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "GET /view/bogus falls back to admin",
+		Name:           "view switch rejects an off-site Referer (open redirect)",
 		Method:         http.MethodGet,
-		URL:            "/view/bogus",
+		URL:            "/view/player",
 		ExpectedStatus: 302,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupViewRoute(app, e)
-		s.Headers = authHeaders(tb, makeAdminUser(tb, app))
+		setupViewRoute(tb, app, e)
+		user := makeUserTB(tb, app, "View Switch User 2", "")
+		s.Headers = authHeaders(tb, user)
+		s.Headers["Referer"] = "https://evil.example.com/phish"
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		cookie := res.Header.Get("Set-Cookie")
-		assert.True(tb, strings.Contains(cookie, "view_as=admin"), "unknown mode defaults to admin, got %q", cookie)
+		assert.Equal(tb, "/", res.Header.Get("Location"))
+	}
+	s.Test(t)
+}
+
+func TestViewSwitch_ProtocolRelativeRefererFallsBackToHome(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "view switch rejects a protocol-relative Referer (open redirect)",
+		Method:         http.MethodGet,
+		URL:            "/view/player",
+		ExpectedStatus: 302,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupViewRoute(tb, app, e)
+		user := makeUserTB(tb, app, "View Switch User 3", "")
+		s.Headers = authHeaders(tb, user)
+		s.Headers["Referer"] = "//evil.example.com/phish"
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/", res.Header.Get("Location"))
 	}
 	s.Test(t)
 }
