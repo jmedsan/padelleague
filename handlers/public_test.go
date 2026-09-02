@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -984,6 +985,55 @@ func TestCompetition_AcceptDocsThenNoGate(t *testing.T) {
 	s.Test(t)
 }
 
+func TestCompetition_DocumentosTabShowsLeidoAfterAck(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "Documentos tab shows Leído badge for an acked doc, not for an unacked one",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Documentos"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "LeidoA")
+		p2 := makePairTB(tb, app, "LeidoB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		ackedDoc := makeDocumentTB(tb, app, "Reglamento Leído", true, "https://example.com/reglamento")
+		unackedDoc := makeDocumentTB(tb, app, "Normativa Sin Leer", false, "https://example.com/normativa")
+		comp.Set("documents", []string{ackedDoc.Id, unackedDoc.Id})
+		require.NoError(tb, app.Save(comp))
+
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+
+		ack, err := league.FindOrNewAck(app, comp.Id, user.Id)
+		require.NoError(tb, err)
+		ack.Set("documents", []string{ackedDoc.Id})
+		require.NoError(tb, app.Save(ack))
+
+		s.URL = "/competition/" + comp.Id
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		ackedIdx := strings.Index(body, "Reglamento Leído")
+		unackedIdx := strings.Index(body, "Normativa Sin Leer")
+		require.NotEqual(tb, -1, ackedIdx, "acked doc card present")
+		require.NotEqual(tb, -1, unackedIdx, "unacked doc card present")
+
+		leidoIdx := strings.Index(body, "Leído")
+		require.NotEqual(tb, -1, leidoIdx, "Leído badge rendered")
+		assert.Greater(tb, leidoIdx, ackedIdx, "Leído badge appears after the acked doc's title")
+		nextCardIdx := unackedIdx
+		if ackedIdx > unackedIdx {
+			nextCardIdx = len(body)
+		}
+		assert.Less(tb, leidoIdx, nextCardIdx, "Leído badge belongs to the acked card, not the unacked one")
+	}
+	s.Test(t)
+}
+
 func TestCompetition_ReGateAfterNewMandatory(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
@@ -1187,7 +1237,7 @@ func TestHome_OnboardChecklist_ShownWhenMandatoryDocPending(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		assert.Contains(tb, body, "onboard-checklist", "checklist card present")
-		assert.Contains(tb, body, "Lee el reglamento", "reglamento step shown")
+		assert.Contains(tb, body, "Lee los documentos", "reglamento step shown")
 		assert.Contains(tb, body, "Completa tu perfil", "profile step shown")
 		assert.Contains(tb, body, "#documentos", "reglamento deep-links to documentos tab")
 		assert.NotContains(tb, body, "Cómo funciona", "dropped non-trackable step")

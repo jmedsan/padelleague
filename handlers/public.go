@@ -161,7 +161,7 @@ func (h *PublicHandler) onboardingSteps(user *core.Record, activeComps []*core.R
 
 	return []OnboardStep{
 		{Label: "Completa tu perfil", URL: "/profile/complete", Done: profileDone},
-		{Label: "Lee el reglamento", URL: reglamentoURL, Done: reglamentoDone},
+		{Label: "Lee los documentos", URL: reglamentoURL, Done: reglamentoDone},
 	}
 }
 
@@ -612,20 +612,26 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	data["PlayerPairIDs"] = playerPairIDs
 	data["ShowAll"] = showAll
 	data["Mode"] = PlayerSummary
-	h.addCompetitionDocViews(data, comp)
+	h.addCompetitionDocViews(data, comp, userID)
 	return h.renderPage(e, "competition.html", data)
 }
 
 // addCompetitionDocViews sets DocumentView entries on data when the
-// competition has attached documents.
-func (h *PublicHandler) addCompetitionDocViews(data map[string]any, comp *core.Record) {
+// competition has attached documents, marking which ones userID has
+// acknowledged.
+func (h *PublicHandler) addCompetitionDocViews(data map[string]any, comp *core.Record, userID string) {
 	docs := league.AttachedDocuments(h.app, comp)
 	if len(docs) == 0 {
 		return
 	}
+	ackedSlice := league.AckedDocIDs(h.app, comp.Id, userID)
+	ackedSet := make(map[string]struct{}, len(ackedSlice))
+	for _, id := range ackedSlice {
+		ackedSet[id] = struct{}{}
+	}
 	docViews := make([]DocumentView, len(docs))
 	for i, d := range docs {
-		docViews[i] = NewDocumentView(d, PlayerSummary)
+		docViews[i] = NewDocumentViewWithAck(d, PlayerSummary, ackedSet)
 	}
 	data["DocumentViews"] = docViews
 }
