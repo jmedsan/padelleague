@@ -134,28 +134,15 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 
 // onboardingSteps returns the player onboarding checklist, or nil when every
 // actionable step is done (so the template hides the card).
-func (h *PublicHandler) onboardingSteps(user *core.Record, activeComps []*core.Record) []OnboardStep {
+func (h *PublicHandler) onboardingSteps(user *core.Record, _ []*core.Record) []OnboardStep {
 	profileDone := user.GetString("display_name") != ""
 
-	reglamentoDone := true
-	reglamentoURL := "/"
-	reglamentoLabel := "Lee los documentos"
-	for _, c := range activeComps {
-		if pending := league.UnacknowledgedMandatory(h.app, c, user.Id); len(pending) > 0 {
-			reglamentoDone = false
-			reglamentoURL = fmt.Sprintf("/competition/%s#documentos", c.Id)
-			reglamentoLabel = fmt.Sprintf("Lee los documentos de %s", c.GetString("name"))
-			break
-		}
-	}
-
-	if profileDone && reglamentoDone {
+	if profileDone {
 		return nil
 	}
 
 	return []OnboardStep{
 		{Label: "Completa tu perfil", URL: "/profile/complete", Done: profileDone},
-		{Label: reglamentoLabel, URL: reglamentoURL, Done: reglamentoDone},
 	}
 }
 
