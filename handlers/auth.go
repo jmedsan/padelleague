@@ -134,9 +134,11 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 		return alertError(e, "El género es obligatorio")
 	}
 
+	note := strings.TrimSpace(e.Request.FormValue("note"))
+
 	_, authToken, err := h.registerUser(registerParams{
 		inviteID: invite.Id, email: email, displayName: displayName,
-		password: password, gender: gender,
+		password: password, gender: gender, note: note,
 	})
 
 	if err != nil {
@@ -152,7 +154,7 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 }
 
 type registerParams struct {
-	inviteID, email, displayName, password, gender string
+	inviteID, email, displayName, password, gender, note string
 }
 
 func (h *AuthHandler) registerUser(p registerParams) (*core.Record, string, error) {
@@ -178,7 +180,7 @@ func (h *AuthHandler) registerUser(p registerParams) (*core.Record, string, erro
 			return err
 		}
 
-		if err := consumeInvite(txApp, p.inviteID, userRecord.Id); err != nil {
+		if err := consumeInvite(txApp, p.inviteID, userRecord.Id, p.note); err != nil {
 			return err
 		}
 
@@ -188,7 +190,7 @@ func (h *AuthHandler) registerUser(p registerParams) (*core.Record, string, erro
 	return userRecord, authToken, err
 }
 
-func consumeInvite(txApp core.App, inviteID, userID string) error {
+func consumeInvite(txApp core.App, inviteID, userID, note string) error {
 	freshInvite, err := txApp.FindRecordById("invitations", inviteID)
 	if err != nil {
 		return fmt.Errorf("invitation not found")
@@ -206,6 +208,9 @@ func consumeInvite(txApp core.App, inviteID, userID string) error {
 	freshInvite.Set("used_at", time.Now().UTC().Format("2006-01-02 15:04:05.000Z"))
 	if currentCount+1 >= maxUses {
 		freshInvite.Set("status", "used")
+	}
+	if note != "" {
+		freshInvite.Set("registration_note", note)
 	}
 	return txApp.Save(freshInvite)
 }
