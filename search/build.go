@@ -81,9 +81,16 @@ func buildMatches(app core.App) []Entry {
 	}
 
 	allPairIDs := make(map[string]struct{})
+	compNames := make(map[string]string)
 	for _, m := range matches {
 		allPairIDs[m.GetString("pair1")] = struct{}{}
 		allPairIDs[m.GetString("pair2")] = struct{}{}
+		cid := m.GetString("competition")
+		if _, ok := compNames[cid]; !ok {
+			if c, err := app.FindRecordById("competitions", cid); err == nil {
+				compNames[cid] = c.GetString("name")
+			}
+		}
 	}
 	ids := make([]string, 0, len(allPairIDs))
 	for id := range allPairIDs {
@@ -97,9 +104,13 @@ func buildMatches(app core.App) []Entry {
 		p2 := pairNames[m.GetString("pair2")]
 		round := int(m.GetFloat("round_number"))
 		label := fmt.Sprintf("%s vs %s (J%d)", p1, p2, round)
+		secondary := compNames[m.GetString("competition")]
+		if score := m.GetString("scores"); score != "" {
+			secondary += " · " + score
+		}
 		entries = append(entries, NewEntry(Entry{
 			Label:     label,
-			Secondary: m.GetString("scores"),
+			Secondary: secondary,
 			Type:      "partido",
 			URL:       league.EntityURL("match", m.Id),
 			Keywords:  []string{"partido", fmt.Sprintf("jornada %d", round), p1, p2},

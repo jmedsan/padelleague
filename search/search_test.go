@@ -1,6 +1,7 @@
 package search
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -140,7 +141,7 @@ func TestSearchLimit(t *testing.T) {
 	t.Parallel()
 	var entries []Entry
 	for i := 0; i < 20; i++ {
-		entries = append(entries, NewEntry(Entry{Label: "Test Entry", Type: "página", URL: "/", Scope: Scope{Public: true}}))
+		entries = append(entries, NewEntry(Entry{Label: "Test Entry", Type: "página", URL: fmt.Sprintf("/%d", i), Scope: Scope{Public: true}}))
 	}
 	ix := &Index{}
 	ix.Replace(entries)
