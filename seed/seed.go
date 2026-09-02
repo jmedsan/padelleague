@@ -662,6 +662,18 @@ func (sc *sampleCtx) createResultEntries(rc resultContext) error {
 		_, err := sc.saveResultProposal(resultProposalArgs{rc.match.Id, rc.submitter, scores, "pending", submitTime})
 		return err
 
+	case rc.f.round == 6 && rc.f.idx == 1:
+		reportTime := rc.playDate.Add(20 * time.Hour)
+		rec := core.NewRecord(sc.msgCol)
+		rec.Set("match", rc.match.Id)
+		rec.Set("author", rc.submitter)
+		rec.Set("type", "admin_action")
+		rec.Set("content", "aprobó incomparecencia a favor de "+rc.match.GetString("pair1"))
+		rec.SetRaw("created", reportTime.Format(time.RFC3339))
+		if err := sc.app.Save(rec); err != nil {
+			return fmt.Errorf("save walkover timeline: %w", err)
+		}
+		return nil
 	case rc.f.round == 6:
 		return nil
 	}
