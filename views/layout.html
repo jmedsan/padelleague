@@ -29,20 +29,20 @@
         <input id="main-drawer" type="checkbox" class="drawer-toggle">
         <div class="drawer-content flex flex-col overflow-x-hidden">
             <div class="navbar bg-primary text-primary-content shadow-lg sticky top-0 z-30">
-                <div class="flex-none lg:hidden">
+                {{if .DisplayName}}<div class="flex-none lg:hidden">
                     <label for="main-drawer" aria-label="abrir menú" class="btn btn-square btn-ghost">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block h-5 w-5 stroke-current">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
                         </svg>
                     </label>
-                </div>
+                </div>{{end}}
                 <div class="flex-1">
                     <a href="/" class="btn btn-ghost text-xl font-bold normal-case text-primary-content hover:bg-white/10">PadelLeague</a>
                 </div>
                 {{if .HasBothRoles}}
                 <div class="flex-none lg:hidden">
                     <div class="dropdown dropdown-end">
-                        <button tabindex="0" class="btn btn-sm gap-1{{if eq .ViewAs "admin"}} btn-error{{else}} btn-ghost{{end}}" aria-label="cambiar vista">
+                        <button tabindex="0" class="btn btn-sm gap-1{{if eq .ViewAs "admin"}} bg-white/20 border-0 text-primary-content hover:bg-white/30{{else}} btn-ghost{{end}}" aria-label="cambiar vista">
                             {{if eq .ViewAs "admin"}}Admin{{else}}Jugador{{end}}
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
                         </button>
@@ -81,13 +81,10 @@
                                 <summary class="rounded-lg hover:bg-white/10">Gestión</summary>
                                 <ul class="bg-base-100 text-base-content rounded-box shadow-lg p-2 z-30 w-48">
                                     <li><a href="/admin/competitions">Competiciones</a></li>
-                                    <li><a href="/admin/pairs">Parejas</a></li>
-                                    <li><a href="/admin/players">Jugadores</a></li>
-                                    <li><a href="/admin/disputes">Disputas</a></li>
                                     <li><a href="/admin/health">Salud</a></li>
+                                    <li><a href="/admin/players">Jugadores</a></li>
                                     <li><a href="/admin/venues">Pistas</a></li>
-                                    <li><a href="/admin/documents">Documentos</a></li>
-                                    <li><a href="/admin/settings">Configuración</a></li>
+                                    {{if .AppDevTools}}<li><a href="/admin/settings">Configuración</a></li>{{end}}
                                 </ul>
                             </details>
                         </li>
@@ -173,13 +170,10 @@
                     {{if .AdminView}}
                     <li class="menu-title mt-4 text-xs uppercase tracking-wider opacity-60">Gestión</li>
                     <li><a href="/admin/competitions" class="rounded-lg">Competiciones</a></li>
-                    <li><a href="/admin/pairs" class="rounded-lg">Parejas</a></li>
-                    <li><a href="/admin/players" class="rounded-lg">Jugadores</a></li>
-                    <li><a href="/admin/disputes" class="rounded-lg">Disputas</a></li>
                     <li><a href="/admin/health" class="rounded-lg">Salud</a></li>
+                    <li><a href="/admin/players" class="rounded-lg">Jugadores</a></li>
                     <li><a href="/admin/venues" class="rounded-lg">Pistas</a></li>
-                    <li><a href="/admin/documents" class="rounded-lg">Documentos</a></li>
-                    <li><a href="/admin/settings" class="rounded-lg">Configuración</a></li>
+                    {{if .AppDevTools}}<li><a href="/admin/settings" class="rounded-lg">Configuración</a></li>{{end}}
                     {{end}}
                     <li class="mt-4">
                         <button onclick="toggleTheme()" class="rounded-lg">Cambiar tema</button>

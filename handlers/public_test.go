@@ -732,7 +732,7 @@ func TestHome_AdminAlerts(t *testing.T) {
 			"admin-urgent-items",
 			"AlertDispP1",
 			"Test Competition",
-			"Disputas",
+			"Disputa",
 		},
 		NotExpectedContent: []string{"AlertOvdP1"},
 	}
