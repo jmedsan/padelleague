@@ -27,7 +27,7 @@
             </form>
             {{if and .IsLeague (or (eq .PhaseStr "playing") (eq .PhaseStr "recovery"))}}
             <form hx-post="/admin/competitions/{{.Comp.Id}}/finalize" onsubmit="return confirm('¿Finalizar esta liga ahora? Esta acción no se puede deshacer.')">
-                <button type="submit" class="btn btn-warning btn-xs sm:btn-sm" data-testid="finalize-league">Finalizar</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-warning btn-xs sm:btn-sm" data-testid="finalize-league">Finalizar</button>
             </form>
             {{end}}
             <label for="edit-modal" class="btn btn-ghost btn-sm">

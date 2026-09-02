@@ -65,7 +65,7 @@
         <div class="divider my-2"></div>
         <form hx-post="/admin/disputes/{{.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
             {{template "scoreInput" .ScoreResolve}}
-            <button type="submit" class="btn btn-primary btn-sm mt-4">Resolver</button>
+            <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm mt-4">Resolver</button>
         </form>
     </div>
     {{end}}
@@ -84,7 +84,7 @@
                 <option value="{{.Match.GetString "pair2"}}">{{.Pair2Name}}</option>
             </select>
         </div>
-        <button type="submit" class="btn btn-warning btn-sm">Aprobar incomparecencia</button>
+        <button type="submit" hx-disabled-elt="this" class="btn btn-warning btn-sm">Aprobar incomparecencia</button>
     </div>
 </form>
 {{end}}
@@ -122,7 +122,7 @@
                     <label class="label py-1" for="override-court-{{.Match.Id}}"><span class="label-text text-xs">Pista</span></label>
                     <input type="text" id="override-court-{{.Match.Id}}" name="court_number" class="input input-bordered input-sm" placeholder="Ej: 3" value="{{.Match.GetString "court_number"}}">
                 </div>
-                <button type="submit" class="btn btn-warning btn-sm w-full">Aplicar cambios</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-warning btn-sm w-full">Aplicar cambios</button>
             </form>
         </div>
     </div>
@@ -142,7 +142,7 @@
             </div>
             <div class="modal-action">
                 <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
-                <button type="submit" class="btn btn-warning">Reportar no jugado</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-warning">Reportar no jugado</button>
             </div>
         </form>
     </div>
@@ -205,7 +205,7 @@
             {{if .CanChangeDecision}}
             <div class="mt-2">
                 <form hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/change-decision" hx-target="body">
-                    <button type="submit" class="btn btn-ghost btn-xs">Cambiar decisión</button>
+                    <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs">Cambiar decisión</button>
                 </form>
             </div>
             {{end}}
@@ -213,7 +213,7 @@
             <div class="flex gap-2 mt-3">
                 <form hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/respond" hx-target="body" class="flex-1">
                     <input type="hidden" name="action" value="accept">
-                    <button type="submit" class="btn btn-success btn-sm w-full">Aceptar</button>
+                    <button type="submit" hx-disabled-elt="this" class="btn btn-success btn-sm w-full">Aceptar</button>
                 </form>
                 <button type="button" class="btn btn-error btn-outline btn-sm flex-1" onclick="this.closest('.card-body').querySelector('.reject-form').classList.toggle('hidden')">Rechazar</button>
             </div>
@@ -231,7 +231,7 @@
                 <div class="form-control mt-2 rejection-text-wrap hidden">
                     <textarea name="rejection_text" class="textarea textarea-bordered textarea-sm w-full" placeholder="Explica el motivo..."></textarea>
                 </div>
-                <button type="submit" class="btn btn-error btn-sm w-full mt-2">Enviar rechazo</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-error btn-sm w-full mt-2">Enviar rechazo</button>
             </form>
             {{end}}
         </div>
@@ -285,7 +285,7 @@
         <div class="divider my-2"></div>
         <form hx-post="/admin/disputes/{{$c.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
             {{template "scoreInput" $c.ScoreResolve}}
-            <button type="submit" class="btn btn-primary btn-sm mt-4">Resolver</button>
+            <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm mt-4">Resolver</button>
         </form>
         {{end}}
     </div>
@@ -300,7 +300,7 @@
         <div class="flex gap-2 mt-2">
             <form hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/respond" hx-target="body" class="flex-1">
                 <input type="hidden" name="action" value="accept">
-                <button type="submit" class="btn btn-success btn-sm w-full">Confirmar</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-success btn-sm w-full">Confirmar</button>
             </form>
             <button type="button" class="btn btn-error btn-outline btn-sm flex-1" onclick="this.parentElement.nextElementSibling.classList.toggle('hidden')">Contraproponer</button>
         </div>
@@ -308,7 +308,7 @@
             <input type="hidden" name="action" value="reject">
             <label class="label py-1"><span class="label-text text-xs">Tu marcador * <span class="tooltip tooltip-top" data-tip="Mejor de 3 sets. El tercer set solo se muestra si hay empate 1-1"><span class="text-info cursor-help">ⓘ</span></span></span></label>
             {{template "scoreInput" .ScoreCounter}}
-            <button type="submit" class="btn btn-error btn-sm w-full mt-2">Enviar contrapropuesta</button>
+            <button type="submit" hx-disabled-elt="this" class="btn btn-error btn-sm w-full mt-2">Enviar contrapropuesta</button>
         </form>
         {{end}}
         {{end}}
@@ -322,7 +322,7 @@
             <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Registrar resultado</h3>
             <form hx-post="/match/{{$c.Match.Id}}/submit" hx-target="body">
                 {{template "scoreInput" $c.ScoreSubmit}}
-                <button type="submit" class="btn btn-primary mt-4 w-full">Enviar resultado</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-primary mt-4 w-full">Enviar resultado</button>
             </form>
         </div>
     </div>
@@ -339,7 +339,7 @@
             <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Corregir marcador</h3>
             <form hx-post="/match/{{$c.Match.Id}}/correct" hx-target="body">
                 {{template "scoreInput" $c.ScoreCorrect}}
-                <button type="submit" class="btn btn-warning mt-3 w-full">Corregir resultado</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-warning mt-3 w-full">Corregir resultado</button>
             </form>
         </div>
     </div>
