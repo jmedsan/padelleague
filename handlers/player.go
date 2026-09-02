@@ -58,14 +58,16 @@ type CompetitionStat struct {
 
 // RecentMatch holds a finalized match for the player's recent-results list.
 type RecentMatch struct {
-	MatchID   string
-	Pair1ID   string
-	Pair2ID   string
-	PairName1 string
-	PairName2 string
-	Score     string
-	Won       bool
-	Date      string
+	MatchID    string
+	Pair1ID    string
+	Pair2ID    string
+	PairName1  string
+	PairName2  string
+	OpponentID string
+	Opponent   string
+	Score      string
+	Won        bool
+	Date       string
 }
 
 // Player renders the player profile page with stats and recent matches.
@@ -227,15 +229,21 @@ func buildRecentMatches(allResults []matchResult, limit int) []RecentMatch {
 	}
 	recent := make([]RecentMatch, 0, limit)
 	for _, r := range allResults[:limit] {
+		opponentID, opponent := r.p2id, r.p2
+		if !r.isPair1 {
+			opponentID, opponent = r.p1id, r.p1
+		}
 		recent = append(recent, RecentMatch{
-			MatchID:   r.matchID,
-			Pair1ID:   r.p1id,
-			Pair2ID:   r.p2id,
-			PairName1: r.p1,
-			PairName2: r.p2,
-			Score:     r.score,
-			Won:       r.won,
-			Date:      r.date,
+			MatchID:    r.matchID,
+			Pair1ID:    r.p1id,
+			Pair2ID:    r.p2id,
+			PairName1:  r.p1,
+			PairName2:  r.p2,
+			OpponentID: opponentID,
+			Opponent:   opponent,
+			Score:      r.score,
+			Won:        r.won,
+			Date:       r.date,
 		})
 	}
 	return recent

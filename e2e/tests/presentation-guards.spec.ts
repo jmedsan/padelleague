@@ -241,7 +241,7 @@ test.describe('R-178: presentation quality guards', () => {
     expect(await entries.count(), 'notification dropdown should have entries').toBeGreaterThan(0);
   });
 
-  test('R-231: admin disputes page shows dispute cards when disputes exist', async ({ page }) => {
+  test('R-231: admin disputes page shows dispute rows when disputes exist', async ({ page }) => {
     const data = loadTestData();
     const suToken = await getSuToken(page.request);
 
@@ -259,16 +259,18 @@ test.describe('R-178: presentation quality guards', () => {
     await page.goto('/admin/disputes');
     await page.waitForLoadState('networkidle');
 
-    const cards = page.locator('.card').filter({ hasText: /vs/ });
-    expect(await cards.count(), 'disputes page should show at least one dispute card').toBeGreaterThan(0);
-    await expect(cards.first()).toBeVisible();
-
-    // A disputed (non-final) match must NOT show the big headline score — that
-    // provisional-result leak is the bug the status=="final" gate fixes (P5).
-    // The pair-labeled disputed summary still shows the score as context.
-    const disputeCard = cards.first();
-    await expect(disputeCard.locator('p.text-2xl.font-black')).toHaveCount(0);
-    await expect(disputeCard.getByText('6-3 6-4')).toBeVisible();
+    // /admin/disputes renders each item via the shared healthItemRow partial
+    // (an <a>, not a .card) — no score is shown there, only pair names, the
+    // category badge, and a link into the match for detail.
+    const rows = page.locator('[data-testid="health-item-row"]').filter({ hasText: 'Pareja Alpha' });
+    expect(await rows.count(), 'disputes page should show at least one dispute row').toBeGreaterThan(0);
+    const disputeRow = rows.first();
+    await expect(disputeRow).toBeVisible();
+    await expect(disputeRow).toHaveAttribute('href', `/match/${matchId}`);
+    await expect(disputeRow.getByText('Pareja Alpha')).toBeVisible();
+    await expect(disputeRow.getByText('Pareja Beta')).toBeVisible();
+    await expect(disputeRow.getByText('Disputa', { exact: true })).toBeVisible();
+    await expect(disputeRow.getByText('6-3 6-4')).toHaveCount(0);
 
     await apiDelete(page.request, suToken, 'matches', matchId);
     await apiDelete(page.request, suToken, 'competitions', compId);
