@@ -15,7 +15,7 @@ import (
 
 // HomeAction is a unified to-do entry on the player dashboard.
 type HomeAction struct {
-	Kind     string // "dispute" | "confirm" | "respond" | "organize" | "play"
+	Kind     string // "dispute" | "confirm" | "respond" | "docs" | "organize" | "play"
 	MatchID  string
 	Title    string
 	Detail   string
@@ -26,7 +26,7 @@ type HomeAction struct {
 }
 
 var actionKindPriority = map[string]int{
-	"dispute": 0, "confirm": 1, "respond": 1,
+	"dispute": 0, "confirm": 1, "respond": 1, "docs": 1,
 	"organize": 2, "play": 3,
 }
 
@@ -69,6 +69,13 @@ type PendingAction struct {
 	Description string
 }
 
+// DocsAction flags an active competition where the player still has
+// unacknowledged mandatory documents gating their participation.
+type DocsAction struct {
+	CompID   string
+	CompName string
+}
+
 // Home renders the player's dashboard with competitions, next match, and
 // actions. Admins are redirected to /admin/competitions, the single admin
 // landing page (bootstrap prompt, playoff prompts, urgent alerts, and the
@@ -94,6 +101,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	var nextMatch *NextMatch
 	var pendingActions []PendingAction
 	var recentResults []MatchCard
+	var docsActions []DocsAction
 
 	for _, c := range activeComps {
 		if !h.playerInCompetition(c, playerPairIDs) {
@@ -106,6 +114,9 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 		}
 		pendingActions = append(pendingActions, parts.Pending...)
 		recentResults = append(recentResults, parts.Recent...)
+		if len(league.UnacknowledgedMandatory(h.app, c, userID)) > 0 {
+			docsActions = append(docsActions, DocsAction{CompID: c.Id, CompName: c.GetString("name")})
+		}
 	}
 
 	sort.Slice(recentResults, func(i, j int) bool {
@@ -116,7 +127,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	}
 
 	urgentTasks, _ := league.PlayerTasks(h.app, userID, time.Now())
-	actions := buildHomeActions(urgentTasks, pendingActions, nextMatch)
+	actions := buildHomeActions(urgentTasks, pendingActions, nextMatch, docsActions)
 
 	data["Competitions"] = comps
 	data["CompCount"] = len(comps)
@@ -360,7 +371,7 @@ func (h *PublicHandler) findRecentResults(c *core.Record) []MatchCard {
 	return results
 }
 
-func buildHomeActions(tasks []league.PlayerTask, pending []PendingAction, next *NextMatch) []HomeAction {
+func buildHomeActions(tasks []league.PlayerTask, pending []PendingAction, next *NextMatch, docs []DocsAction) []HomeAction {
 	seen := map[string]HomeAction{}
 	for _, t := range tasks {
 		mergeAction(seen, taskToAction(t))
@@ -373,9 +384,12 @@ func buildHomeActions(tasks []league.PlayerTask, pending []PendingAction, next *
 			mergeAction(seen, nextMatchAction(next))
 		}
 	}
-	actions := make([]HomeAction, 0, len(seen))
+	actions := make([]HomeAction, 0, len(seen)+len(docs))
 	for _, a := range seen {
 		actions = append(actions, a)
+	}
+	for _, d := range docs {
+		actions = append(actions, docsToAction(d))
 	}
 	sort.Slice(actions, func(i, j int) bool {
 		return actions[i].SortKey < actions[j].SortKey
@@ -435,6 +449,17 @@ func pendingToAction(p PendingAction) HomeAction {
 		a.SortKey = "1-respond-proposal"
 	}
 	return a
+}
+
+func docsToAction(d DocsAction) HomeAction {
+	return HomeAction{
+		Kind:    "docs",
+		Title:   "Lee los documentos",
+		Detail:  d.CompName,
+		URL:     "/competition/" + d.CompID,
+		Accent:  "warning",
+		SortKey: "1z-docs-" + d.CompID,
+	}
 }
 
 func nextMatchAction(next *NextMatch) HomeAction {
