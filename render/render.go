@@ -20,10 +20,11 @@ type Renderer struct {
 	registry       *template.Registry
 	viewsFS        fs.FS
 	vapidPublicKey string
+	appDevTools    bool
 }
 
 // New creates a Renderer backed by the given views filesystem.
-func New(viewsFS fs.FS, vapidPublicKey string) *Renderer {
+func New(viewsFS fs.FS, vapidPublicKey string, appDevTools bool) *Renderer {
 	reg := template.NewRegistry()
 	reg.AddFuncs(map[string]any{
 		"contains": func(slice []string, item string) bool {
@@ -59,11 +60,13 @@ func New(viewsFS fs.FS, vapidPublicKey string) *Renderer {
 		registry:       reg,
 		viewsFS:        viewsFS,
 		vapidPublicKey: vapidPublicKey,
+		appDevTools:    appDevTools,
 	}
 }
 
 func (r *Renderer) withAuth(e *core.RequestEvent, data map[string]any) {
 	data["VAPIDPublicKey"] = r.vapidPublicKey
+	data["AppDevTools"] = r.appDevTools
 	if e.Auth == nil {
 		return
 	}

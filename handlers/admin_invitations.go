@@ -3,6 +3,7 @@ package handlers
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"net/http"
 	"sort"
 	"strconv"
 	"time"
@@ -23,34 +24,25 @@ func NewInvitationHandler(app core.App, renderPage RenderFunc) *InvitationHandle
 	return &InvitationHandler{app: app, renderPage: renderPage}
 }
 
-// InvitationsList renders the admin invitations page.
+// InvitationsList redirects to /admin/competitions — invitation management
+// lives per-competition (inline in competition-detail.html, like Documentos)
+// now, not on a standalone global list.
 func (h *InvitationHandler) InvitationsList(e *core.RequestEvent) error {
-	invitations, _ := h.app.FindRecordsByFilter("invitations",
-		"id != ''", "", 0, 0, nil)
+	return e.Redirect(http.StatusFound, "/admin/competitions")
+}
 
+// CompetitionInvitations returns a competition's invitations, newest first —
+// shared by CompetitionHandler.Detail (renders the Invitaciones section
+// inline, like Documentos) so invitation management lives per-competition.
+func CompetitionInvitations(app core.App, compID string) []*core.Record {
+	invitations, _ := app.FindRecordsByFilter("invitations",
+		"competition = {:cid}", "", 0, 0,
+		map[string]any{"cid": compID})
 	sort.Slice(invitations, func(i, j int) bool {
 		return invitations[i].GetDateTime("created").Time().After(
 			invitations[j].GetDateTime("created").Time())
 	})
-
-	competitions, _ := h.app.FindRecordsByFilter("competitions",
-		"active = true", "name", 0, 0, nil)
-
-	competitionNames := make(map[string]string, len(invitations))
-	for _, inv := range invitations {
-		if cid := inv.GetString("competition"); cid != "" {
-			if comp, err := h.app.FindRecordById("competitions", cid); err == nil {
-				competitionNames[cid] = comp.GetString("name")
-			}
-		}
-	}
-
-	return h.renderPage(e, "admin/invitations.html", map[string]any{
-		"PageTitle":        "Invitaciones",
-		"Invitations":      invitations,
-		"Competitions":     competitions,
-		"CompetitionNames": competitionNames,
-	})
+	return invitations
 }
 
 // InvitationsCreate generates a new invitation token with the given max uses.
@@ -108,7 +100,7 @@ func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 			buildInviteEmail(registerURL))
 	}
 
-	return redirectHX(e, "/admin/invitations")
+	return redirectHX(e, "/admin/competitions/"+competition)
 }
 
 // InvitationsRevoke deactivates an invitation so it can no longer be used.
@@ -123,11 +115,12 @@ func (h *InvitationHandler) InvitationsRevoke(e *core.RequestEvent) error {
 		return alertError(e, "Solo se pueden revocar invitaciones pendientes")
 	}
 
+	compID := invitation.GetString("competition")
 	if err := h.app.Delete(invitation); err != nil {
 		return alertError(e, "Error al revocar la invitación")
 	}
 
-	return redirectHX(e, "/admin/invitations")
+	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
 func generateInviteToken() (string, error) {

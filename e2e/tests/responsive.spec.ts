@@ -152,10 +152,14 @@ test.describe('responsive - no horizontal overflow', () => {
     await expect(page.getByText('Pista Central')).toBeVisible();
   });
 
-  test('admin invitations', async ({ page }) => {
+  test('admin invitations (inline on competition detail)', async ({ page }) => {
+    // Invitations moved from a standalone /admin/invitations page into the
+    // competition detail page, like Documentos — reached via a real click.
     await page.setViewportSize(MOBILE);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await navViaDrawer(page, '/admin/invitations');
+    await page.goto('/admin/competitions');
+    await page.locator('.card-title', { hasText: 'Liga E2E Test' }).first().click();
+    await page.waitForLoadState('domcontentloaded');
     await checkNoOverflow(page);
     await expect(page.getByRole('heading', { name: 'Invitaciones' })).toBeVisible();
 
@@ -163,12 +167,12 @@ test.describe('responsive - no horizontal overflow', () => {
     // hiding the page's main action (Copiar). Below sm, a card per invitation
     // must keep "Copiar" reachable without a sideways scroll.
     await page.locator('button:has-text("Nueva invitación")').click();
-    await page.locator('#modal-create input[name="email"]').fill(`resp-mobile-${Date.now()}@example.com`);
-    await page.locator('#modal-create select[name="competition"]').selectOption({ index: 1 });
-    await page.locator('#modal-create button[type="submit"]').click();
+    await page.locator('#modal-create-invite input[name="email"]').fill(`resp-mobile-${Date.now()}@example.com`);
+    await page.locator('#modal-create-invite button[type="submit"]').click();
     await page.waitForLoadState('networkidle');
 
-    await expect(page.locator('table').first()).toBeHidden();
+    const table = page.locator('table').filter({ hasText: 'Destinatario' });
+    await expect(table).toBeHidden();
     const card = page.locator('.sm\\:hidden.divide-y > div').first();
     await expect(card).toBeVisible();
     await expect(card.getByText('Copiar')).toBeVisible();

@@ -17,7 +17,7 @@ import (
 
 func setupSettingsRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent, devTools bool) {
 	viewsFS := os.DirFS("..")
-	r := render.New(viewsFS, "")
+	r := render.New(viewsFS, "", true)
 
 	e.Router.BindFunc(middleware.CookieAuth)
 

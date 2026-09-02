@@ -34,7 +34,7 @@ func main() {
 
 	app := pocketbase.New()
 
-	r := render.New(viewsFS, cfg.VAPIDPublicKey)
+	r := render.New(viewsFS, cfg.VAPIDPublicKey, cfg.AppDevTools)
 	notifier := notify.NewNotifier(app, cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey)
 	leagueSvc := league.New(app, notifier)
 

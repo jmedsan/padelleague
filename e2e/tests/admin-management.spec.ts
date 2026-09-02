@@ -6,7 +6,6 @@ const NAV_LABELS: Record<string, string> = {
   '/admin/pairs': 'Parejas',
   '/admin/players': 'Jugadores',
   '/admin/disputes': 'Disputas',
-  '/admin/invitations': 'Invitaciones',
   '/admin/venues': 'Pistas',
   '/admin/settings': 'Configuración',
 };
@@ -45,9 +44,14 @@ test.describe('admin management', () => {
     await expect(page.getByText('Pista Central')).toBeVisible();
   });
 
-  test('admin can view invitations page', async ({ page }) => {
+  test('admin can view invitations inline on competition detail', async ({ page }) => {
+    // Invitations moved from a standalone /admin/invitations page into the
+    // competition detail page (like Documentos) — reached via a real click
+    // on a competition card, not goto(url).
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await navToAdmin(page, '/admin/invitations');
+    await page.goto('/admin/competitions');
+    await page.locator('.card-title', { hasText: 'Liga E2E Test' }).first().click();
+    await page.waitForLoadState('domcontentloaded');
     await expect(page.getByRole('heading', { name: 'Invitaciones' })).toBeVisible();
     await expect(page.getByRole('button', { name: /nueva invitaci[oó]n/i })).toBeVisible();
   });
@@ -58,16 +62,17 @@ test.describe('admin management', () => {
     await expect(page.getByRole('heading', { name: 'Disputas' })).toBeVisible();
   });
 
-  test('admin can create invitation', async ({ page }) => {
+  test('admin can create invitation from competition detail', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await navToAdmin(page, '/admin/invitations');
+    await page.goto('/admin/competitions');
+    await page.locator('.card-title', { hasText: 'Liga E2E Test' }).first().click();
+    await page.waitForLoadState('domcontentloaded');
     await page.getByRole('button', { name: /nueva invitaci[oó]n/i }).click();
     const invEmail = `inv-${Date.now()}@test.com`;
-    await page.locator('#modal-create input[name="email"]').fill(invEmail);
-    await page.locator('#modal-create select[name="competition"]').selectOption({ index: 1 });
+    await page.locator('#modal-create-invite input[name="email"]').fill(invEmail);
     await Promise.all([
       page.waitForEvent('load', { timeout: 10000 }),
-      page.locator('#modal-create button[type="submit"]').click(),
+      page.locator('#modal-create-invite button[type="submit"]').click(),
     ]);
     await expect(page.getByText(invEmail).first()).toBeVisible({ timeout: 5000 });
   });
