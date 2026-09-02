@@ -1,1 +1,1 @@
-{{define "warningBadge"}}{{if .Label}}<span class="badge badge-sm {{if eq .String "overdue"}}badge-error{{else if eq .String "urgent"}}badge-warning{{else if eq .String "heads_up"}}badge-info{{else}}badge-ghost{{end}}">{{.Label}}</span>{{end}}{{end}}
+{{define "warningBadge"}}{{if .Label}}<span class="badge badge-sm {{if eq .String "overdue"}}badge-soft-error{{else if eq .String "urgent"}}badge-soft-warning{{else if eq .String "heads_up"}}badge-soft-info{{else}}badge-soft-ghost{{end}}">{{.Label}}</span>{{end}}{{end}}

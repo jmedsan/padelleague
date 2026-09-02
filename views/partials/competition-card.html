@@ -50,7 +50,7 @@
         {{if .Setup}}
         <div class="flex flex-wrap gap-1">
             {{range .Setup.Items}}
-            <span class="badge badge-sm {{if .Done}}badge-success{{else}}badge-ghost{{end}} gap-1">
+            <span class="badge badge-sm {{if .Done}}badge-soft-success{{else}}badge-soft-ghost{{end}} gap-1">
                 {{if .Done}}&#10003;{{else}}&#9675;{{end}} {{.Label}}
             </span>
             {{end}}

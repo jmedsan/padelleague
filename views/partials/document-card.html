@@ -14,7 +14,7 @@
         {{end}}
     </td>
     <td>
-        {{if .IsMandatory}}<span class="badge badge-error badge-sm">Obligatorio</span>{{else}}<span class="text-base-content/60">—</span>{{end}}
+        {{if .IsMandatory}}<span class="badge badge-soft-error badge-sm">Obligatorio</span>{{else}}<span class="text-base-content/60">—</span>{{end}}
     </td>
     <td class="text-right">
         {{if and .Mode.Admin .Mode.Editable}}
@@ -34,11 +34,11 @@
         {{if and .Mode.Admin .Mode.Full}}
         <div class="flex gap-1 mt-1">
             {{if .IsDefault}}<span class="badge badge-outline badge-sm">predeterminado</span>{{end}}
-            {{if .IsMandatory}}<span class="badge badge-outline badge-sm badge-error">obligatorio</span>{{end}}
+            {{if .IsMandatory}}<span class="badge badge-outline badge-sm badge-soft-error">obligatorio</span>{{end}}
         </div>
         {{else}}
-        {{if .IsMandatory}}<span class="badge badge-warning badge-sm mt-1">Obligatorio</span>{{end}}
-        {{if .Acked}}<span class="badge badge-success badge-sm mt-1">Leído</span>{{end}}
+        {{if .IsMandatory}}<span class="badge badge-soft-warning badge-sm mt-1">Obligatorio</span>{{end}}
+        {{if .Acked}}<span class="badge badge-soft-success badge-sm mt-1">Leído</span>{{end}}
         {{end}}
     </div>
     <div class="flex items-center gap-2 flex-none flex-wrap">
@@ -79,7 +79,7 @@
             <a href="{{.OpenURL}}" target="_blank" rel="noopener" class="link link-primary text-sm">Enlace</a>
             {{end}}
             {{end}}
-            {{if .IsMandatory}}<span class="badge badge-error badge-sm">Obligatorio</span>{{end}}
+            {{if .IsMandatory}}<span class="badge badge-soft-error badge-sm">Obligatorio</span>{{end}}
         </div>
     </div>
     {{if and .Mode.Admin .Mode.Editable}}

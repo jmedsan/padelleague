@@ -221,7 +221,7 @@ func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[s
 	}
 
 	actions = append(actions, h.findUnconfirmedScores(c, playerPairIDs)...)
-	results := h.findRecentResults(c)
+	results := h.findRecentResults(c, playerPairIDs)
 
 	return homeCompetitionParts{
 		Comp:    NewHomeCompetitionView(c, pending, pendingDetails),
@@ -356,17 +356,26 @@ func isRivalAction(app core.App, m *core.Record, authorID string, playerPairIDs 
 	return authorTeam != playerTeam
 }
 
-func (h *PublicHandler) findRecentResults(c *core.Record) []MatchCard {
+func (h *PublicHandler) findRecentResults(c *core.Record, playerPairIDs map[string]struct{}) []MatchCard {
 	finals, _ := h.app.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'final'",
-		"-created", 5, 0, map[string]any{"cid": c.Id})
+		"-created", 20, 0, map[string]any{"cid": c.Id})
 	pairNames := collectPairNames(h.app, finals)
-	empty := map[string]struct{}{}
 	var results []MatchCard
 	for _, m := range finals {
-		mc := NewMatchRow(m, pairNames, empty)
+		p1 := m.GetString("pair1")
+		p2 := m.GetString("pair2")
+		_, hasP1 := playerPairIDs[p1]
+		_, hasP2 := playerPairIDs[p2]
+		if !hasP1 && !hasP2 {
+			continue
+		}
+		mc := NewMatchRow(m, pairNames, playerPairIDs)
 		mc.CompetitionName = c.GetString("name")
 		results = append(results, mc)
+		if len(results) >= 5 {
+			break
+		}
 	}
 	return results
 }

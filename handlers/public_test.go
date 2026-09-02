@@ -525,7 +525,7 @@ func TestHome_RecentResultsNonEmpty(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Últimos resultados", "6-1 6-2", "6-3 6-4"},
+		ExpectedContent: []string{"Mis últimos partidos", "6-1 6-2", "6-3 6-4"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -553,7 +553,7 @@ func TestHome_RecentResultsNonEmpty(t *testing.T) {
 		body := readBody(tb, res)
 		assert.Contains(tb, body, "6-1 6-2", "first final match score must appear")
 		assert.Contains(tb, body, "6-3 6-4", "second final match score must appear")
-		assert.Contains(tb, body, "Últimos resultados", "recent results heading must appear")
+		assert.Contains(tb, body, "Mis últimos partidos", "recent results heading must appear")
 	}
 	s.Test(t)
 }

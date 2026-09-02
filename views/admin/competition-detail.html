@@ -122,7 +122,7 @@
                 <input type="checkbox">
                 <div class="collapse-title font-medium text-sm">
                     Jornada {{.Number}}
-                    <span class="badge badge-ghost badge-sm ml-2">{{len .Matches}} partidos</span>
+                    <span class="badge badge-soft-ghost badge-sm ml-2">{{len .Matches}} partidos</span>
                 </div>
                 <div class="collapse-content">
                     <div class="divide-y divide-base-200 pt-2">
@@ -150,7 +150,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current inline-block mr-1 align-text-bottom"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
         Parejas
         {{if .Entries}}<span class="badge badge-neutral badge-sm ml-1">{{len .Entries}}</span>{{end}}
-        {{if .HasUnpaid}}<span class="badge badge-warning badge-sm gap-1 ml-1">{{.UnpaidCount}} sin pagar</span>{{end}}
+        {{if .HasUnpaid}}<span class="badge badge-soft-warning badge-sm gap-1 ml-1">{{.UnpaidCount}} sin pagar</span>{{end}}
     </div>
     <div class="collapse-content">
         {{if .HasUnpaid}}
@@ -424,11 +424,11 @@
                         </td>
                         <td>
                             {{if eq (.GetString "status") "pending"}}
-                            <span class="badge badge-warning badge-sm">Pendiente</span>
+                            <span class="badge badge-soft-warning badge-sm">Pendiente</span>
                             {{else if eq (.GetString "status") "used"}}
-                            <span class="badge badge-success badge-sm">Usada</span>
+                            <span class="badge badge-soft-success badge-sm">Usada</span>
                             {{else}}
-                            <span class="badge badge-error badge-sm">Expirada</span>
+                            <span class="badge badge-soft-error badge-sm">Expirada</span>
                             {{end}}
                         </td>
                         <td class="text-sm">
@@ -465,11 +465,11 @@
                 <div class="flex justify-between items-start gap-2">
                     <span class="text-sm font-medium">{{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="badge badge-info badge-sm">Enlace genérico</span>{{end}}</span>
                     {{if eq (.GetString "status") "pending"}}
-                    <span class="badge badge-warning badge-sm">Pendiente</span>
+                    <span class="badge badge-soft-warning badge-sm">Pendiente</span>
                     {{else if eq (.GetString "status") "used"}}
-                    <span class="badge badge-success badge-sm">Usada</span>
+                    <span class="badge badge-soft-success badge-sm">Usada</span>
                     {{else}}
-                    <span class="badge badge-error badge-sm">Expirada</span>
+                    <span class="badge badge-soft-error badge-sm">Expirada</span>
                     {{end}}
                 </div>
                 <p class="text-sm opacity-60">
