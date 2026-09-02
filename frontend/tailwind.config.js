@@ -6,7 +6,7 @@ module.exports = {
     themes: [
       {
         padel: {
-          "primary": "#0D9488",
+          "primary": "#115E59",
           "primary-content": "#FFFFFF",
           "secondary": "#1E293B",
           "secondary-content": "#FFFFFF",
@@ -20,11 +20,11 @@ module.exports = {
           "base-content": "#0F172A",
           "info": "#0EA5E9",
           "info-content": "#FFFFFF",
-          "success": "#22C55E",
+          "success": "#16A34A",
           "success-content": "#FFFFFF",
-          "warning": "#F59E0B",
-          "warning-content": "#1E293B",
-          "error": "#EF4444",
+          "warning": "#D97706",
+          "warning-content": "#FFFFFF",
+          "error": "#DC2626",
           "error-content": "#FFFFFF",
         },
       },
