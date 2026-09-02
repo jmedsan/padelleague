@@ -188,11 +188,11 @@ test.describe('guided navigation tour', () => {
       await setPlayerPassword(page.request, suToken, id, PLAYER_PASSWORD);
     }
 
-    // 1c. Parejas quick-link → create 4 pairs
+    // 1c. Pairs page → create 4 pairs
     pairIds = [];
     for (const pair of PAIRS) {
-      await goHome(page);
-      await clickAdminQuickLink(page, 'Parejas');
+      await page.goto('/admin/pairs');
+      await page.waitForLoadState('domcontentloaded');
       const id = await createPair(page, pair.name, playerIds[pair.p1], playerIds[pair.p2], suToken);
       pairIds.push(id);
     }

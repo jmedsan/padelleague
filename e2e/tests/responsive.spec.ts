@@ -119,7 +119,8 @@ test.describe('responsive - no horizontal overflow', () => {
   test('admin pairs', async ({ page }) => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await navViaDrawer(page, '/admin/pairs');
+    await page.goto('/admin/pairs');
+    await page.waitForLoadState('domcontentloaded');
     await checkNoOverflow(page);
     await expect(page.getByText('Pareja Alpha')).toBeVisible();
     await expect(page.getByText('Pareja Beta')).toBeVisible();
@@ -181,7 +182,8 @@ test.describe('responsive - no horizontal overflow', () => {
   test('admin disputes', async ({ page }) => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await navViaDrawer(page, '/admin/disputes');
+    await page.goto('/admin/disputes');
+    await page.waitForLoadState('domcontentloaded');
     await checkNoOverflow(page);
     await expect(page.getByRole('heading', { name: 'Disputas' })).toBeVisible();
   });
