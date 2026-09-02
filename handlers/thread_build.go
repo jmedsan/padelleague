@@ -281,19 +281,19 @@ func fillTimelineEntryData(entry *TimelineEntryVM, pd *ProposalData, msgType str
 func timelineEntryText(msgType, action, content string) (verb, statusLabel, statusClass string) {
 	switch msgType {
 	case "scheduling_proposal":
-		return "propuso fecha y lugar", "Propuesta", "badge-warning"
+		return "propuso fecha y lugar", "Propuesta", "badge-soft-warning"
 	case "result_submission":
-		return "propuso resultado", "Propuesta", "badge-warning"
+		return "propuso resultado", "Propuesta", "badge-soft-warning"
 	case "scheduling_response":
 		if action == "accept" {
-			return "confirmó fecha y lugar", "Confirmada", "badge-success"
+			return "confirmó fecha y lugar", "Confirmada", "badge-soft-success"
 		}
-		return "rechazó fecha y lugar", "Rechazada", "badge-error"
+		return "rechazó fecha y lugar", "Rechazada", "badge-soft-error"
 	case "result_response":
 		if action == "accept" {
-			return "confirmó resultado", "Confirmado", "badge-success"
+			return "confirmó resultado", "Confirmado", "badge-soft-success"
 		}
-		return "rechazó resultado", "Rechazado", "badge-error"
+		return "rechazó resultado", "Rechazado", "badge-soft-error"
 	default: // result_event, admin_action, chat
 		return content, "", ""
 	}

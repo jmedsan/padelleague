@@ -1,11 +1,14 @@
 {{define "notificationRow"}}
-<div class="flex items-start gap-2 p-3 rounded-lg {{if not (.GetBool "read")}}bg-primary/5 font-medium{{end}}">
-    <a hx-post="/notifications/{{.Id}}/read" hx-swap="none" class="flex-1 cursor-pointer hover:bg-base-200 rounded p-1">
+<a href="{{if .GetString "link"}}{{.GetString "link"}}{{else if .GetString "related_match"}}/match/{{.GetString "related_match"}}{{else}}#{{end}}"
+   hx-post="/notifications/{{.Id}}/read" hx-swap="none"
+   class="flex items-center gap-2 p-3 rounded-lg transition-colors {{if not (.GetBool "read")}}bg-primary/5 font-medium{{end}} hover:bg-base-200">
+    <div class="flex-1 min-w-0">
         <p class="text-sm">{{.GetString "title"}}</p>
         {{with .GetString "body"}}
         <p class="text-xs text-base-content/60">{{.}}</p>
         {{end}}
         <p class="text-xs text-base-content/40 mt-1">{{fmtDate (.GetString "created")}}</p>
-    </a>
-</div>
+    </div>
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 opacity-30 flex-none"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+</a>
 {{end}}
