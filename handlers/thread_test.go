@@ -1437,6 +1437,20 @@ func TestRejectResultProposalRequiresCounter(t *testing.T) {
 		require.Len(tb, counters, 1, "a counter-proposal must exist")
 		assert.Equal(tb, "6-4 6-3", ParseProposalData(counters[0].GetString("proposal_data")).Scores)
 
+		// The counter-proposal itself must be a visible timeline entry, not
+		// just a DB record — CLAUDE.md requires every result-changing action
+		// to render as a timeline line.
+		h := &ThreadHandler{app: app}
+		td := h.buildThreadData(m, matchID, 0, true)
+		var found bool
+		for _, entry := range td.Timeline {
+			if entry.Kind == "proposal" && entry.Score == "6-4 6-3" {
+				found = true
+				break
+			}
+		}
+		assert.True(tb, found, "counter-proposal must appear in the timeline with its own score")
+
 		// Timeline entry must exist for the rejection
 		timeline, _ := app.FindRecordsByFilter("match_messages",
 			"match = {:mid} && type = 'result_response' && parent = {:pid}",
