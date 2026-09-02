@@ -11,12 +11,13 @@
 </div>
 
 <div class="card bg-base-100 shadow-sm border border-base-300">
-    <div class="overflow-x-auto">
+    {{if .Invitations}}
+    <div class="hidden sm:block overflow-x-auto">
         <table class="table table-zebra">
             <thead>
                 <tr>
                     <th>Destinatario</th>
-                    <th class="hidden sm:table-cell">Competición</th>
+                    <th class="hidden md:table-cell">Competición</th>
                     <th>Estado</th>
                     <th>Usos</th>
                     <th class="hidden md:table-cell">Expira</th>
@@ -30,7 +31,7 @@
                     <td>
                         <span class="text-sm">{{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="badge badge-info badge-sm">Enlace genérico</span>{{end}}</span>
                     </td>
-                    <td class="hidden sm:table-cell text-sm opacity-60">
+                    <td class="hidden md:table-cell text-sm opacity-60">
                         {{if .GetString "competition"}}<a href="/admin/competitions/{{.GetString "competition"}}" class="link link-hover">{{index $.CompetitionNames (.GetString "competition")}}</a>{{else}}-{{end}}
                     </td>
                     <td>
@@ -66,14 +67,47 @@
                         {{end}}
                     </td>
                 </tr>
-                {{else}}
-                <tr>
-                    <td colspan="7">{{template "emptyState" "No hay invitaciones"}}</td>
-                </tr>
                 {{end}}
             </tbody>
         </table>
     </div>
+    <div class="sm:hidden divide-y divide-base-300">
+        {{range .Invitations}}
+        <div class="p-3 flex flex-col gap-2">
+            <div class="flex justify-between items-start gap-2">
+                <span class="text-sm font-medium">{{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="badge badge-info badge-sm">Enlace genérico</span>{{end}}</span>
+                {{if eq (.GetString "status") "pending"}}
+                <span class="badge badge-warning badge-sm">Pendiente</span>
+                {{else if eq (.GetString "status") "used"}}
+                <span class="badge badge-success badge-sm">Usada</span>
+                {{else}}
+                <span class="badge badge-error badge-sm">Expirada</span>
+                {{end}}
+            </div>
+            {{if .GetString "competition"}}
+            <a href="/admin/competitions/{{.GetString "competition"}}" class="link link-hover text-sm opacity-60">{{index $.CompetitionNames (.GetString "competition")}}</a>
+            {{end}}
+            <p class="text-sm opacity-60">
+                {{.GetString "use_count"}}/{{if and (.GetString "max_uses") (ne (.GetString "max_uses") "0")}}{{.GetString "max_uses"}}{{else}}1{{end}} usos
+                · Expira {{fmtDate (.GetString "expires_at")}}
+            </p>
+            {{if eq (.GetString "status") "pending"}}
+            <div class="flex gap-2">
+                <button class="btn btn-outline btn-sm" onclick="copyInviteLink('{{.GetString "token"}}', this)" title="Copiar enlace">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 7.5V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.057 1.123-.08M15.75 18H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08M15.75 18.75v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5A3.375 3.375 0 006.375 7.5H6M15.75 18.75h-6a2.25 2.25 0 01-2.25-2.25V7.5m0 0h2.25M6 7.5h-.75A2.25 2.25 0 003 9.75v8.25A2.25 2.25 0 005.25 20.25h7.5" /></svg>
+                    Copiar
+                </button>
+                <form hx-post="/admin/invitations/{{.Id}}/revoke" hx-confirm="¿Revocar esta invitación?">
+                    <button type="submit" class="btn btn-outline btn-sm text-error">Revocar</button>
+                </form>
+            </div>
+            {{end}}
+        </div>
+        {{end}}
+    </div>
+    {{else}}
+    {{template "emptyState" "No hay invitaciones"}}
+    {{end}}
 </div>
 
 <dialog id="modal-create" class="modal modal-bottom sm:modal-middle">

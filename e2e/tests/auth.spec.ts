@@ -8,7 +8,8 @@ test('unauthenticated access redirects to login', async ({ page }) => {
 
 test('login with valid credentials via form', async ({ page }) => {
   await loginViaForm(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-  await expect(page).toHaveURL('/');
+  // Admin GET / redirects to /admin/competitions, the single admin landing page.
+  await expect(page).toHaveURL(/\/admin\/competitions$/);
   await expect(page.locator('.navbar')).toBeVisible();
   if (isMobile(page)) {
     await expect(page.locator('[aria-label="cambiar vista"]')).toBeVisible();
@@ -28,7 +29,7 @@ test('login with invalid credentials shows error', async ({ page }) => {
 test('player cannot access admin page', async ({ page }) => {
   await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
   await page.goto('/admin');
-  await expect(page.getByRole('heading', { name: 'Competiciones' })).not.toBeVisible({ timeout: 3000 });
+  await expect(page.getByRole('heading', { name: 'Competiciones', exact: true })).not.toBeVisible({ timeout: 3000 });
 });
 
 test('logout redirects to login', async ({ page }) => {

@@ -91,7 +91,7 @@
         </h2>
         <div class="space-y-2 mt-2">
             {{range .Disputes}}
-            {{template "healthItemRow" (dict "Item" . "ShowCategory" true)}}
+            {{template "healthItemRow" (dict "Item" . "ShowCategory" true "HideCompetition" true)}}
             {{end}}
         </div>
     </div>

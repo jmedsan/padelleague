@@ -17,7 +17,8 @@
     <div class="p-3 border-b border-base-300">
         <input type="text" id="player-search" placeholder="Buscar jugador..." class="input input-bordered input-sm w-full" oninput="filterPlayers(this.value)">
     </div>
-    <div class="overflow-x-auto">
+    {{if .Players}}
+    <div class="hidden sm:block overflow-x-auto">
         <table class="table table-zebra" id="players-table">
             <thead>
                 <tr>
@@ -43,14 +44,31 @@
                         <button class="btn btn-ghost btn-xs" hx-post="/admin/players/{{.Id}}/regenerate-link" hx-target="#regen-result" hx-swap="innerHTML">Regenerar enlace</button>
                     </td>
                 </tr>
-                {{else}}
-                <tr>
-                    <td colspan="4">{{template "emptyState" "No hay jugadores registrados"}}</td>
-                </tr>
                 {{end}}
             </tbody>
         </table>
     </div>
+    <div class="sm:hidden divide-y divide-base-300" id="players-cards">
+        {{range .Players}}
+        <div class="p-3 flex flex-col gap-2">
+            {{template "playerCardIdentity" (dict "Mode" $.Mode "ID" .Id "Name" (.GetString "display_name") "Roles" (.GetStringSlice "roles"))}}
+            <p class="text-sm opacity-60">{{.GetString "email"}}</p>
+            <p class="text-sm">
+                {{if eq (.GetString "gender") "male"}}Hombre
+                {{else if eq (.GetString "gender") "female"}}Mujer
+                {{else}}<span class="opacity-50 italic">Sin especificar</span>
+                {{end}}
+            </p>
+            <div class="flex gap-2">
+                <label for="edit-player-{{.Id}}" class="btn btn-ghost btn-sm">Editar</label>
+                <button class="btn btn-ghost btn-sm" hx-post="/admin/players/{{.Id}}/regenerate-link" hx-target="#regen-result" hx-swap="innerHTML">Regenerar enlace</button>
+            </div>
+        </div>
+        {{end}}
+    </div>
+    {{else}}
+    {{template "emptyState" "No hay jugadores registrados"}}
+    {{end}}
 </div>
 
 <div id="regen-result" class="mt-4"></div>
@@ -149,6 +167,10 @@ function filterPlayers(q) {
     document.querySelectorAll('#players-table tbody tr').forEach(function(row) {
         var text = row.textContent.toLowerCase();
         row.style.display = text.includes(q) ? '' : 'none';
+    });
+    document.querySelectorAll('#players-cards > div').forEach(function(card) {
+        var text = card.textContent.toLowerCase();
+        card.style.display = text.includes(q) ? '' : 'none';
     });
 }
 </script>

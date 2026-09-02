@@ -45,14 +45,12 @@
 </div>
 {{end}}
 
-<div class="flex flex-wrap gap-3 mb-6 text-sm">
-    <a href="/admin/competitions" class="flex items-center gap-1">
-        <span class="font-bold">{{len .Active}}</span> competici{{if eq (len .Active) 1}}ón{{else}}ones{{end}}
-    </a>
-    <a href="/admin/disputes" class="flex items-center gap-1 {{if gt .DisputeCount 0}}text-error font-bold{{end}}">
+<div class="flex flex-wrap gap-x-4 gap-y-1 mb-6 text-sm text-base-content/70">
+    <span><span class="font-bold text-base-content">{{len .Active}}</span> competici{{if eq (len .Active) 1}}ón{{else}}ones{{end}}</span>
+    <a href="/admin/disputes" class="hover:underline {{if gt .DisputeCount 0}}text-error font-bold{{end}}">
         <span class="font-bold">{{.DisputeCount}}</span> disputa{{if ne .DisputeCount 1}}s{{end}}
     </a>
-    <a href="/admin/health" class="flex items-center gap-1 {{if gt .IssueCount 0}}text-warning font-bold{{end}}">
+    <a href="/admin/health" class="hover:underline {{if gt .IssueCount 0}}text-warning font-bold{{end}}">
         <span class="font-bold">{{.IssueCount}}</span> incidencia{{if ne .IssueCount 1}}s{{end}}
     </a>
 </div>
