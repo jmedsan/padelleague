@@ -60,24 +60,7 @@ func (h *PairPageHandler) PairPage(e *core.RequestEvent) error {
 		map[string]any{"pid": id})
 
 	for _, c := range comps {
-		cs := CompetitionStat{
-			CompID:   c.Id,
-			CompName: c.GetString("name"),
-		}
-		if rows, err := h.leagueSvc.ComputeStandings(c.Id); err == nil {
-			for _, r := range rows {
-				if r.PairID == id {
-					if !league.IsPlayoff(c) {
-						cs.Position = r.Position
-					}
-					cs.Wins = r.Wins
-					cs.Losses = r.Losses
-					cs.Played = r.Played
-					break
-				}
-			}
-		}
-		data.Competitions = append(data.Competitions, cs)
+		data.Competitions = append(data.Competitions, h.pairCompStat(c, id))
 	}
 	sort.Slice(data.Competitions, func(i, j int) bool {
 		return data.Competitions[i].CompName < data.Competitions[j].CompName
@@ -94,4 +77,27 @@ func (h *PairPageHandler) PairPage(e *core.RequestEvent) error {
 		"Data":      data,
 		"Mode":      PlayerSummary,
 	})
+}
+
+func (h *PairPageHandler) pairCompStat(c *core.Record, pairID string) CompetitionStat {
+	cs := CompetitionStat{
+		CompID:   c.Id,
+		CompName: c.GetString("name"),
+	}
+	rows, err := h.leagueSvc.ComputeStandings(c.Id)
+	if err != nil {
+		return cs
+	}
+	for _, r := range rows {
+		if r.PairID == pairID {
+			if !league.IsPlayoff(c) {
+				cs.Position = r.Position
+			}
+			cs.Wins = r.Wins
+			cs.Losses = r.Losses
+			cs.Played = r.Played
+			break
+		}
+	}
+	return cs
 }
