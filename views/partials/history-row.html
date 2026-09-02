@@ -13,20 +13,18 @@
 </tr>
 {{end}}
 
+{{/* historyMatchCard — compact phone row: date + opponent + score + V/D.
+     The viewed pair/player's own name is already the page subject (title,
+     breadcrumb) so it's redundant here; the V/D badge already says who won,
+     so no "Gana X" text; score is plain text, not the bordered resultBox —
+     context-fit.md flags the full card as unnecessarily tall at 390px. */}}
 {{define "historyMatchCard"}}
-<a href="{{entityURL "match" .MatchID}}" class="card bg-base-100 shadow-sm border border-base-200">
-    <div class="card-body p-3 gap-2">
-        <div class="flex justify-between items-start gap-2">
-            <span class="text-xs opacity-60">{{fmtDate .Date}}</span>
-            {{template "wonBadge" .}}
-        </div>
-        <div class="flex items-center gap-1 text-sm min-w-0">
-            <span class="font-medium truncate min-w-0">{{.PairName1}}</span>
-            <span class="text-xs opacity-60 flex-none">vs</span>
-            <span class="font-medium truncate min-w-0">{{.PairName2}}</span>
-        </div>
-        {{template "resultBox" (dict "Score" .Score "Pair1Name" .PairName1 "Pair2Name" .PairName2 "Mode" (dict "Row" true))}}
+<a href="{{entityURL "match" .MatchID}}" class="flex items-center gap-3 p-3 rounded-xl bg-base-200/50 hover:bg-base-200 transition-colors">
+    <div class="flex-1 min-w-0">
+        <p class="font-medium text-sm truncate">{{.Opponent}}</p>
+        <p class="text-xs opacity-60">{{fmtDate .Date}} · {{.Score}}</p>
     </div>
+    {{template "wonBadge" .}}
 </a>
 {{end}}
 

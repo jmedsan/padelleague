@@ -343,7 +343,7 @@
         </h2>
 
         {{if .AttachedDocViews}}
-        <div class="overflow-x-auto">
+        <div class="hidden sm:block overflow-x-auto">
             <table class="table table-zebra">
                 <thead>
                     <tr>
@@ -359,6 +359,11 @@
                     {{end}}
                 </tbody>
             </table>
+        </div>
+        <div class="sm:hidden space-y-2">
+            {{range .AttachedDocViews}}
+            {{template "documentAttachCard" .}}
+            {{end}}
         </div>
         {{else}}
         <div class="text-center py-6 text-base-content/60">

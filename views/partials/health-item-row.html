@@ -14,6 +14,7 @@
 {{define "healthItemRow"}}
 {{$item := .Item}}
 <a href="{{if $item.MatchID}}/match/{{$item.MatchID}}{{else}}/admin/competitions/{{$item.CompID}}{{end}}"
+   data-testid="health-item-row"
    class="flex items-center gap-3 p-3 rounded-xl {{if $item.Urgent}}bg-error/10 hover:bg-error/20{{else}}bg-warning/10 hover:bg-warning/20{{end}} transition-colors">
     <div class="flex-1 min-w-0">
         <p class="font-medium text-sm">{{if $item.Pair2}}{{$item.Pair1}} vs {{$item.Pair2}}{{else}}{{$item.Pair1}}{{end}}</p>

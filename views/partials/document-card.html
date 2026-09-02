@@ -59,3 +59,33 @@
 </div>
 {{end}}
 {{end}}
+
+{{/* documentAttachCard — phone layout for competition-detail.html's
+     attached-documents list. Same DocumentView (Mode.Row) as documentCard's
+     <tr> branch, called separately below sm — the table's Acción/Quitar
+     column is off-screen at 390px, so this keeps title, type link,
+     Obligatorio badge, and Quitar together in one reachable row. Distinct
+     from documentCard's non-row card (Editar/Eliminar a document in the
+     library, not attach/detach on a competition). */}}
+{{define "documentAttachCard"}}
+<div class="flex items-center justify-between gap-3 p-3 bg-base-200/50 rounded-lg" data-testid="document-attach-card">
+    <div class="flex-1 min-w-0">
+        <p class="font-medium text-sm truncate">{{.Title}}</p>
+        <div class="flex items-center gap-2 mt-1 flex-wrap">
+            {{if .OpenURL}}
+            {{if .IsFile}}
+            <a href="{{.OpenURL}}" target="_blank" rel="noopener" class="link link-primary text-sm">Archivo</a>
+            {{else}}
+            <a href="{{.OpenURL}}" target="_blank" rel="noopener" class="link link-primary text-sm">Enlace</a>
+            {{end}}
+            {{end}}
+            {{if .IsMandatory}}<span class="badge badge-error badge-sm">Obligatorio</span>{{end}}
+        </div>
+    </div>
+    {{if and .Mode.Admin .Mode.Editable}}
+    <form hx-post="/admin/competitions/{{.CompetitionID}}/detach-doc/{{.Document.Id}}" hx-confirm="¿Quitar este documento de la competición?" class="flex-none">
+        <button type="submit" class="btn btn-ghost btn-sm text-error">Quitar</button>
+    </form>
+    {{end}}
+</div>
+{{end}}
