@@ -39,7 +39,7 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.goto('/admin/competitions');
     await page.waitForLoadState('domcontentloaded');
     await checkNoOverflow(page);
-    await expect(page.getByText('Panel de administración')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Competiciones' })).toBeVisible();
     await expect(page.locator('.card-title', { hasText: 'Liga E2E Test' }).first()).toBeVisible();
   });
 
@@ -186,7 +186,7 @@ test.describe('responsive - no horizontal overflow', () => {
     expect(theme).toBe('dark');
 
     // Key text elements should be visible (not invisible due to low opacity)
-    await expect(page.locator('h1:has-text("Panel de administración")')).toBeVisible();
+    await expect(page.locator('h1:has-text("Competiciones")')).toBeVisible();
     await expect(page.locator('text=Competiciones activas')).toBeVisible();
   });
 });

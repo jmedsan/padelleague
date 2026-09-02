@@ -57,7 +57,7 @@ test.describe('R-178: presentation quality guards', () => {
     await page.waitForLoadState('networkidle');
 
     // Key headings and text are visible
-    await expect(page.locator('h1:has-text("Panel de administración")')).toBeVisible();
+    await expect(page.locator('h1:has-text("Competiciones")')).toBeVisible();
     await expect(page.locator('text=Competiciones activas')).toBeVisible();
 
     // Click into a competition detail
