@@ -137,12 +137,14 @@ func sortStandings(rows []StandingRowFull, matches []*core.Record) {
 		if setDiffI != setDiffJ {
 			return setDiffI > setDiffJ
 		}
+		h2h := headToHead(rows[i].PairID, rows[j].PairID, matches)
+		h2hReverse := headToHead(rows[j].PairID, rows[i].PairID, matches)
+		if h2h != h2hReverse {
+			return h2h
+		}
 		gameDiffI := rows[i].GamesWon - rows[i].GamesLost
 		gameDiffJ := rows[j].GamesWon - rows[j].GamesLost
-		if gameDiffI != gameDiffJ {
-			return gameDiffI > gameDiffJ
-		}
-		return headToHead(rows[i].PairID, rows[j].PairID, matches)
+		return gameDiffI > gameDiffJ
 	})
 }
 

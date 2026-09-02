@@ -112,7 +112,7 @@ func TestComputeStandings_Tiebreakers(t *testing.T) {
 	rows, err := svc.ComputeStandings(comp.Id)
 	require.NoError(t, err)
 	require.Len(t, rows, 3)
-	// All have 3 points, tiebreaker is set diff then game diff then H2H
+	// All have 3 points, tiebreaker is set diff then H2H then game diff
 	for _, r := range rows {
 		assert.Equal(t, 3, r.Points)
 	}
