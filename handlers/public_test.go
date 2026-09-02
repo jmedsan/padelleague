@@ -302,7 +302,7 @@ func TestCompetitionGen2_WithPenaltyShowsPenColumn(t *testing.T) {
 		Name:            "competition with penalty shows Pen column",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Pen."},
+		ExpectedContent: []string{"Pen"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -342,7 +342,7 @@ func TestCompetitionGen2_NoPenaltyHidesPenColumn(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		assert.NotContains(tb, body, "Pen.", "no penalty column when no penalties")
+		assert.NotContains(tb, body, ">Pen</th>", "no penalty column header when no penalties")
 	}
 	s.Test(t)
 }

@@ -1,6 +1,6 @@
 {{define "standingsTable"}}
 <div class="overflow-x-auto">
-    <table class="table table-zebra {{if .Mode.Admin}}table-sm{{end}}">
+    <table class="table table-zebra table-xs sm:table-md {{if .Mode.Admin}}table-sm{{end}}">
         <thead>
             <tr {{if not .Mode.Admin}}class="bg-base-200"{{end}}>
                 <th class="{{if .Mode.Admin}}w-10{{else}}w-12 text-center{{end}}">#</th>
@@ -11,7 +11,7 @@
                 <th class="hidden sm:table-cell text-center">Sets</th>
                 <th class="hidden sm:table-cell text-center">Juegos</th>
                 <th class="text-center {{if not .Mode.Admin}}font-bold {{end}}">Pts</th>
-                {{if .HasPenalties}}<th class="text-center">Pen.</th>{{end}}
+                {{if .HasPenalties}}<th class="text-center">Pen</th>{{end}}
             </tr>
         </thead>
         <tbody>

@@ -42,7 +42,7 @@
                 {{if .HasBothRoles}}
                 <div class="flex-none lg:hidden">
                     <div class="dropdown dropdown-end">
-                        <button tabindex="0" class="btn btn-sm gap-1{{if eq .ViewAs "admin"}} bg-white/20 border-0 text-primary-content hover:bg-white/30{{else}} btn-ghost{{end}}" aria-label="cambiar vista">
+                        <button tabindex="0" class="btn btn-sm gap-1{{if eq .ViewAs "admin"}} btn-error{{else}} btn-ghost{{end}}" aria-label="cambiar vista">
                             {{if eq .ViewAs "admin"}}Admin{{else}}Jugador{{end}}
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
                         </button>
@@ -64,7 +64,7 @@
                             <span id="notif-badge-mobile" hx-get="/notifications/count" hx-trigger="load" hx-swap="innerHTML"></span>
                         </div>
                     </button>
-                    <div tabindex="0" class="dropdown-content z-30 mt-3 w-80 max-w-[calc(100vw-2rem)]" hx-get="/notifications/list" hx-trigger="click from:closest .dropdown" hx-swap="innerHTML">
+                    <div tabindex="0" class="dropdown-content z-30 mt-3 w-80 max-w-[calc(100vw-2rem)] text-base-content" hx-get="/notifications/list" hx-trigger="click from:closest .dropdown" hx-swap="innerHTML">
                         <div class="card card-compact bg-base-100 shadow-xl">
                             <div class="card-body"><p class="text-sm opacity-50">Cargando...</p></div>
                         </div>
@@ -125,7 +125,7 @@
                                 <span id="notif-badge" hx-get="/notifications/count" hx-trigger="load" hx-swap="innerHTML"></span>
                             </div>
                         </button>
-                        <div tabindex="0" id="notif-dropdown" class="dropdown-content z-30 mt-3 w-80" hx-get="/notifications/list" hx-trigger="click from:closest .dropdown" hx-swap="innerHTML">
+                        <div tabindex="0" id="notif-dropdown" class="dropdown-content z-30 mt-3 w-80 text-base-content" hx-get="/notifications/list" hx-trigger="click from:closest .dropdown" hx-swap="innerHTML">
                             <div class="card card-compact bg-base-100 shadow-xl">
                                 <div class="card-body"><p class="text-sm opacity-50">Cargando...</p></div>
                             </div>
