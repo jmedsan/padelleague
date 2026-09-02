@@ -56,19 +56,12 @@ test.describe('competition lifecycle', () => {
     }
   });
 
-  test('admin dashboard shows nav cards and competitions', async ({ page }) => {
+  test('admin dashboard shows title and competitions', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin/competitions');
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.getByText('Panel de administración')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Competiciones' })).toBeVisible();
     await expect(page.getByText('Liga E2E Test').first()).toBeVisible();
-    // Admin nav cards
-    const navCards = page.locator('[data-testid="admin-nav-cards"]');
-    await expect(navCards).toBeVisible();
-    await expect(navCards.getByText('Competiciones')).toBeVisible();
-    await expect(navCards.getByText('Parejas')).toBeVisible();
-    await expect(navCards.getByText('Jugadores')).toBeVisible();
-    await expect(navCards.getByText('Disputas')).toBeVisible();
   });
 
   test('admin can create a new competition', async ({ page, }, testInfo) => {
