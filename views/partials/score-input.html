@@ -2,7 +2,7 @@
 
 {{define "scoreInput"}}
 <div class="score-input" data-suffix="{{.IDSuffix}}" data-pair1="{{.Pair1Name}}" data-pair2="{{.Pair2Name}}"{{if .Value}} data-value="{{.Value}}"{{end}}>
-    <div class="flex flex-wrap items-center gap-3">
+    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
         <div class="flex items-center gap-1 score-set-group" data-set="1">
             <select name="s1a" class="select select-bordered select-sm w-14 score-cell" aria-label="Set 1">{{template "scoreOptions"}}</select>
             <span class="opacity-50">-</span>
