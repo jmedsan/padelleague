@@ -74,7 +74,7 @@
 <a href="{{.URL}}" class="card bg-primary text-primary-content shadow-lg" data-testid="single-comp-entry">
     <div class="card-body">
         <h2 class="card-title text-xl">Entrar a {{.Name}}</h2>
-        <p class="text-sm opacity-70">{{.PendingCount}} partidos pendientes</p>
+        <p class="text-sm opacity-70">{{.PendingCount}} partido{{if ne .PendingCount 1}}s{{end}} pendiente{{if ne .PendingCount 1}}s{{end}}</p>
         <div class="card-actions mt-2">
             <span class="btn btn-sm bg-white/20 border-0 hover:bg-white/30">Ver competición</span>
         </div>

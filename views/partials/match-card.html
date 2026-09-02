@@ -177,6 +177,7 @@
                 {{end}}
             </div>
             {{if .Score}}<span class="text-xs font-bold sm:hidden">{{.Score}}</span>{{end}}
+            {{if .CompetitionName}}<span class="text-xs opacity-50 truncate">{{.CompetitionName}}</span>{{end}}
             <span class="badge {{.StatusClass}} badge-xs sm:badge-sm whitespace-nowrap">{{.StatusLabel}}</span>
         </div>
     </div>
