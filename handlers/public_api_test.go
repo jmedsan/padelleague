@@ -71,13 +71,17 @@ func TestCompetitionPage(t *testing.T) {
 		Name:            "GET /competition/{id} shows pair names",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"CompA", "CompB"},
+		ExpectedContent: []string{"CompA", "CompB", "Clasificación"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "CompA")
 		p2 := makePairTB(tb, app, "CompB")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+		m.Set("scores", "6-3 6-3")
+		m.Set("winner", p1.Id)
+		require.NoError(tb, app.Save(m))
 		s.URL = "/competition/" + comp.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		s.Headers = authHeaders(tb, user)

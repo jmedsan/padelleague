@@ -81,13 +81,18 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 
 func (h *CompetitionHandler) addDetailExtras(data map[string]any, comp *core.Record, matches []*core.Record) {
 	if comp.GetString("type") == "league" {
-		standings, _ := h.leagueSvc.ComputeStandings(comp.Id)
-		data["Standings"] = standings
-		for _, s := range standings {
+		rows, _ := h.leagueSvc.ComputeStandings(comp.Id)
+		hasPlayed := false
+		for _, s := range rows {
+			if s.Played > 0 {
+				hasPlayed = true
+			}
 			if s.Penalty > 0 {
 				data["HasPenalties"] = true
-				break
 			}
+		}
+		if len(rows) >= 2 && hasPlayed {
+			data["Standings"] = rows
 		}
 		if len(matches) > 0 {
 			data["RoundDates"] = h.buildRoundDates(comp)

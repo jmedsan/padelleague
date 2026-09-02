@@ -43,6 +43,8 @@ type MatchCard struct {
 	Feeder1   string
 	Feeder2   string
 	IsMyMatch bool
+	Opponent  string
+	Won       bool
 
 	CanSubmit       bool
 	CanEdit         bool
