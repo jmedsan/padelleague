@@ -98,7 +98,10 @@ async function setAuthCookie(page: Page, token: string) {
     httpOnly: true,
   }]);
   await page.goto('/');
-  await expect(page).toHaveURL('/', { timeout: 5000 });
+  // Admins land on /admin/competitions (server-side redirect from /); players
+  // stay on /. Either confirms the auth cookie took; a login/error page would
+  // match neither.
+  await expect(page).toHaveURL(/\/(admin\/competitions)?$/, { timeout: 5000 });
 }
 
 export function isMobile(page: Page): boolean {
@@ -127,5 +130,7 @@ export async function loginViaForm(page: Page, email: string, password: string) 
   await page.fill('#email', email);
   await page.fill('#password', password);
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await page.waitForURL('/', { timeout: 10000 });
+  // Admins land on /admin/competitions (server-side redirect from /); players
+  // stay on /.
+  await page.waitForURL(/\/(admin\/competitions)?$/, { timeout: 10000 });
 }

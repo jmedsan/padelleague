@@ -7,14 +7,14 @@ test.describe('competition lifecycle', () => {
     await page.goto('/admin');
     await page.waitForLoadState('domcontentloaded');
     await expect(page).toHaveURL(/\/admin\/competitions$/);
-    await expect(page.getByRole('heading', { name: 'Competiciones' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Competiciones', exact: true })).toBeVisible();
   });
 
   test('admin dashboard shows title and competitions', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin/competitions');
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.getByRole('heading', { name: 'Competiciones' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Competiciones', exact: true })).toBeVisible();
     await expect(page.getByText('Liga E2E Test').first()).toBeVisible();
   });
 

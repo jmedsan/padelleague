@@ -441,7 +441,7 @@ test.describe('R-178: presentation quality guards', () => {
     await expect(dropdown.locator('text=Progreso de partido').first()).toBeVisible({ timeout: 5000 });
   });
 
-  test('R-175: mode-driven home — admin sees dashboard, not player content; player view shows the opposite', async ({ page }) => {
+  test('R-175: mode-driven home — admin GET / redirects to the admin dashboard, not player content; player view shows the opposite', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 
     // Ensure admin view mode
@@ -450,14 +450,11 @@ test.describe('R-178: presentation quality guards', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // Admin-only content must be in the DOM — the Gestión menu section
-    // (in a dropdown on desktop, drawer on mobile) is always present in
-    // admin view and absent in player view
+    // Admin GET / redirects to /admin/competitions, the single admin landing
+    // page — it never renders player home content.
+    await expect(page).toHaveURL(/\/admin\/competitions$/);
+    await expect(page.getByRole('heading', { name: 'Competiciones', exact: true })).toBeVisible();
     await expect(page.locator('text=Gestión').first()).toBeAttached();
-
-    // The admin home shows admin-only content that player view cannot see
-    // (it may ALSO show player content when the admin is enrolled in
-    // competitions — that's correct, not a leak)
     const bodyText = await page.evaluate(() => document.body.innerText);
     expect(bodyText).not.toContain('Administración');
 
@@ -468,8 +465,8 @@ test.describe('R-178: presentation quality guards', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // Admin dashboard content must NOT appear in player view
-    await expect(page.locator('[data-testid="admin-dashboard-heading"]')).toHaveCount(0);
+    // Player view must stay on / (no redirect) and show no admin content.
+    await expect(page).toHaveURL(/\/$/);
     await expect(page.locator('a[href="/admin/competitions"]')).toHaveCount(0);
     const playerBody = await page.evaluate(() => document.body.innerText);
     expect(playerBody).not.toContain('Preparar competiciones');

@@ -60,7 +60,7 @@
 
 {{if .Data.Recent}}
 <h2 class="text-lg font-semibold mb-2">Últimos partidos</h2>
-<div class="overflow-x-auto mb-6">
+<div class="hidden sm:block overflow-x-auto mb-6">
     <table class="table table-sm">
         <thead>
             <tr>
@@ -77,6 +77,11 @@
             {{end}}
         </tbody>
     </table>
+</div>
+<div class="sm:hidden space-y-2 mb-6">
+    {{range .Data.Recent}}
+    {{template "historyMatchCard" .}}
+    {{end}}
 </div>
 {{end}}
 
