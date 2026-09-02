@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{if .PageTitle}}{{.PageTitle}} — {{end}}PadelLeague</title>
+    <title>{{if .PageTitle}}{{.PageTitle}} — {{end}}Dale Fuerte a la Bola</title>
     <link rel="stylesheet" href="/static/css/styles.css">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#115E59">
@@ -37,7 +37,10 @@
                     </label>
                 </div>{{end}}
                 <div class="flex-1">
-                    <a href="/" class="btn btn-ghost text-xl font-bold normal-case text-primary-content hover:bg-white/10">PadelLeague</a>
+                    <a href="/" class="btn btn-ghost normal-case text-primary-content hover:bg-white/10 gap-2 px-2">
+                        <img src="/static/img/logo.jpg" alt="Logo" class="w-8 h-8 rounded-full">
+                        <span class="text-lg font-bold hidden sm:inline">Dale Fuerte a la Bola</span>
+                    </a>
                 </div>
                 {{if .HasBothRoles}}
                 <div class="flex-none lg:hidden">
@@ -150,14 +153,15 @@
                 {{block "content" .}}{{end}}
             </main>
             <footer class="footer footer-center p-6 bg-secondary text-secondary-content">
-                <p class="text-sm opacity-70">PadelLeague &copy; 2026</p>
+                <p class="text-sm opacity-70">Dale Fuerte a la Bola &copy; 2026</p>
             </footer>
         </div>
         <div class="drawer-side z-40">
             <label for="main-drawer" aria-label="cerrar menú" class="drawer-overlay"></label>
             <div class="bg-base-100 min-h-full w-72 p-0">
-                <div class="p-4 bg-primary text-primary-content">
-                    <span class="text-xl font-bold">PadelLeague</span>
+                <div class="p-4 bg-primary text-primary-content flex items-center gap-3">
+                    <img src="/static/img/logo.jpg" alt="Logo" class="w-10 h-10 rounded-full ring-2 ring-white/20">
+                    <span class="text-lg font-bold">Dale Fuerte</span>
                 </div>
                 {{if .DisplayName}}
                 <div class="p-4 pb-0 relative z-20">
