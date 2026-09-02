@@ -215,11 +215,15 @@ func (bc *threadBuildCtx) schedProposal(msg *core.Record, authorName, created st
 func (bc *threadBuildCtx) resultProposal(msg *core.Record, authorName string, authorTeam int, sameTeam bool) ResultProposalVM {
 	canRespond, _ := proposalActions("result_submission", bc.matchStatus, sameTeam, msg.GetString("proposal_status"))
 	canRespond = canRespond && bc.compModifiable
+	score := msg.GetString("content")
+	if pd := ParseProposalData(msg.Get("proposal_data")); pd != nil && pd.Scores != "" {
+		score = pd.Scores
+	}
 	rp := ResultProposalVM{
 		RecordID:   msg.Id,
 		MatchID:    bc.matchID,
 		PairLabel:  authorName,
-		Score:      msg.GetString("content"),
+		Score:      score,
 		AwaitingMe: bc.myTeam != 0 && authorTeam != bc.myTeam,
 		CanRespond: canRespond,
 	}
