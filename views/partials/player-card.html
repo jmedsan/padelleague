@@ -17,7 +17,7 @@
         <span>{{if .Name}}{{.Name}}{{else}}<span class="opacity-60 italic">Sin nombre</span>{{end}}</span>
         {{end}}
         {{if .Mode.Full}}</h1>{{end}}
-        {{if not .Name}}<span class="badge badge-warning badge-xs ml-1">Pendiente</span>{{end}}
+        {{if not .Name}}<span class="badge badge-soft-warning badge-xs ml-1">Pendiente</span>{{end}}
         {{if .Roles}}
         <div class="flex gap-1 mt-0.5">
             {{if contains .Roles "admin"}}<span class="badge badge-secondary badge-sm">Admin</span>{{end}}
