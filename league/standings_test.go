@@ -275,8 +275,8 @@ func rowByName(t *testing.T, rows []StandingRowFull, name string) StandingRowFul
 	return StandingRowFull{}
 }
 
-// Head-to-head is the last tiebreaker: two pairs level on points, set
-// difference and game difference must be split by who beat whom.
+// Head-to-head breaks ties after points (FEP art. 3.3.10): two pairs
+// level on points are split by who beat whom, before set/game diff.
 func TestComputeStandings_HeadToHeadBreaksFullTie(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
