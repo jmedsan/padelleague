@@ -1,6 +1,10 @@
 package league
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestIsPreScore(t *testing.T) {
 	t.Parallel()
@@ -16,8 +20,30 @@ func TestIsPreScore(t *testing.T) {
 		{"", false},
 	}
 	for _, tc := range cases {
-		if got := IsPreScore(tc.status); got != tc.want {
-			t.Errorf("IsPreScore(%q) = %v, want %v", tc.status, got, tc.want)
-		}
+		t.Run(tc.status, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, IsPreScore(tc.status))
+		})
+	}
+}
+
+func TestStatusLabel(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		status string
+		want   string
+	}{
+		{StatusPending, "Pendiente"},
+		{StatusScheduled, "Confirmada"},
+		{StatusConfirmed, "Propuesta"},
+		{StatusDisputed, "En disputa"},
+		{StatusFinal, "Confirmado"},
+		{"unknown", "unknown"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.status, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, StatusLabel(tc.status))
+		})
 	}
 }
