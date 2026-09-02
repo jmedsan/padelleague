@@ -378,6 +378,13 @@ func (h *PublicHandler) findRecentResults(c *core.Record, playerPairIDs map[stri
 		}
 		mc := NewMatchRow(m, pairNames, noAccent)
 		mc.CompetitionName = c.GetString("name")
+		if hasP1 {
+			mc.Opponent = pairNames[p2]
+			mc.Won = m.GetString("winner") == p1
+		} else {
+			mc.Opponent = pairNames[p1]
+			mc.Won = m.GetString("winner") == p2
+		}
 		results = append(results, mc)
 		if len(results) >= 5 {
 			break
@@ -673,12 +680,18 @@ func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundVi
 	var standings []league.StandingRowFull
 	hasPenalties := false
 	if comp.GetString("type") == "league" {
-		standings, _ = h.leagueSvc.ComputeStandings(id)
-		for _, s := range standings {
+		rows, _ := h.leagueSvc.ComputeStandings(id)
+		hasPlayed := false
+		for _, s := range rows {
+			if s.Played > 0 {
+				hasPlayed = true
+			}
 			if s.Penalty > 0 {
 				hasPenalties = true
-				break
 			}
+		}
+		if len(rows) >= 2 && hasPlayed {
+			standings = rows
 		}
 	}
 

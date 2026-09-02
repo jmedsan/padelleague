@@ -57,7 +57,13 @@
     <h2 class="text-lg font-bold mb-3">Mis últimos partidos</h2>
     <div class="space-y-2">
         {{range .RecentResults}}
-        {{template "matchRow" .}}
+        <a href="/match/{{.Match.Id}}" class="flex items-center gap-3 p-3 rounded-xl bg-base-200/50 hover:bg-base-200 transition-colors">
+            <div class="flex-1 min-w-0">
+                <p class="font-medium text-sm truncate">vs {{.Opponent}}</p>
+                <p class="text-xs opacity-60">{{.Score}} · {{.CompetitionName}}</p>
+            </div>
+            {{template "wonBadge" .}}
+        </a>
         {{end}}
     </div>
 </div>

@@ -122,7 +122,7 @@
                 <input type="checkbox">
                 <div class="collapse-title font-medium text-sm">
                     Jornada {{.Number}}
-                    <span class="badge badge-soft-ghost badge-sm ml-2">{{len .Matches}} partidos</span>
+                    <span class="badge badge-soft-ghost badge-sm ml-2">{{len .Matches}} partido{{if ne (len .Matches) 1}}s{{end}}</span>
                 </div>
                 <div class="collapse-content">
                     <div class="divide-y divide-base-200 pt-2">
