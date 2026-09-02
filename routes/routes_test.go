@@ -62,7 +62,7 @@ func TestAdminRoutes_RejectUnauthenticated(t *testing.T) {
 			}
 			s.BeforeTestFunc = func(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 				viewsFS := minimalFS()
-				renderer := render.New(viewsFS, "")
+				renderer := render.New(viewsFS, "", true)
 				notifier := notify.NewNotifier(app, "", "")
 				svc := league.New(app, notifier)
 				Register(e, Deps{
@@ -93,7 +93,7 @@ func TestAdminRoutes_RejectPlayer(t *testing.T) {
 			}
 			s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 				viewsFS := minimalFS()
-				renderer := render.New(viewsFS, "")
+				renderer := render.New(viewsFS, "", true)
 				notifier := notify.NewNotifier(app, "", "")
 				svc := league.New(app, notifier)
 				Register(e, Deps{
@@ -129,7 +129,7 @@ func TestPublicRoutes_RejectUnauthenticated(t *testing.T) {
 	}
 	s.BeforeTestFunc = func(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		viewsFS := minimalFS()
-		renderer := render.New(viewsFS, "")
+		renderer := render.New(viewsFS, "", true)
 		notifier := notify.NewNotifier(app, "", "")
 		svc := league.New(app, notifier)
 		Register(e, Deps{
@@ -159,7 +159,7 @@ func TestAuthRoutes_NoAuthRequired(t *testing.T) {
 			}
 			s.BeforeTestFunc = func(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 				viewsFS := minimalFS()
-				renderer := render.New(viewsFS, "")
+				renderer := render.New(viewsFS, "", true)
 				notifier := notify.NewNotifier(app, "", "")
 				svc := league.New(app, notifier)
 				Register(e, Deps{
@@ -185,7 +185,7 @@ func TestRequireAuth_HXRequest_RedirectsViaHeader(t *testing.T) {
 	}
 	s.BeforeTestFunc = func(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		viewsFS := minimalFS()
-		renderer := render.New(viewsFS, "")
+		renderer := render.New(viewsFS, "", true)
 		notifier := notify.NewNotifier(app, "", "")
 		svc := league.New(app, notifier)
 		Register(e, Deps{
@@ -212,7 +212,7 @@ func TestStaticRoutes_ManifestJSON(t *testing.T) {
 	}
 	s.BeforeTestFunc = func(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		viewsFS := minimalFS()
-		renderer := render.New(viewsFS, "")
+		renderer := render.New(viewsFS, "", true)
 		notifier := notify.NewNotifier(app, "", "")
 		svc := league.New(app, notifier)
 		Register(e, Deps{
@@ -238,7 +238,7 @@ func TestStaticRoutes_ServiceWorker(t *testing.T) {
 	}
 	s.BeforeTestFunc = func(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		viewsFS := minimalFS()
-		renderer := render.New(viewsFS, "")
+		renderer := render.New(viewsFS, "", true)
 		notifier := notify.NewNotifier(app, "", "")
 		svc := league.New(app, notifier)
 		Register(e, Deps{

@@ -226,7 +226,7 @@ func authHeaders(t testing.TB, user *core.Record) map[string]string {
 
 func setupAuthRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	viewsFS := os.DirFS("..")
-	r := render.New(viewsFS, "")
+	r := render.New(viewsFS, "", true)
 	auth := NewAuthHandler(app, r.Page)
 	e.Router.GET("/login", auth.Login)
 	e.Router.POST("/login", auth.LoginSubmit)
@@ -237,7 +237,7 @@ func setupAuthRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 
 func setupAllRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	viewsFS := os.DirFS("..")
-	r := render.New(viewsFS, "")
+	r := render.New(viewsFS, "", true)
 	notifier := notify.NewNotifier(app, "", "")
 	svc := league.New(app, notifier)
 
@@ -480,7 +480,7 @@ func TestNewTestApp(t *testing.T) {
 
 func setupFullAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	viewsFS := os.DirFS("..")
-	r := render.New(viewsFS, "")
+	r := render.New(viewsFS, "", true)
 	notifier := notify.NewNotifier(app, "", "")
 	svc := league.New(app, notifier)
 

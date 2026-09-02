@@ -22,7 +22,7 @@ import (
 func setupDocRoutes(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	setupFullAdminRoutes(tb, app, e)
 
-	doc := NewDocumentHandler(app, render.New(os.DirFS(".."), "").Page)
+	doc := NewDocumentHandler(app, render.New(os.DirFS(".."), "", true).Page)
 	g := e.Router.Group("/admin")
 	g.BindFunc(requireAuthTest)
 	g.BindFunc(requireAdminTest)
@@ -32,7 +32,7 @@ func setupDocRoutes(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.POST("/documents/{id}/delete", doc.DocumentsDelete)
 
 	n := notify.NewNotifier(app, "", "")
-	comp := NewCompetitionHandler(app, league.New(app, n), n, render.New(os.DirFS(".."), "").Page)
+	comp := NewCompetitionHandler(app, league.New(app, n), n, render.New(os.DirFS(".."), "", true).Page)
 	g.POST("/competitions/{id}/attach-doc", comp.AttachDocument)
 	g.POST("/competitions/{id}/detach-doc/{docId}", comp.DetachDocument)
 }

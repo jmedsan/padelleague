@@ -23,7 +23,7 @@ import (
 
 func setupNotifRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	viewsFS := os.DirFS("..")
-	r := render.New(viewsFS, "")
+	r := render.New(viewsFS, "", true)
 	notifier := notify.NewNotifier(app, "", "")
 	svc := league.New(app, notifier)
 	_ = svc

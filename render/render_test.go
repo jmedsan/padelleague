@@ -75,7 +75,7 @@ func body(rec *httptest.ResponseRecorder) string {
 
 func TestPage_RendersWithLayout(t *testing.T) {
 	t.Parallel()
-	r := New(goodFS, "vapid-key-123")
+	r := New(goodFS, "vapid-key-123", true)
 	e, rec := makeEvent(nil)
 
 	err := r.Page(e, "page.html", map[string]any{"Title": "Hola"})
@@ -89,7 +89,7 @@ func TestPage_RendersWithLayout(t *testing.T) {
 
 func TestPage_NilData(t *testing.T) {
 	t.Parallel()
-	r := New(goodFS, "vapid-key-123")
+	r := New(goodFS, "vapid-key-123", true)
 	e, rec := makeEvent(nil)
 
 	err := r.Page(e, "page.html", nil)
@@ -100,7 +100,7 @@ func TestPage_NilData(t *testing.T) {
 
 func TestPartial_RendersWithoutLayout(t *testing.T) {
 	t.Parallel()
-	r := New(goodFS, "vapid-key-123")
+	r := New(goodFS, "vapid-key-123", true)
 	e, rec := makeEvent(nil)
 
 	err := r.Partial(e, "partial.html", map[string]any{"Label": "Parcial"})
@@ -113,7 +113,7 @@ func TestPartial_RendersWithoutLayout(t *testing.T) {
 
 func TestPartial_NilData(t *testing.T) {
 	t.Parallel()
-	r := New(goodFS, "vapid-key-123")
+	r := New(goodFS, "vapid-key-123", true)
 	e, rec := makeEvent(nil)
 
 	err := r.Partial(e, "partial.html", nil)
@@ -124,7 +124,7 @@ func TestPartial_NilData(t *testing.T) {
 
 func TestErrorPage_RendersWithLayout(t *testing.T) {
 	t.Parallel()
-	r := New(goodFS, "vapid-key-123")
+	r := New(goodFS, "vapid-key-123", true)
 	e, rec := makeEvent(nil)
 
 	err := r.ErrorPage(e, http.StatusNotFound, "No encontrado")
@@ -138,7 +138,7 @@ func TestErrorPage_RendersWithLayout(t *testing.T) {
 
 func TestErrorPage_FallbackOnBrokenTemplate(t *testing.T) {
 	t.Parallel()
-	r := New(brokenErrorFS, "vapid-key-123")
+	r := New(brokenErrorFS, "vapid-key-123", true)
 	e, rec := makeEvent(nil)
 
 	err := r.ErrorPage(e, http.StatusInternalServerError, "Error grave")
@@ -151,7 +151,7 @@ func TestErrorPage_FallbackOnBrokenTemplate(t *testing.T) {
 
 func TestWithAuth_AdminUser(t *testing.T) {
 	t.Parallel()
-	r := New(goodFS, "vapid-key-123")
+	r := New(goodFS, "vapid-key-123", true)
 	admin := makeAdmin()
 	e, rec := makeEvent(admin)
 
@@ -165,7 +165,7 @@ func TestWithAuth_AdminUser(t *testing.T) {
 
 func TestWithAuth_PlayerUser(t *testing.T) {
 	t.Parallel()
-	r := New(goodFS, "vapid-key-123")
+	r := New(goodFS, "vapid-key-123", true)
 	player := makePlayer()
 	e, _ := makeEvent(player)
 
@@ -181,7 +181,7 @@ func TestWithAuth_PlayerUser(t *testing.T) {
 
 func TestWithAuth_AdminRole(t *testing.T) {
 	t.Parallel()
-	r := New(goodFS, "vapid-key-123")
+	r := New(goodFS, "vapid-key-123", true)
 	admin := makeAdmin()
 	e, _ := makeEvent(admin)
 
@@ -195,7 +195,7 @@ func TestWithAuth_AdminRole(t *testing.T) {
 
 func TestWithAuth_NoAuth(t *testing.T) {
 	t.Parallel()
-	r := New(goodFS, "vapid-key-123")
+	r := New(goodFS, "vapid-key-123", true)
 	e, _ := makeEvent(nil)
 
 	data := map[string]any{}
@@ -208,7 +208,7 @@ func TestWithAuth_NoAuth(t *testing.T) {
 
 func TestWithAuth_DoesNotOverrideExisting(t *testing.T) {
 	t.Parallel()
-	r := New(goodFS, "vapid-key-123")
+	r := New(goodFS, "vapid-key-123", true)
 	admin := makeAdmin()
 	e, _ := makeEvent(admin)
 
