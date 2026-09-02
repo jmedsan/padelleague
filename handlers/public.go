@@ -139,10 +139,12 @@ func (h *PublicHandler) onboardingSteps(user *core.Record, activeComps []*core.R
 
 	reglamentoDone := true
 	reglamentoURL := "/"
+	reglamentoLabel := "Lee los documentos"
 	for _, c := range activeComps {
 		if pending := league.UnacknowledgedMandatory(h.app, c, user.Id); len(pending) > 0 {
 			reglamentoDone = false
 			reglamentoURL = fmt.Sprintf("/competition/%s#documentos", c.Id)
+			reglamentoLabel = fmt.Sprintf("Lee los documentos de %s", c.GetString("name"))
 			break
 		}
 	}
@@ -153,7 +155,7 @@ func (h *PublicHandler) onboardingSteps(user *core.Record, activeComps []*core.R
 
 	return []OnboardStep{
 		{Label: "Completa tu perfil", URL: "/profile/complete", Done: profileDone},
-		{Label: "Lee los documentos", URL: reglamentoURL, Done: reglamentoDone},
+		{Label: reglamentoLabel, URL: reglamentoURL, Done: reglamentoDone},
 	}
 }
 
