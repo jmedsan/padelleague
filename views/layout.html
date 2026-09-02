@@ -159,10 +159,10 @@
                     <span class="text-xl font-bold">PadelLeague</span>
                 </div>
                 {{if .DisplayName}}
-                <div class="p-4 pb-0">
+                <div class="p-4 pb-0 relative">
                     <input type="text" placeholder="Buscar…" class="input input-bordered input-sm w-full"
                            hx-get="/search" hx-trigger="keyup changed delay:200ms, focus" hx-target="#search-results-mobile" name="q" autocomplete="off">
-                    <div id="search-results-mobile" class="mt-1 max-h-64 overflow-y-auto"></div>
+                    <div id="search-results-mobile" class="absolute left-4 right-4 mt-1 max-h-64 overflow-y-auto bg-base-100 rounded-box shadow-xl z-10"></div>
                 </div>
                 {{end}}
                 <ul class="menu p-4 gap-1">
