@@ -80,10 +80,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	}
 
 	isAdmin := isEffectiveAdmin(e)
-	myTeam, teamErr := league.PlayerTeam(h.app, e.Auth.Id, match)
-	if teamErr != nil && !isAdmin {
-		return alertError(e, "No tienes acceso a este hilo")
-	}
+	myTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
 
 	if err := checkDocGate(h.app, e, match); err != nil {
 		return err

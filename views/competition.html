@@ -69,10 +69,12 @@
         {{if .Rounds}}
         <div class="space-y-3">
         {{range .Rounds}}
+        {{if .Matches}}
         <div class="collapse collapse-arrow bg-base-100 shadow-sm rounded-lg border border-base-300">
             <input type="checkbox" {{if and $.AutoExpandRound (eq $.AutoExpandRound .RoundNumber)}}checked{{end}}>
             <div class="collapse-title font-bold text-sm py-2 min-h-0">
                 Jornada {{.RoundNumber}}
+                <span class="badge badge-soft-ghost badge-xs ml-1">{{len .Matches}}</span>
             </div>
             <div class="collapse-content">
                 <div class="divide-y divide-base-200 pt-2">
@@ -82,6 +84,7 @@
                 </div>
             </div>
         </div>
+        {{end}}
         {{end}}
         </div>
         {{else}}
