@@ -1215,11 +1215,11 @@ func TestHome_OnboardChecklist_ShownWhenMandatoryDocPending(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "onboarding checklist shown when mandatory doc unacked",
+		Name:            "onboarding checklist hidden when profile done despite unacked docs",
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Primeros pasos"},
+		ExpectedContent: []string{"PadelLeague"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -1244,11 +1244,8 @@ func TestHome_OnboardChecklist_ShownWhenMandatoryDocPending(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		assert.Contains(tb, body, "onboard-checklist", "checklist card present")
-		assert.Contains(tb, body, "Lee los documentos", "reglamento step shown")
-		assert.Contains(tb, body, "Completa tu perfil", "profile step shown")
-		assert.Contains(tb, body, "#documentos", "reglamento deep-links to documentos tab")
-		assert.NotContains(tb, body, "Cómo funciona", "dropped non-trackable step")
+		assert.NotContains(tb, body, "onboard-checklist", "checklist hidden when profile done")
+		assert.NotContains(tb, body, "Lee los documentos", "docs step is per-competition, not on home")
 	}
 	s.Test(t)
 }
