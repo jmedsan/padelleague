@@ -186,7 +186,7 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 		}
 	}
 
-	return redirectHX(e, "/admin/competitions")
+	return redirectHX(e, "/admin/competitions/"+record.Id)
 }
 
 // Update handles POST to modify an existing competition's settings.
