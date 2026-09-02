@@ -118,6 +118,35 @@ func NewMatchRow(match *core.Record, pairNames map[string]string, playerPairIDs 
 	}
 }
 
+// enrichWithPendingResults updates StatusLabel to "Propuesta" for pre-score
+// matches that have a pending result_submission, so list rows reflect the
+// effective state rather than the raw match status.
+func enrichWithPendingResults(app core.App, cards []MatchCard) {
+	var preScoreIDs []string
+	idxMap := map[string][]int{}
+	for i, c := range cards {
+		if league.IsPreScore(c.Match.GetString("status")) {
+			mid := c.Match.Id
+			preScoreIDs = append(preScoreIDs, mid)
+			idxMap[mid] = append(idxMap[mid], i)
+		}
+	}
+	if len(preScoreIDs) == 0 {
+		return
+	}
+	for _, mid := range preScoreIDs {
+		msgs, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_submission' && proposal_status = 'pending'",
+			"", 1, 0, map[string]any{"mid": mid})
+		if len(msgs) > 0 {
+			for _, idx := range idxMap[mid] {
+				cards[idx].StatusLabel = "Propuesta"
+				cards[idx].StatusClass = "badge-soft-warning"
+			}
+		}
+	}
+}
+
 func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID string) {
 	status := match.GetString("status")
 	team, _ := league.PlayerTeam(app, viewerID, match)

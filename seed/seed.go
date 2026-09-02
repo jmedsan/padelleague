@@ -668,7 +668,8 @@ func (sc *sampleCtx) createResultEntries(rc resultContext) error {
 		rec.Set("match", rc.match.Id)
 		rec.Set("author", rc.submitter)
 		rec.Set("type", "admin_action")
-		rec.Set("content", "aprobó incomparecencia a favor de "+rc.match.GetString("pair1"))
+		winnerName := league.PairNames(sc.app, []string{rc.match.GetString("pair1")})[rc.match.GetString("pair1")]
+		rec.Set("content", "aprobó incomparecencia a favor de "+winnerName)
 		rec.SetRaw("created", reportTime.Format(time.RFC3339))
 		if err := sc.app.Save(rec); err != nil {
 			return fmt.Errorf("save walkover timeline: %w", err)
