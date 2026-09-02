@@ -9,6 +9,7 @@ type Notification struct {
 	Title   string
 	Body    string
 	MatchID string
+	Link    string // overrides the "/match/{MatchID}" default when set
 }
 
 // Notifier sends player notifications; implemented by notify.Notifier.

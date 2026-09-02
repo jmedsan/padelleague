@@ -450,10 +450,12 @@ func TestNotifyAdmins_HonorsPrefs(t *testing.T) {
 	assert.Empty(t, notifs, "admin with match_progress=false must not be notified")
 }
 
-func TestPushTargetURL(t *testing.T) {
+func TestNotificationLink(t *testing.T) {
 	t.Parallel()
-	assert.Equal(t, "/", pushTargetURL(""))
-	assert.Equal(t, "/match/abc123", pushTargetURL("abc123"))
+	assert.Equal(t, "", notificationLink(league.Notification{}))
+	assert.Equal(t, "/match/abc123", notificationLink(league.Notification{MatchID: "abc123"}))
+	assert.Equal(t, "/competition/xyz", notificationLink(league.Notification{Link: "/competition/xyz", MatchID: "abc123"}),
+		"an explicit Link takes priority over MatchID")
 }
 
 func TestDeliverPush_DeleteError_Logs(t *testing.T) {

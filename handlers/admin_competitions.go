@@ -591,6 +591,7 @@ func (h *CompetitionHandler) AdminBroadcast(e *core.RequestEvent) error {
 		Type:  "general",
 		Title: title,
 		Body:  body,
+		Link:  "/competition/" + comp.Id,
 	})
 	h.notifier.EmailPlayers(players, title, body, "/competition/"+comp.Id)
 
