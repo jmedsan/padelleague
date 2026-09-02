@@ -486,24 +486,31 @@ func (sc *sampleCtx) createResultEntries(rc resultContext) error {
 		return err
 
 	case rc.f.round == 6 && rc.f.idx == 1:
-		reportTime := rc.playDate.Add(20 * time.Hour)
-		adminID := rc.submitter
-		if admins, err := sc.app.FindRecordsByFilter("users", "roles ~ 'admin'", "", 1, 0, nil); err == nil && len(admins) > 0 {
-			adminID = admins[0].Id
-		}
-		rec := core.NewRecord(sc.msgCol)
-		rec.Set("match", rc.match.Id)
-		rec.Set("author", adminID)
-		rec.Set("type", "result_event")
-		winnerName := league.PairNames(sc.app, []string{rc.match.GetString("pair1")})[rc.match.GetString("pair1")]
-		rec.Set("content", "aprobó incomparecencia a favor de "+winnerName)
-		rec.SetRaw("created", reportTime.UTC().Format("2006-01-02 15:04:05.000Z"))
-		if err := sc.app.Save(rec); err != nil {
-			return fmt.Errorf("save walkover timeline: %w", err)
-		}
-		return nil
+		return sc.saveWalkoverTimeline(rc)
 	case rc.f.round == 6:
 		return nil
+	}
+	return nil
+}
+
+// saveWalkoverTimeline records the admin's walkover-approval line for a
+// sample match, attributed to a real admin user when one exists in the
+// seeded data (falling back to the submitter otherwise).
+func (sc *sampleCtx) saveWalkoverTimeline(rc resultContext) error {
+	reportTime := rc.playDate.Add(20 * time.Hour)
+	adminID := rc.submitter
+	if admins, err := sc.app.FindRecordsByFilter("users", "roles ~ 'admin'", "", 1, 0, nil); err == nil && len(admins) > 0 {
+		adminID = admins[0].Id
+	}
+	rec := core.NewRecord(sc.msgCol)
+	rec.Set("match", rc.match.Id)
+	rec.Set("author", adminID)
+	rec.Set("type", "result_event")
+	winnerName := league.PairNames(sc.app, []string{rc.match.GetString("pair1")})[rc.match.GetString("pair1")]
+	rec.Set("content", "aprobó incomparecencia a favor de "+winnerName)
+	rec.SetRaw("created", reportTime.UTC().Format("2006-01-02 15:04:05.000Z"))
+	if err := sc.app.Save(rec); err != nil {
+		return fmt.Errorf("save walkover timeline: %w", err)
 	}
 	return nil
 }
