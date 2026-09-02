@@ -2,7 +2,7 @@
 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
     <h1 class="text-2xl font-bold">Competiciones</h1>
     <button class="btn btn-primary" onclick="document.getElementById('modal-create').showModal()">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
         Crear competición
     </button>
 </div>
@@ -91,19 +91,19 @@
         <div id="create-error" class="mb-4"></div>
         <form hx-post="/admin/competitions" hx-target="#create-error">
             <div class="form-control w-full">
-                <label class="label"><span class="label-text font-medium">Nombre</span></label>
-                <input type="text" name="name" class="input input-bordered w-full" placeholder="Ej: Liga Primavera 2026" required>
+                <label class="label" for="create-comp-name"><span class="label-text font-medium">Nombre</span></label>
+                <input type="text" id="create-comp-name" name="name" class="input input-bordered w-full" placeholder="Ej: Liga Primavera 2026" required>
             </div>
             <div class="form-control w-full mt-3">
-                <label class="label"><span class="label-text font-medium">Tipo</span></label>
-                <select name="type" class="select select-bordered w-full">
+                <label class="label" for="create-comp-type"><span class="label-text font-medium">Tipo</span></label>
+                <select id="create-comp-type" name="type" class="select select-bordered w-full">
                     <option value="league">Liga</option>
                     <option value="playoff">Playoff</option>
                 </select>
             </div>
             <div class="form-control w-full mt-3">
-                <label class="label"><span class="label-text font-medium">Modalidad de género <span class="tooltip tooltip-right" data-tip="Limita las parejas que pueden inscribirse según el género de sus jugadores"><span class="text-info cursor-help">ⓘ</span></span></span></label>
-                <select name="gender_type" class="select select-bordered w-full">
+                <label class="label" for="create-comp-gender"><span class="label-text font-medium">Modalidad de género <span class="tooltip tooltip-right" data-tip="Limita las parejas que pueden inscribirse según el género de sus jugadores"><span class="text-info cursor-help">ⓘ</span></span></span></label>
+                <select id="create-comp-gender" name="gender_type" class="select select-bordered w-full">
                     <option value="free" selected>Libre</option>
                     <option value="male">Masculina</option>
                     <option value="female">Femenina</option>
@@ -111,18 +111,18 @@
                 </select>
             </div>
             <div class="form-control w-full mt-3">
-                <label class="label"><span class="label-text font-medium">Tiempo de espera para confirmación (horas) <span class="tooltip tooltip-right" data-tip="Si el rival no confirma ni disputa un resultado en este tiempo, se acepta automáticamente"><span class="text-info cursor-help">ⓘ</span></span></span></label>
-                <input type="number" name="quorum_timeout_hours" value="48" min="0" class="input input-bordered w-full" placeholder="0 = desactivado">
+                <label class="label" for="create-comp-quorum"><span class="label-text font-medium">Tiempo de espera para confirmación (horas) <span class="tooltip tooltip-right" data-tip="Si el rival no confirma ni disputa un resultado en este tiempo, se acepta automáticamente"><span class="text-info cursor-help">ⓘ</span></span></span></label>
+                <input type="number" id="create-comp-quorum" name="quorum_timeout_hours" value="48" min="0" class="input input-bordered w-full" placeholder="0 = desactivado">
                 <label class="label"><span class="label-text-alt opacity-50">0 = desactivado</span></label>
             </div>
             <div class="grid grid-cols-2 gap-3 mt-3">
                 <div class="form-control">
-                    <label class="label"><span class="label-text font-medium">Fecha inicio</span></label>
-                    <input type="date" name="start_date" class="input input-bordered w-full">
+                    <label class="label" for="create-comp-start"><span class="label-text font-medium">Fecha inicio</span></label>
+                    <input type="date" id="create-comp-start" name="start_date" class="input input-bordered w-full">
                 </div>
                 <div class="form-control">
-                    <label class="label"><span class="label-text font-medium">Fecha fin</span></label>
-                    <input type="date" name="end_date" class="input input-bordered w-full">
+                    <label class="label" for="create-comp-end"><span class="label-text font-medium">Fecha fin</span></label>
+                    <input type="date" id="create-comp-end" name="end_date" class="input input-bordered w-full">
                 </div>
             </div>
             <div class="divider my-3"></div>
@@ -143,20 +143,20 @@
                 <div class="collapse-title text-sm font-medium">Opciones avanzadas</div>
                 <div class="collapse-content">
                     <div class="form-control mb-3">
-                        <label class="label"><span class="label-text">Días de gracia para organizar <span class="tooltip tooltip-right" data-tip="Días extra tras la fecha recomendada antes de marcar un partido como vencido"><span class="text-info cursor-help">ⓘ</span></span></span></label>
-                        <input type="number" name="arrange_grace_days" value="3" min="0" class="input input-bordered input-sm">
+                        <label class="label" for="create-comp-grace"><span class="label-text">Días de gracia para organizar <span class="tooltip tooltip-right" data-tip="Días extra tras la fecha recomendada antes de marcar un partido como vencido"><span class="text-info cursor-help">ⓘ</span></span></span></label>
+                        <input type="number" id="create-comp-grace" name="arrange_grace_days" value="3" min="0" class="input input-bordered input-sm">
                     </div>
                     <div class="form-control mb-3">
-                        <label class="label"><span class="label-text">Marcador incomparecencia <span class="tooltip tooltip-right" data-tip="Resultado que se asigna automáticamente al aprobar una incomparecencia"><span class="text-info cursor-help">ⓘ</span></span></span></label>
-                        <input type="text" name="walkover_score" value="6-0 6-0" class="input input-bordered input-sm" placeholder="6-0 6-0">
+                        <label class="label" for="create-comp-walkover"><span class="label-text">Marcador incomparecencia <span class="tooltip tooltip-right" data-tip="Resultado que se asigna automáticamente al aprobar una incomparecencia"><span class="text-info cursor-help">ⓘ</span></span></span></label>
+                        <input type="text" id="create-comp-walkover" name="walkover_score" value="6-0 6-0" class="input input-bordered input-sm" placeholder="6-0 6-0">
                     </div>
                     <div class="form-control mb-3">
-                        <label class="label"><span class="label-text">Penalización por defecto (puntos) <span class="tooltip tooltip-right" data-tip="Puntos que se restan al aprobar una incomparecencia. El admin puede cambiar el valor en cada caso"><span class="text-info cursor-help">ⓘ</span></span></span></label>
-                        <input type="number" name="default_penalty" value="3" min="0" class="input input-bordered input-sm">
+                        <label class="label" for="create-comp-penalty"><span class="label-text">Penalización por defecto (puntos) <span class="tooltip tooltip-right" data-tip="Puntos que se restan al aprobar una incomparecencia. El admin puede cambiar el valor en cada caso"><span class="text-info cursor-help">ⓘ</span></span></span></label>
+                        <input type="number" id="create-comp-penalty" name="default_penalty" value="3" min="0" class="input input-bordered input-sm">
                     </div>
                     <div class="form-control">
-                        <label class="label"><span class="label-text">Período extra <span class="tooltip tooltip-right" data-tip="Días adicionales tras la fecha fin de la competición para completar partidos atrasados"><span class="text-info cursor-help">ⓘ</span></span></span></label>
-                        <input type="number" name="recovery_days" value="14" min="0" class="input input-bordered input-sm">
+                        <label class="label" for="create-comp-recovery"><span class="label-text">Período extra <span class="tooltip tooltip-right" data-tip="Días adicionales tras la fecha fin de la competición para completar partidos atrasados"><span class="text-info cursor-help">ⓘ</span></span></span></label>
+                        <input type="number" id="create-comp-recovery" name="recovery_days" value="14" min="0" class="input input-bordered input-sm">
                     </div>
                 </div>
             </div>

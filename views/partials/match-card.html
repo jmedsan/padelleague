@@ -22,7 +22,7 @@
 
         {{if .Match.GetString "winner"}}
         <div class="alert bg-success/10 border border-success/20 mb-2">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-success"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0 0 16.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.04 6.04 0 0 1-2.02 1.118M14.27 9.728a6.04 6.04 0 0 1-2.02 1.118m0 0a5.993 5.993 0 0 1-.498.058" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-success"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0 0 16.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.04 6.04 0 0 1-2.02 1.118M14.27 9.728a6.04 6.04 0 0 1-2.02 1.118m0 0a5.993 5.993 0 0 1-.498.058" /></svg>
             <span class="font-medium">Ganador: {{if eq (.Match.GetString "winner") (.Match.GetString "pair1")}}{{.Pair1Name}}{{else}}{{.Pair2Name}}{{end}}</span>
         </div>
         {{end}}
@@ -103,24 +103,24 @@
                 </div>
                 <div class="grid grid-cols-2 gap-3 mb-3">
                     <div class="form-control">
-                        <label class="label py-1"><span class="label-text text-xs">Fecha</span></label>
-                        <input type="date" name="date" class="input input-bordered input-sm" value="{{printf "%.10s" (.Match.GetString "date")}}">
+                        <label class="label py-1" for="override-date-{{.Match.Id}}"><span class="label-text text-xs">Fecha</span></label>
+                        <input type="date" id="override-date-{{.Match.Id}}" name="date" class="input input-bordered input-sm" value="{{printf "%.10s" (.Match.GetString "date")}}">
                     </div>
                     <div class="form-control">
-                        <label class="label py-1"><span class="label-text text-xs">Hora</span></label>
-                        <input type="time" name="time" class="input input-bordered input-sm" value="{{.Match.GetString "time"}}">
+                        <label class="label py-1" for="override-time-{{.Match.Id}}"><span class="label-text text-xs">Hora</span></label>
+                        <input type="time" id="override-time-{{.Match.Id}}" name="time" class="input input-bordered input-sm" value="{{.Match.GetString "time"}}">
                     </div>
                 </div>
                 <div class="form-control mb-3">
-                    <label class="label py-1"><span class="label-text text-xs">Club</span></label>
-                    <select name="venue_id" class="select select-bordered select-sm w-full">
+                    <label class="label py-1" for="override-venue-{{.Match.Id}}"><span class="label-text text-xs">Club</span></label>
+                    <select id="override-venue-{{.Match.Id}}" name="venue_id" class="select select-bordered select-sm w-full">
                         <option value="">Sin cambios</option>
                         {{range .Venues}}<option value="{{.Id}}">{{.GetString "name"}}</option>{{end}}
                     </select>
                 </div>
                 <div class="form-control mb-3">
-                    <label class="label py-1"><span class="label-text text-xs">Pista</span></label>
-                    <input type="text" name="court_number" class="input input-bordered input-sm" placeholder="Ej: 3" value="{{.Match.GetString "court_number"}}">
+                    <label class="label py-1" for="override-court-{{.Match.Id}}"><span class="label-text text-xs">Pista</span></label>
+                    <input type="text" id="override-court-{{.Match.Id}}" name="court_number" class="input input-bordered input-sm" placeholder="Ej: 3" value="{{.Match.GetString "court_number"}}">
                 </div>
                 <button type="submit" class="btn btn-warning btn-sm w-full">Aplicar cambios</button>
             </form>
@@ -137,8 +137,8 @@
         <p class="text-sm opacity-70 mb-4">Pasará a revisión del administrador. Si se aprueba como incomparecencia, se registrará el resultado por defecto y podría aplicarse una penalización de puntos al equipo responsable.</p>
         <form hx-post="/match/{{.Match.Id}}/report-unplayed" hx-target="body">
             <div class="form-control">
-                <label class="label py-1"><span class="label-text text-xs">Motivo</span></label>
-                <textarea name="reason" class="textarea textarea-bordered w-full" placeholder="¿Por qué no se jugó? (p. ej. el rival no se presentó)" required></textarea>
+                <label class="label py-1" for="walkover-reason-{{.Match.Id}}"><span class="label-text text-xs">Motivo</span></label>
+                <textarea id="walkover-reason-{{.Match.Id}}" name="reason" class="textarea textarea-bordered w-full" placeholder="¿Por qué no se jugó? (p. ej. el rival no se presentó)" required></textarea>
             </div>
             <div class="modal-action">
                 <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>

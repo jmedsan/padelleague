@@ -23,6 +23,6 @@
     {{if $item.Warning}}{{template "warningBadge" $item.Warning}}{{end}}
     {{if and .ShowCategory $item.CategoryBadge}}<span class="badge badge-sm {{if $item.Urgent}}badge-soft-error{{else}}badge-soft-warning{{end}} whitespace-nowrap">{{$item.CategoryBadge}}</span>{{end}}
     {{if $item.Recovery}}<span class="badge badge-sm badge-secondary" data-testid="recovery-badge">En recuperación</span>{{end}}
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 opacity-40 flex-none"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 opacity-40 flex-none"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
 </a>
 {{end}}
