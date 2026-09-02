@@ -18,7 +18,7 @@
             </div>
         </div>
         <div class="flex items-center gap-4 text-sm">
-            <span class="font-medium">{{.PairsCount}} parejas</span>
+            <span class="font-medium">{{.PairsCount}} pareja{{if ne .PairsCount 1}}s{{end}}</span>
             <span class="text-base-content/60">·</span>
             <span>{{.PlayedMatches}}/{{.TotalMatches}} partidos</span>
         </div>

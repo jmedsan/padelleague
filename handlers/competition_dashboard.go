@@ -73,12 +73,16 @@ func (h *CompetitionDashboardHandler) Dashboard(e *core.RequestEvent) error {
 
 // healthCounts derives the competitions-list stat bar figures from
 // HealthReport: DisputeCount is the disputes category alone; IssueCount
-// sums every category so the two stats stay consistent with the Salud page.
+// sums the non-urgent categories (overdue, unscheduled, unpaid) so it
+// doesn't double-count disputes/walkovers, which the Alertas section and
+// the disputes stat already surface.
 func healthCounts(categories []league.HealthCategory) (disputeCount, issueCount int) {
 	for _, cat := range categories {
-		issueCount += len(cat.Items)
 		if cat.Key == "disputes" {
 			disputeCount = len(cat.Items)
+		}
+		if !cat.Urgent {
+			issueCount += len(cat.Items)
 		}
 	}
 	return disputeCount, issueCount

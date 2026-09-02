@@ -141,6 +141,39 @@ func TestDashboardNotOverdueForFutureDeadline(t *testing.T) {
 	s.Test(t)
 }
 
+func TestDashboardIssueCountExcludesDisputes(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/competitions IssueCount does not double-count a dispute already shown in DisputeCount",
+		Method:          http.MethodGet,
+		URL:             "/admin/competitions",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{`<span class="font-bold">1</span> disputa`},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "IC A")
+		p2 := makePairTB(tb, app, "IC B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("payment_status", map[string]any{p1.Id: true, p2.Id: true})
+		require.NoError(tb, app.Save(comp))
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		m.Set("scores", "6-3 6-4")
+		m.Set("dispute_notes", "wrong score")
+		require.NoError(tb, app.Save(m))
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body, err := io.ReadAll(res.Body)
+		require.NoError(tb, err)
+		assert.Contains(tb, string(body), `<span class="font-bold">0</span> incidencia`,
+			"IssueCount must be 0 — the only match is a dispute, already counted in DisputeCount")
+	}
+	s.Test(t)
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Group 4: Detail page — IsLeague, HasFixtures, standings
 // ═══════════════════════════════════════════════════════════════════════
