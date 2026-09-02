@@ -54,7 +54,7 @@ func TestDashboardSummaryCounts(t *testing.T) {
 		require.NoError(tb, err)
 		b := string(body)
 		assert.Contains(tb, b, `value="1"`, "progress bar value must be exactly 1")
-		assert.Contains(tb, b, "1 disputa", "exactly 1 dispute expected")
+		assert.Contains(tb, b, `<span class="font-bold">1</span> disputa`, "exactly 1 dispute expected, singular label")
 	}
 	s.Test(t)
 }
@@ -101,7 +101,7 @@ func TestDashboardOverdueMatch(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body, err := io.ReadAll(res.Body)
 		require.NoError(tb, err)
-		assert.Contains(tb, string(body), `<span class="font-bold">1</span> incidencias`, "IssueCount must count the overdue match")
+		assert.Contains(tb, string(body), `<span class="font-bold">1</span> incidencia`, "IssueCount must count the overdue match")
 	}
 	s.Test(t)
 }

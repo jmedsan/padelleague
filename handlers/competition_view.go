@@ -14,11 +14,15 @@ type CompetitionView struct {
 	PairsCount    int
 	TotalMatches  int
 	PlayedMatches int
-	DisputeCount  int
+	AlertCount    int // matches with status=disputed: open disputes AND pending walkover approvals
 	PendingCount  int
 	URL           string
 
 	PendingDetails []MatchCard
+
+	// Setup is non-nil only for an inactive competition's AdminSummary card,
+	// so the setup checklist and "Activar" action render inline on the card.
+	Setup *league.CompSetup
 }
 
 // NewCompetitionView builds a CompetitionView from a competition record and its matches.
@@ -27,13 +31,13 @@ func NewCompetitionView(app core.App, comp *core.Record, mode Mode) CompetitionV
 		"competition = {:cid}", "", 0, 0,
 		map[string]any{"cid": comp.Id})
 
-	played, disputes, pending := 0, 0, 0
+	played, alerts, pending := 0, 0, 0
 	for _, m := range allMatches {
 		switch m.GetString("status") {
 		case league.StatusFinal:
 			played++
 		case league.StatusDisputed:
-			disputes++
+			alerts++
 		case league.StatusPending, league.StatusScheduled:
 			pending++
 		}
@@ -51,7 +55,7 @@ func NewCompetitionView(app core.App, comp *core.Record, mode Mode) CompetitionV
 		PairsCount:    len(comp.GetStringSlice("pairs")),
 		TotalMatches:  len(allMatches),
 		PlayedMatches: played,
-		DisputeCount:  disputes,
+		AlertCount:    alerts,
 		PendingCount:  pending,
 		URL:           url,
 	}

@@ -155,19 +155,28 @@
      as a separate define rather than a Mode.Row branch inside matchCard:
      the layouts don't share markup (flex row vs. card+sections), so
      branching would only add an if/else around otherwise-unrelated HTML. */}}
+{{/* matchRow — phone gets a two-line layout: pair names get the full row
+     width on their own line, score+status drop to a second line below.
+     Fixed-width score/status parts otherwise leave too little room for
+     names at 390px and truncate them to 2-3 letters — see context-fit.md.
+     Desktop (sm+) keeps the original single-line layout. */}}
 {{define "matchRow"}}
 <a href="/match/{{.Match.Id}}" class="block rounded-lg py-2 px-2 sm:px-3 transition-all duration-150 hover:shadow-md {{if .IsMyMatch}}bg-primary/5 border-l-4 border-l-primary hover:bg-primary/10{{else}}bg-base-200/50 hover:bg-base-200{{end}}">
-    <div class="flex items-center justify-between gap-1 sm:gap-2 min-w-0">
-        <span class="font-medium flex-1 text-right text-xs sm:text-base truncate min-w-0">{{if .Pair1Name}}{{.Pair1Name}}{{else if .Feeder1}}{{.Feeder1}}{{else}}Por definir{{end}}</span>
-        <div class="flex-none px-1 sm:px-3">
-            {{if .Score}}
-            {{template "resultBox" (dict "Score" .Score "Mode" (dict "Row" true))}}
-            {{else}}
-            <span class="text-xs sm:text-sm opacity-60">vs</span>
-            {{end}}
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2 min-w-0">
+        <div class="flex items-center gap-1 min-w-0 sm:flex-1 sm:justify-end">
+            <span class="font-medium text-sm sm:text-base truncate min-w-0">{{if .Pair1Name}}{{.Pair1Name}}{{else if .Feeder1}}{{.Feeder1}}{{else}}Por definir{{end}}</span>
+            <span class="text-xs opacity-60 flex-none sm:hidden">vs</span>
+            <span class="font-medium text-sm sm:text-base truncate min-w-0">{{if .Pair2Name}}{{.Pair2Name}}{{else if .Feeder2}}{{.Feeder2}}{{else}}Por definir{{end}}</span>
         </div>
-        <span class="font-medium flex-1 text-xs sm:text-base truncate min-w-0">{{if .Pair2Name}}{{.Pair2Name}}{{else if .Feeder2}}{{.Feeder2}}{{else}}Por definir{{end}}</span>
-        <div class="flex-none ml-1 sm:ml-2">
+        <div class="flex items-center gap-1 sm:gap-2 flex-none">
+            <div class="hidden sm:block px-1 sm:px-3">
+                {{if .Score}}
+                {{template "resultBox" (dict "Score" .Score "Mode" (dict "Row" true))}}
+                {{else}}
+                <span class="text-xs sm:text-sm opacity-60">vs</span>
+                {{end}}
+            </div>
+            {{if .Score}}<span class="text-xs font-bold sm:hidden">{{.Score}}</span>{{end}}
             <span class="badge {{.StatusClass}} badge-xs sm:badge-sm whitespace-nowrap">{{.StatusLabel}}</span>
         </div>
     </div>

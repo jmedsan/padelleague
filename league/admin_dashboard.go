@@ -294,7 +294,7 @@ func AdminDashboard(app core.App, now time.Time) ([]CompSetup, []AdminAlert, err
 	var setups []CompSetup
 	for _, c := range allComps {
 		if !c.GetBool("active") {
-			setups = append(setups, buildSetup(app, c))
+			setups = append(setups, CompSetupOf(app, c))
 		}
 	}
 
@@ -323,7 +323,10 @@ func alertsFromHealthReport(categories []HealthCategory) []AdminAlert {
 	return alerts
 }
 
-func buildSetup(app core.App, c *core.Record) CompSetup {
+// CompSetupOf builds the setup checklist for one not-yet-active competition
+// (pairs added, fixtures generated, dates configured), for showing inline on
+// its own admin card.
+func CompSetupOf(app core.App, c *core.Record) CompSetup {
 	pairIDs := c.GetStringSlice("pairs")
 	hasPairs := len(pairIDs) >= 2
 
