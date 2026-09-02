@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -66,6 +67,16 @@ func canReportUnplayed(status string, team int) bool {
 	return team > 0 && (league.IsPreScore(status) || status == league.StatusConfirmed)
 }
 
+// matchRoundLabel returns the breadcrumb label for a match's round: the
+// bracket round name ("Final", "Semifinal", ...) for playoffs, "Jornada N"
+// otherwise.
+func matchRoundLabel(app core.App, comp *core.Record, roundNum int) string {
+	if maxRound, ok := league.PlayoffMaxRound(app, comp); ok {
+		return bracketRoundName(roundNum, maxRound)
+	}
+	return fmt.Sprintf("Jornada %d", roundNum)
+}
+
 // MatchDetail renders the match page with score, status, and available actions.
 func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
@@ -93,19 +104,19 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	}
 	mc := NewMatchCard(h.app, match, mode, userID)
 
-	compName := ""
 	compID := match.GetString("competition")
-	if compID != "" {
-		comp, _ := h.app.FindRecordById("competitions", compID)
-		if comp != nil {
-			compName = comp.GetString("name")
-			if !isAdmin && !league.PlayerCanModify(comp, time.Now()) {
-				mc.CanSubmit = false
-				mc.CanEdit = false
-				mc.CanWalkover = false
-				mc.CanCorrect = false
-			}
+	comp, _ := h.app.FindRecordById("competitions", compID)
+	compName := ""
+	roundLabel := fmt.Sprintf("Jornada %d", mc.RoundNum)
+	if comp != nil {
+		compName = comp.GetString("name")
+		if !isAdmin && !league.PlayerCanModify(comp, time.Now()) {
+			mc.CanSubmit = false
+			mc.CanEdit = false
+			mc.CanWalkover = false
+			mc.CanCorrect = false
 		}
+		roundLabel = matchRoundLabel(h.app, comp, mc.RoundNum)
 	}
 
 	matchPath := "/match/" + match.Id
@@ -117,6 +128,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		"Card":            mc,
 		"CompetitionName": compName,
 		"CompetitionID":   compID,
+		"RoundLabel":      roundLabel,
 		"ShareText":       shareText,
 		"ShareURL":        shareURL,
 	})
@@ -128,6 +140,10 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
 		return alertError(e, "Record no encontrado")
+	}
+
+	if match.GetString("pair1") == "" || match.GetString("pair2") == "" {
+		return alertError(e, "Este partido aun no tiene parejas asignadas")
 	}
 
 	userID := e.Auth.Id

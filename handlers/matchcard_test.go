@@ -9,6 +9,8 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/league"
 )
 
 type cardActions struct {
@@ -345,6 +347,43 @@ func TestPopulateFeederOnMatchCard(t *testing.T) {
 	mc3.PopulateFeeder(1, 3)
 	assert.Equal(t, "Ganador de J1-7", mc3.Feeder1)
 	assert.Equal(t, "Ganador de J1-8", mc3.Feeder2)
+}
+
+// R-5: a round-2 playoff match has no pair1/pair2 until round 1 finishes, so
+// NewMatchCard must populate Feeder1/Feeder2 and the matchCard template must
+// render that feeder text (falling back further to "Por definir" only when
+// no feeder is known) instead of an empty pair name in the header.
+func TestMatchDetailShowsFeederForEmptyPlayoffPairs(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:     testAppFactory,
+		Name:               "GET /match/{id} for an empty-pairs playoff match shows feeder text",
+		Method:             http.MethodGet,
+		ExpectedStatus:     200,
+		ExpectedContent:    []string{"Ganador de J1-1", "Ganador de J1-2", "Final"},
+		NotExpectedContent: []string{"Por definir"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "Feed A")
+		p2 := makePairTB(tb, app, "Feed B")
+		p3 := makePairTB(tb, app, "Feed C")
+		p4 := makePairTB(tb, app, "Feed D")
+		comp := makePlayoffComp(tb, app, []*core.Record{p1, p2, p3, p4}, nil)
+
+		// Mirrors generatePlayoff's output: round 1 fully paired, round 2
+		// created empty pending round-1 winners.
+		makeMatchTB(tb, app, comp.Id, p1.Id, p4.Id, league.StatusPending)
+		makeMatchTB(tb, app, comp.Id, p2.Id, p3.Id, league.StatusPending)
+		round2 := makeMatchTB(tb, app, comp.Id, "", "", league.StatusPending)
+		round2.Set("round_number", 2)
+		require.NoError(tb, app.Save(round2))
+
+		s.URL = "/match/" + round2.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
 }
 
 func TestPairPlayerLabel(t *testing.T) {
