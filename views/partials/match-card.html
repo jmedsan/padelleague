@@ -163,7 +163,7 @@
 {{define "matchRow"}}
 <a href="/match/{{.Match.Id}}" class="block rounded-lg py-2 px-2 sm:px-3 transition-all duration-150 hover:shadow-md {{if .IsMyMatch}}bg-primary/5 border-l-4 border-l-primary hover:bg-primary/10{{else}}bg-base-200/50 hover:bg-base-200{{end}}">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2 min-w-0">
-        <div class="flex items-center gap-1 min-w-0 sm:flex-1 sm:justify-end">
+        <div class="flex items-center gap-1 min-w-0 sm:flex-1">
             <span class="font-medium text-sm sm:text-base truncate min-w-0">{{if .Pair1Name}}{{.Pair1Name}}{{else if .Feeder1}}{{.Feeder1}}{{else}}Por definir{{end}}</span>
             <span class="text-xs opacity-60 flex-none sm:hidden">vs</span>
             <span class="font-medium text-sm sm:text-base truncate min-w-0">{{if .Pair2Name}}{{.Pair2Name}}{{else if .Feeder2}}{{.Feeder2}}{{else}}Por definir{{end}}</span>
