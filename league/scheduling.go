@@ -149,6 +149,9 @@ func CompetitionPhase(comp *core.Record, now time.Time) Phase {
 	if comp.GetBool("finalized") {
 		return PhaseFinished
 	}
+	if !comp.GetBool("active") {
+		return PhaseUnknown
+	}
 	end := comp.GetDateTime("end_date").Time()
 	if end.IsZero() {
 		return PhasePlaying
