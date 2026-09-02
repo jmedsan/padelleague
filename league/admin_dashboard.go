@@ -184,6 +184,7 @@ type OutstandingMatch struct {
 	Pair1ID, Pair2ID string
 	Pair1, Pair2     string
 	Status           string
+	StatusLabel      string
 	ArrangeBy        string // "DD/MM", or "" when no schedule (e.g. playoffs)
 	Warning          Warning
 	deadline         time.Time // sort key backing ArrangeBy; zero when unset
@@ -229,6 +230,7 @@ func outstandingForComp(app core.App, c *core.Record, now time.Time) []Outstandi
 			Pair2ID:         m.GetString("pair2"),
 			Pair2:           p2,
 			Status:          m.GetString("status"),
+			StatusLabel:     StatusLabel(m.GetString("status")),
 		}
 		if !isPlayoff {
 			if deadline, ok := RoundArrangeDate(c, om.RoundNumber); ok {

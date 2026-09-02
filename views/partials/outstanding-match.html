@@ -10,7 +10,7 @@
     <td>{{.RoundNumber}}</td>
     <td>{{template "pairLink" (elink .Pair1ID .Pair1)}}</td>
     <td>{{template "pairLink" (elink .Pair2ID .Pair2)}}</td>
-    <td>{{.Status}}</td>
+    <td>{{.StatusLabel}}</td>
     <td>{{if .ArrangeBy}}{{.ArrangeBy}}{{else}}—{{end}}</td>
     <td>{{if .ArrangeBy}}{{template "warningBadge" .Warning}}{{end}}</td>
 </tr>
@@ -27,7 +27,7 @@
             {{if .ArrangeBy}}{{template "warningBadge" .Warning}}{{end}}
         </div>
         <div class="text-sm opacity-60 mt-2">
-            <p>Estado: {{.Status}}</p>
+            <p>Estado: {{.StatusLabel}}</p>
             <p>Fecha límite: {{if .ArrangeBy}}{{.ArrangeBy}}{{else}}—{{end}}</p>
         </div>
     </div>
