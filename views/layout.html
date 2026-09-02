@@ -6,7 +6,7 @@
     <title>{{if .PageTitle}}{{.PageTitle}} — {{end}}PadelLeague</title>
     <link rel="stylesheet" href="/static/css/styles.css">
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#2D4356">
+    <meta name="theme-color" content="#0D9488">
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/score-input.js"></script>
     <script>
@@ -28,7 +28,7 @@
     <div class="drawer">
         <input id="main-drawer" type="checkbox" class="drawer-toggle">
         <div class="drawer-content flex flex-col overflow-x-hidden">
-            <div class="navbar bg-base-100 shadow-lg sticky top-0 z-30">
+            <div class="navbar bg-primary text-primary-content shadow-lg sticky top-0 z-30">
                 <div class="flex-none lg:hidden">
                     <label for="main-drawer" aria-label="abrir menú" class="btn btn-square btn-ghost">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block h-5 w-5 stroke-current">
@@ -37,7 +37,7 @@
                     </label>
                 </div>
                 <div class="flex-1">
-                    <a href="/" class="btn btn-ghost text-xl font-bold normal-case">PadelLeague</a>
+                    <a href="/" class="btn btn-ghost text-xl font-bold normal-case text-primary-content hover:bg-white/10">PadelLeague</a>
                 </div>
                 {{if .HasBothRoles}}
                 <div class="flex-none lg:hidden">
@@ -72,14 +72,14 @@
                 </div>
                 </div>
                 {{end}}
-                <div class="hidden lg:flex items-center gap-1">
+                <div class="hidden lg:flex items-center gap-1 text-primary-content">
                     <ul class="menu menu-horizontal px-1 gap-1">
-                        <li><a href="/" class="rounded-lg">Inicio</a></li>
+                        <li><a href="/" class="rounded-lg hover:bg-white/10">Inicio</a></li>
                         {{if .AdminView}}
                         <li>
                             <details>
-                                <summary class="rounded-lg">Gestión</summary>
-                                <ul class="bg-base-100 rounded-box shadow-lg p-2 z-30 w-48">
+                                <summary class="rounded-lg hover:bg-white/10">Gestión</summary>
+                                <ul class="bg-base-100 text-base-content rounded-box shadow-lg p-2 z-30 w-48">
                                     <li><a href="/admin/competitions">Competiciones</a></li>
                                     <li><a href="/admin/pairs">Parejas</a></li>
                                     <li><a href="/admin/players">Jugadores</a></li>
@@ -95,8 +95,8 @@
                         {{if .HasBothRoles}}
                         <li>
                             <details>
-                                <summary class="rounded-lg{{if eq .ViewAs "admin"}} bg-error/20 text-error font-semibold{{end}}">{{if eq .ViewAs "admin"}}Admin{{else}}Jugador{{end}}</summary>
-                                <ul class="bg-base-100 rounded-box shadow-lg p-2 z-30 w-40">
+                                <summary class="rounded-lg hover:bg-white/10{{if eq .ViewAs "admin"}} bg-accent/20 text-accent font-semibold{{end}}">{{if eq .ViewAs "admin"}}Admin{{else}}Jugador{{end}}</summary>
+                                <ul class="bg-base-100 text-base-content rounded-box shadow-lg p-2 z-30 w-40">
                                     <li><a href="/view/admin" class="{{if eq .ViewAs "admin"}}active{{end}}">Admin</a></li>
                                     <li><a href="/view/player" class="{{if eq .ViewAs "player"}}active{{end}}">Jugador</a></li>
                                 </ul>
@@ -107,13 +107,13 @@
                     {{if .DisplayName}}
                     <div class="dropdown dropdown-end">
                         <div class="form-control">
-                            <input id="global-search" type="text" placeholder="Buscar…" class="input input-bordered input-sm w-40 lg:w-56"
+                            <input id="global-search" type="text" placeholder="Buscar…" class="input input-sm w-40 lg:w-56 bg-white/15 border-white/20 placeholder-white/50 text-primary-content focus:bg-white/25"
                                    hx-get="/search" hx-trigger="keyup changed delay:200ms, focus" hx-target="#search-results-dropdown" name="q" autocomplete="off">
                         </div>
                         <div id="search-results-dropdown" tabindex="0" class="dropdown-content z-40 mt-1 w-80 max-h-96 overflow-y-auto bg-base-100 rounded-box shadow-xl"></div>
                     </div>
                     {{end}}
-                    <button onclick="toggleTheme()" class="btn btn-ghost btn-circle btn-sm" aria-label="cambiar tema">
+                    <button onclick="toggleTheme()" class="btn btn-ghost btn-circle btn-sm hover:bg-white/10" aria-label="cambiar tema">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
                         </svg>
@@ -136,7 +136,7 @@
                     </div>
                     <div class="divider divider-horizontal mx-0"></div>
                     <span class="text-sm font-medium px-2">{{.DisplayName}}</span>
-                    <button hx-post="/logout" class="btn btn-ghost btn-sm">Salir</button>
+                    <button hx-post="/logout" class="btn btn-ghost btn-sm hover:bg-white/10">Salir</button>
                     {{end}}
                 </div>
             </div>
@@ -151,8 +151,8 @@
             <main class="flex-1 container mx-auto px-4 py-6 max-w-5xl">
                 {{block "content" .}}{{end}}
             </main>
-            <footer class="footer footer-center p-6 bg-base-100 text-base-content border-t border-base-300">
-                <p class="text-sm opacity-60">PadelLeague &copy; 2026</p>
+            <footer class="footer footer-center p-6 bg-secondary text-secondary-content">
+                <p class="text-sm opacity-70">PadelLeague &copy; 2026</p>
             </footer>
         </div>
         <div class="drawer-side z-40">

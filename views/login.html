@@ -1,14 +1,15 @@
 {{define "content"}}
-<div class="flex items-center justify-center min-h-[70vh]">
-    <div class="card bg-base-100 shadow-xl w-full max-w-sm rounded-2xl">
-        <div class="card-body">
-            <div class="text-center mb-4">
-                
-                <h2 class="text-2xl font-bold mt-2">Iniciar sesión</h2>
-                <p class="text-sm opacity-50 mt-1">Accede a tu cuenta de PadelLeague</p>
-            </div>
+<div class="-mx-4 -mt-6 -mb-6 min-h-[80vh] flex flex-col items-center justify-center relative overflow-hidden bg-gradient-to-br from-primary via-teal-700 to-teal-900" style="margin-left:calc(-50vw + 50%);margin-right:calc(-50vw + 50%);width:100vw">
+    <div class="absolute inset-0 opacity-[0.07]" style="background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><circle cx=%2220%22 cy=%2220%22 r=%223%22 fill=%22white%22/></svg>');"></div>
+    <div class="text-center mb-8 text-white px-4">
+        <h1 class="text-4xl sm:text-5xl font-black tracking-tight drop-shadow-lg">PadelLeague</h1>
+        <p class="text-white/60 mt-2 text-lg font-light">Tu liga, tu juego</p>
+    </div>
+    <div class="card bg-base-100 shadow-2xl w-full max-w-sm rounded-2xl mx-4">
+        <div class="card-body px-8 py-8">
+            <h2 class="text-xl font-bold text-center">Iniciar sesión</h2>
             <div id="error"></div>
-            <form hx-post="/login" hx-target="#error">
+            <form hx-post="/login" hx-target="#error" class="mt-2">
                 <div class="form-control">
                     <label class="label" for="email">
                         <span class="label-text text-xs font-medium">Email</span>
@@ -22,12 +23,12 @@
                     <input type="password" id="password" name="password" class="input input-bordered w-full" placeholder="********" required>
                 </div>
                 <div class="form-control mt-6">
-                    <button type="submit" class="btn btn-primary w-full">Entrar</button>
+                    <button type="submit" class="btn btn-primary btn-lg w-full text-lg font-bold shadow-lg">Entrar</button>
                 </div>
             </form>
             <div class="divider text-xs opacity-60 my-3">O</div>
             <p class="text-center text-sm">
-                <a href="/register" class="link link-primary font-medium">Crear cuenta nueva</a>
+                <a href="/register" class="link link-primary font-semibold">Crear cuenta nueva</a>
             </p>
             <p class="text-center text-xs mt-1">
                 <a href="/forgot-password" class="link link-hover opacity-50">¿Olvidaste tu contraseña?</a>
