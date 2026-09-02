@@ -124,7 +124,7 @@ func statusLabelShort(status string) string {
 	case league.StatusDisputed:
 		return "Disputa"
 	case league.StatusFinal:
-		return "Final"
+		return "Confirmado"
 	}
 	return status
 }

@@ -406,10 +406,8 @@
             <span class="badge badge-sm badge-ghost font-mono">{{.Score}}</span>
         </div>
         {{end}}
-        {{if eq (.Match.GetString "status") "final"}}
-        <div class="text-center"><span class="badge badge-success badge-xs">Final</span></div>
-        {{else if eq (.Match.GetString "status") "pending"}}
-        <div class="text-center"><span class="badge badge-warning badge-xs">Pendiente</span></div>
+        {{if or (eq (.Match.GetString "status") "final") (eq (.Match.GetString "status") "pending")}}
+        <div class="text-center"><span class="badge {{.StatusClass}} badge-xs">{{.StatusLabel}}</span></div>
         {{end}}
     </div>
 </a>

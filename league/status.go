@@ -13,3 +13,22 @@ const (
 func IsPreScore(status string) bool {
 	return status == StatusPending || status == StatusScheduled
 }
+
+// StatusLabel returns the Spanish display label for a match status,
+// following the standard status vocabulary (Pendiente/Propuesta/
+// Confirmada(o)/Rechazada(o)/En disputa).
+func StatusLabel(status string) string {
+	switch status {
+	case StatusPending:
+		return "Pendiente"
+	case StatusScheduled:
+		return "Confirmada"
+	case StatusConfirmed:
+		return "Enviado — esperando confirmación"
+	case StatusDisputed:
+		return "En disputa"
+	case StatusFinal:
+		return "Confirmado"
+	}
+	return status
+}
