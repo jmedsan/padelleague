@@ -93,11 +93,11 @@ func remindCompetitionMatches(app core.App, notifier *notify.Notifier, comp *cor
 
 		notifier.NotifyPlayers(league.PlayersForPair(app, pair1ID),
 			league.NotifSchedulingReminder(league.SchedulingReminderParams{
-				MatchID: m.Id, Opponent: pairNames[pair2ID], CompName: compName, LevelLabel: level.Label(), Deadline: deadline,
+				MatchID: m.Id, Opponent: pairNames[pair2ID], CompName: compName, Level: level, Deadline: deadline,
 			}))
 		notifier.NotifyPlayers(league.PlayersForPair(app, pair2ID),
 			league.NotifSchedulingReminder(league.SchedulingReminderParams{
-				MatchID: m.Id, Opponent: pairNames[pair1ID], CompName: compName, LevelLabel: level.Label(), Deadline: deadline,
+				MatchID: m.Id, Opponent: pairNames[pair1ID], CompName: compName, Level: level, Deadline: deadline,
 			}))
 
 		m.Set("last_warn_level", int(level))

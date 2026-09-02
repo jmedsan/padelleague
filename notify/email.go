@@ -44,6 +44,12 @@ func (n *Notifier) EmailPlayers(playerUserIDs []string, subject, body, link stri
 		return
 	}
 
+	if strings.HasPrefix(link, "/") {
+		if baseURL := strings.TrimRight(n.app.Settings().Meta.AppURL, "/"); baseURL != "" {
+			link = baseURL + link
+		}
+	}
+
 	for _, userID := range playerUserIDs {
 		user, err := n.app.FindRecordById("users", userID)
 		if err != nil {
@@ -74,10 +80,14 @@ func maskEmail(email string) string {
 }
 
 // BuildNotificationEmail returns the HTML body for a notification email.
-func BuildNotificationEmail(displayName, body, matchLink string) string {
+func BuildNotificationEmail(displayName, body, link string) string {
 	linkHTML := ""
-	if matchLink != "" {
-		linkHTML = fmt.Sprintf(`<p><a href="%s">Ver partido</a></p>`, matchLink)
+	if link != "" {
+		label := "Ver partido"
+		if strings.HasPrefix(link, "/competition/") || strings.Contains(link, "/competition/") {
+			label = "Ver competición"
+		}
+		linkHTML = fmt.Sprintf(`<p><a href="%s">%s</a></p>`, link, label)
 	}
 	return fmt.Sprintf(`<h2>PadelLeague</h2>
 <p>Hola %s,</p>

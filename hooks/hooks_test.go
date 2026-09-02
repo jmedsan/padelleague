@@ -476,7 +476,7 @@ func TestSchedulingReminder_SendsAndEscalates(t *testing.T) {
 	require.Len(t, notifs, 4, "should send one scheduling reminder per player (2 pairs × 2)")
 	for _, n := range notifs {
 		assert.Equal(t, "Recordatorio: organiza tu partido", n.GetString("title"))
-		assert.Contains(t, n.GetString("body"), "Vencido")
+		assert.Contains(t, n.GetString("body"), "El plazo ha vencido")
 	}
 	allPlayerIDs := append(
 		league.PlayersForPair(app, p1.Id),
@@ -602,7 +602,7 @@ func TestSchedulingReminder_DenominatorDrift(t *testing.T) {
 	require.Len(t, notifs, 4, "round 1 deadline must use stored rounds=3 — all 4 players notified")
 	for _, n := range notifs {
 		assert.Equal(t, "Recordatorio: organiza tu partido", n.GetString("title"))
-		assert.Contains(t, n.GetString("body"), "Vencido")
+		assert.Contains(t, n.GetString("body"), "El plazo ha vencido")
 	}
 
 	updated := freshMatch(t, app, m2.Id)
@@ -634,7 +634,7 @@ func TestSchedulingReminder_RecoveryPhase_StillReminds(t *testing.T) {
 	require.Len(t, notifs, 4, "recovery-phase must still remind — 4 players (2 pairs × 2)")
 	for _, n := range notifs {
 		assert.Equal(t, "Recordatorio: organiza tu partido", n.GetString("title"))
-		assert.Contains(t, n.GetString("body"), "Vencido")
+		assert.Contains(t, n.GetString("body"), "El plazo ha vencido")
 	}
 }
 
