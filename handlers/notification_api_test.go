@@ -122,11 +122,12 @@ func TestMarkReadNotification(t *testing.T) {
 func TestMarkAllReadNotifications(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "POST /notifications/read-all marks all read",
-		Method:         http.MethodPost,
-		URL:            "/notifications/read-all",
-		ExpectedStatus: 204,
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /notifications/read-all marks all read and resets the badge in place",
+		Method:          http.MethodPost,
+		URL:             "/notifications/read-all",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{`id="notif-badge"`, `id="notif-badge-mobile"`, `hx-swap-oob="innerHTML"`},
 	}
 	var userID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -143,7 +144,7 @@ func TestMarkAllReadNotifications(t *testing.T) {
 			map[string]any{"uid": userID})
 		require.NoError(tb, err)
 		assert.Equal(tb, 0, len(unread), "all notifications must be marked read")
-		assert.Equal(tb, "/", res.Header.Get("HX-Redirect"))
+		assert.Empty(tb, res.Header.Get("HX-Redirect"), "MarkAllRead must not navigate away from the current page")
 	}
 	s.Test(t)
 }

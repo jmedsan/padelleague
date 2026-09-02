@@ -306,6 +306,44 @@ func TestBroadcast_FanOut(t *testing.T) {
 	s.Test(t)
 }
 
+func TestBroadcast_NotificationLinksToCompetition(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "broadcast notification links to the competition page",
+		Method:          http.MethodPost,
+		URL:             "/placeholder",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Anuncio enviado"},
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAdminRoutes(tb, app, e)
+		enableSMTP(tb, app)
+		admin := makeAdminUser(tb, app)
+		p1 := makePair(t, app, "BroadLinkA")
+		p2 := makePair(t, app, "BroadLinkB")
+		comp := makeCompetition(t, app, []*core.Record{p1, p2})
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
+
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+		s.Body = strings.NewReader("title=Aviso+con+link&body=Revisa+la+competicion")
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		notifs, err := app.FindRecordsByFilter("notifications",
+			"title = 'Aviso con link'", "", 0, 0, nil)
+		require.NoError(tb, err)
+		require.NotEmpty(tb, notifs)
+		for _, n := range notifs {
+			assert.Equal(tb, "/competition/"+compID, n.GetString("link"))
+		}
+	}
+	s.Test(t)
+}
+
 func TestBroadcast_EmptyTitleRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
