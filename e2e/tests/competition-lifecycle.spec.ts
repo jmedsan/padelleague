@@ -1,59 +1,13 @@
-import { test, expect, Page, APIRequestContext } from '@playwright/test';
-import { loginAs, loadTestData, isMobile, openDrawer, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
-
-let suToken = '';
-
-async function getSuToken(request: APIRequestContext): Promise<string> {
-  if (suToken) return suToken;
-  const resp = await request.post('/api/collections/_superusers/auth-with-password', {
-    data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-  });
-  suToken = (await resp.json()).token;
-  return suToken;
-}
-
-async function navToAdmin(page: Page, href: string): Promise<void> {
-  if (isMobile(page)) {
-    await openDrawer(page);
-    await page.locator(`.drawer-side a[href="${href}"]`).click();
-  } else {
-    await page.locator('summary:has-text("Gestión")').click();
-    await page.waitForTimeout(100);
-    await page.locator(`.menu-horizontal a[href="${href}"]`).evaluate(el => (el as HTMLAnchorElement).click());
-  }
-  await page.waitForLoadState('domcontentloaded');
-}
+import { test, expect } from '@playwright/test';
+import { loginAs, loadTestData, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 test.describe('competition lifecycle', () => {
-  test('admin single-active entry redirects to competition detail', async ({ page }) => {
-    const token = await getSuToken(page.request);
-    // Deactivate any extra active competitions (left by prior tests)
-    const resp = await page.request.get('/api/collections/competitions/records?filter=active%3Dtrue&perPage=50', {
-      headers: { Authorization: token },
-    });
-    const activeComps = (await resp.json()).items || [];
-    const extras = activeComps.filter((c: any) => c.name !== 'Liga E2E Test');
-    for (const c of extras) {
-      await page.request.patch(`/api/collections/competitions/records/${c.id}`, {
-        headers: { Authorization: token, 'Content-Type': 'application/json' },
-        data: { active: false },
-      });
-    }
-
+  test('admin entry always redirects to the competitions dashboard', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    // N=1 active: /admin redirects to competition detail
-    await navToAdmin(page, '/admin');
+    await page.goto('/admin');
     await page.waitForLoadState('domcontentloaded');
-    await expect(page).toHaveURL(/\/admin\/competitions\//);
-    await expect(page.getByText('Liga E2E Test').first()).toBeVisible();
-
-    // Restore deactivated competitions
-    for (const c of extras) {
-      await page.request.patch(`/api/collections/competitions/records/${c.id}`, {
-        headers: { Authorization: token, 'Content-Type': 'application/json' },
-        data: { active: true },
-      });
-    }
+    await expect(page).toHaveURL(/\/admin\/competitions$/);
+    await expect(page.getByRole('heading', { name: 'Competiciones' })).toBeVisible();
   });
 
   test('admin dashboard shows title and competitions', async ({ page }) => {

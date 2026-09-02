@@ -3,7 +3,5 @@
     {{template "timelineMessages" .}}
 </div>
 {{else}}
-<div class="text-center py-6 opacity-50 text-sm mb-4">
-    No hay mensajes en este hilo
-</div>
+{{template "emptyState" "No hay mensajes en este hilo"}}
 {{end}}
