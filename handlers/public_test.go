@@ -779,7 +779,7 @@ func TestHome_AdminWalkoverAlert(t *testing.T) {
 		ExpectedContent: []string{
 			"Walkover League",
 			"Walkover A",
-			"Incomparecencias",
+			"Incomparecencia",
 		},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {

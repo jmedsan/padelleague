@@ -38,11 +38,12 @@ type AdminAlert struct {
 }
 
 // HealthItem is one entry inside a HealthCategory: a match needing attention,
-// or (for the unpaid category) a pair with an outstanding balance. Urgent and
-// CategoryTitle mirror the parent HealthCategory's fields, set by
-// HealthReport once every item is classified — so a HealthItem carries
-// enough context to render standalone (e.g. the home page's flattened
-// urgent-only list) without needing its parent category alongside it.
+// or (for the unpaid category) a pair with an outstanding balance. Urgent,
+// CategoryTitle, and CategoryBadge mirror the parent HealthCategory's
+// fields, set by HealthReport once every item is classified — so a
+// HealthItem carries enough context to render standalone (e.g. the home
+// page's flattened urgent-only list) without needing its parent category
+// alongside it.
 type HealthItem struct {
 	MatchID  string // empty for unpaid items, which are per-pair not per-match
 	CompID   string
@@ -55,7 +56,8 @@ type HealthItem struct {
 	Recovery bool
 
 	Urgent        bool
-	CategoryTitle string
+	CategoryTitle string // plural, for section headings: "Disputas"
+	CategoryBadge string // singular, for a per-row badge: "Disputa"
 }
 
 // HealthCategory groups every HealthItem of one kind for the admin health
@@ -63,7 +65,8 @@ type HealthItem struct {
 // empty, so the dashboard shows a fixed set of categories.
 type HealthCategory struct {
 	Key     string // "disputes", "walkovers", "overdue", "unscheduled", "unpaid"
-	Title   string
+	Title   string // plural, for section headings
+	Badge   string // singular, for a per-row badge
 	Items   []HealthItem
 	ListURL string
 	Urgent  bool
@@ -72,11 +75,11 @@ type HealthCategory struct {
 // healthCategoryDefs is the fixed, ordered set of categories HealthReport
 // always returns.
 var healthCategoryDefs = []HealthCategory{
-	{Key: "disputes", Title: "Disputas", ListURL: "/admin/disputes", Urgent: true},
-	{Key: "walkovers", Title: "Incomparecencias", ListURL: "/admin/disputes", Urgent: true},
-	{Key: "overdue", Title: "Vencidos", ListURL: "/admin/outstanding"},
-	{Key: "unscheduled", Title: "Sin fecha", ListURL: "/admin/outstanding"},
-	{Key: "unpaid", Title: "Sin pagar"},
+	{Key: "disputes", Title: "Disputas", Badge: "Disputa", ListURL: "/admin/disputes", Urgent: true},
+	{Key: "walkovers", Title: "Incomparecencias", Badge: "Incomparecencia", ListURL: "/admin/disputes", Urgent: true},
+	{Key: "overdue", Title: "Vencidos", Badge: "Vencido", ListURL: "/admin/outstanding"},
+	{Key: "unscheduled", Title: "Sin fecha", Badge: "Sin fecha", ListURL: "/admin/outstanding"},
+	{Key: "unpaid", Title: "Sin pagar", Badge: "Sin pagar"},
 }
 
 // HealthReport merges every admin-facing match/payment issue across active
@@ -106,6 +109,7 @@ func HealthReport(app core.App, now time.Time) []HealthCategory {
 		for j := range report[i].Items {
 			report[i].Items[j].Urgent = report[i].Urgent
 			report[i].Items[j].CategoryTitle = report[i].Title
+			report[i].Items[j].CategoryBadge = report[i].Badge
 		}
 		sortHealthItems(report[i].Items)
 	}
@@ -143,6 +147,7 @@ func CompHealthItems(app core.App, compID string, now time.Time, keys ...string)
 		for _, item := range cat.Items {
 			item.Urgent = cat.Urgent
 			item.CategoryTitle = cat.Title
+			item.CategoryBadge = cat.Badge
 			items = append(items, item)
 		}
 	}
@@ -198,7 +203,12 @@ func addCompHealth(app core.App, c *core.Record, now time.Time, categories map[s
 // addPendingHealth classifies a status=pending match. review_type=walkover
 // is not checked here: ReportUnplayed always pairs it with status=disputed
 // (see addCompHealth), so no live code path produces a pending walkover.
+// A match missing either pair (an unresolved playoff slot waiting on a
+// previous round's winner) cannot be scheduled and is not an incident.
 func addPendingHealth(app core.App, m *core.Record, ctx compHealthCtx, categories map[string]*HealthCategory) {
+	if m.GetString("pair1") == "" || m.GetString("pair2") == "" {
+		return
+	}
 	rn := m.GetInt("round_number")
 	item := healthItem(app, m, ctx.compName, rn)
 
@@ -400,6 +410,9 @@ func outstandingForComp(app core.App, c *core.Record, now time.Time) []Outstandi
 
 	out := make([]OutstandingMatch, 0, len(matches))
 	for _, m := range matches {
+		if m.GetString("pair1") == "" || m.GetString("pair2") == "" {
+			continue
+		}
 		p1, p2 := pairNamesForMatch(app, m)
 		om := OutstandingMatch{
 			MatchID:         m.Id,
