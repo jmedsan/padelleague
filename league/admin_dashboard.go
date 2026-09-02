@@ -65,10 +65,10 @@ type HealthCategory struct {
 // healthCategoryDefs is the fixed, ordered set of categories HealthReport
 // always returns.
 var healthCategoryDefs = []HealthCategory{
-	{Key: "disputes", Title: "Disputas abiertas", ListURL: "/admin/disputes", Urgent: true},
-	{Key: "walkovers", Title: "Incomparecencias pendientes", ListURL: "/admin/disputes", Urgent: true},
-	{Key: "overdue", Title: "Partidos vencidos", ListURL: "/admin/outstanding"},
-	{Key: "unscheduled", Title: "Partidos sin fecha", ListURL: "/admin/outstanding"},
+	{Key: "disputes", Title: "Disputas", ListURL: "/admin/disputes", Urgent: true},
+	{Key: "walkovers", Title: "Incomparecencias", ListURL: "/admin/outstanding", Urgent: true},
+	{Key: "overdue", Title: "Vencidos", ListURL: "/admin/outstanding"},
+	{Key: "unscheduled", Title: "Sin fecha", ListURL: "/admin/outstanding"},
 	{Key: "unpaid", Title: "Parejas sin pagar", ListURL: "/admin/health"},
 }
 
@@ -128,6 +128,11 @@ func addCompHealth(app core.App, c *core.Record, now time.Time, categories map[s
 		"round_number", 0, 0,
 		map[string]any{"cid": c.Id})
 	for _, m := range disputed {
+		if m.GetString("review_type") == "walkover" {
+			categories["walkovers"].Items = append(categories["walkovers"].Items,
+				walkoverHealthItem(app, m, ctx.compName))
+			continue
+		}
 		categories["disputes"].Items = append(categories["disputes"].Items,
 			disputeHealthItem(app, m, ctx.compName))
 	}
@@ -146,8 +151,8 @@ func addPendingHealth(app core.App, m *core.Record, ctx compHealthCtx, categorie
 	item := healthItem(app, m, ctx.compName, rn)
 
 	if m.GetString("review_type") == "walkover" {
-		item.Detail = "Incomparecencia pendiente de aprobación"
-		categories["walkovers"].Items = append(categories["walkovers"].Items, item)
+		categories["walkovers"].Items = append(categories["walkovers"].Items,
+			walkoverHealthItem(app, m, ctx.compName))
 		return
 	}
 
@@ -182,6 +187,12 @@ func disputeHealthItem(app core.App, m *core.Record, compName string) HealthItem
 			item.Detail += " → propone: " + ds
 		}
 	}
+	return item
+}
+
+func walkoverHealthItem(app core.App, m *core.Record, compName string) HealthItem {
+	item := healthItem(app, m, compName, m.GetInt("round_number"))
+	item.Detail = "Incomparecencia pendiente de aprobación"
 	return item
 }
 

@@ -733,7 +733,7 @@ func TestHome_AdminAlerts(t *testing.T) {
 			"admin-urgent-items",
 			"AlertDispP1",
 			"Test Competition",
-			"Disputas abiertas",
+			"Disputas",
 		},
 		NotExpectedContent: []string{"AlertOvdP1"},
 	}
@@ -780,7 +780,7 @@ func TestHome_AdminWalkoverAlert(t *testing.T) {
 		ExpectedContent: []string{
 			"Walkover League",
 			"Walkover A",
-			"Incomparecencias pendientes",
+			"Incomparecencias",
 		},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {

@@ -27,11 +27,11 @@ func TestHealth_AdminSeesGroups(t *testing.T) {
 		URL:            "/admin/health",
 		ExpectedStatus: 200,
 		ExpectedContent: []string{
-			"Disputas abiertas",
-			"Incomparecencias pendientes",
-			"Partidos vencidos",
+			"Disputas",
+			"Incomparecencias",
+			"Vencidos",
 			"Parejas sin pagar",
-			"Partidos sin fecha",
+			"Sin fecha",
 		},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
