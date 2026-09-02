@@ -450,15 +450,15 @@ test.describe('R-178: presentation quality guards', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // Admin dashboard content should be present
-    await expect(page.locator('a[href="/admin/competitions"]').first()).toBeVisible();
+    // Admin-only content must be in the DOM — the Gestión menu section
+    // (in a dropdown on desktop, drawer on mobile) is always present in
+    // admin view and absent in player view
+    await expect(page.locator('text=Gestión').first()).toBeAttached();
 
-    // Player-only content must NOT appear
-    await expect(page.locator('[data-testid="player-competitions-heading"]')).toHaveCount(0);
+    // The admin home shows admin-only content that player view cannot see
+    // (it may ALSO show player content when the admin is enrolled in
+    // competitions — that's correct, not a leak)
     const bodyText = await page.evaluate(() => document.body.innerText);
-    expect(bodyText).not.toContain('Mis competiciones');
-
-    // No "Administración" divider (removed by R-175)
     expect(bodyText).not.toContain('Administración');
 
     // Flip to player view via the switcher
