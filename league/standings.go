@@ -127,20 +127,22 @@ func buildStandingRows(pairIDs []string, pairNames map[string]string, stats map[
 	return rows
 }
 
+// sortStandings ranks pairs by FEP Reglamento Técnico General 2024
+// art. 3.3.10: points → head-to-head (2-way) → set diff → game diff.
 func sortStandings(rows []StandingRowFull, matches []*core.Record) {
 	sort.Slice(rows, func(i, j int) bool {
 		if rows[i].Points != rows[j].Points {
 			return rows[i].Points > rows[j].Points
 		}
-		setDiffI := rows[i].SetsWon - rows[i].SetsLost
-		setDiffJ := rows[j].SetsWon - rows[j].SetsLost
-		if setDiffI != setDiffJ {
-			return setDiffI > setDiffJ
-		}
 		h2h := headToHead(rows[i].PairID, rows[j].PairID, matches)
 		h2hReverse := headToHead(rows[j].PairID, rows[i].PairID, matches)
 		if h2h != h2hReverse {
 			return h2h
+		}
+		setDiffI := rows[i].SetsWon - rows[i].SetsLost
+		setDiffJ := rows[j].SetsWon - rows[j].SetsLost
+		if setDiffI != setDiffJ {
+			return setDiffI > setDiffJ
 		}
 		gameDiffI := rows[i].GamesWon - rows[i].GamesLost
 		gameDiffJ := rows[j].GamesWon - rows[j].GamesLost
