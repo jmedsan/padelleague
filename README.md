@@ -113,6 +113,7 @@ middleware/          # Cookie auth bridge, admin role check
 migrations/          # PocketBase schema migrations
 render/              # Template rendering helpers
 routes/              # Route registration with Deps struct
+search/              # Fuzzy global search (in-memory index, accent-fold, Levenshtein ranking, role-scoped)
 seed/                # Dev/test data seeding
 views/               # Go HTML page templates (layout.html, pages, admin/)
 views/partials/      # One shared partial per domain object; explicit modes select player, summary, or admin controls
