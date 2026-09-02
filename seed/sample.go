@@ -268,7 +268,7 @@ func setSampleMatchState(txApp core.App, match *core.Record, f sampleFixture) er
 		}
 		match.Set("scores", "6-2 6-2")
 		match.Set("submitted_by", sub)
-		match.Set("submitted_at", time.Now().UTC().Add(-24*time.Hour).Format("2006-01-02 15:04:05.000Z"))
+		match.Set("submitted_at", time.Now().UTC().Add(-24*time.Hour).UTC().Format("2006-01-02 15:04:05.000Z"))
 		match.Set("status", league.StatusPending)
 		return nil
 	case f.played && f.round == 6 && f.idx == 0:
@@ -399,7 +399,7 @@ func (sc *sampleCtx) createSchedulingEntries(c schedulingContext) error {
 	proposal.Set("type", "scheduling_proposal")
 	proposal.Set("proposal_data", pdJSON)
 	proposal.Set("proposal_status", "accepted")
-	proposal.SetRaw("created", proposalTime.Format(time.RFC3339))
+	proposal.SetRaw("created", proposalTime.UTC().Format("2006-01-02 15:04:05.000Z"))
 	if err := sc.app.Save(proposal); err != nil {
 		return fmt.Errorf("save proposal: %w", err)
 	}
@@ -418,7 +418,7 @@ func (sc *sampleCtx) createSchedulingEntries(c schedulingContext) error {
 	resp.Set("content", acceptDetail)
 	resp.Set("parent", proposal.Id)
 	resp.Set("proposal_data", respPDJSON)
-	resp.SetRaw("created", acceptTime.Format(time.RFC3339))
+	resp.SetRaw("created", acceptTime.UTC().Format("2006-01-02 15:04:05.000Z"))
 	if err := sc.app.Save(resp); err != nil {
 		return fmt.Errorf("save scheduling response: %w", err)
 	}
@@ -493,7 +493,7 @@ func (sc *sampleCtx) createResultEntries(rc resultContext) error {
 		rec.Set("type", "admin_action")
 		winnerName := league.PairNames(sc.app, []string{rc.match.GetString("pair1")})[rc.match.GetString("pair1")]
 		rec.Set("content", "aprobó incomparecencia a favor de "+winnerName)
-		rec.SetRaw("created", reportTime.Format(time.RFC3339))
+		rec.SetRaw("created", reportTime.UTC().Format("2006-01-02 15:04:05.000Z"))
 		if err := sc.app.Save(rec); err != nil {
 			return fmt.Errorf("save walkover timeline: %w", err)
 		}
@@ -518,7 +518,7 @@ func (sc *sampleCtx) saveResultProposal(a resultProposalArgs) (*core.Record, err
 	rec.Set("content", a.scores)
 	rec.Set("proposal_data", pdJSON)
 	rec.Set("proposal_status", a.status)
-	rec.SetRaw("created", a.ts.Format(time.RFC3339))
+	rec.SetRaw("created", a.ts.UTC().Format("2006-01-02 15:04:05.000Z"))
 	if err := sc.app.Save(rec); err != nil {
 		return nil, fmt.Errorf("save result proposal: %w", err)
 	}
@@ -538,7 +538,7 @@ func (sc *sampleCtx) saveResultResponse(a resultResponseArgs) error {
 	rec.Set("content", a.content)
 	rec.Set("parent", a.parentID)
 	rec.Set("proposal_data", fmt.Sprintf(`{"action":"%s","scores":"%s"}`, a.action, a.scores))
-	rec.SetRaw("created", a.ts.Format(time.RFC3339))
+	rec.SetRaw("created", a.ts.UTC().Format("2006-01-02 15:04:05.000Z"))
 	if err := sc.app.Save(rec); err != nil {
 		return fmt.Errorf("save result response: %w", err)
 	}
