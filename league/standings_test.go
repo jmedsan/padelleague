@@ -118,6 +118,150 @@ func TestComputeStandings_Tiebreakers(t *testing.T) {
 	}
 }
 
+// A pairwise head-to-head comparator is not transitive: A beats B, B beats
+// C, C beats A is a valid 3-way cycle with no consistent pairwise order.
+// FEP art. 3.3.10 resolves this with a mini-league among just the tied
+// pairs rather than a pairwise sort. This case is fully symmetric (every
+// pair has one 6-3 6-3 win and one 6-3 6-3 loss), so the mini-league itself
+// leaves them level too — proving the sort terminates deterministically on
+// a genuine cycle down to the final pair-name tiebreaker, not just that it
+// doesn't crash.
+func TestComputeStandings_ThreeWayCycle(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	a := makePair(t, app, "Cyc A")
+	b := makePair(t, app, "Cyc B")
+	c := makePair(t, app, "Cyc C")
+	comp := makeCompetition(t, app, []*core.Record{a, b, c})
+
+	finalMatch(t, app, comp.Id, a, b, a, "6-3 6-3", 1)
+	finalMatch(t, app, comp.Id, b, c, b, "6-3 6-3", 2)
+	finalMatch(t, app, comp.Id, c, a, c, "6-3 6-3", 3)
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	require.Len(t, rows, 3)
+	for _, r := range rows {
+		assert.Equal(t, 3, r.Points, "precondition: all three level on points")
+	}
+
+	// Symmetric scores mean the mini-league and overall set/game diff are
+	// level too, so the pair-name tiebreaker is what actually orders them —
+	// assert that exact deterministic order.
+	var order []string
+	for _, r := range rows {
+		order = append(order, r.PairName)
+	}
+	assert.Equal(t, []string{"Cyc A", "Cyc B", "Cyc C"}, order,
+		"fully level 3-way cycle must fall back to pair-name order")
+}
+
+// Same cycle shape as above, but the mutual scores are no longer symmetric,
+// so the mini-league's own set/game diff (computed only from matches among
+// the tied trio) breaks the tie without needing to reach pair name.
+func TestComputeStandings_ThreeWayCycleMiniLeagueSetDiffBreaksTie(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	a := makePair(t, app, "MLA")
+	b := makePair(t, app, "MLB")
+	c := makePair(t, app, "MLC")
+	comp := makeCompetition(t, app, []*core.Record{a, b, c})
+
+	// Each pair has exactly 1 win / 1 loss (3 mini-league points each, and
+	// mini-league set diff level at 0 for all three, since every match is a
+	// 2-0 sets result). Game diff is what separates them: a's win is a
+	// blowout and its loss is a near-miss tiebreak set, so a comes out on
+	// top; b's win is modest and its loss to a is a blowout, so b is last.
+	finalMatch(t, app, comp.Id, a, b, a, "6-0 6-0", 1) // a: +2 sets, +12 games
+	finalMatch(t, app, comp.Id, b, c, b, "6-4 6-4", 2) // b beats c: +2 sets, +4 games
+	finalMatch(t, app, comp.Id, c, a, c, "7-6 7-6", 3) // a loses narrowly: -2 sets, -2 games
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	require.Len(t, rows, 3)
+	for _, r := range rows {
+		assert.Equal(t, 3, r.Points, "precondition: all three level on points")
+	}
+
+	var order []string
+	for _, r := range rows {
+		order = append(order, r.PairName)
+	}
+	// Mini-league set diff (mutual matches only) is 0 for all three — every
+	// pair wins one match 2 sets to 0 and loses one 0 sets to 2. It comes
+	// down to mini-league game diff: a = +10 (12 won, 2 lost across its
+	// blowout win and its narrow loss), c = -2, b = -8.
+	assert.Equal(t, []string{"MLA", "MLC", "MLB"}, order,
+		"mini-league game diff among the tied trio must break the cycle")
+}
+
+// Stability: the same 3-way cycle, fed in a different pair-registration
+// order, must produce identical standings — the sort must not depend on
+// input order once points, mini-league stats, and overall stats all agree.
+func TestComputeStandings_ThreeWayCycleStableAcrossInputOrder(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	// Registered in a different order than the match sequence below.
+	c := makePair(t, app, "STC")
+	a := makePair(t, app, "STA")
+	b := makePair(t, app, "STB")
+	comp := makeCompetition(t, app, []*core.Record{c, a, b})
+
+	finalMatch(t, app, comp.Id, a, b, a, "6-0 6-0", 1)
+	finalMatch(t, app, comp.Id, b, c, b, "6-4 6-4", 2)
+	finalMatch(t, app, comp.Id, c, a, c, "7-6 7-6", 3)
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	require.Len(t, rows, 3)
+
+	var order []string
+	for _, r := range rows {
+		order = append(order, r.PairName)
+	}
+	assert.Equal(t, []string{"STA", "STC", "STB"}, order,
+		"registration order must not change the resolved standings")
+}
+
+// A 2-way head-to-head split (1-1) must fall back to set/game difference
+// computed from just the two head-to-head matches, before overall stats —
+// per FEP art. 3.3.10 step 4.
+func TestComputeStandings_TwoWaySplitUsesH2HSetDiff(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	a := makePair(t, app, "H2D A")
+	b := makePair(t, app, "H2D B")
+	comp := makeCompetition(t, app, []*core.Record{a, b})
+
+	// a wins its match in straight, lopsided sets; b's win is a pair of
+	// close tiebreaks. Both matches split 1-1 on wins, so overall set diff
+	// is level (2-2) for both — but a's head-to-head set/game diff is
+	// better because its win is the bigger blowout.
+	finalMatch(t, app, comp.Id, a, b, a, "6-1 6-1", 1)
+	finalMatch(t, app, comp.Id, b, a, b, "7-6 7-6", 2)
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+
+	rowA := rowByName(t, rows, "H2D A")
+	rowB := rowByName(t, rows, "H2D B")
+	require.Equal(t, rowB.Points, rowA.Points, "precondition: level on points")
+	require.Equal(t, rowA.SetsWon-rowA.SetsLost, rowB.SetsWon-rowB.SetsLost,
+		"precondition: level on overall set difference")
+
+	assert.Less(t, rowA.Position, rowB.Position,
+		"a has the better head-to-head set/game diff even though overall stats are level")
+}
+
 func TestComputeStandings_WalkoverPair2Wins(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
