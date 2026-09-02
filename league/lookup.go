@@ -56,6 +56,18 @@ func EntityURL(kind, id string) string {
 	}
 }
 
+// CompetitionName returns the display name for a competition, or "?" if not found.
+func CompetitionName(app core.App, compID string) string {
+	if compID == "" {
+		return "?"
+	}
+	comp, err := app.FindRecordById("competitions", compID)
+	if err != nil {
+		return "?"
+	}
+	return comp.GetString("name")
+}
+
 // PlayerName returns the display name for a user, or "?" if not found.
 func PlayerName(app core.App, userID string) string {
 	if userID == "" {

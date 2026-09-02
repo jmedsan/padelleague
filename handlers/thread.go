@@ -459,7 +459,7 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 		return alertError(e, "Error al marcar la propuesta como aceptada")
 	}
 
-	h.supersedePendingAndNotify(match.Id, msg.Id)
+	h.supersedePendingAndNotify(match, msg.Id)
 
 	proposerName := league.PlayerName(h.app, msg.GetString("author"))
 	addTimelineEntry(h.app, timelineEntry{
@@ -542,7 +542,13 @@ func (h *ThreadHandler) acceptResultProposal(e *core.RequestEvent, match, msg *c
 	h.supersedePendingResults(match.Id, msg.Id)
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
-	n := league.NotifResultConfirmed(match.Id)
+	responderPairID := match.GetString("pair1")
+	if responderPairID == proposerPairID {
+		responderPairID = match.GetString("pair2")
+	}
+	responderPairName := league.PairNames(h.app, []string{responderPairID})[responderPairID]
+	compName := league.CompetitionName(h.app, match.GetString("competition"))
+	n := league.NotifResultConfirmed(match.Id, responderPairName, compName)
 	h.notifier.NotifyPlayers(proposerPlayers, n)
 	h.notifier.EmailPlayers(proposerPlayers, n.Title, n.Body, "/match/"+match.Id)
 	return nil
@@ -599,7 +605,13 @@ func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *c
 	}
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
-	notif := league.NotifResultCountered(match.Id)
+	counterPairID := match.GetString("pair1")
+	if counterPairID == proposerPairID {
+		counterPairID = match.GetString("pair2")
+	}
+	counterPairName := league.PairNames(h.app, []string{counterPairID})[counterPairID]
+	compName := league.CompetitionName(h.app, match.GetString("competition"))
+	notif := league.NotifResultCountered(match.Id, counterPairName, compName)
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
 	h.notifier.EmailPlayers(proposerPlayers, notif.Title, notif.Body, "/match/"+match.Id)
 	return nil
@@ -635,10 +647,11 @@ func (h *ThreadHandler) supersedePending(matchID, excludeMsgID string) error {
 	return nil
 }
 
-func (h *ThreadHandler) supersedePendingAndNotify(matchID, excludeMsgID string) {
-	if err := h.supersedePending(matchID, excludeMsgID); err != nil {
-		slog.Error("supersede pending proposals", "match", matchID, "err", err)
-		n := league.NotifAdminSupersedeFailed(matchID)
+func (h *ThreadHandler) supersedePendingAndNotify(match *core.Record, excludeMsgID string) {
+	if err := h.supersedePending(match.Id, excludeMsgID); err != nil {
+		slog.Error("supersede pending proposals", "match", match.Id, "err", err)
+		pairNames := league.PairNames(h.app, []string{match.GetString("pair1"), match.GetString("pair2")})
+		n := league.NotifAdminSupersedeFailed(match.Id, pairNames[match.GetString("pair1")], pairNames[match.GetString("pair2")])
 		_ = h.notifier.NotifyAdmins(n)
 	}
 }
@@ -699,7 +712,7 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 		slog.Error("save match after acceptance", "match", match.Id, "err", err)
 		return alertError(e, "Error al actualizar el partido")
 	}
-	h.supersedePendingAndNotify(match.Id, msg.Id)
+	h.supersedePendingAndNotify(match, msg.Id)
 
 	proposerName := league.PlayerName(h.app, msg.GetString("author"))
 	addTimelineEntry(h.app, timelineEntry{

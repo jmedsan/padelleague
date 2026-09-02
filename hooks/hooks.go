@@ -87,12 +87,18 @@ func remindCompetitionMatches(app core.App, notifier *notify.Notifier, comp *cor
 			continue
 		}
 
-		playerIDs := append(
-			league.PlayersForPair(app, m.GetString("pair1")),
-			league.PlayersForPair(app, m.GetString("pair2"))...,
-		)
+		pair1ID, pair2ID := m.GetString("pair1"), m.GetString("pair2")
+		pairNames := league.PairNames(app, []string{pair1ID, pair2ID})
+		compName := comp.GetString("name")
 
-		notifier.NotifyPlayers(playerIDs, league.NotifSchedulingReminder(m.Id, level.Label()))
+		notifier.NotifyPlayers(league.PlayersForPair(app, pair1ID),
+			league.NotifSchedulingReminder(league.SchedulingReminderParams{
+				MatchID: m.Id, Opponent: pairNames[pair2ID], CompName: compName, LevelLabel: level.Label(), Deadline: deadline,
+			}))
+		notifier.NotifyPlayers(league.PlayersForPair(app, pair2ID),
+			league.NotifSchedulingReminder(league.SchedulingReminderParams{
+				MatchID: m.Id, Opponent: pairNames[pair1ID], CompName: compName, LevelLabel: level.Label(), Deadline: deadline,
+			}))
 
 		m.Set("last_warn_level", int(level))
 		if err := app.Save(m); err != nil {

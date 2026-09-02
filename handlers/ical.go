@@ -68,6 +68,7 @@ type vEvent struct {
 	Summary     string
 	Location    string
 	Description string
+	URL         string
 }
 
 func buildVEvent(ev vEvent) string {
@@ -83,6 +84,9 @@ func buildVEvent(ev vEvent) string {
 	}
 	if ev.Description != "" {
 		b.WriteString("DESCRIPTION:" + icsEscape(ev.Description) + "\r\n")
+	}
+	if ev.URL != "" {
+		b.WriteString("URL:" + ev.URL + "\r\n")
 	}
 	b.WriteString("END:VEVENT\r\n")
 	return b.String()
@@ -123,12 +127,9 @@ func (h *ICalHandler) Match(e *core.RequestEvent) error {
 	summary := pairNames[match.GetString("pair1")] + " vs " + pairNames[match.GetString("pair2")]
 	location := h.venueLocation(match.GetString("club"))
 
-	description := fmt.Sprintf("Jornada %d", int(match.GetFloat("round_number")))
-	if cid := match.GetString("competition"); cid != "" {
-		comp, _ := h.app.FindRecordById("competitions", cid)
-		if comp != nil {
-			description += " — " + comp.GetString("name")
-		}
+	description, compName := h.matchDescription(match)
+	if compName != "" {
+		summary += " · " + compName
 	}
 
 	event := buildVEvent(vEvent{
@@ -139,12 +140,41 @@ func (h *ICalHandler) Match(e *core.RequestEvent) error {
 		Summary:     summary,
 		Location:    location,
 		Description: description,
+		URL:         matchURL(e, match.Id),
 	})
 	ics := wrapVCalendar(event)
 
 	e.Response.Header().Set("Content-Type", "text/calendar")
 	e.Response.Header().Set("Content-Disposition", `attachment; filename="partido.ics"`)
 	return e.String(http.StatusOK, ics)
+}
+
+// matchDescription builds the iCal description and returns the competition
+// name separately so callers can also fold it into the event summary.
+func (h *ICalHandler) matchDescription(match *core.Record) (description, compName string) {
+	description = fmt.Sprintf("Jornada %d", int(match.GetFloat("round_number")))
+	cid := match.GetString("competition")
+	if cid == "" {
+		return description, ""
+	}
+	comp, err := h.app.FindRecordById("competitions", cid)
+	if err != nil || comp == nil {
+		return description, ""
+	}
+	compName = comp.GetString("name")
+	return description + " — " + compName, compName
+}
+
+// matchURL builds the absolute match URL for the iCal URL property.
+func matchURL(e *core.RequestEvent, matchID string) string {
+	if e.Request.Host == "" {
+		return ""
+	}
+	scheme := "https"
+	if e.Request.TLS == nil {
+		scheme = "http"
+	}
+	return fmt.Sprintf("%s://%s/match/%s", scheme, e.Request.Host, matchID)
 }
 
 // Competition generates an iCal feed with all matches for a competition.
@@ -174,10 +204,19 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 			continue
 		}
 
-		summary := pairNames[m.GetString("pair1")] + " vs " + pairNames[m.GetString("pair2")]
+		summary := pairNames[m.GetString("pair1")] + " vs " + pairNames[m.GetString("pair2")] + " · " + comp.GetString("name")
 		location := h.venueLocation(m.GetString("club"))
 
-		description := fmt.Sprintf("Jornada %d", int(m.GetFloat("round_number")))
+		description := fmt.Sprintf("Jornada %d — %s", int(m.GetFloat("round_number")), comp.GetString("name"))
+
+		mURL := ""
+		if host := e.Request.Host; host != "" {
+			scheme := "https"
+			if e.Request.TLS == nil {
+				scheme = "http"
+			}
+			mURL = fmt.Sprintf("%s://%s/match/%s", scheme, host, m.Id)
+		}
 
 		events.WriteString(buildVEvent(vEvent{
 			UID:         m.Id + "@padelleague",
@@ -187,6 +226,7 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 			Summary:     summary,
 			Location:    location,
 			Description: description,
+			URL:         mURL,
 		}))
 	}
 

@@ -1466,7 +1466,7 @@ func TestRejectResultProposalRequiresCounter(t *testing.T) {
 				continue
 			}
 			notifs, _ := app.FindRecordsByFilter("notifications",
-				"user = {:uid} && title = 'Resultado disputado'",
+				"user = {:uid} && title = 'Contrapropuesta recibida'",
 				"", 0, 0, map[string]any{"uid": uid})
 			assert.NotEmpty(tb, notifs, "proposer pair member %s must be notified of counter-proposal", uid)
 		}
