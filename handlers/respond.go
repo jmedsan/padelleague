@@ -28,15 +28,24 @@ func findMatchOr404(app core.App, e *core.RequestEvent, id string) (*core.Record
 }
 
 func alertError(e *core.RequestEvent, msg string) error {
-	return e.HTML(http.StatusOK, `<div class="alert alert-error">`+html.EscapeString(msg)+`</div>`)
+	return flashAlert(e, "alert-error", msg)
 }
 
 func alertSuccess(e *core.RequestEvent, msg string) error {
-	return e.HTML(http.StatusOK, `<div class="alert alert-success">`+html.EscapeString(msg)+`</div>`)
+	return flashAlert(e, "alert-success", msg)
 }
 
 func alertWarning(e *core.RequestEvent, msg string) error {
-	return e.HTML(http.StatusOK, `<div class="alert alert-warning">`+html.EscapeString(msg)+`</div>`)
+	return flashAlert(e, "alert-warning", msg)
+}
+
+func flashAlert(e *core.RequestEvent, class, msg string) error {
+	fragment := `<div class="` + class + ` text-sm py-2">` + html.EscapeString(msg) + `</div>`
+	if e.Request.Header.Get("HX-Request") == "true" {
+		e.Response.Header().Set("HX-Retarget", "#flash")
+		e.Response.Header().Set("HX-Reswap", "innerHTML")
+	}
+	return e.HTML(http.StatusOK, fragment)
 }
 
 func isEffectiveAdmin(e *core.RequestEvent) bool {
