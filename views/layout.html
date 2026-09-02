@@ -6,7 +6,7 @@
     <title>{{if .PageTitle}}{{.PageTitle}} — {{end}}PadelLeague</title>
     <link rel="stylesheet" href="/static/css/styles.css">
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#0D9488">
+    <meta name="theme-color" content="#115E59">
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/score-input.js"></script>
     <script>
@@ -46,7 +46,7 @@
                             {{if eq .ViewAs "admin"}}Admin{{else}}Jugador{{end}}
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
                         </button>
-                        <ul tabindex="0" class="dropdown-content z-30 mt-2 menu bg-base-100 rounded-box shadow-lg w-36 p-2">
+                        <ul tabindex="0" class="dropdown-content z-30 mt-2 menu bg-base-100 text-base-content rounded-box shadow-lg w-36 p-2">
                             <li><a href="/view/admin" class="{{if eq .ViewAs "admin"}}active{{end}}">Admin</a></li>
                             <li><a href="/view/player" class="{{if eq .ViewAs "player"}}active{{end}}">Jugador</a></li>
                         </ul>
@@ -110,7 +110,7 @@
                             <input id="global-search" type="text" placeholder="Buscar…" class="input input-sm w-40 lg:w-56 bg-white/15 border-white/20 placeholder-white/50 text-primary-content focus:bg-white/25"
                                    hx-get="/search" hx-trigger="keyup changed delay:200ms, focus" hx-target="#search-results-dropdown" name="q" autocomplete="off">
                         </div>
-                        <div id="search-results-dropdown" tabindex="0" class="dropdown-content z-40 mt-1 w-80 max-h-96 overflow-y-auto bg-base-100 rounded-box shadow-xl"></div>
+                        <div id="search-results-dropdown" tabindex="0" class="dropdown-content z-40 mt-1 w-80 max-h-96 overflow-y-auto bg-base-100 text-base-content rounded-box shadow-xl"></div>
                     </div>
                     {{end}}
                     <button onclick="toggleTheme()" class="btn btn-ghost btn-circle btn-sm hover:bg-white/10" aria-label="cambiar tema">
