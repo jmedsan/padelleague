@@ -165,10 +165,7 @@ func (h *ThreadHandler) ThreadMessages(e *core.RequestEvent) error {
 	}
 
 	isAdmin := isEffectiveAdmin(e)
-	myTeam, teamErr := league.PlayerTeam(h.app, e.Auth.Id, match)
-	if teamErr != nil && !isAdmin {
-		return alertError(e, "No tienes acceso a este hilo")
-	}
+	myTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
 
 	compModifiable := true
 	if comp, err := h.app.FindRecordById("competitions", match.GetString("competition")); err == nil {
