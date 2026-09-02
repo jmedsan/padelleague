@@ -116,59 +116,83 @@ func (h *ThreadHandler) buildThreadData(match *core.Record, matchID string, myTe
 	return td
 }
 
+// msgCtx bundles the per-message values derived once in processMessage and
+// shared by the timeline/panel builders below.
+type msgCtx struct {
+	msg        *core.Record
+	msgType    string
+	authorName string
+	authorTeam int
+	created    string
+}
+
 func (bc *threadBuildCtx) processMessage(msg *core.Record, authorID, cachedName string, td *ThreadData) {
-	authorTeam := playerTeamOf(authorID, bc.pair1Players, bc.pair2Players)
-	msgType := msg.GetString("type")
-	status := msg.GetString("proposal_status")
-	created := render.FmtShortTime(msg.GetDateTime("created").Time())
-	authorName := cachedName
-	if msgType == "scheduling_proposal" || msgType == "result_submission" ||
-		msgType == "scheduling_response" || msgType == "result_response" {
-		authorName = pairPlayerLabel(bc.app, authorID, bc.match)
+	mc := msgCtx{
+		msg:        msg,
+		msgType:    msg.GetString("type"),
+		authorName: cachedName,
+		authorTeam: playerTeamOf(authorID, bc.pair1Players, bc.pair2Players),
+		created:    render.FmtShortTime(msg.GetDateTime("created").Time()),
 	}
-	content := msg.GetString("content")
-	pd := ParseProposalData(msg.GetString("proposal_data"))
+	if isProposalOrResponse(mc.msgType) {
+		mc.authorName = pairPlayerLabel(bc.app, authorID, bc.match)
+	}
+	td.Timeline = append(td.Timeline, bc.timelineEntry(mc))
+	bc.appendToPanel(mc, td)
+}
+
+// timelineEntry builds the frozen-snapshot timeline line for one message.
+// The action text and status shown are frozen at insertion time — they
+// reflect what happened at THIS event (from its own message type and, for a
+// response, its own recorded Action), not proposal_status (which is the
+// proposal's current, possibly later-superseded, state).
+func (bc *threadBuildCtx) timelineEntry(mc msgCtx) TimelineEntryVM {
+	pd := ParseProposalData(mc.msg.GetString("proposal_data"))
 	entry := TimelineEntryVM{
-		Kind:       timelineKind(msgType),
-		AuthorName: authorName,
-		IsMyTeam:   bc.myTeam != 0 && authorTeam == bc.myTeam,
-		CreatedAt:  created,
+		Kind:       timelineKind(mc.msgType),
+		AuthorName: mc.authorName,
+		IsMyTeam:   bc.myTeam != 0 && mc.authorTeam == bc.myTeam,
+		CreatedAt:  mc.created,
 	}
-	fillTimelineEntryData(&entry, pd, msgType)
-	if msgType == "result_submission" || msgType == "result_response" {
+	fillTimelineEntryData(&entry, pd, mc.msgType)
+	if mc.msgType == "result_submission" || mc.msgType == "result_response" {
 		entry.Pair1Name = bc.pairNames[bc.match.GetString("pair1")]
 		entry.Pair2Name = bc.pairNames[bc.match.GetString("pair2")]
 	}
-	// The action text and status shown on a timeline entry are frozen at
-	// insertion time — they reflect what happened at THIS event (from its
-	// own message type and, for a response, its own recorded Action), not
-	// proposal_status (which is the proposal's current, possibly
-	// later-superseded, state).
 	action := ""
 	if pd != nil {
 		action = pd.Action
 	}
-	entry.Content, entry.StatusLabel, entry.StatusClass = timelineEntryText(msgType, action, content)
-	if msgType == "result_response" && action == "reject" && bc.matchStatus == league.StatusDisputed {
-		entry.Note = bc.match.GetString("dispute_notes")
+	entry.Content, entry.StatusLabel, entry.StatusClass = timelineEntryText(mc.msgType, action, mc.msg.GetString("content"))
+	entry.Note = bc.timelineNote(mc, action)
+	return entry
+}
+
+func (bc *threadBuildCtx) timelineNote(mc msgCtx, action string) string {
+	if mc.msgType == "result_response" && action == "reject" && bc.matchStatus == league.StatusDisputed {
+		return bc.match.GetString("dispute_notes")
 	}
-	if msgType == "scheduling_response" && action == "reject" {
-		if text := msg.GetString("rejection_text"); text != "" {
-			entry.Note = text
-		} else {
-			entry.Note = msg.GetString("rejection_reason")
+	if mc.msgType == "scheduling_response" && action == "reject" {
+		if text := mc.msg.GetString("rejection_text"); text != "" {
+			return text
 		}
+		return mc.msg.GetString("rejection_reason")
 	}
-	td.Timeline = append(td.Timeline, entry)
-	sameTeam := authorTeam == bc.myTeam || bc.myTeam == 0
-	// Only PENDING scheduling proposals belong in the panel. An accepted date is a
-	// settled fact shown once in the match header; superseded/rejected are history
-	// (timeline only). No repeats.
-	if msgType == "scheduling_proposal" && status == "pending" {
-		td.SchedProposals = append(td.SchedProposals, bc.schedProposal(msg, authorName, created, sameTeam))
+	return ""
+}
+
+// appendToPanel adds pending scheduling/result proposals to the details
+// panel. Only PENDING scheduling proposals belong there — an accepted date
+// is a settled fact shown once in the match header; superseded/rejected are
+// history (timeline only). No repeats.
+func (bc *threadBuildCtx) appendToPanel(mc msgCtx, td *ThreadData) {
+	status := mc.msg.GetString("proposal_status")
+	sameTeam := mc.authorTeam == bc.myTeam || bc.myTeam == 0
+	if mc.msgType == "scheduling_proposal" && status == "pending" {
+		td.SchedProposals = append(td.SchedProposals, bc.schedProposal(mc.msg, mc.authorName, mc.created, sameTeam))
 	}
-	if msgType == "result_submission" && status == "pending" && !td.ResultPanel.HasFinal {
-		td.ResultPanel.Live = append(td.ResultPanel.Live, bc.resultProposal(msg, authorName, authorTeam, sameTeam))
+	if mc.msgType == "result_submission" && status == "pending" && !td.ResultPanel.HasFinal {
+		td.ResultPanel.Live = append(td.ResultPanel.Live, bc.resultProposal(mc.msg, mc.authorName, mc.authorTeam, sameTeam))
 	}
 }
 
@@ -269,6 +293,11 @@ func timelineEntryText(msgType, action, content string) (verb, statusLabel, stat
 	default: // result_event, admin_action, chat
 		return content, "", ""
 	}
+}
+
+func isProposalOrResponse(msgType string) bool {
+	return msgType == "scheduling_proposal" || msgType == "result_submission" ||
+		msgType == "scheduling_response" || msgType == "result_response"
 }
 
 func playerTeamOf(uid string, pair1Players, pair2Players []string) int {
