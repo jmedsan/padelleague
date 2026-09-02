@@ -316,8 +316,8 @@ test.describe('R-178: presentation quality guards', () => {
         }
       }
 
-      // Click "Lee el reglamento" and verify it lands on Documentos
-      const regLink = checklist.locator('a:has-text("Lee el reglamento")');
+      // Click "Lee los documentos" and verify it lands on Documentos
+      const regLink = checklist.locator('a:has-text("Lee los documentos")');
       if (await regLink.count() > 0) {
         await regLink.click();
         await page.waitForLoadState('networkidle');

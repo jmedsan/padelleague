@@ -33,6 +33,7 @@ const opened = new Set();
 document.querySelectorAll('[data-mandatory-id]').forEach(function(a) {
     a.addEventListener('click', function() {
         opened.add(a.dataset.mandatoryId);
+        a.closest('[data-testid="document-card"]').classList.add('ring-2', 'ring-success');
         if ([...need].every(function(id) { return opened.has(id); })) {
             document.getElementById('accept-btn').disabled = false;
         }

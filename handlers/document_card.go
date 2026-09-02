@@ -11,6 +11,7 @@ type DocumentView struct {
 	OpenURL       string
 	IsDefault     bool
 	IsMandatory   bool
+	Acked         bool
 	CompetitionID string
 	Mode          Mode
 }
@@ -32,4 +33,11 @@ func NewDocumentView(doc *core.Record, mode Mode) DocumentView {
 		IsMandatory: doc.GetBool("is_mandatory"),
 		Mode:        mode,
 	}
+}
+
+// NewDocumentViewWithAck builds a DocumentView with Acked set from ackedIDs.
+func NewDocumentViewWithAck(doc *core.Record, mode Mode, ackedIDs map[string]struct{}) DocumentView {
+	dv := NewDocumentView(doc, mode)
+	_, dv.Acked = ackedIDs[doc.Id]
+	return dv
 }

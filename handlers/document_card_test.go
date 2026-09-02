@@ -46,6 +46,21 @@ func TestNewDocumentView_DefaultFlags(t *testing.T) {
 	assert.True(t, dv.Mode.Editable)
 }
 
+func TestNewDocumentViewWithAck(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+
+	doc := makeDocumentTB(t, app, "Reglas", true, "https://example.com/reglas")
+	other := makeDocumentTB(t, app, "Tarifas", false, "https://example.com/tarifas")
+	acked := map[string]struct{}{doc.Id: {}}
+
+	dvAcked := NewDocumentViewWithAck(doc, PlayerRow, acked)
+	dvNotAcked := NewDocumentViewWithAck(other, PlayerRow, acked)
+
+	assert.True(t, dvAcked.Acked)
+	assert.False(t, dvNotAcked.Acked)
+}
+
 func TestDocumentCard_PlayerRowNoControls(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

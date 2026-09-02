@@ -37,7 +37,7 @@ func MandatoryDocIDs(app core.App, comp *core.Record) []string {
 // not yet acknowledged. An empty result means the gate is satisfied.
 func UnacknowledgedMandatory(app core.App, comp *core.Record, userID string) []*core.Record {
 	acked := make(map[string]struct{})
-	for _, id := range ackedDocIDs(app, comp.Id, userID) {
+	for _, id := range AckedDocIDs(app, comp.Id, userID) {
 		acked[id] = struct{}{}
 	}
 	var pending []*core.Record
@@ -99,7 +99,8 @@ func RemoveString(s []string, v string) []string {
 	return out
 }
 
-func ackedDocIDs(app core.App, compID, userID string) []string {
+// AckedDocIDs returns the document IDs the user has acknowledged for comp.
+func AckedDocIDs(app core.App, compID, userID string) []string {
 	acks := findAcks(app, compID, userID)
 	if len(acks) == 0 {
 		return nil

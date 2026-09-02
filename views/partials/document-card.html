@@ -38,6 +38,7 @@
         </div>
         {{else}}
         {{if .IsMandatory}}<span class="badge badge-warning badge-sm mt-1">Obligatorio</span>{{end}}
+        {{if .Acked}}<span class="badge badge-success badge-sm mt-1">Leído</span>{{end}}
         {{end}}
     </div>
     <div class="flex items-center gap-2 flex-none flex-wrap">
