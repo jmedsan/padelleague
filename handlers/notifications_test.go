@@ -372,6 +372,35 @@ func TestDismissNotificationOtherUser(t *testing.T) {
 	s.Test(t)
 }
 
+// MarkRead: non-owner must not be able to mark another user's notification
+// as read (mirrors TestDismissNotificationOtherUser for the identical
+// ownership guard in MarkRead).
+func TestMarkReadOtherUserBlocked(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /notifications/{id}/read by non-owner returns 204 without marking read",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var notifID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupNotifRoutes(tb, app, e)
+		owner := makeUserTB(tb, app, "Owner", "")
+		other := makeUserTB(tb, app, "Other", "")
+		n := makeNotification(t, app, owner.Id, "Private", "", false)
+		notifID = n.Id
+		s.URL = "/notifications/" + n.Id + "/read"
+		s.Headers = authHeaders(tb, other)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		n, err := app.FindRecordById("notifications", notifID)
+		require.NoError(tb, err)
+		assert.False(tb, n.GetBool("read"), "non-owner must not be able to mark another user's notification as read")
+	}
+	s.Test(t)
+}
+
 func TestNotificationHistory(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
