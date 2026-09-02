@@ -111,9 +111,13 @@ test.describe('scheduling, walkover & bracket', () => {
     expect(matchAfterReport.review_type).toBe('walkover');
     expect(matchAfterReport.walkover_requested_by).toBe(data.player1.id);
 
-    // Admin approves via disputes page
+    // Admin approves from the match page — /admin/disputes is now a compact
+    // link list (healthItemRow), the walkover-approve form lives on the
+    // match detail page it links to.
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin/disputes');
+    await page.locator(`a[href="/match/${matchId}"]`).click();
+    await page.waitForLoadState('networkidle');
     await expect(page.getByText('Solicitud de incomparecencia')).toBeVisible({ timeout: 10000 });
 
     const woForm = page.locator(`form[hx-post*="/admin/disputes/${matchId}/walkover-approve"]`);

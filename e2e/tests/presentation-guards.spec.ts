@@ -261,12 +261,13 @@ test.describe('R-178: presentation quality guards', () => {
 
     // /admin/disputes renders each item via the shared healthItemRow partial
     // (an <a>, not a .card) — no score is shown there, only pair names, the
-    // category badge, and a link into the match for detail.
-    const rows = page.locator('[data-testid="health-item-row"]').filter({ hasText: 'Pareja Alpha' });
-    expect(await rows.count(), 'disputes page should show at least one dispute row').toBeGreaterThan(0);
-    const disputeRow = rows.first();
-    await expect(disputeRow).toBeVisible();
-    await expect(disputeRow).toHaveAttribute('href', `/match/${matchId}`);
+    // category badge, and a link into the match for detail. Filter on this
+    // test's own matchId, not just pair names — the seeded pairs (Pareja
+    // Alpha/Beta) are shared across specs, so other disputes accumulated in
+    // the same run also match "Pareja Alpha" and .first() picked whichever
+    // rendered first, not necessarily this test's row.
+    const disputeRow = page.locator(`[data-testid="health-item-row"][href="/match/${matchId}"]`);
+    await expect(disputeRow).toBeVisible({ timeout: 5000 });
     await expect(disputeRow.getByText('Pareja Alpha')).toBeVisible();
     await expect(disputeRow.getByText('Pareja Beta')).toBeVisible();
     await expect(disputeRow.getByText('Disputa', { exact: true })).toBeVisible();

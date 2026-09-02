@@ -43,7 +43,7 @@ test.describe('mobile match lifecycle', () => {
 
     // Step 3: Verify final state — score visible, no pending actions
     await expect(page.getByText('6-2 7-5').first()).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.badge:has-text("Final")')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#thread-details .badge:has-text("Confirmado")')).toBeVisible({ timeout: 5000 });
     await expect(page.getByRole('button', { name: 'Enviar resultado' })).not.toBeVisible();
   });
 });
