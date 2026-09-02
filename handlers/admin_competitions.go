@@ -44,17 +44,21 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 
 	pairEntries := buildPairEntries(h.app, pairIDs, seeding, paymentStatus)
 	allPairs := availablePairs(h.app, pairIDs)
-	allComps, _ := h.app.FindRecordsByFilter("competitions", "id != {:cid}", "name", 0, 0, map[string]any{"cid": id})
+	allComps := findRecordsLogged(h.app, "Detail: find other competitions", RecordQuery{
+		Collection: "competitions", Filter: "id != {:cid}", Sort: "name", Params: map[string]any{"cid": id},
+	})
 
-	matches, _ := h.app.FindRecordsByFilter("matches",
-		"competition = {:cid}", "round_number,created", 0, 0,
-		map[string]any{"cid": id})
+	matches := findRecordsLogged(h.app, "Detail: find matches", RecordQuery{
+		Collection: "matches", Filter: "competition = {:cid}", Sort: "round_number,created", Params: map[string]any{"cid": id},
+	})
 
 	pairNameMap := league.PairNames(h.app, pairIDs)
 
 	rounds := h.buildRoundGroups(matches, pairNameMap)
 	disputes := league.CompHealthItems(h.app, id, time.Now(), "disputes", "walkovers")
-	allUsers, _ := h.app.FindRecordsByFilter("users", "roles ~ 'player'", "display_name", 0, 0, nil)
+	allUsers := findRecordsLogged(h.app, "Detail: find players", RecordQuery{
+		Collection: "users", Filter: "roles ~ 'player'", Sort: "display_name",
+	})
 	isLeague := comp.GetString("type") == "league"
 
 	data := map[string]any{
@@ -118,7 +122,9 @@ func (h *CompetitionHandler) buildDetailDocs(comp *core.Record) ([]DocumentView,
 	for _, did := range attachedIDs {
 		attachedSet[did] = struct{}{}
 	}
-	allDocs, _ := h.app.FindRecordsByFilter("documents", "", "title", 0, 0, nil)
+	allDocs := findRecordsLogged(h.app, "buildDetailDocs: find documents", RecordQuery{
+		Collection: "documents", Sort: "title",
+	})
 	var unattached []*core.Record
 	for _, d := range allDocs {
 		if _, ok := attachedSet[d.Id]; !ok {
@@ -179,7 +185,9 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 		return alertError(e, "Error al crear la competición")
 	}
 
-	defaults, _ := h.app.FindRecordsByFilter("documents", "is_default = true", "", 0, 0, nil)
+	defaults := findRecordsLogged(h.app, "Create: find default documents", RecordQuery{
+		Collection: "documents", Filter: "is_default = true",
+	})
 	if len(defaults) > 0 {
 		ids := make([]string, len(defaults))
 		for i, d := range defaults {
@@ -425,9 +433,9 @@ func (h *CompetitionHandler) refreshRoundSchedule(comp *core.Record) {
 	}
 	rounds := comp.GetInt("rounds")
 	if rounds == 0 {
-		matches, _ := h.app.FindRecordsByFilter("matches",
-			"competition = {:cid}", "", 0, 0,
-			map[string]any{"cid": comp.Id})
+		matches := findRecordsLogged(h.app, "refreshRoundSchedule: find matches", RecordQuery{
+			Collection: "matches", Filter: "competition = {:cid}", Params: map[string]any{"cid": comp.Id},
+		})
 		for _, m := range matches {
 			if rn := m.GetInt("round_number"); rn > rounds {
 				rounds = rn

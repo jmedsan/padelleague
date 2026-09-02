@@ -88,8 +88,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 
 	data := map[string]any{"PageTitle": "Inicio"}
 
-	activeComps, _ := h.app.FindRecordsByFilter("competitions",
-		"active = true", "name", 0, 0, nil)
+	activeComps := findRecordsLogged(h.app, "home: find active competitions", RecordQuery{Collection: "competitions", Filter: "active = true", Sort: "name"})
 
 	userID := e.Auth.Id
 	pairs, _ := league.PairsForPlayer(h.app, userID)
@@ -191,10 +190,10 @@ func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[s
 	var nextMatch *NextMatch
 	var actions []PendingAction
 
-	pendingMatches, _ := h.app.FindRecordsByFilter("matches",
-		"competition = {:cid} && (status = 'pending' || status = 'scheduled')",
-		"round_number", 0, 0,
-		map[string]any{"cid": c.Id})
+	pendingMatches := findRecordsLogged(h.app, "buildHomeCompetition: find pending matches", RecordQuery{
+		Collection: "matches", Filter: "competition = {:cid} && (status = 'pending' || status = 'scheduled')",
+		Sort: "round_number", Params: map[string]any{"cid": c.Id},
+	})
 
 	pairNames := collectPairNames(h.app, pendingMatches)
 
@@ -241,9 +240,11 @@ func (h *PublicHandler) buildNextMatch(m *core.Record, c *core.Record, playerPai
 		ScheduleStatus:  "unscheduled",
 		IsPlayoff:       league.IsPlayoff(c),
 	}
-	proposals, _ := h.app.FindRecordsByFilter("match_messages",
-		"match = {:mid} && type = 'scheduling_proposal' && proposal_status != 'rejected' && proposal_status != 'superseded'",
-		"-created", 1, 0, map[string]any{"mid": m.Id})
+	proposals := findRecordsLogged(h.app, "buildNextMatch: find scheduling proposal", RecordQuery{
+		Collection: "match_messages",
+		Filter:     "match = {:mid} && type = 'scheduling_proposal' && proposal_status != 'rejected' && proposal_status != 'superseded'",
+		Sort:       "-created", Limit: 1, Params: map[string]any{"mid": m.Id},
+	})
 	if len(proposals) > 0 {
 		applyProposalToNextMatch(nm, proposals[0])
 	}
@@ -269,9 +270,10 @@ func applyProposalToNextMatch(nm *NextMatch, prop *core.Record) {
 }
 
 func (h *PublicHandler) checkPendingProposal(m *core.Record, playerPairIDs map[string]struct{}) *PendingAction {
-	proposals, _ := h.app.FindRecordsByFilter("match_messages",
-		"match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'pending'",
-		"-created", 1, 0, map[string]any{"mid": m.Id})
+	proposals := findRecordsLogged(h.app, "checkPendingProposal: find scheduling proposal", RecordQuery{
+		Collection: "match_messages", Filter: "match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'pending'",
+		Sort: "-created", Limit: 1, Params: map[string]any{"mid": m.Id},
+	})
 	if len(proposals) == 0 {
 		return nil
 	}
@@ -300,9 +302,10 @@ func (h *PublicHandler) findUnconfirmedScores(c *core.Record, playerPairIDs map[
 
 func (h *PublicHandler) findLegacyConfirmed(c *core.Record, playerPairIDs map[string]struct{}) []PendingAction {
 	var actions []PendingAction
-	confirmed, _ := h.app.FindRecordsByFilter("matches",
-		"competition = {:cid} && status = 'confirmed'",
-		"-created", 0, 0, map[string]any{"cid": c.Id})
+	confirmed := findRecordsLogged(h.app, "findLegacyConfirmed: find confirmed matches", RecordQuery{
+		Collection: "matches", Filter: "competition = {:cid} && status = 'confirmed'",
+		Sort: "-created", Params: map[string]any{"cid": c.Id},
+	})
 	for _, m := range confirmed {
 		if !isRivalAction(h.app, m, m.GetString("submitted_by"), playerPairIDs) {
 			continue
@@ -319,9 +322,9 @@ func (h *PublicHandler) findLegacyConfirmed(c *core.Record, playerPairIDs map[st
 
 func (h *PublicHandler) findPendingProposals(c *core.Record, playerPairIDs map[string]struct{}) []PendingAction {
 	var actions []PendingAction
-	proposals, _ := h.app.FindRecordsByFilter("match_messages",
-		"type = 'result_submission' && proposal_status = 'pending'",
-		"-created", 0, 0, nil)
+	proposals := findRecordsLogged(h.app, "findPendingProposals: find result proposals", RecordQuery{
+		Collection: "match_messages", Filter: "type = 'result_submission' && proposal_status = 'pending'", Sort: "-created",
+	})
 	for _, p := range proposals {
 		m, err := h.app.FindRecordById("matches", p.GetString("match"))
 		if err != nil || m.GetString("competition") != c.Id {
@@ -359,9 +362,10 @@ func isRivalAction(app core.App, m *core.Record, authorID string, playerPairIDs 
 }
 
 func (h *PublicHandler) findRecentResults(c *core.Record, playerPairIDs map[string]struct{}) []MatchCard {
-	finals, _ := h.app.FindRecordsByFilter("matches",
-		"competition = {:cid} && status = 'final'",
-		"-date,-created", 20, 0, map[string]any{"cid": c.Id})
+	finals := findRecordsLogged(h.app, "findRecentResults: find final matches", RecordQuery{
+		Collection: "matches", Filter: "competition = {:cid} && status = 'final'",
+		Sort: "-date,-created", Limit: 20, Params: map[string]any{"cid": c.Id},
+	})
 	pairNames := collectPairNames(h.app, finals)
 	// No IsMyMatch accent here: every row is already filtered to the
 	// player's own pairs below, so the left border would be noise on
@@ -610,10 +614,10 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		}
 	}
 
-	matches, _ := h.app.FindRecordsByFilter("matches",
-		"competition = {:cid}",
-		"round_number,created", 0, 0,
-		map[string]any{"cid": id})
+	matches := findRecordsLogged(h.app, "Competition: find matches", RecordQuery{
+		Collection: "matches", Filter: "competition = {:cid}",
+		Sort: "round_number,created", Params: map[string]any{"cid": id},
+	})
 
 	pairNames := collectPairNames(h.app, matches)
 

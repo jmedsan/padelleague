@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"html"
+	"log/slog"
 	"net/http"
 	"slices"
 	"time"
@@ -25,6 +26,28 @@ func findMatchOr404(app core.App, e *core.RequestEvent, id string) (*core.Record
 		return nil, alertError(e, "Partido no encontrado")
 	}
 	return match, nil
+}
+
+// RecordQuery bundles a FindRecordsByFilter call's arguments.
+type RecordQuery struct {
+	Collection string
+	Filter     string
+	Sort       string
+	Limit      int
+	Offset     int
+	Params     map[string]any
+}
+
+// findRecordsLogged wraps FindRecordsByFilter, logging (not returning) a
+// query failure — callers that already treat an empty result the same as a
+// query error (the common "show what we have" case) still see the failure
+// in the logs instead of it silently returning an empty slice.
+func findRecordsLogged(app core.App, logCtx string, q RecordQuery) []*core.Record {
+	records, err := app.FindRecordsByFilter(q.Collection, q.Filter, q.Sort, q.Limit, q.Offset, q.Params)
+	if err != nil {
+		slog.Error(logCtx, "err", err)
+	}
+	return records
 }
 
 func alertError(e *core.RequestEvent, msg string) error {
