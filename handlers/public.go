@@ -59,6 +59,7 @@ type NextMatch struct {
 	ScheduleStatus  string // "unscheduled", "proposed", "confirmed"
 	ProposedDate    string
 	ProposedVenue   string
+	IsPlayoff       bool
 }
 
 // PendingAction represents an action the player needs to take on a match.
@@ -238,6 +239,7 @@ func (h *PublicHandler) buildNextMatch(m *core.Record, c *core.Record, playerPai
 		CompetitionName: c.GetString("name"),
 		RoundNumber:     int(m.GetFloat("round_number")),
 		ScheduleStatus:  "unscheduled",
+		IsPlayoff:       league.IsPlayoff(c),
 	}
 	proposals, _ := h.app.FindRecordsByFilter("match_messages",
 		"match = {:mid} && type = 'scheduling_proposal' && proposal_status != 'rejected' && proposal_status != 'superseded'",
@@ -477,7 +479,7 @@ func nextMatchAction(next *NextMatch) HomeAction {
 		URL:     "/match/" + next.MatchID,
 		Accent:  "info",
 	}
-	if next.ScheduleStatus == "unscheduled" {
+	if next.ScheduleStatus == "unscheduled" && !next.IsPlayoff {
 		a.Kind = "organize"
 		a.Title = "Propón una fecha"
 		a.Detail = fmt.Sprintf("vs %s · %s", next.Opponent, next.CompetitionName)
@@ -487,6 +489,9 @@ func nextMatchAction(next *NextMatch) HomeAction {
 	a.Kind = "play"
 	a.Title = "Próximo partido"
 	detail := fmt.Sprintf("vs %s · %s", next.Opponent, next.CompetitionName)
+	if next.IsPlayoff && next.ProposedDate == "" {
+		detail += " · Fecha pendiente del administrador"
+	}
 	if next.ProposedDate != "" {
 		detail += " · " + render.FmtDate(next.ProposedDate)
 	}
