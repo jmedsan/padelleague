@@ -164,11 +164,11 @@
 
         {{if .Entries}}
         <div class="overflow-x-auto">
-            <table class="table table-zebra">
+            <table class="table table-zebra table-xs sm:table-md">
                 <thead>
                     <tr>
                         <th>Pareja</th>
-                        {{if not .IsLeague}}<th>Cabeza de serie</th>{{end}}
+                        {{if not .IsLeague}}<th class="hidden sm:table-cell">Cabeza de serie</th>{{end}}
                         <th>Pagado</th>
                         <th>Penalización</th>
                         <th class="text-right">Acción</th>
@@ -177,8 +177,8 @@
                 <tbody>
                     {{range .Entries}}
                     <tr>
-                        <td class="font-medium">{{template "pairLink" (elink .PairID .PairName)}}</td>
-                        {{if not $.IsLeague}}<td>{{if gt .Seed 0}}<span class="badge badge-outline badge-sm">{{.Seed}}</span>{{else}}<span class="text-base-content/60">—</span>{{end}}</td>{{end}}
+                        <td class="font-medium">{{template "pairLink" (elink .PairID .PairName)}}{{if and (not $.IsLeague) (gt .Seed 0)}}<span class="badge badge-outline badge-xs ml-1 sm:hidden">{{.Seed}}</span>{{end}}</td>
+                        {{if not $.IsLeague}}<td class="hidden sm:table-cell">{{if gt .Seed 0}}<span class="badge badge-outline badge-sm">{{.Seed}}</span>{{else}}<span class="text-base-content/60">—</span>{{end}}</td>{{end}}
                         <td>
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/payment" class="inline">
                                 <input type="hidden" name="pair_id" value="{{.PairID}}">
@@ -391,7 +391,7 @@
 <!-- Invitaciones -->
 <div class="card bg-base-100 shadow mb-6">
     <div class="card-body">
-        <div class="flex justify-between items-center">
+        <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 class="card-title text-lg">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                 Invitaciones

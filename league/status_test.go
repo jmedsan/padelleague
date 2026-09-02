@@ -34,7 +34,7 @@ func TestStatusLabel(t *testing.T) {
 		want   string
 	}{
 		{StatusPending, "Pendiente"},
-		{StatusScheduled, "Confirmado"},
+		{StatusScheduled, "Fecha confirmada"},
 		{StatusConfirmed, "Propuesta"},
 		{StatusDisputed, "En disputa"},
 		{StatusFinal, "Confirmado"},
