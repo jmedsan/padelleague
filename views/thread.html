@@ -18,9 +18,38 @@
             </a>
         </div>
         {{else if .IsPlayoff}}
+        {{if and .Card.Mode.Admin .Card.Mode.Editable}}
+        <form hx-post="/match/{{.MatchID}}/admin-override" hx-target="body" class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+                <div class="form-control">
+                    <label class="label py-1"><span class="label-text text-xs">Fecha</span></label>
+                    <input type="date" name="date" class="input input-bordered input-sm" required>
+                </div>
+                <div class="form-control">
+                    <label class="label py-1"><span class="label-text text-xs">Hora</span></label>
+                    <input type="time" name="time" class="input input-bordered input-sm">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="form-control">
+                    <label class="label py-1"><span class="label-text text-xs">Club</span></label>
+                    <select name="venue_id" class="select select-bordered select-sm w-full">
+                        <option value="">—</option>
+                        {{range .Venues}}<option value="{{.Id}}">{{.GetString "name"}}</option>{{end}}
+                    </select>
+                </div>
+                <div class="form-control">
+                    <label class="label py-1"><span class="label-text text-xs">Pista</span></label>
+                    <input type="text" name="court_number" class="input input-bordered input-sm" placeholder="Ej: 3">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Asignar fecha</button>
+        </form>
+        {{else}}
         <div class="alert bg-base-200 text-sm opacity-60">
             <span>Fecha pendiente de asignación por el administrador</span>
         </div>
+        {{end}}
         {{end}}
 
         {{template "schedProposalPanel" .}}
