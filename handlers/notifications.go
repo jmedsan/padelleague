@@ -62,7 +62,7 @@ func (h *NotificationHandler) List(e *core.RequestEvent) error {
 	} else {
 		for _, r := range records {
 			out += fmt.Sprintf(`<div id="notif-row-%s" class="flex items-start gap-1 bg-primary/5 font-medium rounded p-1">`, r.Id)
-			out += fmt.Sprintf(`<a hx-post="/notifications/%s/read" hx-swap="none" class="flex-1 block p-1 hover:bg-base-200 cursor-pointer rounded">`, r.Id)
+			out += fmt.Sprintf(`<a href="%s" hx-post="/notifications/%s/read" hx-swap="none" class="flex-1 block p-1 hover:bg-base-200 cursor-pointer rounded">`, html.EscapeString(notificationLink(r)), r.Id)
 			out += fmt.Sprintf(`<p class="text-sm">%s</p>`, html.EscapeString(r.GetString("title")))
 			if body := r.GetString("body"); body != "" {
 				out += fmt.Sprintf(`<p class="text-xs text-base-content/60">%s</p>`, html.EscapeString(league.Truncate(body, 80)))
@@ -132,12 +132,7 @@ func (h *NotificationHandler) MarkRead(e *core.RequestEvent) error {
 		slog.Error("mark notification read", "id", id, "err", err)
 	}
 
-	redirect := "/"
-	if related := record.GetString("related_match"); related != "" {
-		redirect = "/match/" + related
-	}
-
-	return redirectHX(e, redirect)
+	return redirectHX(e, notificationLink(record))
 }
 
 // MarkAllRead marks all of the user's notifications as read.
@@ -154,7 +149,9 @@ func (h *NotificationHandler) MarkAllRead(e *core.RequestEvent) error {
 		}
 	}
 
-	return redirectHX(e, "/")
+	out := `<span id="notif-badge" hx-swap-oob="innerHTML"></span>`
+	out += `<span id="notif-badge-mobile" hx-swap-oob="innerHTML"></span>`
+	return e.HTML(http.StatusOK, out)
 }
 
 // History renders the full notification history page.
@@ -201,4 +198,16 @@ func (h *NotificationHandler) PrefsSave(e *core.RequestEvent) error {
 		"Prefs":   prefs,
 		"Success": true,
 	})
+}
+
+// notificationLink resolves where a notification points: its own link,
+// otherwise its related match, otherwise home.
+func notificationLink(r *core.Record) string {
+	if link := r.GetString("link"); link != "" {
+		return link
+	}
+	if related := r.GetString("related_match"); related != "" {
+		return "/match/" + related
+	}
+	return "/"
 }

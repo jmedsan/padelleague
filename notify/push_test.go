@@ -98,7 +98,7 @@ func TestSendPush_DeliversToSubscription(t *testing.T) {
 	user := makeUser(t, app, "player")
 	sub := makeSubscription(t, app, user.Id, srv.URL)
 
-	NewNotifier(app, pub, priv).sendPush(user.Id, "Titulo", "Cuerpo", "match123")
+	NewNotifier(app, pub, priv).sendPush(user.Id, "Titulo", "Cuerpo", "/match/match123")
 
 	require.Equal(t, int32(1), hits.Load())
 	_, err := app.FindRecordById("push_subscriptions", sub.Id)

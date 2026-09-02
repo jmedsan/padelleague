@@ -5,7 +5,7 @@
         {{with .GetString "body"}}
         <p class="text-xs text-base-content/60">{{.}}</p>
         {{end}}
-        <p class="text-xs text-base-content/40 mt-1">{{.GetDateTime "created"}}</p>
+        <p class="text-xs text-base-content/40 mt-1">{{fmtDate (.GetString "created")}}</p>
     </a>
 </div>
 {{end}}

@@ -723,7 +723,7 @@ func createSampleNotifications(txApp core.App, comp *core.Record) error {
 	if err != nil {
 		return err
 	}
-	notify := func(userIDs []string, ntype, title, body string) error {
+	notify := func(userIDs []string, ntype, title, body, matchID string) error {
 		for _, uid := range userIDs {
 			n := core.NewRecord(col)
 			n.Set("user", uid)
@@ -731,6 +731,10 @@ func createSampleNotifications(txApp core.App, comp *core.Record) error {
 			n.Set("title", title)
 			n.Set("body", body)
 			n.Set("read", false)
+			if matchID != "" {
+				n.Set("related_match", matchID)
+				n.Set("link", "/match/"+matchID)
+			}
 			if err := txApp.Save(n); err != nil {
 				return fmt.Errorf("create sample notification: %w", err)
 			}
@@ -740,13 +744,13 @@ func createSampleNotifications(txApp core.App, comp *core.Record) error {
 	if disputed := sampleMatchByStatus(txApp, comp.Id, league.StatusDisputed); disputed != nil {
 		players := append(playersOfPair(txApp, disputed.GetString("pair1")),
 			playersOfPair(txApp, disputed.GetString("pair2"))...)
-		if err := notify(players, "dispute", "Partido disputado", "Hay una disputa abierta en tu partido."); err != nil {
+		if err := notify(players, "dispute", "Partido disputado", "Hay una disputa abierta en tu partido.", disputed.Id); err != nil {
 			return err
 		}
 	}
 	if awaiting := sampleMatchByStatus(txApp, comp.Id, league.StatusConfirmed); awaiting != nil {
 		if err := notify(playersOfPair(txApp, awaiting.GetString("pair2")),
-			"quorum_request", "Resultado por confirmar", "Tu rival ha enviado un resultado. Confírmalo o dispútalo."); err != nil {
+			"quorum_request", "Resultado por confirmar", "Tu rival ha enviado un resultado. Confírmalo o dispútalo.", awaiting.Id); err != nil {
 			return err
 		}
 	}

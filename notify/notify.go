@@ -52,24 +52,10 @@ func (n *Notifier) NotifyPlayers(playerUserIDs []string, notif league.Notificati
 		if err != nil {
 			continue
 		}
-		prefs := NotificationPrefs(user)
-		if enabled, ok := prefs[notif.Type]; ok {
-			if b, ok := enabled.(bool); ok && !b {
-				continue
-			}
+		if !notificationEnabled(user, notif.Type) {
+			continue
 		}
-		rec := core.NewRecord(notifCol)
-		rec.Set("user", userID)
-		rec.Set("type", notif.Type)
-		rec.Set("title", notif.Title)
-		rec.Set("body", notif.Body)
-		if notif.MatchID != "" {
-			rec.Set("related_match", notif.MatchID)
-		}
-		if err := n.save(rec); err != nil {
-			slog.Error("notify player failed", "user", userID, "err", err)
-		}
-		go n.sendPush(userID, notif.Title, notif.Body, notif.MatchID)
+		n.deliver(notifCol, userID, notif, "notify player failed")
 	}
 }
 
@@ -84,22 +70,54 @@ func (n *Notifier) NotifyAdmins(notif league.Notification, excludeUserIDs ...str
 	if err != nil {
 		return err
 	}
-	recipients := filterRecipients(admins, notif.Type, excludeUserIDs)
-	for _, admin := range recipients {
-		rec := core.NewRecord(notifCol)
-		rec.Set("user", admin.Id)
-		rec.Set("type", notif.Type)
-		rec.Set("title", notif.Title)
-		rec.Set("body", notif.Body)
-		if notif.MatchID != "" {
-			rec.Set("related_match", notif.MatchID)
-		}
-		if err := n.save(rec); err != nil {
-			slog.Error("notify admin failed", "admin", admin.Id, "err", err)
-		}
-		go n.sendPush(admin.Id, notif.Title, notif.Body, notif.MatchID)
+	for _, admin := range filterRecipients(admins, notif.Type, excludeUserIDs) {
+		n.deliver(notifCol, admin.Id, notif, "notify admin failed")
 	}
 	return nil
+}
+
+// deliver saves the in-app notification record for userID and fires its push.
+// saveFailMsg is the slog message logged when the save fails, so callers keep
+// a distinct diagnostic per recipient class (player vs admin).
+func (n *Notifier) deliver(notifCol *core.Collection, userID string, notif league.Notification, saveFailMsg string) {
+	rec := core.NewRecord(notifCol)
+	rec.Set("user", userID)
+	rec.Set("type", notif.Type)
+	rec.Set("title", notif.Title)
+	rec.Set("body", notif.Body)
+	if notif.MatchID != "" {
+		rec.Set("related_match", notif.MatchID)
+	}
+	link := notificationLink(notif)
+	if link != "" {
+		rec.Set("link", link)
+	}
+	if err := n.save(rec); err != nil {
+		slog.Error(saveFailMsg, "user", userID, "err", err)
+	}
+	go n.sendPush(userID, notif.Title, notif.Body, link)
+}
+
+func notificationEnabled(user *core.Record, notifType string) bool {
+	enabled, ok := NotificationPrefs(user)[notifType]
+	if !ok {
+		return true
+	}
+	b, ok := enabled.(bool)
+	return !ok || b
+}
+
+// notificationLink resolves the link stored on a notification record: the
+// explicit Link when set, otherwise the match page for MatchID, otherwise
+// empty (no link column write).
+func notificationLink(notif league.Notification) string {
+	if notif.Link != "" {
+		return notif.Link
+	}
+	if notif.MatchID != "" {
+		return "/match/" + notif.MatchID
+	}
+	return ""
 }
 
 func filterRecipients(users []*core.Record, notifType string, excludeIDs []string) []*core.Record {
@@ -123,7 +141,7 @@ func filterRecipients(users []*core.Record, notifType string, excludeIDs []strin
 	return out
 }
 
-func (n *Notifier) sendPush(userID, title, body, relatedMatchID string) {
+func (n *Notifier) sendPush(userID, title, body, targetURL string) {
 	if n.vapidPublicKey == "" || n.vapidPrivateKey == "" {
 		return
 	}
@@ -133,7 +151,9 @@ func (n *Notifier) sendPush(userID, title, body, relatedMatchID string) {
 		return
 	}
 
-	targetURL := pushTargetURL(relatedMatchID)
+	if targetURL == "" {
+		targetURL = "/"
+	}
 
 	payload, _ := json.Marshal(map[string]string{
 		"title": title,
@@ -178,13 +198,6 @@ func (n *Notifier) deliverPush(sub *core.Record, payload []byte, subscriber stri
 			slog.Error("push delete subscription failed", "err", err)
 		}
 	}
-}
-
-func pushTargetURL(relatedMatchID string) string {
-	if relatedMatchID != "" {
-		return "/match/" + relatedMatchID
-	}
-	return "/"
 }
 
 // NotificationPrefs returns the user's notification preferences with defaults applied.
