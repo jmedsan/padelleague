@@ -157,13 +157,13 @@ func TestMatchCardAdminSummaryIsReadOnly(t *testing.T) {
 		TestAppFactory:     testAppFactory,
 		Name:               "admin home dispute row is a compact link, not an editable match card",
 		Method:             http.MethodGet,
-		URL:                "/",
+		URL:                "/admin/competitions",
 		ExpectedStatus:     http.StatusOK,
 		ExpectedContent:    []string{"Summary League", "Summary A", "Summary B"},
 		NotExpectedContent: []string{"Resolver", "Aprobar incomparecencia", "Corrección de administrador"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
+		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Summary A")
 		p2 := makePairTB(tb, app, "Summary B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})

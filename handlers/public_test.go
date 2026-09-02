@@ -664,10 +664,9 @@ func TestHome_AdminSetupChecklist(t *testing.T) {
 		TestAppFactory: testAppFactory,
 		Name:           "admin sees setup checklist for inactive competition",
 		Method:         http.MethodGet,
-		URL:            "/",
+		URL:            "/admin/competitions",
 		ExpectedStatus: 200,
 		ExpectedContent: []string{
-			"Preparar competiciones",
 			"SetupComp",
 			"Parejas añadidas",
 			"Jornadas generadas",
@@ -675,7 +674,7 @@ func TestHome_AdminSetupChecklist(t *testing.T) {
 		},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
+		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "SetupP1")
 		p2 := makePairTB(tb, app, "SetupP2")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
@@ -699,12 +698,12 @@ func TestHome_AdminSetupReady(t *testing.T) {
 		TestAppFactory:  testAppFactory,
 		Name:            "admin sees Activar when setup complete",
 		Method:          http.MethodGet,
-		URL:             "/",
+		URL:             "/admin/competitions",
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Activar", "ReadyComp"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
+		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "ReadyP1")
 		p2 := makePairTB(tb, app, "ReadyP2")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
@@ -727,7 +726,7 @@ func TestHome_AdminAlerts(t *testing.T) {
 		TestAppFactory: testAppFactory,
 		Name:           "admin sees an urgent (dispute) alert as a compact row; overdue is not urgent so it's absent",
 		Method:         http.MethodGet,
-		URL:            "/",
+		URL:            "/admin/competitions",
 		ExpectedStatus: 200,
 		ExpectedContent: []string{
 			"admin-urgent-items",
@@ -738,7 +737,7 @@ func TestHome_AdminAlerts(t *testing.T) {
 		NotExpectedContent: []string{"AlertOvdP1"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
+		setupAllRoutes(tb, app, e)
 
 		dispP1 := makePairTB(tb, app, "AlertDispP1")
 		dispP2 := makePairTB(tb, app, "AlertDispP2")
@@ -775,7 +774,7 @@ func TestHome_AdminWalkoverAlert(t *testing.T) {
 		TestAppFactory: testAppFactory,
 		Name:           "admin sees walkover as an urgent compact row on home",
 		Method:         http.MethodGet,
-		URL:            "/",
+		URL:            "/admin/competitions",
 		ExpectedStatus: 200,
 		ExpectedContent: []string{
 			"Walkover League",
@@ -784,7 +783,7 @@ func TestHome_AdminWalkoverAlert(t *testing.T) {
 		},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
+		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Walkover A")
 		p2 := makePairTB(tb, app, "Walkover B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
@@ -808,12 +807,12 @@ func TestHome_AdminBootstrap_TrueWithZeroCompetitions(t *testing.T) {
 		TestAppFactory:  testAppFactory,
 		Name:            "admin bootstrap card shown when zero competitions exist",
 		Method:          http.MethodGet,
-		URL:             "/",
+		URL:             "/admin/competitions",
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"bootstrap-create", "Crea tu primera competición"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
+		setupAllRoutes(tb, app, e)
 		admin := makeAdminUserTB(tb, app)
 		s.Headers = authHeaders(tb, admin)
 	}
@@ -826,12 +825,12 @@ func TestHome_AdminBootstrap_FalseWithOneCompetition(t *testing.T) {
 		TestAppFactory:  testAppFactory,
 		Name:            "admin bootstrap card hidden when a competition exists",
 		Method:          http.MethodGet,
-		URL:             "/",
+		URL:             "/admin/competitions",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"/admin/competitions"},
+		ExpectedContent: []string{"Competiciones"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
+		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "BootP1")
 		p2 := makePairTB(tb, app, "BootP2")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
@@ -843,6 +842,26 @@ func TestHome_AdminBootstrap_FalseWithOneCompetition(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		assert.NotContains(tb, body, "bootstrap-create", "bootstrap card must not appear when competitions exist")
+	}
+	s.Test(t)
+}
+
+func TestHome_AdminRedirectsToCompetitions(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "admin GET / redirects to the single admin landing page",
+		Method:         http.MethodGet,
+		URL:            "/",
+		ExpectedStatus: http.StatusFound,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/admin/competitions", res.Header.Get("Location"))
 	}
 	s.Test(t)
 }
@@ -1257,28 +1276,6 @@ func TestHome_OnboardChecklist_HiddenWhenAllDone(t *testing.T) {
 		body := readBody(tb, res)
 		assert.NotContains(tb, body, "onboard-checklist", "checklist should be hidden")
 		assert.NotContains(tb, body, "Primeros pasos", "checklist heading should be hidden")
-	}
-	s.Test(t)
-}
-
-func TestHome_OnboardChecklist_HiddenForAdminView(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "onboarding checklist hidden in admin view",
-		Method:          http.MethodGet,
-		URL:             "/",
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		s.Headers = authHeaders(tb, admin)
-	}
-	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
-		assert.NotContains(tb, body, "onboard-checklist", "admin should not see checklist")
 	}
 	s.Test(t)
 }

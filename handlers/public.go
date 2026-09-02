@@ -69,17 +69,19 @@ type PendingAction struct {
 	Description string
 }
 
-// Home renders the player's dashboard with competitions, next match, and actions.
+// Home renders the player's dashboard with competitions, next match, and
+// actions. Admins are redirected to /admin/competitions, the single admin
+// landing page (bootstrap prompt, playoff prompts, urgent alerts, and the
+// setup checklist inline on each inactive competition's card).
 func (h *PublicHandler) Home(e *core.RequestEvent) error {
+	if render.AdminView(e) {
+		return e.Redirect(http.StatusFound, "/admin/competitions")
+	}
+
 	data := map[string]any{"PageTitle": "Inicio"}
 
 	activeComps, _ := h.app.FindRecordsByFilter("competitions",
 		"active = true", "name", 0, 0, nil)
-
-	if render.AdminView(e) {
-		h.addAdminHomeData(data, activeComps)
-		return h.renderPage(e, "home.html", data)
-	}
 
 	userID := e.Auth.Id
 	pairs, _ := league.PairsForPlayer(h.app, userID)
@@ -128,30 +130,6 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	}
 
 	return h.renderPage(e, "home.html", data)
-}
-
-func (h *PublicHandler) addAdminHomeData(data map[string]any, activeComps []*core.Record) {
-	setups, _, _ := league.AdminDashboard(h.app, time.Now())
-	data["AdminSetups"] = setups
-	data["UrgentItems"] = urgentHealthItems(league.HealthReport(h.app, time.Now()))
-
-	existing, _ := h.app.FindRecordsByFilter("competitions", "", "", 1, 0, nil)
-	data["AdminBootstrap"] = len(existing) == 0
-	data["PlayoffPrompts"] = league.PlayoffPrompts(h.app, activeComps, time.Now())
-}
-
-// urgentHealthItems flattens HealthReport's urgent categories (disputes,
-// walkovers) into the compact rows the home page shows admins, rendered via
-// the shared healthItemRow partial.
-func urgentHealthItems(categories []league.HealthCategory) []league.HealthItem {
-	var out []league.HealthItem
-	for _, cat := range categories {
-		if !cat.Urgent {
-			continue
-		}
-		out = append(out, cat.Items...)
-	}
-	return out
 }
 
 // onboardingSteps returns the player onboarding checklist, or nil when every

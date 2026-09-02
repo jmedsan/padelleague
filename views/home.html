@@ -1,74 +1,4 @@
 {{define "content"}}
-{{if .AdminView}}
-
-{{if .AdminBootstrap}}
-<div class="card bg-primary text-primary-content shadow-lg mb-6" data-testid="bootstrap-create">
-    <div class="card-body text-center py-8">
-        <h2 class="card-title text-xl justify-center">Crea tu primera competición</h2>
-        <p class="text-sm opacity-70 mt-1">Empieza configurando una liga o un playoff</p>
-        <div class="card-actions justify-center mt-4">
-            <a href="/admin/competitions" class="btn bg-white/20 border-0 hover:bg-white/30">Crear competición</a>
-        </div>
-    </div>
-</div>
-{{end}}
-
-{{if .PlayoffPrompts}}
-<div class="mb-6 space-y-3">
-    {{range .PlayoffPrompts}}
-    <div class="card bg-success text-success-content shadow-sm" data-testid="playoff-prompt">
-        <div class="card-body p-4">
-            <div class="flex items-center justify-between flex-wrap gap-2">
-                <p class="font-medium">La liga {{.CompName}} ha terminado — crea el playoff</p>
-                <a href="/admin/competitions" class="btn btn-sm bg-white/20 border-0 hover:bg-white/30">Crear playoff</a>
-            </div>
-        </div>
-    </div>
-    {{end}}
-</div>
-{{end}}
-
-{{if .AdminSetups}}
-<div class="mb-6">
-    <h2 class="text-lg font-bold mb-3" data-testid="admin-dashboard-heading">Preparar competiciones</h2>
-    <div class="space-y-3">
-        {{range .AdminSetups}}
-        <div class="card bg-base-100 shadow-sm border border-base-300">
-            <div class="card-body p-4">
-                <div class="flex items-center justify-between flex-wrap gap-2">
-                    <h3 class="font-bold">{{.CompName}}</h3>
-                    <div class="flex gap-2">
-                        <a href="/admin/competitions/{{.CompID}}" class="btn btn-outline btn-sm" data-testid="setup-configure">Configurar</a>
-                        {{if .Ready}}<a href="/admin/competitions" class="btn btn-success btn-sm">Activar</a>{{end}}
-                    </div>
-                </div>
-                <div class="flex flex-wrap gap-2 mt-2">
-                    {{range .Items}}
-                    <span class="badge {{if .Done}}badge-success{{else}}badge-ghost{{end}} gap-1">
-                        {{if .Done}}&#10003;{{else}}&#9675;{{end}} {{.Label}}
-                    </span>
-                    {{end}}
-                </div>
-            </div>
-        </div>
-        {{end}}
-    </div>
-</div>
-{{end}}
-
-{{if .UrgentItems}}
-<div class="mb-6" data-testid="admin-urgent-items">
-    <h2 class="text-lg font-bold mb-3">Alertas</h2>
-    <div class="space-y-2">
-        {{range .UrgentItems}}
-        {{template "healthItemRow" (dict "Item" . "ShowCategory" true)}}
-        {{end}}
-    </div>
-</div>
-{{end}}
-
-{{else}}
-
 {{if .OnboardSteps}}
 <div class="card bg-base-100 shadow-md mb-6" data-testid="onboard-checklist">
     <div class="card-body">
@@ -158,7 +88,5 @@
     {{template "competitionCard" .}}
     {{end}}
 </div>
-{{end}}
-
 {{end}}
 {{end}}

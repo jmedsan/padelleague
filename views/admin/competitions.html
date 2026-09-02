@@ -7,15 +7,53 @@
     </button>
 </div>
 
+{{if .AdminBootstrap}}
+<div class="card bg-primary text-primary-content shadow-lg mb-6" data-testid="bootstrap-create">
+    <div class="card-body text-center py-8">
+        <h2 class="card-title text-xl justify-center">Crea tu primera competición</h2>
+        <p class="text-sm opacity-70 mt-1">Empieza configurando una liga o un playoff</p>
+        <div class="card-actions justify-center mt-4">
+            <button class="btn bg-white/20 border-0 hover:bg-white/30" onclick="document.getElementById('modal-create').showModal()">Crear competición</button>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{if .PlayoffPrompts}}
+<div class="mb-6 space-y-3">
+    {{range .PlayoffPrompts}}
+    <div class="card bg-success text-success-content shadow-sm" data-testid="playoff-prompt">
+        <div class="card-body p-4">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+                <p class="font-medium">La liga {{.CompName}} ha terminado — crea el playoff</p>
+                <button class="btn btn-sm bg-white/20 border-0 hover:bg-white/30" onclick="document.getElementById('modal-create').showModal()">Crear playoff</button>
+            </div>
+        </div>
+    </div>
+    {{end}}
+</div>
+{{end}}
+
+{{if .UrgentItems}}
+<div class="mb-6" data-testid="admin-urgent-items">
+    <h2 class="text-lg font-bold mb-3">Alertas</h2>
+    <div class="space-y-2">
+        {{range .UrgentItems}}
+        {{template "healthItemRow" (dict "Item" . "ShowCategory" true)}}
+        {{end}}
+    </div>
+</div>
+{{end}}
+
 <div class="flex flex-wrap gap-3 mb-6 text-sm">
     <a href="/admin/competitions" class="flex items-center gap-1">
-        <span class="font-bold">{{len .Active}}</span> competiciones
+        <span class="font-bold">{{len .Active}}</span> competici{{if eq (len .Active) 1}}ón{{else}}ones{{end}}
     </a>
     <a href="/admin/disputes" class="flex items-center gap-1 {{if gt .DisputeCount 0}}text-error font-bold{{end}}">
-        <span class="font-bold">{{.DisputeCount}}</span> disputas
+        <span class="font-bold">{{.DisputeCount}}</span> disputa{{if ne .DisputeCount 1}}s{{end}}
     </a>
     <a href="/admin/health" class="flex items-center gap-1 {{if gt .IssueCount 0}}text-warning font-bold{{end}}">
-        <span class="font-bold">{{.IssueCount}}</span> incidencias
+        <span class="font-bold">{{.IssueCount}}</span> incidencia{{if ne .IssueCount 1}}s{{end}}
     </a>
 </div>
 
