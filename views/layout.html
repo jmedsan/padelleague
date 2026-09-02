@@ -1,24 +1,24 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="nord" style="overflow-x:hidden">
+<html lang="es" data-theme="padel" style="overflow-x:hidden">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{if .PageTitle}}{{.PageTitle}} — {{end}}PadelLeague</title>
     <link rel="stylesheet" href="/static/css/styles.css">
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#4b6bfb">
+    <meta name="theme-color" content="#2D4356">
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/score-input.js"></script>
     <script>
         (function() {
-            var t = localStorage.getItem('theme') || 'nord';
-            if (t === 'night') { t = 'dark'; localStorage.setItem('theme', t); }
-            if (t !== 'nord' && t !== 'dark') t = 'nord';
+            var t = localStorage.getItem('theme') || 'padel';
+            if (t === 'night' || t === 'nord') { t = 'padel'; localStorage.setItem('theme', t); }
+            if (t !== 'padel' && t !== 'dark') t = 'padel';
             document.documentElement.setAttribute('data-theme', t);
         })();
         function toggleTheme() {
             var cur = document.documentElement.getAttribute('data-theme');
-            var next = cur === 'dark' ? 'nord' : 'dark';
+            var next = cur === 'dark' ? 'padel' : 'dark';
             document.documentElement.setAttribute('data-theme', next);
             localStorage.setItem('theme', next);
         }
@@ -85,7 +85,6 @@
                                     <li><a href="/admin/players">Jugadores</a></li>
                                     <li><a href="/admin/disputes">Disputas</a></li>
                                     <li><a href="/admin/health">Salud</a></li>
-                                    <li><a href="/admin/invitations">Invitaciones</a></li>
                                     <li><a href="/admin/venues">Pistas</a></li>
                                     <li><a href="/admin/documents">Documentos</a></li>
                                     <li><a href="/admin/settings">Configuración</a></li>
@@ -178,7 +177,6 @@
                     <li><a href="/admin/players" class="rounded-lg">Jugadores</a></li>
                     <li><a href="/admin/disputes" class="rounded-lg">Disputas</a></li>
                     <li><a href="/admin/health" class="rounded-lg">Salud</a></li>
-                    <li><a href="/admin/invitations" class="rounded-lg">Invitaciones</a></li>
                     <li><a href="/admin/venues" class="rounded-lg">Pistas</a></li>
                     <li><a href="/admin/documents" class="rounded-lg">Documentos</a></li>
                     <li><a href="/admin/settings" class="rounded-lg">Configuración</a></li>
