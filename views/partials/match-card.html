@@ -156,19 +156,19 @@
      the layouts don't share markup (flex row vs. card+sections), so
      branching would only add an if/else around otherwise-unrelated HTML. */}}
 {{define "matchRow"}}
-<a href="/match/{{.Match.Id}}" class="block rounded-xl py-3 px-3 transition-all duration-150 hover:shadow-md {{if .IsMyMatch}}bg-primary/5 border-l-4 border-l-primary hover:bg-primary/10{{else}}bg-base-200/50 hover:bg-base-200{{end}}">
-    <div class="flex items-center justify-between gap-2 min-w-0">
-        <span class="font-medium flex-1 text-right text-sm sm:text-base truncate min-w-0">{{if .Pair1Name}}{{.Pair1Name}}{{else if .Feeder1}}{{.Feeder1}}{{else}}Por definir{{end}}</span>
-        <div class="flex-none px-3">
+<a href="/match/{{.Match.Id}}" class="block rounded-lg py-2 px-2 sm:px-3 transition-all duration-150 hover:shadow-md {{if .IsMyMatch}}bg-primary/5 border-l-4 border-l-primary hover:bg-primary/10{{else}}bg-base-200/50 hover:bg-base-200{{end}}">
+    <div class="flex items-center justify-between gap-1 sm:gap-2 min-w-0">
+        <span class="font-medium flex-1 text-right text-xs sm:text-base truncate min-w-0">{{if .Pair1Name}}{{.Pair1Name}}{{else if .Feeder1}}{{.Feeder1}}{{else}}Por definir{{end}}</span>
+        <div class="flex-none px-1 sm:px-3">
             {{if .Score}}
             {{template "resultBox" (dict "Score" .Score "Mode" (dict "Row" true))}}
             {{else}}
-            <span class="text-sm opacity-60">vs</span>
+            <span class="text-xs sm:text-sm opacity-60">vs</span>
             {{end}}
         </div>
-        <span class="font-medium flex-1 text-sm sm:text-base truncate min-w-0">{{if .Pair2Name}}{{.Pair2Name}}{{else if .Feeder2}}{{.Feeder2}}{{else}}Por definir{{end}}</span>
-        <div class="flex-none ml-2">
-            <span class="badge {{.StatusClass}} badge-sm whitespace-nowrap">{{.StatusLabel}}</span>
+        <span class="font-medium flex-1 text-xs sm:text-base truncate min-w-0">{{if .Pair2Name}}{{.Pair2Name}}{{else if .Feeder2}}{{.Feeder2}}{{else}}Por definir{{end}}</span>
+        <div class="flex-none ml-1 sm:ml-2">
+            <span class="badge {{.StatusClass}} badge-xs sm:badge-sm whitespace-nowrap">{{.StatusLabel}}</span>
         </div>
     </div>
 </a>

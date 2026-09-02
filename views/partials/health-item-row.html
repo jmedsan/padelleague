@@ -16,7 +16,7 @@
         <p class="font-medium text-sm">{{if $item.Pair2}}{{$item.Pair1}} vs {{$item.Pair2}}{{else}}{{$item.Pair1}}{{end}}</p>
         <p class="text-xs opacity-60">{{$item.CompName}}{{if $item.Round}} J{{$item.Round}}{{end}}</p>
     </div>
-    {{if $item.Detail}}<span class="text-xs opacity-60 whitespace-nowrap">{{$item.Detail}}</span>{{end}}
+    {{if $item.Detail}}<span class="text-xs opacity-60 hidden sm:inline">{{$item.Detail}}</span>{{end}}
     {{if $item.Warning}}{{template "warningBadge" $item.Warning}}{{end}}
     {{if and .ShowCategory $item.CategoryTitle}}<span class="badge badge-sm {{if $item.Urgent}}badge-error{{else}}badge-warning{{end}} whitespace-nowrap">{{$item.CategoryTitle}}</span>{{end}}
     {{if $item.Recovery}}<span class="badge badge-sm badge-secondary" data-testid="recovery-badge">En recuperación</span>{{end}}

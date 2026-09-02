@@ -227,12 +227,6 @@ func addPendingHealth(app core.App, m *core.Record, ctx compHealthCtx, categorie
 func disputeHealthItem(app core.App, m *core.Record, compName string) HealthItem {
 	item := healthItem(app, m, compName, m.GetInt("round_number"))
 	item.Detail = "Disputa abierta"
-	if s := m.GetString("scores"); s != "" {
-		item.Detail = s
-		if ds := m.GetString("disputed_scores"); ds != "" {
-			item.Detail += " → propone: " + ds
-		}
-	}
 	return item
 }
 

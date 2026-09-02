@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 
@@ -23,17 +24,17 @@ func NewDisputeHandler(app core.App, notifier *notify.Notifier, renderPage Rende
 
 // Disputes renders the admin disputes page listing all disputed matches.
 func (h *DisputeHandler) Disputes(e *core.RequestEvent) error {
-	matches, _ := h.app.FindRecordsByFilter("matches",
-		"status = 'disputed'", "created", 0, 0, nil)
-
-	var cards []MatchCard
-	for _, m := range matches {
-		cards = append(cards, NewMatchCard(h.app, m, AdminFull, ""))
+	report := league.HealthReport(h.app, time.Now())
+	var items []league.HealthItem
+	for _, cat := range report {
+		if cat.Key == "disputes" || cat.Key == "walkovers" {
+			items = append(items, cat.Items...)
+		}
 	}
 
 	return h.renderPage(e, "admin/disputes.html", map[string]any{
 		"PageTitle": "Disputas",
-		"Cards":     cards,
+		"Items":     items,
 	})
 }
 
