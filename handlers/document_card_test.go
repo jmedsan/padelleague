@@ -46,6 +46,25 @@ func TestNewDocumentView_DefaultFlags(t *testing.T) {
 	assert.True(t, dv.Mode.Editable)
 }
 
+func TestNewDocumentView_FileDoc(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+
+	col, _ := app.FindCollectionByNameOrId("documents")
+	doc := core.NewRecord(col)
+	doc.Set("title", "Reglamento")
+	doc.Id = "docid123456789"
+	// NewDocumentView only reads the field's string value to decide
+	// IsFile/OpenURL, so setting it directly on an unsaved record exercises
+	// the same branch without going through FileField upload validation.
+	doc.Set("file", "reglamento_abc123.pdf")
+
+	dv := NewDocumentView(doc, PlayerRow)
+
+	assert.True(t, dv.IsFile)
+	assert.Equal(t, "/api/files/documents/docid123456789/reglamento_abc123.pdf", dv.OpenURL)
+}
+
 func TestNewDocumentViewWithAck(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)

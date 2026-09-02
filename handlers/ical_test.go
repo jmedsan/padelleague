@@ -154,6 +154,99 @@ func TestICalMatch_LocationFromClub(t *testing.T) {
 	s.Test(t)
 }
 
+// icsEscape escapes backslash, semicolon, and comma per RFC 5545 §3.3.11.
+// Backslash must be escaped first, or a later semicolon/comma escape would
+// itself get double-escaped.
+
+func TestIcsEscape(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"backslash", `back\slash`, `back\\slash`},
+		{"semicolon", `a;b`, `a\;b`},
+		{"comma", `a,b`, `a\,b`},
+		{"combined", `Pérez\Gómez; Ruiz, López`, `Pérez\\Gómez\; Ruiz\, López`},
+		{"no special chars", "plain text", "plain text"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, icsEscape(tc.in))
+		})
+	}
+}
+
+// LOCATION falls back to the club name alone when a matching venue exists
+// but has no address on file (distinct branch from "no venue matches" below).
+
+func TestICalMatch_LocationVenueWithoutAddress(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		Name:            "GET /ical/match/{id} falls back to club name when venue has no address",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"VCALENDAR"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		// Venue exists (unlike LocationFallsBackWithoutVenue) but its
+		// address field is left empty.
+		makeVenueTB(tb, app, "Bare Court")
+		p1 := makePairTB(tb, app, "LocBareA")
+		p2 := makePairTB(tb, app, "LocBareB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match.Set("date", "2026-09-15")
+		match.Set("time", "20:00")
+		match.Set("club", "Bare Court")
+		require.NoError(tb, app.Save(match))
+		s.URL = "/ical/match/" + match.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		events := parseVEvents(body)
+		require.Equal(tb, 1, len(events))
+		assert.Equal(tb, "Bare Court", events[0]["LOCATION"])
+	}
+	s.Test(t)
+}
+
+// The VTIMEZONE block must actually appear in the output, not just the
+// generic VCALENDAR wrapper.
+
+func TestICalMatch_ContainsVTimezoneBlock(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		Name:           "GET /ical/match/{id} includes a VTIMEZONE block for Europe/Madrid",
+		Method:         http.MethodGet,
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			"BEGIN:VTIMEZONE",
+			"TZID:Europe/Madrid",
+			"END:VTIMEZONE",
+		},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "TzA")
+		p2 := makePairTB(tb, app, "TzB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match.Set("date", "2026-09-15")
+		match.Set("time", "20:00")
+		require.NoError(tb, app.Save(match))
+		s.URL = "/ical/match/" + match.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
 // LOCATION falls back to the club name alone when no matching venue exists
 
 func TestICalMatch_LocationFallsBackWithoutVenue(t *testing.T) {
