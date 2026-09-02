@@ -60,154 +60,25 @@ func TestDashboardSummaryCounts(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Group 2: Quorum issue detection (lines 150-168)
-// ═══════════════════════════════════════════════════════════════════════
-
-func TestDashboardQuorumIssue(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "GET /admin shows quorum issue for expired submission",
-		Method:          http.MethodGet,
-		URL:             "/admin/competitions",
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"Quorum", "enviado hace"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "Q A")
-		p2 := makePairTB(tb, app, "Q B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		comp.Set("quorum_timeout_hours", 24)
-		require.NoError(tb, app.Save(comp))
-		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
-		m.Set("scores", "6-3 6-4")
-		m.Set("submitted_by", p1.GetString("player1"))
-		require.NoError(tb, app.Save(m))
-		sa := time.Now().Add(-48 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
-		_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:sa} WHERE id = {:id}").
-			Bind(map[string]any{"sa": sa, "id": m.Id}).Execute()
-		require.NoError(tb, err)
-		s.Headers = authHeaders(tb, admin)
-	}
-	s.Test(t)
-}
-
-func TestDashboardQuorumNoIssueWhenFresh(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:     testAppFactory,
-		Name:               "GET /admin no quorum issue when submission is recent",
-		Method:             http.MethodGet,
-		URL:                "/admin/competitions",
-		ExpectedStatus:     200,
-		NotExpectedContent: []string{"Quorum"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "QF A")
-		p2 := makePairTB(tb, app, "QF B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		comp.Set("quorum_timeout_hours", 24)
-		require.NoError(tb, app.Save(comp))
-		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
-		m.Set("scores", "6-3 6-4")
-		m.Set("submitted_by", p1.GetString("player1"))
-		require.NoError(tb, app.Save(m))
-		sa := time.Now().Add(-1 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
-		_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:sa} WHERE id = {:id}").
-			Bind(map[string]any{"sa": sa, "id": m.Id}).Execute()
-		require.NoError(tb, err)
-		s.Headers = authHeaders(tb, admin)
-	}
-	s.Test(t)
-}
-
-func TestDashboardQuorumZeroHoursNoIssue(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:     testAppFactory,
-		Name:               "GET /admin no quorum issue when quorum_timeout_hours is 0",
-		Method:             http.MethodGet,
-		URL:                "/admin/competitions",
-		ExpectedStatus:     200,
-		NotExpectedContent: []string{"Quorum"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "QZ A")
-		p2 := makePairTB(tb, app, "QZ B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		comp.Set("quorum_timeout_hours", 0)
-		require.NoError(tb, app.Save(comp))
-		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
-		m.Set("scores", "6-3 6-4")
-		m.Set("submitted_by", p1.GetString("player1"))
-		require.NoError(tb, app.Save(m))
-		sa := time.Now().Add(-48 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
-		_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:sa} WHERE id = {:id}").
-			Bind(map[string]any{"sa": sa, "id": m.Id}).Execute()
-		require.NoError(tb, err)
-		s.Headers = authHeaders(tb, admin)
-	}
-	s.Test(t)
-}
-
-func TestDashboardQuorumShowsHoursWhenLessThanDay(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "GET /admin quorum shows hours when less than 1 day",
-		Method:          http.MethodGet,
-		URL:             "/admin/competitions",
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"Quorum"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "QH A")
-		p2 := makePairTB(tb, app, "QH B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		comp.Set("quorum_timeout_hours", 2)
-		require.NoError(tb, app.Save(comp))
-		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
-		m.Set("scores", "6-3 6-4")
-		m.Set("submitted_by", p1.GetString("player1"))
-		require.NoError(tb, app.Save(m))
-		sa := time.Now().Add(-6 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
-		_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:sa} WHERE id = {:id}").
-			Bind(map[string]any{"sa": sa, "id": m.Id}).Execute()
-		require.NoError(tb, err)
-		s.Headers = authHeaders(tb, admin)
-	}
-	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body, err := io.ReadAll(res.Body)
-		require.NoError(tb, err)
-		b := string(body)
-		assert.Contains(tb, b, "enviado hace 6 horas",
-			"quorum issue must show hours not days when elapsed < 24h")
-	}
-	s.Test(t)
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// Group 3: Pending issue detection (lines 178-210)
-// Overdue + stale detection
+// Group 2: /admin/competitions IssueCount/DisputeCount, sourced from
+// league.HealthReport (R-1 unified classifier). The old per-match quorum
+// and staleness detectors, and the Incidencias card that rendered their
+// labels on this page, were retired — that surface now shows only the
+// stat-bar counts; the actual items live on the Salud page (see
+// admin_health_test.go and TestDashboardOverdueMatch below, which now
+// exercises the round-deadline+grace definition instead of a raw
+// date-vs-now check).
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestDashboardOverdueMatch(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "GET /admin shows overdue issue for past-dated pending match",
+		Name:            "GET /admin/competitions IssueCount includes an overdue match past its round deadline",
 		Method:          http.MethodGet,
 		URL:             "/admin/competitions",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Vencido"},
+		ExpectedContent: []string{`href="/admin/health"`},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -215,23 +86,35 @@ func TestDashboardOverdueMatch(t *testing.T) {
 		p1 := makePairTB(tb, app, "OD A")
 		p2 := makePairTB(tb, app, "OD B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("start_date", time.Now().AddDate(0, 0, -40).UTC().Format("2006-01-02 15:04:05.000Z"))
+		comp.Set("end_date", time.Now().AddDate(0, 0, -20).UTC().Format("2006-01-02 15:04:05.000Z"))
+		comp.Set("rounds", 1)
+		comp.Set("arrange_grace_days", 3)
+		comp.Set("recovery_days", 9999)
+		comp.Set("payment_status", map[string]any{p1.Id: true, p2.Id: true})
+		require.NoError(tb, app.Save(comp))
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		m.Set("date", "2020-01-01")
 		require.NoError(tb, app.Save(m))
 		s.Headers = authHeaders(tb, admin)
 	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body, err := io.ReadAll(res.Body)
+		require.NoError(tb, err)
+		assert.Contains(tb, string(body), `link link-hover text-error">1<`, "IssueCount must count the overdue match")
+	}
 	s.Test(t)
 }
 
-func TestDashboardNotOverdueForFutureDate(t *testing.T) {
+func TestDashboardNotOverdueForFutureDeadline(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:     testAppFactory,
-		Name:               "GET /admin no overdue for future-dated pending match",
-		Method:             http.MethodGet,
-		URL:                "/admin/competitions",
-		ExpectedStatus:     200,
-		NotExpectedContent: []string{"Vencido"},
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/competitions IssueCount is zero when the round deadline hasn't passed",
+		Method:          http.MethodGet,
+		URL:             "/admin/competitions",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{`href="/admin/health"`},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -239,46 +122,21 @@ func TestDashboardNotOverdueForFutureDate(t *testing.T) {
 		p1 := makePairTB(tb, app, "NF A")
 		p2 := makePairTB(tb, app, "NF B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("start_date", time.Now().AddDate(0, 0, -5).UTC().Format("2006-01-02 15:04:05.000Z"))
+		comp.Set("end_date", time.Now().AddDate(0, 0, 30).UTC().Format("2006-01-02 15:04:05.000Z"))
+		comp.Set("rounds", 1)
+		comp.Set("arrange_grace_days", 3)
+		comp.Set("payment_status", map[string]any{p1.Id: true, p2.Id: true})
+		require.NoError(tb, app.Save(comp))
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		m.Set("date", "2099-12-31")
 		require.NoError(tb, app.Save(m))
 		s.Headers = authHeaders(tb, admin)
 	}
-	s.Test(t)
-}
-
-func TestDashboardStaleMatch(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "GET /admin shows stale issue for inactive pending match",
-		Method:          http.MethodGet,
-		URL:             "/admin/competitions",
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"Inactivo", "sin actividad"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "ST A")
-		p2 := makePairTB(tb, app, "ST B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		// Create a message older than 14 days
-		msgCol, err := app.FindCollectionByNameOrId("match_messages")
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body, err := io.ReadAll(res.Body)
 		require.NoError(tb, err)
-		msg := core.NewRecord(msgCol)
-		msg.Set("match", m.Id)
-		msg.Set("author", p1.GetString("player1"))
-		msg.Set("content", "old message")
-		msg.Set("type", "chat")
-		require.NoError(tb, app.Save(msg))
-		// Override created via raw SQL — autodate fields ignore SetRaw on save
-		oldCreated := time.Now().Add(-15 * 24 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
-		_, err = app.DB().NewQuery("UPDATE match_messages SET created = {:c} WHERE id = {:id}").
-			Bind(map[string]any{"c": oldCreated, "id": msg.Id}).Execute()
-		require.NoError(tb, err)
-		s.Headers = authHeaders(tb, admin)
+		assert.Contains(tb, string(body), `link link-hover ">0<`, "IssueCount must not include a match before its round deadline")
 	}
 	s.Test(t)
 }
@@ -1522,7 +1380,6 @@ func TestAdminCompDetailWithPenalties(t *testing.T) {
 		comp.Set("quorum_timeout_hours", 48)
 		require.NoError(tb, app.Save(comp))
 
-		// Add matches at different statuses to cover classifyMatchIssues
 		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 
 		confirmed := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
