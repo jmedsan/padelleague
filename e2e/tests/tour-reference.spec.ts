@@ -52,11 +52,15 @@ const pairNames: Record<PairId, string> = {
 // Nav-menu helper — viewport-aware (desktop Gestión dropdown / mobile drawer)
 // ---------------------------------------------------------------------------
 
+// Parejas and Documentos were removed from the Gestión menu (menu
+// simplification: pairs/documents are managed from inside a competition's
+// detail page now, not from a standalone admin list) — /admin/pairs and
+// /admin/documents still exist as routes but are no longer nav-reachable,
+// so those two are goto()'d directly rather than clicked. See
+// .claude/steering/e2e-timing.md.
 const NAV_HREFS: Record<string, string> = {
-  'Panel': '/admin',
-  'Parejas': '/admin/pairs',
+  'Competiciones': '/admin/competitions',
   'Jugadores': '/admin/players',
-  'Documentos': '/admin/documents',
 };
 
 async function navTo(page: Page, label: string): Promise<void> {
@@ -136,21 +140,24 @@ test.describe('reference navigation tour', () => {
       await setPlayerPassword(page.request, suToken, id, PLAYER_PASSWORD);
     }
 
-    // --- Step 2: Create pairs via Parejas nav link ---
+    // --- Step 2: Create pairs — /admin/pairs has no nav-menu entry anymore
+    // (pairs are managed from inside a competition's detail page); goto()
+    // directly, the route itself is unchanged.
     pairIds = [];
     for (const pair of PAIRS) {
-      await navTo(page, 'Parejas');
+      await page.goto('/admin/pairs');
+      await page.waitForLoadState('domcontentloaded');
       const pairId = await createPair(page, pair.name, playerIds[pair.p1], playerIds[pair.p2], suToken);
       pairIds.push(pairId);
     }
 
     // --- Step 3: Create league competition via Panel ---
-    await navTo(page, 'Panel');
+    await navTo(page, 'Competiciones');
     competitionId = await createCompetition(page, COMP_NAME, 'league', { playTwice: true, suToken });
 
     // --- Step 4: Add pairs to competition ---
     // After createCompetition, navigate to the competition detail page.
-    await navTo(page, 'Panel');
+    await navTo(page, 'Competiciones');
     await page.locator(`a:has-text("${COMP_NAME}")`).first().click();
     await page.waitForLoadState('domcontentloaded');
 
@@ -165,7 +172,10 @@ test.describe('reference navigation tour', () => {
     await markAllPairsPaid(page);
 
     // --- Step 5b: Admin creates + attaches mandatory doc, player passes gate ---
-    await navTo(page, 'Documentos');
+    // /admin/documents (the library) has no nav-menu entry anymore either —
+    // goto() directly, same reasoning as Parejas above.
+    await page.goto('/admin/documents');
+    await page.waitForLoadState('domcontentloaded');
     await createDocument(page, 'Reglamento de prueba', 'https://example.com/reglamento', {
       mandatory: true,
     });
@@ -181,7 +191,7 @@ test.describe('reference navigation tour', () => {
     expect(cls).toContain('flex-col'); // stacks on mobile (title not truncated by inline actions)
 
     // Attach it to the league competition
-    await navTo(page, 'Panel');
+    await navTo(page, 'Competiciones');
     await page.locator(`a:has-text("${COMP_NAME}")`).first().click();
     await page.waitForLoadState('domcontentloaded');
     await attachDocumentToCompetition(page, 'Reglamento de prueba');
@@ -230,7 +240,7 @@ test.describe('reference navigation tour', () => {
 
     // --- Step 8: Apply penalty via admin competition page ---
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await navTo(page, 'Panel');
+    await navTo(page, 'Competiciones');
     await page.locator(`a:has-text("${COMP_NAME}")`).first().click();
     await page.waitForLoadState('domcontentloaded');
     // Expand Parejas accordion (collapsed when started + all paid)
@@ -252,11 +262,11 @@ test.describe('reference navigation tour', () => {
 
     // --- Step 9: Create playoff via Panel ---
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await navTo(page, 'Panel');
+    await navTo(page, 'Competiciones');
     const playoffId = await createCompetition(page, PLAYOFF_NAME, 'playoff', { suToken });
 
     // Navigate to playoff detail page
-    await navTo(page, 'Panel');
+    await navTo(page, 'Competiciones');
     await page.locator(`a:has-text("${PLAYOFF_NAME}")`).first().click();
     await page.waitForLoadState('domcontentloaded');
 

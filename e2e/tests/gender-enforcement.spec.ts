@@ -4,11 +4,11 @@ import { loginAs, isMobile, openDrawer, ADMIN_EMAIL, ADMIN_PASSWORD } from '../h
 async function navToAdmin(page: Page): Promise<void> {
   if (isMobile(page)) {
     await openDrawer(page);
-    await page.locator('.drawer-side a[href="/admin"]').click();
+    await page.locator('.drawer-side a[href="/admin/competitions"]').click();
   } else {
     await page.locator('summary:has-text("Gestión")').click();
     await page.waitForTimeout(100);
-    await page.locator('.menu-horizontal a[href="/admin"]').evaluate(
+    await page.locator('.menu-horizontal a[href="/admin/competitions"]').evaluate(
       el => (el as HTMLAnchorElement).click()
     );
   }

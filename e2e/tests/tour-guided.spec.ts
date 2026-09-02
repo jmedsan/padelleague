@@ -93,6 +93,19 @@ async function goHome(page: Page): Promise<void> {
   await page.waitForLoadState('domcontentloaded');
 }
 
+// clickSetupConfigure clicks a specific inactive competition's "Configurar"
+// affordance on the admin landing page. Inactive competitions render inside
+// a collapsed "Competiciones inactivas" accordion — expand it first, since a
+// freshly-created competition is never in the always-visible active grid.
+async function clickSetupConfigure(page: Page, competitionId: string): Promise<void> {
+  const link = page.locator(`a[href="/admin/competitions/${competitionId}"][data-testid="setup-configure"]`);
+  if (!(await link.isVisible().catch(() => false))) {
+    const accordion = page.locator('.collapse', { hasText: 'Competiciones inactivas' });
+    await accordion.locator('> input[type="checkbox"]').check({ force: true });
+  }
+  await link.click();
+}
+
 // clickAdminQuickLink opens the top-nav Gestión menu and clicks one of its
 // entries. The home page's own nav-button strip was removed (R-1: the
 // Gestión menu is the one place these links live now), so this is the real
@@ -199,7 +212,7 @@ test.describe('guided navigation tour', () => {
 
     // 1d. Configurar → competition detail → add pairs + generate fixtures + set dates
     await goHome(page);
-    await page.getByTestId('setup-configure').click();
+    await clickSetupConfigure(page, competitionId);
     await page.waitForLoadState('domcontentloaded');
     for (const pairId of pairIds) {
       await addPairToCompetition(page, pairId);
@@ -213,7 +226,7 @@ test.describe('guided navigation tour', () => {
 
     // 1e. Configurar → activate via toggle
     await goHome(page);
-    await page.getByTestId('setup-configure').click();
+    await clickSetupConfigure(page, competitionId);
     await page.waitForLoadState('domcontentloaded');
     await clickAndWaitForHxRedirect(page, page.locator('.toggle.toggle-success'));
 
@@ -375,10 +388,14 @@ test.describe('guided navigation tour', () => {
     await goHome(page);
     // Playoff-prompt card appears only when no other active playoff exists.
     // In the full suite, other specs may have created one, so fall back to the
-    // Competiciones quick-link (still a home affordance).
+    // Competiciones quick-link (still a home affordance). The card's own
+    // "Crear playoff" is a button (not a link) that opens the same
+    // #modal-create dialog as the page header's "Crear competición" —
+    // createCompInactive() below is safe to call either way, it only opens
+    // the modal itself when it isn't already open.
     const promptVisible = await page.getByTestId('playoff-prompt').isVisible().catch(() => false);
     if (promptVisible) {
-      await page.getByTestId('playoff-prompt').locator('a').click();
+      await page.getByTestId('playoff-prompt').getByRole('button', { name: 'Crear playoff' }).click();
     } else {
       await clickAdminQuickLink(page, 'Competiciones');
     }
@@ -387,7 +404,7 @@ test.describe('guided navigation tour', () => {
 
     // Configurar → add pairs (seeded by league finish: A=1, B=2, C=3, D=4)
     await goHome(page);
-    await page.locator(`a[href="/admin/competitions/${playoffId}"][data-testid="setup-configure"]`).click();
+    await clickSetupConfigure(page, playoffId);
     await page.waitForLoadState('domcontentloaded');
     for (let i = 0; i < 4; i++) {
       await addPairToCompetition(page, pairIds[i], i + 1);
@@ -471,8 +488,17 @@ async function createCompInactive(
   type: 'league' | 'playoff',
   playTwice: boolean,
 ): Promise<string> {
-  await page.getByRole('button', { name: /crear competición/i }).first().click();
   const dialog = page.locator('dialog#modal-create');
+  // Callers may have already opened the modal via a different affordance
+  // (e.g. the playoff-prompt card's own "Crear playoff" button) — don't
+  // click the header button again in that case. A closed DaisyUI <dialog
+  // class="modal"> is still isVisible() (opacity/pointer-events, not
+  // display:none) — check the `open` attribute instead.
+  const isOpen = await dialog.evaluate((el: HTMLDialogElement) => el.open).catch(() => false);
+  if (!isOpen) {
+    await page.getByRole('button', { name: /crear competición/i }).first().click();
+  }
+  await dialog.waitFor({ state: 'visible' });
   await dialog.locator('input[name="name"]').fill(name);
   await dialog.locator('select[name="type"]').selectOption(type);
   if (playTwice) {

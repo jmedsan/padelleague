@@ -36,8 +36,8 @@ test.describe('admin management', () => {
   test('admin can view players page', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await navToAdmin(page, '/admin/players');
-    await expect(page.getByText('Test Player', { exact: true })).toBeVisible();
-    await expect(page.getByText('Test Player 2', { exact: true })).toBeVisible();
+    await expect(page.getByText('Test Player', { exact: true }).locator('visible=true').first()).toBeVisible();
+    await expect(page.getByText('Test Player 2', { exact: true }).locator('visible=true').first()).toBeVisible();
   });
 
   test('admin can view venues page', async ({ page }) => {
@@ -76,7 +76,7 @@ test.describe('admin management', () => {
       page.waitForEvent('load', { timeout: 10000 }),
       page.locator('#modal-create-invite button[type="submit"]').click(),
     ]);
-    await expect(page.getByText(invEmail).first()).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(invEmail).locator('visible=true').first()).toBeVisible({ timeout: 5000 });
   });
 
   test('admin can create venue', async ({ page }) => {
