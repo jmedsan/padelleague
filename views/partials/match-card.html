@@ -306,7 +306,7 @@
         </div>
         <form class="counter-form hidden mt-3" hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/respond" hx-target="body">
             <input type="hidden" name="action" value="reject">
-            <label class="label py-1"><span class="label-text text-xs">Tu marcador *</span></label>
+            <label class="label py-1"><span class="label-text text-xs">Tu marcador * <span class="tooltip tooltip-top" data-tip="Mejor de 3 sets. El tercer set solo se muestra si hay empate 1-1"><span class="text-info cursor-help">ⓘ</span></span></span></label>
             {{template "scoreInput" .ScoreCounter}}
             <button type="submit" class="btn btn-error btn-sm w-full mt-2">Enviar contrapropuesta</button>
         </form>
