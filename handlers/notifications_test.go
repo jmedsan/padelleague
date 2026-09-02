@@ -99,6 +99,44 @@ func TestMarkReadNotificationWithRelatedMatch(t *testing.T) {
 	s.Test(t)
 }
 
+// MarkRead: an explicit link field wins over related_match.
+
+func TestMarkReadNotificationWithLink(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /notifications/{id}/read redirects to the link field when set",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var notifID, compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupNotifRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Link Notif", "")
+		p1 := makePairTB(tb, app, "LNA")
+		p2 := makePairTB(tb, app, "LNB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		n := makeNotification(t, app, user.Id, "Anuncio", "", false)
+		n.Set("related_match", match.Id)
+		n.Set("link", "/competition/"+comp.Id)
+		require.NoError(tb, app.Save(n))
+		notifID = n.Id
+		compID = comp.Id
+
+		s.URL = "/notifications/" + n.Id + "/read"
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/competition/"+compID, res.Header.Get("HX-Redirect"), "link must win over related_match")
+		n, err := app.FindRecordById("notifications", notifID)
+		require.NoError(tb, err)
+		assert.True(tb, n.GetBool("read"), "notification must be marked read")
+	}
+	s.Test(t)
+}
+
 // MarkRead: notification without related_match redirects to / (existing but assert DB state)
 
 func TestMarkReadNotificationNoRelatedMatch(t *testing.T) {
@@ -219,11 +257,12 @@ func TestNotificationListEmpty(t *testing.T) {
 func TestMarkAllReadVerifyDB(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "POST /notifications/read-all marks all read in DB",
-		Method:         http.MethodPost,
-		URL:            "/notifications/read-all",
-		ExpectedStatus: 204,
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /notifications/read-all marks all read in DB",
+		Method:          http.MethodPost,
+		URL:             "/notifications/read-all",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{`id="notif-badge"`},
 	}
 	var userID string
 	var notifIDs []string
