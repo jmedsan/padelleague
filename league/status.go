@@ -24,7 +24,7 @@ func StatusLabel(status string) string {
 	case StatusScheduled:
 		return "Confirmada"
 	case StatusConfirmed:
-		return "Enviado — esperando confirmación"
+		return "Propuesta"
 	case StatusDisputed:
 		return "En disputa"
 	case StatusFinal:

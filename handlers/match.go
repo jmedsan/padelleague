@@ -30,22 +30,6 @@ func NewMatchHandler(app core.App, notifier *notify.Notifier, renderPage RenderF
 	return &MatchHandler{app: app, notifier: notifier, renderPage: renderPage, renderErrorPage: renderErrorPage}
 }
 
-func statusLabel(status string) string {
-	switch status {
-	case league.StatusPending:
-		return "Pendiente"
-	case league.StatusScheduled:
-		return "Confirmada"
-	case league.StatusConfirmed:
-		return "Enviado — esperando confirmación"
-	case league.StatusDisputed:
-		return "En disputa"
-	case league.StatusFinal:
-		return "Confirmado"
-	}
-	return status
-}
-
 func statusClass(status string) string {
 	switch status {
 	case league.StatusPending:

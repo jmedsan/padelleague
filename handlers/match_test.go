@@ -14,26 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStatusLabel(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		status string
-		want   string
-	}{
-		{league.StatusPending, "Pendiente"},
-		{league.StatusConfirmed, "Enviado — esperando confirmación"},
-		{league.StatusDisputed, "En disputa"},
-		{league.StatusFinal, "Confirmado"},
-		{"unknown", "unknown"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.status, func(t *testing.T) {
-			assert.Equal(t, tt.want, statusLabel(tt.status))
-		})
-	}
-}
-
 func TestStatusClass(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
