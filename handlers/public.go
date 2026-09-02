@@ -121,7 +121,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	}
 
 	sort.Slice(recentResults, func(i, j int) bool {
-		return recentResults[i].Match.GetString("created") > recentResults[j].Match.GetString("created")
+		return recentResults[i].Match.GetString("date") > recentResults[j].Match.GetString("date")
 	})
 	if len(recentResults) > 5 {
 		recentResults = recentResults[:5]
@@ -136,7 +136,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	data["RecentResults"] = recentResults
 
 	if slices.Contains(e.Auth.GetStringSlice("roles"), "player") {
-		if steps := h.onboardingSteps(e.Auth, activeComps); len(steps) > 0 {
+		if steps := h.onboardingSteps(e.Auth); len(steps) > 0 {
 			data["OnboardSteps"] = steps
 		}
 	}
@@ -146,7 +146,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 
 // onboardingSteps returns the player onboarding checklist, or nil when every
 // actionable step is done (so the template hides the card).
-func (h *PublicHandler) onboardingSteps(user *core.Record, _ []*core.Record) []OnboardStep {
+func (h *PublicHandler) onboardingSteps(user *core.Record) []OnboardStep {
 	profileDone := user.GetString("display_name") != ""
 
 	if profileDone {
@@ -361,8 +361,12 @@ func isRivalAction(app core.App, m *core.Record, authorID string, playerPairIDs 
 func (h *PublicHandler) findRecentResults(c *core.Record, playerPairIDs map[string]struct{}) []MatchCard {
 	finals, _ := h.app.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'final'",
-		"-created", 20, 0, map[string]any{"cid": c.Id})
+		"-date,-created", 20, 0, map[string]any{"cid": c.Id})
 	pairNames := collectPairNames(h.app, finals)
+	// No IsMyMatch accent here: every row is already filtered to the
+	// player's own pairs below, so the left border would be noise on
+	// every row rather than a distinguishing signal.
+	noAccent := map[string]struct{}{}
 	var results []MatchCard
 	for _, m := range finals {
 		p1 := m.GetString("pair1")
@@ -372,7 +376,7 @@ func (h *PublicHandler) findRecentResults(c *core.Record, playerPairIDs map[stri
 		if !hasP1 && !hasP2 {
 			continue
 		}
-		mc := NewMatchRow(m, pairNames, playerPairIDs)
+		mc := NewMatchRow(m, pairNames, noAccent)
 		mc.CompetitionName = c.GetString("name")
 		results = append(results, mc)
 		if len(results) >= 5 {
@@ -612,6 +616,9 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		showAll = true
 	}
 	rounds := buildRounds(matches, pairNames, playerPairIDs, showAll)
+	for i := range rounds {
+		enrichWithPendingResults(h.app, rounds[i].Matches)
+	}
 	autoExpandRound := firstIncompleteRound(rounds)
 
 	data := h.buildCompetitionData(comp, rounds, autoExpandRound)

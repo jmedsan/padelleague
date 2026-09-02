@@ -438,8 +438,7 @@ func TestBuildMatchViewFlags(t *testing.T) {
 		},
 		{
 			name: "pending/outsider", status: "pending", viewer: "outsider",
-			httpStatus: 403,
-			want:       []string{"No tienes acceso"},
+			deny: []string{markerCanSubmit, markerCanWalkover, markerCanCorrect},
 		},
 		{
 			name: "pending/admin", status: "pending", viewer: "admin",
@@ -468,8 +467,7 @@ func TestBuildMatchViewFlags(t *testing.T) {
 		{
 			name: "confirmed/outsider", status: "confirmed", viewer: "outsider",
 			submitted:  true,
-			httpStatus: 403,
-			want:       []string{"No tienes acceso"},
+			deny:       []string{markerCanSubmit, markerCanCorrect},
 		},
 		{
 			name: "confirmed/admin-nonparticipant", status: "confirmed", viewer: "admin",

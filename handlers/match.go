@@ -72,12 +72,6 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 
 	userID := e.Auth.Id
 	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
-	_, teamErr := league.PlayerTeam(h.app, userID, match)
-	isParticipant := teamErr == nil
-
-	if !isParticipant && !isAdmin {
-		return h.renderErrorPage(e, http.StatusForbidden, "No tienes acceso a este partido")
-	}
 
 	if err := checkDocGate(h.app, e, match); err != nil {
 		return err
