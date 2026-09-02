@@ -552,7 +552,7 @@ func TestICalMatch_SummaryEscapesComma(t *testing.T) {
 		body := readBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events))
-		assert.Equal(tb, `Pérez\, Gómez vs EscB`, events[0]["SUMMARY"])
+		assert.Equal(tb, `Pérez\, Gómez vs EscB · Test Competition`, events[0]["SUMMARY"])
 	}
 	s.Test(t)
 }

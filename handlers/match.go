@@ -254,7 +254,13 @@ func (h *MatchHandler) notifyResultProposal(match *core.Record, userID, scores s
 		rivalPairID = match.GetString("pair1")
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	n := league.NotifResultSubmitted(match.Id)
+	myPairID := match.GetString("pair1")
+	if myTeam == 2 {
+		myPairID = match.GetString("pair2")
+	}
+	myPairName := league.PairNames(h.app, []string{myPairID})[myPairID]
+	compName := league.CompetitionName(h.app, match.GetString("competition"))
+	n := league.NotifResultSubmitted(match.Id, myPairName, compName, scores)
 	h.notifier.NotifyPlayers(rivalPlayers, n)
 	h.notifier.EmailPlayers(rivalPlayers, n.Title, n.Body, "/match/"+match.Id)
 

@@ -1,12 +1,16 @@
 package league
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // NotifResultSubmitted notifies the rival that a score was submitted.
-func NotifResultSubmitted(matchID string) Notification {
+func NotifResultSubmitted(matchID, opponent, compName, score string) Notification {
 	return Notification{
 		Type: "quorum_request", Title: "Resultado enviado",
-		Body: "Tu rival ha registrado un resultado. Confirma o contrapropón.", MatchID: matchID,
+		Body:    fmt.Sprintf("%s ha enviado %s · %s. Confirma o contrapropón.", opponent, score, compName),
+		MatchID: matchID,
 	}
 }
 
@@ -19,26 +23,29 @@ func NotifMatchReportedUnplayed(matchID string) Notification {
 }
 
 // NotifResultConfirmed notifies the submitter that the rival confirmed the score.
-func NotifResultConfirmed(matchID string) Notification {
+func NotifResultConfirmed(matchID, opponent, compName string) Notification {
 	return Notification{
 		Type: "general", Title: "Resultado confirmado",
-		Body: "Tu rival ha confirmado el resultado del partido.", MatchID: matchID,
+		Body:    fmt.Sprintf("%s ha confirmado el resultado · %s.", opponent, compName),
+		MatchID: matchID,
 	}
 }
 
 // NotifResultCorrected notifies the rival that the score was corrected.
-func NotifResultCorrected(matchID string) Notification {
+func NotifResultCorrected(matchID, opponent, compName string) Notification {
 	return Notification{
 		Type: "quorum_request", Title: "Resultado corregido",
-		Body: "El rival ha corregido el resultado. Confirma o contrapropón.", MatchID: matchID,
+		Body:    fmt.Sprintf("%s ha corregido el resultado · %s.", opponent, compName),
+		MatchID: matchID,
 	}
 }
 
 // NotifResultCountered notifies the original proposer that their result was countered.
-func NotifResultCountered(matchID string) Notification {
+func NotifResultCountered(matchID, opponent, compName string) Notification {
 	return Notification{
-		Type: "quorum_request", Title: "Resultado disputado",
-		Body: "Tu rival ha rechazado el resultado y propuesto uno alternativo. Revisa la contrapropuesta.", MatchID: matchID,
+		Type: "quorum_request", Title: "Contrapropuesta recibida",
+		Body:    fmt.Sprintf("%s ha propuesto un resultado alternativo · %s.", opponent, compName),
+		MatchID: matchID,
 	}
 }
 
@@ -95,27 +102,36 @@ func NotifDecisionChangedToAccepted(matchID, responderName, date, timeStr string
 	}
 }
 
+// SchedulingReminderParams holds the dynamic parts for a scheduling reminder notification.
+type SchedulingReminderParams struct {
+	MatchID, Opponent, CompName, LevelLabel string
+	Deadline                                time.Time
+}
+
 // NotifSchedulingReminder reminds players to arrange their match.
-func NotifSchedulingReminder(matchID, levelLabel string) Notification {
+func NotifSchedulingReminder(p SchedulingReminderParams) Notification {
 	return Notification{
 		Type: "scheduling", Title: "Recordatorio: organiza tu partido",
-		Body: fmt.Sprintf("Tu partido está %s. Organízalo antes de que venza el plazo.", levelLabel), MatchID: matchID,
+		Body:    fmt.Sprintf("Tu partido vs %s · %s vence el %s. %s", p.Opponent, p.CompName, fmtShortDate(p.Deadline), p.LevelLabel),
+		MatchID: p.MatchID,
 	}
 }
 
 // NotifWalkoverApproved notifies players that an admin approved a walkover.
-func NotifWalkoverApproved(matchID string) Notification {
+func NotifWalkoverApproved(matchID, compName string) Notification {
 	return Notification{
 		Type: "general", Title: "Incomparecencia aprobada",
-		Body: "Un administrador ha resuelto el partido como incomparecencia.", MatchID: matchID,
+		Body:    fmt.Sprintf("Incomparecencia aprobada · %s.", compName),
+		MatchID: matchID,
 	}
 }
 
 // NotifDisputeResolved notifies players that an admin resolved the dispute.
-func NotifDisputeResolved(matchID string) Notification {
+func NotifDisputeResolved(matchID, compName string) Notification {
 	return Notification{
 		Type: "dispute", Title: "Disputa resuelta",
-		Body: "Un administrador ha resuelto la disputa de tu partido.", MatchID: matchID,
+		Body:    fmt.Sprintf("Disputa resuelta · %s.", compName),
+		MatchID: matchID,
 	}
 }
 
@@ -136,10 +152,10 @@ func NotifAdminMatchUnplayed(matchID string) Notification {
 }
 
 // NotifAdminSupersedeFailed alerts admins that pending proposals could not be superseded.
-func NotifAdminSupersedeFailed(matchID string) Notification {
+func NotifAdminSupersedeFailed(matchID, pair1Name, pair2Name string) Notification {
 	return Notification{
 		Type: "admin_message", Title: "Propuestas pendientes no actualizadas",
-		Body:    fmt.Sprintf("El partido %s tiene propuestas que no se pudieron marcar como superadas. Revisa el hilo.", matchID),
+		Body:    fmt.Sprintf("El partido %s vs %s tiene propuestas que no se pudieron marcar como superadas. Revisa el hilo.", pair1Name, pair2Name),
 		MatchID: matchID,
 	}
 }

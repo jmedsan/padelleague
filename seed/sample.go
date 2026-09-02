@@ -604,12 +604,48 @@ func createSampleNotifications(txApp core.App, comp *core.Record) error {
 		}
 	}
 	if awaiting := sampleMatchWithPendingResult(txApp, comp.Id); awaiting != nil {
-		if err := notify(playersOfPair(txApp, awaiting.GetString("pair2")),
-			"quorum_request", "Resultado por confirmar", "Tu rival ha enviado un resultado. Confírmalo o dispútalo.", awaiting.Id); err != nil {
+		if err := notifyAwaitingResult(txApp, comp, awaiting, notify); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// notifyAwaitingResult notifies the pair that has not yet responded to a
+// pending result proposal, mirroring the live NotifResultSubmitted copy.
+func notifyAwaitingResult(txApp core.App, comp, awaiting *core.Record, notify func(userIDs []string, ntype, title, body, matchID string) error) error {
+	submitterPairID := submitterPairID(txApp, awaiting)
+	opponentPairID := awaiting.GetString("pair2")
+	if submitterPairID == opponentPairID {
+		opponentPairID = awaiting.GetString("pair1")
+	}
+	submitterName := league.PairNames(txApp, []string{submitterPairID})[submitterPairID]
+	scores := pendingResultScores(txApp, awaiting.Id)
+	n := league.NotifResultSubmitted(awaiting.Id, submitterName, comp.GetString("name"), scores)
+	return notify(playersOfPair(txApp, opponentPairID), n.Type, n.Title, n.Body, awaiting.Id)
+}
+
+func submitterPairID(txApp core.App, match *core.Record) string {
+	pairID := match.GetString("pair1")
+	submittedBy := match.GetString("submitted_by")
+	if submittedBy == "" {
+		return pairID
+	}
+	if team, err := league.PlayerTeam(txApp, submittedBy, match); err == nil && team == 2 {
+		return match.GetString("pair2")
+	}
+	return pairID
+}
+
+func pendingResultScores(txApp core.App, matchID string) string {
+	msgs, _ := txApp.FindRecordsByFilter("match_messages",
+		"match = {:mid} && type = 'result_submission' && proposal_status = 'pending'",
+		"-created", 1, 0,
+		map[string]any{"mid": matchID})
+	if len(msgs) == 0 {
+		return ""
+	}
+	return msgs[0].GetString("content")
 }
 
 func sampleMatchByStatus(txApp core.App, compID, status string) *core.Record {

@@ -132,12 +132,13 @@ func (svc *Service) acceptProposalIfExpired(proposal, m, comp *core.Record) {
 
 	svc.supersedeSiblingResults(m.Id, proposal.Id)
 
+	compName := comp.GetString("name")
 	for _, pid := range []string{fresh.GetString("pair1"), fresh.GetString("pair2")} {
 		players := PlayersForPair(svc.app, pid)
 		svc.notifier.NotifyPlayers(players, Notification{
 			Type:    "general",
 			Title:   "Resultado confirmado automáticamente",
-			Body:    "El resultado ha sido confirmado por tiempo de espera.",
+			Body:    fmt.Sprintf("El resultado ha sido confirmado por tiempo de espera · %s.", compName),
 			MatchID: fresh.Id,
 		})
 	}
@@ -221,12 +222,13 @@ func (svc *Service) confirmIfExpired(m *core.Record, comp *core.Record) {
 		return
 	}
 
+	compName := comp.GetString("name")
 	for _, pid := range []string{fresh.GetString("pair1"), fresh.GetString("pair2")} {
 		players := PlayersForPair(svc.app, pid)
 		svc.notifier.NotifyPlayers(players, Notification{
 			Type:    "general",
 			Title:   "Resultado confirmado automáticamente",
-			Body:    "El resultado ha sido confirmado por tiempo de espera.",
+			Body:    fmt.Sprintf("El resultado ha sido confirmado por tiempo de espera · %s.", compName),
 			MatchID: fresh.Id,
 		})
 	}
@@ -334,8 +336,14 @@ func (svc *Service) remindProposalIfDue(m, comp *core.Record, now time.Time) {
 		return
 	}
 
+	submitterPairID := m.GetString("pair1")
+	if team == 2 {
+		submitterPairID = m.GetString("pair2")
+	}
+	submitterName := PairNames(svc.app, []string{submitterPairID})[submitterPairID]
+
 	title := "Resultado pendiente de respuesta"
-	body := fmt.Sprintf("Tu rival propuso un resultado hace más de %d horas. Acepta o contrapropón.", threshold)
+	body := fmt.Sprintf("%s propuso un resultado hace más de %d horas · %s. Acepta o contrapropón.", submitterName, threshold, comp.GetString("name"))
 	link := "/match/" + m.Id
 
 	svc.notifier.NotifyPlayers(players, Notification{
@@ -389,8 +397,14 @@ func (svc *Service) remindIfDue(m *core.Record, comp *core.Record, now time.Time
 		return
 	}
 
+	submitterPairID := fresh.GetString("pair1")
+	if team == 2 {
+		submitterPairID = fresh.GetString("pair2")
+	}
+	submitterName := PairNames(svc.app, []string{submitterPairID})[submitterPairID]
+
 	title := "Resultado pendiente de confirmar"
-	body := fmt.Sprintf("Tu rival envió un resultado hace más de %d horas. Confirma o contrapropón.", threshold)
+	body := fmt.Sprintf("%s envió un resultado hace más de %d horas · %s. Confirma o contrapropón.", submitterName, threshold, comp.GetString("name"))
 	link := "/match/" + fresh.Id
 
 	svc.notifier.NotifyPlayers(players, Notification{

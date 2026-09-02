@@ -1,6 +1,9 @@
 package league
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestNotificationConstructors(t *testing.T) {
 	tests := []struct {
@@ -10,8 +13,8 @@ func TestNotificationConstructors(t *testing.T) {
 	}{
 		{
 			name: "ResultSubmitted",
-			got:  NotifResultSubmitted("m1"),
-			want: Notification{Type: "quorum_request", Title: "Resultado enviado", Body: "Tu rival ha registrado un resultado. Confirma o contrapropón.", MatchID: "m1"},
+			got:  NotifResultSubmitted("m1", "Pareja A", "Liga Primavera", "6-2 6-2"),
+			want: Notification{Type: "quorum_request", Title: "Resultado enviado", Body: "Pareja A ha enviado 6-2 6-2 · Liga Primavera. Confirma o contrapropón.", MatchID: "m1"},
 		},
 		{
 			name: "MatchReportedUnplayed",
@@ -20,13 +23,18 @@ func TestNotificationConstructors(t *testing.T) {
 		},
 		{
 			name: "ResultConfirmed",
-			got:  NotifResultConfirmed("m1"),
-			want: Notification{Type: "general", Title: "Resultado confirmado", Body: "Tu rival ha confirmado el resultado del partido.", MatchID: "m1"},
+			got:  NotifResultConfirmed("m1", "Pareja A", "Liga Primavera"),
+			want: Notification{Type: "general", Title: "Resultado confirmado", Body: "Pareja A ha confirmado el resultado · Liga Primavera.", MatchID: "m1"},
 		},
 		{
 			name: "ResultCorrected",
-			got:  NotifResultCorrected("m1"),
-			want: Notification{Type: "quorum_request", Title: "Resultado corregido", Body: "El rival ha corregido el resultado. Confirma o contrapropón.", MatchID: "m1"},
+			got:  NotifResultCorrected("m1", "Pareja A", "Liga Primavera"),
+			want: Notification{Type: "quorum_request", Title: "Resultado corregido", Body: "Pareja A ha corregido el resultado · Liga Primavera.", MatchID: "m1"},
+		},
+		{
+			name: "ResultCountered",
+			got:  NotifResultCountered("m1", "Pareja A", "Liga Primavera"),
+			want: Notification{Type: "quorum_request", Title: "Contrapropuesta recibida", Body: "Pareja A ha propuesto un resultado alternativo · Liga Primavera.", MatchID: "m1"},
 		},
 		{
 			name: "NewMessage",
@@ -65,18 +73,21 @@ func TestNotificationConstructors(t *testing.T) {
 		},
 		{
 			name: "SchedulingReminder",
-			got:  NotifSchedulingReminder("m1", "pendiente"),
-			want: Notification{Type: "scheduling", Title: "Recordatorio: organiza tu partido", Body: "Tu partido está pendiente. Organízalo antes de que venza el plazo.", MatchID: "m1"},
+			got: NotifSchedulingReminder(SchedulingReminderParams{
+				MatchID: "m1", Opponent: "Pareja A", CompName: "Liga Primavera", LevelLabel: "Urgente",
+				Deadline: time.Date(2026, 3, 15, 0, 0, 0, 0, madrid),
+			}),
+			want: Notification{Type: "scheduling", Title: "Recordatorio: organiza tu partido", Body: "Tu partido vs Pareja A · Liga Primavera vence el 15/03. Urgente", MatchID: "m1"},
 		},
 		{
 			name: "WalkoverApproved",
-			got:  NotifWalkoverApproved("m1"),
-			want: Notification{Type: "general", Title: "Incomparecencia aprobada", Body: "Un administrador ha resuelto el partido como incomparecencia.", MatchID: "m1"},
+			got:  NotifWalkoverApproved("m1", "Liga Primavera"),
+			want: Notification{Type: "general", Title: "Incomparecencia aprobada", Body: "Incomparecencia aprobada · Liga Primavera.", MatchID: "m1"},
 		},
 		{
 			name: "DisputeResolved",
-			got:  NotifDisputeResolved("m1"),
-			want: Notification{Type: "dispute", Title: "Disputa resuelta", Body: "Un administrador ha resuelto la disputa de tu partido.", MatchID: "m1"},
+			got:  NotifDisputeResolved("m1", "Liga Primavera"),
+			want: Notification{Type: "dispute", Title: "Disputa resuelta", Body: "Disputa resuelta · Liga Primavera.", MatchID: "m1"},
 		},
 		{
 			name: "AdminMatchUnplayed",
@@ -85,8 +96,8 @@ func TestNotificationConstructors(t *testing.T) {
 		},
 		{
 			name: "AdminSupersedeFailed",
-			got:  NotifAdminSupersedeFailed("m1"),
-			want: Notification{Type: "admin_message", Title: "Propuestas pendientes no actualizadas", Body: "El partido m1 tiene propuestas que no se pudieron marcar como superadas. Revisa el hilo.", MatchID: "m1"},
+			got:  NotifAdminSupersedeFailed("m1", "Pareja A", "Pareja B"),
+			want: Notification{Type: "admin_message", Title: "Propuestas pendientes no actualizadas", Body: "El partido Pareja A vs Pareja B tiene propuestas que no se pudieron marcar como superadas. Revisa el hilo.", MatchID: "m1"},
 		},
 		{
 			name: "AdminPlayoffAdvanceFailed",

@@ -112,11 +112,15 @@ func (h *MatchHandler) validateCorrectionInput(e *core.RequestEvent, match *core
 
 func (h *MatchHandler) notifyCorrectionToRival(match *core.Record, myTeam int) {
 	rivalPairID := match.GetString("pair2")
+	myPairID := match.GetString("pair1")
 	if myTeam == 2 {
 		rivalPairID = match.GetString("pair1")
+		myPairID = match.GetString("pair2")
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	h.notifier.NotifyPlayers(rivalPlayers, league.NotifResultCorrected(match.Id))
+	myPairName := league.PairNames(h.app, []string{myPairID})[myPairID]
+	compName := league.CompetitionName(h.app, match.GetString("competition"))
+	h.notifier.NotifyPlayers(rivalPlayers, league.NotifResultCorrected(match.Id, myPairName, compName))
 }
 
 func (h *MatchHandler) validateCorrectionWindow(e *core.RequestEvent, match *core.Record) error {
