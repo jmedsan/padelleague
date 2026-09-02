@@ -344,6 +344,33 @@ func TestHealthReport_ClassifiesEachCategory(t *testing.T) {
 	assert.Equal(t, "HRB", byKey["unpaid"].Items[0].Pair1)
 }
 
+// TestHealthReport_DisputedWalkoverGoesToWalkovers pins the R-13 bug fix:
+// ReportUnplayed sets status=disputed + review_type=walkover (handlers/match.go),
+// so a walkover must be classified from the disputed-matches query too, not
+// just the (now defensive-only) pending-matches path.
+func TestHealthReport_DisputedWalkoverGoesToWalkovers(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "HRDWA")
+	p2 := makePair(t, app, "HRDWB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusDisputed)
+	m.Set("review_type", "walkover")
+	m.Set("dispute_notes", "[No jugado] no se presentaron")
+	require.NoError(t, app.Save(m))
+
+	report := HealthReport(app, time.Now())
+	byKey := make(map[string]HealthCategory, len(report))
+	for _, cat := range report {
+		byKey[cat.Key] = cat
+	}
+
+	require.Len(t, byKey["walkovers"].Items, 1, "a disputed+walkover match must be classified as a walkover")
+	assert.Equal(t, m.Id, byKey["walkovers"].Items[0].MatchID)
+	assert.Empty(t, byKey["disputes"].Items, "a walkover must not also be counted as a dispute")
+}
+
 func TestHealthReport_UnscheduledMatchWithNoDate(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
