@@ -131,7 +131,8 @@ func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) 
 	files = append(files, "views/"+page)
 	html, err := r.registry.LoadFS(r.viewsFS, files...).Render(data)
 	if err != nil {
-		return err
+		slog.Error("render page", "page", page, "err", err)
+		return e.HTML(http.StatusInternalServerError, "Error al cargar la página. Inténtalo de nuevo.")
 	}
 	return e.HTML(http.StatusOK, html)
 }
