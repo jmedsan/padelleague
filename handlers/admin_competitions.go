@@ -73,6 +73,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"UnpaidCount":     countUnpaid(pairEntries),
 		"Phase":           league.PhaseOf(comp, time.Now()),
 		"Mode":            AdminFull,
+		"Invitations":     CompetitionInvitations(h.app, id),
 	}
 	h.addDetailExtras(data, comp, matches)
 	return h.renderPage(e, "admin/competition-detail.html", data)
@@ -323,13 +324,20 @@ func (h *CompetitionHandler) buildRoundDates(comp *core.Record) []roundDate {
 
 func (h *CompetitionHandler) buildRoundGroups(matches []*core.Record, pairNames map[string]string) []roundGroup {
 	noPairs := map[string]struct{}{}
-	roundMap := map[int][]MatchCard{}
+	var allCards []MatchCard
+	roundMap := map[int][]int{}
 	for _, m := range matches {
 		rn := int(m.GetFloat("round_number"))
-		roundMap[rn] = append(roundMap[rn], NewMatchRow(m, pairNames, noPairs))
+		roundMap[rn] = append(roundMap[rn], len(allCards))
+		allCards = append(allCards, NewMatchRow(m, pairNames, noPairs))
 	}
+	enrichWithPendingResults(h.app, allCards)
 	var rounds []roundGroup
-	for rn, ms := range roundMap {
+	for rn, idxs := range roundMap {
+		ms := make([]MatchCard, len(idxs))
+		for i, idx := range idxs {
+			ms[i] = allCards[idx]
+		}
 		rounds = append(rounds, roundGroup{Number: rn, Matches: ms})
 	}
 	sort.Slice(rounds, func(i, j int) bool {
