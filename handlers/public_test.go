@@ -791,7 +791,7 @@ func TestHome_AdminWalkoverAlert(t *testing.T) {
 		comp.Set("name", "Walkover League")
 		require.NoError(tb, app.Save(comp))
 
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
 		match.Set("review_type", "walkover")
 		match.Set("walkover_requested_by", p1.GetString("player1"))
 		require.NoError(tb, app.Save(match))

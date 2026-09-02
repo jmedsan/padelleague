@@ -24,7 +24,7 @@ func NewPasswordResetHandler(app core.App, renderPage RenderFunc) *PasswordReset
 
 // ForgotPassword renders the forgot-password form.
 func (h *PasswordResetHandler) ForgotPassword(e *core.RequestEvent) error {
-	return h.renderPage(e, "forgot-password.html", nil)
+	return h.renderPage(e, "forgot-password.html", map[string]any{"PageTitle": "Contraseña"})
 }
 
 // ForgotPasswordSubmit sends a password-reset email if the address exists.
@@ -53,17 +53,20 @@ func (h *PasswordResetHandler) ResetPassword(e *core.RequestEvent) error {
 	token := e.Request.URL.Query().Get("token")
 	if token == "" {
 		return h.renderPage(e, "reset-password.html", map[string]any{
-			"Expired": true,
+			"PageTitle": "Contraseña",
+			"Expired":   true,
 		})
 	}
 	_, err := h.app.FindAuthRecordByToken(token, core.TokenTypePasswordReset)
 	if err != nil {
 		return h.renderPage(e, "reset-password.html", map[string]any{
-			"Expired": true,
+			"PageTitle": "Contraseña",
+			"Expired":   true,
 		})
 	}
 	return h.renderPage(e, "reset-password.html", map[string]any{
-		"Token": token,
+		"PageTitle": "Contraseña",
+		"Token":     token,
 	})
 }
 

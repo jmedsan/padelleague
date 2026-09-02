@@ -88,7 +88,8 @@ func (h *PairPageHandler) PairPage(e *core.RequestEvent) error {
 	data.Recent = buildRecentMatches(results, 20)
 
 	return h.renderPage(e, "pair.html", map[string]any{
-		"Data": data,
-		"Mode": PlayerSummary,
+		"PageTitle": data.PairName,
+		"Data":      data,
+		"Mode":      PlayerSummary,
 	})
 }

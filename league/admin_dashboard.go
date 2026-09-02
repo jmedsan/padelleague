@@ -73,10 +73,10 @@ type HealthCategory struct {
 // always returns.
 var healthCategoryDefs = []HealthCategory{
 	{Key: "disputes", Title: "Disputas", ListURL: "/admin/disputes", Urgent: true},
-	{Key: "walkovers", Title: "Incomparecencias", ListURL: "/admin/outstanding", Urgent: true},
+	{Key: "walkovers", Title: "Incomparecencias", ListURL: "/admin/disputes", Urgent: true},
 	{Key: "overdue", Title: "Vencidos", ListURL: "/admin/outstanding"},
 	{Key: "unscheduled", Title: "Sin fecha", ListURL: "/admin/outstanding"},
-	{Key: "unpaid", Title: "Parejas sin pagar"},
+	{Key: "unpaid", Title: "Sin pagar"},
 }
 
 // HealthReport merges every admin-facing match/payment issue across active
@@ -110,6 +110,44 @@ func HealthReport(app core.App, now time.Time) []HealthCategory {
 		sortHealthItems(report[i].Items)
 	}
 	return report
+}
+
+// CompHealthItems returns the HealthItems for one competition's given
+// category keys (e.g. "disputes", "walkovers"), regardless of whether the
+// competition is active — unlike HealthReport, which only scans active
+// competitions for the admin-wide dashboard. Use this for a single
+// competition's own detail page, where an inactive competition must still
+// show its open disputes.
+func CompHealthItems(app core.App, compID string, now time.Time, keys ...string) []HealthItem {
+	comp, err := app.FindRecordById("competitions", compID)
+	if err != nil {
+		return nil
+	}
+	categories := make(map[string]*HealthCategory, len(healthCategoryDefs))
+	report := make([]HealthCategory, len(healthCategoryDefs))
+	for i, def := range healthCategoryDefs {
+		report[i] = def
+		categories[def.Key] = &report[i]
+	}
+	addCompHealth(app, comp, now, categories)
+
+	wanted := make(map[string]struct{}, len(keys))
+	for _, k := range keys {
+		wanted[k] = struct{}{}
+	}
+	var items []HealthItem
+	for _, cat := range report {
+		if _, ok := wanted[cat.Key]; !ok {
+			continue
+		}
+		for _, item := range cat.Items {
+			item.Urgent = cat.Urgent
+			item.CategoryTitle = cat.Title
+			items = append(items, item)
+		}
+	}
+	sortHealthItems(items)
+	return items
 }
 
 // compHealthCtx bundles the per-competition values used while classifying
@@ -157,15 +195,12 @@ func addCompHealth(app core.App, c *core.Record, now time.Time, categories map[s
 	}
 }
 
+// addPendingHealth classifies a status=pending match. review_type=walkover
+// is not checked here: ReportUnplayed always pairs it with status=disputed
+// (see addCompHealth), so no live code path produces a pending walkover.
 func addPendingHealth(app core.App, m *core.Record, ctx compHealthCtx, categories map[string]*HealthCategory) {
 	rn := m.GetInt("round_number")
 	item := healthItem(app, m, ctx.compName, rn)
-
-	if m.GetString("review_type") == "walkover" {
-		categories["walkovers"].Items = append(categories["walkovers"].Items,
-			walkoverHealthItem(app, m, ctx.compName))
-		return
-	}
 
 	if m.GetString("date") == "" {
 		unscheduled := item

@@ -584,6 +584,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 				docViews[i] = NewDocumentView(d, PlayerSummary)
 			}
 			return h.renderPage(e, "competition-docs-gate.html", map[string]any{
+				"PageTitle":     "Documentos",
 				"Competition":   comp,
 				"DocumentViews": docViews,
 				"MandatoryIDs":  mandatoryIDs,
@@ -608,6 +609,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	autoExpandRound := firstIncompleteRound(rounds)
 
 	data := h.buildCompetitionData(comp, rounds, autoExpandRound)
+	data["PageTitle"] = comp.GetString("name")
 	data["PlayerPairIDs"] = playerPairIDs
 	data["ShowAll"] = showAll
 	data["Mode"] = PlayerSummary

@@ -7,27 +7,16 @@
     </button>
 </div>
 
-<div class="stats stats-vertical sm:stats-horizontal shadow bg-base-200 w-full mb-8">
-    <div class="stat">
-        <div class="stat-title">Competiciones</div>
-        <div class="stat-value text-2xl">{{len .Active}}{{if .Inactive}} + {{len .Inactive}}{{end}}</div>
-        <div class="stat-desc">{{len .Active}} activa{{if ne (len .Active) 1}}s{{end}}{{if .Inactive}}, {{len .Inactive}} inactiva{{if ne (len .Inactive) 1}}s{{end}}{{end}}</div>
-    </div>
-    <div class="stat">
-        <div class="stat-title">Activas</div>
-        <div class="stat-value text-2xl text-success">{{len .Active}}</div>
-        <div class="stat-desc">en juego</div>
-    </div>
-    <div class="stat">
-        <div class="stat-title">Disputas</div>
-        <a href="/admin/disputes" class="stat-value text-2xl link link-hover {{if gt .DisputeCount 0}}text-error{{end}}">{{.DisputeCount}}</a>
-        <div class="stat-desc">{{if gt .DisputeCount 0}}pendientes de resolver{{else}}sin disputas{{end}}</div>
-    </div>
-    <div class="stat">
-        <div class="stat-title">Incidencias</div>
-        <a href="/admin/health" class="stat-value text-2xl link link-hover {{if gt .IssueCount 0}}text-error{{end}}">{{.IssueCount}}</a>
-        <div class="stat-desc">{{if gt .IssueCount 0}}requieren atención{{else}}todo en orden{{end}}</div>
-    </div>
+<div class="flex flex-wrap gap-3 mb-6 text-sm">
+    <a href="/admin/competitions" class="flex items-center gap-1">
+        <span class="font-bold">{{len .Active}}</span> competiciones
+    </a>
+    <a href="/admin/disputes" class="flex items-center gap-1 {{if gt .DisputeCount 0}}text-error font-bold{{end}}">
+        <span class="font-bold">{{.DisputeCount}}</span> disputas
+    </a>
+    <a href="/admin/health" class="flex items-center gap-1 {{if gt .IssueCount 0}}text-warning font-bold{{end}}">
+        <span class="font-bold">{{.IssueCount}}</span> incidencias
+    </a>
 </div>
 
 <h2 class="text-lg font-semibold mb-4">Competiciones activas</h2>
@@ -38,9 +27,8 @@
     {{end}}
 </div>
 {{else}}
-<div class="text-center py-12 mb-8">
-    <p class="text-base-content/60 text-lg">No hay competiciones activas</p>
-    <p class="text-base-content/60 text-sm mt-1">Crea una nueva competición para empezar.</p>
+<div class="mb-8">
+    {{template "emptyState" "No hay competiciones activas — crea una nueva competición para empezar"}}
 </div>
 {{end}}
 

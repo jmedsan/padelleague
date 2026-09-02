@@ -94,8 +94,9 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 	data := h.buildPlayerStats(user, pairs, pairInfos)
 
 	return h.renderPage(e, "player.html", map[string]any{
-		"Data": data,
-		"Mode": PlayerFull,
+		"PageTitle": user.GetString("display_name"),
+		"Data":      data,
+		"Mode":      PlayerFull,
 	})
 }
 

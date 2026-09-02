@@ -56,22 +56,9 @@ func (h *NotificationHandler) List(e *core.RequestEvent) error {
 	out += `<h3 class="font-bold">Notificaciones</h3>`
 	out += `<button hx-post="/notifications/read-all" hx-swap="none" class="btn btn-ghost btn-xs">Marcar todas</button>`
 	out += `</div>`
-
-	if len(records) == 0 {
-		out += `<p class="text-sm text-base-content/50">No tienes notificaciones</p>`
-	} else {
-		for _, r := range records {
-			out += fmt.Sprintf(`<div id="notif-row-%s" class="flex items-start gap-1 bg-primary/5 font-medium rounded p-1">`, r.Id)
-			out += fmt.Sprintf(`<a href="%s" hx-post="/notifications/%s/read" hx-swap="none" class="flex-1 block p-1 hover:bg-base-200 cursor-pointer rounded">`, html.EscapeString(notificationLink(r)), r.Id)
-			out += fmt.Sprintf(`<p class="text-sm">%s</p>`, html.EscapeString(r.GetString("title")))
-			if body := r.GetString("body"); body != "" {
-				out += fmt.Sprintf(`<p class="text-xs text-base-content/60">%s</p>`, html.EscapeString(league.Truncate(body, 80)))
-			}
-			out += `</a>`
-			out += fmt.Sprintf(`<button hx-post="/notifications/%s/dismiss" hx-target="#notif-row-%s" hx-swap="delete" class="btn btn-ghost btn-xs btn-circle opacity-50 hover:opacity-100" aria-label="marcar leída">&#10005;</button>`, r.Id, r.Id)
-			out += `</div>`
-		}
-	}
+	out += `<div id="notif-list">`
+	out += notificationListItems(records)
+	out += `</div>`
 
 	out += `<div class="mt-2 flex justify-between items-center">`
 	out += `<a href="/notifications/history" class="text-xs link">Ver todas →</a>`
@@ -80,6 +67,28 @@ func (h *NotificationHandler) List(e *core.RequestEvent) error {
 	out += `</div></div>`
 
 	return e.HTML(http.StatusOK, out)
+}
+
+// notificationListItems renders the bell dropdown's notification rows, or
+// its empty state — the content that both List and MarkAllRead's OOB swap
+// put inside #notif-list.
+func notificationListItems(records []*core.Record) string {
+	if len(records) == 0 {
+		return `<p class="text-sm text-base-content/50">No tienes notificaciones</p>`
+	}
+	var out string
+	for _, r := range records {
+		out += fmt.Sprintf(`<div id="notif-row-%s" class="flex items-start gap-1 bg-primary/5 font-medium rounded p-1">`, r.Id)
+		out += fmt.Sprintf(`<a href="%s" hx-post="/notifications/%s/read" hx-swap="none" class="flex-1 block p-1 hover:bg-base-200 cursor-pointer rounded">`, html.EscapeString(notificationLink(r)), r.Id)
+		out += fmt.Sprintf(`<p class="text-sm">%s</p>`, html.EscapeString(r.GetString("title")))
+		if body := r.GetString("body"); body != "" {
+			out += fmt.Sprintf(`<p class="text-xs text-base-content/60">%s</p>`, html.EscapeString(league.Truncate(body, 80)))
+		}
+		out += `</a>`
+		out += fmt.Sprintf(`<button hx-post="/notifications/%s/dismiss" hx-target="#notif-row-%s" hx-swap="delete" class="btn btn-ghost btn-xs btn-circle opacity-50 hover:opacity-100" aria-label="marcar leída">&#10005;</button>`, r.Id, r.Id)
+		out += `</div>`
+	}
+	return out
 }
 
 // Dismiss marks a notification as read and removes it from the bell.
@@ -151,6 +160,7 @@ func (h *NotificationHandler) MarkAllRead(e *core.RequestEvent) error {
 
 	out := `<span id="notif-badge" hx-swap-oob="innerHTML"></span>`
 	out += `<span id="notif-badge-mobile" hx-swap-oob="innerHTML"></span>`
+	out += fmt.Sprintf(`<div id="notif-list" hx-swap-oob="innerHTML">%s</div>`, notificationListItems(nil))
 	return e.HTML(http.StatusOK, out)
 }
 
@@ -165,6 +175,7 @@ func (h *NotificationHandler) History(e *core.RequestEvent) error {
 	}
 
 	return h.renderPage(e, "notification-history.html", map[string]any{
+		"PageTitle":     "Notificaciones",
 		"Notifications": records,
 	})
 }
@@ -174,7 +185,8 @@ func (h *NotificationHandler) Prefs(e *core.RequestEvent) error {
 	prefs := notify.NotificationPrefs(e.Auth)
 
 	return h.renderPage(e, "notification-prefs.html", map[string]any{
-		"Prefs": prefs,
+		"PageTitle": "Preferencias",
+		"Prefs":     prefs,
 	})
 }
 
