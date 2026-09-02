@@ -6,7 +6,7 @@
     <form hx-post="/admin/competitions/{{.CompetitionID}}/penalty" class="inline">
         <input type="hidden" name="action" value="remove">
         <input type="hidden" name="penalty_id" value="{{.Penalty.ID}}">
-        <button type="submit" class="btn btn-ghost btn-xs btn-circle opacity-50" aria-label="quitar penalización">&#10005;</button>
+        <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs btn-circle opacity-50" aria-label="quitar penalización">&#10005;</button>
     </form>
 </div>
 {{end}}

@@ -28,7 +28,7 @@
                     <td class="text-right">
                         <button class="btn btn-ghost btn-xs" onclick="document.getElementById('modal-edit-venue-{{.Id}}').showModal()">Editar</button>
                         <form hx-post="/admin/venues/{{.Id}}/delete" hx-confirm="¿Eliminar este club?">
-                            <button type="submit" class="btn btn-ghost btn-xs text-error">Eliminar</button>
+                            <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs text-error">Eliminar</button>
                         </form>
                     </td>
                 </tr>
@@ -57,7 +57,7 @@
                 <input type="text" name="address" value="{{.GetString "address"}}" class="input input-bordered w-full">
             </div>
             <div class="modal-action">
-                <button type="submit" class="btn btn-primary">Guardar</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Guardar</button>
             </div>
         </form>
     </div>
@@ -80,7 +80,7 @@
                 <input type="text" name="address" class="input input-bordered w-full" placeholder="Dirección">
             </div>
             <div class="modal-action">
-                <button type="submit" class="btn btn-primary">Crear</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Crear</button>
             </div>
         </form>
     </div>

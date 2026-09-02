@@ -73,7 +73,7 @@
             </div>
             <div class="modal-action">
                 <label for="edit-modal" class="btn btn-ghost">Cancelar</label>
-                <button type="submit" class="btn btn-primary">Guardar</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Guardar</button>
             </div>
         </form>
     </div>
@@ -155,7 +155,7 @@
     <div class="collapse-content">
         {{if .HasUnpaid}}
         <form hx-post="/admin/competitions/{{.Competition.Id}}/payment-all" class="mb-3">
-            <button type="submit" class="btn btn-success btn-sm gap-2">
+            <button type="submit" hx-disabled-elt="this" class="btn btn-success btn-sm gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
                 Marcar todos como pagado
             </button>
@@ -201,7 +201,7 @@
                         <td class="text-right">
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja?" class="inline">
                                 <input type="hidden" name="pair_id" value="{{.PairID}}">
-                                <button type="submit" class="btn btn-ghost btn-xs text-error">Quitar</button>
+                                <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs text-error">Quitar</button>
                             </form>
                         </td>
                     </tr>
@@ -237,7 +237,7 @@
             </label>
             <div class="modal-action">
                 <label for="penalty-modal-{{.PairID}}" class="btn">Cancelar</label>
-                <button type="submit" class="btn btn-warning">Confirmar penalización</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-warning">Confirmar penalización</button>
             </div>
         </form>
     </div>
@@ -264,7 +264,7 @@
                     {{if not .IsLeague}}
                     <input type="number" name="seed" class="input input-bordered input-sm w-full mt-2" placeholder="Cabeza de serie" min="1">
                     {{end}}
-                    <button type="submit" class="btn btn-primary btn-sm w-full mt-2">Añadir</button>
+                    <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm w-full mt-2">Añadir</button>
                 </form>
             </div>
 
@@ -278,7 +278,7 @@
                         <option value="{{.Id}}">{{.GetString "name"}}</option>
                         {{end}}
                     </select>
-                    <button type="submit" class="btn btn-accent btn-sm w-full mt-2">Copiar</button>
+                    <button type="submit" hx-disabled-elt="this" class="btn btn-accent btn-sm w-full mt-2">Copiar</button>
                 </form>
             </div>
 
@@ -299,7 +299,7 @@
                         <option value="{{.Id}}">{{.GetString "display_name"}}</option>
                         {{end}}
                     </select>
-                    <button type="submit" class="btn btn-secondary btn-sm w-full mt-2">Crear</button>
+                    <button type="submit" hx-disabled-elt="this" class="btn btn-secondary btn-sm w-full mt-2">Crear</button>
                 </form>
             </div>
         </div>
@@ -326,7 +326,7 @@
             </div>
             {{end}}
             <div class="mt-3">
-                <button type="submit" class="btn btn-primary btn-sm">Guardar fechas</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm">Guardar fechas</button>
             </div>
         </form>
     </div>
@@ -382,7 +382,7 @@
                     {{end}}
                 </select>
             </div>
-            <button type="submit" class="btn btn-primary btn-sm">Adjuntar</button>
+            <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm">Adjuntar</button>
         </form>
         {{end}}
     </div>
@@ -450,7 +450,7 @@
                         <td>
                             {{if eq (.GetString "status") "pending"}}
                             <form hx-post="/admin/invitations/{{.Id}}/revoke" hx-confirm="¿Revocar esta invitación?">
-                                <button type="submit" class="btn btn-ghost btn-xs text-error">Revocar</button>
+                                <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs text-error">Revocar</button>
                             </form>
                             {{end}}
                         </td>
@@ -483,7 +483,7 @@
                         Copiar
                     </button>
                     <form hx-post="/admin/invitations/{{.Id}}/revoke" hx-confirm="¿Revocar esta invitación?">
-                        <button type="submit" class="btn btn-outline btn-sm text-error">Revocar</button>
+                        <button type="submit" hx-disabled-elt="this" class="btn btn-outline btn-sm text-error">Revocar</button>
                     </form>
                 </div>
                 {{end}}
@@ -521,7 +521,7 @@
                 <input type="number" id="invite-expiration" name="expiration_days" class="input input-bordered w-full" value="7" min="1">
             </div>
             <div class="modal-action">
-                <button type="submit" class="btn btn-primary">Crear invitación</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Crear invitación</button>
             </div>
         </form>
     </div>
@@ -573,7 +573,7 @@ function copyInviteLink(token, btn) {
             <div class="form-control">
                 <textarea name="body" placeholder="Mensaje para todos los jugadores" class="textarea textarea-bordered w-full" rows="3" required></textarea>
             </div>
-            <button type="submit" class="btn btn-primary btn-sm">Enviar anuncio</button>
+            <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm">Enviar anuncio</button>
         </form>
     </div>
 </div>

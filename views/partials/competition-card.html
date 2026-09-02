@@ -59,7 +59,7 @@
             <a href="{{.URL}}" data-testid="setup-configure" class="btn btn-outline btn-xs">Configurar</a>
             {{if .Setup.Ready}}
             <form hx-post="/admin/competitions/{{.Competition.Id}}/toggle">
-                <button type="submit" class="btn btn-success btn-xs">Activar</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-success btn-xs">Activar</button>
             </form>
             {{end}}
         </div>

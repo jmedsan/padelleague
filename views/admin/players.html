@@ -117,7 +117,7 @@
             </div>
             <div class="modal-action">
                 <label for="edit-player-{{.Id}}" class="btn btn-ghost">Cancelar</label>
-                <button type="submit" class="btn btn-primary">Guardar</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Guardar</button>
             </div>
         </form>
     </div>
@@ -155,7 +155,7 @@
             </div>
             <div class="modal-action">
                 <label for="precreate-modal" class="btn btn-ghost">Cancelar</label>
-                <button type="submit" class="btn btn-primary">Crear</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Crear</button>
             </div>
         </form>
     </div>

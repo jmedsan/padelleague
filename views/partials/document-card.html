@@ -19,7 +19,7 @@
     <td class="text-right">
         {{if and .Mode.Admin .Mode.Editable}}
         <form hx-post="/admin/competitions/{{.CompetitionID}}/detach-doc/{{.Document.Id}}" hx-confirm="¿Quitar este documento de la competición?" class="inline">
-            <button type="submit" class="btn btn-ghost btn-xs text-error">Quitar</button>
+            <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs text-error">Quitar</button>
         </form>
         {{end}}
     </td>
@@ -52,7 +52,7 @@
         {{if and .Mode.Admin .Mode.Editable}}
         <button class="btn btn-ghost btn-xs" onclick="document.getElementById('modal-edit-doc-{{.Document.Id}}').showModal()">Editar</button>
         <form hx-post="/admin/documents/{{.Document.Id}}/delete" hx-confirm="¿Eliminar este documento?">
-            <button type="submit" class="btn btn-ghost btn-xs text-error">Eliminar</button>
+            <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs text-error">Eliminar</button>
         </form>
         {{end}}
     </div>
@@ -84,7 +84,7 @@
     </div>
     {{if and .Mode.Admin .Mode.Editable}}
     <form hx-post="/admin/competitions/{{.CompetitionID}}/detach-doc/{{.Document.Id}}" hx-confirm="¿Quitar este documento de la competición?" class="flex-none">
-        <button type="submit" class="btn btn-ghost btn-sm text-error">Quitar</button>
+        <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm text-error">Quitar</button>
     </form>
     {{end}}
 </div>

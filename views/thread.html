@@ -43,7 +43,7 @@
                     <input type="text" name="court_number" class="input input-bordered input-sm" placeholder="Ej: 3">
                 </div>
             </div>
-            <button type="submit" class="btn btn-primary btn-sm">Asignar fecha</button>
+            <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm">Asignar fecha</button>
         </form>
         {{else}}
         <div class="alert bg-base-200 text-sm opacity-60">
@@ -117,7 +117,7 @@
             <form hx-post="/match/{{.MatchID}}/thread/message" hx-target="body" class="flex gap-2">
                 <input type="hidden" name="type" value="chat">
                 <input type="text" name="content" class="input input-bordered input-sm flex-1" placeholder="Escribe un mensaje..." required>
-                <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm">Enviar</button>
             </form>
         </div>
         {{end}}
@@ -149,7 +149,7 @@
     <div id="venue-text-wrap" class="form-control mt-2 hidden">
         <input type="text" name="venue_text" class="input input-bordered input-sm" placeholder="Nombre del club">
     </div>
-    <button type="submit" class="btn btn-primary btn-sm w-full mt-3">Proponer fecha</button>
+    <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm w-full mt-3">Proponer fecha</button>
 </form>
 <script>
 (function() {
