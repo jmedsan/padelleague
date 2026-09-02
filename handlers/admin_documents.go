@@ -29,6 +29,7 @@ func (h *DocumentHandler) Documents(e *core.RequestEvent) error {
 		docViews[i] = NewDocumentView(d, AdminFull)
 	}
 	return h.renderPage(e, "admin/documents.html", map[string]any{
+		"PageTitle":     "Documentos",
 		"Documents":     docs,
 		"DocumentViews": docViews,
 	})

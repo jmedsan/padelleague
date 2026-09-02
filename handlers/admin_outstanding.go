@@ -14,6 +14,7 @@ func (h *InvitationHandler) Outstanding(e *core.RequestEvent) error {
 	matches := league.OutstandingMatches(h.app, time.Now())
 
 	return h.renderPage(e, "admin/outstanding.html", map[string]any{
-		"Matches": matches,
+		"PageTitle": "Partidos pendientes",
+		"Matches":   matches,
 	})
 }

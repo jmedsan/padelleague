@@ -71,7 +71,7 @@ type PendingAction struct {
 
 // Home renders the player's dashboard with competitions, next match, and actions.
 func (h *PublicHandler) Home(e *core.RequestEvent) error {
-	data := map[string]any{}
+	data := map[string]any{"PageTitle": "Inicio"}
 
 	activeComps, _ := h.app.FindRecordsByFilter("competitions",
 		"active = true", "name", 0, 0, nil)
@@ -140,26 +140,16 @@ func (h *PublicHandler) addAdminHomeData(data map[string]any, activeComps []*cor
 	data["PlayoffPrompts"] = league.PlayoffPrompts(h.app, activeComps, time.Now())
 }
 
-// UrgentHealthItem is a compact home-page row: one HealthItem plus the
-// category label it belongs to (disputes/walkovers only — see
-// urgentHealthItems). Deliberately not a MatchCard: the home alert strip is
-// a row, not a full match card.
-type UrgentHealthItem struct {
-	league.HealthItem
-	CategoryTitle string
-}
-
 // urgentHealthItems flattens HealthReport's urgent categories (disputes,
-// walkovers) into the compact rows the home page shows admins.
-func urgentHealthItems(categories []league.HealthCategory) []UrgentHealthItem {
-	var out []UrgentHealthItem
+// walkovers) into the compact rows the home page shows admins, rendered via
+// the shared healthItemRow partial.
+func urgentHealthItems(categories []league.HealthCategory) []league.HealthItem {
+	var out []league.HealthItem
 	for _, cat := range categories {
 		if !cat.Urgent {
 			continue
 		}
-		for _, item := range cat.Items {
-			out = append(out, UrgentHealthItem{HealthItem: item, CategoryTitle: cat.Title})
-		}
+		out = append(out, cat.Items...)
 	}
 	return out
 }

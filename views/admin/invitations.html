@@ -1,7 +1,7 @@
 {{define "content"}}
 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
     <div>
-        <a href="/admin" class="link link-hover text-sm opacity-60">&larr; Panel de administración</a>
+        <a href="/admin/competitions" class="link link-hover text-sm opacity-60">← Competiciones</a>
         <h1 class="text-2xl font-bold mt-1">Invitaciones</h1>
     </div>
     <button class="btn btn-primary btn-sm sm:btn-md" onclick="document.getElementById('modal-create').showModal()">
@@ -31,7 +31,7 @@
                         <span class="text-sm">{{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="badge badge-info badge-sm">Enlace genérico</span>{{end}}</span>
                     </td>
                     <td class="hidden sm:table-cell text-sm opacity-60">
-                        {{if .GetString "competition"}}Asignada{{else}}-{{end}}
+                        {{if .GetString "competition"}}{{index $.CompetitionNames (.GetString "competition")}}{{else}}-{{end}}
                     </td>
                     <td>
                         {{if eq (.GetString "status") "pending"}}

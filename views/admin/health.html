@@ -1,40 +1,30 @@
 {{define "content"}}
 <div class="mb-6">
-    <a href="/admin" class="btn btn-ghost btn-sm">← Panel</a>
-    <h1 class="text-2xl font-bold mt-2">Salud de la liga</h1>
+    <a href="/admin/competitions" class="link link-hover text-sm opacity-60">← Competiciones</a>
+    <h1 class="text-2xl font-bold mt-1">Salud</h1>
 </div>
 
+{{if .AllEmpty}}
+{{template "emptyState" "Sin incidencias — todo en orden"}}
+{{else}}
 <div class="grid gap-4">
     {{range .Categories}}
+    {{if .Items}}
     <div class="card bg-base-100 shadow-sm">
         <div class="card-body p-4">
             <h2 class="card-title text-base">
-                <a href="{{.ListURL}}" class="link link-hover">{{.Title}}</a>
-                <span class="badge {{if .Items}}badge-warning{{else}}badge-success{{end}} badge-sm">{{len .Items}}</span>
+                {{if .ListURL}}<a href="{{.ListURL}}" class="link link-hover">{{.Title}}</a>{{else}}{{.Title}}{{end}}
+                <span class="badge badge-warning badge-sm">{{len .Items}}</span>
             </h2>
-            {{if .Items}}
             <div class="space-y-1 mt-2">
                 {{range .Items}}
-                {{if .MatchID}}
-                <a href="/match/{{.MatchID}}" class="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-base-200 transition-colors">
-                    <span class="flex-1 truncate">{{.Pair1}} vs {{.Pair2}} — {{.CompName}} J{{.Round}}</span>
-                    <span class="text-xs opacity-60 whitespace-nowrap">{{.Detail}}</span>
-                    {{if .Warning}}{{template "warningBadge" .Warning}}{{end}}
-                    {{if .Recovery}}<span class="badge badge-sm badge-secondary" data-testid="recovery-badge">En recuperación</span>{{end}}
-                </a>
-                {{else}}
-                <a href="/admin/competitions/{{.CompID}}" class="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-base-200 transition-colors">
-                    <span class="flex-1 truncate">{{.Pair1}} — {{.CompName}}</span>
-                    <span class="text-xs opacity-60 whitespace-nowrap">{{.Detail}}</span>
-                </a>
-                {{end}}
+                {{template "healthItemRow" (dict "Item" . "ShowCategory" false)}}
                 {{end}}
             </div>
-            {{else}}
-            <p class="text-sm text-base-content/60 mt-1">Sin pendientes</p>
-            {{end}}
         </div>
     </div>
     {{end}}
+    {{end}}
 </div>
+{{end}}
 {{end}}

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -109,6 +110,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	mc.Venues = venues
 
 	return h.renderPage(e, "match.html", map[string]any{
+		"PageTitle":       matchPageTitle(mc),
 		"Card":            mc,
 		"CompetitionName": compName,
 		"CompetitionID":   compID,
@@ -116,6 +118,20 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		"ShareText":       shareText,
 		"ShareURL":        shareURL,
 	})
+}
+
+// matchPageTitle builds the browser-tab title from the match's pair names,
+// falling back to the same "Por definir" placeholder the page header uses
+// for a not-yet-decided playoff slot.
+func matchPageTitle(mc MatchCard) string {
+	p1, p2 := mc.Pair1Name, mc.Pair2Name
+	if p1 == "" {
+		p1 = cmp.Or(mc.Feeder1, "Por definir")
+	}
+	if p2 == "" {
+		p2 = cmp.Or(mc.Feeder2, "Por definir")
+	}
+	return p1 + " vs " + p2
 }
 
 // MatchSubmit processes a score submission from one of the participating pairs.

@@ -32,7 +32,8 @@ func (h *DisputeHandler) Disputes(e *core.RequestEvent) error {
 	}
 
 	return h.renderPage(e, "admin/disputes.html", map[string]any{
-		"Cards": cards,
+		"PageTitle": "Disputas",
+		"Cards":     cards,
 	})
 }
 
