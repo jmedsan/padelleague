@@ -93,7 +93,9 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		compModifiable = isAdmin || league.PlayerCanModify(comp, time.Now())
 	}
 	td := h.buildThreadData(match, matchID, myTeam, compModifiable)
-	venues, _ := h.app.FindRecordsByFilter("venues", "id != ''", "name", 0, 0, nil)
+	venues := findRecordsLogged(h.app, "Thread: find venues", RecordQuery{
+		Collection: "venues", Filter: "id != ''", Sort: "name",
+	})
 	canPropose := isParticipant && league.IsPreScore(match.GetString("status")) && !isPlayoff && compModifiable
 
 	resultCard := h.buildResultCard(match, e.Auth.Id, isAdmin, compModifiable)
@@ -424,10 +426,10 @@ func (h *ThreadHandler) dispatchProposalAction(e *core.RequestEvent, match, msg 
 }
 
 func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
-	existing, _ := h.app.FindRecordsByFilter("match_messages",
-		"match = {:mid} && proposal_status = 'accepted'",
-		"", 0, 0,
-		map[string]any{"mid": match.Id})
+	existing := findRecordsLogged(h.app, "acceptProposal: find accepted proposals", RecordQuery{
+		Collection: "match_messages", Filter: "match = {:mid} && proposal_status = 'accepted'",
+		Params: map[string]any{"mid": match.Id},
+	})
 	if len(existing) > 0 && match.GetString("status") != league.StatusScheduled {
 		return alertError(e, "Ya hay una propuesta aceptada para este partido")
 	}
@@ -555,10 +557,11 @@ func (h *ThreadHandler) acceptResultProposal(e *core.RequestEvent, match, msg *c
 }
 
 func (h *ThreadHandler) supersedePendingResults(matchID, excludeMsgID string) {
-	pending, _ := h.app.FindRecordsByFilter("match_messages",
-		"match = {:mid} && type = 'result_submission' && proposal_status = 'pending' && id != {:eid}",
-		"", 0, 0,
-		map[string]any{"mid": matchID, "eid": excludeMsgID})
+	pending := findRecordsLogged(h.app, "supersedePendingResults: find pending results", RecordQuery{
+		Collection: "match_messages",
+		Filter:     "match = {:mid} && type = 'result_submission' && proposal_status = 'pending' && id != {:eid}",
+		Params:     map[string]any{"mid": matchID, "eid": excludeMsgID},
+	})
 	for _, p := range pending {
 		p.Set("proposal_status", "superseded")
 		if err := h.app.Save(p); err != nil {
@@ -629,10 +632,11 @@ func (h *ThreadHandler) resolveVenue(venueID, venueText string) (string, string)
 }
 
 func (h *ThreadHandler) supersedePending(matchID, excludeMsgID string) error {
-	otherPending, _ := h.app.FindRecordsByFilter("match_messages",
-		"match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'pending' && id != {:msgid}",
-		"", 0, 0,
-		map[string]any{"mid": matchID, "msgid": excludeMsgID})
+	otherPending := findRecordsLogged(h.app, "supersedePending: find pending scheduling proposals", RecordQuery{
+		Collection: "match_messages",
+		Filter:     "match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'pending' && id != {:msgid}",
+		Params:     map[string]any{"mid": matchID, "msgid": excludeMsgID},
+	})
 	var failedIDs []string
 	for _, other := range otherPending {
 		other.Set("proposal_status", "superseded")
@@ -687,10 +691,10 @@ func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.
 }
 
 func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
-	existing, _ := h.app.FindRecordsByFilter("match_messages",
-		"match = {:mid} && proposal_status = 'accepted'",
-		"", 1, 0,
-		map[string]any{"mid": match.Id})
+	existing := findRecordsLogged(h.app, "changeToAccepted: find accepted proposals", RecordQuery{
+		Collection: "match_messages", Filter: "match = {:mid} && proposal_status = 'accepted'",
+		Limit: 1, Params: map[string]any{"mid": match.Id},
+	})
 	if len(existing) > 0 {
 		return alertError(e, "Ya hay otra propuesta aceptada")
 	}
