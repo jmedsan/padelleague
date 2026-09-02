@@ -785,6 +785,37 @@ func TestMatchSubmitRejectsWithoutDateOrPlace(t *testing.T) {
 	s.Test(t)
 }
 
+// R-5: an admin must not be able to submit a score for a playoff match whose
+// pairs are not yet assigned (round 2+ before the previous round finishes).
+func TestMatchSubmitRejectsWithoutBothPairs(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /match/{id}/submit rejects when pairs are not assigned",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"parejas asignadas"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Empty A")
+		p2 := makePairTB(tb, app, "Empty B")
+		comp := makeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, "", "", "pending")
+		m.Set("date", "2026-09-01")
+		m.Set("club", "Padel 360")
+		require.NoError(tb, app.Save(m))
+
+		s.URL = "/match/" + m.Id + "/submit"
+		s.Body = strings.NewReader("scores=6-3+6-4")
+		admin := makeAdminUserTB(tb, app)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
 func TestAdminOverrideCourtNumber(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

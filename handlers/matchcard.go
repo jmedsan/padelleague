@@ -90,6 +90,11 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 	if mode.Editable && mode.Admin {
 		c.fillAdminScoreVMs(match)
 	}
+	if c.Pair1Name == "" || c.Pair2Name == "" {
+		if prevRound, matchIdx, _, ok := league.PlayoffFeederInfo(app, match); ok {
+			c.PopulateFeeder(prevRound, matchIdx)
+		}
+	}
 	return c
 }
 

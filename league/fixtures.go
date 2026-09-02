@@ -107,6 +107,60 @@ func (svc *Service) AdvancePlayoff(matchRecord *core.Record) error {
 	return nil
 }
 
+// PlayoffMaxRound returns a playoff competition's final round number. ok is
+// false for non-playoff competitions or ones with no matches yet.
+func PlayoffMaxRound(app core.App, comp *core.Record) (maxRound int, ok bool) {
+	if comp.GetString("type") != "playoff" {
+		return 0, false
+	}
+	allMatches, _ := app.FindRecordsByFilter("matches",
+		"competition = {:cid}", "-round_number", 1, 0,
+		map[string]any{"cid": comp.Id})
+	if len(allMatches) == 0 {
+		return 0, false
+	}
+	return int(allMatches[0].GetFloat("round_number")), true
+}
+
+// PlayoffFeederInfo returns the previous round number, this match's
+// zero-based index within its round (sorted by creation, matching
+// AdvancePlayoff's seeding order), and the bracket's final round number.
+// ok is false for non-playoff competitions or round 1 (no previous round to
+// feed from).
+func PlayoffFeederInfo(app core.App, match *core.Record) (prevRound, matchIdx, maxRound int, ok bool) {
+	compID := match.GetString("competition")
+	comp, err := app.FindRecordById("competitions", compID)
+	if err != nil {
+		return 0, 0, 0, false
+	}
+
+	currentRound := int(match.GetFloat("round_number"))
+	if currentRound <= 1 {
+		return 0, 0, 0, false
+	}
+
+	max, ok := PlayoffMaxRound(app, comp)
+	if !ok {
+		return 0, 0, 0, false
+	}
+
+	roundMatches, _ := app.FindRecordsByFilter("matches",
+		"competition = {:cid} && round_number = {:rn}", "created", 0, 0,
+		map[string]any{"cid": compID, "rn": currentRound})
+	idx := -1
+	for i, m := range roundMatches {
+		if m.Id == match.Id {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		return 0, 0, 0, false
+	}
+
+	return currentRound - 1, idx, max, true
+}
+
 func seedNextMatch(nm *core.Record, winners []string, matchIdx int) {
 	p1Idx := matchIdx * 2
 	p2Idx := matchIdx*2 + 1
