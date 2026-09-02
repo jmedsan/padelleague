@@ -1,5 +1,8 @@
 {{define "content"}}
-<h1 class="text-2xl font-bold mb-6">Partidos pendientes</h1>
+<div class="mb-6">
+    <a href="/admin/competitions" class="link link-hover text-sm opacity-60">← Competiciones</a>
+    <h1 class="text-2xl font-bold mt-1">Partidos pendientes</h1>
+</div>
 
 {{if .Matches}}
 <div data-testid="outstanding-list">
@@ -35,7 +38,7 @@
 </div>
 {{else}}
 <div data-testid="outstanding-list">
-    <p class="text-sm text-base-content/60 text-center py-8">No hay partidos pendientes</p>
+    {{template "emptyState" "No hay partidos pendientes"}}
 </div>
 {{end}}
 {{end}}

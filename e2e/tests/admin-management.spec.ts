@@ -55,7 +55,7 @@ test.describe('admin management', () => {
   test('admin can view disputes page', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await navToAdmin(page, '/admin/disputes');
-    await expect(page.getByRole('heading', { name: 'Disputas pendientes' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Disputas' })).toBeVisible();
   });
 
   test('admin can create invitation', async ({ page }) => {

@@ -28,7 +28,7 @@ test('login with invalid credentials shows error', async ({ page }) => {
 test('player cannot access admin page', async ({ page }) => {
   await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
   await page.goto('/admin');
-  await expect(page.getByText('Panel de administración')).not.toBeVisible({ timeout: 3000 });
+  await expect(page.getByRole('heading', { name: 'Competiciones' })).not.toBeVisible({ timeout: 3000 });
 });
 
 test('logout redirects to login', async ({ page }) => {

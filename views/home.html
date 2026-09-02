@@ -61,15 +61,7 @@
     <h2 class="text-lg font-bold mb-3">Alertas</h2>
     <div class="space-y-2">
         {{range .UrgentItems}}
-        <a href="/match/{{.MatchID}}" class="flex items-center gap-3 p-3 rounded-xl bg-error/10 hover:bg-error/20 transition-colors">
-            <div class="flex-1 min-w-0">
-                <p class="font-medium text-sm">{{.Pair1}} vs {{.Pair2}}</p>
-                <p class="text-xs opacity-60">{{.CompName}} J{{.Round}}</p>
-            </div>
-            <span class="badge badge-sm badge-error whitespace-nowrap">{{.CategoryTitle}}</span>
-            {{if .Recovery}}<span class="badge badge-sm badge-secondary" data-testid="recovery-badge">En recuperación</span>{{end}}
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 opacity-40 flex-none"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
-        </a>
+        {{template "healthItemRow" (dict "Item" . "ShowCategory" true)}}
         {{end}}
     </div>
 </div>
@@ -137,9 +129,7 @@
     </div>
 </div>
 {{else if .Competitions}}
-<div class="mb-6">
-    <p class="text-sm text-base-content/50 text-center py-4">Aún no hay resultados — los partidos irán apareciendo aquí</p>
-</div>
+{{template "emptyState" "Aún no hay resultados — los partidos irán apareciendo aquí"}}
 {{end}}
 
 {{if eq .CompCount 0}}

@@ -36,9 +36,20 @@ func (h *InvitationHandler) InvitationsList(e *core.RequestEvent) error {
 	competitions, _ := h.app.FindRecordsByFilter("competitions",
 		"active = true", "name", 0, 0, nil)
 
+	competitionNames := make(map[string]string, len(invitations))
+	for _, inv := range invitations {
+		if cid := inv.GetString("competition"); cid != "" {
+			if comp, err := h.app.FindRecordById("competitions", cid); err == nil {
+				competitionNames[cid] = comp.GetString("name")
+			}
+		}
+	}
+
 	return h.renderPage(e, "admin/invitations.html", map[string]any{
-		"Invitations":  invitations,
-		"Competitions": competitions,
+		"PageTitle":        "Invitaciones",
+		"Invitations":      invitations,
+		"Competitions":     competitions,
+		"CompetitionNames": competitionNames,
 	})
 }
 

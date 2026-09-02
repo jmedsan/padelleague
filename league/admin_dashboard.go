@@ -38,7 +38,11 @@ type AdminAlert struct {
 }
 
 // HealthItem is one entry inside a HealthCategory: a match needing attention,
-// or (for the unpaid category) a pair with an outstanding balance.
+// or (for the unpaid category) a pair with an outstanding balance. Urgent and
+// CategoryTitle mirror the parent HealthCategory's fields, set by
+// HealthReport once every item is classified — so a HealthItem carries
+// enough context to render standalone (e.g. the home page's flattened
+// urgent-only list) without needing its parent category alongside it.
 type HealthItem struct {
 	MatchID  string // empty for unpaid items, which are per-pair not per-match
 	CompID   string
@@ -49,6 +53,9 @@ type HealthItem struct {
 	Detail   string
 	Warning  Warning
 	Recovery bool
+
+	Urgent        bool
+	CategoryTitle string
 }
 
 // HealthCategory groups every HealthItem of one kind for the admin health
@@ -69,7 +76,7 @@ var healthCategoryDefs = []HealthCategory{
 	{Key: "walkovers", Title: "Incomparecencias", ListURL: "/admin/outstanding", Urgent: true},
 	{Key: "overdue", Title: "Vencidos", ListURL: "/admin/outstanding"},
 	{Key: "unscheduled", Title: "Sin fecha", ListURL: "/admin/outstanding"},
-	{Key: "unpaid", Title: "Parejas sin pagar", ListURL: "/admin/health"},
+	{Key: "unpaid", Title: "Parejas sin pagar"},
 }
 
 // HealthReport merges every admin-facing match/payment issue across active
@@ -96,6 +103,10 @@ func HealthReport(app core.App, now time.Time) []HealthCategory {
 	addUnpaidHealth(app, activeComps, categories["unpaid"])
 
 	for i := range report {
+		for j := range report[i].Items {
+			report[i].Items[j].Urgent = report[i].Urgent
+			report[i].Items[j].CategoryTitle = report[i].Title
+		}
 		sortHealthItems(report[i].Items)
 	}
 	return report
@@ -315,6 +326,7 @@ func buildSetup(app core.App, c *core.Record) CompSetup {
 // warning level for the admin outstanding-matches view.
 type OutstandingMatch struct {
 	MatchID          string
+	CompetitionID    string
 	CompetitionName  string
 	RoundNumber      int
 	Pair1ID, Pair2ID string
@@ -359,6 +371,7 @@ func outstandingForComp(app core.App, c *core.Record, now time.Time) []Outstandi
 		p1, p2 := pairNamesForMatch(app, m)
 		om := OutstandingMatch{
 			MatchID:         m.Id,
+			CompetitionID:   c.Id,
 			CompetitionName: compName,
 			RoundNumber:     m.GetInt("round_number"),
 			Pair1ID:         m.GetString("pair1"),

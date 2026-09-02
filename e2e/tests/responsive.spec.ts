@@ -121,7 +121,7 @@ test.describe('responsive - no horizontal overflow', () => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await navViaDrawer(page, '/admin/disputes');
     await checkNoOverflow(page);
-    await expect(page.getByRole('heading', { name: 'Disputas pendientes' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Disputas' })).toBeVisible();
   });
 
   test('player profile', async ({ page }) => {

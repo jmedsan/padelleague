@@ -26,7 +26,8 @@ func NewAdminSettingsHandler(app core.App, devTools bool, staticFS fs.FS, render
 // Settings renders the admin settings page.
 func (h *AdminSettingsHandler) Settings(e *core.RequestEvent) error {
 	return h.renderPage(e, "admin/settings.html", map[string]any{
-		"DevMode": h.devTools,
+		"PageTitle": "Configuración",
+		"DevMode":   h.devTools,
 	})
 }
 

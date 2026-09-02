@@ -48,6 +48,7 @@ func (h *CompetitionDashboardHandler) Dashboard(e *core.RequestEvent) error {
 	disputeCount, issueCount := healthCounts(league.HealthReport(h.app, time.Now()))
 
 	return h.renderPage(e, "admin/competitions.html", map[string]any{
+		"PageTitle":    "Competiciones",
 		"Active":       active,
 		"Inactive":     inactive,
 		"DisputeCount": disputeCount,

@@ -33,6 +33,7 @@ func (h *AdminPlayerHandler) Players(e *core.RequestEvent) error {
 		"status = 'pending'", "", 0, 0, nil)
 
 	return h.renderPage(e, "admin/players.html", map[string]any{
+		"PageTitle":      "Jugadores",
 		"Players":        players,
 		"PendingInvites": len(pendingInvites),
 		"Mode":           AdminSummary,

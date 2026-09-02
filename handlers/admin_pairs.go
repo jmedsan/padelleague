@@ -40,9 +40,10 @@ func (h *PairHandler) Pairs(e *core.RequestEvent) error {
 	users, _ := h.app.FindRecordsByFilter("users", "roles ~ 'player'", "display_name", 0, 0, nil)
 
 	return h.renderPage(e, "admin/pairs.html", map[string]any{
-		"Pairs": views,
-		"Users": users,
-		"Mode":  AdminSummary,
+		"PageTitle": "Parejas",
+		"Pairs":     views,
+		"Users":     users,
+		"Mode":      AdminSummary,
 	})
 }
 

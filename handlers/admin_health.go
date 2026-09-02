@@ -21,7 +21,17 @@ func NewAdminHealthHandler(app core.App, renderPage RenderFunc) *AdminHealthHand
 
 // Health renders the admin health dashboard.
 func (h *AdminHealthHandler) Health(e *core.RequestEvent) error {
+	categories := league.HealthReport(h.app, time.Now())
+	allEmpty := true
+	for _, cat := range categories {
+		if len(cat.Items) > 0 {
+			allEmpty = false
+			break
+		}
+	}
 	return h.renderPage(e, "admin/health.html", map[string]any{
-		"Categories": league.HealthReport(h.app, time.Now()),
+		"PageTitle":  "Salud",
+		"Categories": categories,
+		"AllEmpty":   allEmpty,
 	})
 }

@@ -53,7 +53,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 	pairNameMap := league.PairNames(h.app, pairIDs)
 
 	rounds := h.buildRoundGroups(matches, pairNameMap)
-	disputes := h.buildDisputeCards(matches)
+	disputes := compHealthItems(league.HealthReport(h.app, time.Now()), id, "disputes", "walkovers")
 	allUsers, _ := h.app.FindRecordsByFilter("users", "roles ~ 'player'", "display_name", 0, 0, nil)
 	isLeague := comp.GetString("type") == "league"
 
@@ -343,14 +343,26 @@ func (h *CompetitionHandler) buildRoundGroups(matches []*core.Record, pairNames 
 	return rounds
 }
 
-func (h *CompetitionHandler) buildDisputeCards(matches []*core.Record) []MatchCard {
-	var cards []MatchCard
-	for _, m := range matches {
-		if m.GetString("status") == league.StatusDisputed {
-			cards = append(cards, NewMatchCard(h.app, m, AdminFull, ""))
+// compHealthItems filters HealthReport's categories down to the given
+// competition and category keys, for scoping the shared healthItemRow list
+// to a single competition's detail page.
+func compHealthItems(categories []league.HealthCategory, compID string, keys ...string) []league.HealthItem {
+	wanted := make(map[string]struct{}, len(keys))
+	for _, k := range keys {
+		wanted[k] = struct{}{}
+	}
+	var items []league.HealthItem
+	for _, cat := range categories {
+		if _, ok := wanted[cat.Key]; !ok {
+			continue
+		}
+		for _, item := range cat.Items {
+			if item.CompID == compID {
+				items = append(items, item)
+			}
 		}
 	}
-	return cards
+	return items
 }
 
 // PenaltyRow is one penalty entry for the admin UI.

@@ -6,7 +6,7 @@
      component rather than folded into matchCard. */}}
 {{define "outstandingMatchDesktopRow"}}
 <tr>
-    <td>{{.CompetitionName}}</td>
+    <td><a href="/competition/{{.CompetitionID}}" class="link link-hover">{{.CompetitionName}}</a></td>
     <td>{{.RoundNumber}}</td>
     <td>{{template "pairLink" (elink .Pair1ID .Pair1)}}</td>
     <td>{{template "pairLink" (elink .Pair2ID .Pair2)}}</td>
