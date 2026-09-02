@@ -96,6 +96,17 @@ func (ix *Index) Search(query string, v Viewer, limit int) []Result {
 
 	hits := rankEntries(fq, visible)
 
+	seen := make(map[string]bool, len(hits))
+	deduped := hits[:0]
+	for _, h := range hits {
+		if seen[h.entry.URL] {
+			continue
+		}
+		seen[h.entry.URL] = true
+		deduped = append(deduped, h)
+	}
+	hits = deduped
+
 	if len(hits) > limit {
 		hits = hits[:limit]
 	}

@@ -439,7 +439,15 @@ func setSampleMatchState(txApp core.App, match *core.Record, f sampleFixture) er
 	case f.played && f.round == 5 && f.idx == 0:
 		return disputeSampleMatch(txApp, match)
 	case f.played && f.round == 5 && f.idx == 1:
-		return submitSampleScore(txApp, match, league.StatusConfirmed, "6-2 6-2")
+		sub, err := firstPlayerOfPair(txApp, match.GetString("pair1"))
+		if err != nil {
+			return err
+		}
+		match.Set("scores", "6-2 6-2")
+		match.Set("submitted_by", sub)
+		match.Set("submitted_at", time.Now().UTC().Add(-24*time.Hour).Format("2006-01-02 15:04:05.000Z"))
+		match.Set("status", league.StatusPending)
+		return nil
 	case f.played && f.round == 6 && f.idx == 0:
 		match.Set("status", league.StatusScheduled)
 		return nil
@@ -748,7 +756,7 @@ func createSampleNotifications(txApp core.App, comp *core.Record) error {
 			return err
 		}
 	}
-	if awaiting := sampleMatchByStatus(txApp, comp.Id, league.StatusConfirmed); awaiting != nil {
+	if awaiting := sampleMatchWithPendingResult(txApp, comp.Id); awaiting != nil {
 		if err := notify(playersOfPair(txApp, awaiting.GetString("pair2")),
 			"quorum_request", "Resultado por confirmar", "Tu rival ha enviado un resultado. Confírmalo o dispútalo.", awaiting.Id); err != nil {
 			return err
@@ -765,6 +773,22 @@ func sampleMatchByStatus(txApp core.App, compID, status string) *core.Record {
 		return nil
 	}
 	return ms[0]
+}
+
+func sampleMatchWithPendingResult(txApp core.App, compID string) *core.Record {
+	msgs, _ := txApp.FindRecordsByFilter("match_messages",
+		"type = 'result_submission' && proposal_status = 'pending'",
+		"", 0, 0, nil)
+	for _, msg := range msgs {
+		m, err := txApp.FindRecordById("matches", msg.GetString("match"))
+		if err != nil {
+			continue
+		}
+		if m.GetString("competition") == compID {
+			return m
+		}
+	}
+	return nil
 }
 
 func firstPlayerOfPair(txApp core.App, pairID string) (string, error) {
