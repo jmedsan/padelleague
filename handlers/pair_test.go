@@ -18,7 +18,7 @@ func TestPairPage_ShowsPlayersAndCompetition(t *testing.T) {
 		Name:            "pair page shows players, competition with position, and matches",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Dale Fuerte a la Bola"},
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {

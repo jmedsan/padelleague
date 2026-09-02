@@ -179,7 +179,7 @@ func TestGen2_PlayerProfile_FullStats(t *testing.T) {
 		Name:            "player profile shows correct partner, stats, streak, comp stats",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Dale Fuerte a la Bola"},
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -280,7 +280,7 @@ func TestGen2_PlayerProfile_DateOrdering(t *testing.T) {
 		Name:            "player profile recent matches sorted by date descending",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Dale Fuerte a la Bola"},
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -353,7 +353,7 @@ func TestGen2_PlayerProfile_DedupMultiPair(t *testing.T) {
 		Name:            "player on both pairs counts match once",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Dale Fuerte a la Bola"},
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -416,7 +416,7 @@ func TestGen2_PlayerProfile_CompetitionStats(t *testing.T) {
 		Name:            "player profile shows correct per-competition stats",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Dale Fuerte a la Bola"},
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -508,7 +508,7 @@ func TestGen2_PlayerProfile_ZeroMatches(t *testing.T) {
 		Name:            "player with no matches shows 0% win rate",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"PadelLeague"},
+		ExpectedContent: []string{"Dale Fuerte a la Bola"},
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
