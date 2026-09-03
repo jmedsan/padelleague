@@ -33,8 +33,8 @@
         {{end}}
         {{if and .Mode.Admin .Mode.Full}}
         <div class="flex gap-1 mt-1">
-            {{if .IsDefault}}<span class="badge badge-outline badge-sm">predeterminado</span>{{end}}
-            {{if .IsMandatory}}<span class="badge badge-outline badge-sm badge-soft-error">obligatorio</span>{{end}}
+            {{if .IsDefault}}<span class="badge badge-outline badge-sm">Predeterminado</span>{{end}}
+            {{if .IsMandatory}}<span class="badge badge-outline badge-sm badge-soft-error">Obligatorio</span>{{end}}
         </div>
         {{else}}
         {{if .IsMandatory}}<span class="badge badge-soft-warning badge-sm mt-1">Obligatorio</span>{{end}}
