@@ -166,6 +166,30 @@ test.describe('reference navigation tour', () => {
     await page.locator(`a:has-text("${COMP_NAME}")`).first().click();
     await page.waitForLoadState('domcontentloaded');
 
+    // Before upload: no logo image anywhere in the header (red state).
+    await expect(page.locator('img[src*="/api/files/competitions/"]')).toHaveCount(0);
+
+    // Admin uploads a competition logo via the edit modal (4x4 red JPEG,
+    // built in-memory — same approach as the avatar upload test, no fixture
+    // file needed on disk).
+    const logoJpeg = Buffer.from(
+      '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAEAAQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDk6KKK8I/Vj//Z',
+      'base64'
+    );
+    await page.locator('label[for="edit-modal"]', { hasText: 'Editar' }).click();
+    await page.waitForSelector('#comp-logo-input', { state: 'visible' });
+    await page.setInputFiles('#comp-logo-input', {
+      name: 'logo.jpg',
+      mimeType: 'image/jpeg',
+      buffer: logoJpeg,
+    });
+    // The upload's HX-Redirect triggers a full page load (not a Playwright
+    // "navigation" event in the SPA sense) — wait for the resulting img
+    // directly instead of an intermediate load-state signal.
+
+    // After upload: the competition header shows the logo image (green state).
+    await expect(page.locator('img[src*="/api/files/competitions/"]').first()).toBeVisible({ timeout: 10000 });
+
     for (const pairId of pairIds) {
       await addPairToCompetition(page, pairId);
     }
@@ -228,6 +252,14 @@ test.describe('reference navigation tour', () => {
     const scheduleDateDisplay = scheduleDate.split('-').reverse().join('/');
     await acceptScheduleProposal(page, suToken, scheduledFixture.id, scheduledOtherId, scheduleDate, '18:00', 'Padel 360');
 
+    // --- Notification shows the competition name ---
+    // scheduledOtherEmail is the proposal author; after the accept above they
+    // get a "Propuesta aceptada" notification carrying CompName.
+    await loginAs(page, scheduledOtherEmail, PLAYER_PASSWORD);
+    await page.goto('/notifications/history');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('body')).toContainText(COMP_NAME);
+
     // --- Upcoming matches section on player home ---
     await loginAs(page, PLAYERS[0].email, PLAYER_PASSWORD);
     await page.goto('/');
@@ -237,6 +269,9 @@ test.describe('reference navigation tour', () => {
     const upcomingRow = upcomingSection.locator('[data-testid="upcoming-match"]').first();
     await expect(upcomingRow).toBeVisible();
     await expect(upcomingRow).toContainText(scheduleDateDisplay);
+    // The competition logo uploaded above must also render on the player's
+    // home upcoming-match card, not just the admin competition header.
+    await expect(upcomingRow.locator('img[src*="/api/files/competitions/"]')).toBeVisible();
     await upcomingRow.click();
     await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain(`/match/${scheduledFixture.id}`);
@@ -356,7 +391,9 @@ test.describe('reference navigation tour', () => {
     await expect(page.locator('h1')).toContainText(PAIRS[0].name);
     await expect(page.locator(`table a[href="/player/${playerIds[0]}"]`)).toBeVisible();
     await expect(page.locator(`table a[href="/player/${playerIds[1]}"]`)).toBeVisible();
-    await expect(page.locator(`a[href="/competition/${competitionId}"]`)).toBeVisible();
+    // Multiple links to the competition now exist (stats table + one per
+    // history row via competitionIdentity) — any one confirms the link.
+    await expect(page.locator(`a[href="/competition/${competitionId}"]`).first()).toBeVisible();
 
     // Click player link → verify player page
     await page.locator(`table a[href="/player/${playerIds[0]}"]`).click();
@@ -372,6 +409,15 @@ test.describe('reference navigation tour', () => {
     const levelText = await page.locator('[data-testid="level-value"]').textContent();
     expect(levelText).toMatch(/^\d+(\.\d+)?$/);
     await expect(page.locator('body')).not.toContainText('Sin nivel');
+
+    // Stats tiles heading distinguishes the aggregate stats from the
+    // per-competition breakdown table below it.
+    await expect(page.getByText('Todas las competiciones')).toBeVisible();
+
+    // Match history table shows a "Competición" column so a player with
+    // matches across multiple competitions can tell them apart (the
+    // per-competition stats breakdown table has one too, hence .first()).
+    await expect(page.locator('table th', { hasText: 'Competición' }).first()).toBeVisible();
 
     // --- Step 13: Double-role (R-150) — admin+player view switcher ---
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
