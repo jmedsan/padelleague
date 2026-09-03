@@ -136,7 +136,11 @@ func buildPrecedentesView(app core.App, match *core.Record, pair1Name, pair2Name
 	if pair1ID == "" || pair2ID == "" {
 		return PrecedentesView{}
 	}
-	summary, ok := league.Precedents(app, pair1ID, pair2ID, match.GetString("competition"), match.Id)
+	summary, ok := league.Precedents(app, league.PrecedentsQuery{
+		Pair1ID: pair1ID, Pair2ID: pair2ID,
+		CompetitionID:  match.GetString("competition"),
+		ExcludeMatchID: match.Id,
+	})
 	if !ok {
 		return PrecedentesView{}
 	}
