@@ -75,6 +75,34 @@ func TestHomeGen2_NextMatchFromFirstPending(t *testing.T) {
 	s.Test(t)
 }
 
+func TestHomeGen2_NextMatchExcludedFromPendingDetails(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "next-match action's opponent is not also duplicated in the competition card's pending list",
+		Method:          http.MethodGet,
+		URL:             "/",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"NMDupOpp", "Propón una fecha"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		myPair := makePairTB(tb, app, "NMDupPair")
+		oppPair := makePairTB(tb, app, "NMDupOpp")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{myPair, oppPair})
+		makeMatchTB(tb, app, comp.Id, myPair.Id, oppPair.Id, "pending")
+
+		user, _ := app.FindRecordById("users", myPair.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Equal(tb, 1, strings.Count(body, "NMDupOpp"),
+			"opponent name should appear once (in the action card), not again in the competition card's pending list")
+	}
+	s.Test(t)
+}
+
 // Cluster 2: Pending match counting and detail cap
 
 func TestHomeGen2_PendingCountAndDetailCap(t *testing.T) {
