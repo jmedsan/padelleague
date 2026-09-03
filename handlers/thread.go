@@ -301,7 +301,7 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 	}
 
 	h.notifyProposal(match, myTeam, proposalNotice{AuthorID: e.Auth.Id, Date: pd.Date, Time: pd.Time, VenueName: pd.VenueName})
-	return redirectHX(e, "/match/"+matchID+"#mensajes")
+	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
 }
 
 type proposalNotice struct {
@@ -389,7 +389,7 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 
 	proposalStatus := msg.GetString("proposal_status")
 	if proposalStatus == "accepted" {
-		return redirectHX(e, "/match/"+matchID+"#mensajes")
+		return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
 	}
 	if proposalStatus != "pending" {
 		return alertError(e, "Esta propuesta ya fue respondida")
@@ -403,7 +403,7 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 	if err := h.dispatchProposalAction(e, match, msg, authorTeam); err != nil {
 		return err
 	}
-	return redirectHX(e, "/match/"+matchID+"#mensajes")
+	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
 }
 
 func (h *ThreadHandler) dispatchProposalAction(e *core.RequestEvent, match, msg *core.Record, authorTeam int) error {
