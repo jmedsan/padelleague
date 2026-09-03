@@ -11,8 +11,11 @@ css:
 
 VERSION ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 
-build: css
+build: css version-file
 	go build -ldflags="-X main.Version=$(VERSION)" -o padelleague .
+
+version-file:
+	@echo "$(VERSION)" > VERSION
 
 run:
 	go run . serve
