@@ -90,5 +90,27 @@ test.describe('admin settings', () => {
       page.locator('#reset-btn').click(),
     ]);
     await expect(page.locator('#reset-result')).toContainText('ejemplo');
+
+    // Sample data seeds each finalized match's proposer/confirmer with a
+    // read=true notification (createSampleNotifications in seed/sample.go).
+    // Log in as the first sample player and confirm the bell dropdown shows
+    // at least one already-read entry, not just unread ones.
+    await loginAs(page, 'sample-p1@padelleague.com', 'padel1234');
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+
+    const bellButton = isMobile(page)
+      ? page.locator('.dropdown:has(#notif-badge-mobile) button[aria-label="notificaciones"]')
+      : page.locator('.dropdown:has(#notif-dropdown) button[aria-label="notificaciones"]');
+    await bellButton.click();
+
+    const dropdown = isMobile(page)
+      ? page.locator('.dropdown:has(#notif-badge-mobile) .dropdown-content')
+      : page.locator('#notif-dropdown');
+    await expect(dropdown.locator('a')).not.toHaveCount(0);
+
+    // Unread rows carry bg-neutral/5 font-medium; a read row has neither class.
+    const readRow = dropdown.locator('a:not(.font-medium)').first();
+    await expect(readRow).toBeVisible();
   });
 });
