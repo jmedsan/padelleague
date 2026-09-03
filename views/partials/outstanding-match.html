@@ -23,7 +23,7 @@
         <div class="flex justify-between items-start">
             <div>
                 <p class="font-medium">{{.Pair1}} vs {{.Pair2}}</p>
-                <p class="text-sm opacity-60">{{template "competitionIdentity" (dict "ID" .CompetitionID "Name" .CompetitionName "Mode" (dict) "NoLink" true)}} — Jornada {{.RoundNumber}}</p>
+                <p class="text-sm opacity-60">{{template "competitionIdentity" (dict "ID" .CompetitionID "Name" .CompetitionName "Mode" (dict) "NoLink" true)}} — J{{.RoundNumber}}</p>
             </div>
             {{if .ArrangeBy}}{{template "warningBadge" .Warning}}{{end}}
         </div>
