@@ -38,4 +38,43 @@ test.describe('player profile and stats', () => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await expect(page.locator('[hx-get="/notifications/count"]').first()).toBeAttached({ timeout: 5000 });
   });
+
+  test('player can upload their own avatar photo', async ({ page }) => {
+    // "Mi perfil" only exists in the mobile drawer nav (lg:hidden) — there is
+    // no desktop affordance to one's own profile page.
+    test.skip(!isMobile(page), 'own-profile link only exists in the mobile drawer nav');
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await openDrawer(page);
+    await page.locator('.drawer-side a', { hasText: 'Mi perfil' }).click();
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('#avatar-identity')).toBeVisible();
+    await expect(page.locator('#avatar-identity .avatar.placeholder')).toBeVisible();
+
+    // 4x4 red JPEG, built in-memory — no fixture file needed on disk.
+    const redJpeg = Buffer.from(
+      '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAEAAQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDk6KKK8I/Vj//Z',
+      'base64'
+    );
+    await page.setInputFiles('#avatar-file-input', {
+      name: 'avatar.jpg',
+      mimeType: 'image/jpeg',
+      buffer: redJpeg,
+    });
+
+    await expect(page.locator('#avatar-identity img')).toBeVisible({ timeout: 10000 });
+    const src = await page.locator('#avatar-identity img').getAttribute('src');
+    expect(src).toMatch(/^\/api\/files\/users\//);
+
+    await page.reload();
+    await expect(page.locator('#avatar-identity img')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('avatar upload control is hidden when viewing another player', async ({ page }) => {
+    const data = loadTestData();
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/player/${data.player2.id}`);
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('#avatar-identity')).toBeVisible();
+    await expect(page.locator('#avatar-file-input')).toHaveCount(0);
+  });
 });

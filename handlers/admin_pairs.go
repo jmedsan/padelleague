@@ -19,9 +19,11 @@ func NewPairHandler(app core.App, renderPage RenderFunc) *PairHandler {
 
 // PairView holds a pair record with resolved player names for display.
 type PairView struct {
-	Record  *core.Record
-	Player1 string
-	Player2 string
+	Record        *core.Record
+	Player1       string
+	Player2       string
+	Player1Avatar string
+	Player2Avatar string
 }
 
 // Pairs renders the admin pairs management page.
@@ -31,9 +33,11 @@ func (h *PairHandler) Pairs(e *core.RequestEvent) error {
 	var views []PairView
 	for _, p := range pairs {
 		views = append(views, PairView{
-			Record:  p,
-			Player1: league.PlayerName(h.app, p.GetString("player1")),
-			Player2: league.PlayerName(h.app, p.GetString("player2")),
+			Record:        p,
+			Player1:       league.PlayerName(h.app, p.GetString("player1")),
+			Player2:       league.PlayerName(h.app, p.GetString("player2")),
+			Player1Avatar: league.PlayerAvatarURL(h.app, p.GetString("player1")),
+			Player2Avatar: league.PlayerAvatarURL(h.app, p.GetString("player2")),
 		})
 	}
 

@@ -5,7 +5,9 @@
 
 <div class="card bg-neutral text-neutral-content rounded-xl mb-6">
     <div class="card-body">
-        {{template "playerCardIdentity" (dict "Mode" .Mode "ID" .Data.User.Id "Name" (.Data.User.GetString "display_name") "Roles" (.Data.User.GetStringSlice "roles"))}}
+        <div id="avatar-identity">
+            {{template "avatarIdentity" (dict "Mode" .Mode "ID" .Data.User.Id "Name" (.Data.User.GetString "display_name") "Roles" (.Data.User.GetStringSlice "roles") "AvatarURL" .Data.AvatarURL "CanEditAvatar" .Data.CanEditAvatar)}}
+        </div>
     </div>
 </div>
 

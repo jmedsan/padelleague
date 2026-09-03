@@ -8,17 +8,23 @@ import (
 	"padelleague/league"
 )
 
+// PlayerRenderers bundles the render functions a PlayerHandler needs.
+type PlayerRenderers struct {
+	Page      RenderFunc
+	Partial   RenderFunc
+	ErrorPage RenderErrorFunc
+}
+
 // PlayerHandler serves player profile and head-to-head comparison pages.
 type PlayerHandler struct {
-	app             core.App
-	leagueSvc       *league.Service
-	renderPage      RenderFunc
-	renderErrorPage RenderErrorFunc
+	app       core.App
+	leagueSvc *league.Service
+	render    PlayerRenderers
 }
 
 // NewPlayerHandler creates a PlayerHandler with the given dependencies.
-func NewPlayerHandler(app core.App, leagueSvc *league.Service, renderPage RenderFunc, renderErrorPage RenderErrorFunc) *PlayerHandler {
-	return &PlayerHandler{app: app, leagueSvc: leagueSvc, renderPage: renderPage, renderErrorPage: renderErrorPage}
+func NewPlayerHandler(app core.App, leagueSvc *league.Service, render PlayerRenderers) *PlayerHandler {
+	return &PlayerHandler{app: app, leagueSvc: leagueSvc, render: render}
 }
 
 // PairInfo holds a pair record with the partner's display name.
@@ -30,9 +36,11 @@ type PairInfo struct {
 
 // PlayerData bundles a player's identity, pairs, and shared stats for the profile page.
 type PlayerData struct {
-	User  *core.Record
-	Pairs []PairInfo
-	Stats league.StatsSummary
+	User          *core.Record
+	Pairs         []PairInfo
+	Stats         league.StatsSummary
+	AvatarURL     string
+	CanEditAvatar bool
 }
 
 // Player renders the player profile page with stats and recent matches.
@@ -40,7 +48,7 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	user, err := h.app.FindRecordById("users", id)
 	if err != nil {
-		return h.renderErrorPage(e, http.StatusNotFound, "Jugador no encontrado")
+		return h.render.ErrorPage(e, http.StatusNotFound, "Jugador no encontrado")
 	}
 
 	pairs, _ := league.PairsForPlayer(h.app, user.Id)
@@ -61,12 +69,14 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 	}
 
 	data := PlayerData{
-		User:  user,
-		Pairs: pairInfos,
-		Stats: h.leagueSvc.Summarize(pairIDs),
+		User:          user,
+		Pairs:         pairInfos,
+		Stats:         h.leagueSvc.Summarize(pairIDs),
+		AvatarURL:     league.AvatarURL(user.Id, user.GetString("avatar")),
+		CanEditAvatar: e.Auth != nil && e.Auth.Id == user.Id,
 	}
 
-	return h.renderPage(e, "player.html", map[string]any{
+	return h.render.Page(e, "player.html", map[string]any{
 		"PageTitle": user.GetString("display_name"),
 		"Data":      data,
 		"Mode":      PlayerFull,
