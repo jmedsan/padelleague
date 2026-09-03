@@ -148,8 +148,9 @@ func (h *PublicHandler) aggregateHomeData(userID string, playerPairIDs map[strin
 	}
 
 	sort.Slice(agg.upcoming, func(i, j int) bool {
-		return agg.upcoming[i].RoundNumber < agg.upcoming[j].RoundNumber
+		return upcomingSortKey(agg.upcoming[i]) < upcomingSortKey(agg.upcoming[j])
 	})
+	agg.upcoming = capUpcoming(agg.upcoming, 3, time.Now())
 	sort.Slice(agg.recent, func(i, j int) bool {
 		return agg.recent[i].Match.GetString("date") > agg.recent[j].Match.GetString("date")
 	})
@@ -437,6 +438,34 @@ func excludePendingDetailsInActions(comps []CompetitionView, actions []HomeActio
 			}
 		}
 		comps[i].PendingDetails = kept
+	}
+}
+
+func capUpcoming(upcoming []NextMatch, maxCount int, now time.Time) []NextMatch {
+	twoWeeks := now.Add(14 * 24 * time.Hour)
+	var result []NextMatch
+	for _, u := range upcoming {
+		if len(result) >= maxCount {
+			break
+		}
+		if u.ProposedDate != "" {
+			if t, err := time.Parse("02/01/2006 15:04", u.ProposedDate); err == nil && t.After(twoWeeks) {
+				continue
+			}
+		}
+		result = append(result, u)
+	}
+	return result
+}
+
+func upcomingSortKey(m NextMatch) string {
+	switch m.ScheduleStatus {
+	case "confirmed":
+		return "0-" + m.ProposedDate
+	case "proposed":
+		return "1-" + m.ProposedDate
+	default:
+		return "2-" + m.CompetitionName
 	}
 }
 
