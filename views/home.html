@@ -76,19 +76,18 @@
 {{end}}
 
 {{if .RecentResults}}
-<div class="mb-6">
-    <h2 class="text-lg font-bold mb-3">Mis últimos partidos</h2>
-    <div class="space-y-2">
-        {{range .RecentResults}}
-        <a href="/match/{{.Match.Id}}" class="flex items-center gap-3 p-3 rounded-xl bg-base-200/50 hover:bg-base-200 transition-colors">
-            <div class="flex-1 min-w-0">
-                <p class="font-medium text-sm truncate">vs {{.Opponent}}</p>
-                <p class="text-xs opacity-60">{{.Score}} · {{template "competitionIdentity" (dict "Name" .CompetitionName "Mode" (dict) "NoLink" true)}}</p>
-            </div>
-            {{template "wonBadge" .}}
-        </a>
-        {{end}}
-    </div>
+<h2 class="text-lg font-bold mb-3">Mis últimos partidos</h2>
+<div class="space-y-2 mb-6">
+    {{range .RecentResults}}
+    {{template "historyMatchCard" (dict
+        "MatchID" .Match.Id
+        "Opponent" .Opponent
+        "Score" .Score
+        "Won" .Won
+        "Date" (.Match.GetString "date")
+        "CompetitionID" (.Match.GetString "competition")
+        "CompetitionName" .CompetitionName)}}
+    {{end}}
 </div>
 {{else if .Competitions}}
 {{template "emptyState" "Aún no hay resultados — los partidos irán apareciendo aquí"}}

@@ -23,16 +23,18 @@ type CompetitionStat struct {
 
 // RecentMatch holds a finalized match for a player/pair's recent-results list.
 type RecentMatch struct {
-	MatchID    string
-	Pair1ID    string
-	Pair2ID    string
-	PairName1  string
-	PairName2  string
-	OpponentID string
-	Opponent   string
-	Score      string
-	Won        bool
-	Date       string
+	MatchID         string
+	Pair1ID         string
+	Pair2ID         string
+	PairName1       string
+	PairName2       string
+	OpponentID      string
+	Opponent        string
+	Score           string
+	Won             bool
+	Date            string
+	CompetitionID   string
+	CompetitionName string
 }
 
 // StatsSummary bundles all win/loss/streak/competition/history statistics
@@ -57,15 +59,17 @@ type StatsSummary struct {
 }
 
 type matchResult struct {
-	matchID string
-	won     bool
-	isPair1 bool
-	date    string
-	p1id    string
-	p2id    string
-	p1      string
-	p2      string
-	score   string
+	matchID  string
+	won      bool
+	isPair1  bool
+	date     string
+	p1id     string
+	p2id     string
+	p1       string
+	p2       string
+	score    string
+	compID   string
+	compName string
 }
 
 type playerTotals struct {
@@ -387,23 +391,43 @@ func pairMatchResults(app core.App, pairID string) []matchResult {
 		pairIDSlice = append(pairIDSlice, pid)
 	}
 	pairNames := PairNames(app, pairIDSlice)
+	compNames := competitionNames(app, matches)
 
 	var results []matchResult
 	for _, m := range matches {
 		won := m.GetString("winner") == pairID
+		compID := m.GetString("competition")
 		results = append(results, matchResult{
-			matchID: m.Id,
-			won:     won,
-			isPair1: m.GetString("pair1") == pairID,
-			date:    m.GetString("date"),
-			p1id:    m.GetString("pair1"),
-			p2id:    m.GetString("pair2"),
-			p1:      pairNames[m.GetString("pair1")],
-			p2:      pairNames[m.GetString("pair2")],
-			score:   m.GetString("scores"),
+			matchID:  m.Id,
+			won:      won,
+			isPair1:  m.GetString("pair1") == pairID,
+			date:     m.GetString("date"),
+			p1id:     m.GetString("pair1"),
+			p2id:     m.GetString("pair2"),
+			p1:       pairNames[m.GetString("pair1")],
+			p2:       pairNames[m.GetString("pair2")],
+			score:    m.GetString("scores"),
+			compID:   compID,
+			compName: compNames[compID],
 		})
 	}
 	return results
+}
+
+// competitionNames batch-resolves the distinct competition IDs referenced by
+// matches into their display names, avoiding one query per match.
+func competitionNames(app core.App, matches []*core.Record) map[string]string {
+	idSet := make(map[string]struct{})
+	for _, m := range matches {
+		if cid := m.GetString("competition"); cid != "" {
+			idSet[cid] = struct{}{}
+		}
+	}
+	names := make(map[string]string, len(idSet))
+	for cid := range idSet {
+		names[cid] = CompetitionName(app, cid)
+	}
+	return names
 }
 
 func buildRecentMatches(allResults []matchResult, limit int) []RecentMatch {
@@ -417,16 +441,18 @@ func buildRecentMatches(allResults []matchResult, limit int) []RecentMatch {
 			opponentID, opponent = r.p1id, r.p1
 		}
 		recent = append(recent, RecentMatch{
-			MatchID:    r.matchID,
-			Pair1ID:    r.p1id,
-			Pair2ID:    r.p2id,
-			PairName1:  r.p1,
-			PairName2:  r.p2,
-			OpponentID: opponentID,
-			Opponent:   opponent,
-			Score:      r.score,
-			Won:        r.won,
-			Date:       r.date,
+			MatchID:         r.matchID,
+			Pair1ID:         r.p1id,
+			Pair2ID:         r.p2id,
+			PairName1:       r.p1,
+			PairName2:       r.p2,
+			OpponentID:      opponentID,
+			Opponent:        opponent,
+			Score:           r.score,
+			Won:             r.won,
+			Date:            r.date,
+			CompetitionID:   r.compID,
+			CompetitionName: r.compName,
 		})
 	}
 	return recent

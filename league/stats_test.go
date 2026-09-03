@@ -166,6 +166,17 @@ func TestBuildRecentMatches(t *testing.T) {
 		assert.True(t, got[0].Won)
 		assert.Equal(t, "2026-01-01", got[0].Date)
 	})
+
+	t.Run("competition fields are mapped correctly", func(t *testing.T) {
+		withComp := []matchResult{{
+			matchID: "m1", p1: "Pair A", p2: "Pair B", score: "6-3 6-4", date: "2026-01-01",
+			compID: "c1", compName: "Liga Primavera",
+		}}
+		got := buildRecentMatches(withComp, 5)
+		require.Len(t, got, 1)
+		assert.Equal(t, "c1", got[0].CompetitionID)
+		assert.Equal(t, "Liga Primavera", got[0].CompetitionName)
+	})
 }
 
 // Summarize: union of pair results, dedup, standings-derived competition stats
@@ -192,6 +203,10 @@ func TestSummarize_SinglePair(t *testing.T) {
 	assert.Equal(t, "1V", summary.Streak)
 	require.Len(t, summary.CompetitionStats, 1)
 	assert.Equal(t, 1, summary.CompetitionStats[0].Position, "single pair alone tops the standings")
+
+	require.Len(t, summary.Recent, 1)
+	assert.Equal(t, comp.Id, summary.Recent[0].CompetitionID, "recent match must carry its competition ID (L1)")
+	assert.Equal(t, "Test Competition", summary.Recent[0].CompetitionName, "recent match must carry its competition name (L1)")
 }
 
 func TestSummarize_UnionAcrossPairsDedupsSharedMatch(t *testing.T) {
