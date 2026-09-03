@@ -145,15 +145,23 @@ type PrecedentsSummary struct {
 	LastScore            string
 }
 
-// Precedents finds all finalized matches between pair1ID and pair2ID within
-// the given competition (excluding excludeMatchID, the match currently being
-// viewed), tallies wins for each pair, and returns the most recent meeting's
-// score. ok is false when the pairs have never played each other before.
-func Precedents(app core.App, pair1ID, pair2ID, competitionID, excludeMatchID string) (summary PrecedentsSummary, ok bool) {
+// PrecedentsQuery holds the arguments for a Precedents lookup.
+type PrecedentsQuery struct {
+	Pair1ID, Pair2ID string
+	CompetitionID    string
+	ExcludeMatchID   string
+}
+
+// Precedents finds all finalized matches between the two pairs within
+// the given competition (excluding ExcludeMatchID), tallies wins, and
+// returns the most recent meeting's score. ok is false when the pairs
+// have never played each other before.
+func Precedents(app core.App, q PrecedentsQuery) (summary PrecedentsSummary, ok bool) {
+	pair1ID, pair2ID := q.Pair1ID, q.Pair2ID
 	matches, err := app.FindRecordsByFilter("matches",
 		"status = 'final' && competition = {:cid} && ((pair1 = {:p1} && pair2 = {:p2}) || (pair1 = {:p2} && pair2 = {:p1})) && id != {:exclude}",
 		"-date,-created", 0, 0,
-		map[string]any{"p1": pair1ID, "p2": pair2ID, "cid": competitionID, "exclude": excludeMatchID})
+		map[string]any{"p1": pair1ID, "p2": pair2ID, "cid": q.CompetitionID, "exclude": q.ExcludeMatchID})
 	if err != nil || len(matches) == 0 {
 		return PrecedentsSummary{}, false
 	}
