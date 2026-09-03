@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -203,7 +204,7 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 		return alertError(e, "No eres participante de este partido")
 	}
 
-	content := e.Request.FormValue("content")
+	content := strings.TrimSpace(e.Request.FormValue("content"))
 	if content == "" {
 		return alertError(e, "El mensaje no puede estar vacío")
 	}
@@ -329,6 +330,15 @@ func (h *ThreadHandler) parseProposalForm(e *core.RequestEvent) (ProposalData, e
 
 	if date == "" || timeVal == "" {
 		return ProposalData{}, alertError(e, "Fecha y hora son obligatorias")
+	}
+	if _, err := time.Parse("2006-01-02", date); err != nil {
+		return ProposalData{}, alertError(e, "Formato de fecha no válido")
+	}
+	if _, err := time.Parse("15:04", timeVal); err != nil {
+		return ProposalData{}, alertError(e, "Formato de hora no válido")
+	}
+	if parsed, _ := time.Parse("2006-01-02", date); !parsed.IsZero() && parsed.Before(time.Now().Truncate(24*time.Hour)) {
+		return ProposalData{}, alertError(e, "La fecha no puede ser anterior a hoy")
 	}
 
 	venueID, venueName := h.resolveVenue(venueID, venueText)
