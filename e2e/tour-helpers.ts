@@ -1,5 +1,6 @@
 import { Page, expect, APIRequestContext } from '@playwright/test';
 import { ExpectedRow, PairId } from './season-helpers';
+import { loginAs } from './helpers';
 
 // ---------------------------------------------------------------------------
 // referenceFallback — tracks non-affordance navigations for the guided spec
@@ -374,13 +375,29 @@ export async function setMatchDateAndClub(
   );
 }
 
-// acceptScheduleProposal creates an accepted scheduling_proposal message for
-// matchId, matching what a real propose+accept UI flow leaves behind:
-// ScheduleStatus becomes "confirmed" (handlers/public.go:applyProposalToNextMatch),
-// which is what makes the match count as "upcoming" (home.html's Próximos
-// partidos) instead of an "organize" action needing a date proposed.
+// acceptScheduleProposal drives the real propose+accept flow through the
+// thread handler endpoints — POST /match/{id}/thread/proposal as the
+// opponent (authorUserId), then POST .../respond with action=accept as a
+// player from matchId's other pair — instead of fabricating an already-
+// accepted match_messages record directly. Matches what a real UI flow
+// leaves behind: ScheduleStatus becomes "confirmed"
+// (handlers/public.go:applyProposalToNextMatch, via matches.status =
+// "scheduled" set by the accept handler), which is what makes the match
+// count as "upcoming" (home.html's Próximos partidos) instead of an
+// "organize" action needing a date proposed.
+//
+// Takes `page` (not a bare APIRequestContext, the prior signature) because
+// it needs two real logins — one per participant — which only a Page can
+// do (loginAs sets a cookie on page.context()). It only receives a user ID
+// for the proposer, not credentials, so it resolves both participants'
+// emails via the API and logs each in with the standard tour player
+// password. page ends up logged in as the accepter when this returns;
+// callers that need a specific session afterward should loginAs again.
+//
+// date must be today or later — parseProposalForm in handlers/thread.go
+// rejects past dates, unlike the raw record write this replaces.
 export async function acceptScheduleProposal(
-  request: APIRequestContext,
+  page: Page,
   suToken: string,
   matchId: string,
   authorUserId: string,
@@ -388,34 +405,105 @@ export async function acceptScheduleProposal(
   time: string,
   venueName: string,
 ): Promise<void> {
-  const resp = await request.post(
-    '/api/collections/match_messages/records',
-    {
-      headers: { Authorization: suToken },
-      data: {
-        match: matchId,
-        author: authorUserId,
-        type: 'scheduling_proposal',
-        proposal_status: 'accepted',
-        proposal_data: JSON.stringify({ date, time, venue_name: venueName, venue_id: '', venue_text: '' }),
-      },
-    },
-  );
-  if (!resp.ok()) {
-    throw new Error(`acceptScheduleProposal failed: ${resp.status()} ${await resp.text()}`);
+  const matchResp = await page.request.get(`/api/collections/matches/records/${matchId}`, {
+    headers: { Authorization: suToken },
+  });
+  if (!matchResp.ok()) {
+    throw new Error(`acceptScheduleProposal: match lookup failed: ${matchResp.status()} ${await matchResp.text()}`);
   }
-  await setMatchDateAndClub(request, suToken, matchId, date, venueName);
-  // A real accept flow also flips matches.status to "scheduled"
-  // (handlers/thread.go); creating the message directly via the API does
-  // not trigger that — the API patch alone does not flip the status.
-  const patchResp = await request.patch(
-    `/api/collections/matches/records/${matchId}`,
-    {
-      headers: { Authorization: suToken },
-      data: { status: 'scheduled' },
-    },
+  const match = await matchResp.json();
+  const authorPairID = await pairIDForPlayer(page.request, suToken, authorUserId);
+  const accepterPairID = match.pair1 === authorPairID ? match.pair2 : match.pair1;
+  const accepterUserID = await firstPlayerOfPair(page.request, suToken, accepterPairID);
+
+  const authorEmail = await emailForUser(page.request, suToken, authorUserId);
+  const accepterEmail = await emailForUser(page.request, suToken, accepterUserID);
+
+  await loginAs(page, authorEmail, TOUR_PLAYER_PASSWORD);
+  await clearDocGateIfPresent(page, matchId);
+  const proposeResp = await page.request.post(`/match/${matchId}/thread/proposal`, {
+    form: { date, time, venue_id: '', venue_text: venueName },
+    maxRedirects: 0,
+  });
+  const proposeBody = await proposeResp.text();
+  const proposeRedirect = proposeResp.headers()['location'] ?? proposeResp.headers()['hx-redirect'];
+  if (!proposeResp.ok() || proposeBody.includes('alert-error') || proposeRedirect?.startsWith('/competition/')) {
+    throw new Error(`acceptScheduleProposal: propose failed for ${authorEmail}: ${proposeResp.status()} ${proposeBody} (redirect=${proposeRedirect})`);
+  }
+
+  // page.request only carries the pb_auth cookie, which the app's
+  // CookieAuth middleware deliberately does not copy to an Authorization
+  // header for /api/ paths (see middleware/auth.go) — so a raw REST call
+  // here needs an explicit Authorization header. The superuser token
+  // already in scope is sufficient for this read-only lookup.
+  const filter = `match='${matchId}' && type='scheduling_proposal' && proposal_status='pending'`;
+  const listResp = await page.request.get(
+    `/api/collections/match_messages/records?filter=${encodeURIComponent(filter)}&sort=-created&perPage=1`,
+    { headers: { Authorization: suToken } },
   );
-  if (!patchResp.ok()) {
-    throw new Error(`acceptScheduleProposal status patch failed: ${patchResp.status()} ${await patchResp.text()}`);
+  const listBody = await listResp.json();
+  const proposalId = listBody.items?.[0]?.id;
+  if (!proposalId) {
+    throw new Error(`acceptScheduleProposal: no pending proposal found for match ${matchId} after posting (status=${listResp.status()}, body=${JSON.stringify(listBody)})`);
+  }
+
+  await loginAs(page, accepterEmail, TOUR_PLAYER_PASSWORD);
+  await clearDocGateIfPresent(page, matchId);
+  const acceptResp = await page.request.post(
+    `/match/${matchId}/thread/proposal/${proposalId}/respond`,
+    { form: { action: 'accept' } },
+  );
+  const acceptBody = await acceptResp.text();
+  if (!acceptResp.ok() || acceptBody.includes('alert-error')) {
+    throw new Error(`acceptScheduleProposal: accept failed for ${accepterEmail}: ${acceptResp.status()} ${acceptBody}`);
+  }
+}
+
+// TOUR_PLAYER_PASSWORD is the password every tour-created player is given
+// (see createPlayer/setPlayerPassword in the tour specs) — acceptScheduleProposal
+// needs it to log the proposer/accepter in for real, since it only receives
+// user IDs from its callers, not credentials.
+const TOUR_PLAYER_PASSWORD = 'TestPass123456';
+
+async function pairIDForPlayer(request: APIRequestContext, suToken: string, userID: string): Promise<string> {
+  const resp = await request.get(
+    `/api/collections/pairs/records?filter=${encodeURIComponent(`player1='${userID}' || player2='${userID}'`)}&perPage=1`,
+    { headers: { Authorization: suToken } },
+  );
+  const body = await resp.json();
+  const id = body.items?.[0]?.id;
+  if (!id) throw new Error(`pairIDForPlayer: no pair found for user ${userID}`);
+  return id;
+}
+
+async function firstPlayerOfPair(request: APIRequestContext, suToken: string, pairID: string): Promise<string> {
+  const resp = await request.get(`/api/collections/pairs/records/${pairID}`, {
+    headers: { Authorization: suToken },
+  });
+  const body = await resp.json();
+  if (!body.player1) throw new Error(`firstPlayerOfPair: pair ${pairID} has no player1`);
+  return body.player1;
+}
+
+async function emailForUser(request: APIRequestContext, suToken: string, userID: string): Promise<string> {
+  const resp = await request.get(`/api/collections/users/records/${userID}`, {
+    headers: { Authorization: suToken },
+  });
+  const body = await resp.json();
+  if (!body.email) throw new Error(`emailForUser: user ${userID} has no email`);
+  return body.email;
+}
+
+// clearDocGateIfPresent navigates to the match page and accepts any pending
+// mandatory-document gate for the current session — a raw form POST to a
+// thread endpoint doesn't trigger the gate's own redirect handling the way
+// a real page navigation + submit does (see gotoMatchViaCompetition in the
+// tour specs), so callers driving handler endpoints directly must clear it
+// first or the POST silently redirects instead of performing the action.
+async function clearDocGateIfPresent(page: Page, matchId: string): Promise<void> {
+  await page.goto(`/match/${matchId}`);
+  await page.waitForLoadState('domcontentloaded');
+  if (await page.getByRole('heading', { name: 'Documentos obligatorios' }).isVisible().catch(() => false)) {
+    await acceptDocsGate(page);
   }
 }
