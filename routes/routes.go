@@ -46,6 +46,10 @@ func Register(se *core.ServeEvent, deps Deps) {
 	registerMatchRoutes(se, deps)
 	registerNotificationRoutes(se, deps, notif)
 	registerProfileRoutes(se, auth, notif)
+
+	se.Router.GET("/{path...}", func(e *core.RequestEvent) error {
+		return deps.Renderer.ErrorPage(e, http.StatusNotFound, "Página no encontrada")
+	})
 }
 
 func registerStaticRoutes(se *core.ServeEvent, deps Deps) {
