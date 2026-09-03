@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/pocketbase/pocketbase/tools/types"
 	"github.com/stretchr/testify/require"
 
 	_ "padelleague/migrations"
@@ -86,6 +88,24 @@ func makeCompetition(t *testing.T, app core.App, pairs []*core.Record) *core.Rec
 		pairIDs[i] = p.Id
 	}
 	record.Set("pairs", pairIDs)
+	require.NoError(t, app.Save(record))
+	return record
+}
+
+func makeMessage(t *testing.T, app core.App, matchID, authorID, msgType, parentID string, created time.Time) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("match_messages")
+	require.NoError(t, err)
+	record := core.NewRecord(col)
+	record.Set("match", matchID)
+	record.Set("author", authorID)
+	record.Set("type", msgType)
+	if parentID != "" {
+		record.Set("parent", parentID)
+	}
+	dt, err := types.ParseDateTime(created)
+	require.NoError(t, err)
+	record.SetRaw("created", dt)
 	require.NoError(t, app.Save(record))
 	return record
 }
