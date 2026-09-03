@@ -18,8 +18,6 @@ type CompetitionView struct {
 	PendingCount  int
 	URL           string
 
-	PendingDetails []MatchCard
-
 	// Setup is non-nil only for an inactive competition's AdminSummary card,
 	// so the setup checklist and "Activar" action render inline on the card.
 	Setup *league.CompSetup
@@ -61,14 +59,13 @@ func NewCompetitionView(app core.App, comp *core.Record, mode Mode) CompetitionV
 	}
 }
 
-// NewHomeCompetitionView builds a PlayerRow CompetitionView with pending details pre-populated.
-func NewHomeCompetitionView(comp *core.Record, pendingCount int, pendingDetails []MatchCard) CompetitionView {
+// NewHomeCompetitionView builds a PlayerRow CompetitionView for a player's home page.
+func NewHomeCompetitionView(comp *core.Record, pendingCount int) CompetitionView {
 	return CompetitionView{
-		Mode:           PlayerRow,
-		Competition:    comp,
-		Name:           comp.GetString("name"),
-		PendingCount:   pendingCount,
-		PendingDetails: pendingDetails,
-		URL:            "/competition/" + comp.Id,
+		Mode:         PlayerRow,
+		Competition:  comp,
+		Name:         comp.GetString("name"),
+		PendingCount: pendingCount,
+		URL:          "/competition/" + comp.Id,
 	}
 }

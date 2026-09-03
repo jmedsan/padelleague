@@ -36,7 +36,7 @@ func TestNewHomeCompetitionView(t *testing.T) {
 	app := newTestApp(t)
 	comp := makeCompetitionTB(t, app, "league", nil)
 
-	cv := NewHomeCompetitionView(comp, 3, nil)
+	cv := NewHomeCompetitionView(comp, 3)
 	assert.Equal(t, PlayerRow, cv.Mode)
 	assert.Equal(t, 3, cv.PendingCount)
 	assert.Equal(t, "/competition/"+comp.Id, cv.URL)
