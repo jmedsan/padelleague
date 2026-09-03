@@ -9,17 +9,13 @@
 {{if .AvatarURL}}
 <div class="avatar">
     <div class="{{if .Mode.Full}}w-12{{else}}w-9{{end}} rounded-full">
-        <img src="{{.AvatarURL}}" alt="{{.Name}}">
+        <img src="{{.AvatarURL}}" alt="{{.Name}}" loading="lazy">
     </div>
 </div>
 {{else}}
 <div class="avatar placeholder">
-    <div class="bg-primary/20 text-primary {{if .Mode.Full}}w-12{{else}}w-9{{end}} rounded-full">
-        {{if .Name}}
-        <span class="{{if .Mode.Full}}text-lg{{else}}text-sm{{end}} font-bold">{{slice .Name 0 1}}</span>
-        {{else}}
-        <span class="{{if .Mode.Full}}text-lg{{else}}text-sm{{end}} font-bold">?</span>
-        {{end}}
+    <div class="bg-primary text-primary-content {{if .Mode.Full}}w-12{{else}}w-9{{end}} rounded-full" aria-label="{{.Name}}">
+        <span class="{{if .Mode.Full}}text-base{{else}}text-xs{{end}} font-semibold uppercase tracking-tight leading-none">{{initials .Name}}</span>
     </div>
 </div>
 {{end}}
