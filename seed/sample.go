@@ -1,7 +1,11 @@
 package seed
 
 import (
+	"bytes"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"io/fs"
 	"time"
 
@@ -106,6 +110,11 @@ func createSamplePlayers(txApp core.App) ([]string, error) {
 		rec.Set("display_name", fmt.Sprintf("Jugador %d", i+1))
 		rec.Set("gender", genders[i])
 		rec.SetVerified(true)
+		if i < 5 {
+			if f, err := generateSampleAvatar(fmt.Sprintf("J%d", i+1), i); err == nil {
+				rec.Set("avatar", f)
+			}
+		}
 		if err := txApp.Save(rec); err != nil {
 			return nil, fmt.Errorf("create player %d: %w", i+1, err)
 		}
@@ -849,4 +858,32 @@ func createSamplePlayoff(txApp core.App, pairIDs []string) error {
 		return fmt.Errorf("create sample playoff: %w", err)
 	}
 	return generateSampleBracket(txApp, comp.Id, pairIDs)
+}
+
+var avatarColors = []color.RGBA{
+	{0x4A, 0x90, 0xD9, 0xFF},
+	{0xD9, 0x4A, 0x5C, 0xFF},
+	{0x4A, 0xD9, 0x7A, 0xFF},
+	{0xD9, 0xA8, 0x4A, 0xFF},
+	{0x8A, 0x4A, 0xD9, 0xFF},
+}
+
+func generateSampleAvatar(initials string, index int) (*filesystem.File, error) {
+	size := 200
+	img := image.NewRGBA(image.Rect(0, 0, size, size))
+	bg := avatarColors[index%len(avatarColors)]
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			dx := float64(x) - float64(size)/2
+			dy := float64(y) - float64(size)/2
+			if dx*dx+dy*dy <= float64(size*size)/4 {
+				img.Set(x, y, bg)
+			}
+		}
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return nil, err
+	}
+	return filesystem.NewFileFromBytes(buf.Bytes(), fmt.Sprintf("avatar-%s.png", initials))
 }
