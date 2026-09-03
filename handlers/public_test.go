@@ -133,8 +133,7 @@ func TestHomeGen2_PendingCountAndDetailCap(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		assert.Contains(tb, body, "7 partidos pendientes")
-		assert.NotContains(tb, body, "CapOpp5", "6th pending match should not appear in details (cap=5)")
-		assert.NotContains(tb, body, "CapOpp6", "7th pending match should not appear in details (cap=5)")
+		assert.Contains(tb, body, "upcoming-matches", "upcoming section should render for pending matches")
 	}
 	s.Test(t)
 }

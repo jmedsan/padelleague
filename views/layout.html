@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="padel" style="overflow-x:hidden">
+<html lang="es" data-theme="dark" style="overflow-x:hidden">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,9 +12,8 @@
     <script src="/static/js/score-input.js"></script>
     <script>
         (function() {
-            var t = localStorage.getItem('theme') || 'padel';
-            if (t === 'night' || t === 'nord') { t = 'padel'; localStorage.setItem('theme', t); }
-            if (t !== 'padel' && t !== 'dark') t = 'padel';
+            var t = localStorage.getItem('theme') || 'dark';
+            if (t !== 'padel' && t !== 'dark') t = 'dark';
             document.documentElement.setAttribute('data-theme', t);
         })();
         function toggleTheme() {
