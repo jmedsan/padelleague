@@ -64,6 +64,9 @@ func populateSampleLeague(txApp core.App, comp *core.Record, pairIDs []string, o
 	if err := createSampleDocuments(txApp, comp, opts.StaticFS); err != nil {
 		return err
 	}
+	if err := ackSampleDocuments(txApp, comp, pairIDs); err != nil {
+		return err
+	}
 	if err := createSampleVenues(txApp); err != nil {
 		return err
 	}
@@ -752,6 +755,39 @@ func createSampleDocuments(txApp core.App, comp *core.Record, staticFS fs.FS) er
 	comp.Set("documents", docIDs)
 	if err := txApp.Save(comp); err != nil {
 		return fmt.Errorf("attach documents to competition: %w", err)
+	}
+	return nil
+}
+
+func ackSampleDocuments(txApp core.App, comp *core.Record, pairIDs []string) error {
+	allDocs := league.AttachedDocuments(txApp, comp)
+	var docIDs []string
+	for _, d := range allDocs {
+		if d.GetBool("is_mandatory") {
+			docIDs = append(docIDs, d.Id)
+		}
+	}
+	if len(docIDs) == 0 {
+		return nil
+	}
+	playerIDs := make(map[string]struct{})
+	for _, pid := range pairIDs {
+		for _, uid := range league.PlayersForPair(txApp, pid) {
+			playerIDs[uid] = struct{}{}
+		}
+	}
+	col, err := txApp.FindCollectionByNameOrId("document_acks")
+	if err != nil {
+		return fmt.Errorf("find document_acks collection: %w", err)
+	}
+	for uid := range playerIDs {
+		rec := core.NewRecord(col)
+		rec.Set("user", uid)
+		rec.Set("competition", comp.Id)
+		rec.Set("documents", docIDs)
+		if err := txApp.Save(rec); err != nil {
+			return fmt.Errorf("create doc ack for %s: %w", uid, err)
+		}
 	}
 	return nil
 }

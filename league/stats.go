@@ -468,8 +468,9 @@ func currentStreakWinCount(results []matchResult) int {
 
 // levelExperienceCap is the match count at which the experience component of
 // computeLevel reaches its maximum — a new player's level is pulled down
-// regardless of win rate until they have played this many matches.
-const levelExperienceCap = 30
+// regardless of win rate until they have played this many matches. Set to
+// one season's worth in a typical 4-pair double round-robin (~12 matches).
+const levelExperienceCap = 15
 
 // levelMomentumCap is the winning-streak length at which the momentum
 // component of computeLevel reaches its maximum.
@@ -492,12 +493,15 @@ func computeLevel(winRatePct float64, played, currentStreakWins int) (float64, b
 	if played < MinMatchesForLevel {
 		return 0, false
 	}
-	winComponent := winRatePct / 100 * 10
-	experienceComponent := min(float64(played)/levelExperienceCap, 1.0) * 10
-	momentumComponent := min(float64(currentStreakWins)/levelMomentumCap, 1.0) * 10
+	// Base: win rate maps linearly to 2.0–8.0 (50% = 5.0, 0% = 2.0, 100% = 8.0)
+	base := 2.0 + (winRatePct/100)*6.0
+	// Experience bonus: up to +1.0 at levelExperienceCap matches
+	expBonus := min(float64(played)/levelExperienceCap, 1.0)
+	// Momentum bonus: up to +1.0 at levelMomentumCap win streak
+	momBonus := min(float64(currentStreakWins)/levelMomentumCap, 1.0)
 
-	level := winComponent*0.7 + experienceComponent*0.2 + momentumComponent*0.1
-	return math.Round(max(level, 1.0)*10) / 10, true
+	level := base + expBonus + momBonus
+	return math.Round(min(max(level, 1.0), 10.0)*10) / 10, true
 }
 
 func computeBestStreak(results []matchResult) string {

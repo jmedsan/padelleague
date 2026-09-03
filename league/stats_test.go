@@ -302,10 +302,10 @@ func TestComputeLevel(t *testing.T) {
 		wantHasLevel      bool
 	}{
 		{"below minimum matches, no level", 100, 2, 2, 0, false},
-		{"exactly at minimum, high win rate stays pulled down by experience", 100, 5, 5, 8.0, true},
-		{"veteran, high win rate and hot streak scores near max", 80, 50, 8, 8.6, true},
-		{"veteran, always loses scores near floor", 0, 50, 0, 2.0, true},
-		{"average player", 50, 30, 0, 5.5, true},
+		{"exactly at minimum, high win rate stays pulled down by experience", 100, 5, 5, 9.0, true},
+		{"veteran, high win rate and hot streak scores near max", 80, 50, 8, 8.8, true},
+		{"veteran, always loses scores near floor", 0, 50, 0, 3.0, true},
+		{"average player", 50, 30, 0, 6.0, true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
