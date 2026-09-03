@@ -67,7 +67,7 @@ func (h *AdminSettingsHandler) SaveDefaults(e *core.RequestEvent) error {
 
 	league.InvalidateSettingsCache()
 
-	return redirectHX(e, "/admin/settings")
+	return alertSuccess(e, "Configuración guardada")
 }
 
 func parseFormInt(e *core.RequestEvent, field string) int {
