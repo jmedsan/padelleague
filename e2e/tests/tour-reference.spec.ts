@@ -214,18 +214,19 @@ test.describe('reference navigation tour', () => {
     // --- Step 6: Play all 12 matches (submit + confirm) ---
     const fixtures = await mapFixturesToScores(page.request);
 
-    // Pre-schedule (propose+accept) pair A's first fixture so the
+    // Pre-schedule (propose+accept, driven through the real thread handler
+    // endpoints — see acceptScheduleProposal) pair A's first fixture so the
     // "Próximos partidos" section has a confirmed match to display.
     const pairAFixtures = fixtures.filter(f => f.pair1Label === 'A' || f.pair2Label === 'A');
     const scheduledFixture = pairAFixtures[0];
     const scheduledOtherLabel = scheduledFixture.pair1Label === 'A' ? scheduledFixture.pair2Label : scheduledFixture.pair1Label;
     const scheduledOtherEmail = playerEmailForPair(scheduledOtherLabel, 0);
     const scheduledOtherId = await lookupPlayerId(page.request, suToken, scheduledOtherEmail);
-    // The opponent proposes+the schedule gets accepted, so ScheduleStatus
-    // becomes "confirmed" (setMatchDateAndClub alone only patches the raw
-    // matches.date/club fields, which the home page's ScheduleStatus
-    // ignores — see applyProposalToNextMatch in handlers/public.go).
-    await acceptScheduleProposal(page.request, suToken, scheduledFixture.id, scheduledOtherId, '2025-03-15', '18:00', 'Padel 360');
+    // Real propose+accept flow, so the date must be today or later
+    // (parseProposalForm in handlers/thread.go rejects past dates).
+    const scheduleDate = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const scheduleDateDisplay = scheduleDate.split('-').reverse().join('/');
+    await acceptScheduleProposal(page, suToken, scheduledFixture.id, scheduledOtherId, scheduleDate, '18:00', 'Padel 360');
 
     // --- Upcoming matches section on player home ---
     await loginAs(page, PLAYERS[0].email, PLAYER_PASSWORD);
@@ -235,7 +236,7 @@ test.describe('reference navigation tour', () => {
     await expect(upcomingSection).toBeVisible();
     const upcomingRow = upcomingSection.locator('[data-testid="upcoming-match"]').first();
     await expect(upcomingRow).toBeVisible();
-    await expect(upcomingRow).toContainText('15/03/2025');
+    await expect(upcomingRow).toContainText(scheduleDateDisplay);
     await upcomingRow.click();
     await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain(`/match/${scheduledFixture.id}`);
@@ -244,9 +245,13 @@ test.describe('reference navigation tour', () => {
       const submitterEmail = playerEmailForPair(f.pair1Label, 0);
       const confirmerEmail = playerEmailForPair(f.pair2Label, 0);
 
-      // Set date+club so score submission is enabled (a no-op for the
-      // fixture already scheduled above via acceptScheduleProposal).
-      await setMatchDateAndClub(page.request, suToken, f.id, '2025-03-15', 'Padel 360');
+      if (f.id !== scheduledFixture.id) {
+        // Set date+club so score submission is enabled. The fixture
+        // scheduled above already has date/club set by the real accept
+        // handler (handlers/thread.go) — overwriting them here would
+        // desync matches.date from the accepted proposal's date.
+        await setMatchDateAndClub(page.request, suToken, f.id, '2025-03-15', 'Padel 360');
+      }
 
       // Submitter logs in, navigates to match page
       await loginAs(page, submitterEmail, PLAYER_PASSWORD);
