@@ -3,7 +3,7 @@ package search
 var staticPages = []Entry{
 	NewEntry(Entry{Label: "Inicio", Secondary: "Página principal", Type: "página", URL: "/", Scope: Scope{Public: true}}),
 	NewEntry(Entry{Label: "Mi perfil", Secondary: "Perfil del jugador", Type: "página", URL: "/profile", Scope: Scope{Public: true}}),
-	NewEntry(Entry{Label: "Notificaciones", Secondary: "Centro de notificaciones", Type: "página", URL: "/profile/notifications", Scope: Scope{Public: true}}),
+	NewEntry(Entry{Label: "Preferencias", Secondary: "Preferencias de notificaciones", Type: "página", URL: "/profile/notifications", Keywords: []string{"notificaciones"}, Scope: Scope{Public: true}}),
 	NewEntry(Entry{Label: "Panel de administración", Secondary: "Panel principal del admin", Type: "página", URL: "/admin", Scope: Scope{Admin: true}}),
 	NewEntry(Entry{Label: "Parejas", Secondary: "Gestión de parejas", Type: "página", URL: "/admin/pairs", Scope: Scope{Admin: true}}),
 	NewEntry(Entry{Label: "Jugadores", Secondary: "Gestión de jugadores", Type: "página", URL: "/admin/players", Scope: Scope{Admin: true}}),
