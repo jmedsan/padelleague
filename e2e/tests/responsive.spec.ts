@@ -85,6 +85,7 @@ test.describe('responsive - no horizontal overflow', () => {
     await checkNoOverflow(page);
     await expect(page.getByText('Liga E2E Test').first()).toBeVisible();
     await expect(page.locator('input[aria-label="Jornadas"]')).toBeVisible();
+    await page.locator('input[aria-label="Jornadas"]').click();
     await expect(page.getByText('Pareja Alpha').first()).toBeVisible();
   });
 
@@ -142,7 +143,7 @@ test.describe('responsive - no horizontal overflow', () => {
     const firstCard = cards.locator('> div').first();
     await expect(firstCard).toBeVisible();
     await expect(firstCard.getByText('Editar')).toBeVisible();
-    await expect(firstCard.getByText('Regenerar enlace')).toBeVisible();
+    await expect(firstCard.getByText('Regenerar contraseña')).toBeVisible();
   });
 
   test('admin venues', async ({ page }) => {
