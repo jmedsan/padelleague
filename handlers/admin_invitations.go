@@ -3,9 +3,11 @@ package handlers
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -47,10 +49,23 @@ func CompetitionInvitations(app core.App, compID string) []*core.Record {
 
 // InvitationsCreate generates a new invitation token with the given max uses.
 func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
-	email := e.Request.FormValue("email")
+	email := strings.TrimSpace(e.Request.FormValue("email"))
 	competition := e.Request.FormValue("competition")
 	if competition == "" {
 		return alertError(e, "La competición es obligatoria")
+	}
+	if email != "" && !strings.Contains(email, "@") {
+		return alertError(e, "El email no es válido")
+	}
+
+	maxUses, err := parsePositiveInt(e.Request.FormValue("max_uses"), 1)
+	if err != nil {
+		return alertError(e, "Los usos máximos deben ser un número entero mayor que 0")
+	}
+
+	expirationDays, err := parsePositiveInt(e.Request.FormValue("expiration_days"), 7)
+	if err != nil {
+		return alertError(e, "Los días hasta expirar deben ser un número entero mayor que 0")
 	}
 
 	token, err := generateInviteToken()
@@ -61,22 +76,6 @@ func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 	col, err := h.app.FindCollectionByNameOrId("invitations")
 	if err != nil {
 		return alertError(e, "Error interno")
-	}
-
-	maxUses := 1
-	if v := e.Request.FormValue("max_uses"); v != "" {
-		maxUses, _ = strconv.Atoi(v)
-	}
-	if maxUses < 1 {
-		maxUses = 1
-	}
-
-	expirationDays := 7
-	if d := e.Request.FormValue("expiration_days"); d != "" {
-		expirationDays, _ = strconv.Atoi(d)
-	}
-	if expirationDays < 1 {
-		expirationDays = 1
 	}
 
 	record := core.NewRecord(col)
@@ -101,6 +100,23 @@ func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 	}
 
 	return redirectHX(e, "/admin/competitions/"+competition)
+}
+
+// parsePositiveInt parses a form value as a positive integer, returning def
+// when the value is blank. Any non-numeric value or a value less than 1 is
+// rejected rather than silently coerced.
+func parsePositiveInt(v string, def int) (int, error) {
+	if v == "" {
+		return def, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return 0, err
+	}
+	if n < 1 {
+		return 0, fmt.Errorf("must be at least 1, got %d", n)
+	}
+	return n, nil
 }
 
 // InvitationsRevoke deactivates an invitation so it can no longer be used.

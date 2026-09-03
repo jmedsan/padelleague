@@ -351,11 +351,12 @@ func TestSettingsGET_ShowsDefaultsForm(t *testing.T) {
 func TestSaveDefaults_UpdatesAppSettings(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "POST /admin/settings/defaults updates the app_settings singleton",
-		Method:         http.MethodPost,
-		URL:            "/admin/settings/defaults",
-		ExpectedStatus: 204,
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/settings/defaults updates the app_settings singleton",
+		Method:          http.MethodPost,
+		URL:             "/admin/settings/defaults",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Configuración guardada"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupSettingsRoutes(tb, app, e, true)
@@ -365,9 +366,7 @@ func TestSaveDefaults_UpdatesAppSettings(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
-		assert.Equal(tb, "/admin/settings", res.Header.Get("Hx-Redirect"))
-
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		records, err := app.FindRecordsByFilter("app_settings", "", "", 1, 0)
 		require.NoError(tb, err)
 		require.Len(tb, records, 1)

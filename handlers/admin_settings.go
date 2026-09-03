@@ -46,63 +46,20 @@ func (h *AdminSettingsHandler) SaveDefaults(e *core.RequestEvent) error {
 	}
 	rec := records[0]
 
-	quorum, err := parseFormInt(e, "quorum_timeout_hours")
-	if err != nil {
-		return alertError(e, "Tiempo de espera debe ser un número")
-	}
-	if quorum < 0 {
-		return alertError(e, "Tiempo de espera no puede ser negativo")
-	}
-	grace, err := parseFormInt(e, "arrange_grace_days")
-	if err != nil {
-		return alertError(e, "Días de gracia debe ser un número")
-	}
-	if grace < 0 {
-		return alertError(e, "Días de gracia no puede ser negativo")
-	}
-	penalty, err := parseFormInt(e, "default_penalty")
-	if err != nil {
-		return alertError(e, "Penalización debe ser un número")
-	}
-	if penalty < 0 {
-		return alertError(e, "Penalización no puede ser negativa")
-	}
-	recovery, err := parseFormInt(e, "recovery_days")
-	if err != nil {
-		return alertError(e, "Período extra debe ser un número")
-	}
-	if recovery < 0 {
-		return alertError(e, "Período extra no puede ser negativo")
-	}
-	maxUses, err := parseFormInt(e, "invite_max_uses")
-	if err != nil {
-		return alertError(e, "Usos máximos debe ser un número")
-	}
-	if maxUses < 1 {
-		return alertError(e, "Usos máximos de invitación debe ser al menos 1")
-	}
-	expDays, err := parseFormInt(e, "invite_expiration_days")
-	if err != nil {
-		return alertError(e, "Días de expiración debe ser un número")
-	}
-	if expDays < 1 {
-		return alertError(e, "Días de expiración de invitación debe ser al menos 1")
+	fields, errMsg := parseSettingsForm(e)
+	if errMsg != "" {
+		return alertError(e, errMsg)
 	}
 
-	walkover := e.Request.FormValue("walkover_score")
-	if _, err := league.ParseScore(walkover); err != nil {
-		return alertError(e, "Marcador de incomparecencia no válido")
-	}
-
-	rec.Set("quorum_timeout_hours", quorum)
-	rec.Set("arrange_grace_days", grace)
-	rec.Set("walkover_score", walkover)
-	rec.Set("default_penalty", penalty)
-	rec.Set("recovery_days", recovery)
+	rec.Set("quorum_timeout_hours", fields.quorum)
+	rec.Set("arrange_grace_days", fields.grace)
+	rec.Set("walkover_score", fields.walkover)
+	rec.Set("default_penalty", fields.penalty)
+	rec.Set("recovery_days", fields.recovery)
 	rec.Set("play_twice", e.Request.FormValue("play_twice") == "on")
 	rec.Set("gender_type", e.Request.FormValue("gender_type"))
-	rec.Set("invite_max_uses", maxUses)
-	rec.Set("invite_expiration_days", expDays)
+	rec.Set("invite_max_uses", fields.maxUses)
+	rec.Set("invite_expiration_days", fields.expDays)
 
 	if err := h.app.Save(rec); err != nil {
 		slog.Error("save app settings", "error", err)
@@ -114,12 +71,58 @@ func (h *AdminSettingsHandler) SaveDefaults(e *core.RequestEvent) error {
 	return alertSuccess(e, "Configuración guardada")
 }
 
-func parseFormInt(e *core.RequestEvent, field string) (int, error) {
-	raw := e.Request.FormValue(field)
-	if raw == "" {
-		return 0, nil
+// settingsFormFields holds the parsed, validated numeric fields from the
+// defaults form.
+type settingsFormFields struct {
+	quorum, grace, penalty, recovery, maxUses, expDays int
+	walkover                                           string
+}
+
+// parseSettingsForm parses and validates every numeric field on the defaults
+// form, returning the first field-specific error message it hits (empty
+// string when everything is valid).
+func parseSettingsForm(e *core.RequestEvent) (settingsFormFields, string) {
+	var f settingsFormFields
+	var err error
+
+	if f.quorum, err = parseBoundedInt(e, "quorum_timeout_hours", 0); err != nil {
+		return f, "Tiempo de espera debe ser un número entero mayor o igual que 0"
 	}
-	return strconv.Atoi(raw)
+	if f.grace, err = parseBoundedInt(e, "arrange_grace_days", 0); err != nil {
+		return f, "Días de gracia debe ser un número entero mayor o igual que 0"
+	}
+	if f.penalty, err = parseBoundedInt(e, "default_penalty", 0); err != nil {
+		return f, "Penalización debe ser un número entero mayor o igual que 0"
+	}
+	if f.recovery, err = parseBoundedInt(e, "recovery_days", 0); err != nil {
+		return f, "Período extra debe ser un número entero mayor o igual que 0"
+	}
+	if f.maxUses, err = parseBoundedInt(e, "invite_max_uses", 1); err != nil {
+		return f, "Usos máximos de invitación debe ser un número entero mayor que 0"
+	}
+	if f.expDays, err = parseBoundedInt(e, "invite_expiration_days", 1); err != nil {
+		return f, "Días de expiración de invitación debe ser un número entero mayor que 0"
+	}
+
+	f.walkover = e.Request.FormValue("walkover_score")
+	if _, err := league.ParseScore(f.walkover); err != nil {
+		return f, "Marcador de incomparecencia no válido"
+	}
+
+	return f, ""
+}
+
+// parseBoundedInt parses a form field as an integer no smaller than min,
+// rejecting non-numeric values instead of silently coercing them.
+func parseBoundedInt(e *core.RequestEvent, field string, min int) (int, error) {
+	n, err := strconv.Atoi(e.Request.FormValue(field))
+	if err != nil {
+		return 0, err
+	}
+	if n < min {
+		return 0, fmt.Errorf("must be at least %d, got %d", min, n)
+	}
+	return n, nil
 }
 
 // Reset restarts the database: it wipes ALL non-admin data (administrators, the

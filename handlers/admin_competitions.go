@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"sort"
 	"strconv"
@@ -183,8 +182,8 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 		record.Set("quorum_timeout_hours", hours)
 	}
 
-	if err := setSchedulingFields(record, e); err != nil {
-		return alertError(e, err.Error())
+	if msg := setSchedulingFields(record, e); msg != "" {
+		return alertError(e, msg)
 	}
 
 	if err := h.app.Save(record); err != nil {
@@ -239,8 +238,8 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 		record.Set("quorum_timeout_hours", hours)
 	}
 
-	if err := setSchedulingFields(record, e); err != nil {
-		return alertError(e, err.Error())
+	if msg := setSchedulingFields(record, e); msg != "" {
+		return alertError(e, msg)
 	}
 
 	if err := h.app.Save(record); err != nil {
@@ -528,7 +527,11 @@ func (h *CompetitionHandler) RegenerateRoundDates(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions/"+id)
 }
 
-func setSchedulingFields(record *core.Record, e *core.RequestEvent) error {
+// setSchedulingFields validates and applies the scheduling fields shared by
+// Create and Update. It returns a ready-to-display Spanish error message
+// (empty on success) rather than an error, since every caller only ever
+// shows the message verbatim via alertError — never wraps or type-checks it.
+func setSchedulingFields(record *core.Record, e *core.RequestEvent) string {
 	if v := e.Request.FormValue("start_date"); v != "" {
 		record.Set("start_date", v)
 	}
@@ -538,12 +541,12 @@ func setSchedulingFields(record *core.Record, e *core.RequestEvent) error {
 	start := record.GetString("start_date")
 	end := record.GetString("end_date")
 	if start != "" && end != "" && end < start {
-		return fmt.Errorf("La fecha de fin debe ser posterior a la de inicio")
+		return "La fecha de fin debe ser posterior a la de inicio"
 	}
 
-	grace, err := formIntValidated(e, "arrange_grace_days", 3)
-	if err != nil {
-		return fmt.Errorf("Días de gracia: %w", err)
+	grace, msg := formIntValidated(e, "arrange_grace_days", 3)
+	if msg != "" {
+		return "Días de gracia: " + msg
 	}
 	record.Set("arrange_grace_days", grace)
 
@@ -552,37 +555,39 @@ func setSchedulingFields(record *core.Record, e *core.RequestEvent) error {
 		ws = "6-0 6-0"
 	}
 	if _, err := league.ParseScore(ws); err != nil {
-		return fmt.Errorf("Marcador de incomparecencia inválido. Usa el formato: 6-0 6-0")
+		return "Marcador de incomparecencia inválido. Usa el formato: 6-0 6-0"
 	}
 	record.Set("walkover_score", ws)
 
-	penalty, err := formIntValidated(e, "default_penalty", 3)
-	if err != nil {
-		return fmt.Errorf("Penalización: %w", err)
+	penalty, msg := formIntValidated(e, "default_penalty", 3)
+	if msg != "" {
+		return "Penalización: " + msg
 	}
 	record.Set("default_penalty", penalty)
 
-	recovery, err := formIntValidated(e, "recovery_days", 14)
-	if err != nil {
-		return fmt.Errorf("Período extra: %w", err)
+	recovery, msg := formIntValidated(e, "recovery_days", 14)
+	if msg != "" {
+		return "Período extra: " + msg
 	}
 	record.Set("recovery_days", recovery)
-	return nil
+	return ""
 }
 
-func formIntValidated(e *core.RequestEvent, field string, def int) (int, error) {
+// formIntValidated parses a form field as a non-negative integer, returning
+// a Spanish display message (empty on success) instead of an error.
+func formIntValidated(e *core.RequestEvent, field string, def int) (int, string) {
 	v := e.Request.FormValue(field)
 	if v == "" {
-		return def, nil
+		return def, ""
 	}
 	n, err := strconv.Atoi(v)
 	if err != nil {
-		return 0, fmt.Errorf("debe ser un número")
+		return 0, "debe ser un número"
 	}
 	if n < 0 {
-		return 0, fmt.Errorf("no puede ser negativo")
+		return 0, "no puede ser negativo"
 	}
-	return n, nil
+	return n, ""
 }
 
 // AttachDocument adds a document to a competition's attached documents.
