@@ -47,8 +47,8 @@ test.describe('player profile and stats', () => {
     } else {
       // Desktop nav links the display name in the navbar to the player's
       // own profile (views/layout.html) — click it as a real affordance.
-      await page.goto('/');
-      await page.waitForLoadState('domcontentloaded');
+      // loginAs already lands on / (helpers.ts setAuthCookie navigates and
+      // asserts the URL), so no extra goto is needed here.
       await page.getByRole('link', { name: 'Test Player', exact: true }).click();
     }
     await page.waitForLoadState('domcontentloaded');
