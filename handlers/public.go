@@ -449,20 +449,6 @@ func filterAndSortUpcoming(upcoming []NextMatch, now time.Time, maxCount int) []
 	return dated
 }
 
-func excludeUpcomingInActions(upcoming []NextMatch, actions []HomeAction) []NextMatch {
-	inActions := make(map[string]struct{}, len(actions))
-	for _, a := range actions {
-		inActions[a.MatchID] = struct{}{}
-	}
-	filtered := upcoming[:0]
-	for _, u := range upcoming {
-		if _, dup := inActions[u.MatchID]; !dup {
-			filtered = append(filtered, u)
-		}
-	}
-	return filtered
-}
-
 func buildHomeActions(tasks []league.PlayerTask, pending []PendingAction, next *NextMatch, docs []DocsAction) []HomeAction {
 	seen := map[string]HomeAction{}
 	for _, t := range tasks {
