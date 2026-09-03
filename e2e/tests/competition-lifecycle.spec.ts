@@ -60,6 +60,7 @@ test.describe('competition lifecycle', () => {
     await page.locator('a[href^="/competition/"]', { hasText: 'Liga E2E Test' }).first().click();
     await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('input[aria-label="Jornadas"]')).toBeVisible();
+    await page.locator('input[aria-label="Jornadas"]').click();
     await expect(page.getByText(/Jornada \d/).first()).toBeVisible();
     // Mine-only: player's own matches visible
     const matchLinks = page.locator('a[href^="/match/"]');
