@@ -8,8 +8,8 @@
                 <th class="text-center">PJ</th>
                 <th class="text-center">PG</th>
                 <th class="text-center">PP</th>
-                <th class="hidden sm:table-cell text-center">Sets</th>
-                <th class="hidden sm:table-cell text-center">Juegos</th>
+                <th class="text-center">DS</th>
+                <th class="text-center">DJ</th>
                 <th class="text-center {{if not .Mode.Admin}}font-bold {{end}}">Pts</th>
                 {{if .HasPenalties}}<th class="text-center">Pen</th>{{end}}
             </tr>
@@ -33,8 +33,8 @@
                 <td class="text-center">{{.Played}}</td>
                 <td class="text-center {{if not $.Mode.Admin}}text-success{{end}}">{{.Wins}}</td>
                 <td class="text-center {{if not $.Mode.Admin}}text-error{{end}}">{{.Losses}}</td>
-                <td class="hidden sm:table-cell text-center text-sm">{{.SetsWon}}/{{.SetsLost}} <span class="opacity-50">({{printf "%+d" (sub .SetsWon .SetsLost)}})</span></td>
-                <td class="hidden sm:table-cell text-center text-sm">{{.GamesWon}}/{{.GamesLost}} <span class="opacity-50">({{printf "%+d" (sub .GamesWon .GamesLost)}})</span></td>
+                <td class="text-center text-sm">{{.SetsWon}}/{{.SetsLost}} <span class="hidden sm:inline opacity-50">({{printf "%+d" (sub .SetsWon .SetsLost)}})</span></td>
+                <td class="text-center text-sm">{{.GamesWon}}/{{.GamesLost}} <span class="hidden sm:inline opacity-50">({{printf "%+d" (sub .GamesWon .GamesLost)}})</span></td>
                 <td class="text-center {{if not $.Mode.Admin}}text-lg {{end}}font-bold">{{.Points}}</td>
                 {{if $.HasPenalties}}<td class="text-center">
                     {{if gt .Penalty 0}}<span class="text-error font-medium">-{{.Penalty}}</span>{{else}}<span class="opacity-60">—</span>{{end}}
