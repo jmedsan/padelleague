@@ -167,7 +167,7 @@ async function buildSeason(page: Page) {
 async function preCreatePlayer(page: Page, email: string, displayName: string): Promise<void> {
   await page.goto('/admin/players');
   await page.locator('label[for="precreate-modal"]').first().click();
-  const modal = page.locator('.modal[role="dialog"]').filter({ hasText: 'Pre-crear usuario' });
+  const modal = page.locator('.modal[role="dialog"]').filter({ hasText: 'Crear jugador' });
   await modal.locator('input[name="email"]').fill(email);
   await modal.locator('input[name="display_name"]').fill(displayName);
   await modal.locator('select[name="gender"]').selectOption('male');
@@ -526,13 +526,16 @@ async function assertStandings(
     const exp = expected[i];
     const pairName = PAIRS[LABEL_TO_INDEX[exp.pair]].name;
 
+    const setDiff = exp.setsWon - exp.setsLost;
+    const gameDiff = exp.gamesWon - exp.gamesLost;
+
     await expect(cells.nth(0)).toContainText(String(exp.position));
     await expect(cells.nth(1)).toContainText(pairName);
     await expect(cells.nth(2)).toContainText(String(exp.played));
     await expect(cells.nth(3)).toContainText(String(exp.wins));
     await expect(cells.nth(4)).toContainText(String(exp.losses));
-    await expect(cells.nth(5)).toContainText(`${exp.setsWon}/${exp.setsLost}`);
-    await expect(cells.nth(6)).toContainText(`${exp.gamesWon}/${exp.gamesLost}`);
+    await expect(cells.nth(5)).toContainText(setDiff >= 0 ? `+${setDiff}` : String(setDiff));
+    await expect(cells.nth(6)).toContainText(gameDiff >= 0 ? `+${gameDiff}` : String(gameDiff));
     await expect(cells.nth(7)).toContainText(String(exp.points));
 
     if (hasPenalties) {

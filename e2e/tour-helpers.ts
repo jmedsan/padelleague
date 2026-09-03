@@ -47,7 +47,7 @@ export async function clickAndWaitForHxRedirect(page: Page, locator: ReturnType<
 
 export async function createPlayer(page: Page, email: string, displayName: string): Promise<void> {
   await page.locator('label[for="precreate-modal"]').first().click();
-  const modal = page.locator('.modal[role="dialog"]').filter({ hasText: 'Pre-crear usuario' });
+  const modal = page.locator('.modal[role="dialog"]').filter({ hasText: 'Crear jugador' });
   await modal.locator('input[name="email"]').fill(email);
   await modal.locator('input[name="display_name"]').fill(displayName);
   await modal.locator('select[name="gender"]').selectOption('male');
@@ -281,13 +281,16 @@ export async function assertFinalStandings(
     const exp = expected[i];
     const name = pairNames[exp.pair];
 
+    const setDiff = exp.setsWon - exp.setsLost;
+    const gameDiff = exp.gamesWon - exp.gamesLost;
+
     await expect(cells.nth(0)).toContainText(String(exp.position));
     await expect(cells.nth(1)).toContainText(name);
     await expect(cells.nth(2)).toContainText(String(exp.played));
     await expect(cells.nth(3)).toContainText(String(exp.wins));
     await expect(cells.nth(4)).toContainText(String(exp.losses));
-    await expect(cells.nth(5)).toContainText(`${exp.setsWon}/${exp.setsLost}`);
-    await expect(cells.nth(6)).toContainText(`${exp.gamesWon}/${exp.gamesLost}`);
+    await expect(cells.nth(5)).toContainText(setDiff >= 0 ? `+${setDiff}` : String(setDiff));
+    await expect(cells.nth(6)).toContainText(gameDiff >= 0 ? `+${gameDiff}` : String(gameDiff));
     await expect(cells.nth(7)).toContainText(String(exp.points));
 
     if (hasPenalties && exp.penalty > 0) {
@@ -369,4 +372,54 @@ export async function setMatchDateAndClub(
       data: { date, club },
     },
   );
+}
+
+// acceptScheduleProposal creates an accepted scheduling_proposal message for
+// matchId, matching what a real propose+accept UI flow leaves behind:
+// ScheduleStatus becomes "confirmed" (handlers/public.go:applyProposalToNextMatch),
+// which is what makes the match count as "upcoming" (home.html's Próximos
+// partidos) instead of an "organize" action needing a date proposed.
+export async function acceptScheduleProposal(
+  request: APIRequestContext,
+  suToken: string,
+  matchId: string,
+  authorUserId: string,
+  date: string,
+  time: string,
+  venueName: string,
+): Promise<void> {
+  const resp = await request.post(
+    '/api/collections/match_messages/records',
+    {
+      headers: { Authorization: suToken },
+      data: {
+        match: matchId,
+        author: authorUserId,
+        type: 'scheduling_proposal',
+        proposal_status: 'accepted',
+        proposal_data: JSON.stringify({ date, time, venue_name: venueName, venue_id: '', venue_text: '' }),
+      },
+    },
+  );
+  if (!resp.ok()) {
+    throw new Error(`acceptScheduleProposal failed: ${resp.status()} ${await resp.text()}`);
+  }
+  await setMatchDateAndClub(request, suToken, matchId, date, venueName);
+  // A real accept flow also flips matches.status to "scheduled"
+  // (handlers/thread.go); creating the message directly via the API does
+  // not trigger that, and league.PlayerTasks / pendingMatchTasks treats
+  // any status='pending' match with an accepted proposal as its own
+  // "Próximo partido" action — which would otherwise duplicate/shadow the
+  // separate "Próximos partidos" home-page list this helper is meant to
+  // populate (see excludeUpcomingInActions in handlers/public.go).
+  const patchResp = await request.patch(
+    `/api/collections/matches/records/${matchId}`,
+    {
+      headers: { Authorization: suToken },
+      data: { status: 'scheduled' },
+    },
+  );
+  if (!patchResp.ok()) {
+    throw new Error(`acceptScheduleProposal status patch failed: ${patchResp.status()} ${await patchResp.text()}`);
+  }
 }
