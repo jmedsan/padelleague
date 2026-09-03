@@ -99,6 +99,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 
 	var comps []CompetitionView
 	var nextMatch *NextMatch
+	var upcomingMatches []NextMatch
 	var pendingActions []PendingAction
 	var recentResults []MatchCard
 	var docsActions []DocsAction
@@ -112,12 +113,17 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 		if nextMatch == nil && parts.Next != nil {
 			nextMatch = parts.Next
 		}
+		upcomingMatches = append(upcomingMatches, parts.Upcoming...)
 		pendingActions = append(pendingActions, parts.Pending...)
 		recentResults = append(recentResults, parts.Recent...)
 		if len(league.UnacknowledgedMandatory(h.app, c, userID)) > 0 {
 			docsActions = append(docsActions, DocsAction{CompID: c.Id, CompName: c.GetString("name")})
 		}
 	}
+
+	sort.Slice(upcomingMatches, func(i, j int) bool {
+		return upcomingMatches[i].RoundNumber < upcomingMatches[j].RoundNumber
+	})
 
 	sort.Slice(recentResults, func(i, j int) bool {
 		return recentResults[i].Match.GetString("date") > recentResults[j].Match.GetString("date")
@@ -130,9 +136,22 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	actions := buildHomeActions(urgentTasks, pendingActions, nextMatch, docsActions)
 	excludePendingDetailsInActions(comps, actions)
 
+	inActions := make(map[string]struct{}, len(actions))
+	for _, a := range actions {
+		inActions[a.MatchID] = struct{}{}
+	}
+	filtered := upcomingMatches[:0]
+	for _, u := range upcomingMatches {
+		if _, dup := inActions[u.MatchID]; !dup {
+			filtered = append(filtered, u)
+		}
+	}
+	upcomingMatches = filtered
+
 	data["Competitions"] = comps
 	data["CompCount"] = len(comps)
 	data["Actions"] = actions
+	data["UpcomingMatches"] = upcomingMatches
 	data["RecentResults"] = recentResults
 
 	if slices.Contains(e.Auth.GetStringSlice("roles"), "player") {
@@ -179,16 +198,18 @@ func (h *PublicHandler) opponentName(m *core.Record, playerPairIDs map[string]st
 }
 
 type homeCompetitionParts struct {
-	Comp    CompetitionView
-	Next    *NextMatch
-	Pending []PendingAction
-	Recent  []MatchCard
+	Comp     CompetitionView
+	Next     *NextMatch
+	Upcoming []NextMatch
+	Pending  []PendingAction
+	Recent   []MatchCard
 }
 
 func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[string]struct{}, needNext bool) homeCompetitionParts {
 	pending := 0
 	var pendingDetails []MatchCard
 	var nextMatch *NextMatch
+	var upcoming []NextMatch
 	var actions []PendingAction
 
 	pendingMatches := findRecordsLogged(h.app, "buildHomeCompetition: find pending matches", RecordQuery{
@@ -212,8 +233,10 @@ func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[s
 			pendingDetails = append(pendingDetails, NewMatchRow(m, pairNames, playerPairIDs))
 		}
 
+		nm := h.buildNextMatch(m, c, playerPairIDs)
+		upcoming = append(upcoming, *nm)
 		if needNext && nextMatch == nil {
-			nextMatch = h.buildNextMatch(m, c, playerPairIDs)
+			nextMatch = nm
 		}
 
 		if pa := h.checkPendingProposal(m, playerPairIDs); pa != nil {
@@ -225,10 +248,11 @@ func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[s
 	results := h.findRecentResults(c, playerPairIDs)
 
 	return homeCompetitionParts{
-		Comp:    NewHomeCompetitionView(c, pending, pendingDetails),
-		Next:    nextMatch,
-		Pending: actions,
-		Recent:  results,
+		Comp:     NewHomeCompetitionView(c, pending, pendingDetails),
+		Next:     nextMatch,
+		Upcoming: upcoming,
+		Pending:  actions,
+		Recent:   results,
 	}
 }
 

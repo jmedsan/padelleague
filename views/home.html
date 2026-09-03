@@ -52,6 +52,29 @@
 </div>
 {{end}}
 
+{{if .UpcomingMatches}}
+<div class="mb-6" data-testid="upcoming-matches">
+    <h2 class="text-lg font-bold mb-3">Próximos partidos</h2>
+    <div class="space-y-2">
+        {{range .UpcomingMatches}}
+        <a href="/match/{{.MatchID}}" class="flex items-center gap-3 p-3 rounded-xl bg-base-200/50 hover:bg-base-200 transition-colors" data-testid="upcoming-match">
+            <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-none">
+                <span class="text-xs font-bold text-primary">J{{.RoundNumber}}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="font-medium text-sm truncate">vs <span data-testid="upcoming-opponent">{{.Opponent}}</span></p>
+                <p class="text-xs opacity-60">{{.CompetitionName}}{{if .ProposedDate}} · {{.ProposedDate}}{{end}}{{if .ProposedVenue}} · {{.ProposedVenue}}{{end}}</p>
+            </div>
+            {{if eq .ScheduleStatus "confirmed"}}<span class="badge badge-soft-success badge-sm">Confirmada</span>
+            {{else if eq .ScheduleStatus "proposed"}}<span class="badge badge-soft-warning badge-sm">Propuesta</span>
+            {{else}}<span class="badge badge-ghost badge-sm">Pendiente</span>
+            {{end}}
+        </a>
+        {{end}}
+    </div>
+</div>
+{{end}}
+
 {{if .RecentResults}}
 <div class="mb-6">
     <h2 class="text-lg font-bold mb-3">Mis últimos partidos</h2>
