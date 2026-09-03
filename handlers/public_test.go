@@ -602,7 +602,7 @@ func TestHome_UrgentTasksRanking(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "unified actions: dispute > play > organize ordered",
+		Name:           "unified actions: dispute > organize; scheduled in upcoming",
 		Method:         http.MethodGet,
 		URL:            "/",
 		ExpectedStatus: 200,
@@ -648,8 +648,7 @@ func TestHome_UrgentTasksRanking(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		assert.Contains(tb, body, "bg-error/10", "dispute action must use error accent")
-		assert.Contains(tb, body, "PlayOpp", "play task must appear")
-		assert.Contains(tb, body, "Próximo partido", "play task description")
+		assert.Contains(tb, body, "PlayOpp", "scheduled match must appear in upcoming")
 		assert.Contains(tb, body, "OrgOpp", "organize task must appear")
 		assert.Contains(tb, body, "Organiza antes del", "organize deadline")
 	}
@@ -1319,7 +1318,6 @@ func TestBuildHomeActions_AllKindsMap(t *testing.T) {
 	tasks := []league.PlayerTask{
 		{Kind: league.TaskDispute, MatchID: "m1", Opponent: "Rival", CompetitionName: "Liga", RoundNumber: 1},
 		{Kind: league.TaskOrganize, MatchID: "m2", Opponent: "Rival2", CompetitionName: "Liga", RoundNumber: 2, Warning: league.WarnUrgent, Description: "Organiza antes del 15/03"},
-		{Kind: league.TaskPlay, MatchID: "m3", Opponent: "Rival3", CompetitionName: "Liga", RoundNumber: 3},
 	}
 	pending := []PendingAction{
 		{MatchID: "m4", Opponent: "Rival4", ActionType: "confirm_score", Description: "6-4 6-3"},
@@ -1327,7 +1325,7 @@ func TestBuildHomeActions_AllKindsMap(t *testing.T) {
 		{MatchID: "m6", Opponent: "Rival6", ActionType: "respond_proposal", Description: "Propuesta de horario pendiente"},
 	}
 	actions := buildHomeActions(tasks, pending, nil, nil)
-	require.Len(t, actions, 6)
+	require.Len(t, actions, 5)
 
 	kinds := map[string]bool{}
 	for _, a := range actions {
@@ -1339,7 +1337,6 @@ func TestBuildHomeActions_AllKindsMap(t *testing.T) {
 	assert.True(t, kinds["confirm"], "confirm kind must be present")
 	assert.True(t, kinds["respond"], "respond kind must be present")
 	assert.True(t, kinds["organize"], "organize kind must be present")
-	assert.True(t, kinds["play"], "play kind must be present")
 }
 
 func TestBuildHomeActions_DedupByMatchID(t *testing.T) {
@@ -1356,7 +1353,6 @@ func TestBuildHomeActions_DedupByMatchID(t *testing.T) {
 
 func TestBuildHomeActions_OrderingPriority(t *testing.T) {
 	tasks := []league.PlayerTask{
-		{Kind: league.TaskPlay, MatchID: "m3", Opponent: "R3", CompetitionName: "L", RoundNumber: 1},
 		{Kind: league.TaskDispute, MatchID: "m1", Opponent: "R1", CompetitionName: "L", RoundNumber: 1},
 		{Kind: league.TaskOrganize, MatchID: "m4", Opponent: "R4", CompetitionName: "L", Warning: league.WarnUrgent, Description: "Organiza"},
 	}
@@ -1364,11 +1360,10 @@ func TestBuildHomeActions_OrderingPriority(t *testing.T) {
 		{MatchID: "m2", Opponent: "R2", ActionType: "confirm_score", Description: "6-4 6-3"},
 	}
 	actions := buildHomeActions(tasks, pending, nil, nil)
-	require.Len(t, actions, 4)
+	require.Len(t, actions, 3)
 	assert.Equal(t, "dispute", actions[0].Kind)
 	assert.Equal(t, "confirm", actions[1].Kind)
 	assert.Equal(t, "organize", actions[2].Kind)
-	assert.Equal(t, "play", actions[3].Kind)
 }
 
 func TestBuildHomeActions_DocsRankedAboveOrganize(t *testing.T) {
@@ -1399,9 +1394,7 @@ func TestBuildHomeActions_NextMatchSynthesized(t *testing.T) {
 	next.ScheduleStatus = "confirmed"
 	next.ProposedDate = "2026-03-15 18:00"
 	actions = buildHomeActions(nil, nil, next, nil)
-	require.Len(t, actions, 1)
-	assert.Equal(t, "play", actions[0].Kind, "scheduled NextMatch becomes play")
-	assert.Contains(t, actions[0].Detail, "15/03/2026 18:00")
+	require.Len(t, actions, 0, "confirmed match needs no action card — it shows in upcoming only")
 }
 
 func TestBuildHomeActions_NextMatchDedupWithTask(t *testing.T) {
