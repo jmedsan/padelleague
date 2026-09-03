@@ -353,7 +353,7 @@ func TestMatchDetail_OGImageDefaultsToIcon(t *testing.T) {
 		Name:            "GET /match/{id} without a competition logo falls back to the default icon for og:image",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{`<meta property="og:image" content="/static/img/icon-512.png">`},
+		ExpectedContent: []string{`og:image" content="http://`, `/static/img/icon-512.png"`},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)

@@ -2,6 +2,7 @@ package league
 
 import (
 	"fmt"
+	"log/slog"
 	"math"
 	"slices"
 	"sort"
@@ -437,7 +438,8 @@ func competitionInfo(app core.App, matches []*core.Record) map[string]compNameLo
 	for cid := range idSet {
 		comp, err := app.FindRecordById("competitions", cid)
 		if err != nil {
-			info[cid] = compNameLogo{name: "?"}
+			slog.Warn("competition not found for stats", "id", cid, "err", err)
+			info[cid] = compNameLogo{}
 			continue
 		}
 		info[cid] = compNameLogo{

@@ -50,6 +50,7 @@ type HealthItem struct {
 	Pair1    string
 	Pair2    string
 	CompName string
+	CompLogo string
 	Round    int
 	Detail   string
 	Warning  Warning
@@ -160,6 +161,7 @@ func CompHealthItems(app core.App, compID string, now time.Time, keys ...string)
 type compHealthCtx struct {
 	comp      *core.Record
 	compName  string
+	compLogo  string
 	graceDays int
 	phase     Phase
 	recovery  bool
@@ -171,6 +173,7 @@ func addCompHealth(app core.App, c *core.Record, now time.Time, categories map[s
 	ctx := compHealthCtx{
 		comp:      c,
 		compName:  c.GetString("name"),
+		compLogo:  CompetitionLogoURL(c.Id, c.GetString("logo")),
 		graceDays: c.GetInt("arrange_grace_days"),
 		phase:     phase,
 		recovery:  phase == PhaseRecovery,
@@ -184,11 +187,11 @@ func addCompHealth(app core.App, c *core.Record, now time.Time, categories map[s
 	for _, m := range disputed {
 		if m.GetString("review_type") == "walkover" {
 			categories["walkovers"].Items = append(categories["walkovers"].Items,
-				walkoverHealthItem(app, m, ctx.compName))
+				walkoverHealthItem(app, m, compIdent{ctx.compName, ctx.compLogo}))
 			continue
 		}
 		categories["disputes"].Items = append(categories["disputes"].Items,
-			disputeHealthItem(app, m, ctx.compName))
+			disputeHealthItem(app, m, compIdent{ctx.compName, ctx.compLogo}))
 	}
 
 	pending, _ := app.FindRecordsByFilter("matches",
@@ -210,7 +213,7 @@ func addPendingHealth(app core.App, m *core.Record, ctx compHealthCtx, categorie
 		return
 	}
 	rn := m.GetInt("round_number")
-	item := healthItem(app, m, ctx.compName, rn)
+	item := healthItem(app, m, compIdent{ctx.compName, ctx.compLogo}, rn)
 
 	if m.GetString("date") == "" {
 		unscheduled := item
@@ -234,23 +237,28 @@ func addPendingHealth(app core.App, m *core.Record, ctx compHealthCtx, categorie
 	}
 }
 
-func disputeHealthItem(app core.App, m *core.Record, compName string) HealthItem {
-	item := healthItem(app, m, compName, m.GetInt("round_number"))
+type compIdent struct {
+	name string
+	logo string
+}
+
+func disputeHealthItem(app core.App, m *core.Record, ci compIdent) HealthItem {
+	item := healthItem(app, m, ci, m.GetInt("round_number"))
 	item.Detail = "Disputa abierta"
 	return item
 }
 
-func walkoverHealthItem(app core.App, m *core.Record, compName string) HealthItem {
-	item := healthItem(app, m, compName, m.GetInt("round_number"))
+func walkoverHealthItem(app core.App, m *core.Record, ci compIdent) HealthItem {
+	item := healthItem(app, m, ci, m.GetInt("round_number"))
 	item.Detail = "Incomparecencia pendiente de aprobación"
 	return item
 }
 
-func healthItem(app core.App, m *core.Record, compName string, round int) HealthItem {
+func healthItem(app core.App, m *core.Record, ci compIdent, round int) HealthItem {
 	p1, p2 := pairNamesForMatch(app, m)
 	return HealthItem{
 		MatchID: m.Id, CompID: m.GetString("competition"),
-		Pair1: p1, Pair2: p2, CompName: compName, Round: round,
+		Pair1: p1, Pair2: p2, CompName: ci.name, CompLogo: ci.logo, Round: round,
 	}
 }
 
@@ -264,12 +272,13 @@ func addUnpaidHealth(app core.App, activeComps []*core.Record, unpaid *HealthCat
 		pairIDs := comp.GetStringSlice("pairs")
 		pairNames := PairNames(app, pairIDs)
 		compName := comp.GetString("name")
+		compLogo := CompetitionLogoURL(comp.Id, comp.GetString("logo"))
 		for _, pid := range pairIDs {
 			if ps[pid] {
 				continue
 			}
 			unpaid.Items = append(unpaid.Items, HealthItem{
-				CompID: comp.Id, Pair1: pairNames[pid], CompName: compName,
+				CompID: comp.Id, Pair1: pairNames[pid], CompName: compName, CompLogo: compLogo,
 				Detail: "Pago pendiente",
 			})
 		}
@@ -373,6 +382,7 @@ type OutstandingMatch struct {
 	MatchID          string
 	CompetitionID    string
 	CompetitionName  string
+	CompetitionLogo  string
 	RoundNumber      int
 	Pair1ID, Pair2ID string
 	Pair1, Pair2     string
@@ -404,6 +414,7 @@ func OutstandingMatches(app core.App, now time.Time) []OutstandingMatch {
 
 func outstandingForComp(app core.App, c *core.Record, now time.Time) []OutstandingMatch {
 	compName := c.GetString("name")
+	compLogo := CompetitionLogoURL(c.Id, c.GetString("logo"))
 	graceDays := c.GetInt("arrange_grace_days")
 	isPlayoff := IsPlayoff(c)
 
@@ -421,6 +432,7 @@ func outstandingForComp(app core.App, c *core.Record, now time.Time) []Outstandi
 			MatchID:         m.Id,
 			CompetitionID:   c.Id,
 			CompetitionName: compName,
+			CompetitionLogo: compLogo,
 			RoundNumber:     m.GetInt("round_number"),
 			Pair1ID:         m.GetString("pair1"),
 			Pair1:           p1,
@@ -482,6 +494,7 @@ func pairNamesForMatch(app core.App, m *core.Record) (string, string) {
 type PlayoffPrompt struct {
 	CompID   string
 	CompName string
+	CompLogo string
 }
 
 // PlayoffPrompts returns finished league competitions with no active playoff,
@@ -499,7 +512,7 @@ func PlayoffPrompts(app core.App, activeComps []*core.Record, now time.Time) []P
 		if !allMatchesFinal(app, c.Id) {
 			continue
 		}
-		prompts = append(prompts, PlayoffPrompt{CompID: c.Id, CompName: c.GetString("name")})
+		prompts = append(prompts, PlayoffPrompt{CompID: c.Id, CompName: c.GetString("name"), CompLogo: CompetitionLogoURL(c.Id, c.GetString("logo"))})
 	}
 	return prompts
 }
