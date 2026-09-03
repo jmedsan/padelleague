@@ -573,6 +573,7 @@ func TestCompGenerateFixtures_NotifiesMatchAssigned(t *testing.T) {
 		ExpectedStatus: 204,
 	}
 	var playerIDs []string
+	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupCompRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
@@ -582,6 +583,7 @@ func TestCompGenerateFixtures_NotifiesMatchAssigned(t *testing.T) {
 		comp.Set("start_date", "2026-06-01 00:00:00.000Z")
 		comp.Set("end_date", "2026-09-01 00:00:00.000Z")
 		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
 		playerIDs = []string{p1.GetString("player1"), p1.GetString("player2"), p2.GetString("player1"), p2.GetString("player2")}
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
 		s.Headers = authHeaders(tb, admin)
@@ -597,6 +599,7 @@ func TestCompGenerateFixtures_NotifiesMatchAssigned(t *testing.T) {
 			notifiedIDs[i] = n.GetString("user")
 			assert.Equal(tb, "Calendario disponible", n.GetString("title"))
 			assert.Contains(tb, n.GetString("body"), "Ya tienes calendario en")
+			assert.Equal(tb, "/competition/"+compID, n.GetString("link"), "bell entry must link to the competition, not be a dead tap")
 		}
 		assert.ElementsMatch(tb, playerIDs, notifiedIDs)
 	}

@@ -109,6 +109,16 @@ func TestNotificationConstructors(t *testing.T) {
 			got:  NotifAdminMatchProgress("m1", "Resultado registrado: 6-3 6-4"),
 			want: Notification{Type: "match_progress", Title: "Progreso de partido", Body: "Resultado registrado: 6-3 6-4", MatchID: "m1"},
 		},
+		{
+			name: "MatchAssigned",
+			got:  NotifMatchAssigned("c1", "Liga Primavera"),
+			want: Notification{Type: "match_assigned", Title: "Calendario disponible", Body: "Ya tienes calendario en Liga Primavera.", Link: "/competition/c1"},
+		},
+		{
+			name: "MatchReminder",
+			got:  NotifMatchReminder("m1", "18:00", "Padel 360"),
+			want: Notification{Type: "scheduling", Title: "Partido mañana", Body: "Tu partido es mañana a las 18:00 en Padel 360.", MatchID: "m1"},
+		},
 	}
 
 	for _, tt := range tests {

@@ -699,6 +699,34 @@ func TestMatchDayReminder_SendsForTomorrowsMatch(t *testing.T) {
 	assert.True(t, updated.GetBool("reminder_sent"))
 }
 
+func TestMatchDayReminder_MadridTimezoneNearMidnight(t *testing.T) {
+	app := newTestApp(t)
+	notifier := notify.NewNotifier(app, "", "")
+
+	p1 := makePair(t, app, "MdTzA")
+	p2 := makePair(t, app, "MdTzB")
+	comp := makeLeagueComp(t, app, []*core.Record{p1, p2},
+		time.Now().AddDate(0, 0, -10), time.Now().AddDate(0, 0, 10), 1)
+
+	// 23:30 UTC in June is already 01:30 the next day in Madrid (CEST,
+	// UTC+2), so "tomorrow" in Madrid is two calendar days ahead of now's
+	// UTC date. A naive UTC-only comparison would miss this match.
+	now := time.Date(2026, 6, 15, 23, 30, 0, 0, time.UTC)
+	madridTomorrow := time.Date(2026, 6, 17, 0, 0, 0, 0, time.UTC)
+
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+	m.Set("status", league.StatusScheduled)
+	d, _ := types.ParseDateTime(madridTomorrow)
+	m.Set("date", d)
+	require.NoError(t, app.Save(m))
+
+	checkMatchDayReminders(app, notifier, now)
+
+	notifs, err := app.FindRecordsByFilter("notifications", "type = 'scheduling'", "", 0, 0, nil)
+	require.NoError(t, err)
+	assert.Len(t, notifs, 4, "the match falling on Madrid's tomorrow must get reminded even near a UTC day boundary")
+}
+
 func TestMatchDayReminder_DoesNotResend(t *testing.T) {
 	app := newTestApp(t)
 	notifier := notify.NewNotifier(app, "", "")

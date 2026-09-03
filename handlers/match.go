@@ -318,10 +318,15 @@ func (h *MatchHandler) detectChanges(e *core.RequestEvent, match *core.Record) (
 		return nil, err
 	}
 	changes = append(changes, scoreChange...)
-	changes = append(changes, detectFieldChange(match, "date", e.Request.FormValue("date"), "Fecha")...)
+	dateChange := detectFieldChange(match, "date", e.Request.FormValue("date"), "Fecha")
+	changes = append(changes, dateChange...)
 	changes = append(changes, detectFieldChange(match, "time", e.Request.FormValue("time"), "Hora")...)
 	changes = append(changes, h.detectVenueChange(match, e.Request.FormValue("venue_id"))...)
 	changes = append(changes, detectFieldChange(match, "court_number", e.Request.FormValue("court_number"), "Pista")...)
+
+	if len(dateChange) > 0 {
+		match.Set("reminder_sent", false)
+	}
 
 	return changes, nil
 }

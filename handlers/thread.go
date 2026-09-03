@@ -462,6 +462,7 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 	match.Set("time", pd.Time)
 	match.Set("club", pd.VenueName)
 	match.Set("status", league.StatusScheduled)
+	match.Set("reminder_sent", false)
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al actualizar el partido")
 	}
@@ -680,6 +681,7 @@ func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.
 	match.Set("time", "")
 	match.Set("club", "")
 	match.Set("status", league.StatusPending)
+	match.Set("reminder_sent", false)
 	if err := h.app.Save(match); err != nil {
 		slog.Error("save match after rejection", "match", match.Id, "err", err)
 		return alertError(e, "Error al actualizar el partido")
@@ -722,6 +724,7 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 	match.Set("time", pd.Time)
 	match.Set("club", pd.VenueName)
 	match.Set("status", league.StatusScheduled)
+	match.Set("reminder_sent", false)
 	if err := h.app.Save(match); err != nil {
 		slog.Error("save match after acceptance", "match", match.Id, "err", err)
 		return alertError(e, "Error al actualizar el partido")
