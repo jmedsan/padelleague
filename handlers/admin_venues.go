@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"log/slog"
+	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -30,9 +31,9 @@ func (h *VenueHandler) Venues(e *core.RequestEvent) error {
 
 // VenuesCreate handles POST to add a new venue.
 func (h *VenueHandler) VenuesCreate(e *core.RequestEvent) error {
-	name := e.Request.FormValue("name")
+	name := strings.TrimSpace(e.Request.FormValue("name"))
 	if name == "" {
-		return alertError(e, "El nombre es obligatorio")
+		return alertError(e, "El nombre del club es obligatorio")
 	}
 
 	col, err := h.app.FindCollectionByNameOrId("venues")
@@ -60,7 +61,11 @@ func (h *VenueHandler) VenuesUpdate(e *core.RequestEvent) error {
 		return alertError(e, "Club no encontrado")
 	}
 
-	record.Set("name", e.Request.FormValue("name"))
+	name := strings.TrimSpace(e.Request.FormValue("name"))
+	if name == "" {
+		return alertError(e, "El nombre del club es obligatorio")
+	}
+	record.Set("name", name)
 	record.Set("address", e.Request.FormValue("address"))
 
 	if err := h.app.Save(record); err != nil {
