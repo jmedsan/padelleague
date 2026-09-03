@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{if .PageTitle}}{{.PageTitle}} — {{end}}Padel League</title>
-    <meta property="og:image" content="{{if .OGImage}}{{.OGImage}}{{else}}/static/img/icon-512.png{{end}}">
+    <meta property="og:title" content="{{if .PageTitle}}{{.PageTitle}} — {{end}}Padel League">
+    <meta property="og:image" content="{{.BaseURL}}{{if .OGImage}}{{.OGImage}}{{else}}/static/img/icon-512.png{{end}}">
+    <meta property="og:url" content="{{.BaseURL}}{{.RequestPath}}">
     <link rel="stylesheet" href="/static/css/styles.css">
     <link rel="manifest" href="/manifest.json">
     <link rel="icon" href="/static/img/icon-192.png" type="image/png">
