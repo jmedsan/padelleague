@@ -79,6 +79,58 @@ test.describe('admin management', () => {
     await expect(page.getByText(invEmail).locator('visible=true').first()).toBeVisible({ timeout: 5000 });
   });
 
+  test('register hero shows competition name and logo from an invitation link', async ({ page }) => {
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto('/admin/competitions');
+    await page.locator('.card-title', { hasText: 'Liga E2E Test' }).first().click();
+    await page.waitForLoadState('domcontentloaded');
+
+    await page.locator('label[for="edit-modal"]', { hasText: 'Editar' }).click();
+    await page.waitForSelector('#comp-logo-input', { state: 'visible' });
+
+    // 4x4 red JPEG, built in-memory — same approach as the logo upload tour
+    // assertion, no fixture file needed on disk.
+    const logoJpeg = Buffer.from(
+      '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAEAAQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDk6KKK8I/Vj//Z',
+      'base64'
+    );
+    await page.setInputFiles('#comp-logo-input', {
+      name: 'logo.jpg',
+      mimeType: 'image/jpeg',
+      buffer: logoJpeg,
+    });
+    await expect(page.locator('img[src*="/api/files/competitions/"]').first()).toBeVisible({ timeout: 10000 });
+
+    // Create an invitation and read its register link straight off the
+    // "Copiar" button's onclick attribute (copyInviteLink(token, this)) —
+    // no clipboard permission dance needed.
+    const invEmail = `inv-hero-${Date.now()}@test.com`;
+    await page.getByRole('button', { name: /nueva invitaci[oó]n/i }).click();
+    await page.locator('#modal-create-invite input[name="email"]').fill(invEmail);
+    await Promise.all([
+      page.waitForEvent('load', { timeout: 10000 }),
+      page.locator('#modal-create-invite button[type="submit"]').click(),
+    ]);
+    const inviteRow = page.locator('tr, div.py-3', { hasText: invEmail }).locator('visible=true').first();
+    await expect(inviteRow).toBeVisible({ timeout: 5000 });
+    const copyBtn = inviteRow.locator('button[title="Copiar enlace"]');
+    const onclick = await copyBtn.getAttribute('onclick');
+    const token = onclick?.match(/copyInviteLink\('([^']+)'/)?.[1];
+    expect(token).toBeTruthy();
+
+    // Open the actual register link, as an invited (logged-out) player would.
+    // Clear the session directly rather than clicking "Salir" — on mobile
+    // that button lives in the off-canvas drawer (not display:none, so
+    // :visible can't disambiguate it from the desktop navbar's copy), and
+    // this test only needs a logged-out browser, not to exercise logout UI.
+    await page.context().clearCookies();
+    await page.goto(`/register?token=${token}`);
+    await page.waitForLoadState('domcontentloaded');
+
+    await expect(page.getByText('Liga E2E Test te invita a')).toBeVisible();
+    await expect(page.locator('img[src*="/api/files/competitions/"]')).toBeVisible();
+  });
+
   test('admin can create venue', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await navToAdmin(page, '/admin/venues');
