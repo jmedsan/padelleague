@@ -11,6 +11,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/security"
 
 	"padelleague/notify"
+	"padelleague/render"
 )
 
 // AdminPlayerHandler handles admin player management.
@@ -196,20 +197,9 @@ func (h *AdminPlayerHandler) createPlayerInvitation(email, createdBy string) err
 	return nil
 }
 
-func requestBaseURL(e *core.RequestEvent) string {
-	scheme := e.Request.Header.Get("X-Forwarded-Proto")
-	if scheme == "" {
-		scheme = "https"
-		if e.Request.TLS == nil {
-			scheme = "http"
-		}
-	}
-	return fmt.Sprintf("%s://%s", scheme, e.Request.Host)
-}
-
 func buildResetURL(e *core.RequestEvent, token string) string {
 	// Token in URL is inherent: the reset link requires it; admin-only copy-paste, not logged.
-	return requestBaseURL(e) + "/reset-password?token=" + token
+	return render.RequestBaseURL(e) + "/reset-password?token=" + token
 }
 
 func buildOnboardingEmail(email, resetURL string) string {
