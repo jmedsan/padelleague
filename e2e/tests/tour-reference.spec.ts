@@ -254,11 +254,23 @@ test.describe('reference navigation tour', () => {
 
     // --- Notification shows the competition name ---
     // scheduledOtherEmail is the proposal author; after the accept above they
-    // get a "Propuesta aceptada" notification carrying CompName.
+    // get a "Propuesta aceptada" notification carrying CompName. Reach the
+    // history page the way a real user would (bell dropdown → "Ver todas"),
+    // and assert the comp_name line inside that specific notification row,
+    // not just page-wide text (which could match unrelated content).
     await loginAs(page, scheduledOtherEmail, PLAYER_PASSWORD);
-    await page.goto('/notifications/history');
+    await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.locator('body')).toContainText(COMP_NAME);
+    // Both mobile and desktop bell buttons exist in the DOM (breakpoint
+    // classes just hide one); :visible picks whichever this viewport shows.
+    await page.locator('button[aria-label="notificaciones"]:visible').click();
+    await page.locator('a:has-text("Ver todas"):visible').click();
+    await page.waitForLoadState('domcontentloaded');
+    expect(page.url()).toContain('/notifications/history');
+
+    const proposalAcceptedRow = page.locator('a', { hasText: 'Propuesta aceptada' }).first();
+    await expect(proposalAcceptedRow).toBeVisible();
+    await expect(proposalAcceptedRow).toContainText(COMP_NAME);
 
     // --- Upcoming matches section on player home ---
     await loginAs(page, PLAYERS[0].email, PLAYER_PASSWORD);
