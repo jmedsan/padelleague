@@ -701,13 +701,16 @@ func TestProposalChangeDecision(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var msgID string
+	var msgID, matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "ChgDec A")
 		p2 := makePairTB(tb, app, "ChgDec B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match.Set("reminder_sent", true)
+		require.NoError(tb, app.Save(match))
+		matchID = match.Id
 
 		col, _ := app.FindCollectionByNameOrId("match_messages")
 		msg := core.NewRecord(col)
@@ -729,6 +732,57 @@ func TestProposalChangeDecision(t *testing.T) {
 		m, err := app.FindRecordById("match_messages", msgID)
 		require.NoError(tb, err)
 		assert.Equal(tb, "rejected", m.GetString("proposal_status"))
+
+		match, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.False(tb, match.GetBool("reminder_sent"), "revoking acceptance must clear the stale reminder flag")
+	}
+	s.Test(t)
+}
+
+func TestProposalChangeDecision_ToAccepted_ResetsReminderSent(t *testing.T) {
+	t.Parallel()
+	var msgID, matchID string
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST change-decision from rejected to accepted resets a stale reminder_sent flag",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "ChgDecAcc A")
+		p2 := makePairTB(tb, app, "ChgDecAcc B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match.Set("reminder_sent", true)
+		require.NoError(tb, app.Save(match))
+		matchID = match.Id
+
+		col, _ := app.FindCollectionByNameOrId("match_messages")
+		msg := core.NewRecord(col)
+		msg.Set("match", match.Id)
+		msg.Set("author", p1.GetString("player1"))
+		msg.Set("type", "scheduling_proposal")
+		msg.Set("proposal_data", map[string]any{
+			"date": "2026-09-20", "time": "19:00", "venue_name": "Club",
+		})
+		msg.Set("proposal_status", "rejected")
+		require.NoError(tb, app.Save(msg))
+		msgID = msg.Id
+
+		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/change-decision", match.Id, msg.Id)
+		opponent, _ := app.FindRecordById("users", p2.GetString("player1"))
+		s.Headers = authHeaders(tb, opponent)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		m, err := app.FindRecordById("match_messages", msgID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "accepted", m.GetString("proposal_status"))
+
+		match, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.False(tb, match.GetBool("reminder_sent"), "the newly-accepted date must get its own day-before reminder")
 	}
 	s.Test(t)
 }
@@ -859,6 +913,41 @@ func TestAcceptProposal_SetsStatusScheduled(t *testing.T) {
 		match, err := app.FindRecordById("matches", matchID)
 		require.NoError(tb, err)
 		assert.Equal(tb, league.StatusScheduled, match.GetString("status"))
+	}
+	s.Test(t)
+}
+
+func TestAcceptProposal_ResetsReminderSent(t *testing.T) {
+	t.Parallel()
+	var matchID string
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "accepting a proposal resets a stale reminder_sent flag",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "RemA")
+		p2 := makePairTB(tb, app, "RemB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match.Set("reminder_sent", true)
+		require.NoError(tb, app.Save(match))
+		matchID = match.Id
+
+		prop := makeProposal(tb, app, match.Id, p1.GetString("player1"))
+		respondent, _ := app.FindRecordById("users", p2.GetString("player1"))
+		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/respond", match.Id, prop.Id)
+		s.Body = strings.NewReader("action=accept")
+		hdrs := authHeaders(tb, respondent)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		match, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.False(tb, match.GetBool("reminder_sent"), "a new confirmed date must get its own day-before reminder")
 	}
 	s.Test(t)
 }

@@ -179,11 +179,12 @@ func NotifAdminPlayoffAdvanceFailed(matchID string) Notification {
 
 // NotifMatchAssigned notifies a player that fixtures were generated for a
 // competition they're playing in.
-func NotifMatchAssigned(compName string) Notification {
+func NotifMatchAssigned(compID, compName string) Notification {
 	return Notification{
 		Type:  "match_assigned",
 		Title: "Calendario disponible",
 		Body:  fmt.Sprintf("Ya tienes calendario en %s.", compName),
+		Link:  "/competition/" + compID,
 	}
 }
 
@@ -202,7 +203,7 @@ func (svc *Service) NotifyFixturesGenerated(compID string, pairIDs []string) {
 			players = append(players, uid)
 		}
 	}
-	svc.notifier.NotifyPlayers(players, NotifMatchAssigned(compName))
+	svc.notifier.NotifyPlayers(players, NotifMatchAssigned(compID, compName))
 }
 
 // NotifMatchReminder reminds players that their match is scheduled for the

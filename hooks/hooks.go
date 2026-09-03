@@ -107,11 +107,23 @@ func remindCompetitionMatches(app core.App, notifier *notify.Notifier, comp *cor
 	}
 }
 
+// madrid is used to compare match dates against "tomorrow" in the timezone
+// players actually mean, so the reminder doesn't drift a day near midnight
+// when the server runs in UTC. Mirrors the same var in league/scheduling.go
+// and render/render.go.
+var madrid = func() *time.Location {
+	loc, err := time.LoadLocation("Europe/Madrid")
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}()
+
 // checkMatchDayReminders sends a "your match is tomorrow" notification to
 // both pairs of every match with a confirmed date (status = scheduled)
 // falling on the next calendar day, at most once per match.
 func checkMatchDayReminders(app core.App, notifier *notify.Notifier, now time.Time) {
-	tomorrow := now.AddDate(0, 0, 1)
+	tomorrow := now.In(madrid).AddDate(0, 0, 1)
 	matches, err := app.FindRecordsByFilter("matches",
 		"status = {:status} && reminder_sent != true",
 		"", 0, 0, map[string]any{"status": league.StatusScheduled})
@@ -122,7 +134,7 @@ func checkMatchDayReminders(app core.App, notifier *notify.Notifier, now time.Ti
 
 	for _, m := range matches {
 		d := m.GetDateTime("date").Time()
-		if d.IsZero() || !sameDay(d, tomorrow) {
+		if d.IsZero() || !sameDay(d.In(madrid), tomorrow) {
 			continue
 		}
 
