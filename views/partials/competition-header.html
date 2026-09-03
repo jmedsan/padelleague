@@ -38,11 +38,11 @@
     </div>
 </div>
 {{else if .Mode.Row}}
-<div class="bg-primary text-primary-content rounded-2xl p-6 mb-6 shadow-lg">
+<div class="bg-neutral text-neutral-content rounded-2xl p-6 mb-6 shadow-lg">
     <h1 class="text-3xl font-bold">{{.Comp.GetString "name"}}</h1>
 </div>
 {{else}}
-<div class="bg-primary text-primary-content rounded-2xl p-6 mb-6 shadow-lg">
+<div class="bg-neutral text-neutral-content rounded-2xl p-6 mb-6 shadow-lg">
     <h1 class="text-3xl font-bold">{{.Comp.GetString "name"}}</h1>
     <div class="flex flex-wrap gap-2 mt-3">
         {{if eq (.Comp.GetString "type") "league"}}
