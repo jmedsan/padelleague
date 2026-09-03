@@ -63,7 +63,7 @@
             </div>
             <div class="flex-1 min-w-0">
                 <p class="font-medium text-sm truncate">vs <span data-testid="upcoming-opponent">{{.Opponent}}</span></p>
-                <p class="text-xs opacity-60">{{.CompetitionName}}{{if .DisplayDate}} · {{.DisplayDate}}{{end}}{{if .ProposedVenue}} · {{.ProposedVenue}}{{end}}</p>
+                <p class="text-xs opacity-60">{{template "competitionIdentity" (dict "Name" .CompetitionName "Mode" (dict) "NoLink" true)}}{{if .DisplayDate}} · {{.DisplayDate}}{{end}}{{if .ProposedVenue}} · {{.ProposedVenue}}{{end}}</p>
             </div>
             {{if eq .ScheduleStatus "confirmed"}}<span class="badge badge-soft-success badge-sm">Confirmada</span>
             {{else if eq .ScheduleStatus "proposed"}}<span class="badge badge-soft-warning badge-sm">Propuesta</span>
@@ -83,7 +83,7 @@
         <a href="/match/{{.Match.Id}}" class="flex items-center gap-3 p-3 rounded-xl bg-base-200/50 hover:bg-base-200 transition-colors">
             <div class="flex-1 min-w-0">
                 <p class="font-medium text-sm truncate">vs {{.Opponent}}</p>
-                <p class="text-xs opacity-60">{{.Score}} · {{.CompetitionName}}</p>
+                <p class="text-xs opacity-60">{{.Score}} · {{template "competitionIdentity" (dict "Name" .CompetitionName "Mode" (dict) "NoLink" true)}}</p>
             </div>
             {{template "wonBadge" .}}
         </a>

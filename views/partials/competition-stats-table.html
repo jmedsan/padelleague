@@ -13,7 +13,7 @@
         <tbody>
             {{range .Stats}}
             <tr>
-                <td class="font-medium"><a href="{{entityURL "competition" .CompID}}" class="link link-hover">{{.CompName}}</a></td>
+                <td class="font-medium">{{template "competitionIdentity" (dict "ID" .CompID "Name" .CompName "Mode" (dict))}}</td>
                 {{if $.ShowPosition}}<td class="text-center">{{if .Position}}{{.Position}}{{else}}-{{end}}</td>{{end}}
                 <td class="text-center">{{.Played}}</td>
                 <td class="text-center text-success">{{.Wins}}</td>

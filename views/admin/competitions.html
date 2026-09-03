@@ -25,7 +25,7 @@
     <div class="card bg-success text-success-content shadow-sm" data-testid="playoff-prompt">
         <div class="card-body p-4">
             <div class="flex items-center justify-between flex-wrap gap-2">
-                <p class="font-medium">La liga {{.CompName}} ha terminado — crea el playoff</p>
+                <p class="font-medium">La liga {{template "competitionIdentity" (dict "Name" .CompName "Mode" (dict) "NoLink" true)}} ha terminado — crea el playoff</p>
                 <button class="btn btn-sm bg-white/20 border-0 hover:bg-white/30" onclick="document.getElementById('modal-create').showModal()">Crear playoff</button>
             </div>
         </div>
