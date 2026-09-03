@@ -108,6 +108,32 @@
              hx-trigger="load, every 15s"
              hx-swap="innerHTML">
         </div>
+        <script>
+        (function() {
+            // redirectHX (used by every thread action: send message, propose
+            // date, submit/confirm score) reloads the whole page, so the
+            // scroll position from before the action is lost. Scroll to the
+            // bottom of the messages once they actually load (the hx-get
+            // above swaps them in asynchronously after the page loads, so a
+            // plain window.onload scroll would run before there's anything
+            // to scroll to).
+            var container = document.getElementById('thread-messages-list');
+            if (!container) return;
+            container.addEventListener('htmx:afterSettle', function() {
+                // #thread-messages (rendered inside container by the swap)
+                // only scrolls itself at the sm+ breakpoint
+                // (sm:max-h-96 sm:overflow-y-auto — views/thread-messages.html);
+                // below that it has no bounded height, so the page itself
+                // scrolls instead.
+                var inner = document.getElementById('thread-messages');
+                if (inner && inner.scrollHeight > inner.clientHeight) {
+                    inner.scrollTop = inner.scrollHeight;
+                } else {
+                    container.scrollIntoView({ block: 'end' });
+                }
+            });
+        })();
+        </script>
 
         {{if .CanPost}}
         <div class="border-t border-base-300 pt-4 mt-4">
