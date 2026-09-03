@@ -1,10 +1,7 @@
 {{define "content"}}
 <div class="-mx-4 -mt-6 -mb-6 min-h-[80vh] flex flex-col items-center justify-center relative overflow-hidden bg-neutral py-12" style="margin-left:calc(-50vw + 50%);margin-right:calc(-50vw + 50%);width:100vw">
-    <div class="text-center mb-6 px-4">
-        <picture>
-            <source srcset="/static/img/logo-hero.webp" type="image/webp">
-            <img src="/static/img/logo.jpg" alt="Dale Fuerte a la Bola — Liga de Pádel" class="w-48 sm:w-56 mx-auto" width="224" height="224">
-        </picture>
+    <div class="text-center mb-8 px-4">
+        <h1 class="text-3xl sm:text-4xl font-black italic uppercase tracking-tight text-neutral-content"><span class="text-primary">Padel</span> League</h1>
     </div>
     <div class="card bg-base-100 shadow-2xl w-full max-w-sm rounded-2xl mx-4">
         <div class="card-body px-8 py-8">
@@ -12,7 +9,7 @@
 
                 {{if .NoInvite}}
                 <h2 class="text-2xl font-bold mt-2">Registro por invitación</h2>
-                <p class="text-sm opacity-50 mt-3">Necesitas una invitación para registrarte en Dale Fuerte a la Bola.</p>
+                <p class="text-sm opacity-50 mt-3">Necesitas una invitación para registrarte.</p>
                 <p class="text-sm opacity-50 mt-1">Pide a un administrador que te envíe un enlace de invitación.</p>
                 <div class="mt-6">
                     <a href="/login" class="btn btn-primary btn-sm">Volver a inicio de sesión</a>
@@ -29,7 +26,7 @@
             </div>
                 {{else}}
                 <h2 class="text-2xl font-bold mt-2">Crear cuenta</h2>
-                <p class="text-sm opacity-50 mt-1">Únete a Dale Fuerte a la Bola</p>
+                <p class="text-sm opacity-50 mt-1">Únete a Padel League</p>
             </div>
             <div id="error"></div>
             <form hx-post="/register" hx-target="#error">
