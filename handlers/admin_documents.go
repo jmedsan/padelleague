@@ -3,6 +3,7 @@ package handlers
 import (
 	"log/slog"
 	"mime/multipart"
+	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
@@ -37,7 +38,7 @@ func (h *DocumentHandler) Documents(e *core.RequestEvent) error {
 
 // DocumentsCreate handles POST to add a new document (file or link).
 func (h *DocumentHandler) DocumentsCreate(e *core.RequestEvent) error {
-	title := e.Request.FormValue("title")
+	title := strings.TrimSpace(e.Request.FormValue("title"))
 	if title == "" {
 		return alertError(e, "El título es obligatorio")
 	}
@@ -85,7 +86,7 @@ func (h *DocumentHandler) DocumentsUpdate(e *core.RequestEvent) error {
 		return alertError(e, "Documento no encontrado")
 	}
 
-	title := e.Request.FormValue("title")
+	title := strings.TrimSpace(e.Request.FormValue("title"))
 	if title == "" {
 		return alertError(e, "El título es obligatorio")
 	}

@@ -161,7 +161,11 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 	}
 
 	record := core.NewRecord(col)
-	record.Set("name", e.Request.FormValue("name"))
+	name := strings.TrimSpace(e.Request.FormValue("name"))
+	if name == "" {
+		return alertError(e, "El nombre es obligatorio")
+	}
+	record.Set("name", name)
 	record.Set("type", e.Request.FormValue("type"))
 	record.Set("active", e.Request.FormValue("active") == "on")
 	record.Set("play_twice", e.Request.FormValue("play_twice") == "on")
@@ -180,7 +184,7 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 	}
 
 	if err := setSchedulingFields(record, e); err != nil {
-		return alertError(e, "Marcador de incomparecencia inválido. Usa el formato: 6-0 6-0")
+		return alertError(e, err.Error())
 	}
 
 	if err := h.app.Save(record); err != nil {
@@ -236,7 +240,7 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 	}
 
 	if err := setSchedulingFields(record, e); err != nil {
-		return alertError(e, "Marcador de incomparecencia inválido. Usa el formato: 6-0 6-0")
+		return alertError(e, err.Error())
 	}
 
 	if err := h.app.Save(record); err != nil {
