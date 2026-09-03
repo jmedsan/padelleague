@@ -44,7 +44,7 @@ self.addEventListener('fetch', function(event) {
 self.addEventListener('push', function(event) {
     var data = event.data ? event.data.json() : {};
     event.waitUntil(
-        self.registration.showNotification(data.title || 'PadelLeague', {
+        self.registration.showNotification(data.title || 'Dale Fuerte a la Bola', {
             body: data.body || '',
             icon: '/static/img/icon-192.png',
             badge: '/static/img/icon-192.png',
