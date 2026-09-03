@@ -143,7 +143,7 @@ type PrecedentsSummary struct {
 func Precedents(app core.App, pair1ID, pair2ID, excludeMatchID string) (summary PrecedentsSummary, ok bool) {
 	matches, err := app.FindRecordsByFilter("matches",
 		"status = 'final' && ((pair1 = {:p1} && pair2 = {:p2}) || (pair1 = {:p2} && pair2 = {:p1})) && id != {:exclude}",
-		"-created", 0, 0,
+		"-date,-created", 0, 0,
 		map[string]any{"p1": pair1ID, "p2": pair2ID, "exclude": excludeMatchID})
 	if err != nil || len(matches) == 0 {
 		return PrecedentsSummary{}, false

@@ -68,6 +68,40 @@ func TestPrecedents_TalliesWinsAndLastScore(t *testing.T) {
 	assert.Equal(t, "2-6 1-6", summary.LastScore, "score normalized to pair1/pair2 order even though m2 stored the pairs reversed")
 }
 
+func TestPrecedents_SortsByPlayDateNotCreationOrder(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "PrecE")
+	p2 := makePair(t, app, "PrecF")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	// Played later (2026-02-01) but its result is entered into the DB
+	// FIRST — created before the earlier-played match's record.
+	playedLater := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
+	playedLater.Set("date", "2026-02-01")
+	playedLater.Set("scores", "6-3 6-4")
+	playedLater.Set("winner", p1.Id)
+	require.NoError(t, app.Save(playedLater))
+
+	// Played earlier (2026-01-01) but its result is entered into the DB
+	// SECOND — created after the later-played match's record. Sorting by
+	// -created alone would incorrectly pick this as "the most recent
+	// meeting" (MinMatchesForLevel-style off-by-intent bug); sorting by
+	// -date first must pick playedLater instead.
+	playedEarlier := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
+	playedEarlier.Set("date", "2026-01-01")
+	playedEarlier.Set("scores", "6-1 6-1")
+	playedEarlier.Set("winner", p2.Id)
+	require.NoError(t, app.Save(playedEarlier))
+
+	current := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
+
+	summary, ok := Precedents(app, p1.Id, p2.Id, current.Id)
+	require.True(t, ok)
+	assert.Equal(t, playedLater.Id, summary.LastMatchID, "the match played most recently must win, not the one entered into the DB most recently")
+	assert.Equal(t, "6-3 6-4", summary.LastScore)
+}
+
 func TestEntityURL(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
