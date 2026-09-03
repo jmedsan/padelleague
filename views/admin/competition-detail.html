@@ -6,25 +6,25 @@
 <div class="modal" role="dialog">
     <div class="modal-box">
         <h3 class="font-bold text-lg mb-4">Editar competición</h3>
+        <div class="form-control mb-3">
+            <label class="label"><span class="label-text">Logo</span></label>
+            <div class="flex items-center gap-3">
+                {{with compLogoURL .Competition.Id (.Competition.GetString "logo")}}
+                <div class="avatar">
+                    <div class="w-12 rounded-xl">
+                        <img src="{{.}}" alt="Logo actual" loading="lazy">
+                    </div>
+                </div>
+                {{end}}
+                <input type="file" id="comp-logo-input" name="logo" accept="image/jpeg,image/png,image/webp"
+                       class="file-input file-input-bordered file-input-sm flex-1"
+                       hx-post="/admin/competitions/{{.Competition.Id}}/logo" hx-trigger="change" hx-encoding="multipart/form-data">
+            </div>
+        </div>
         <form hx-post="/admin/competitions/{{.Competition.Id}}">
             <div class="form-control mb-3">
                 <label class="label" for="edit-comp-name"><span class="label-text">Nombre</span></label>
                 <input type="text" id="edit-comp-name" name="name" value="{{.Competition.GetString "name"}}" class="input input-bordered" required>
-            </div>
-            <div class="form-control mb-3">
-                <label class="label"><span class="label-text">Logo</span></label>
-                <div class="flex items-center gap-3">
-                    {{with compLogoURL .Competition.Id (.Competition.GetString "logo")}}
-                    <div class="avatar">
-                        <div class="w-12 rounded-xl">
-                            <img src="{{.}}" alt="Logo actual" loading="lazy">
-                        </div>
-                    </div>
-                    {{end}}
-                    <form hx-post="/admin/competitions/{{$.Competition.Id}}/logo" enctype="multipart/form-data" hx-trigger="change from:#comp-logo-input" class="flex-1">
-                        <input type="file" id="comp-logo-input" name="logo" accept="image/jpeg,image/png,image/webp" class="file-input file-input-bordered file-input-sm w-full">
-                    </form>
-                </div>
             </div>
             <div class="form-control mb-3">
                 <label class="label" for="edit-comp-type"><span class="label-text">Tipo</span></label>
