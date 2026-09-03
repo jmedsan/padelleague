@@ -373,6 +373,9 @@ func makeCompetitionTB(t testing.TB, app core.App, compType string, pairs []*cor
 	record.Set("name", "Test Competition")
 	record.Set("type", compType)
 	record.Set("active", true)
+	now := time.Now().UTC()
+	record.Set("start_date", now.Add(-7*24*time.Hour))
+	record.Set("end_date", now.Add(7*24*time.Hour))
 	pairIDs := make([]string, len(pairs))
 	for i, p := range pairs {
 		pairIDs[i] = p.Id

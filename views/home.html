@@ -63,7 +63,7 @@
             </div>
             <div class="flex-1 min-w-0">
                 <p class="font-medium text-sm truncate">vs <span data-testid="upcoming-opponent">{{.Opponent}}</span></p>
-                <p class="text-xs opacity-60">{{.CompetitionName}}{{if .ProposedDate}} · {{.ProposedDate}}{{end}}{{if .ProposedVenue}} · {{.ProposedVenue}}{{end}}</p>
+                <p class="text-xs opacity-60">{{.CompetitionName}}{{if .DisplayDate}} · {{.DisplayDate}}{{end}}{{if .ProposedVenue}} · {{.ProposedVenue}}{{end}}</p>
             </div>
             {{if eq .ScheduleStatus "confirmed"}}<span class="badge badge-soft-success badge-sm">Confirmada</span>
             {{else if eq .ScheduleStatus "proposed"}}<span class="badge badge-soft-warning badge-sm">Propuesta</span>
