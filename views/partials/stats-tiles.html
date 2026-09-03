@@ -1,5 +1,7 @@
 {{define "statsTiles"}}
+{{if or .HasLevel .HasReliability}}
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+    {{if .HasLevel}}
     <div class="stat bg-primary text-primary-content rounded-lg p-4">
         <div class="stat-title text-primary-content/80">Nivel de juego</div>
         <div class="flex items-center gap-4">
@@ -9,6 +11,8 @@
             <div class="stat-desc text-primary-content/80">sobre 10</div>
         </div>
     </div>
+    {{end}}
+    {{if .HasReliability}}
     <div class="stat bg-secondary text-secondary-content rounded-lg p-4">
         <div class="stat-title text-secondary-content/80">Fiabilidad</div>
         <div class="flex items-center gap-4">
@@ -16,7 +20,9 @@
             <div class="stat-value text-2xl">{{printf "%.0f" .Reliability}}%</div>
         </div>
     </div>
+    {{end}}
 </div>
+{{end}}
 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
     <div class="stat bg-base-200 rounded-lg p-4">
         <div class="stat-title">Partidos</div>

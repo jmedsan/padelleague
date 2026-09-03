@@ -3,8 +3,10 @@ package league
 import (
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -47,7 +49,9 @@ type StatsSummary struct {
 	Streak           string
 	BestStreak       string
 	Level            float64
+	HasLevel         bool
 	Reliability      float64
+	HasReliability   bool
 	CompetitionStats []CompetitionStat
 	Recent           []RecentMatch
 }
@@ -103,6 +107,8 @@ func (svc *Service) Summarize(pairIDs []string) StatsSummary {
 	}
 
 	currentStreakWins := currentStreakWinCount(allResults)
+	level, hasLevel := computeLevel(winRate, totals.played, currentStreakWins)
+	reliability, hasReliability := svc.computeReliability(pairIDs, totals.played)
 
 	return StatsSummary{
 		WinRate:          winRate,
@@ -115,8 +121,10 @@ func (svc *Service) Summarize(pairIDs []string) StatsSummary {
 		GamesLost:        totals.gamesLost,
 		Streak:           computeCurrentStreak(allResults),
 		BestStreak:       computeBestStreak(allResults),
-		Level:            computeLevel(winRate, totals.played, currentStreakWins),
-		Reliability:      svc.computeReliability(pairIDs, totals.played),
+		Level:            level,
+		HasLevel:         hasLevel,
+		Reliability:      reliability,
+		HasReliability:   hasReliability,
 		CompetitionStats: svc.competitionStatsForPairs(pairIDs),
 		Recent:           buildRecentMatches(allResults, 20),
 	}
@@ -175,79 +183,68 @@ func (svc *Service) pairCompStat(c *core.Record, pairID string) CompetitionStat 
 }
 
 // reliabilityResponseCap is the response time, in hours, at or beyond which
-// a scheduling/result response contributes zero to the responsiveness score.
-// A same-day response (well under this cap) scores near the maximum.
+// an answered proposal contributes zero to the responsiveness score. A
+// same-day response (well under this cap) scores near the maximum.
 const reliabilityResponseCap = 72.0
 
+// reliabilityDefaultTimeoutHours is the elapsed time used to score an
+// unanswered scheduling proposal, which has no quorum auto-accept of its
+// own: it is scored as if fully unresponsive once this much time has
+// passed, matching the default quorum_timeout_hours (league/settings.go).
+const reliabilityDefaultTimeoutHours = 48.0
+
+// MinMatchesForReliability is the minimum finalized-match count below which
+// Reliability has too little data to be meaningful and StatsSummary omits
+// it (HasReliability is false).
+const MinMatchesForReliability = 3
+
 // computeReliability blends scheduling responsiveness (how quickly this
-// pair's players respond to proposals) with a show-up rate (finalized
-// matches vs. matches lost by an approved walkover) into a 0-100 score. A
-// pair with no response history and no walkovers gets a neutral 100 rather
-// than an artificially low score from lack of data.
-func (svc *Service) computeReliability(pairIDs []string, played int) float64 {
-	authorIDs := map[string]struct{}{}
-	for _, pid := range pairIDs {
-		for _, uid := range PlayersForPair(svc.app, pid) {
-			authorIDs[uid] = struct{}{}
-		}
+// pair responded to proposals addressed to them, scoring an ignored
+// proposal at 0 once it has been open past its quorum timeout) with a
+// show-up rate (finalized matches vs. matches lost by an approved
+// walkover) into a 0-100 score. The second return is false when the pair
+// has fewer than MinMatchesForReliability finalized matches, in which case
+// the score has too little data to display.
+func (svc *Service) computeReliability(pairIDs []string, played int) (float64, bool) {
+	if played < MinMatchesForReliability {
+		return 0, false
 	}
 
-	responseScore, hasResponses := svc.responsivenessScore(authorIDs)
-	showUpScore, hasMatches := svc.showUpScore(pairIDs, played)
+	responseScore, hasResponses := svc.responsivenessScore(pairIDs)
+	showUpScore := svc.showUpScore(pairIDs, played)
 
-	switch {
-	case hasResponses && hasMatches:
-		return math.Round(responseScore*0.5 + showUpScore*0.5)
-	case hasMatches:
-		return math.Round(showUpScore)
-	case hasResponses:
-		return math.Round(responseScore)
-	default:
-		return 100
+	if !hasResponses {
+		return math.Round(showUpScore), true
 	}
+	return math.Round(responseScore*0.5 + showUpScore*0.5), true
 }
 
-// responsivenessScore averages how quickly the given users responded to
-// scheduling/result proposals (scheduling_response, result_response
-// messages with a parent), scored 100 at 0h down to 0 at
-// reliabilityResponseCap hours or more. The second return is false when the
-// authors have no response history to score.
-func (svc *Service) responsivenessScore(authorIDs map[string]struct{}) (float64, bool) {
-	if len(authorIDs) == 0 {
-		return 0, false
-	}
-	var authorFilter strings.Builder
-	params := map[string]any{}
-	i := 0
-	for id := range authorIDs {
-		if i > 0 {
-			authorFilter.WriteString(" || ")
-		}
-		key := fmt.Sprintf("author%d", i)
-		authorFilter.WriteString("author = {:" + key + "}")
-		params[key] = id
-		i++
-	}
-	responses, err := svc.app.FindRecordsByFilter("match_messages",
-		"("+authorFilter.String()+") && (type = 'scheduling_response' || type = 'result_response') && parent != ''",
-		"", 0, 0, params)
-	if err != nil || len(responses) == 0 {
-		return 0, false
-	}
-
+// responsivenessScore scores how quickly the given pairs responded to
+// scheduling/result proposals addressed to them (proposals authored by the
+// opposing side of the match). Each incoming proposal scores 100 at 0h
+// response time down to 0 at reliabilityResponseCap hours; an unanswered
+// proposal scores 0 once it has been open past its quorum timeout (or
+// reliabilityDefaultTimeoutHours for scheduling proposals, which have no
+// auto-accept) and is otherwise excluded as still-pending. The second
+// return is false when the pair has no incoming proposals to score.
+func (svc *Service) responsivenessScore(pairIDs []string) (float64, bool) {
 	var total float64
 	var count int
-	for _, resp := range responses {
-		parent, err := svc.app.FindRecordById("match_messages", resp.GetString("parent"))
+	for _, pid := range pairIDs {
+		playerIDs := PlayersForPair(svc.app, pid)
+		if len(playerIDs) == 0 {
+			continue
+		}
+		matches, err := svc.app.FindRecordsByFilter("matches",
+			"pair1 = {:pid} || pair2 = {:pid}", "", 0, 0, map[string]any{"pid": pid})
 		if err != nil {
 			continue
 		}
-		hours := resp.GetDateTime("created").Time().Sub(parent.GetDateTime("created").Time()).Hours()
-		if hours < 0 {
-			continue
+		for _, m := range matches {
+			t, c := svc.incomingProposalScores(m, pid, playerIDs)
+			total += t
+			count += c
 		}
-		total += 100 * (1 - min(hours/reliabilityResponseCap, 1.0))
-		count++
 	}
 	if count == 0 {
 		return 0, false
@@ -255,13 +252,91 @@ func (svc *Service) responsivenessScore(authorIDs map[string]struct{}) (float64,
 	return total / float64(count), true
 }
 
-// showUpScore is the fraction of this pair's finalized matches that were not
-// lost by an approved walkover, as a 0-100 score. The second return is false
-// when the pair has no finalized matches to score.
-func (svc *Service) showUpScore(pairIDs []string, played int) (float64, bool) {
-	if played == 0 {
-		return 0, false
+// incomingProposalScores sums the response scores for every proposal on
+// match m that was addressed to pid (authored by the opposing pair's
+// players), returning the running total and how many proposals were
+// scored, for the caller to average across every match the pair played.
+func (svc *Service) incomingProposalScores(m *core.Record, pid string, playerIDs []string) (float64, int) {
+	opponentID := m.GetString("pair1")
+	if opponentID == pid {
+		opponentID = m.GetString("pair2")
 	}
+	if opponentID == "" {
+		return 0, 0
+	}
+	timeout := svc.reliabilityTimeout(m)
+	proposals, err := svc.app.FindRecordsByFilter("match_messages",
+		"match = {:mid} && (type = 'scheduling_proposal' || type = 'result_submission')",
+		"", 0, 0, map[string]any{"mid": m.Id})
+	if err != nil {
+		return 0, 0
+	}
+	opponentPlayerIDs := PlayersForPair(svc.app, opponentID)
+
+	var total float64
+	var count int
+	for _, p := range proposals {
+		if !slices.Contains(opponentPlayerIDs, p.GetString("author")) {
+			continue
+		}
+		score, scored := svc.proposalResponseScore(p, playerIDs, timeout)
+		if !scored {
+			continue
+		}
+		total += score
+		count++
+	}
+	return total, count
+}
+
+// proposalResponseScore scores one incoming proposal: 100 at 0h down to 0
+// at reliabilityResponseCap for the first response by one of responderIDs,
+// 0 for a proposal still unanswered past timeout hours, or unscored (still
+// pending, not yet timed out) when neither applies.
+func (svc *Service) proposalResponseScore(proposal *core.Record, responderIDs []string, timeout float64) (float64, bool) {
+	responses, err := svc.app.FindRecordsByFilter("match_messages",
+		"parent = {:pid} && (type = 'scheduling_response' || type = 'result_response')",
+		"created", 0, 0, map[string]any{"pid": proposal.Id})
+	if err == nil {
+		for _, resp := range responses {
+			if !slices.Contains(responderIDs, resp.GetString("author")) {
+				continue
+			}
+			hours := resp.GetDateTime("created").Time().Sub(proposal.GetDateTime("created").Time()).Hours()
+			if hours < 0 {
+				continue
+			}
+			return 100 * (1 - min(hours/reliabilityResponseCap, 1.0)), true
+		}
+	}
+
+	elapsed := time.Since(proposal.GetDateTime("created").Time()).Hours()
+	if elapsed >= timeout {
+		return 0, true
+	}
+	return 0, false
+}
+
+// reliabilityTimeout returns the hours after which an unanswered proposal
+// on this match is scored as ignored: the competition's quorum_timeout_hours
+// for a result_submission, or reliabilityDefaultTimeoutHours for a
+// scheduling_proposal, which has no quorum auto-accept of its own.
+func (svc *Service) reliabilityTimeout(m *core.Record) float64 {
+	comp, err := svc.app.FindRecordById("competitions", m.GetString("competition"))
+	if err != nil {
+		return reliabilityDefaultTimeoutHours
+	}
+	hours := comp.GetFloat("quorum_timeout_hours")
+	if hours <= 0 {
+		return reliabilityDefaultTimeoutHours
+	}
+	return hours
+}
+
+// showUpScore is the fraction of this pair's finalized matches that were not
+// lost by an approved walkover, as a 0-100 score. Called only once played
+// is known to be at least MinMatchesForReliability.
+func (svc *Service) showUpScore(pairIDs []string, played int) float64 {
 	var walkoverLosses int
 	for _, pid := range pairIDs {
 		losses, err := svc.app.FindRecordsByFilter("matches",
@@ -272,7 +347,7 @@ func (svc *Service) showUpScore(pairIDs []string, played int) (float64, bool) {
 		}
 		walkoverLosses += len(losses)
 	}
-	return 100 * (1 - min(float64(walkoverLosses)/float64(played), 1.0)), true
+	return 100 * (1 - min(float64(walkoverLosses)/float64(played), 1.0))
 }
 
 func tallyScore(t *playerTotals, score string, isPair1 bool) {
@@ -400,20 +475,29 @@ const levelExperienceCap = 30
 // component of computeLevel reaches its maximum.
 const levelMomentumCap = 8
 
-// computeLevel derives a Playtomic-style 1.0-10.0 skill level from win rate
-// (60%), match experience (20%), and current winning-streak momentum (20%).
-// A new player with few matches scores low regardless of win rate, since the
-// experience component dominates until levelExperienceCap matches are played.
-func computeLevel(winRatePct float64, played, currentStreakWins int) float64 {
-	if played == 0 {
-		return 1.0
+// MinMatchesForLevel is the minimum finalized-match count below which Level
+// has too little data to be meaningful and StatsSummary omits it
+// (HasLevel is false): a new player's level is not shown at all rather
+// than defaulting to a misleadingly low number.
+const MinMatchesForLevel = 5
+
+// computeLevel derives a relative 1.0-10.0 skill level (relative to this
+// league's pool of players, not an absolute rating) from win rate (70%),
+// match experience (20%), and current winning-streak momentum (10%). A
+// small momentum weight avoids a single loss swinging the level sharply,
+// since win rate already rewards winning overall. The second return is
+// false below MinMatchesForLevel matches, where the level has too little
+// data to be meaningful.
+func computeLevel(winRatePct float64, played, currentStreakWins int) (float64, bool) {
+	if played < MinMatchesForLevel {
+		return 0, false
 	}
 	winComponent := winRatePct / 100 * 10
 	experienceComponent := min(float64(played)/levelExperienceCap, 1.0) * 10
 	momentumComponent := min(float64(currentStreakWins)/levelMomentumCap, 1.0) * 10
 
-	level := winComponent*0.6 + experienceComponent*0.2 + momentumComponent*0.2
-	return math.Round(max(level, 1.0)*10) / 10
+	level := winComponent*0.7 + experienceComponent*0.2 + momentumComponent*0.1
+	return math.Round(max(level, 1.0)*10) / 10, true
 }
 
 func computeBestStreak(results []matchResult) string {

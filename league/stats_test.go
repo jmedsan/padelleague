@@ -298,83 +298,109 @@ func TestComputeLevel(t *testing.T) {
 		winRatePct        float64
 		played            int
 		currentStreakWins int
-		want              float64
+		wantLevel         float64
+		wantHasLevel      bool
 	}{
-		{"new player, no matches, floors at 1.0", 0, 0, 0, 1.0},
-		{"new player, two matches, high win rate stays low", 100, 2, 2, 6.6},
-		{"veteran, high win rate and hot streak scores near max", 80, 50, 8, 8.8},
-		{"veteran, always loses scores near floor", 0, 50, 0, 2.0},
-		{"average player", 50, 30, 0, 5.0},
+		{"below minimum matches, no level", 100, 2, 2, 0, false},
+		{"exactly at minimum, high win rate stays pulled down by experience", 100, 5, 5, 8.0, true},
+		{"veteran, high win rate and hot streak scores near max", 80, 50, 8, 8.6, true},
+		{"veteran, always loses scores near floor", 0, 50, 0, 2.0, true},
+		{"average player", 50, 30, 0, 5.5, true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want, computeLevel(tc.winRatePct, tc.played, tc.currentStreakWins))
+			level, hasLevel := computeLevel(tc.winRatePct, tc.played, tc.currentStreakWins)
+			assert.Equal(t, tc.wantHasLevel, hasLevel)
+			if tc.wantHasLevel {
+				assert.Equal(t, tc.wantLevel, level)
+			}
 		})
 	}
 }
 
+func TestComputeLevel_SingleLossDoesNotSwingSharply(t *testing.T) {
+	t.Parallel()
+	// A veteran with a hot streak, then the streak breaks on one loss:
+	// momentum is only 10% weighted (vs. the old 20%), so the maximum
+	// possible swing from losing the whole streak is capped at 1.0 level
+	// points, not the 2.0 the old weighting allowed.
+	withStreak, _ := computeLevel(70, 40, 8)
+	afterOneLoss, _ := computeLevel(70, 40, 0)
+	assert.LessOrEqual(t, withStreak-afterOneLoss, 1.0, "losing the streak should not swing level by more than 1.0 at the current momentum weight")
+}
+
 // computeReliability / responsivenessScore / showUpScore
 
-func TestComputeReliability_NoHistory_NeutralScore(t *testing.T) {
+func TestComputeReliability_BelowMinimumMatches_NoScore(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
-	p1 := makePair(t, app, "RelNoHistory")
+	p1 := makePair(t, app, "RelBelowMin")
 
-	assert.Equal(t, float64(100), svc.computeReliability([]string{p1.Id}, 0))
+	_, hasReliability := svc.computeReliability([]string{p1.Id}, MinMatchesForReliability-1)
+	assert.False(t, hasReliability, "below MinMatchesForReliability should have no score")
 }
 
-func TestComputeReliability_FastResponsesAndNoWalkovers_HighScore(t *testing.T) {
+func TestComputeReliability_IgnoredProposal_ScoresZeroNotHundred(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 	svc := New(app, nil)
-	p1 := makePair(t, app, "RelFastA")
-	p2 := makePair(t, app, "RelFastB")
+	p1 := makePair(t, app, "RelIgnoreA")
+	p2 := makePair(t, app, "RelIgnoreB")
 	comp := makeCompetition(t, app, []*core.Record{p1, p2})
-	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "scheduled")
-	m.Set("scores", "6-3 6-4")
-	m.Set("winner", p1.Id)
-	m.Set("status", "final")
-	require.NoError(t, app.Save(m))
+	comp.Set("quorum_timeout_hours", 48)
+	require.NoError(t, app.Save(comp))
 
+	for i := 0; i < MinMatchesForReliability; i++ {
+		m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
+		m.Set("scores", "6-3 6-4")
+		m.Set("winner", p1.Id)
+		require.NoError(t, app.Save(m))
+	}
+
+	// p2 proposes to p1; p1 never responds, and the proposal is well past
+	// the 48h quorum timeout. p1 must NOT get a free 100 for silence.
 	proposer := PlayersForPair(app, p2.Id)[0]
-	responder := PlayersForPair(app, p1.Id)[0]
-	proposal := makeMessage(t, app, m.Id, proposer, "scheduling_proposal", "", time.Now().Add(-48*time.Hour))
-	makeMessage(t, app, m.Id, responder, "scheduling_response", proposal.Id, time.Now().Add(-47*time.Hour))
+	unansweredMatch := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
+	makeMessage(t, app, unansweredMatch.Id, proposer, "scheduling_proposal", "", time.Now().Add(-100*time.Hour))
 
-	got := svc.computeReliability([]string{p1.Id}, 1)
-	assert.InDelta(t, 100, got, 5, "same-hour response and no walkovers should score near max")
+	got, hasReliability := svc.computeReliability([]string{p1.Id}, MinMatchesForReliability)
+	require.True(t, hasReliability)
+	assert.Less(t, got, float64(100), "ignoring a proposal past its quorum timeout must lower reliability, not leave it at the neutral default")
 }
 
-func TestComputeReliability_SlowResponse_LowerScore(t *testing.T) {
+func TestComputeReliability_FastResponse_ScoresHigherThanSlowResponse(t *testing.T) {
 	t.Parallel()
-	app := newTestApp(t)
-	svc := New(app, nil)
-	p1 := makePair(t, app, "RelSlowA")
-	p2 := makePair(t, app, "RelSlowB")
-	comp := makeCompetition(t, app, []*core.Record{p1, p2})
-	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
 
-	proposer := PlayersForPair(app, p2.Id)[0]
-	responder := PlayersForPair(app, p1.Id)[0]
-	proposal := makeMessage(t, app, m.Id, proposer, "scheduling_proposal", "", time.Now().Add(-100*time.Hour))
-	makeMessage(t, app, m.Id, responder, "scheduling_response", proposal.Id, time.Now().Add(-24*time.Hour))
+	buildScenario := func(t *testing.T, responseDelay time.Duration) float64 {
+		app := newTestApp(t)
+		svc := New(app, nil)
+		p1 := makePair(t, app, "RelSpeedA")
+		p2 := makePair(t, app, "RelSpeedB")
+		comp := makeCompetition(t, app, []*core.Record{p1, p2})
 
-	fast := svc.computeReliability([]string{p1.Id}, 1)
+		for i := 0; i < MinMatchesForReliability; i++ {
+			m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
+			m.Set("scores", "6-3 6-4")
+			m.Set("winner", p1.Id)
+			require.NoError(t, app.Save(m))
+		}
 
-	app2 := newTestApp(t)
-	svc2 := New(app2, nil)
-	q1 := makePair(t, app2, "RelFastComp1")
-	q2 := makePair(t, app2, "RelFastComp2")
-	comp2 := makeCompetition(t, app2, []*core.Record{q1, q2})
-	m2 := makeMatch(t, app2, comp2.Id, q1.Id, q2.Id, "final")
-	proposer2 := PlayersForPair(app2, q2.Id)[0]
-	responder2 := PlayersForPair(app2, q1.Id)[0]
-	proposal2 := makeMessage(t, app2, m2.Id, proposer2, "scheduling_proposal", "", time.Now().Add(-2*time.Hour))
-	makeMessage(t, app2, m2.Id, responder2, "scheduling_response", proposal2.Id, time.Now().Add(-1*time.Hour))
-	slow := svc2.computeReliability([]string{q1.Id}, 1)
+		proposer := PlayersForPair(app, p2.Id)[0]
+		responder := PlayersForPair(app, p1.Id)[0]
+		proposalMatch := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
+		proposalTime := time.Now().Add(-100 * time.Hour)
+		proposal := makeMessage(t, app, proposalMatch.Id, proposer, "scheduling_proposal", "", proposalTime)
+		makeMessage(t, app, proposalMatch.Id, responder, "scheduling_response", proposal.Id, proposalTime.Add(responseDelay))
 
-	assert.Less(t, fast, slow, "a 76h response should score lower than a 1h response")
+		got, hasReliability := svc.computeReliability([]string{p1.Id}, MinMatchesForReliability)
+		require.True(t, hasReliability)
+		return got
+	}
+
+	fast := buildScenario(t, 1*time.Hour)
+	slow := buildScenario(t, 60*time.Hour)
+	assert.Greater(t, fast, slow, "a 1h response should score higher than a 60h response")
 }
 
 func TestComputeReliability_WalkoverLoss_LowersScore(t *testing.T) {
@@ -385,17 +411,20 @@ func TestComputeReliability_WalkoverLoss_LowersScore(t *testing.T) {
 	p2 := makePair(t, app, "RelWOB")
 	comp := makeCompetition(t, app, []*core.Record{p1, p2})
 
-	m1 := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
-	m1.Set("scores", "6-3 6-4")
-	m1.Set("winner", p1.Id)
-	require.NoError(t, app.Save(m1))
+	for i := 0; i < MinMatchesForReliability-1; i++ {
+		m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
+		m.Set("scores", "6-3 6-4")
+		m.Set("winner", p1.Id)
+		require.NoError(t, app.Save(m))
+	}
 
-	m2 := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
-	m2.Set("scores", "6-0 6-0")
-	m2.Set("winner", p2.Id)
-	m2.Set("review_type", "walkover")
-	require.NoError(t, app.Save(m2))
+	walkover := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
+	walkover.Set("scores", "6-0 6-0")
+	walkover.Set("winner", p2.Id)
+	walkover.Set("review_type", "walkover")
+	require.NoError(t, app.Save(walkover))
 
-	got := svc.computeReliability([]string{p1.Id}, 2)
+	got, hasReliability := svc.computeReliability([]string{p1.Id}, MinMatchesForReliability)
+	require.True(t, hasReliability)
 	assert.Less(t, got, float64(100), "a walkover loss should reduce the reliability score")
 }
