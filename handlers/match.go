@@ -99,7 +99,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	}
 
 	matchPath := "/match/" + match.Id
-	shareText, shareURL := buildShareText(h.app, match, requestBaseURL(e), matchPath)
+	shareText, shareURL := buildShareText(h.app, match, render.RequestBaseURL(e), matchPath)
 	venues, _ := h.app.FindRecordsByFilter("venues", "", "name", 0, 0, nil)
 	mc.Venues = venues
 

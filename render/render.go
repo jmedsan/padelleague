@@ -73,7 +73,8 @@ func New(viewsFS fs.FS, vapidPublicKey string, appDevTools bool) *Renderer {
 	}
 }
 
-func requestBaseURL(e *core.RequestEvent) string {
+// RequestBaseURL derives the scheme+host from the request, honoring X-Forwarded-Proto.
+func RequestBaseURL(e *core.RequestEvent) string {
 	scheme := e.Request.Header.Get("X-Forwarded-Proto")
 	if scheme == "" {
 		scheme = "https"
@@ -87,7 +88,7 @@ func requestBaseURL(e *core.RequestEvent) string {
 func (r *Renderer) withAuth(e *core.RequestEvent, data map[string]any) {
 	data["VAPIDPublicKey"] = r.vapidPublicKey
 	data["AppDevTools"] = r.appDevTools
-	data["BaseURL"] = requestBaseURL(e)
+	data["BaseURL"] = RequestBaseURL(e)
 	data["RequestPath"] = e.Request.URL.Path
 	if e.Auth == nil {
 		return

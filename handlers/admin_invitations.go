@@ -13,6 +13,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 
 	"padelleague/notify"
+	"padelleague/render"
 )
 
 // InvitationHandler handles admin invitation management and outstanding matches.
@@ -94,7 +95,7 @@ func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 
 	if email != "" {
 		// Token in URL is inherent: the invite link requires it; admin-only copy-paste, not logged.
-		registerURL := requestBaseURL(e) + "/register?token=" + token
+		registerURL := render.RequestBaseURL(e) + "/register?token=" + token
 		notify.SendEmail(h.app, email, "Invitación a Padel League",
 			buildInviteEmail(registerURL))
 	}
