@@ -110,18 +110,27 @@
         </div>
         <script>
         (function() {
-            // redirectHX after posting a chat message / proposal / proposal
-            // response (handlers/thread.go) reloads the whole page with a
-            // #mensajes hash, since the scroll position from before the
-            // action is lost otherwise. Scroll to the bottom of the messages
-            // once they actually load (the hx-get above swaps them in
-            // asynchronously after the page loads, so a plain window.onload
-            // scroll would run before there's anything to scroll to).
+            // redirectHX (handlers/thread.go) signals "scroll to the
+            // messages" after a thread action two different ways:
+            //
+            // - PostMessage redirects to the SAME path+#mensajes. Since only
+            //   the hash differs from the page the browser is already on,
+            //   setting location.href there is a same-document hash
+            //   navigation, not a real reload — the browser does not
+            //   re-fetch or re-render anything, it only fires 'hashchange'.
+            //   That's fine for a chat message: nothing else on the page
+            //   changes, so re-fetching just the message list (below) is
+            //   enough.
+            // - PostProposal/RespondProposal redirect with ?scroll=mensajes
+            //   instead, because those actions also change the schedule/
+            //   result cards elsewhere on the page — a same-doc nav would
+            //   leave those stale. A query-string change always forces a
+            //   real reload, so this script's parse-time check below is
+            //   sufficient; no hashchange-style workaround is needed for it.
             //
             // Opening a match normally (from home, a notification, etc.) has
-            // no #mensajes hash — that first load must NOT auto-scroll past
-            // the date/result cards down to the chat; the hash is what tells
-            // this apart from a genuine "just posted something" redirect.
+            // neither marker — that first load must NOT auto-scroll past
+            // the date/result cards down to the chat.
             //
             // #thread-messages also polls every 15s (hx-trigger="load, every
             // 15s"), so later swaps must not unconditionally jump to the
@@ -135,27 +144,19 @@
 
             var NEAR_BOTTOM_PX = 50;
             var hasLoadedOnce = false;
+            var hasScrollParam = new URLSearchParams(window.location.search).has('scroll');
+            if (hasScrollParam) {
+                history.replaceState(null, '', window.location.pathname);
+            }
             // forceScrollNext wins over the at-bottom heuristic for the
-            // very next swap only: set on the very first load with
-            // #mensajes already in the URL, and again each time #mensajes
-            // arrives via hashchange (see below) — both are "the user just
-            // posted something and must see it," which always scrolls
-            // regardless of where they were previously reading.
-            var forceScrollNext = window.location.hash === '#mensajes';
+            // very next swap only: set on the very first load when either
+            // marker is present, and again each time #mensajes arrives via
+            // hashchange (see below) — all are "the user just posted
+            // something and must see it," which always scrolls regardless
+            // of where they were previously reading.
+            var forceScrollNext = hasScrollParam || window.location.hash === '#mensajes';
             var wasAtBottom = forceScrollNext;
 
-            // A same-page action (post message/proposal/response) redirects
-            // to this SAME path+#mensajes. When only the hash differs from
-            // the page the browser is already on, setting location.href is
-            // a same-document hash navigation, not a real reload — the
-            // browser does not re-fetch or re-render anything, it only
-            // fires 'hashchange'. So the freshly-posted message would never
-            // appear until the next 15s poll, and this script (which only
-            // runs once, at initial parse time) would never see the hash.
-            // Handle both entry points: the hash may already be present at
-            // parse time (a genuine new page load, e.g. a bookmark or a
-            // redirect that DID force a reload for other reasons), or it
-            // may arrive later via 'hashchange' (the common case here).
             function onMensajesHash() {
                 history.replaceState(null, '', window.location.pathname + window.location.search);
                 forceScrollNext = true;
