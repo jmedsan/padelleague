@@ -127,6 +127,39 @@ test.describe('match lifecycle', () => {
     await expect(si.locator('[name="s1b"]')).toHaveValue('3');
   });
 
+  test('match page shows precedentes strip from a prior meeting between the same pairs', async ({ page }) => {
+    const data = loadTestData();
+
+    // Finalize a fresh match between pair1/pair2, distinct from the shared
+    // seeded matches other tests mutate.
+    const prior = await suPost('/api/collections/matches/records', {
+      competition: data.competitionId,
+      pair1: data.pair1Id,
+      pair2: data.pair2Id,
+      status: 'final',
+      scores: '6-2 6-1',
+      winner: data.pair1Id,
+      round_number: 98,
+    });
+
+    // A second, pending match between the same pairs — the one we view.
+    const current = await suPost('/api/collections/matches/records', {
+      competition: data.competitionId,
+      pair1: data.pair1Id,
+      pair2: data.pair2Id,
+      status: 'pending',
+      round_number: 97,
+    });
+
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/match/${current.id}`);
+    await expect(page.getByRole('heading', { name: 'Precedentes' })).toBeVisible();
+    const strip = page.locator('.card', { has: page.getByRole('heading', { name: 'Precedentes' }) });
+    await expect(strip.getByText('6-2 6-1')).toBeVisible();
+    await strip.locator('a[href^="/match/"]').click();
+    await expect(page).toHaveURL(new RegExp(`/match/${prior.id}$`));
+  });
+
   test('player cannot access match of another competition', async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto('/match/nonexistent-id');

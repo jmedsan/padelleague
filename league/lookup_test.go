@@ -1,6 +1,72 @@
 package league
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestFlipScoreSides(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		score, want string
+	}{
+		{"6-3 6-4", "3-6 4-6"},
+		{"6-3 4-6 7-5", "3-6 6-4 5-7"},
+		{"7-6(5) 6-4", "6-7(5) 4-6"},
+		{"WO", "WO"},
+		{"wo", "wo"},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		if got := flipScoreSides(tt.score); got != tt.want {
+			t.Errorf("flipScoreSides(%q) = %q, want %q", tt.score, got, tt.want)
+		}
+	}
+}
+
+func TestPrecedents_NoPriorMeetings(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "PrecA")
+	p2 := makePair(t, app, "PrecB")
+
+	_, ok := Precedents(app, p1.Id, p2.Id, "")
+	assert.False(t, ok, "pairs with no shared history must report ok=false")
+}
+
+func TestPrecedents_TalliesWinsAndLastScore(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "PrecC")
+	p2 := makePair(t, app, "PrecD")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	// Match 1: p1 wins, p1 as pair1.
+	m1 := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
+	m1.Set("scores", "6-3 6-4")
+	m1.Set("winner", p1.Id)
+	require.NoError(t, app.Save(m1))
+
+	// Match 2 (most recent, created later): p2 wins, p2 as pair1 this time —
+	// the score must be normalized back to p1/p2 order in the summary.
+	m2 := makeMatch(t, app, comp.Id, p2.Id, p1.Id, "final")
+	m2.Set("scores", "6-2 6-1")
+	m2.Set("winner", p2.Id)
+	require.NoError(t, app.Save(m2))
+
+	// The current match being viewed — excluded from the tally.
+	current := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
+
+	summary, ok := Precedents(app, p1.Id, p2.Id, current.Id)
+	require.True(t, ok)
+	assert.Equal(t, 1, summary.Pair1Wins)
+	assert.Equal(t, 1, summary.Pair2Wins)
+	assert.Equal(t, m2.Id, summary.LastMatchID, "the most recent meeting must win, not just insertion order")
+	assert.Equal(t, "2-6 1-6", summary.LastScore, "score normalized to pair1/pair2 order even though m2 stored the pairs reversed")
+}
 
 func TestEntityURL(t *testing.T) {
 	t.Parallel()

@@ -103,6 +103,8 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	venues, _ := h.app.FindRecordsByFilter("venues", "", "name", 0, 0, nil)
 	mc.Venues = venues
 
+	precedentes := buildPrecedentesView(h.app, match, mc.Pair1Name, mc.Pair2Name)
+
 	return h.renderPage(e, "match.html", map[string]any{
 		"PageTitle":       matchPageTitle(mc),
 		"Card":            mc,
@@ -111,7 +113,42 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		"RoundLabel":      roundLabel,
 		"ShareText":       shareText,
 		"ShareURL":        shareURL,
+		"Precedentes":     precedentes,
 	})
+}
+
+// PrecedentesView is the match-page view-model for the pair-vs-pair
+// head-to-head strip. Show reports whether there is any prior meeting to
+// display — the template hides the whole section when false.
+type PrecedentesView struct {
+	Show                 bool
+	Pair1Name, Pair2Name string
+	Pair1Wins, Pair2Wins int
+	LastMatchID          string
+	LastScore            string
+}
+
+// buildPrecedentesView looks up the head-to-head record between a match's two
+// pairs, excluding the match itself. Returns Show=false when either pair is
+// unresolved (a playoff feeder slot) or the pairs have never met before.
+func buildPrecedentesView(app core.App, match *core.Record, pair1Name, pair2Name string) PrecedentesView {
+	pair1ID, pair2ID := match.GetString("pair1"), match.GetString("pair2")
+	if pair1ID == "" || pair2ID == "" {
+		return PrecedentesView{}
+	}
+	summary, ok := league.Precedents(app, pair1ID, pair2ID, match.Id)
+	if !ok {
+		return PrecedentesView{}
+	}
+	return PrecedentesView{
+		Show:        true,
+		Pair1Name:   pair1Name,
+		Pair2Name:   pair2Name,
+		Pair1Wins:   summary.Pair1Wins,
+		Pair2Wins:   summary.Pair2Wins,
+		LastMatchID: summary.LastMatchID,
+		LastScore:   summary.LastScore,
+	}
 }
 
 // matchPageTitle builds the browser-tab title from the match's pair names,
