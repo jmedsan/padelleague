@@ -16,7 +16,7 @@
         </thead>
         <tbody>
             {{range .Standings}}
-            <tr {{if $.Mode.Admin}}{{if le .Position 3}}class="font-medium"{{end}}{{else}}class="hover {{if and $.PlayerPairIDs (hasKey $.PlayerPairIDs .PairID)}}bg-primary/10 font-bold{{end}}"{{end}}>
+            <tr {{if $.Mode.Admin}}{{if le .Position 3}}class="font-medium"{{end}}{{else}}class="hover {{if and $.PlayerPairIDs (hasKey $.PlayerPairIDs .PairID)}}bg-neutral/10 font-bold{{end}}"{{end}}>
                 <td {{if not $.Mode.Admin}}class="text-center"{{end}}>
                     {{if $.Mode.Admin}}
                         {{if eq .Position 1}}<span class="text-warning">🥇</span>

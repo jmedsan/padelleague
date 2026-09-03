@@ -1,7 +1,7 @@
 {{define "notificationRow"}}
 <a href="{{if .GetString "link"}}{{.GetString "link"}}{{else if .GetString "related_match"}}/match/{{.GetString "related_match"}}{{else}}#{{end}}"
    hx-post="/notifications/{{.Id}}/read" hx-swap="none"
-   class="flex items-center gap-2 p-3 rounded-lg transition-colors {{if not (.GetBool "read")}}bg-primary/5 font-medium{{end}} hover:bg-base-200">
+   class="flex items-center gap-2 p-3 rounded-lg transition-colors {{if not (.GetBool "read")}}bg-neutral/5 font-medium{{end}} hover:bg-base-200">
     <div class="flex-1 min-w-0">
         <p class="text-sm">{{.GetString "title"}}</p>
         {{with .GetString "body"}}

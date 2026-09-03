@@ -2,7 +2,7 @@
 {{if .Mode.Admin}}
 {{if .Competition.GetBool "active"}}
 {{/* AdminSummary, active: outer anchor card with stats, links to admin detail */}}
-<a href="{{.URL}}" class="card bg-base-100 shadow-md border-l-4 border-primary hover:shadow-xl hover:-translate-y-1 transition-all duration-200">
+<a href="{{.URL}}" class="card bg-base-100 shadow-md border-l-4 border-neutral hover:shadow-xl hover:-translate-y-1 transition-all duration-200">
     <div class="card-body gap-3">
         <div class="flex justify-between items-start">
             <h3 class="card-title text-base">{{.Name}}</h3>
