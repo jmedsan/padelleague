@@ -301,7 +301,7 @@ func TestNotificationListReadVsUnread(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/notifications/list",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"bg-primary/5", "Unread Title"},
+		ExpectedContent: []string{"bg-neutral/5", "Unread Title"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupNotifRoutes(tb, app, e)
