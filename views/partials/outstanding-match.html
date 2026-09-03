@@ -6,7 +6,7 @@
      component rather than folded into matchCard. */}}
 {{define "outstandingMatchDesktopRow"}}
 <tr>
-    <td>{{template "competitionIdentity" (dict "ID" .CompetitionID "Name" .CompetitionName "Mode" (dict "Row" true))}}</td>
+    <td>{{template "competitionIdentity" (dict "ID" .CompetitionID "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true))}}</td>
     <td>{{.RoundNumber}}</td>
     <td>{{template "pairLink" (elink .Pair1ID .Pair1)}}</td>
     <td>{{template "pairLink" (elink .Pair2ID .Pair2)}}</td>
@@ -23,7 +23,7 @@
         <div class="flex justify-between items-start">
             <div>
                 <p class="font-medium">{{.Pair1}} vs {{.Pair2}}</p>
-                <p class="text-sm opacity-60">{{template "competitionIdentity" (dict "ID" .CompetitionID "Name" .CompetitionName "Mode" (dict "Row" true) "NoLink" true)}} — J{{.RoundNumber}}</p>
+                <p class="text-sm opacity-60">{{template "competitionIdentity" (dict "ID" .CompetitionID "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true) "NoLink" true)}} — J{{.RoundNumber}}</p>
             </div>
             {{if .ArrangeBy}}{{template "warningBadge" .Warning}}{{end}}
         </div>

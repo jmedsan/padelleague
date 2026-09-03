@@ -191,6 +191,24 @@
 </a>
 {{end}}
 
+{{/* upcomingMatchRow — home page "Próximos partidos" list row: round badge,
+     "vs Opponent" (not both pair names — the viewer's own side is already
+     implied), competition + date/venue, and the scheduling-proposal status
+     badge (see scheduleStatusBadge above; deliberately not matchRow's
+     result-status badge, since these matches have no result yet). */}}
+{{define "upcomingMatchRow"}}
+<a href="/match/{{.MatchID}}" class="flex items-center gap-3 p-3 rounded-xl bg-base-200/50 hover:bg-base-200 transition-colors" data-testid="upcoming-match">
+    <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-none">
+        <span class="text-xs font-bold text-primary">J{{.RoundNumber}}</span>
+    </div>
+    <div class="flex-1 min-w-0">
+        <p class="font-medium text-sm truncate">vs <span data-testid="upcoming-opponent">{{.Opponent}}</span></p>
+        <p class="text-xs opacity-60">{{template "competitionIdentity" (dict "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true) "NoLink" true "Small" true)}}{{if .DisplayDate}} · {{.DisplayDate}}{{end}}{{if .ProposedVenue}} · {{.ProposedVenue}}{{end}}</p>
+    </div>
+    {{template "scheduleStatusBadge" .ScheduleStatus}}
+</a>
+{{end}}
+
 {{define "schedProposalPanel"}}
 {{if .SchedProposals}}
 <div class="space-y-3">
