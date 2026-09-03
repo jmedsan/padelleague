@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"errors"
 	"html"
 	"log/slog"
 	"net/http"
@@ -71,6 +72,10 @@ func flashAlert(e *core.RequestEvent, class, msg string) error {
 	return e.HTML(http.StatusOK, fragment)
 }
 
+// errHandled is returned by guards that have already written a response
+// (redirect, alert) so the caller knows to stop without returning nil.
+var errHandled = errors.New("response already written")
+
 func isEffectiveAdmin(e *core.RequestEvent) bool {
 	return render.AdminView(e)
 }
@@ -100,9 +105,11 @@ func checkDocGate(app core.App, e *core.RequestEvent, match *core.Record) error 
 		target := "/competition/" + compID
 		if e.Request.Header.Get("HX-Request") == "true" {
 			e.Response.Header().Set("HX-Redirect", target)
-			return e.NoContent(http.StatusNoContent)
+			e.NoContent(http.StatusNoContent)
+		} else {
+			e.Redirect(http.StatusFound, target)
 		}
-		return e.Redirect(http.StatusFound, target)
+		return errHandled
 	}
 	return nil
 }
@@ -113,10 +120,12 @@ func checkCompModifiable(app core.App, e *core.RequestEvent, match *core.Record)
 	}
 	comp, err := app.FindRecordById("competitions", match.GetString("competition"))
 	if err != nil {
-		return alertError(e, "Competición no encontrada")
+		alertError(e, "Competición no encontrada")
+		return errHandled
 	}
 	if !league.PlayerCanModify(comp, time.Now()) {
-		return alertError(e, "La competición está finalizada o archivada; no puedes modificar este partido.")
+		alertError(e, "La competición está finalizada o archivada; no puedes modificar este partido.")
+		return errHandled
 	}
 	return nil
 }
