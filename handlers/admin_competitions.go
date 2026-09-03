@@ -216,7 +216,11 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 	oldStart := record.GetString("start_date")
 	oldEnd := record.GetString("end_date")
 
-	record.Set("name", e.Request.FormValue("name"))
+	name := strings.TrimSpace(e.Request.FormValue("name"))
+	if name == "" {
+		return alertError(e, "El nombre es obligatorio")
+	}
+	record.Set("name", name)
 	record.Set("type", e.Request.FormValue("type"))
 	record.Set("play_twice", e.Request.FormValue("play_twice") == "on")
 	if gt := e.Request.FormValue("gender_type"); gt != "" {
@@ -527,30 +531,54 @@ func setSchedulingFields(record *core.Record, e *core.RequestEvent) error {
 	if v := e.Request.FormValue("end_date"); v != "" {
 		record.Set("end_date", v)
 	}
+	start := record.GetString("start_date")
+	end := record.GetString("end_date")
+	if start != "" && end != "" && end < start {
+		return fmt.Errorf("La fecha de fin debe ser posterior a la de inicio")
+	}
 
-	record.Set("arrange_grace_days", formIntDefault(e, "arrange_grace_days", 3))
+	grace, err := formIntValidated(e, "arrange_grace_days", 3)
+	if err != nil {
+		return fmt.Errorf("Días de gracia: %w", err)
+	}
+	record.Set("arrange_grace_days", grace)
 
 	ws := e.Request.FormValue("walkover_score")
 	if ws == "" {
 		ws = "6-0 6-0"
 	}
 	if _, err := league.ParseScore(ws); err != nil {
-		return fmt.Errorf("walkover_score inválido: %s", ws)
+		return fmt.Errorf("Marcador de incomparecencia inválido. Usa el formato: 6-0 6-0")
 	}
 	record.Set("walkover_score", ws)
 
-	record.Set("default_penalty", formIntDefault(e, "default_penalty", 3))
-	record.Set("recovery_days", formIntDefault(e, "recovery_days", 14))
+	penalty, err := formIntValidated(e, "default_penalty", 3)
+	if err != nil {
+		return fmt.Errorf("Penalización: %w", err)
+	}
+	record.Set("default_penalty", penalty)
+
+	recovery, err := formIntValidated(e, "recovery_days", 14)
+	if err != nil {
+		return fmt.Errorf("Período extra: %w", err)
+	}
+	record.Set("recovery_days", recovery)
 	return nil
 }
 
-func formIntDefault(e *core.RequestEvent, field string, def int) int {
-	if v := e.Request.FormValue(field); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
-			return n
-		}
+func formIntValidated(e *core.RequestEvent, field string, def int) (int, error) {
+	v := e.Request.FormValue(field)
+	if v == "" {
+		return def, nil
 	}
-	return def
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return 0, fmt.Errorf("debe ser un número")
+	}
+	if n < 0 {
+		return 0, fmt.Errorf("no puede ser negativo")
+	}
+	return n, nil
 }
 
 // AttachDocument adds a document to a competition's attached documents.
