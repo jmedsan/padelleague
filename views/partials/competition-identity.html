@@ -1,0 +1,32 @@
+{{/* competitionIdentity — ONE component for rendering a competition's name
+     (with an optional logo) across every surface. Mode.Full renders a 64px
+     rounded-square logo + name as a heading (competition header use). Any
+     other mode renders a small 20px inline logo + name as a link. No
+     placeholder icon when LogoURL is empty — just the name. Set NoLink when
+     the caller already wraps the whole thing in its own <a> (e.g. a card
+     link) — nesting <a> tags is invalid HTML. */}}
+{{define "competitionIdentity"}}
+{{if .Mode.Full}}
+<div class="flex items-center gap-3">
+    {{if .LogoURL}}
+    <div class="avatar">
+        <div class="w-16 rounded-xl">
+            <img src="{{.LogoURL}}" alt="{{.Name}}" loading="lazy">
+        </div>
+    </div>
+    {{end}}
+    <h2 class="text-2xl font-bold">{{.Name}}</h2>
+</div>
+{{else}}
+<span class="inline-flex items-center gap-1.5">
+    {{if .LogoURL}}
+    <span class="avatar">
+        <span class="w-5 rounded">
+            <img src="{{.LogoURL}}" alt="{{.Name}}" loading="lazy">
+        </span>
+    </span>
+    {{end}}
+    {{if and .ID (not .NoLink)}}<a href="{{competitionURL .ID}}" class="link link-hover">{{.Name}}</a>{{else}}{{.Name}}{{end}}
+</span>
+{{end}}
+{{end}}

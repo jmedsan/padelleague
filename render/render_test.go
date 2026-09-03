@@ -87,6 +87,26 @@ func TestPage_RendersWithLayout(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
+var competitionURLFS = fstest.MapFS{
+	"views/layout.html": &fstest.MapFile{
+		Data: []byte(`<html><body>{{block "content" .}}{{end}}</body></html>`),
+	},
+	"views/comp.html": &fstest.MapFile{
+		Data: []byte(`{{define "content"}}<a href="{{competitionURL .ID}}">go</a>{{end}}`),
+	},
+}
+
+func TestCompetitionURL_Func(t *testing.T) {
+	t.Parallel()
+	r := New(competitionURLFS, "", true)
+	e, rec := makeEvent(nil)
+
+	err := r.Page(e, "comp.html", map[string]any{"ID": "abc123"})
+
+	require.NoError(t, err)
+	assert.Contains(t, body(rec), `href="/competition/abc123"`)
+}
+
 func TestPage_NilData(t *testing.T) {
 	t.Parallel()
 	r := New(goodFS, "vapid-key-123", true)

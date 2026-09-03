@@ -7,7 +7,7 @@
         </div>
 
         {{if not .Mode.Full}}
-        <p class="text-sm opacity-60">{{if .CompetitionName}}{{.CompetitionName}} · {{end}}Jornada {{.RoundNum}}</p>
+        <p class="text-sm opacity-60">{{if .CompetitionName}}{{template "competitionIdentity" (dict "ID" (.Match.GetString "competition") "Name" .CompetitionName "Mode" (dict))}} · {{end}}Jornada {{.RoundNum}}</p>
         {{end}}
 
         {{if not (and .Mode.Full (not .Mode.Editable))}}
@@ -177,7 +177,7 @@
                 {{end}}
             </div>
             {{if .Score}}<span class="text-xs font-bold sm:hidden">{{.Score}}</span>{{end}}
-            {{if .CompetitionName}}<span class="text-xs opacity-50 truncate">{{.CompetitionName}}</span>{{end}}
+            {{if .CompetitionName}}<span class="text-xs opacity-50 truncate">{{template "competitionIdentity" (dict "Name" .CompetitionName "Mode" (dict) "NoLink" true)}}</span>{{end}}
             <span class="badge {{.StatusClass}} badge-xs sm:badge-sm whitespace-nowrap">{{.StatusLabel}}</span>
         </div>
     </div>

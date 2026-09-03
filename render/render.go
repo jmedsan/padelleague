@@ -33,7 +33,10 @@ func New(viewsFS fs.FS, vapidPublicKey string, appDevTools bool) *Renderer {
 		},
 		"entityURL": league.EntityURL,
 		"avatarURL": league.AvatarURL,
-		"fmtDate":   FmtDate,
+		"competitionURL": func(id string) string {
+			return league.EntityURL("competition", id)
+		},
+		"fmtDate": FmtDate,
 		"elink": func(id, name string) map[string]string {
 			return map[string]string{"ID": id, "Name": name}
 		},
