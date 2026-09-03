@@ -28,7 +28,7 @@ func TestBuildNotificationEmail_Basic(t *testing.T) {
 	html := BuildNotificationEmail("Juan", "Tu partido ha sido confirmado", "")
 	assert.Contains(t, html, "Juan")
 	assert.Contains(t, html, "Tu partido ha sido confirmado")
-	assert.Contains(t, html, "PadelLeague")
+	assert.Contains(t, html, "Padel League")
 	assert.NotContains(t, html, "Ver partido")
 }
 

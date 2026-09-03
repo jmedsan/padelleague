@@ -214,7 +214,7 @@ func TestAdminCompetitionDetail(t *testing.T) {
 		Name:            "GET /admin/competitions/{id} returns detail",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Dale Fuerte a la Bola"},
+		ExpectedContent: []string{"Padel League"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)

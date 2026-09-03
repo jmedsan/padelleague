@@ -243,7 +243,7 @@ func TestSampleLeague(t *testing.T) {
 	require.Equal(t, 2, len(comps))
 	var mainComp *core.Record
 	for _, c := range comps {
-		if c.GetString("name") == "Liga de ejemplo" {
+		if c.GetString("name") == "Dale Fuerte a la Bola" {
 			mainComp = c
 		}
 	}

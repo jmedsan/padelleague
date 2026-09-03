@@ -89,9 +89,9 @@ func BuildNotificationEmail(displayName, body, link string) string {
 		}
 		linkHTML = fmt.Sprintf(`<p><a href="%s">%s</a></p>`, link, label)
 	}
-	return fmt.Sprintf(`<h2>PadelLeague</h2>
+	return fmt.Sprintf(`<h2>Padel League</h2>
 <p>Hola %s,</p>
 <p>%s</p>
 %s
-<p>— PadelLeague</p>`, html.EscapeString(displayName), html.EscapeString(body), linkHTML)
+<p>— Padel League</p>`, html.EscapeString(displayName), html.EscapeString(body), linkHTML)
 }

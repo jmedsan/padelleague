@@ -173,7 +173,7 @@ func createSampleCompetition(txApp core.App, pairIDs []string) (*core.Record, er
 		payment[pid] = i != len(pairIDs)-1
 	}
 	comp := core.NewRecord(col)
-	comp.Set("name", "Liga de ejemplo")
+	comp.Set("name", "Dale Fuerte a la Bola")
 	comp.Set("type", "league")
 	comp.Set("gender_type", "free")
 	comp.Set("active", true)

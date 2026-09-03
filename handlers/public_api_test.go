@@ -129,7 +129,7 @@ func TestCompetitionShowAll(t *testing.T) {
 		Name:            "GET /competition/{id}?all=1 shows all matches",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Dale Fuerte a la Bola"},
+		ExpectedContent: []string{"Padel League"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
