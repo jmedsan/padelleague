@@ -9,8 +9,10 @@ OPENER ?= xdg-open
 css:
 	cd frontend && npx tailwindcss -i ../static/css/input.css -o ../static/css/styles.css --minify
 
+VERSION ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
+
 build: css
-	go build -o padelleague .
+	go build -ldflags="-X main.Version=$(VERSION)" -o padelleague .
 
 run:
 	go run . serve

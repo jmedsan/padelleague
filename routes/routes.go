@@ -27,6 +27,7 @@ type Deps struct {
 	SearchIndex *search.Index
 	StaticFS    fs.FS
 	AppDevTools bool
+	Version     string
 }
 
 // Register wires all application routes onto the given serve event.
@@ -65,6 +66,11 @@ func registerStaticRoutes(se *core.ServeEvent, deps Deps) {
 
 	staticSubFS, _ := fs.Sub(deps.StaticFS, "static")
 	se.Router.GET("/static/{path...}", apis.Static(staticSubFS, false))
+
+	version := deps.Version
+	se.Router.GET("/version", func(e *core.RequestEvent) error {
+		return e.JSON(http.StatusOK, map[string]string{"version": version})
+	})
 }
 
 func registerAuthRoutes(se *core.ServeEvent, deps Deps, auth *handlers.AuthHandler) {

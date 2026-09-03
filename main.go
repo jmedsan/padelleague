@@ -20,6 +20,8 @@ import (
 	"padelleague/seed"
 )
 
+var Version = "dev"
+
 //go:embed all:views
 var viewsFS embed.FS
 
@@ -58,6 +60,7 @@ func main() {
 			SearchIndex: searchIndex,
 			StaticFS:    staticFS,
 			AppDevTools: cfg.AppDevTools,
+			Version:     Version,
 		})
 		return se.Next()
 	})
