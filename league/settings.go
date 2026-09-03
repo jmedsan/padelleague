@@ -8,14 +8,14 @@ import (
 
 // AppSettings holds the global default values for new competitions.
 type AppSettings struct {
-	QuorumTimeoutHours  int
-	ArrangeGraceDays    int
-	WalkoverScore       string
-	DefaultPenalty      int
-	RecoveryDays        int
-	PlayTwice           bool
-	GenderType          string
-	InviteMaxUses       int
+	QuorumTimeoutHours   int
+	ArrangeGraceDays     int
+	WalkoverScore        string
+	DefaultPenalty       int
+	RecoveryDays         int
+	PlayTwice            bool
+	GenderType           string
+	InviteMaxUses        int
 	InviteExpirationDays int
 }
 
@@ -27,13 +27,13 @@ var (
 // DefaultSettings returns hardcoded fallback values.
 func DefaultSettings() AppSettings {
 	return AppSettings{
-		QuorumTimeoutHours:  48,
-		ArrangeGraceDays:    3,
-		WalkoverScore:       "6-0 6-0",
-		DefaultPenalty:      3,
-		RecoveryDays:        14,
-		GenderType:          "free",
-		InviteMaxUses:       10,
+		QuorumTimeoutHours:   48,
+		ArrangeGraceDays:     3,
+		WalkoverScore:        "6-0 6-0",
+		DefaultPenalty:       3,
+		RecoveryDays:         14,
+		GenderType:           "free",
+		InviteMaxUses:        10,
 		InviteExpirationDays: 7,
 	}
 }
@@ -56,14 +56,14 @@ func LoadSettings(app core.App) AppSettings {
 
 	r := records[0]
 	s := AppSettings{
-		QuorumTimeoutHours:  int(r.GetFloat("quorum_timeout_hours")),
-		ArrangeGraceDays:    int(r.GetFloat("arrange_grace_days")),
-		WalkoverScore:       r.GetString("walkover_score"),
-		DefaultPenalty:      int(r.GetFloat("default_penalty")),
-		RecoveryDays:        int(r.GetFloat("recovery_days")),
-		PlayTwice:           r.GetBool("play_twice"),
-		GenderType:          r.GetString("gender_type"),
-		InviteMaxUses:       int(r.GetFloat("invite_max_uses")),
+		QuorumTimeoutHours:   int(r.GetFloat("quorum_timeout_hours")),
+		ArrangeGraceDays:     int(r.GetFloat("arrange_grace_days")),
+		WalkoverScore:        r.GetString("walkover_score"),
+		DefaultPenalty:       int(r.GetFloat("default_penalty")),
+		RecoveryDays:         int(r.GetFloat("recovery_days")),
+		PlayTwice:            r.GetBool("play_twice"),
+		GenderType:           r.GetString("gender_type"),
+		InviteMaxUses:        int(r.GetFloat("invite_max_uses")),
 		InviteExpirationDays: int(r.GetFloat("invite_expiration_days")),
 	}
 	if s.WalkoverScore == "" {

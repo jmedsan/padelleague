@@ -35,7 +35,7 @@ func setupPublicRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	e.Router.GET("/competition/{id}", pub.Competition).BindFunc(requireAuthTest)
 	e.Router.POST("/competition/{id}/accept-docs", pub.AcceptDocs).BindFunc(requireAuthTest)
 
-	player := NewPlayerHandler(app, r.Page, r.ErrorPage)
+	player := NewPlayerHandler(app, svc, r.Page, r.ErrorPage)
 	e.Router.GET("/player/{id}", player.Player).BindFunc(requireAuthTest)
 
 	pair := NewPairPageHandler(app, svc, r.Page, r.ErrorPage)

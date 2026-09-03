@@ -4,6 +4,60 @@
     <h1 class="text-2xl font-bold mt-1">Configuración</h1>
 </div>
 
+<div class="card bg-base-100 shadow-xl max-w-lg mb-6">
+    <div class="card-body">
+        <h2 class="card-title">Valores por defecto</h2>
+        <p class="text-sm opacity-70 mb-4">Valores iniciales para nuevas competiciones e invitaciones. El admin puede cambiarlos por competición al crearla.</p>
+        <form hx-post="/admin/settings/defaults">
+            <div class="form-control w-full">
+                <label class="label" for="settings-gender"><span class="label-text font-medium">Modalidad de género</span></label>
+                <select id="settings-gender" name="gender_type" class="select select-bordered w-full">
+                    <option value="free" {{if eq .Settings.GenderType "free"}}selected{{end}}>Libre</option>
+                    <option value="male" {{if eq .Settings.GenderType "male"}}selected{{end}}>Masculina</option>
+                    <option value="female" {{if eq .Settings.GenderType "female"}}selected{{end}}>Femenina</option>
+                    <option value="mixed" {{if eq .Settings.GenderType "mixed"}}selected{{end}}>Mixta</option>
+                </select>
+            </div>
+            <div class="form-control w-full mt-3">
+                <label class="label" for="settings-quorum"><span class="label-text font-medium">Tiempo de espera para confirmación (horas)</span></label>
+                <input type="number" id="settings-quorum" name="quorum_timeout_hours" value="{{.Settings.QuorumTimeoutHours}}" min="0" class="input input-bordered w-full">
+            </div>
+            <div class="form-control w-full mt-3">
+                <label class="label" for="settings-grace"><span class="label-text font-medium">Días de gracia para organizar</span></label>
+                <input type="number" id="settings-grace" name="arrange_grace_days" value="{{.Settings.ArrangeGraceDays}}" min="0" class="input input-bordered w-full">
+            </div>
+            <div class="form-control w-full mt-3">
+                <label class="label" for="settings-walkover"><span class="label-text font-medium">Marcador incomparecencia</span></label>
+                <input type="text" id="settings-walkover" name="walkover_score" value="{{.Settings.WalkoverScore}}" class="input input-bordered w-full" placeholder="6-0 6-0">
+            </div>
+            <div class="form-control w-full mt-3">
+                <label class="label" for="settings-penalty"><span class="label-text font-medium">Penalización por defecto (puntos)</span></label>
+                <input type="number" id="settings-penalty" name="default_penalty" value="{{.Settings.DefaultPenalty}}" min="0" class="input input-bordered w-full">
+            </div>
+            <div class="form-control w-full mt-3">
+                <label class="label" for="settings-recovery"><span class="label-text font-medium">Período extra (días)</span></label>
+                <input type="number" id="settings-recovery" name="recovery_days" value="{{.Settings.RecoveryDays}}" min="0" class="input input-bordered w-full">
+            </div>
+            <div class="form-control mt-3">
+                <label class="label cursor-pointer justify-start gap-3">
+                    <input type="checkbox" name="play_twice" class="checkbox checkbox-sm" {{if .Settings.PlayTwice}}checked{{end}}>
+                    <span class="label-text">Ida y vuelta por defecto</span>
+                </label>
+            </div>
+            <div class="divider my-3"></div>
+            <div class="form-control w-full">
+                <label class="label" for="settings-max-uses"><span class="label-text font-medium">Invitaciones: usos máximos</span></label>
+                <input type="number" id="settings-max-uses" name="invite_max_uses" value="{{.Settings.InviteMaxUses}}" min="1" class="input input-bordered w-full">
+            </div>
+            <div class="form-control w-full mt-3">
+                <label class="label" for="settings-expiration"><span class="label-text font-medium">Invitaciones: días hasta expirar</span></label>
+                <input type="number" id="settings-expiration" name="invite_expiration_days" value="{{.Settings.InviteExpirationDays}}" min="1" class="input input-bordered w-full">
+            </div>
+            <button type="submit" hx-disabled-elt="this" class="btn btn-primary w-full mt-4">Guardar</button>
+        </form>
+    </div>
+</div>
+
 {{if .DevMode}}
 <div class="card bg-base-100 shadow-xl border border-warning max-w-lg">
     <div class="card-body">
@@ -107,10 +161,6 @@
      role="status" aria-live="polite" aria-busy="true">
     <span class="loading loading-spinner loading-lg text-primary"></span>
     <p class="text-sm font-medium">Reiniciando la base de datos…</p>
-</div>
-{{else}}
-<div class="alert alert-info max-w-lg">
-    <span>No hay opciones de configuración disponibles en este entorno.</span>
 </div>
 {{end}}
 {{end}}

@@ -104,15 +104,15 @@
             <div class="form-control w-full mt-3">
                 <label class="label" for="create-comp-gender"><span class="label-text font-medium">Modalidad de género <span class="tooltip tooltip-right" data-tip="Limita las parejas que pueden inscribirse según el género de sus jugadores"><span class="text-info cursor-help">ⓘ</span></span></span></label>
                 <select id="create-comp-gender" name="gender_type" class="select select-bordered w-full">
-                    <option value="free" selected>Libre</option>
-                    <option value="male">Masculina</option>
-                    <option value="female">Femenina</option>
-                    <option value="mixed">Mixta</option>
+                    <option value="free" {{if eq .Defaults.GenderType "free"}}selected{{end}}>Libre</option>
+                    <option value="male" {{if eq .Defaults.GenderType "male"}}selected{{end}}>Masculina</option>
+                    <option value="female" {{if eq .Defaults.GenderType "female"}}selected{{end}}>Femenina</option>
+                    <option value="mixed" {{if eq .Defaults.GenderType "mixed"}}selected{{end}}>Mixta</option>
                 </select>
             </div>
             <div class="form-control w-full mt-3">
                 <label class="label" for="create-comp-quorum"><span class="label-text font-medium">Tiempo de espera para confirmación (horas) <span class="tooltip tooltip-right" data-tip="Si el rival no confirma ni disputa un resultado en este tiempo, se acepta automáticamente"><span class="text-info cursor-help">ⓘ</span></span></span></label>
-                <input type="number" id="create-comp-quorum" name="quorum_timeout_hours" value="48" min="0" class="input input-bordered w-full" placeholder="0 = desactivado">
+                <input type="number" id="create-comp-quorum" name="quorum_timeout_hours" value="{{.Defaults.QuorumTimeoutHours}}" min="0" class="input input-bordered w-full" placeholder="0 = desactivado">
                 <label class="label"><span class="label-text-alt opacity-50">0 = desactivado</span></label>
             </div>
             <div class="grid grid-cols-2 gap-3 mt-3">
@@ -128,7 +128,7 @@
             <div class="divider my-3"></div>
             <div class="form-control">
                 <label class="label cursor-pointer justify-start gap-3">
-                    <input type="checkbox" name="play_twice" class="checkbox checkbox-sm">
+                    <input type="checkbox" name="play_twice" class="checkbox checkbox-sm" {{if .Defaults.PlayTwice}}checked{{end}}>
                     <span class="label-text">Ida y vuelta <span class="tooltip tooltip-right" data-tip="Cada pareja juega contra todas las demás dos veces en lugar de una"><span class="text-info cursor-help">ⓘ</span></span></span>
                 </label>
             </div>
@@ -144,19 +144,19 @@
                 <div class="collapse-content">
                     <div class="form-control mb-3">
                         <label class="label" for="create-comp-grace"><span class="label-text">Días de gracia para organizar <span class="tooltip tooltip-right" data-tip="Días extra tras la fecha recomendada antes de marcar un partido como vencido"><span class="text-info cursor-help">ⓘ</span></span></span></label>
-                        <input type="number" id="create-comp-grace" name="arrange_grace_days" value="3" min="0" class="input input-bordered input-sm">
+                        <input type="number" id="create-comp-grace" name="arrange_grace_days" value="{{.Defaults.ArrangeGraceDays}}" min="0" class="input input-bordered input-sm">
                     </div>
                     <div class="form-control mb-3">
                         <label class="label" for="create-comp-walkover"><span class="label-text">Marcador incomparecencia <span class="tooltip tooltip-right" data-tip="Resultado que se asigna automáticamente al aprobar una incomparecencia"><span class="text-info cursor-help">ⓘ</span></span></span></label>
-                        <input type="text" id="create-comp-walkover" name="walkover_score" value="6-0 6-0" class="input input-bordered input-sm" placeholder="6-0 6-0">
+                        <input type="text" id="create-comp-walkover" name="walkover_score" value="{{.Defaults.WalkoverScore}}" class="input input-bordered input-sm" placeholder="6-0 6-0">
                     </div>
                     <div class="form-control mb-3">
                         <label class="label" for="create-comp-penalty"><span class="label-text">Penalización por defecto (puntos) <span class="tooltip tooltip-right" data-tip="Puntos que se restan al aprobar una incomparecencia. El admin puede cambiar el valor en cada caso"><span class="text-info cursor-help">ⓘ</span></span></span></label>
-                        <input type="number" id="create-comp-penalty" name="default_penalty" value="3" min="0" class="input input-bordered input-sm">
+                        <input type="number" id="create-comp-penalty" name="default_penalty" value="{{.Defaults.DefaultPenalty}}" min="0" class="input input-bordered input-sm">
                     </div>
                     <div class="form-control">
                         <label class="label" for="create-comp-recovery"><span class="label-text">Período extra <span class="tooltip tooltip-right" data-tip="Días adicionales tras la fecha fin de la competición para completar partidos atrasados"><span class="text-info cursor-help">ⓘ</span></span></span></label>
-                        <input type="number" id="create-comp-recovery" name="recovery_days" value="14" min="0" class="input input-bordered input-sm">
+                        <input type="number" id="create-comp-recovery" name="recovery_days" value="{{.Defaults.RecoveryDays}}" min="0" class="input input-bordered input-sm">
                     </div>
                 </div>
             </div>
