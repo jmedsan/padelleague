@@ -39,6 +39,63 @@ func TestComputeStandings_Basic(t *testing.T) {
 	assert.Equal(t, 1, rows[1].Losses)
 }
 
+func TestComputeStandings_Form(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	p1 := makePair(t, app, "FormA")
+	p2 := makePair(t, app, "FormB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	// p1: loss, win, loss, win, win, win (oldest to newest) -> most recent 5
+	// results, newest first: win, win, win, loss, win.
+	dates := []string{"2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04", "2026-01-05", "2026-01-06"}
+	winners := []string{p2.Id, p1.Id, p2.Id, p1.Id, p1.Id, p1.Id}
+	for i := range dates {
+		m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
+		m.Set("scores", "6-3 6-4")
+		m.Set("winner", winners[i])
+		m.Set("date", dates[i])
+		require.NoError(t, app.Save(m))
+	}
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+
+	var p1Row, p2Row StandingRowFull
+	for _, r := range rows {
+		if r.PairID == p1.Id {
+			p1Row = r
+		} else {
+			p2Row = r
+		}
+	}
+
+	require.Len(t, p1Row.Form, 5, "Form caps at the last 5 results")
+	assert.Equal(t, []bool{true, true, true, false, true}, p1Row.Form, "most recent result first")
+
+	require.Len(t, p2Row.Form, 5)
+	assert.Equal(t, []bool{false, false, false, true, false}, p2Row.Form, "p2's form is p1's inverse for the same matches")
+}
+
+func TestComputeStandings_Form_NoMatches(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	p1 := makePair(t, app, "NoFormA")
+	p2 := makePair(t, app, "NoFormB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+	assert.Empty(t, rows[0].Form)
+	assert.Empty(t, rows[1].Form)
+}
+
 func TestComputeStandings_Walkover(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)

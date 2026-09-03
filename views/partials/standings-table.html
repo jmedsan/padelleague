@@ -12,6 +12,7 @@
                 <th class="text-center">DJ</th>
                 <th class="text-center {{if not .Mode.Admin}}font-bold {{end}}">Pts</th>
                 {{if .HasPenalties}}<th class="text-center">Pen</th>{{end}}
+                <th class="text-center hidden sm:table-cell">Forma</th>
             </tr>
         </thead>
         <tbody>
@@ -39,6 +40,11 @@
                 {{if $.HasPenalties}}<td class="text-center">
                     {{if gt .Penalty 0}}<span class="text-error font-medium">-{{.Penalty}}</span>{{else}}<span class="opacity-60">—</span>{{end}}
                 </td>{{end}}
+                <td class="text-center hidden sm:table-cell">
+                    <div class="flex gap-1 justify-center">
+                        {{range .Form}}<span class="inline-block w-2 h-2 rounded-full {{if .}}bg-success{{else}}bg-error{{end}}"></span>{{end}}
+                    </div>
+                </td>
             </tr>
             {{end}}
         </tbody>

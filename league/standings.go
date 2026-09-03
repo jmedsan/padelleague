@@ -7,6 +7,9 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// standingFormLimit is how many recent results StandingRowFull.Form carries.
+const standingFormLimit = 5
+
 // StandingRowFull holds a pair's full standings row including all tiebreaker fields.
 type StandingRowFull struct {
 	Position  int
@@ -21,6 +24,9 @@ type StandingRowFull struct {
 	GamesLost int
 	Points    int
 	Penalty   int
+	// Form holds up to the last standingFormLimit results, most recent
+	// first: true = win, false = loss.
+	Form []bool
 }
 
 // ComputeStandings calculates ranked standings for a competition.
@@ -43,7 +49,13 @@ func (svc *Service) ComputeStandings(competitionID string) ([]StandingRowFull, e
 	if err != nil {
 		return nil, err
 	}
-	rows := buildStandingRows(pairIDs, pairNames, pairStats, penaltyMap)
+	rows := buildStandingRows(standingRowInputs{
+		pairIDs:    pairIDs,
+		pairNames:  pairNames,
+		stats:      pairStats,
+		penaltyMap: penaltyMap,
+		matches:    matches,
+	})
 	sortStandings(rows, matches)
 
 	for i := range rows {
@@ -105,14 +117,24 @@ func tallyMatch(stats map[string]*pairStats, m *core.Record) {
 	s2.gamesLost += sc.Games1
 }
 
-func buildStandingRows(pairIDs []string, pairNames map[string]string, stats map[string]*pairStats, penaltyMap map[string]float64) []StandingRowFull {
-	rows := make([]StandingRowFull, 0, len(pairIDs))
-	for _, pid := range pairIDs {
-		s := stats[pid]
-		penalty := int(penaltyMap[pid])
+// standingRowInputs bundles the per-competition data buildStandingRows needs,
+// keeping the function under the project's argument-count lint limit.
+type standingRowInputs struct {
+	pairIDs    []string
+	pairNames  map[string]string
+	stats      map[string]*pairStats
+	penaltyMap map[string]float64
+	matches    []*core.Record
+}
+
+func buildStandingRows(in standingRowInputs) []StandingRowFull {
+	rows := make([]StandingRowFull, 0, len(in.pairIDs))
+	for _, pid := range in.pairIDs {
+		s := in.stats[pid]
+		penalty := int(in.penaltyMap[pid])
 		rows = append(rows, StandingRowFull{
 			PairID:    pid,
-			PairName:  pairNames[pid],
+			PairName:  in.pairNames[pid],
 			Played:    s.wins + s.losses,
 			Wins:      s.wins,
 			Losses:    s.losses,
@@ -122,9 +144,31 @@ func buildStandingRows(pairIDs []string, pairNames map[string]string, stats map[
 			GamesLost: s.gamesLost,
 			Points:    s.wins*3 - penalty,
 			Penalty:   penalty,
+			Form:      pairForm(pid, in.matches),
 		})
 	}
 	return rows
+}
+
+// pairForm returns up to standingFormLimit results for pid from matches,
+// most recent first (true = win, false = loss), ordered by the match date.
+func pairForm(pid string, matches []*core.Record) []bool {
+	var involved []*core.Record
+	for _, m := range matches {
+		if m.GetString("pair1") == pid || m.GetString("pair2") == pid {
+			involved = append(involved, m)
+		}
+	}
+	sort.Slice(involved, func(i, j int) bool {
+		return involved[i].GetString("date") > involved[j].GetString("date")
+	})
+
+	limit := min(len(involved), standingFormLimit)
+	form := make([]bool, limit)
+	for i := 0; i < limit; i++ {
+		form[i] = involved[i].GetString("winner") == pid
+	}
+	return form
 }
 
 // sortStandings ranks pairs by FEP Reglamento Técnico General 2024 art.

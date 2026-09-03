@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginAs, loadTestData, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
+import { loginAs, loadTestData, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 test.describe('competition lifecycle', () => {
   test('admin entry always redirects to the competitions dashboard', async ({ page }) => {
@@ -42,6 +42,17 @@ test.describe('competition lifecycle', () => {
     await expect(standingsTable).toBeVisible({ timeout: 5000 });
     await expect(standingsTable.locator('td', { hasText: 'Pareja Alpha' })).toBeVisible();
     await expect(standingsTable.locator('td', { hasText: 'Pareja Beta' })).toBeVisible();
+
+    // Forma column: hidden on phones (hidden sm:table-cell), visible on
+    // desktop. The seeded pre-played match has Pareja Alpha winning, so its
+    // row shows one green dot and Pareja Beta's row shows one red dot.
+    if (!isMobile(page)) {
+      await expect(standingsTable.locator('th', { hasText: 'Forma' })).toBeVisible();
+      const alphaRow = standingsTable.locator('tr', { has: page.locator('td', { hasText: 'Pareja Alpha' }) });
+      await expect(alphaRow.locator('span.bg-success')).toHaveCount(1);
+      const betaRow = standingsTable.locator('tr', { has: page.locator('td', { hasText: 'Pareja Beta' }) });
+      await expect(betaRow.locator('span.bg-error')).toHaveCount(1);
+    }
   });
 
   test('competition page shows match fixtures with mine-only default', async ({ page }) => {
