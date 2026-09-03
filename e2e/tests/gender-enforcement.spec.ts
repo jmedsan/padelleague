@@ -28,14 +28,10 @@ test.describe('gender enforcement', () => {
     await modal.locator('input[name="name"]').fill(compName);
     await modal.locator('select[name="gender_type"]').selectOption('mixed');
     await modal.locator('button[type="submit"]').click();
-    await page.waitForURL(/\/admin/, { timeout: 10000 });
+    // Create redirects straight to the new competition's detail page.
+    await page.waitForURL(/\/admin\/competitions\/[^/]+$/, { timeout: 10000 });
     await page.waitForLoadState('domcontentloaded');
-
-    // Click the new competition
-    const compLink = page.locator(`a:has-text("${compName}")`);
-    await expect(compLink).toBeVisible({ timeout: 5000 });
-    await compLink.click();
-    await page.waitForLoadState('domcontentloaded');
+    await expect(page.getByRole('heading', { name: compName })).toBeVisible({ timeout: 5000 });
 
     // Expand "Añadir parejas" accordion
     const addSection = page.locator('[data-testid="section-add-pairs"]');
@@ -53,8 +49,9 @@ test.describe('gender enforcement', () => {
     // Click "Añadir pareja"
     await addSection.locator('button:has-text("Añadir")').click();
 
-    // Assert the gender rejection error
-    const result = addSection.locator('#add-pair-result');
+    // AddPair's rejection is a flash alert (HX-Retarget swaps #flash, not the
+    // form's own hx-target), so the message lands in the global flash slot.
+    const result = page.locator('#flash');
     await expect(result).toContainText('parejas mixtas deben tener un jugador y una jugadora', { timeout: 5000 });
   });
 });

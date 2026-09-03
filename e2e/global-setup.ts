@@ -120,6 +120,25 @@ async function seedTestData() {
   const matchesData = await matchesResp.json();
   const matches = matchesData.items || [];
 
+  // Pre-play a scratch match so standings data exists from the start of the
+  // run — a test that opens the Clasificación tab shouldn't depend on some
+  // other test having already submitted a score first.
+  const playedMatch = await fetch(`${BASE_URL}/api/collections/matches/records`, {
+    method: 'POST',
+    headers: { 'Authorization': adminToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      competition: compId,
+      pair1: pair1Id,
+      pair2: pair2Id,
+      status: 'final',
+      scores: '6-3 6-4',
+      winner: pair1Id,
+      round_number: 99,
+    }),
+  });
+  if (!playedMatch.ok) throw new Error(`pre-played match: ${playedMatch.status} ${await playedMatch.text()}`);
+  matches.push(await playedMatch.json());
+
   // Two pairs produce exactly one round-robin match, and the desktop and
   // mobile projects share one database. Tests that submit a score or accept a
   // proposal mutate that match, so whichever project ran second found it
