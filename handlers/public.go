@@ -27,7 +27,7 @@ type HomeAction struct {
 
 var actionKindPriority = map[string]int{
 	"dispute": 0, "confirm": 1, "respond": 1, "docs": 1,
-	"organize": 2, "play": 3,
+	"organize": 2,
 }
 
 // PublicHandler serves player-facing pages like the dashboard and competition views.
@@ -457,7 +457,7 @@ func buildHomeActions(tasks []league.PlayerTask, pending []PendingAction, next *
 	for _, p := range pending {
 		mergeAction(seen, pendingToAction(p))
 	}
-	if next != nil {
+	if next != nil && next.ScheduleStatus == "unscheduled" && !next.IsPlayoff {
 		if _, exists := seen[next.MatchID]; !exists {
 			mergeAction(seen, nextMatchAction(next))
 		}
@@ -491,18 +491,7 @@ func taskToAction(t league.PlayerTask) HomeAction {
 		a.Accent = warningAccent(t.Warning)
 		a.SortKey = fmt.Sprintf("2-%d", t.Warning)
 	case league.TaskPlay:
-		a.Kind = "play"
-		a.Title = "Próximo partido"
-		detail := fmt.Sprintf("vs %s · %s J%d", t.Opponent, t.CompetitionName, t.RoundNumber)
-		if t.ProposedDate != "" {
-			detail += " · " + render.FmtDate(t.ProposedDate)
-		}
-		if t.ProposedVenue != "" {
-			detail += " · " + t.ProposedVenue
-		}
-		a.Detail = detail
-		a.Accent = "info"
-		a.SortKey = fmt.Sprintf("3-%05d", t.RoundNumber)
+		return HomeAction{}
 	}
 	return a
 }
@@ -544,29 +533,12 @@ func nextMatchAction(next *NextMatch) HomeAction {
 	a := HomeAction{
 		MatchID: next.MatchID,
 		URL:     "/match/" + next.MatchID,
+		Kind:    "organize",
+		Title:   "Propón una fecha",
+		Detail:  fmt.Sprintf("vs %s · %s", next.Opponent, next.CompetitionName),
 		Accent:  "info",
+		SortKey: "2-0",
 	}
-	if next.ScheduleStatus == "unscheduled" && !next.IsPlayoff {
-		a.Kind = "organize"
-		a.Title = "Propón una fecha"
-		a.Detail = fmt.Sprintf("vs %s · %s", next.Opponent, next.CompetitionName)
-		a.SortKey = "2-0"
-		return a
-	}
-	a.Kind = "play"
-	a.Title = "Próximo partido"
-	detail := fmt.Sprintf("vs %s · %s", next.Opponent, next.CompetitionName)
-	if next.IsPlayoff && next.ProposedDate == "" {
-		detail += " · Fecha pendiente del administrador"
-	}
-	if next.ProposedDate != "" {
-		detail += " · " + render.FmtDate(next.ProposedDate)
-	}
-	if next.ProposedVenue != "" {
-		detail += " · " + next.ProposedVenue
-	}
-	a.Detail = detail
-	a.SortKey = fmt.Sprintf("3-%05d", next.RoundNumber)
 	return a
 }
 
