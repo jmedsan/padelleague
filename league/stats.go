@@ -2,6 +2,7 @@ package league
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
@@ -45,6 +46,8 @@ type StatsSummary struct {
 	GamesLost        int
 	Streak           string
 	BestStreak       string
+	Level            float64
+	Reliability      float64
 	CompetitionStats []CompetitionStat
 	Recent           []RecentMatch
 }
@@ -99,6 +102,8 @@ func (svc *Service) Summarize(pairIDs []string) StatsSummary {
 		winRate = float64(totals.wins) / float64(totals.played) * 100
 	}
 
+	currentStreakWins := currentStreakWinCount(allResults)
+
 	return StatsSummary{
 		WinRate:          winRate,
 		TotalPlayed:      totals.played,
@@ -110,6 +115,8 @@ func (svc *Service) Summarize(pairIDs []string) StatsSummary {
 		GamesLost:        totals.gamesLost,
 		Streak:           computeCurrentStreak(allResults),
 		BestStreak:       computeBestStreak(allResults),
+		Level:            computeLevel(winRate, totals.played, currentStreakWins),
+		Reliability:      svc.computeReliability(pairIDs, totals.played),
 		CompetitionStats: svc.competitionStatsForPairs(pairIDs),
 		Recent:           buildRecentMatches(allResults, 20),
 	}
@@ -165,6 +172,107 @@ func (svc *Service) pairCompStat(c *core.Record, pairID string) CompetitionStat 
 		}
 	}
 	return cs
+}
+
+// reliabilityResponseCap is the response time, in hours, at or beyond which
+// a scheduling/result response contributes zero to the responsiveness score.
+// A same-day response (well under this cap) scores near the maximum.
+const reliabilityResponseCap = 72.0
+
+// computeReliability blends scheduling responsiveness (how quickly this
+// pair's players respond to proposals) with a show-up rate (finalized
+// matches vs. matches lost by an approved walkover) into a 0-100 score. A
+// pair with no response history and no walkovers gets a neutral 100 rather
+// than an artificially low score from lack of data.
+func (svc *Service) computeReliability(pairIDs []string, played int) float64 {
+	authorIDs := map[string]struct{}{}
+	for _, pid := range pairIDs {
+		for _, uid := range PlayersForPair(svc.app, pid) {
+			authorIDs[uid] = struct{}{}
+		}
+	}
+
+	responseScore, hasResponses := svc.responsivenessScore(authorIDs)
+	showUpScore, hasMatches := svc.showUpScore(pairIDs, played)
+
+	switch {
+	case hasResponses && hasMatches:
+		return math.Round(responseScore*0.5 + showUpScore*0.5)
+	case hasMatches:
+		return math.Round(showUpScore)
+	case hasResponses:
+		return math.Round(responseScore)
+	default:
+		return 100
+	}
+}
+
+// responsivenessScore averages how quickly the given users responded to
+// scheduling/result proposals (scheduling_response, result_response
+// messages with a parent), scored 100 at 0h down to 0 at
+// reliabilityResponseCap hours or more. The second return is false when the
+// authors have no response history to score.
+func (svc *Service) responsivenessScore(authorIDs map[string]struct{}) (float64, bool) {
+	if len(authorIDs) == 0 {
+		return 0, false
+	}
+	var authorFilter strings.Builder
+	params := map[string]any{}
+	i := 0
+	for id := range authorIDs {
+		if i > 0 {
+			authorFilter.WriteString(" || ")
+		}
+		key := fmt.Sprintf("author%d", i)
+		authorFilter.WriteString("author = {:" + key + "}")
+		params[key] = id
+		i++
+	}
+	responses, err := svc.app.FindRecordsByFilter("match_messages",
+		"("+authorFilter.String()+") && (type = 'scheduling_response' || type = 'result_response') && parent != ''",
+		"", 0, 0, params)
+	if err != nil || len(responses) == 0 {
+		return 0, false
+	}
+
+	var total float64
+	var count int
+	for _, resp := range responses {
+		parent, err := svc.app.FindRecordById("match_messages", resp.GetString("parent"))
+		if err != nil {
+			continue
+		}
+		hours := resp.GetDateTime("created").Time().Sub(parent.GetDateTime("created").Time()).Hours()
+		if hours < 0 {
+			continue
+		}
+		total += 100 * (1 - min(hours/reliabilityResponseCap, 1.0))
+		count++
+	}
+	if count == 0 {
+		return 0, false
+	}
+	return total / float64(count), true
+}
+
+// showUpScore is the fraction of this pair's finalized matches that were not
+// lost by an approved walkover, as a 0-100 score. The second return is false
+// when the pair has no finalized matches to score.
+func (svc *Service) showUpScore(pairIDs []string, played int) (float64, bool) {
+	if played == 0 {
+		return 0, false
+	}
+	var walkoverLosses int
+	for _, pid := range pairIDs {
+		losses, err := svc.app.FindRecordsByFilter("matches",
+			"status = 'final' && review_type = 'walkover' && winner != {:pid} && (pair1 = {:pid} || pair2 = {:pid})",
+			"", 0, 0, map[string]any{"pid": pid})
+		if err != nil {
+			continue
+		}
+		walkoverLosses += len(losses)
+	}
+	return 100 * (1 - min(float64(walkoverLosses)/float64(played), 1.0)), true
 }
 
 func tallyScore(t *playerTotals, score string, isPair1 bool) {
@@ -267,6 +375,45 @@ func computeCurrentStreak(results []matchResult) string {
 		suffix = "V"
 	}
 	return fmt.Sprintf("%d%s", count, suffix)
+}
+
+// currentStreakWinCount returns the length of the current streak if it is a
+// winning streak, or 0 if the player's last result was a loss (or there are
+// no results yet).
+func currentStreakWinCount(results []matchResult) int {
+	count := 0
+	for _, r := range results {
+		if !r.won {
+			break
+		}
+		count++
+	}
+	return count
+}
+
+// levelExperienceCap is the match count at which the experience component of
+// computeLevel reaches its maximum — a new player's level is pulled down
+// regardless of win rate until they have played this many matches.
+const levelExperienceCap = 30
+
+// levelMomentumCap is the winning-streak length at which the momentum
+// component of computeLevel reaches its maximum.
+const levelMomentumCap = 8
+
+// computeLevel derives a Playtomic-style 1.0-10.0 skill level from win rate
+// (60%), match experience (20%), and current winning-streak momentum (20%).
+// A new player with few matches scores low regardless of win rate, since the
+// experience component dominates until levelExperienceCap matches are played.
+func computeLevel(winRatePct float64, played, currentStreakWins int) float64 {
+	if played == 0 {
+		return 1.0
+	}
+	winComponent := winRatePct / 100 * 10
+	experienceComponent := min(float64(played)/levelExperienceCap, 1.0) * 10
+	momentumComponent := min(float64(currentStreakWins)/levelMomentumCap, 1.0) * 10
+
+	level := winComponent*0.6 + experienceComponent*0.2 + momentumComponent*0.2
+	return math.Round(max(level, 1.0)*10) / 10
 }
 
 func computeBestStreak(results []matchResult) string {
