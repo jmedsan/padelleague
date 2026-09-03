@@ -5,11 +5,12 @@ import "github.com/pocketbase/pocketbase/core"
 
 // Notification bundles the fields for a player notification.
 type Notification struct {
-	Type    string
-	Title   string
-	Body    string
-	MatchID string
-	Link    string // overrides the "/match/{MatchID}" default when set
+	Type     string
+	Title    string
+	Body     string
+	MatchID  string
+	Link     string // overrides the "/match/{MatchID}" default when set
+	CompName string // competition display name, rendered as a secondary line
 }
 
 // Notifier sends player notifications; implemented by notify.Notifier.

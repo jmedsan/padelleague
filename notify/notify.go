@@ -88,6 +88,9 @@ func (n *Notifier) deliver(notifCol *core.Collection, userID string, notif leagu
 	if notif.MatchID != "" {
 		rec.Set("related_match", notif.MatchID)
 	}
+	if notif.CompName != "" {
+		rec.Set("comp_name", notif.CompName)
+	}
 	link := notificationLink(notif)
 	if link != "" {
 		rec.Set("link", link)

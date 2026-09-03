@@ -242,7 +242,8 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 		recipients = league.PlayersForPair(h.app, rivalPairID)
 	}
 	authorName := league.PlayerName(h.app, e.Auth.Id)
-	h.notifier.NotifyPlayers(recipients, league.NotifNewMessage(matchID, authorName, content))
+	compName := league.CompetitionName(h.app, match.GetString("competition"))
+	h.notifier.NotifyPlayers(recipients, league.NotifNewMessage(matchID, authorName, content, compName))
 
 	return redirectHX(e, "/match/"+matchID+"#mensajes")
 }
@@ -315,8 +316,9 @@ func (h *ThreadHandler) notifyProposal(match *core.Record, myTeam int, n proposa
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
 	authorName := league.PlayerName(h.app, n.AuthorID)
+	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	notif := league.NotifProposal(league.ProposalParams{
-		MatchID: match.Id, AuthorName: authorName, Date: n.Date, Time: n.Time, VenueName: n.VenueName,
+		MatchID: match.Id, AuthorName: authorName, Date: n.Date, Time: n.Time, VenueName: n.VenueName, CompName: compName,
 	})
 	h.notifier.NotifyPlayers(rivalPlayers, notif)
 	h.notifier.EmailPlayers(rivalPlayers, notif.Title, notif.Body, "/match/"+match.Id)
@@ -485,7 +487,10 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 	})
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
-	notif := league.NotifProposalAccepted(match.Id, league.PlayerName(h.app, e.Auth.Id), pd.Date, pd.Time)
+	compName := league.CompetitionName(h.app, match.GetString("competition"))
+	notif := league.NotifProposalAccepted(league.ProposalAcceptedParams{
+		MatchID: match.Id, ResponderName: league.PlayerName(h.app, e.Auth.Id), Date: pd.Date, Time: pd.Time, CompName: compName,
+	})
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
 	h.notifier.EmailPlayers(proposerPlayers, notif.Title, notif.Body, "/match/"+match.Id)
 	return nil
@@ -517,7 +522,8 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 	})
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
-	notif := league.NotifProposalRejected(match.Id, league.PlayerName(h.app, e.Auth.Id), reason)
+	compName := league.CompetitionName(h.app, match.GetString("competition"))
+	notif := league.NotifProposalRejected(match.Id, league.PlayerName(h.app, e.Auth.Id), reason, compName)
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
 	h.notifier.EmailPlayers(proposerPlayers, notif.Title, notif.Body, "/match/"+match.Id)
 	return nil
@@ -666,7 +672,8 @@ func (h *ThreadHandler) supersedePendingAndNotify(match *core.Record, excludeMsg
 	if err := h.supersedePending(match.Id, excludeMsgID); err != nil {
 		slog.Error("supersede pending proposals", "match", match.Id, "err", err)
 		pairNames := league.PairNames(h.app, []string{match.GetString("pair1"), match.GetString("pair2")})
-		n := league.NotifAdminSupersedeFailed(match.Id, pairNames[match.GetString("pair1")], pairNames[match.GetString("pair2")])
+		compName := league.CompetitionName(h.app, match.GetString("competition"))
+		n := league.NotifAdminSupersedeFailed(match.Id, pairNames[match.GetString("pair1")], pairNames[match.GetString("pair2")], compName)
 		_ = h.notifier.NotifyAdmins(n)
 	}
 }
@@ -696,7 +703,8 @@ func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.
 	})
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
-	notif := league.NotifDecisionChangedToRejected(match.Id, league.PlayerName(h.app, e.Auth.Id))
+	compName := league.CompetitionName(h.app, match.GetString("competition"))
+	notif := league.NotifDecisionChangedToRejected(match.Id, league.PlayerName(h.app, e.Auth.Id), compName)
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
 	h.notifier.EmailPlayers(proposerPlayers, notif.Title, notif.Body, "/match/"+match.Id)
 	return nil
@@ -742,7 +750,10 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 	})
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
-	notif := league.NotifDecisionChangedToAccepted(match.Id, league.PlayerName(h.app, e.Auth.Id), pd.Date, pd.Time)
+	compName := league.CompetitionName(h.app, match.GetString("competition"))
+	notif := league.NotifDecisionChangedToAccepted(league.DecisionChangedToAcceptedParams{
+		MatchID: match.Id, ResponderName: league.PlayerName(h.app, e.Auth.Id), Date: pd.Date, Time: pd.Time, CompName: compName,
+	})
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
 	h.notifier.EmailPlayers(proposerPlayers, notif.Title, notif.Body, "/match/"+match.Id)
 	return nil
