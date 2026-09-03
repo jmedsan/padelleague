@@ -39,6 +39,7 @@ func generateSampleBracket(txApp core.App, compID string, pairIDs []string) erro
 func bracketFirstRound(txApp core.App, matchCol *core.Collection, compID string, slots []string) ([]string, error) {
 	n := len(slots)
 	advancers := make([]string, n/2)
+	semiDate := time.Now().UTC().Add(5 * 24 * time.Hour).Format("2006-01-02")
 	for i := 0; i < n/2; i++ {
 		p1, p2 := slots[i], slots[n-1-i]
 		if p1 == "" && p2 == "" {
@@ -58,7 +59,8 @@ func bracketFirstRound(txApp core.App, matchCol *core.Collection, compID string,
 		match.Set("matches_to_win", 1)
 		match.Set("pair1", p1)
 		match.Set("pair2", p2)
-		match.Set("status", league.StatusPending)
+		match.Set("date", semiDate)
+		match.Set("status", league.StatusScheduled)
 		if err := txApp.Save(match); err != nil {
 			return nil, fmt.Errorf("create playoff match r1: %w", err)
 		}
@@ -70,6 +72,7 @@ func bracketLaterRounds(txApp core.App, matchCol *core.Collection, compID string
 	for r := 2; len(advancers) >= 2; r++ {
 		numMatches := len(advancers) / 2
 		nextAdvancers := make([]string, numMatches)
+		roundDate := time.Now().UTC().Add(time.Duration(r*5) * 24 * time.Hour).Format("2006-01-02")
 		for i := 0; i < numMatches; i++ {
 			p1 := advancers[i*2]
 			p2 := advancers[i*2+1]
@@ -77,13 +80,14 @@ func bracketLaterRounds(txApp core.App, matchCol *core.Collection, compID string
 			match.Set("competition", compID)
 			match.Set("round_number", r)
 			match.Set("matches_to_win", 1)
+			match.Set("date", roundDate)
 			if p1 != "" {
 				match.Set("pair1", p1)
 			}
 			if p2 != "" {
 				match.Set("pair2", p2)
 			}
-			match.Set("status", league.StatusPending)
+			match.Set("status", league.StatusScheduled)
 			if err := txApp.Save(match); err != nil {
 				return fmt.Errorf("create playoff match r%d: %w", r, err)
 			}

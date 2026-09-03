@@ -573,15 +573,14 @@ func sampleLabel(txApp core.App, userID string, match *core.Record) string {
 	return fmt.Sprintf("%s (%s)", name, pairName)
 }
 
-// createSampleNotifications files bell notifications for all played matches
-// (historical, marked read) and the enriched round-5 matches (unread).
-func createSampleNotifications(txApp core.App, comp *core.Record) error {
+type notifyFn func(userIDs []string, ntype, title, body, matchID string, read bool) error
+
+func newNotifyFn(txApp core.App) (notifyFn, error) {
 	col, err := txApp.FindCollectionByNameOrId("notifications")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	compName := comp.GetString("name")
-	notify := func(userIDs []string, ntype, title, body, matchID string, read bool) error {
+	return func(userIDs []string, ntype, title, body, matchID string, read bool) error {
 		for _, uid := range userIDs {
 			n := core.NewRecord(col)
 			n.Set("user", uid)
@@ -598,8 +597,22 @@ func createSampleNotifications(txApp core.App, comp *core.Record) error {
 			}
 		}
 		return nil
-	}
+	}, nil
+}
 
+func createSampleNotifications(txApp core.App, comp *core.Record) error {
+	notify, err := newNotifyFn(txApp)
+	if err != nil {
+		return err
+	}
+	if err := notifyFinalizedMatches(txApp, comp, notify); err != nil {
+		return err
+	}
+	return notifyLiveMatches(txApp, comp, notify)
+}
+
+func notifyFinalizedMatches(txApp core.App, comp *core.Record, notify notifyFn) error {
+	compName := comp.GetString("name")
 	finals, _ := txApp.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'final'", "round_number",
 		0, 0, map[string]any{"cid": comp.Id})
@@ -608,8 +621,7 @@ func createSampleNotifications(txApp core.App, comp *core.Record) error {
 		p2 := m.GetString("pair2")
 		p1Name := league.PairNames(txApp, []string{p1})[p1]
 		p2Name := league.PairNames(txApp, []string{p2})[p2]
-		scores := m.GetString("scores")
-		nSubmit := league.NotifResultSubmitted(m.Id, p1Name, compName, scores)
+		nSubmit := league.NotifResultSubmitted(m.Id, p1Name, compName, m.GetString("scores"))
 		if err := notify(playersOfPair(txApp, p2), nSubmit.Type, nSubmit.Title, nSubmit.Body, m.Id, true); err != nil {
 			return err
 		}
@@ -618,7 +630,10 @@ func createSampleNotifications(txApp core.App, comp *core.Record) error {
 			return err
 		}
 	}
+	return nil
+}
 
+func notifyLiveMatches(txApp core.App, comp *core.Record, notify notifyFn) error {
 	if disputed := sampleMatchByStatus(txApp, comp.Id, league.StatusDisputed); disputed != nil {
 		players := append(playersOfPair(txApp, disputed.GetString("pair1")),
 			playersOfPair(txApp, disputed.GetString("pair2"))...)

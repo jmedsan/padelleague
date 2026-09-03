@@ -150,7 +150,7 @@ func (h *PublicHandler) aggregateHomeData(userID string, playerPairIDs map[strin
 	sort.Slice(agg.upcoming, func(i, j int) bool {
 		return upcomingSortKey(agg.upcoming[i]) < upcomingSortKey(agg.upcoming[j])
 	})
-	agg.upcoming = capUpcoming(agg.upcoming, 3, time.Now())
+	agg.upcoming = capUpcoming(agg.upcoming, 10)
 	sort.Slice(agg.recent, func(i, j int) bool {
 		return agg.recent[i].Match.GetString("date") > agg.recent[j].Match.GetString("date")
 	})
@@ -441,21 +441,11 @@ func excludePendingDetailsInActions(comps []CompetitionView, actions []HomeActio
 	}
 }
 
-func capUpcoming(upcoming []NextMatch, maxCount int, now time.Time) []NextMatch {
-	twoWeeks := now.Add(14 * 24 * time.Hour)
-	var result []NextMatch
-	for _, u := range upcoming {
-		if len(result) >= maxCount {
-			break
-		}
-		if u.ProposedDate != "" {
-			if t, err := time.Parse("02/01/2006 15:04", u.ProposedDate); err == nil && t.After(twoWeeks) {
-				continue
-			}
-		}
-		result = append(result, u)
+func capUpcoming(upcoming []NextMatch, maxCount int) []NextMatch {
+	if len(upcoming) <= maxCount {
+		return upcoming
 	}
-	return result
+	return upcoming[:maxCount]
 }
 
 func upcomingSortKey(m NextMatch) string {
