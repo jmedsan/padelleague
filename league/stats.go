@@ -480,7 +480,7 @@ const levelMomentumCap = 8
 // has too little data to be meaningful and StatsSummary omits it
 // (HasLevel is false): a new player's level is not shown at all rather
 // than defaulting to a misleadingly low number.
-const MinMatchesForLevel = 5
+const MinMatchesForLevel = 3
 
 // computeLevel derives a relative 1.0-10.0 skill level (relative to this
 // league's pool of players, not an absolute rating) from win rate (70%),
