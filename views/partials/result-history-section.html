@@ -1,0 +1,30 @@
+{{define "resultHistorySection"}}
+{{if .}}
+<h2 class="text-lg font-semibold mb-2">Últimos partidos</h2>
+<div class="hidden sm:block overflow-x-auto mb-6">
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Pareja 1</th>
+                <th>Pareja 2</th>
+                <th>Marcador</th>
+                <th>Resultado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .}}
+            {{template "resultHistoryRow" .}}
+            {{end}}
+        </tbody>
+    </table>
+</div>
+<div class="sm:hidden space-y-2 mb-6">
+    {{range .}}
+    {{template "historyMatchCard" .}}
+    {{end}}
+</div>
+{{else}}
+{{template "emptyState" "Sin partidos jugados todavía"}}
+{{end}}
+{{end}}

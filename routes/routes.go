@@ -87,7 +87,7 @@ func registerPublicRoutes(se *core.ServeEvent, deps Deps) {
 	se.Router.GET("/competition/{id}", pub.Competition).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/competition/{id}/accept-docs", pub.AcceptDocs).BindFunc(middleware.RequireAuth)
 
-	player := handlers.NewPlayerHandler(deps.App, deps.Renderer.Page, deps.Renderer.ErrorPage)
+	player := handlers.NewPlayerHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page, deps.Renderer.ErrorPage)
 	se.Router.GET("/player/{id}", player.Player).BindFunc(middleware.RequireAuth)
 
 	pair := handlers.NewPairPageHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page, deps.Renderer.ErrorPage)
@@ -197,6 +197,7 @@ func registerAdminVenueRoutes(g *router.RouterGroup[*core.RequestEvent], deps De
 func registerAdminSettingsRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
 	settings := handlers.NewAdminSettingsHandler(deps.App, deps.AppDevTools, deps.StaticFS, deps.Renderer.Page)
 	g.GET("/settings", settings.Settings)
+	g.POST("/settings/defaults", settings.SaveDefaults)
 	g.POST("/settings/reset", settings.Reset)
 }
 

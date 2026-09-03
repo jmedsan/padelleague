@@ -6,9 +6,11 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/pocketbase/pocketbase/core"
 
+	"padelleague/league"
 	"padelleague/seed"
 )
 
@@ -25,12 +27,52 @@ func NewAdminSettingsHandler(app core.App, devTools bool, staticFS fs.FS, render
 	return &AdminSettingsHandler{app: app, devTools: devTools, staticFS: staticFS, renderPage: renderPage}
 }
 
-// Settings renders the admin settings page.
+// Settings renders the admin settings page: the global defaults form always,
+// the DB-reset card only when dev tools are enabled.
 func (h *AdminSettingsHandler) Settings(e *core.RequestEvent) error {
 	return h.renderPage(e, "admin/settings.html", map[string]any{
 		"PageTitle": "Configuración",
 		"DevMode":   h.devTools,
+		"Settings":  league.LoadSettings(h.app),
 	})
+}
+
+// SaveDefaults handles POST to update the global app_settings singleton
+// that seeds new competitions' default values.
+func (h *AdminSettingsHandler) SaveDefaults(e *core.RequestEvent) error {
+	records, err := h.app.FindRecordsByFilter("app_settings", "", "", 1, 0, nil)
+	if err != nil || len(records) == 0 {
+		return alertError(e, "No se encontró la configuración")
+	}
+	rec := records[0]
+
+	rec.Set("quorum_timeout_hours", parseFormInt(e, "quorum_timeout_hours"))
+	rec.Set("arrange_grace_days", parseFormInt(e, "arrange_grace_days"))
+	rec.Set("walkover_score", e.Request.FormValue("walkover_score"))
+	rec.Set("default_penalty", parseFormInt(e, "default_penalty"))
+	rec.Set("recovery_days", parseFormInt(e, "recovery_days"))
+	rec.Set("play_twice", e.Request.FormValue("play_twice") == "on")
+	rec.Set("gender_type", e.Request.FormValue("gender_type"))
+	rec.Set("invite_max_uses", parseFormInt(e, "invite_max_uses"))
+	rec.Set("invite_expiration_days", parseFormInt(e, "invite_expiration_days"))
+
+	if _, err := league.ParseScore(rec.GetString("walkover_score")); err != nil {
+		return alertError(e, "Marcador de incomparecencia no válido")
+	}
+
+	if err := h.app.Save(rec); err != nil {
+		slog.Error("save app settings", "error", err)
+		return alertError(e, "Error al guardar la configuración")
+	}
+
+	league.InvalidateSettingsCache()
+
+	return redirectHX(e, "/admin/settings")
+}
+
+func parseFormInt(e *core.RequestEvent, field string) int {
+	v, _ := strconv.Atoi(e.Request.FormValue(field))
+	return v
 }
 
 // Reset restarts the database: it wipes ALL non-admin data (administrators, the

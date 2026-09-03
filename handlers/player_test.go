@@ -11,165 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// tallyScore: isPair1 flag controls which side of the score counts
-
-func TestGen2_TallyScore_IsPair1(t *testing.T) {
-	t.Parallel()
-	// Score "6-3 6-4": pair1 wins 2 sets, pair2 wins 0 sets.
-	// Games: pair1 = 6+6=12, pair2 = 3+4=7.
-	var got playerTotals
-	tallyScore(&got, "6-3 6-4", true)
-	assert.Equal(t, 2, got.setsWon, "isPair1: setsWon")
-	assert.Equal(t, 0, got.setsLost, "isPair1: setsLost")
-	assert.Equal(t, 12, got.gamesWon, "isPair1: gamesWon")
-	assert.Equal(t, 7, got.gamesLost, "isPair1: gamesLost")
-}
-
-func TestGen2_TallyScore_IsPair2(t *testing.T) {
-	t.Parallel()
-	// Same score but isPair1=false: sides are swapped.
-	var got playerTotals
-	tallyScore(&got, "6-3 6-4", false)
-	assert.Equal(t, 0, got.setsWon, "isPair2: setsWon")
-	assert.Equal(t, 2, got.setsLost, "isPair2: setsLost")
-	assert.Equal(t, 7, got.gamesWon, "isPair2: gamesWon")
-	assert.Equal(t, 12, got.gamesLost, "isPair2: gamesLost")
-}
-
-func TestGen2_TallyScore_ThreeSets(t *testing.T) {
-	t.Parallel()
-	// "6-4 3-6 7-5": pair1 wins sets 1,3; pair2 wins set 2. Games: 16 vs 15.
-	var got playerTotals
-	tallyScore(&got, "6-4 3-6 7-5", true)
-	assert.Equal(t, 2, got.setsWon)
-	assert.Equal(t, 1, got.setsLost)
-	assert.Equal(t, 16, got.gamesWon)
-	assert.Equal(t, 15, got.gamesLost)
-}
-
-func TestGen2_TallyScore_WO_NoEffect(t *testing.T) {
-	t.Parallel()
-	var got playerTotals
-	tallyScore(&got, "WO", true)
-	assert.Equal(t, playerTotals{}, got)
-}
-
-func TestGen2_TallyScore_Accumulates(t *testing.T) {
-	t.Parallel()
-	var got playerTotals
-	tallyScore(&got, "6-3 6-4", true)
-	tallyScore(&got, "6-2 6-1", false) // as pair2: won 0 sets, lost 2
-	assert.Equal(t, 2, got.setsWon, "accumulated setsWon")
-	assert.Equal(t, 2, got.setsLost, "accumulated setsLost")
-	assert.Equal(t, 12+3, got.gamesWon, "accumulated gamesWon")
-	assert.Equal(t, 7+12, got.gamesLost, "accumulated gamesLost")
-}
-
-// computeCurrentStreak
-
-func TestGen2_CurrentStreak(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name    string
-		results []matchResult
-		want    string
-	}{
-		{"empty", nil, ""},
-		{"single win", []matchResult{{won: true}}, "1V"},
-		{"single loss", []matchResult{{won: false}}, "1D"},
-		{"three wins", []matchResult{{won: true}, {won: true}, {won: true}}, "3V"},
-		{"two losses then win", []matchResult{{won: false}, {won: false}, {won: true}}, "2D"},
-		{"win then loss", []matchResult{{won: true}, {won: false}}, "1V"},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want, computeCurrentStreak(tc.results))
-		})
-	}
-}
-
-// computeBestStreak
-
-func TestGen2_BestStreak(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name    string
-		results []matchResult
-		want    string
-	}{
-		{"empty", nil, ""},
-		{"all wins", []matchResult{{won: true}, {won: true}, {won: true}}, "3V"},
-		{"all losses", []matchResult{{won: false}, {won: false}}, "0V"},
-		{
-			"win streak ignores losses",
-			// W W W L L => bestWin=3
-			[]matchResult{{won: true}, {won: true}, {won: true}, {won: false}, {won: false}},
-			"3V",
-		},
-		{
-			"only losses returns 0V",
-			// W L L L => bestWin=1
-			[]matchResult{{won: true}, {won: false}, {won: false}, {won: false}},
-			"1V",
-		},
-		{
-			"interleaved picks longest win run",
-			// W W L W W W L => bestWin=3
-			[]matchResult{{won: true}, {won: true}, {won: false}, {won: true}, {won: true}, {won: true}, {won: false}},
-			"3V",
-		},
-		{
-			"resets on loss",
-			// L W W => bestWin=2
-			[]matchResult{{won: false}, {won: true}, {won: true}},
-			"2V",
-		},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want, computeBestStreak(tc.results))
-		})
-	}
-}
-
-// buildRecentMatches: limit and field mapping
-
-func TestGen2_BuildRecentMatches(t *testing.T) {
-	t.Parallel()
-	results := make([]matchResult, 25)
-	for i := range results {
-		results[i] = matchResult{
-			matchID: "m" + string(rune('A'+i)),
-			won:     i%2 == 0,
-			p1:      "Pair A",
-			p2:      "Pair B",
-			score:   "6-3 6-4",
-			date:    "2026-01-01",
-		}
-	}
-
-	t.Run("limit caps at given value", func(t *testing.T) {
-		got := buildRecentMatches(results, 10)
-		assert.Len(t, got, 10)
-	})
-
-	t.Run("fewer than limit returns all", func(t *testing.T) {
-		got := buildRecentMatches(results[:3], 10)
-		assert.Len(t, got, 3)
-	})
-
-	t.Run("fields are mapped correctly", func(t *testing.T) {
-		got := buildRecentMatches(results[:1], 5)
-		require.Len(t, got, 1)
-		assert.Equal(t, "mA", got[0].MatchID)
-		assert.Equal(t, "Pair A", got[0].PairName1)
-		assert.Equal(t, "Pair B", got[0].PairName2)
-		assert.Equal(t, "6-3 6-4", got[0].Score)
-		assert.True(t, got[0].Won)
-		assert.Equal(t, "2026-01-01", got[0].Date)
-	})
-}
-
 // Player profile page: partner name, stats, win rate, streaks, comp stats
 
 func TestGen2_PlayerProfile_FullStats(t *testing.T) {
@@ -255,20 +96,6 @@ func TestGen2_PlayerProfile_FullStats(t *testing.T) {
 	}
 
 	s.Test(t)
-}
-
-func readBody(tb testing.TB, res *http.Response) string {
-	tb.Helper()
-	buf := make([]byte, 0, 4096)
-	tmp := make([]byte, 1024)
-	for {
-		n, err := res.Body.Read(tmp)
-		buf = append(buf, tmp[:n]...)
-		if err != nil {
-			break
-		}
-	}
-	return string(buf)
 }
 
 // Player profile: date ordering of recent matches
@@ -486,14 +313,15 @@ func TestGen2_PlayerProfile_CompetitionStats(t *testing.T) {
 		assert.Contains(tb, body, "67%", "WinRate: 2/3 = 67%")
 		// Collapse whitespace so we can match across template line breaks.
 		compact := strings.Join(strings.Fields(body), " ")
-		// Liga Alfa row: name, then PJ=2, PG=2, PP=0.
+		// Liga Alfa row: name, then Pos, PJ=2, PG=2, PP=0 (both pages now show
+		// ShowPosition, so the row gains a Pos cell between name and PJ).
 		assert.Contains(tb, compact,
-			`Liga Alfa</a></td> <td class="text-center">2</td> <td class="text-center text-success">2</td> <td class="text-center text-error">0</td>`,
-			"Liga Alfa row: 2 played, 2 wins, 0 losses")
-		// Liga Beta row: name, then PJ=1, PG=0, PP=1.
+			`Liga Alfa</a></td> <td class="text-center">1</td> <td class="text-center">2</td> <td class="text-center text-success">2</td> <td class="text-center text-error">0</td>`,
+			"Liga Alfa row: position 1, 2 played, 2 wins, 0 losses")
+		// Liga Beta row: name, then Pos, PJ=1, PG=0, PP=1.
 		assert.Contains(tb, compact,
-			`Liga Beta</a></td> <td class="text-center">1</td> <td class="text-center text-success">0</td> <td class="text-center text-error">1</td>`,
-			"Liga Beta row: 1 played, 0 wins, 1 loss")
+			`Liga Beta</a></td> <td class="text-center">2</td> <td class="text-center">1</td> <td class="text-center text-success">0</td> <td class="text-center text-error">1</td>`,
+			"Liga Beta row: position 2, 1 played, 0 wins, 1 loss")
 	}
 
 	s.Test(t)

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"sort"
 
 	"github.com/pocketbase/pocketbase/core"
 
@@ -27,14 +26,13 @@ type pairPlayerLink struct {
 	Name string
 }
 
-// PairPageData bundles all data for the pair page.
+// PairPageData bundles a pair's identity and shared stats for the pair page.
 type PairPageData struct {
-	Pair         *core.Record
-	PairName     string
-	Player1      pairPlayerLink
-	Player2      pairPlayerLink
-	Competitions []CompetitionStat
-	Recent       []RecentMatch
+	Pair     *core.Record
+	PairName string
+	Player1  pairPlayerLink
+	Player2  pairPlayerLink
+	Stats    league.StatsSummary
 }
 
 // PairPage renders the canonical pair page with players, competitions, and matches.
@@ -53,51 +51,12 @@ func (h *PairPageHandler) PairPage(e *core.RequestEvent) error {
 		PairName: pair.GetString("name"),
 		Player1:  pairPlayerLink{ID: p1ID, Name: league.PlayerName(h.app, p1ID)},
 		Player2:  pairPlayerLink{ID: p2ID, Name: league.PlayerName(h.app, p2ID)},
+		Stats:    h.leagueSvc.Summarize([]string{id}),
 	}
-
-	comps, _ := h.app.FindRecordsByFilter("competitions",
-		"pairs ~ {:pid}", "", 0, 0,
-		map[string]any{"pid": id})
-
-	for _, c := range comps {
-		data.Competitions = append(data.Competitions, h.pairCompStat(c, id))
-	}
-	sort.Slice(data.Competitions, func(i, j int) bool {
-		return data.Competitions[i].CompName < data.Competitions[j].CompName
-	})
-
-	results := pairMatchResults(h.app, id)
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].date > results[j].date
-	})
-	data.Recent = buildRecentMatches(results, 20)
 
 	return h.renderPage(e, "pair.html", map[string]any{
 		"PageTitle": data.PairName,
 		"Data":      data,
 		"Mode":      PlayerSummary,
 	})
-}
-
-func (h *PairPageHandler) pairCompStat(c *core.Record, pairID string) CompetitionStat {
-	cs := CompetitionStat{
-		CompID:   c.Id,
-		CompName: c.GetString("name"),
-	}
-	rows, err := h.leagueSvc.ComputeStandings(c.Id)
-	if err != nil {
-		return cs
-	}
-	for _, r := range rows {
-		if r.PairID == pairID {
-			if !league.IsPlayoff(c) {
-				cs.Position = r.Position
-			}
-			cs.Wins = r.Wins
-			cs.Losses = r.Losses
-			cs.Played = r.Played
-			break
-		}
-	}
-	return cs
 }

@@ -78,7 +78,7 @@ func notificationListItems(records []*core.Record) string {
 	}
 	var out string
 	for _, r := range records {
-		out += fmt.Sprintf(`<div id="notif-row-%s" class="flex items-start gap-1 bg-primary/5 font-medium rounded p-1">`, r.Id)
+		out += fmt.Sprintf(`<div id="notif-row-%s" class="flex items-start gap-1 bg-neutral/5 font-medium rounded p-1">`, r.Id)
 		out += fmt.Sprintf(`<a href="%s" hx-post="/notifications/%s/read" hx-swap="none" class="flex-1 block p-1 hover:bg-base-200 cursor-pointer rounded">`, html.EscapeString(notificationLink(r)), r.Id)
 		out += fmt.Sprintf(`<p class="text-sm">%s</p>`, html.EscapeString(r.GetString("title")))
 		if body := r.GetString("body"); body != "" {

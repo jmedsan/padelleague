@@ -1,43 +1,21 @@
 {{define "content"}}
 <div class="mb-6">
     <a href="/" class="btn btn-ghost btn-sm">← Inicio</a>
-    <h1 class="text-2xl font-bold mt-2">{{.Data.PairName}}</h1>
 </div>
 
-<h2 class="text-lg font-semibold mb-2">Jugadores</h2>
-<div class="overflow-x-auto mb-6">
-    {{template "pairPlayers" (dict "Mode" .Mode "Player1ID" .Data.Player1.ID "Player1Name" .Data.Player1.Name "Player2ID" .Data.Player2.ID "Player2Name" .Data.Player2.Name)}}
+<div class="card bg-neutral text-neutral-content rounded-xl mb-6">
+    <div class="card-body">
+        <h1 class="text-2xl font-bold">{{.Data.PairName}}</h1>
+        {{template "pairPlayers" (dict "Mode" .Mode "Player1ID" .Data.Player1.ID "Player1Name" .Data.Player1.Name "Player2ID" .Data.Player2.ID "Player2Name" .Data.Player2.Name)}}
+    </div>
 </div>
 
-{{if .Data.Competitions}}
+{{template "statsTiles" .Data.Stats}}
+
+{{if .Data.Stats.CompetitionStats}}
 <h2 class="text-lg font-semibold mb-2">Competiciones</h2>
-{{template "competitionStatsTable" (dict "Stats" .Data.Competitions "ShowPosition" true)}}
+{{template "competitionStatsTable" (dict "Stats" .Data.Stats.CompetitionStats "ShowPosition" true)}}
 {{end}}
 
-{{if .Data.Recent}}
-<h2 class="text-lg font-semibold mb-2">Últimos partidos</h2>
-<div class="hidden sm:block overflow-x-auto mb-6">
-    <table class="table table-sm">
-        <thead>
-            <tr>
-                <th>Fecha</th>
-                <th>Pareja 1</th>
-                <th>Pareja 2</th>
-                <th>Marcador</th>
-                <th>Resultado</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Data.Recent}}
-            {{template "resultHistoryRow" .}}
-            {{end}}
-        </tbody>
-    </table>
-</div>
-<div class="sm:hidden space-y-2 mb-6">
-    {{range .Data.Recent}}
-    {{template "historyMatchCard" .}}
-    {{end}}
-</div>
-{{end}}
+{{template "resultHistorySection" .Data.Stats.Recent}}
 {{end}}

@@ -1,0 +1,28 @@
+{{define "statsTiles"}}
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+    <div class="stat bg-base-200 rounded-lg p-4">
+        <div class="stat-title">Partidos</div>
+        <div class="stat-value text-2xl">{{.TotalPlayed}}</div>
+    </div>
+    <div class="stat bg-base-200 rounded-lg p-4">
+        <div class="stat-title">% Victorias</div>
+        <div class="stat-value text-2xl">{{printf "%.0f" .WinRate}}%</div>
+    </div>
+    <div class="stat bg-base-200 rounded-lg p-4">
+        <div class="stat-title">Sets (G/P)</div>
+        <div class="stat-value text-2xl">{{.SetsWon}}/{{.SetsLost}}</div>
+    </div>
+    <div class="stat bg-base-200 rounded-lg p-4">
+        <div class="stat-title">Racha</div>
+        <div class="stat-value text-2xl">{{if .Streak}}{{.Streak}}{{else}}-{{end}}</div>
+    </div>
+    <div class="stat bg-base-200 rounded-lg p-4">
+        <div class="stat-title">Mejor racha</div>
+        <div class="stat-value text-2xl">{{if .BestStreak}}{{.BestStreak}}{{else}}-{{end}}</div>
+    </div>
+    <div class="stat bg-base-200 rounded-lg p-4">
+        <div class="stat-title">Juegos (G/P)</div>
+        <div class="stat-value text-2xl">{{.GamesWon}}/{{.GamesLost}}</div>
+    </div>
+</div>
+{{end}}

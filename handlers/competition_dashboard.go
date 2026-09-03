@@ -68,6 +68,7 @@ func (h *CompetitionDashboardHandler) Dashboard(e *core.RequestEvent) error {
 		"UrgentItems":    urgentHealthItems(report),
 		"AdminBootstrap": len(allComps) == 0,
 		"PlayoffPrompts": league.PlayoffPrompts(h.app, activeComps, now),
+		"Defaults":       league.LoadSettings(h.app),
 	})
 }
 

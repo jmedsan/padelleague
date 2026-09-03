@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"slices"
 	"sync/atomic"
@@ -260,7 +261,7 @@ func setupAllRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	e.Router.GET("/", pub.Home).BindFunc(requireAuthTest)
 	e.Router.GET("/competition/{id}", pub.Competition).BindFunc(requireAuthTest)
 
-	player := NewPlayerHandler(app, r.Page, r.ErrorPage)
+	player := NewPlayerHandler(app, svc, r.Page, r.ErrorPage)
 	e.Router.GET("/player/{id}", player.Player).BindFunc(requireAuthTest)
 
 	match := NewMatchHandler(app, notifier, r.Page, r.ErrorPage)
@@ -536,4 +537,18 @@ func setupFullAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) 
 	g.POST("/venues", venue.VenuesCreate)
 	g.POST("/venues/{id}", venue.VenuesUpdate)
 	g.POST("/venues/{id}/delete", venue.VenuesDelete)
+}
+
+func readBody(tb testing.TB, res *http.Response) string {
+	tb.Helper()
+	buf := make([]byte, 0, 4096)
+	tmp := make([]byte, 1024)
+	for {
+		n, err := res.Body.Read(tmp)
+		buf = append(buf, tmp[:n]...)
+		if err != nil {
+			break
+		}
+	}
+	return string(buf)
 }
