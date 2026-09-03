@@ -46,7 +46,7 @@
 {{end}}
 
 <div class="flex flex-wrap gap-x-4 gap-y-1 mb-6 text-sm text-base-content/70">
-    <span><span class="font-bold text-base-content">{{len .Active}}</span> competici{{if eq (len .Active) 1}}ón{{else}}ones{{end}}</span>
+    <span><span class="font-bold text-base-content">{{len .Active}}</span> competici{{if eq (len .Active) 1}}ón activa{{else}}ones activas{{end}}</span>
     <a href="/admin/disputes" class="hover:underline {{if gt .DisputeCount 0}}text-error font-bold{{end}}">
         <span class="font-bold">{{.DisputeCount}}</span> disputa{{if ne .DisputeCount 1}}s{{end}}
     </a>
