@@ -31,8 +31,9 @@ func New(viewsFS fs.FS, vapidPublicKey string, appDevTools bool) *Renderer {
 		"contains": func(slice []string, item string) bool {
 			return slices.Contains(slice, item)
 		},
-		"entityURL": league.EntityURL,
-		"avatarURL": league.AvatarURL,
+		"entityURL":   league.EntityURL,
+		"avatarURL":   league.AvatarURL,
+		"compLogoURL": league.CompetitionLogoURL,
 		"competitionURL": func(id string) string {
 			return league.EntityURL("competition", id)
 		},

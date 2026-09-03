@@ -41,7 +41,7 @@ func SampleLeaguePartial(app core.App, opts SampleOptions) error {
 		if err != nil || !opts.Competitions {
 			return err
 		}
-		comp, err := createSampleCompetition(txApp, pairIDs)
+		comp, err := createSampleCompetition(txApp, pairIDs, opts.StaticFS)
 		if err != nil {
 			return err
 		}
@@ -162,7 +162,7 @@ func createMixedCompetition(txApp core.App, pairIDs []string) error {
 	return nil
 }
 
-func createSampleCompetition(txApp core.App, pairIDs []string) (*core.Record, error) {
+func createSampleCompetition(txApp core.App, pairIDs []string, staticFS fs.FS) (*core.Record, error) {
 	col, err := txApp.FindCollectionByNameOrId("competitions")
 	if err != nil {
 		return nil, err
@@ -184,10 +184,25 @@ func createSampleCompetition(txApp core.App, pairIDs []string) (*core.Record, er
 	comp.Set("start_date", now.Add(-20*24*time.Hour))
 	comp.Set("end_date", now.Add(10*24*time.Hour))
 	comp.Set("payment_status", payment)
+	if staticFS != nil {
+		f, err := loadSampleLogo(staticFS)
+		if err != nil {
+			return nil, fmt.Errorf("load sample logo: %w", err)
+		}
+		comp.Set("logo", f)
+	}
 	if err := txApp.Save(comp); err != nil {
 		return nil, fmt.Errorf("create competition: %w", err)
 	}
 	return comp, nil
+}
+
+func loadSampleLogo(staticFS fs.FS) (*filesystem.File, error) {
+	data, err := fs.ReadFile(staticFS, "static/img/logo.jpg")
+	if err != nil {
+		return nil, err
+	}
+	return league.CompressAvatarBytes(bytes.NewReader(data), "sample-logo.jpg")
 }
 
 // sampleCtx bundles collections and timing needed while building sample matches.

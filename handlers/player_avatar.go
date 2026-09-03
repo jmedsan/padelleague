@@ -42,7 +42,7 @@ func (h *PlayerHandler) PlayerAvatarUpload(e *core.RequestEvent) error {
 		return alertError(e, "La imagen no puede superar los 5 MB")
 	}
 
-	f, errMsg := compressAvatar(fh, id)
+	f, errMsg := compressAvatar(fh, id+"_avatar.jpg")
 	if errMsg != "" {
 		return alertError(e, errMsg)
 	}
@@ -66,14 +66,14 @@ func (h *PlayerHandler) PlayerAvatarUpload(e *core.RequestEvent) error {
 // compressAvatar opens the uploaded multipart file and runs it through
 // league.CompressAvatarBytes, translating failures into user-facing Spanish
 // messages instead of raw errors.
-func compressAvatar(fh *multipart.FileHeader, userID string) (*filesystem.File, string) {
+func compressAvatar(fh *multipart.FileHeader, filename string) (*filesystem.File, string) {
 	src, err := fh.Open()
 	if err != nil {
 		return nil, "No se pudo leer la imagen"
 	}
 	defer func() { _ = src.Close() }()
 
-	f, err := league.CompressAvatarBytes(src, userID+"_avatar.jpg")
+	f, err := league.CompressAvatarBytes(src, filename)
 	if err != nil {
 		switch {
 		case errors.Is(err, league.ErrAvatarTooLarge):

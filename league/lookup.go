@@ -103,6 +103,15 @@ func AvatarURL(userID, filename string) string {
 	return "/api/files/users/" + userID + "/" + filename
 }
 
+// CompetitionLogoURL builds the served URL for a competition's logo file, or
+// "" if filename is empty.
+func CompetitionLogoURL(compID, filename string) string {
+	if filename == "" {
+		return ""
+	}
+	return "/api/files/competitions/" + compID + "/" + filename
+}
+
 // PlayersForPair returns the user IDs of both players in a pair.
 func PlayersForPair(app core.App, pairID string) []string {
 	pair, err := app.FindRecordById("pairs", pairID)

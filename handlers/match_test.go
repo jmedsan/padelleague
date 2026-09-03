@@ -336,6 +336,13 @@ func TestMatchDetailShowsCompName(t *testing.T) {
 		s.URL = "/match/" + m.Id
 		s.Headers = authHeaders(tb, admin)
 	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		comps, err := app.FindRecordsByFilter("competitions", "name = 'Liga Visible'", "", 1, 0, nil)
+		require.NoError(tb, err)
+		require.Len(tb, comps, 1)
+		assert.Contains(tb, body, `href="/competition/`+comps[0].Id+`"`, "breadcrumb competition name must link via competitionIdentity")
+	}
 	s.Test(t)
 }
 
