@@ -33,7 +33,7 @@ func TestPrecedents_NoPriorMeetings(t *testing.T) {
 	p1 := makePair(t, app, "PrecA")
 	p2 := makePair(t, app, "PrecB")
 
-	_, ok := Precedents(app, p1.Id, p2.Id, "")
+	_, ok := Precedents(app, p1.Id, p2.Id, "", "")
 	assert.False(t, ok, "pairs with no shared history must report ok=false")
 }
 
@@ -60,7 +60,7 @@ func TestPrecedents_TalliesWinsAndLastScore(t *testing.T) {
 	// The current match being viewed — excluded from the tally.
 	current := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
 
-	summary, ok := Precedents(app, p1.Id, p2.Id, current.Id)
+	summary, ok := Precedents(app, p1.Id, p2.Id, comp.Id, current.Id)
 	require.True(t, ok)
 	assert.Equal(t, 1, summary.Pair1Wins)
 	assert.Equal(t, 1, summary.Pair2Wins)
@@ -96,7 +96,7 @@ func TestPrecedents_SortsByPlayDateNotCreationOrder(t *testing.T) {
 
 	current := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
 
-	summary, ok := Precedents(app, p1.Id, p2.Id, current.Id)
+	summary, ok := Precedents(app, p1.Id, p2.Id, comp.Id, current.Id)
 	require.True(t, ok)
 	assert.Equal(t, playedLater.Id, summary.LastMatchID, "the match played most recently must win, not the one entered into the DB most recently")
 	assert.Equal(t, "6-3 6-4", summary.LastScore)
