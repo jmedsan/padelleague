@@ -78,14 +78,15 @@ func TestInvitationLinkMaxUses5(t *testing.T) {
 
 // Link invitation with max_uses=0 → clamped to 1
 
-func TestInvitationLinkMaxUses0Clamped(t *testing.T) {
+func TestInvitationLinkMaxUses0Rejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "POST /admin/invitations link with max_uses=0 clamps to 1",
-		Method:         http.MethodPost,
-		URL:            "/admin/invitations",
-		ExpectedStatus: 204,
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/invitations link with max_uses=0 is rejected",
+		Method:          http.MethodPost,
+		URL:             "/admin/invitations",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"usos máximos"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
@@ -97,22 +98,24 @@ func TestInvitationLinkMaxUses0Clamped(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		inv := findLatestInvitation(tb, app)
-		assert.Equal(tb, 1, int(inv.GetFloat("max_uses")))
+		invs, err := app.FindRecordsByFilter("invitations", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Empty(tb, invs, "no invitation should be created on validation failure")
 	}
 	s.Test(t)
 }
 
-// Link invitation with max_uses=-3 → clamped to 1
+// Link invitation with max_uses=-3 → rejected
 
-func TestInvitationLinkMaxUsesNegativeClamped(t *testing.T) {
+func TestInvitationLinkMaxUsesNegativeRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "POST /admin/invitations link with max_uses=-3 clamps to 1",
-		Method:         http.MethodPost,
-		URL:            "/admin/invitations",
-		ExpectedStatus: 204,
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/invitations link with max_uses=-3 is rejected",
+		Method:          http.MethodPost,
+		URL:             "/admin/invitations",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"usos máximos"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
@@ -124,8 +127,38 @@ func TestInvitationLinkMaxUsesNegativeClamped(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		inv := findLatestInvitation(tb, app)
-		assert.Equal(tb, 1, int(inv.GetFloat("max_uses")))
+		invs, err := app.FindRecordsByFilter("invitations", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Empty(tb, invs, "no invitation should be created on validation failure")
+	}
+	s.Test(t)
+}
+
+// Link invitation with max_uses=abc → rejected
+
+func TestInvitationLinkMaxUsesNonNumericRejected(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/invitations link with max_uses=abc is rejected",
+		Method:          http.MethodPost,
+		URL:             "/admin/invitations",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"usos máximos"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		s.Body = strings.NewReader("max_uses=abc&competition=" + comp.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		invs, err := app.FindRecordsByFilter("invitations", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Empty(tb, invs, "no invitation should be created on validation failure")
 	}
 	s.Test(t)
 }
@@ -193,22 +226,21 @@ func TestInvitationExpiration3Days(t *testing.T) {
 	s.Test(t)
 }
 
-// expiration_days=0 → clamped to 1 day
+// expiration_days=0 → rejected
 
-func TestInvitationExpiration0Clamped(t *testing.T) {
+func TestInvitationExpiration0Rejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "POST /admin/invitations expiration_days=0 clamps to 1 day",
-		Method:         http.MethodPost,
-		URL:            "/admin/invitations",
-		ExpectedStatus: 204,
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/invitations expiration_days=0 is rejected",
+		Method:          http.MethodPost,
+		URL:             "/admin/invitations",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"días hasta expirar"},
 	}
-	var beforeCreate time.Time
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		beforeCreate = time.Now()
 		comp := makeCompetitionTB(tb, app, "league", nil)
 		s.Body = strings.NewReader("email=exp0@test.com&expiration_days=0&competition=" + comp.Id)
 		hdrs := authHeaders(tb, admin)
@@ -216,34 +248,28 @@ func TestInvitationExpiration0Clamped(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		inv := findLatestInvitation(tb, app)
-		expiresAt := inv.GetDateTime("expires_at").Time()
-		earliest := beforeCreate.Add(23 * time.Hour)
-		latest := beforeCreate.Add(25 * time.Hour)
-		assert.True(tb, expiresAt.After(earliest),
-			"expires_at %v should be after %v (23h)", expiresAt, earliest)
-		assert.True(tb, expiresAt.Before(latest),
-			"expires_at %v should be before %v (25h)", expiresAt, latest)
+		invs, err := app.FindRecordsByFilter("invitations", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Empty(tb, invs, "no invitation should be created on validation failure")
 	}
 	s.Test(t)
 }
 
-// expiration_days=-5 → clamped to 1 day
+// expiration_days=-5 → rejected
 
-func TestInvitationExpirationNegativeClamped(t *testing.T) {
+func TestInvitationExpirationNegativeRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "POST /admin/invitations expiration_days=-5 clamps to 1 day",
-		Method:         http.MethodPost,
-		URL:            "/admin/invitations",
-		ExpectedStatus: 204,
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/invitations expiration_days=-5 is rejected",
+		Method:          http.MethodPost,
+		URL:             "/admin/invitations",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"días hasta expirar"},
 	}
-	var beforeCreate time.Time
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		beforeCreate = time.Now()
 		comp := makeCompetitionTB(tb, app, "league", nil)
 		s.Body = strings.NewReader("email=expneg@test.com&expiration_days=-5&competition=" + comp.Id)
 		hdrs := authHeaders(tb, admin)
@@ -251,14 +277,67 @@ func TestInvitationExpirationNegativeClamped(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		inv := findLatestInvitation(tb, app)
-		expiresAt := inv.GetDateTime("expires_at").Time()
-		earliest := beforeCreate.Add(23 * time.Hour)
-		latest := beforeCreate.Add(25 * time.Hour)
-		assert.True(tb, expiresAt.After(earliest),
-			"expires_at %v should be after %v (23h)", expiresAt, earliest)
-		assert.True(tb, expiresAt.Before(latest),
-			"expires_at %v should be before %v (25h)", expiresAt, latest)
+		invs, err := app.FindRecordsByFilter("invitations", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Empty(tb, invs, "no invitation should be created on validation failure")
+	}
+	s.Test(t)
+}
+
+// expiration_days=abc → rejected
+
+func TestInvitationExpirationNonNumericRejected(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/invitations expiration_days=abc is rejected",
+		Method:          http.MethodPost,
+		URL:             "/admin/invitations",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"días hasta expirar"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		s.Body = strings.NewReader("email=expbad@test.com&expiration_days=abc&competition=" + comp.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		invs, err := app.FindRecordsByFilter("invitations", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Empty(tb, invs, "no invitation should be created on validation failure")
+	}
+	s.Test(t)
+}
+
+// email without @ → rejected
+
+func TestInvitationInvalidEmailRejected(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/invitations with an invalid email is rejected",
+		Method:          http.MethodPost,
+		URL:             "/admin/invitations",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"email no es válido"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		s.Body = strings.NewReader("email=not-an-email&competition=" + comp.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		invs, err := app.FindRecordsByFilter("invitations", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Empty(tb, invs, "no invitation should be created on validation failure")
 	}
 	s.Test(t)
 }
