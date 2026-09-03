@@ -15,7 +15,7 @@ type PlayerRenderers struct {
 	ErrorPage RenderErrorFunc
 }
 
-// PlayerHandler serves player profile and head-to-head comparison pages.
+// PlayerHandler serves player profile pages.
 type PlayerHandler struct {
 	app       core.App
 	leagueSvc *league.Service

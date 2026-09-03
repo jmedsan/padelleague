@@ -339,6 +339,63 @@ func TestMatchDetailShowsCompName(t *testing.T) {
 	s.Test(t)
 }
 
+func TestMatchDetail_ShowsPrecedentesStrip(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /match/{id} shows the precedentes strip from a prior meeting",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Precedentes", "6-3 6-4"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "Prec A")
+		p2 := makePairTB(tb, app, "Prec B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		// First meeting: finalized, p1 wins.
+		past := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+		past.Set("scores", "6-3 6-4")
+		past.Set("winner", p1.Id)
+		require.NoError(tb, app.Save(past))
+
+		// Second match: the one whose page we view.
+		current := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		s.URL = "/match/" + current.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestMatchDetail_NoPriorMeetings_HidesStrip(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /match/{id} hides the precedentes strip when the pairs never met before",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"NoPrec A"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "NoPrec A")
+		p2 := makePairTB(tb, app, "NoPrec B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + m.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, resp *http.Response) {
+		body := readBody(tb, resp)
+		assert.NotContains(tb, body, "Precedentes")
+	}
+	s.Test(t)
+}
+
 func TestMatchDetailAdminShowsResolveForm(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

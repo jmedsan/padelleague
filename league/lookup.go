@@ -2,6 +2,8 @@ package league
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -124,6 +126,74 @@ func PairsForPlayer(app core.App, userID string) ([]*core.Record, error) {
 		"name", 0, 0,
 		map[string]any{"uid": userID})
 }
+
+// PrecedentsSummary is the pair-vs-pair head-to-head record across every
+// finalized match between two pairs, in any competition.
+type PrecedentsSummary struct {
+	Pair1ID, Pair2ID     string
+	Pair1Wins, Pair2Wins int
+	LastMatchID          string
+	LastScore            string
+}
+
+// Precedents finds all finalized matches between pair1ID and pair2ID across
+// every competition (excluding excludeMatchID, the match currently being
+// viewed), tallies wins for each pair, and returns the most recent meeting's
+// score. ok is false when the pairs have never played each other before.
+func Precedents(app core.App, pair1ID, pair2ID, excludeMatchID string) (summary PrecedentsSummary, ok bool) {
+	matches, err := app.FindRecordsByFilter("matches",
+		"status = 'final' && ((pair1 = {:p1} && pair2 = {:p2}) || (pair1 = {:p2} && pair2 = {:p1})) && id != {:exclude}",
+		"-created", 0, 0,
+		map[string]any{"p1": pair1ID, "p2": pair2ID, "exclude": excludeMatchID})
+	if err != nil || len(matches) == 0 {
+		return PrecedentsSummary{}, false
+	}
+
+	summary = PrecedentsSummary{Pair1ID: pair1ID, Pair2ID: pair2ID}
+	for _, m := range matches {
+		switch m.GetString("winner") {
+		case pair1ID:
+			summary.Pair1Wins++
+		case pair2ID:
+			summary.Pair2Wins++
+		}
+	}
+
+	last := matches[0]
+	summary.LastMatchID = last.Id
+	summary.LastScore = last.GetString("scores")
+	if last.GetString("pair1") == pair2ID {
+		// Normalize the last score to pair1/pair2 order regardless of which
+		// side each pair was on in that older match.
+		summary.LastScore = flipScoreSides(summary.LastScore)
+	}
+
+	return summary, true
+}
+
+// flipScoreSides swaps a "S1-S2[(tb)] S1-S2[(tb)] ..." score string to
+// pair2/pair1 order, so a past match's score can be displayed in the current
+// match's pair1/pair2 order. The optional "(N)" tiebreak annotation stays
+// attached to the set it was recorded on.
+func flipScoreSides(score string) string {
+	if strings.EqualFold(strings.TrimSpace(score), "WO") {
+		return score
+	}
+	sets := strings.Fields(score)
+	flipped := make([]string, len(sets))
+	for i, set := range sets {
+		m := scoreSetRe.FindStringSubmatch(set)
+		if m == nil {
+			flipped[i] = set
+			continue
+		}
+		g1, g2, tb := m[1], m[2], m[3]
+		flipped[i] = g2 + "-" + g1 + tb
+	}
+	return strings.Join(flipped, " ")
+}
+
+var scoreSetRe = regexp.MustCompile(`^(\d+)-(\d+)(\(\d+\))?$`)
 
 // Truncate shortens s to max runes, appending "..." if truncated.
 func Truncate(s string, max int) string {

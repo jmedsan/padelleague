@@ -360,6 +360,23 @@
 </div>
 {{end}}
 
+{{/* precedentesStrip — pair-vs-pair head-to-head record across every past
+     finalized meeting between the same two pairs, in any competition.
+     Entirely hidden when the pairs have never met before (.Show false). */}}
+{{define "precedentesStrip"}}
+{{if .Show}}
+<div class="card bg-base-100 shadow-lg rounded-2xl overflow-hidden mb-4">
+    <div class="card-body p-4 sm:p-6">
+        <h3 class="text-sm font-semibold opacity-70 mb-2">Precedentes</h3>
+        <p class="text-base font-medium mb-3">{{.Pair1Name}} {{.Pair1Wins}} · {{.Pair2Wins}} {{.Pair2Name}}</p>
+        <a href="{{entityURL "match" .LastMatchID}}" class="block hover:opacity-80 transition-opacity">
+            {{template "resultBox" (dict "Score" .LastScore "Pair1Name" .Pair1Name "Pair2Name" .Pair2Name "Mode" (dict "Row" true))}}
+        </a>
+    </div>
+</div>
+{{end}}
+{{end}}
+
 {{define "resultBox"}}
 {{if .FillScore}}
 <button type="button" onclick="fillNearestScore(this, '{{.FillScore}}')"
