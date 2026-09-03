@@ -136,7 +136,7 @@ func buildPrecedentesView(app core.App, match *core.Record, pair1Name, pair2Name
 	if pair1ID == "" || pair2ID == "" {
 		return PrecedentesView{}
 	}
-	summary, ok := league.Precedents(app, pair1ID, pair2ID, match.Id)
+	summary, ok := league.Precedents(app, pair1ID, pair2ID, match.GetString("competition"), match.Id)
 	if !ok {
 		return PrecedentesView{}
 	}
@@ -493,7 +493,8 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 		Kind: "result_event", Detail: "reportó el partido como no jugado",
 	})
 
-	an := league.NotifAdminMatchUnplayed(id)
+	compName := league.CompetitionName(h.app, match.GetString("competition"))
+	an := league.NotifAdminMatchUnplayed(id, compName)
 	if err := h.notifier.NotifyAdmins(an); err != nil {
 		slog.Error("notify admins walkover report", "match", id, "err", err)
 	}
@@ -504,7 +505,7 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 		rivalPairID = match.GetString("pair1")
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	n := league.NotifMatchReportedUnplayed(id)
+	n := league.NotifMatchReportedUnplayed(id, compName)
 	h.notifier.NotifyPlayers(rivalPlayers, n)
 	h.notifier.EmailPlayers(rivalPlayers, n.Title, n.Body, "/match/"+id)
 

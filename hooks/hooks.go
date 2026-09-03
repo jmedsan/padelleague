@@ -35,14 +35,15 @@ func validateTransition(oldStatus, newStatus string) error {
 	return nil
 }
 
-func handleAdvance(svc *league.Service, notifier *notify.Notifier, rec *core.Record) {
+func handleAdvance(app core.App, svc *league.Service, notifier *notify.Notifier, rec *core.Record) {
 	if rec.GetString("status") != league.StatusFinal {
 		return
 	}
 	if err := svc.AdvancePlayoff(rec); err != nil {
 		slog.Error("auto-advance playoff failed", "match", rec.Id, "err", err)
 		if notifier != nil {
-			n := league.NotifAdminPlayoffAdvanceFailed(rec.Id)
+			compName := league.CompetitionName(app, rec.GetString("competition"))
+			n := league.NotifAdminPlayoffAdvanceFailed(rec.Id, compName)
 			_ = notifier.NotifyAdmins(n)
 		}
 	}
@@ -138,7 +139,8 @@ func checkMatchDayReminders(app core.App, notifier *notify.Notifier, now time.Ti
 			continue
 		}
 
-		notif := league.NotifMatchReminder(m.Id, m.GetString("time"), m.GetString("club"))
+		compName := league.CompetitionName(app, m.GetString("competition"))
+		notif := league.NotifMatchReminder(m.Id, m.GetString("time"), m.GetString("club"), compName)
 		notifier.NotifyPlayers(league.PlayersForPair(app, m.GetString("pair1")), notif)
 		notifier.NotifyPlayers(league.PlayersForPair(app, m.GetString("pair2")), notif)
 
@@ -173,7 +175,7 @@ func Register(app core.App, svc *league.Service, notifier *notify.Notifier, sear
 	})
 
 	app.OnRecordAfterUpdateSuccess("matches").BindFunc(func(e *core.RecordEvent) error {
-		handleAdvance(svc, notifier, e.Record)
+		handleAdvance(app, svc, notifier, e.Record)
 		return e.Next()
 	})
 
