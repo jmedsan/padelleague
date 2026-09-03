@@ -236,7 +236,7 @@ func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[s
 	results := h.findRecentResults(c, playerPairIDs)
 
 	return homeCompetitionParts{
-		Comp:     NewHomeCompetitionView(c, pending),
+		Comp:     NewHomeCompetitionView(h.leagueSvc, c, pending, playerPairIDs),
 		Next:     nextMatch,
 		Upcoming: upcoming,
 		Pending:  actions,

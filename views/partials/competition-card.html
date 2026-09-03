@@ -83,11 +83,16 @@
             <span class="badge badge-secondary">Playoff</span>
             {{end}}
         </a>
-        {{if gt .PendingCount 0}}
-        <p class="text-sm opacity-70 mt-3">{{.PendingCount}} partido{{if gt .PendingCount 1}}s{{end}} pendiente{{if gt .PendingCount 1}}s{{end}}</p>
-        {{else}}
-        <p class="text-sm opacity-50 mt-3">Sin partidos pendientes</p>
-        {{end}}
+        <div class="flex items-center gap-2 mt-3 flex-wrap">
+            {{if .Standing}}
+            <span class="badge badge-soft-primary badge-sm gap-1">{{.Standing.Position}}º · {{.Standing.Points}} pts</span>
+            {{end}}
+            {{if gt .PendingCount 0}}
+            <p class="text-sm opacity-70">{{.PendingCount}} partido{{if gt .PendingCount 1}}s{{end}} pendiente{{if gt .PendingCount 1}}s{{end}}</p>
+            {{else}}
+            <p class="text-sm opacity-50">Sin partidos pendientes</p>
+            {{end}}
+        </div>
     </div>
 </div>
 {{end}}
