@@ -144,11 +144,11 @@ func TestHomeGen2_AcceptedProposalShowsConfirmado(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "accepted proposal shows play action with date and venue",
+		Name:            "accepted proposal shows confirmed badge in upcoming",
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Próximo partido", "15/09/2026 18:00", "Padel 360"},
+		ExpectedContent: []string{"upcoming-matches", "Confirmada", "Padel 360"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -170,11 +170,11 @@ func TestHomeGen2_PendingProposalShowsPropuestaEnviada(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "pending proposal shows play action with date",
+		Name:            "pending proposal shows proposed badge in upcoming",
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Próximo partido", "01/10/2026 20:00"},
+		ExpectedContent: []string{"upcoming-matches", "Propuesta"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
