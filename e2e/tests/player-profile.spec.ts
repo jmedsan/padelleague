@@ -40,12 +40,17 @@ test.describe('player profile and stats', () => {
   });
 
   test('player can upload their own avatar photo', async ({ page }) => {
-    // "Mi perfil" only exists in the mobile drawer nav (lg:hidden) — there is
-    // no desktop affordance to one's own profile page.
-    test.skip(!isMobile(page), 'own-profile link only exists in the mobile drawer nav');
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await openDrawer(page);
-    await page.locator('.drawer-side a', { hasText: 'Mi perfil' }).click();
+    if (isMobile(page)) {
+      await openDrawer(page);
+      await page.locator('.drawer-side a', { hasText: 'Mi perfil' }).click();
+    } else {
+      // Desktop nav links the display name in the navbar to the player's
+      // own profile (views/layout.html) — click it as a real affordance.
+      await page.goto('/');
+      await page.waitForLoadState('domcontentloaded');
+      await page.getByRole('link', { name: 'Test Player', exact: true }).click();
+    }
     await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('#avatar-identity')).toBeVisible();
     await expect(page.locator('#avatar-identity .avatar.placeholder')).toBeVisible();
