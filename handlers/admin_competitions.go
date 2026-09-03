@@ -255,6 +255,44 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions")
 }
 
+// LogoUpload handles POST to upload and set a competition's logo image.
+// Admin only. The image is compressed via the same pipeline used for
+// player avatars (league.CompressAvatarBytes) before being saved on the
+// record.
+func (h *CompetitionHandler) LogoUpload(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	record, err := h.app.FindRecordById("competitions", id)
+	if err != nil {
+		return alertError(e, "Competición no encontrada")
+	}
+
+	fh := fileHeader(e, "logo")
+	if fh == nil {
+		return alertError(e, "Selecciona una imagen")
+	}
+
+	if !strings.HasPrefix(fh.Header.Get("Content-Type"), "image/") {
+		return alertError(e, "El archivo debe ser una imagen")
+	}
+
+	if fh.Size > avatarMaxUploadSize {
+		return alertError(e, "La imagen no puede superar los 5 MB")
+	}
+
+	f, errMsg := compressAvatar(fh, id+"_logo.jpg")
+	if errMsg != "" {
+		return alertError(e, errMsg)
+	}
+
+	record.Set("logo", f)
+	if err := h.app.Save(record); err != nil {
+		slog.Error("save competition logo", "err", err)
+		return alertError(e, "Error al guardar el logo")
+	}
+
+	return redirectHX(e, "/admin/competitions/"+id)
+}
+
 // Toggle switches a competition between active and inactive states.
 func (h *CompetitionHandler) Toggle(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")

@@ -151,6 +151,7 @@ func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], d
 	g.POST("/competitions", comp.Create)
 	g.GET("/competitions/{id}", comp.Detail)
 	g.POST("/competitions/{id}", comp.Update)
+	g.POST("/competitions/{id}/logo", comp.LogoUpload)
 	g.POST("/competitions/{id}/attach-doc", comp.AttachDocument)
 	g.POST("/competitions/{id}/detach-doc/{docId}", comp.DetachDocument)
 	g.POST("/competitions/{id}/toggle", comp.Toggle)
