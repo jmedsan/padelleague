@@ -214,11 +214,8 @@ test.describe('reference navigation tour', () => {
     // --- Step 6: Play all 12 matches (submit + confirm) ---
     const fixtures = await mapFixturesToScores(page.request);
 
-    // Pre-schedule (propose+accept) pair A's first two fixtures. The home
-    // page's "next match" always renders as a top action rather than in the
-    // "Próximos partidos" list (see excludeUpcomingInActions in
-    // handlers/public.go), so a SECOND confirmed match for the same player
-    // is needed to actually populate — and assert against — that list.
+    // Pre-schedule (propose+accept) two of pair A's fixtures so the
+    // "Próximos partidos" section has confirmed matches to display.
     const pairAFixtures = fixtures.filter(f => f.pair1Label === 'A' || f.pair2Label === 'A');
     for (const f of pairAFixtures.slice(0, 2)) {
       const otherLabel = f.pair1Label === 'A' ? f.pair2Label : f.pair1Label;

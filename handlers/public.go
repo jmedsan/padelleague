@@ -15,7 +15,7 @@ import (
 
 // HomeAction is a unified to-do entry on the player dashboard.
 type HomeAction struct {
-	Kind     string // "dispute" | "confirm" | "respond" | "docs" | "organize" | "play"
+	Kind     string // "dispute" | "confirm" | "respond" | "docs" | "organize"
 	MatchID  string
 	Title    string
 	Detail   string
