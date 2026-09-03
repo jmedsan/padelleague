@@ -99,14 +99,13 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 
 	urgentTasks, _ := league.PlayerTasks(h.app, userID, time.Now())
 	actions := buildHomeActions(urgentTasks, agg.pending, agg.next, agg.docs)
-	excludePendingDetailsInActions(agg.comps, actions)
 
 	data := map[string]any{
 		"PageTitle":       "Inicio",
 		"Competitions":    agg.comps,
 		"CompCount":       len(agg.comps),
 		"Actions":         actions,
-		"UpcomingMatches": excludeUpcomingInActions(agg.upcoming, actions),
+		"UpcomingMatches": agg.upcoming,
 		"RecentResults":   agg.recent,
 	}
 
@@ -203,7 +202,6 @@ type homeCompetitionParts struct {
 
 func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[string]struct{}, needNext bool) homeCompetitionParts {
 	pending := 0
-	var pendingDetails []MatchCard
 	var nextMatch *NextMatch
 	var upcoming []NextMatch
 	var actions []PendingAction
@@ -212,8 +210,6 @@ func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[s
 		Collection: "matches", Filter: "competition = {:cid} && (status = 'pending' || status = 'scheduled')",
 		Sort: "round_number", Params: map[string]any{"cid": c.Id},
 	})
-
-	pairNames := collectPairNames(h.app, pendingMatches)
 
 	for _, m := range pendingMatches {
 		p1 := m.GetString("pair1")
@@ -224,10 +220,6 @@ func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[s
 			continue
 		}
 		pending++
-
-		if len(pendingDetails) < 5 {
-			pendingDetails = append(pendingDetails, NewMatchRow(m, pairNames, playerPairIDs))
-		}
 
 		nm := h.buildNextMatch(m, c, playerPairIDs)
 		upcoming = append(upcoming, *nm)
@@ -244,7 +236,7 @@ func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[s
 	results := h.findRecentResults(c, playerPairIDs)
 
 	return homeCompetitionParts{
-		Comp:     NewHomeCompetitionView(c, pending, pendingDetails),
+		Comp:     NewHomeCompetitionView(c, pending),
 		Next:     nextMatch,
 		Upcoming: upcoming,
 		Pending:  actions,
@@ -434,28 +426,6 @@ func (h *PublicHandler) findRecentResults(c *core.Record, playerPairIDs map[stri
 		}
 	}
 	return results
-}
-
-// excludePendingDetailsInActions drops matches already shown as an "Acciones
-// pendientes" card from each competition's PendingDetails list, so a match
-// isn't rendered twice on the home page.
-func excludePendingDetailsInActions(comps []CompetitionView, actions []HomeAction) {
-	inActions := make(map[string]struct{}, len(actions))
-	for _, a := range actions {
-		inActions[a.MatchID] = struct{}{}
-	}
-	for i, c := range comps {
-		if len(c.PendingDetails) == 0 {
-			continue
-		}
-		kept := c.PendingDetails[:0]
-		for _, mc := range c.PendingDetails {
-			if _, dup := inActions[mc.Match.Id]; !dup {
-				kept = append(kept, mc)
-			}
-		}
-		comps[i].PendingDetails = kept
-	}
 }
 
 func filterAndSortUpcoming(upcoming []NextMatch, now time.Time, maxCount int) []NextMatch {

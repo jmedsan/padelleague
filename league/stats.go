@@ -469,7 +469,7 @@ func currentStreakWinCount(results []matchResult) int {
 // levelExperienceCap is the match count at which the experience component of
 // computeLevel reaches its maximum — a new player's level is pulled down
 // regardless of win rate until they have played this many matches. Set to
-// one season's worth in a typical 4-pair double round-robin (~12 matches).
+// roughly one season per pair in a 4-pair double round-robin (6 matches/pair).
 const levelExperienceCap = 15
 
 // levelMomentumCap is the winning-streak length at which the momentum
