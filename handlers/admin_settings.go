@@ -46,27 +46,45 @@ func (h *AdminSettingsHandler) SaveDefaults(e *core.RequestEvent) error {
 	}
 	rec := records[0]
 
-	quorum := parseFormInt(e, "quorum_timeout_hours")
+	quorum, err := parseFormInt(e, "quorum_timeout_hours")
+	if err != nil {
+		return alertError(e, "Tiempo de espera debe ser un número")
+	}
 	if quorum < 0 {
 		return alertError(e, "Tiempo de espera no puede ser negativo")
 	}
-	grace := parseFormInt(e, "arrange_grace_days")
+	grace, err := parseFormInt(e, "arrange_grace_days")
+	if err != nil {
+		return alertError(e, "Días de gracia debe ser un número")
+	}
 	if grace < 0 {
 		return alertError(e, "Días de gracia no puede ser negativo")
 	}
-	penalty := parseFormInt(e, "default_penalty")
+	penalty, err := parseFormInt(e, "default_penalty")
+	if err != nil {
+		return alertError(e, "Penalización debe ser un número")
+	}
 	if penalty < 0 {
 		return alertError(e, "Penalización no puede ser negativa")
 	}
-	recovery := parseFormInt(e, "recovery_days")
+	recovery, err := parseFormInt(e, "recovery_days")
+	if err != nil {
+		return alertError(e, "Período extra debe ser un número")
+	}
 	if recovery < 0 {
 		return alertError(e, "Período extra no puede ser negativo")
 	}
-	maxUses := parseFormInt(e, "invite_max_uses")
+	maxUses, err := parseFormInt(e, "invite_max_uses")
+	if err != nil {
+		return alertError(e, "Usos máximos debe ser un número")
+	}
 	if maxUses < 1 {
 		return alertError(e, "Usos máximos de invitación debe ser al menos 1")
 	}
-	expDays := parseFormInt(e, "invite_expiration_days")
+	expDays, err := parseFormInt(e, "invite_expiration_days")
+	if err != nil {
+		return alertError(e, "Días de expiración debe ser un número")
+	}
 	if expDays < 1 {
 		return alertError(e, "Días de expiración de invitación debe ser al menos 1")
 	}
@@ -96,9 +114,12 @@ func (h *AdminSettingsHandler) SaveDefaults(e *core.RequestEvent) error {
 	return alertSuccess(e, "Configuración guardada")
 }
 
-func parseFormInt(e *core.RequestEvent, field string) int {
-	v, _ := strconv.Atoi(e.Request.FormValue(field))
-	return v
+func parseFormInt(e *core.RequestEvent, field string) (int, error) {
+	raw := e.Request.FormValue(field)
+	if raw == "" {
+		return 0, nil
+	}
+	return strconv.Atoi(raw)
 }
 
 // Reset restarts the database: it wipes ALL non-admin data (administrators, the

@@ -172,7 +172,10 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 	}
 
 	if v := e.Request.FormValue("quorum_timeout_hours"); v != "" {
-		hours, _ := strconv.Atoi(v)
+		hours, err := strconv.Atoi(v)
+		if err != nil {
+			return alertError(e, "Tiempo de espera debe ser un número")
+		}
 		record.Set("quorum_timeout_hours", hours)
 	}
 
@@ -221,7 +224,10 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 	}
 
 	if v := e.Request.FormValue("quorum_timeout_hours"); v != "" {
-		hours, _ := strconv.Atoi(v)
+		hours, err := strconv.Atoi(v)
+		if err != nil {
+			return alertError(e, "Tiempo de espera debe ser un número")
+		}
 		record.Set("quorum_timeout_hours", hours)
 	}
 
