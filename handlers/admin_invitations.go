@@ -96,7 +96,7 @@ func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 	if email != "" {
 		// Token in URL is inherent: the invite link requires it; admin-only copy-paste, not logged.
 		registerURL := requestBaseURL(e) + "/register?token=" + token
-		notify.SendEmail(h.app, email, "Invitación a PadelLeague",
+		notify.SendEmail(h.app, email, "Invitación a Dale Fuerte a la Bola",
 			buildInviteEmail(registerURL))
 	}
 
