@@ -60,6 +60,8 @@ type NextMatch struct {
 	ProposedDate    string
 	ProposedVenue   string
 	IsPlayoff       bool
+	EffectiveDate   time.Time // resolved: match date → round date → competition end
+	DisplayDate     string    // formatted for the template
 }
 
 // PendingAction represents an action the player needs to take on a match.
@@ -147,10 +149,7 @@ func (h *PublicHandler) aggregateHomeData(userID string, playerPairIDs map[strin
 		}
 	}
 
-	sort.Slice(agg.upcoming, func(i, j int) bool {
-		return upcomingSortKey(agg.upcoming[i]) < upcomingSortKey(agg.upcoming[j])
-	})
-	agg.upcoming = capUpcoming(agg.upcoming, 3, time.Now())
+	agg.upcoming = filterAndSortUpcoming(agg.upcoming, time.Now(), 3)
 	sort.Slice(agg.recent, func(i, j int) bool {
 		return agg.recent[i].Match.GetString("date") > agg.recent[j].Match.GetString("date")
 	})
@@ -270,7 +269,25 @@ func (h *PublicHandler) buildNextMatch(m *core.Record, c *core.Record, playerPai
 	if len(proposals) > 0 {
 		applyProposalToNextMatch(nm, proposals[0])
 	}
+	nm.EffectiveDate = resolveMatchDate(m, c)
+	if !nm.EffectiveDate.IsZero() {
+		nm.DisplayDate = nm.EffectiveDate.Format("02/01/2006")
+	}
 	return nm
+}
+
+func resolveMatchDate(m *core.Record, c *core.Record) time.Time {
+	if d := m.GetDateTime("date").Time(); !d.IsZero() {
+		return d
+	}
+	roundNum := int(m.GetFloat("round_number"))
+	if t, ok := league.RoundArrangeDate(c, roundNum); ok && !t.IsZero() {
+		return t
+	}
+	if end := c.GetDateTime("end_date").Time(); !end.IsZero() {
+		return end
+	}
+	return time.Time{}
 }
 
 func applyProposalToNextMatch(nm *NextMatch, prop *core.Record) {
@@ -441,32 +458,25 @@ func excludePendingDetailsInActions(comps []CompetitionView, actions []HomeActio
 	}
 }
 
-func capUpcoming(upcoming []NextMatch, maxCount int, now time.Time) []NextMatch {
+func filterAndSortUpcoming(upcoming []NextMatch, now time.Time, maxCount int) []NextMatch {
 	twoWeeks := now.Add(14 * 24 * time.Hour)
-	var result []NextMatch
+	var dated []NextMatch
 	for _, u := range upcoming {
-		if len(result) >= maxCount {
-			break
+		if u.EffectiveDate.IsZero() {
+			continue
 		}
-		if u.ProposedDate != "" {
-			if t, err := time.Parse("02/01/2006 15:04", u.ProposedDate); err == nil && t.After(twoWeeks) {
-				continue
-			}
+		if u.EffectiveDate.After(twoWeeks) {
+			continue
 		}
-		result = append(result, u)
+		dated = append(dated, u)
 	}
-	return result
-}
-
-func upcomingSortKey(m NextMatch) string {
-	switch m.ScheduleStatus {
-	case "confirmed":
-		return "0-" + m.ProposedDate
-	case "proposed":
-		return "1-" + m.ProposedDate
-	default:
-		return "2-" + m.CompetitionName
+	sort.Slice(dated, func(i, j int) bool {
+		return dated[i].EffectiveDate.Before(dated[j].EffectiveDate)
+	})
+	if len(dated) > maxCount {
+		dated = dated[:maxCount]
 	}
+	return dated
 }
 
 func excludeUpcomingInActions(upcoming []NextMatch, actions []HomeAction) []NextMatch {
