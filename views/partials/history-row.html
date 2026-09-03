@@ -1,28 +1,34 @@
-{{/* resultHistoryRow — desktop table row for the pair/player "Últimos
-     partidos" list. Below sm, historyMatchCard is used instead: a table row
-     with resultBox jammed into a <td> forces the score onto its own wrapped
-     lines and pushes the V/D column off-screen at 390px (see
-     review-principles.md). */}}
+{{/* resultHistoryRow — the ONE component for every "my past match" surface
+     (home page, player profile, pair profile): desktop table row for the
+     "Últimos partidos" list. Below sm, historyMatchCard is used instead: a
+     table row with resultBox jammed into a <td> forces the score onto its
+     own wrapped lines and pushes the V/D column off-screen at 390px (see
+     review-principles.md). Shows the competition name (via competitionIdentity,
+     linked — the <tr> click target is JS onclick, not a real <a>, so a real
+     link nested in a <td> is valid) so a player in multiple competitions
+     can tell matches apart (L1). */}}
 {{define "resultHistoryRow"}}
 <tr class="hover cursor-pointer" onclick="window.location='{{entityURL "match" .MatchID}}'">
     <td class="text-sm opacity-70">{{fmtDate .Date}}</td>
     <td>{{template "pairLink" (elink .Pair1ID .PairName1)}}</td>
     <td>{{template "pairLink" (elink .Pair2ID .PairName2)}}</td>
     <td>{{template "resultBox" (dict "Score" .Score "Pair1Name" .PairName1 "Pair2Name" .PairName2 "Mode" (dict "Row" true))}}</td>
+    <td>{{template "competitionIdentity" (dict "ID" .CompetitionID "Name" .CompetitionName "Mode" (dict))}}</td>
     <td>{{template "wonBadge" .}}</td>
 </tr>
 {{end}}
 
-{{/* historyMatchCard — compact phone row: date + opponent + score + V/D.
-     The viewed pair/player's own name is already the page subject (title,
-     breadcrumb) so it's redundant here; the V/D badge already says who won,
-     so no "Gana X" text; score is plain text, not the bordered resultBox —
-     context-fit.md flags the full card as unnecessarily tall at 390px. */}}
+{{/* historyMatchCard — compact phone row: date + opponent + score + comp +
+     V/D. The viewed pair/player's own name is already the page subject
+     (title, breadcrumb) so it's redundant here; the V/D badge already says
+     who won, so no "Gana X" text; score is plain text, not the bordered
+     resultBox — context-fit.md flags the full card as unnecessarily tall at
+     390px. */}}
 {{define "historyMatchCard"}}
 <a href="{{entityURL "match" .MatchID}}" class="flex items-center gap-3 p-3 rounded-xl bg-base-200/50 hover:bg-base-200 transition-colors">
     <div class="flex-1 min-w-0">
         <p class="font-medium text-sm truncate">{{.Opponent}}</p>
-        <p class="text-xs opacity-60">{{fmtDate .Date}} · {{.Score}}</p>
+        <p class="text-xs opacity-60">{{fmtDate .Date}} · {{.Score}} · {{template "competitionIdentity" (dict "ID" .CompetitionID "Name" .CompetitionName "Mode" (dict) "NoLink" true)}}</p>
     </div>
     {{template "wonBadge" .}}
 </a>

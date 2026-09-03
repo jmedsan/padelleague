@@ -22,6 +22,7 @@ func TestGen2_PlayerProfile_FullStats(t *testing.T) {
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Padel League"},
 	}
+	var compID string
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -48,6 +49,7 @@ func TestGen2_PlayerProfile_FullStats(t *testing.T) {
 		comp.Set("active", true)
 		comp.Set("pairs", []string{pair.Id})
 		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
 
 		// Create a second pair as opponent.
 		opp := makePairTB(tb, app, "Opp")
@@ -93,6 +95,13 @@ func TestGen2_PlayerProfile_FullStats(t *testing.T) {
 		assert.Contains(tb, body, "1D", "current streak should be 1D")
 		assert.Contains(tb, body, "1V", "best streak should be 1V")
 		assert.Contains(tb, body, "Gen2 League", "competition name")
+		// Two occurrences: the "Competiciones" standings table AND the
+		// "Últimos partidos" history rows (both matches) must each link the
+		// competition — proves the history row (not just the stats table)
+		// carries a real competition link (L1), not merely the plain name.
+		linkCount := strings.Count(body, `href="/competition/`+compID+`"`)
+		assert.GreaterOrEqual(tb, linkCount, 3,
+			"expected the stats table link plus one link per recent-match history row (2 matches)")
 	}
 
 	s.Test(t)

@@ -559,6 +559,8 @@ func TestHome_RecentResultsNonEmpty(t *testing.T) {
 		p1 := makePairTB(tb, app, "Result A")
 		p2 := makePairTB(tb, app, "Result B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("name", "Liga Recientes")
+		require.NoError(tb, app.Save(comp))
 
 		col, _ := app.FindCollectionByNameOrId("matches")
 		// Match date deliberately inverted from insertion (creation) order,
@@ -587,6 +589,7 @@ func TestHome_RecentResultsNonEmpty(t *testing.T) {
 		assert.Contains(tb, body, "6-1 6-2", "first final match score must appear")
 		assert.Contains(tb, body, "6-3 6-4", "second final match score must appear")
 		assert.Contains(tb, body, "Mis últimos partidos", "recent results heading must appear")
+		assert.Contains(tb, body, "Liga Recientes", "L1: competition name must appear on each recent match row")
 		newerIdx := strings.Index(body, "6-1 6-2")
 		olderIdx := strings.Index(body, "6-3 6-4")
 		require.NotEqual(tb, -1, olderIdx)
