@@ -430,23 +430,23 @@ func (h *PublicHandler) findRecentResults(c *core.Record, playerPairIDs map[stri
 
 func filterAndSortUpcoming(upcoming []NextMatch, now time.Time, maxCount int) []NextMatch {
 	twoWeeks := now.Add(14 * 24 * time.Hour)
-	var dated []NextMatch
+	var dated, undated []NextMatch
 	for _, u := range upcoming {
 		if u.EffectiveDate.IsZero() {
-			continue
+			u.DisplayDate = "Fecha por confirmar"
+			undated = append(undated, u)
+		} else if !u.EffectiveDate.After(twoWeeks) {
+			dated = append(dated, u)
 		}
-		if u.EffectiveDate.After(twoWeeks) {
-			continue
-		}
-		dated = append(dated, u)
 	}
 	sort.Slice(dated, func(i, j int) bool {
 		return dated[i].EffectiveDate.Before(dated[j].EffectiveDate)
 	})
-	if len(dated) > maxCount {
-		dated = dated[:maxCount]
+	result := append(dated, undated...)
+	if len(result) > maxCount {
+		result = result[:maxCount]
 	}
-	return dated
+	return result
 }
 
 func buildHomeActions(tasks []league.PlayerTask, pending []PendingAction, next *NextMatch, docs []DocsAction) []HomeAction {
