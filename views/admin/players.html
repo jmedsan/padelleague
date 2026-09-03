@@ -9,7 +9,7 @@
             <div class="stat-title text-xs">Registrados</div>
             <div class="stat-value text-lg">{{len .Players}}</div>
         </div>
-        <label for="precreate-modal" class="btn btn-primary btn-sm self-center">+ Pre-crear usuario</label>
+        <label for="precreate-modal" class="btn btn-primary btn-sm self-center">+ Crear jugador</label>
     </div>
 </div>
 
@@ -41,7 +41,7 @@
                     </td>
                     <td class="flex gap-1">
                         <label for="edit-player-{{.Id}}" class="btn btn-ghost btn-xs">Editar</label>
-                        <button class="btn btn-ghost btn-xs" hx-post="/admin/players/{{.Id}}/regenerate-link" hx-target="#regen-result" hx-swap="innerHTML">Regenerar enlace</button>
+                        <button class="btn btn-ghost btn-xs" hx-post="/admin/players/{{.Id}}/regenerate-link" hx-target="#regen-result" hx-swap="innerHTML">Regenerar contraseña</button>
                     </td>
                 </tr>
                 {{end}}
@@ -61,7 +61,7 @@
             </p>
             <div class="flex gap-2">
                 <label for="edit-player-{{.Id}}" class="btn btn-ghost btn-sm">Editar</label>
-                <button class="btn btn-ghost btn-sm" hx-post="/admin/players/{{.Id}}/regenerate-link" hx-target="#regen-result" hx-swap="innerHTML">Regenerar enlace</button>
+                <button class="btn btn-ghost btn-sm" hx-post="/admin/players/{{.Id}}/regenerate-link" hx-target="#regen-result" hx-swap="innerHTML">Regenerar contraseña</button>
             </div>
         </div>
         {{end}}
@@ -128,7 +128,7 @@
 <input type="checkbox" id="precreate-modal" class="modal-toggle">
 <div class="modal" role="dialog">
     <div class="modal-box">
-        <h3 class="font-bold text-lg mb-2">Pre-crear usuario</h3>
+        <h3 class="font-bold text-lg mb-2">Crear jugador</h3>
         <p class="text-sm opacity-60 mb-4">Crea un usuario y genera una invitación vinculada a su email.</p>
         <form hx-post="/admin/players/pre-create" hx-target="#regen-result" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful){document.getElementById('precreate-modal').checked=false}">
             <div class="form-control">
