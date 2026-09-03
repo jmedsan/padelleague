@@ -1,17 +1,9 @@
 package seed
 
 import (
-	"bytes"
 	"fmt"
-	"image"
-	"image/color"
-	"image/png"
 	"io/fs"
 	"time"
-
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/basicfont"
-	"golang.org/x/image/math/fixed"
 
 	"padelleague/league"
 
@@ -40,7 +32,7 @@ func SampleLeaguePartial(app core.App, opts SampleOptions) error {
 		return nil
 	}
 	return app.RunInTransaction(func(txApp core.App) error {
-		playerIDs, err := createSamplePlayers(txApp)
+		playerIDs, err := createSamplePlayers(txApp, opts)
 		if err != nil || !opts.Pairs {
 			return err
 		}
@@ -89,7 +81,7 @@ func populateSampleLeague(txApp core.App, comp *core.Record, pairIDs []string, o
 	return nil
 }
 
-func createSamplePlayers(txApp core.App) ([]string, error) {
+func createSamplePlayers(txApp core.App, opts SampleOptions) ([]string, error) {
 	admins, err := txApp.FindRecordsByFilter("users",
 		"roles ~ 'admin' && roles ~ 'player'", "created", 0, 0)
 	if err != nil {
@@ -114,8 +106,8 @@ func createSamplePlayers(txApp core.App) ([]string, error) {
 		rec.Set("display_name", fmt.Sprintf("Jugador %d", i+1))
 		rec.Set("gender", genders[i])
 		rec.SetVerified(true)
-		if i < 5 {
-			if f, err := generateSampleAvatar(fmt.Sprintf("J%d", i+1), i); err == nil {
+		if i < 5 && opts.StaticFS != nil {
+			if f, err := loadSampleAvatar(opts.StaticFS, i+1); err == nil {
 				rec.Set("avatar", f)
 			}
 		}
@@ -864,39 +856,11 @@ func createSamplePlayoff(txApp core.App, pairIDs []string) error {
 	return generateSampleBracket(txApp, comp.Id, pairIDs)
 }
 
-var avatarColors = []color.RGBA{
-	{0x4A, 0x90, 0xD9, 0xFF},
-	{0xD9, 0x4A, 0x5C, 0xFF},
-	{0x4A, 0xD9, 0x7A, 0xFF},
-	{0xD9, 0xA8, 0x4A, 0xFF},
-	{0x8A, 0x4A, 0xD9, 0xFF},
-}
-
-func generateSampleAvatar(initials string, index int) (*filesystem.File, error) {
-	size := 200
-	img := image.NewRGBA(image.Rect(0, 0, size, size))
-	bg := avatarColors[index%len(avatarColors)]
-	for y := 0; y < size; y++ {
-		for x := 0; x < size; x++ {
-			dx := float64(x) - float64(size)/2
-			dy := float64(y) - float64(size)/2
-			if dx*dx+dy*dy <= float64(size*size)/4 {
-				img.Set(x, y, bg)
-			}
-		}
-	}
-	face := basicfont.Face7x13
-	w := font.MeasureString(face, initials).Ceil()
-	d := &font.Drawer{
-		Dst:  img,
-		Src:  image.White,
-		Face: face,
-		Dot:  fixed.P((size-w)/2, size/2+6),
-	}
-	d.DrawString(initials)
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
+func loadSampleAvatar(staticFS fs.FS, playerNum int) (*filesystem.File, error) {
+	path := fmt.Sprintf("static/img/sample-avatars/player-%d.png", playerNum)
+	data, err := fs.ReadFile(staticFS, path)
+	if err != nil {
 		return nil, err
 	}
-	return filesystem.NewFileFromBytes(buf.Bytes(), fmt.Sprintf("avatar-%s.png", initials))
+	return filesystem.NewFileFromBytes(data, fmt.Sprintf("avatar-player-%d.png", playerNum))
 }

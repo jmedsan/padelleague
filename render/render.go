@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/template"
@@ -58,6 +59,7 @@ func New(viewsFS fs.FS, vapidPublicKey string, appDevTools bool) *Renderer {
 			return ifFalse
 		},
 		"scoreWinner": scoreWinner,
+		"initials":    Initials,
 	})
 	return &Renderer{
 		registry:       reg,
@@ -239,4 +241,20 @@ func (r *Renderer) Partial(e *core.RequestEvent, page string, data map[string]an
 		return err
 	}
 	return e.HTML(http.StatusOK, html)
+}
+
+// Initials returns up to two uppercase initials from a display name:
+// first rune of the first word + first rune of the last word (if 2+ words).
+// Safe for multi-byte runes (Á, Ñ).
+func Initials(name string) string {
+	words := strings.Fields(name)
+	if len(words) == 0 {
+		return "?"
+	}
+	first := []rune(words[0])
+	if len(words) == 1 {
+		return string(unicode.ToUpper(first[0]))
+	}
+	last := []rune(words[len(words)-1])
+	return string(unicode.ToUpper(first[0])) + string(unicode.ToUpper(last[0]))
 }
