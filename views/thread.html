@@ -105,31 +105,68 @@
 
         <div id="thread-messages-list"
              hx-get="/match/{{.MatchID}}/thread-messages"
-             hx-trigger="load, every 15s"
+             hx-trigger="load, every 15s, refreshThread"
              hx-swap="innerHTML">
         </div>
         <script>
         (function() {
-            // redirectHX (used by every thread action: send message, propose
-            // date, submit/confirm score) reloads the whole page, so the
-            // scroll position from before the action is lost. Scroll to the
-            // bottom of the messages once they actually load (the hx-get
-            // above swaps them in asynchronously after the page loads, so a
-            // plain window.onload scroll would run before there's anything
-            // to scroll to).
+            // redirectHX after posting a chat message / proposal / proposal
+            // response (handlers/thread.go) reloads the whole page with a
+            // #mensajes hash, since the scroll position from before the
+            // action is lost otherwise. Scroll to the bottom of the messages
+            // once they actually load (the hx-get above swaps them in
+            // asynchronously after the page loads, so a plain window.onload
+            // scroll would run before there's anything to scroll to).
             //
-            // #thread-messages polls every 15s (hx-trigger="load, every
-            // 15s"), so this must not unconditionally jump to the bottom on
-            // every settle — that yanks a player mid-read back down each
-            // poll. Only auto-scroll when the reader was already at/near the
-            // bottom before the swap (chat-style: new messages follow you if
-            // you're caught up, but never interrupt scrollback).
+            // Opening a match normally (from home, a notification, etc.) has
+            // no #mensajes hash — that first load must NOT auto-scroll past
+            // the date/result cards down to the chat; the hash is what tells
+            // this apart from a genuine "just posted something" redirect.
+            //
+            // #thread-messages also polls every 15s (hx-trigger="load, every
+            // 15s"), so later swaps must not unconditionally jump to the
+            // bottom either — that would yank a player mid-read back down
+            // each poll. Only auto-scroll when the reader was already
+            // at/near the bottom before the swap (chat-style: new messages
+            // follow you if you're caught up, but never interrupt
+            // scrollback).
             var container = document.getElementById('thread-messages-list');
             if (!container) return;
 
             var NEAR_BOTTOM_PX = 50;
             var hasLoadedOnce = false;
-            var wasAtBottom = true;
+            // forceScrollNext wins over the at-bottom heuristic for the
+            // very next swap only: set on the very first load with
+            // #mensajes already in the URL, and again each time #mensajes
+            // arrives via hashchange (see below) — both are "the user just
+            // posted something and must see it," which always scrolls
+            // regardless of where they were previously reading.
+            var forceScrollNext = window.location.hash === '#mensajes';
+            var wasAtBottom = forceScrollNext;
+
+            // A same-page action (post message/proposal/response) redirects
+            // to this SAME path+#mensajes. When only the hash differs from
+            // the page the browser is already on, setting location.href is
+            // a same-document hash navigation, not a real reload — the
+            // browser does not re-fetch or re-render anything, it only
+            // fires 'hashchange'. So the freshly-posted message would never
+            // appear until the next 15s poll, and this script (which only
+            // runs once, at initial parse time) would never see the hash.
+            // Handle both entry points: the hash may already be present at
+            // parse time (a genuine new page load, e.g. a bookmark or a
+            // redirect that DID force a reload for other reasons), or it
+            // may arrive later via 'hashchange' (the common case here).
+            function onMensajesHash() {
+                history.replaceState(null, '', window.location.pathname + window.location.search);
+                forceScrollNext = true;
+                htmx.trigger(container, 'refreshThread');
+            }
+            if (window.location.hash === '#mensajes') {
+                onMensajesHash();
+            }
+            window.addEventListener('hashchange', function() {
+                if (window.location.hash === '#mensajes') onMensajesHash();
+            });
 
             function scrollTarget() {
                 // #thread-messages (rendered inside container by the swap)
@@ -142,12 +179,10 @@
             }
 
             container.addEventListener('htmx:beforeSwap', function() {
-                // Before the very first swap, #thread-messages doesn't exist
-                // yet (the container is still empty) — there's nothing to
-                // read a scroll position FROM, so always scroll once loaded.
-                // Only later polls (every 15s) need the at-bottom check.
+                if (forceScrollNext) return; // don't let the heuristic override it
                 if (!hasLoadedOnce) {
-                    wasAtBottom = true;
+                    // First swap, no #mensajes: opened normally, nothing to
+                    // read a prior scroll position from — stay put.
                     return;
                 }
                 var el = scrollTarget();
@@ -158,7 +193,9 @@
 
             container.addEventListener('htmx:afterSettle', function() {
                 hasLoadedOnce = true;
-                if (!wasAtBottom) return;
+                var shouldScroll = forceScrollNext || wasAtBottom;
+                forceScrollNext = false;
+                if (!shouldScroll) return;
                 var el = scrollTarget();
                 if (el) {
                     el.scrollTop = el.scrollHeight;
