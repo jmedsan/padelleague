@@ -114,6 +114,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		"ShareText":       shareText,
 		"ShareURL":        shareURL,
 		"Precedentes":     precedentes,
+		"OGImage":         mc.CompetitionLogo,
 	})
 }
 

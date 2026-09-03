@@ -22,7 +22,7 @@
                     </div>
                     {{end}}
                     <form hx-post="/admin/competitions/{{$.Competition.Id}}/logo" enctype="multipart/form-data" hx-trigger="change from:#comp-logo-input" class="flex-1">
-                        <input type="file" id="comp-logo-input" name="logo" accept="image/*" class="file-input file-input-bordered file-input-sm w-full">
+                        <input type="file" id="comp-logo-input" name="logo" accept="image/jpeg,image/png,image/webp" class="file-input file-input-bordered file-input-sm w-full">
                     </form>
                 </div>
             </div>

@@ -54,7 +54,9 @@ type OnboardStep struct {
 type NextMatch struct {
 	MatchID         string
 	Opponent        string
+	CompetitionID   string
 	CompetitionName string
+	CompetitionLogo string
 	RoundNumber     int
 	ScheduleStatus  string // "unscheduled", "proposed", "confirmed"
 	ProposedDate    string
@@ -248,7 +250,9 @@ func (h *PublicHandler) buildNextMatch(m *core.Record, c *core.Record, playerPai
 	nm := &NextMatch{
 		MatchID:         m.Id,
 		Opponent:        h.opponentName(m, playerPairIDs),
+		CompetitionID:   c.Id,
 		CompetitionName: c.GetString("name"),
+		CompetitionLogo: league.CompetitionLogoURL(c.Id, c.GetString("logo")),
 		RoundNumber:     int(m.GetFloat("round_number")),
 		ScheduleStatus:  "unscheduled",
 		IsPlayoff:       league.IsPlayoff(c),
@@ -413,6 +417,7 @@ func (h *PublicHandler) findRecentResults(c *core.Record, playerPairIDs map[stri
 		}
 		mc := NewMatchRow(m, pairNames, noAccent)
 		mc.CompetitionName = c.GetString("name")
+		mc.CompetitionLogo = league.CompetitionLogoURL(c.Id, c.GetString("logo"))
 		if hasP1 {
 			mc.Opponent = pairNames[p2]
 			mc.Won = m.GetString("winner") == p1
@@ -661,6 +666,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	data["PlayerPairIDs"] = playerPairIDs
 	data["ShowAll"] = showAll
 	data["Mode"] = PlayerSummary
+	data["OGImage"] = league.CompetitionLogoURL(comp.Id, comp.GetString("logo"))
 	h.addCompetitionDocViews(data, comp, userID)
 	return h.renderPage(e, "competition.html", data)
 }

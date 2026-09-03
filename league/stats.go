@@ -15,6 +15,7 @@ import (
 type CompetitionStat struct {
 	CompID   string
 	CompName string
+	CompLogo string
 	Position int
 	Wins     int
 	Losses   int
@@ -35,6 +36,7 @@ type RecentMatch struct {
 	Date            string
 	CompetitionID   string
 	CompetitionName string
+	CompetitionLogo string
 }
 
 // StatsSummary bundles all win/loss/streak/competition/history statistics
@@ -70,6 +72,7 @@ type matchResult struct {
 	score    string
 	compID   string
 	compName string
+	compLogo string
 }
 
 type playerTotals struct {
@@ -167,6 +170,7 @@ func (svc *Service) pairCompStat(c *core.Record, pairID string) CompetitionStat 
 	cs := CompetitionStat{
 		CompID:   c.Id,
 		CompName: c.GetString("name"),
+		CompLogo: CompetitionLogoURL(c.Id, c.GetString("logo")),
 	}
 	rows, err := svc.ComputeStandings(c.Id)
 	if err != nil {
@@ -391,12 +395,13 @@ func pairMatchResults(app core.App, pairID string) []matchResult {
 		pairIDSlice = append(pairIDSlice, pid)
 	}
 	pairNames := PairNames(app, pairIDSlice)
-	compNames := competitionNames(app, matches)
+	comps := competitionInfo(app, matches)
 
 	var results []matchResult
 	for _, m := range matches {
 		won := m.GetString("winner") == pairID
 		compID := m.GetString("competition")
+		comp := comps[compID]
 		results = append(results, matchResult{
 			matchID:  m.Id,
 			won:      won,
@@ -408,26 +413,39 @@ func pairMatchResults(app core.App, pairID string) []matchResult {
 			p2:       pairNames[m.GetString("pair2")],
 			score:    m.GetString("scores"),
 			compID:   compID,
-			compName: compNames[compID],
+			compName: comp.name,
+			compLogo: comp.logo,
 		})
 	}
 	return results
 }
 
-// competitionNames batch-resolves the distinct competition IDs referenced by
-// matches into their display names, avoiding one query per match.
-func competitionNames(app core.App, matches []*core.Record) map[string]string {
+type compNameLogo struct {
+	name, logo string
+}
+
+// competitionInfo batch-resolves the distinct competition IDs referenced by
+// matches into their display name and logo URL, avoiding one query per match.
+func competitionInfo(app core.App, matches []*core.Record) map[string]compNameLogo {
 	idSet := make(map[string]struct{})
 	for _, m := range matches {
 		if cid := m.GetString("competition"); cid != "" {
 			idSet[cid] = struct{}{}
 		}
 	}
-	names := make(map[string]string, len(idSet))
+	info := make(map[string]compNameLogo, len(idSet))
 	for cid := range idSet {
-		names[cid] = CompetitionName(app, cid)
+		comp, err := app.FindRecordById("competitions", cid)
+		if err != nil {
+			info[cid] = compNameLogo{name: "?"}
+			continue
+		}
+		info[cid] = compNameLogo{
+			name: comp.GetString("name"),
+			logo: CompetitionLogoURL(comp.Id, comp.GetString("logo")),
+		}
 	}
-	return names
+	return info
 }
 
 func buildRecentMatches(allResults []matchResult, limit int) []RecentMatch {

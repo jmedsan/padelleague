@@ -8,15 +8,16 @@ import (
 
 // CompetitionView is the shared model for competition card/summary rendering.
 type CompetitionView struct {
-	Mode          Mode
-	Competition   *core.Record
-	Name          string
-	PairsCount    int
-	TotalMatches  int
-	PlayedMatches int
-	AlertCount    int // matches with status=disputed: open disputes AND pending walkover approvals
-	PendingCount  int
-	URL           string
+	Mode            Mode
+	Competition     *core.Record
+	Name            string
+	CompetitionLogo string
+	PairsCount      int
+	TotalMatches    int
+	PlayedMatches   int
+	AlertCount      int // matches with status=disputed: open disputes AND pending walkover approvals
+	PendingCount    int
+	URL             string
 
 	// Standing is non-nil only for a PlayerRow home card in a league with
 	// computed standings, so the card can show the player's own position
@@ -59,15 +60,16 @@ func NewCompetitionView(app core.App, comp *core.Record, mode Mode) CompetitionV
 	}
 
 	return CompetitionView{
-		Mode:          mode,
-		Competition:   comp,
-		Name:          comp.GetString("name"),
-		PairsCount:    len(comp.GetStringSlice("pairs")),
-		TotalMatches:  len(allMatches),
-		PlayedMatches: played,
-		AlertCount:    alerts,
-		PendingCount:  pending,
-		URL:           url,
+		Mode:            mode,
+		Competition:     comp,
+		Name:            comp.GetString("name"),
+		CompetitionLogo: league.CompetitionLogoURL(comp.Id, comp.GetString("logo")),
+		PairsCount:      len(comp.GetStringSlice("pairs")),
+		TotalMatches:    len(allMatches),
+		PlayedMatches:   played,
+		AlertCount:      alerts,
+		PendingCount:    pending,
+		URL:             url,
 	}
 }
 
@@ -76,12 +78,13 @@ func NewCompetitionView(app core.App, comp *core.Record, mode Mode) CompetitionV
 // computed standings and one of playerPairIDs appears in them.
 func NewHomeCompetitionView(leagueSvc *league.Service, comp *core.Record, pendingCount int, playerPairIDs map[string]struct{}) CompetitionView {
 	return CompetitionView{
-		Mode:         PlayerRow,
-		Competition:  comp,
-		Name:         comp.GetString("name"),
-		PendingCount: pendingCount,
-		URL:          "/competition/" + comp.Id,
-		Standing:     findPlayerStanding(leagueSvc, comp, playerPairIDs),
+		Mode:            PlayerRow,
+		Competition:     comp,
+		Name:            comp.GetString("name"),
+		CompetitionLogo: league.CompetitionLogoURL(comp.Id, comp.GetString("logo")),
+		PendingCount:    pendingCount,
+		URL:             "/competition/" + comp.Id,
+		Standing:        findPlayerStanding(leagueSvc, comp, playerPairIDs),
 	}
 }
 
