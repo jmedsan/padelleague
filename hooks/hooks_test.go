@@ -663,6 +663,118 @@ func TestSchedulingReminder_FinishedByDate_NoReminder(t *testing.T) {
 	assert.Empty(t, notifs, "a competition finished by date must not remind")
 }
 
+func TestMatchDayReminder_SendsForTomorrowsMatch(t *testing.T) {
+	app := newTestApp(t)
+	notifier := notify.NewNotifier(app, "", "")
+
+	p1 := makePair(t, app, "MdA")
+	p2 := makePair(t, app, "MdB")
+
+	comp := makeLeagueComp(t, app, []*core.Record{p1, p2},
+		time.Now().AddDate(0, 0, -10), time.Now().AddDate(0, 0, 10), 1)
+
+	now := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
+	tomorrow := now.AddDate(0, 0, 1)
+
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+	m.Set("status", league.StatusScheduled)
+	d, _ := types.ParseDateTime(tomorrow)
+	m.Set("date", d)
+	m.Set("time", "18:00")
+	m.Set("club", "Padel 360")
+	require.NoError(t, app.Save(m))
+
+	checkMatchDayReminders(app, notifier, now)
+
+	notifs, err := app.FindRecordsByFilter("notifications", "type = 'scheduling'", "", 0, 0, nil)
+	require.NoError(t, err)
+	require.Len(t, notifs, 4, "one reminder per player (2 pairs x 2)")
+	for _, n := range notifs {
+		assert.Equal(t, "Partido mañana", n.GetString("title"))
+		assert.Contains(t, n.GetString("body"), "18:00")
+		assert.Contains(t, n.GetString("body"), "Padel 360")
+	}
+
+	updated := freshMatch(t, app, m.Id)
+	assert.True(t, updated.GetBool("reminder_sent"))
+}
+
+func TestMatchDayReminder_DoesNotResend(t *testing.T) {
+	app := newTestApp(t)
+	notifier := notify.NewNotifier(app, "", "")
+
+	p1 := makePair(t, app, "MdrA")
+	p2 := makePair(t, app, "MdrB")
+	comp := makeLeagueComp(t, app, []*core.Record{p1, p2},
+		time.Now().AddDate(0, 0, -10), time.Now().AddDate(0, 0, 10), 1)
+
+	now := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
+	tomorrow := now.AddDate(0, 0, 1)
+
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+	m.Set("status", league.StatusScheduled)
+	d, _ := types.ParseDateTime(tomorrow)
+	m.Set("date", d)
+	m.Set("reminder_sent", true)
+	require.NoError(t, app.Save(m))
+
+	checkMatchDayReminders(app, notifier, now)
+
+	notifs, err := app.FindRecordsByFilter("notifications", "type = 'scheduling'", "", 0, 0, nil)
+	require.NoError(t, err)
+	assert.Empty(t, notifs, "must not resend once reminder_sent is true")
+}
+
+func TestMatchDayReminder_SkipsMatchNotTomorrow(t *testing.T) {
+	app := newTestApp(t)
+	notifier := notify.NewNotifier(app, "", "")
+
+	p1 := makePair(t, app, "MdsA")
+	p2 := makePair(t, app, "MdsB")
+	comp := makeLeagueComp(t, app, []*core.Record{p1, p2},
+		time.Now().AddDate(0, 0, -10), time.Now().AddDate(0, 0, 10), 1)
+
+	now := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
+	inThreeDays := now.AddDate(0, 0, 3)
+
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+	m.Set("status", league.StatusScheduled)
+	d, _ := types.ParseDateTime(inThreeDays)
+	m.Set("date", d)
+	require.NoError(t, app.Save(m))
+
+	checkMatchDayReminders(app, notifier, now)
+
+	notifs, err := app.FindRecordsByFilter("notifications", "type = 'scheduling'", "", 0, 0, nil)
+	require.NoError(t, err)
+	assert.Empty(t, notifs, "a match dated 3 days out must not get the day-before reminder")
+}
+
+func TestMatchDayReminder_SkipsUnconfirmedMatch(t *testing.T) {
+	app := newTestApp(t)
+	notifier := notify.NewNotifier(app, "", "")
+
+	p1 := makePair(t, app, "MduA")
+	p2 := makePair(t, app, "MduB")
+	comp := makeLeagueComp(t, app, []*core.Record{p1, p2},
+		time.Now().AddDate(0, 0, -10), time.Now().AddDate(0, 0, 10), 1)
+
+	now := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
+	tomorrow := now.AddDate(0, 0, 1)
+
+	// status stays "pending" (no confirmed date) even though a stray date value is set.
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+	d, _ := types.ParseDateTime(tomorrow)
+	m.Set("date", d)
+	require.NoError(t, app.Save(m))
+
+	checkMatchDayReminders(app, notifier, now)
+
+	notifs, err := app.FindRecordsByFilter("notifications", "type = 'scheduling'", "", 0, 0, nil)
+	require.NoError(t, err)
+	assert.Empty(t, notifs, "only confirmed (status=scheduled) matches get the day-before reminder")
+}
+
 func TestCronRegistration_SchedulingReminders(t *testing.T) {
 	app := newTestApp(t)
 	registerHooksWithNotifier(t, app)

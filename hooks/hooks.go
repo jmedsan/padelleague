@@ -107,6 +107,42 @@ func remindCompetitionMatches(app core.App, notifier *notify.Notifier, comp *cor
 	}
 }
 
+// checkMatchDayReminders sends a "your match is tomorrow" notification to
+// both pairs of every match with a confirmed date (status = scheduled)
+// falling on the next calendar day, at most once per match.
+func checkMatchDayReminders(app core.App, notifier *notify.Notifier, now time.Time) {
+	tomorrow := now.AddDate(0, 0, 1)
+	matches, err := app.FindRecordsByFilter("matches",
+		"status = {:status} && reminder_sent != true",
+		"", 0, 0, map[string]any{"status": league.StatusScheduled})
+	if err != nil {
+		slog.Error("match day reminders: list matches", "err", err)
+		return
+	}
+
+	for _, m := range matches {
+		d := m.GetDateTime("date").Time()
+		if d.IsZero() || !sameDay(d, tomorrow) {
+			continue
+		}
+
+		notif := league.NotifMatchReminder(m.Id, m.GetString("time"), m.GetString("club"))
+		notifier.NotifyPlayers(league.PlayersForPair(app, m.GetString("pair1")), notif)
+		notifier.NotifyPlayers(league.PlayersForPair(app, m.GetString("pair2")), notif)
+
+		m.Set("reminder_sent", true)
+		if err := app.Save(m); err != nil {
+			slog.Error("match day reminder save reminder_sent", "match", m.Id, "err", err)
+		}
+	}
+}
+
+func sameDay(a, b time.Time) bool {
+	ay, am, ad := a.Date()
+	by, bm, bd := b.Date()
+	return ay == by && am == bm && ad == bd
+}
+
 // Register wires all PocketBase event hooks and cron jobs onto the given app.
 func Register(app core.App, svc *league.Service, notifier *notify.Notifier, searchIndex *search.Index) {
 	app.OnRecordCreate("users").BindFunc(func(e *core.RecordEvent) error {
@@ -135,6 +171,7 @@ func Register(app core.App, svc *league.Service, notifier *notify.Notifier, sear
 
 	app.Cron().MustAdd("scheduling-reminders", "0 9 * * *", func() {
 		checkSchedulingReminders(app, notifier)
+		checkMatchDayReminders(app, notifier, time.Now())
 	})
 
 	app.Cron().MustAdd("confirmation-reminders", "0 */6 * * *", func() {

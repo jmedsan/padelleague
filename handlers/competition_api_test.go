@@ -564,6 +564,45 @@ func TestCompGenerateFixtures(t *testing.T) {
 	s.Test(t)
 }
 
+func TestCompGenerateFixtures_NotifiesMatchAssigned(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/generate notifies all players of match_assigned",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var playerIDs []string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "NotA")
+		p2 := makePairTB(tb, app, "NotB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("start_date", "2026-06-01 00:00:00.000Z")
+		comp.Set("end_date", "2026-09-01 00:00:00.000Z")
+		require.NoError(tb, app.Save(comp))
+		playerIDs = []string{p1.GetString("player1"), p1.GetString("player2"), p2.GetString("player1"), p2.GetString("player2")}
+		s.URL = "/admin/competitions/" + comp.Id + "/generate"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		notifs, err := app.FindRecordsByFilter("notifications",
+			"type = 'match_assigned'", "", 0, 0, nil)
+		require.NoError(tb, err)
+		require.Len(tb, notifs, 4, "one match_assigned notification per player")
+
+		notifiedIDs := make([]string, len(notifs))
+		for i, n := range notifs {
+			notifiedIDs[i] = n.GetString("user")
+			assert.Equal(tb, "Calendario disponible", n.GetString("title"))
+			assert.Contains(tb, n.GetString("body"), "Ya tienes calendario en")
+		}
+		assert.ElementsMatch(tb, playerIDs, notifiedIDs)
+	}
+	s.Test(t)
+}
+
 func TestGenerateFixturesTooFewPairs(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
