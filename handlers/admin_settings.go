@@ -46,19 +46,45 @@ func (h *AdminSettingsHandler) SaveDefaults(e *core.RequestEvent) error {
 	}
 	rec := records[0]
 
-	rec.Set("quorum_timeout_hours", parseFormInt(e, "quorum_timeout_hours"))
-	rec.Set("arrange_grace_days", parseFormInt(e, "arrange_grace_days"))
-	rec.Set("walkover_score", e.Request.FormValue("walkover_score"))
-	rec.Set("default_penalty", parseFormInt(e, "default_penalty"))
-	rec.Set("recovery_days", parseFormInt(e, "recovery_days"))
-	rec.Set("play_twice", e.Request.FormValue("play_twice") == "on")
-	rec.Set("gender_type", e.Request.FormValue("gender_type"))
-	rec.Set("invite_max_uses", parseFormInt(e, "invite_max_uses"))
-	rec.Set("invite_expiration_days", parseFormInt(e, "invite_expiration_days"))
+	quorum := parseFormInt(e, "quorum_timeout_hours")
+	if quorum < 0 {
+		return alertError(e, "Tiempo de espera no puede ser negativo")
+	}
+	grace := parseFormInt(e, "arrange_grace_days")
+	if grace < 0 {
+		return alertError(e, "Días de gracia no puede ser negativo")
+	}
+	penalty := parseFormInt(e, "default_penalty")
+	if penalty < 0 {
+		return alertError(e, "Penalización no puede ser negativa")
+	}
+	recovery := parseFormInt(e, "recovery_days")
+	if recovery < 0 {
+		return alertError(e, "Período extra no puede ser negativo")
+	}
+	maxUses := parseFormInt(e, "invite_max_uses")
+	if maxUses < 1 {
+		return alertError(e, "Usos máximos de invitación debe ser al menos 1")
+	}
+	expDays := parseFormInt(e, "invite_expiration_days")
+	if expDays < 1 {
+		return alertError(e, "Días de expiración de invitación debe ser al menos 1")
+	}
 
-	if _, err := league.ParseScore(rec.GetString("walkover_score")); err != nil {
+	walkover := e.Request.FormValue("walkover_score")
+	if _, err := league.ParseScore(walkover); err != nil {
 		return alertError(e, "Marcador de incomparecencia no válido")
 	}
+
+	rec.Set("quorum_timeout_hours", quorum)
+	rec.Set("arrange_grace_days", grace)
+	rec.Set("walkover_score", walkover)
+	rec.Set("default_penalty", penalty)
+	rec.Set("recovery_days", recovery)
+	rec.Set("play_twice", e.Request.FormValue("play_twice") == "on")
+	rec.Set("gender_type", e.Request.FormValue("gender_type"))
+	rec.Set("invite_max_uses", maxUses)
+	rec.Set("invite_expiration_days", expDays)
 
 	if err := h.app.Save(rec); err != nil {
 		slog.Error("save app settings", "error", err)
