@@ -392,7 +392,7 @@ func TestPlayerAvatarUpload_ImplausibleDimensionsRejected(t *testing.T) {
 	var userID string
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "POST /player/{id}/avatar with an image wider than avatarMaxSourceDim is rejected",
+		Name:            "POST /player/{id}/avatar with an image over the max pixel count is rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"La imagen es demasiado grande"},
@@ -403,7 +403,8 @@ func TestPlayerAvatarUpload_ImplausibleDimensionsRejected(t *testing.T) {
 		userID = user.Id
 		s.URL = "/player/" + user.Id + "/avatar"
 
-		body, contentType := multipartAvatarBody(tb, testPNGBytes(tb, avatarMaxSourceDim+1, 10))
+		// 5001x5001 exceeds the 25 Mpx cap (league.avatarMaxSourcePixels).
+		body, contentType := multipartAvatarBody(tb, testPNGBytes(tb, 5001, 5001))
 		s.Body = body
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = contentType
@@ -486,6 +487,7 @@ func TestPlayerAvatarUpload_LargeImageIsResized(t *testing.T) {
 
 		cfg, _, err := image.DecodeConfig(r)
 		require.NoError(tb, err)
+		const avatarMaxDim = 400 // must match league.avatarMaxDim
 		assert.LessOrEqual(tb, cfg.Width, avatarMaxDim)
 		assert.LessOrEqual(tb, cfg.Height, avatarMaxDim)
 	}

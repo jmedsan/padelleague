@@ -1,6 +1,10 @@
 package seed
 
 import (
+	"image"
+	_ "image/jpeg"
+	"os"
+	"strings"
 	"testing"
 
 	"padelleague/hooks"
@@ -302,6 +306,49 @@ func TestSampleLeague(t *testing.T) {
 
 	for i, s := range standings {
 		t.Logf("standing %d: pair=%s pts=%d", i, s.PairName, s.Points)
+	}
+}
+
+func TestSampleLeague_AvatarsUseLiveCompressionPipeline(t *testing.T) {
+	app := newTestApp(t)
+
+	notifier := notify.NewNotifier(app, "", "")
+	svc := league.New(app, notifier)
+	hooks.Register(app, svc, notifier, nil)
+
+	require.NoError(t, SampleLeaguePartial(app, SampleOptions{
+		Players:      true,
+		Pairs:        true,
+		Competitions: true,
+		Matches:      true,
+		StaticFS:     os.DirFS(".."),
+	}))
+
+	players, err := app.FindRecordsByFilter("users", "email ~ '@padelleague.com'", "display_name", 0, 0)
+	require.NoError(t, err)
+	require.Equal(t, 8, len(players))
+
+	fsys, err := app.NewFilesystem()
+	require.NoError(t, err)
+	defer func() { _ = fsys.Close() }()
+
+	for i, p := range players {
+		avatarFile := p.GetString("avatar")
+		if i >= 5 {
+			assert.Empty(t, avatarFile, "player %d should have no seeded avatar", i+1)
+			continue
+		}
+		require.NotEmpty(t, avatarFile, "player %d should have a seeded avatar", i+1)
+		assert.True(t, strings.HasSuffix(avatarFile, ".jpg"), "seeded avatar %q should be a JPEG, matching the live upload pipeline's output format", avatarFile)
+
+		r, err := fsys.GetReader(p.BaseFilesPath() + "/" + avatarFile)
+		require.NoError(t, err)
+		cfg, format, err := image.DecodeConfig(r)
+		_ = r.Close()
+		require.NoError(t, err)
+		assert.Equal(t, "jpeg", format)
+		assert.Equal(t, 400, cfg.Width, "seeded avatar should be resized to the same 400x400 the live handler produces")
+		assert.Equal(t, 400, cfg.Height)
 	}
 }
 

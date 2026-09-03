@@ -1,6 +1,7 @@
 package seed
 
 import (
+	"bytes"
 	"fmt"
 	"io/fs"
 	"time"
@@ -107,9 +108,11 @@ func createSamplePlayers(txApp core.App, opts SampleOptions) ([]string, error) {
 		rec.Set("gender", genders[i])
 		rec.SetVerified(true)
 		if i < 5 && opts.StaticFS != nil {
-			if f, err := loadSampleAvatar(opts.StaticFS, i+1); err == nil {
-				rec.Set("avatar", f)
+			f, err := loadSampleAvatar(opts.StaticFS, i+1)
+			if err != nil {
+				return nil, fmt.Errorf("load sample avatar %d: %w", i+1, err)
 			}
+			rec.Set("avatar", f)
 		}
 		if err := txApp.Save(rec); err != nil {
 			return nil, fmt.Errorf("create player %d: %w", i+1, err)
@@ -856,11 +859,15 @@ func createSamplePlayoff(txApp core.App, pairIDs []string) error {
 	return generateSampleBracket(txApp, comp.Id, pairIDs)
 }
 
+// loadSampleAvatar reads the sample PNG for playerNum and runs it through the
+// same compression pipeline a real upload uses, so seeded avatars are the
+// same 400x400 JPEG shape a live upload produces (no divergence between seed
+// data and the live handler flow).
 func loadSampleAvatar(staticFS fs.FS, playerNum int) (*filesystem.File, error) {
 	path := fmt.Sprintf("static/img/sample-avatars/player-%d.png", playerNum)
 	data, err := fs.ReadFile(staticFS, path)
 	if err != nil {
 		return nil, err
 	}
-	return filesystem.NewFileFromBytes(data, fmt.Sprintf("avatar-player-%d.png", playerNum))
+	return league.CompressAvatarBytes(bytes.NewReader(data), fmt.Sprintf("avatar-player-%d.jpg", playerNum))
 }
