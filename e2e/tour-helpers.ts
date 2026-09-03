@@ -407,11 +407,7 @@ export async function acceptScheduleProposal(
   await setMatchDateAndClub(request, suToken, matchId, date, venueName);
   // A real accept flow also flips matches.status to "scheduled"
   // (handlers/thread.go); creating the message directly via the API does
-  // not trigger that, and league.PlayerTasks / pendingMatchTasks treats
-  // any status='pending' match with an accepted proposal as its own
-  // "Próximo partido" action — which would otherwise duplicate/shadow the
-  // separate "Próximos partidos" home-page list this helper is meant to
-  // populate (see excludeUpcomingInActions in handlers/public.go).
+  // not trigger that — the API patch alone does not flip the status.
   const patchResp = await request.patch(
     `/api/collections/matches/records/${matchId}`,
     {

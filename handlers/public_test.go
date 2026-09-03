@@ -1397,6 +1397,14 @@ func TestBuildHomeActions_NextMatchSynthesized(t *testing.T) {
 	require.Len(t, actions, 0, "confirmed match needs no action card — it shows in upcoming only")
 }
 
+func TestBuildHomeActions_TaskPlayDropped(t *testing.T) {
+	tasks := []league.PlayerTask{
+		{Kind: league.TaskPlay, MatchID: "m1", Opponent: "R", CompetitionName: "L", RoundNumber: 1},
+	}
+	actions := buildHomeActions(tasks, nil, nil, nil)
+	require.Len(t, actions, 0, "TaskPlay must be dropped — confirmed matches show in upcoming only")
+}
+
 func TestBuildHomeActions_NextMatchDedupWithTask(t *testing.T) {
 	tasks := []league.PlayerTask{
 		{Kind: league.TaskDispute, MatchID: "m1", Opponent: "R", CompetitionName: "L", RoundNumber: 1},
