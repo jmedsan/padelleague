@@ -38,7 +38,7 @@ test.describe('global search', () => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     const results = await openSearchAndType(page, testInfo, 'notificacion');
 
-    await expect(results.locator('a .text-sm.font-medium', { hasText: 'Notificaciones' })).toBeVisible({ timeout: 10000 });
+    await expect(results.locator('a .text-sm.font-medium', { hasText: 'Preferencias' })).toBeVisible({ timeout: 10000 });
   });
 
   test('player does not see admin-only entries', async ({ page }, testInfo) => {
