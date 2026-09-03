@@ -127,8 +127,8 @@ func PairsForPlayer(app core.App, userID string) ([]*core.Record, error) {
 		map[string]any{"uid": userID})
 }
 
-// PrecedentsSummary is the pair-vs-pair head-to-head record across every
-// finalized match between two pairs, in any competition.
+// PrecedentsSummary is the pair-vs-pair head-to-head record from finalized
+// matches between two pairs within a single competition.
 type PrecedentsSummary struct {
 	Pair1ID, Pair2ID     string
 	Pair1Wins, Pair2Wins int
@@ -136,15 +136,15 @@ type PrecedentsSummary struct {
 	LastScore            string
 }
 
-// Precedents finds all finalized matches between pair1ID and pair2ID across
-// every competition (excluding excludeMatchID, the match currently being
+// Precedents finds all finalized matches between pair1ID and pair2ID within
+// the given competition (excluding excludeMatchID, the match currently being
 // viewed), tallies wins for each pair, and returns the most recent meeting's
 // score. ok is false when the pairs have never played each other before.
-func Precedents(app core.App, pair1ID, pair2ID, excludeMatchID string) (summary PrecedentsSummary, ok bool) {
+func Precedents(app core.App, pair1ID, pair2ID, competitionID, excludeMatchID string) (summary PrecedentsSummary, ok bool) {
 	matches, err := app.FindRecordsByFilter("matches",
-		"status = 'final' && ((pair1 = {:p1} && pair2 = {:p2}) || (pair1 = {:p2} && pair2 = {:p1})) && id != {:exclude}",
+		"status = 'final' && competition = {:cid} && ((pair1 = {:p1} && pair2 = {:p2}) || (pair1 = {:p2} && pair2 = {:p1})) && id != {:exclude}",
 		"-date,-created", 0, 0,
-		map[string]any{"p1": pair1ID, "p2": pair2ID, "exclude": excludeMatchID})
+		map[string]any{"p1": pair1ID, "p2": pair2ID, "cid": competitionID, "exclude": excludeMatchID})
 	if err != nil || len(matches) == 0 {
 		return PrecedentsSummary{}, false
 	}
