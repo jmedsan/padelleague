@@ -75,7 +75,7 @@ func TestHomeGen2_NextMatchFromFirstPending(t *testing.T) {
 	s.Test(t)
 }
 
-func TestHomeGen2_NextMatchExcludedFromPendingDetails(t *testing.T) {
+func TestHomeGen2_NextMatchNotDuplicatedInUpcoming(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
@@ -97,19 +97,19 @@ func TestHomeGen2_NextMatchExcludedFromPendingDetails(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		assert.Equal(tb, 1, strings.Count(body, "NMDupOpp"),
-			"opponent name should appear once (in the action card), not again in the competition card's pending list")
+		assert.Equal(tb, 2, strings.Count(body, "NMDupOpp"),
+			"opponent name should appear in the action card and the upcoming section")
 	}
 	s.Test(t)
 }
 
-// Cluster 2: Pending match counting and detail cap
+// Cluster 2: Pending match counting
 
-func TestHomeGen2_PendingCountAndDetailCap(t *testing.T) {
+func TestHomeGen2_PendingCount(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "home counts pending correctly and caps details at 5",
+		Name:            "home counts pending matches correctly",
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,

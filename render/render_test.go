@@ -295,3 +295,23 @@ func TestScoreWinner(t *testing.T) {
 		})
 	}
 }
+
+func TestInitials(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, want string
+	}{
+		{"Jugador 1", "J1"},
+		{"Luis García", "LG"},
+		{"Ana", "A"},
+		{"Ñoño García", "ÑG"},
+		{"Álvaro", "Á"},
+		{"", "?"},
+		{"  ", "?"},
+		{"María del Carmen López", "ML"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, Initials(tc.name))
+		})
+	}
+}
