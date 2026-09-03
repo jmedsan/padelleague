@@ -7,7 +7,7 @@
 <div class="card bg-base-100 shadow-xl max-w-lg mb-6">
     <div class="card-body">
         <h2 class="card-title">Valores por defecto</h2>
-        <p class="text-sm opacity-70 mb-4">Valores iniciales para nuevas competiciones e invitaciones. El admin puede cambiarlos por competición al crearla.</p>
+        <p class="text-sm opacity-70 mb-4">Valores iniciales para nuevas competiciones e invitaciones. Puedes cambiarlos en cada competición al crearla.</p>
         <form hx-post="/admin/settings/defaults">
             <div class="form-control w-full">
                 <label class="label" for="settings-gender"><span class="label-text font-medium">Modalidad de género</span></label>
@@ -27,7 +27,7 @@
                 <input type="number" id="settings-grace" name="arrange_grace_days" value="{{.Settings.ArrangeGraceDays}}" min="0" class="input input-bordered w-full">
             </div>
             <div class="form-control w-full mt-3">
-                <label class="label" for="settings-walkover"><span class="label-text font-medium">Marcador incomparecencia</span></label>
+                <label class="label" for="settings-walkover"><span class="label-text font-medium">Marcador de incomparecencia</span></label>
                 <input type="text" id="settings-walkover" name="walkover_score" value="{{.Settings.WalkoverScore}}" class="input input-bordered w-full" placeholder="6-0 6-0">
             </div>
             <div class="form-control w-full mt-3">
@@ -97,7 +97,7 @@
                     <span class="label-text">Escribe <kbd class="kbd kbd-sm">DELETE</kbd> para confirmar el borrado</span>
                 </label>
                 <input type="text" id="confirm-input" name="confirm" placeholder="DELETE" autocomplete="off"
-                       class="input input-bordered input-error w-full" />
+                       class="input input-bordered w-full" />
             </div>
 
             <button id="reset-btn" type="button" disabled
