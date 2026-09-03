@@ -214,19 +214,18 @@ test.describe('reference navigation tour', () => {
     // --- Step 6: Play all 12 matches (submit + confirm) ---
     const fixtures = await mapFixturesToScores(page.request);
 
-    // Pre-schedule (propose+accept) two of pair A's fixtures so the
-    // "Próximos partidos" section has confirmed matches to display.
+    // Pre-schedule (propose+accept) pair A's first fixture so the
+    // "Próximos partidos" section has a confirmed match to display.
     const pairAFixtures = fixtures.filter(f => f.pair1Label === 'A' || f.pair2Label === 'A');
-    for (const f of pairAFixtures.slice(0, 2)) {
-      const otherLabel = f.pair1Label === 'A' ? f.pair2Label : f.pair1Label;
-      const otherEmail = playerEmailForPair(otherLabel, 0);
-      const otherId = await lookupPlayerId(page.request, suToken, otherEmail);
-      // The opponent proposes+the schedule gets accepted, so ScheduleStatus
-      // becomes "confirmed" (setMatchDateAndClub alone only patches the raw
-      // matches.date/club fields, which the home page's ScheduleStatus
-      // ignores — see applyProposalToNextMatch in handlers/public.go).
-      await acceptScheduleProposal(page.request, suToken, f.id, otherId, '2025-03-15', '18:00', 'Padel 360');
-    }
+    const scheduledFixture = pairAFixtures[0];
+    const scheduledOtherLabel = scheduledFixture.pair1Label === 'A' ? scheduledFixture.pair2Label : scheduledFixture.pair1Label;
+    const scheduledOtherEmail = playerEmailForPair(scheduledOtherLabel, 0);
+    const scheduledOtherId = await lookupPlayerId(page.request, suToken, scheduledOtherEmail);
+    // The opponent proposes+the schedule gets accepted, so ScheduleStatus
+    // becomes "confirmed" (setMatchDateAndClub alone only patches the raw
+    // matches.date/club fields, which the home page's ScheduleStatus
+    // ignores — see applyProposalToNextMatch in handlers/public.go).
+    await acceptScheduleProposal(page.request, suToken, scheduledFixture.id, scheduledOtherId, '2025-03-15', '18:00', 'Padel 360');
 
     // --- Upcoming matches section on player home ---
     await loginAs(page, PLAYERS[0].email, PLAYER_PASSWORD);
@@ -237,17 +236,16 @@ test.describe('reference navigation tour', () => {
     const upcomingRow = upcomingSection.locator('[data-testid="upcoming-match"]').first();
     await expect(upcomingRow).toBeVisible();
     await expect(upcomingRow).toContainText('15/03/2025');
-    const upcomingMatchId = pairAFixtures[1].id;
     await upcomingRow.click();
     await page.waitForLoadState('domcontentloaded');
-    expect(page.url()).toContain(`/match/${upcomingMatchId}`);
+    expect(page.url()).toContain(`/match/${scheduledFixture.id}`);
 
     for (const f of fixtures) {
       const submitterEmail = playerEmailForPair(f.pair1Label, 0);
       const confirmerEmail = playerEmailForPair(f.pair2Label, 0);
 
-      // Set date+club so score submission is enabled (a no-op for the two
-      // fixtures already scheduled above via acceptScheduleProposal).
+      // Set date+club so score submission is enabled (a no-op for the
+      // fixture already scheduled above via acceptScheduleProposal).
       await setMatchDateAndClub(page.request, suToken, f.id, '2025-03-15', 'Padel 360');
 
       // Submitter logs in, navigates to match page
@@ -361,9 +359,9 @@ test.describe('reference navigation tour', () => {
     expect(page.url()).toContain(`/player/${playerIds[0]}`);
     await expect(page.locator('h1')).toContainText(PLAYERS[0].name);
 
-    // Level tile: this player has 6 finalized league matches (>= the 5-match
-    // minimum), so the radial must show a real number, not be hidden as
-    // "not enough data".
+    // Level tile: this player has 6 finalized league matches (>= the 3-match
+    // minimum, MinMatchesForLevel in league/stats.go), so the radial must
+    // show a real number, not be hidden as "not enough data".
     const levelTile = page.locator('[data-testid="level-tile"]');
     await expect(levelTile).toBeVisible();
     const levelText = await page.locator('[data-testid="level-value"]').textContent();
