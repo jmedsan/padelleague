@@ -86,10 +86,6 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 		return e.Redirect(http.StatusFound, "/admin/competitions")
 	}
 
-	data := map[string]any{"PageTitle": "Inicio"}
-
-	activeComps := findRecordsLogged(h.app, "home: find active competitions", RecordQuery{Collection: "competitions", Filter: "active = true", Sort: "name"})
-
 	userID := e.Auth.Id
 	pairs, _ := league.PairsForPlayer(h.app, userID)
 	playerPairIDs := make(map[string]struct{}, len(pairs))
@@ -97,62 +93,20 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 		playerPairIDs[p.Id] = struct{}{}
 	}
 
-	var comps []CompetitionView
-	var nextMatch *NextMatch
-	var upcomingMatches []NextMatch
-	var pendingActions []PendingAction
-	var recentResults []MatchCard
-	var docsActions []DocsAction
-
-	for _, c := range activeComps {
-		if !h.playerInCompetition(c, playerPairIDs) {
-			continue
-		}
-		parts := h.buildHomeCompetition(c, playerPairIDs, nextMatch == nil)
-		comps = append(comps, parts.Comp)
-		if nextMatch == nil && parts.Next != nil {
-			nextMatch = parts.Next
-		}
-		upcomingMatches = append(upcomingMatches, parts.Upcoming...)
-		pendingActions = append(pendingActions, parts.Pending...)
-		recentResults = append(recentResults, parts.Recent...)
-		if len(league.UnacknowledgedMandatory(h.app, c, userID)) > 0 {
-			docsActions = append(docsActions, DocsAction{CompID: c.Id, CompName: c.GetString("name")})
-		}
-	}
-
-	sort.Slice(upcomingMatches, func(i, j int) bool {
-		return upcomingMatches[i].RoundNumber < upcomingMatches[j].RoundNumber
-	})
-
-	sort.Slice(recentResults, func(i, j int) bool {
-		return recentResults[i].Match.GetString("date") > recentResults[j].Match.GetString("date")
-	})
-	if len(recentResults) > 5 {
-		recentResults = recentResults[:5]
-	}
+	agg := h.aggregateHomeData(userID, playerPairIDs)
 
 	urgentTasks, _ := league.PlayerTasks(h.app, userID, time.Now())
-	actions := buildHomeActions(urgentTasks, pendingActions, nextMatch, docsActions)
-	excludePendingDetailsInActions(comps, actions)
+	actions := buildHomeActions(urgentTasks, agg.pending, agg.next, agg.docs)
+	excludePendingDetailsInActions(agg.comps, actions)
 
-	inActions := make(map[string]struct{}, len(actions))
-	for _, a := range actions {
-		inActions[a.MatchID] = struct{}{}
+	data := map[string]any{
+		"PageTitle":       "Inicio",
+		"Competitions":    agg.comps,
+		"CompCount":       len(agg.comps),
+		"Actions":         actions,
+		"UpcomingMatches": excludeUpcomingInActions(agg.upcoming, actions),
+		"RecentResults":   agg.recent,
 	}
-	filtered := upcomingMatches[:0]
-	for _, u := range upcomingMatches {
-		if _, dup := inActions[u.MatchID]; !dup {
-			filtered = append(filtered, u)
-		}
-	}
-	upcomingMatches = filtered
-
-	data["Competitions"] = comps
-	data["CompCount"] = len(comps)
-	data["Actions"] = actions
-	data["UpcomingMatches"] = upcomingMatches
-	data["RecentResults"] = recentResults
 
 	if slices.Contains(e.Auth.GetStringSlice("roles"), "player") {
 		if steps := h.onboardingSteps(e.Auth); len(steps) > 0 {
@@ -161,6 +115,48 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 	}
 
 	return h.renderPage(e, "home.html", data)
+}
+
+type homeAggregation struct {
+	comps    []CompetitionView
+	next     *NextMatch
+	upcoming []NextMatch
+	pending  []PendingAction
+	recent   []MatchCard
+	docs     []DocsAction
+}
+
+func (h *PublicHandler) aggregateHomeData(userID string, playerPairIDs map[string]struct{}) homeAggregation {
+	activeComps := findRecordsLogged(h.app, "home: find active competitions", RecordQuery{Collection: "competitions", Filter: "active = true", Sort: "name"})
+
+	var agg homeAggregation
+	for _, c := range activeComps {
+		if !h.playerInCompetition(c, playerPairIDs) {
+			continue
+		}
+		parts := h.buildHomeCompetition(c, playerPairIDs, agg.next == nil)
+		agg.comps = append(agg.comps, parts.Comp)
+		if agg.next == nil && parts.Next != nil {
+			agg.next = parts.Next
+		}
+		agg.upcoming = append(agg.upcoming, parts.Upcoming...)
+		agg.pending = append(agg.pending, parts.Pending...)
+		agg.recent = append(agg.recent, parts.Recent...)
+		if len(league.UnacknowledgedMandatory(h.app, c, userID)) > 0 {
+			agg.docs = append(agg.docs, DocsAction{CompID: c.Id, CompName: c.GetString("name")})
+		}
+	}
+
+	sort.Slice(agg.upcoming, func(i, j int) bool {
+		return agg.upcoming[i].RoundNumber < agg.upcoming[j].RoundNumber
+	})
+	sort.Slice(agg.recent, func(i, j int) bool {
+		return agg.recent[i].Match.GetString("date") > agg.recent[j].Match.GetString("date")
+	})
+	if len(agg.recent) > 5 {
+		agg.recent = agg.recent[:5]
+	}
+	return agg
 }
 
 // onboardingSteps returns the player onboarding checklist, or nil when every
@@ -442,6 +438,20 @@ func excludePendingDetailsInActions(comps []CompetitionView, actions []HomeActio
 		}
 		comps[i].PendingDetails = kept
 	}
+}
+
+func excludeUpcomingInActions(upcoming []NextMatch, actions []HomeAction) []NextMatch {
+	inActions := make(map[string]struct{}, len(actions))
+	for _, a := range actions {
+		inActions[a.MatchID] = struct{}{}
+	}
+	filtered := upcoming[:0]
+	for _, u := range upcoming {
+		if _, dup := inActions[u.MatchID]; !dup {
+			filtered = append(filtered, u)
+		}
+	}
+	return filtered
 }
 
 func buildHomeActions(tasks []league.PlayerTask, pending []PendingAction, next *NextMatch, docs []DocsAction) []HomeAction {
