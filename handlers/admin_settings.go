@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"fmt"
+	"html"
 	"io/fs"
 	"log/slog"
+	"net/http"
 
 	"github.com/pocketbase/pocketbase/core"
 
@@ -36,13 +38,17 @@ func (h *AdminSettingsHandler) Settings(e *core.RequestEvent) error {
 // selected level. With nothing selected it leaves a clean database of just the
 // admins. The delete/create split is inferred from the checkboxes — there is no
 // separate mode.
+//
+// The reset button's own hx-target is #reset-result; alertError/alertSuccess
+// would override it via HX-Retarget to the global #flash container, so every
+// response here is built directly instead of going through the flash helpers.
 func (h *AdminSettingsHandler) Reset(e *core.RequestEvent) error {
 	if !h.devTools {
-		return alertError(e, "No disponible en este entorno")
+		return resetResult(e, "alert-error", "No disponible en este entorno")
 	}
 
 	if e.Request.FormValue("confirm") != "DELETE" {
-		return alertError(e, "Escribe DELETE para confirmar")
+		return resetResult(e, "alert-error", "Escribe DELETE para confirmar")
 	}
 
 	// Always wipe everything (non-admin) to a clean baseline.
@@ -51,7 +57,7 @@ func (h *AdminSettingsHandler) Reset(e *core.RequestEvent) error {
 	})
 	if err != nil {
 		slog.Error("reset: wipe failed", "error", err)
-		return alertError(e, "Error al reiniciar la base de datos")
+		return resetResult(e, "alert-error", "Error al reiniciar la base de datos")
 	}
 
 	// Load example data up to the selected level (each stage requires the prior).
@@ -65,7 +71,7 @@ func (h *AdminSettingsHandler) Reset(e *core.RequestEvent) error {
 	}
 	if err := seed.SampleLeaguePartial(h.app, load); err != nil {
 		slog.Error("reset: sample load failed", "error", err)
-		return alertError(e, "Datos eliminados, pero error al cargar los datos de ejemplo")
+		return resetResult(e, "alert-error", "Datos eliminados, pero error al cargar los datos de ejemplo")
 	}
 
 	slog.Info("reset: complete", "wiped", summary.Total(),
@@ -78,5 +84,10 @@ func (h *AdminSettingsHandler) Reset(e *core.RequestEvent) error {
 	} else {
 		msg += " Base de datos vacía."
 	}
-	return alertSuccess(e, msg)
+	return resetResult(e, "alert-success", msg)
+}
+
+func resetResult(e *core.RequestEvent, class, msg string) error {
+	fragment := `<div class="` + class + ` text-sm py-2">` + html.EscapeString(msg) + `</div>`
+	return e.HTML(http.StatusOK, fragment)
 }
