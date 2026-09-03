@@ -128,6 +128,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 
 	urgentTasks, _ := league.PlayerTasks(h.app, userID, time.Now())
 	actions := buildHomeActions(urgentTasks, pendingActions, nextMatch, docsActions)
+	excludePendingDetailsInActions(comps, actions)
 
 	data["Competitions"] = comps
 	data["CompCount"] = len(comps)
@@ -395,6 +396,28 @@ func (h *PublicHandler) findRecentResults(c *core.Record, playerPairIDs map[stri
 		}
 	}
 	return results
+}
+
+// excludePendingDetailsInActions drops matches already shown as an "Acciones
+// pendientes" card from each competition's PendingDetails list, so a match
+// isn't rendered twice on the home page.
+func excludePendingDetailsInActions(comps []CompetitionView, actions []HomeAction) {
+	inActions := make(map[string]struct{}, len(actions))
+	for _, a := range actions {
+		inActions[a.MatchID] = struct{}{}
+	}
+	for i, c := range comps {
+		if len(c.PendingDetails) == 0 {
+			continue
+		}
+		kept := c.PendingDetails[:0]
+		for _, mc := range c.PendingDetails {
+			if _, dup := inActions[mc.Match.Id]; !dup {
+				kept = append(kept, mc)
+			}
+		}
+		comps[i].PendingDetails = kept
+	}
 }
 
 func buildHomeActions(tasks []league.PlayerTask, pending []PendingAction, next *NextMatch, docs []DocsAction) []HomeAction {
