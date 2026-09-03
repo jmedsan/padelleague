@@ -105,9 +105,9 @@ func checkDocGate(app core.App, e *core.RequestEvent, match *core.Record) error 
 		target := "/competition/" + compID
 		if e.Request.Header.Get("HX-Request") == "true" {
 			e.Response.Header().Set("HX-Redirect", target)
-			e.NoContent(http.StatusNoContent)
+			_ = e.NoContent(http.StatusNoContent)
 		} else {
-			e.Redirect(http.StatusFound, target)
+			_ = e.Redirect(http.StatusFound, target)
 		}
 		return errHandled
 	}
@@ -120,11 +120,11 @@ func checkCompModifiable(app core.App, e *core.RequestEvent, match *core.Record)
 	}
 	comp, err := app.FindRecordById("competitions", match.GetString("competition"))
 	if err != nil {
-		alertError(e, "Competición no encontrada")
+		_ = alertError(e, "Competición no encontrada")
 		return errHandled
 	}
 	if !league.PlayerCanModify(comp, time.Now()) {
-		alertError(e, "La competición está finalizada o archivada; no puedes modificar este partido.")
+		_ = alertError(e, "La competición está finalizada o archivada; no puedes modificar este partido.")
 		return errHandled
 	}
 	return nil
