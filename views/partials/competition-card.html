@@ -42,7 +42,7 @@
         <a href="{{.URL}}" class="flex justify-between items-start hover:opacity-70 transition-opacity">
             <h3 class="card-title text-sm">{{.Name}}</h3>
             {{if eq (.Competition.GetString "type") "league"}}
-            <span class="badge badge-primary badge-outline badge-sm">Liga</span>
+            <span class="badge badge-neutral badge-outline badge-sm">Liga</span>
             {{else}}
             <span class="badge badge-secondary badge-outline badge-sm">Playoff</span>
             {{end}}
