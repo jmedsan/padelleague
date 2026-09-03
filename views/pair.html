@@ -6,7 +6,7 @@
 <div class="card bg-neutral text-neutral-content rounded-xl mb-6">
     <div class="card-body">
         <h1 class="text-2xl font-bold">{{.Data.PairName}}</h1>
-        {{template "pairPlayers" (dict "Mode" .Mode "Player1ID" .Data.Player1.ID "Player1Name" .Data.Player1.Name "Player2ID" .Data.Player2.ID "Player2Name" .Data.Player2.Name)}}
+        {{template "pairPlayers" (dict "Mode" .Mode "Player1ID" .Data.Player1.ID "Player1Name" .Data.Player1.Name "Player1Avatar" .Data.Player1.AvatarURL "Player2ID" .Data.Player2.ID "Player2Name" .Data.Player2.Name "Player2Avatar" .Data.Player2.AvatarURL)}}
     </div>
 </div>
 

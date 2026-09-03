@@ -22,8 +22,9 @@ func NewPairPageHandler(app core.App, leagueSvc *league.Service, renderPage Rend
 }
 
 type pairPlayerLink struct {
-	ID   string
-	Name string
+	ID        string
+	Name      string
+	AvatarURL string
 }
 
 // PairPageData bundles a pair's identity and shared stats for the pair page.
@@ -49,8 +50,8 @@ func (h *PairPageHandler) PairPage(e *core.RequestEvent) error {
 	data := PairPageData{
 		Pair:     pair,
 		PairName: pair.GetString("name"),
-		Player1:  pairPlayerLink{ID: p1ID, Name: league.PlayerName(h.app, p1ID)},
-		Player2:  pairPlayerLink{ID: p2ID, Name: league.PlayerName(h.app, p2ID)},
+		Player1:  pairPlayerLink{ID: p1ID, Name: league.PlayerName(h.app, p1ID), AvatarURL: league.PlayerAvatarURL(h.app, p1ID)},
+		Player2:  pairPlayerLink{ID: p2ID, Name: league.PlayerName(h.app, p2ID), AvatarURL: league.PlayerAvatarURL(h.app, p2ID)},
 		Stats:    h.leagueSvc.Summarize([]string{id}),
 	}
 

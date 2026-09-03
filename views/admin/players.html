@@ -31,7 +31,7 @@
             <tbody>
                 {{range .Players}}
                 <tr class="hover">
-                    <td>{{template "playerCardIdentity" (dict "Mode" $.Mode "ID" .Id "Name" (.GetString "display_name") "Roles" (.GetStringSlice "roles"))}}</td>
+                    <td>{{template "playerCardIdentity" (dict "Mode" $.Mode "ID" .Id "Name" (.GetString "display_name") "Roles" (.GetStringSlice "roles") "AvatarURL" (avatarURL .Id (.GetString "avatar")))}}</td>
                     <td class="opacity-60 text-sm">{{.GetString "email"}}</td>
                     <td class="text-sm">
                         {{if eq (.GetString "gender") "male"}}Hombre
@@ -51,7 +51,7 @@
     <div class="sm:hidden divide-y divide-base-300" id="players-cards">
         {{range .Players}}
         <div class="p-3 flex flex-col gap-2">
-            {{template "playerCardIdentity" (dict "Mode" $.Mode "ID" .Id "Name" (.GetString "display_name") "Roles" (.GetStringSlice "roles"))}}
+            {{template "playerCardIdentity" (dict "Mode" $.Mode "ID" .Id "Name" (.GetString "display_name") "Roles" (.GetStringSlice "roles") "AvatarURL" (avatarURL .Id (.GetString "avatar")))}}
             <p class="text-sm opacity-60">{{.GetString "email"}}</p>
             <p class="text-sm">
                 {{if eq (.GetString "gender") "male"}}Hombre

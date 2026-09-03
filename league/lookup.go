@@ -80,6 +80,27 @@ func PlayerName(app core.App, userID string) string {
 	return user.GetString("display_name")
 }
 
+// PlayerAvatarURL returns the served URL for a user's avatar, or "" if the
+// user has none set.
+func PlayerAvatarURL(app core.App, userID string) string {
+	if userID == "" {
+		return ""
+	}
+	user, err := app.FindRecordById("users", userID)
+	if err != nil {
+		return ""
+	}
+	return AvatarURL(userID, user.GetString("avatar"))
+}
+
+// AvatarURL builds the served URL for a user's avatar file, or "" if filename is empty.
+func AvatarURL(userID, filename string) string {
+	if filename == "" {
+		return ""
+	}
+	return "/api/files/users/" + userID + "/" + filename
+}
+
 // PlayersForPair returns the user IDs of both players in a pair.
 func PlayersForPair(app core.App, pairID string) []string {
 	pair, err := app.FindRecordById("pairs", pairID)
