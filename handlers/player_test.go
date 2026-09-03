@@ -20,7 +20,7 @@ func TestGen2_PlayerProfile_FullStats(t *testing.T) {
 		Name:            "player profile shows correct partner, stats, streak, comp stats",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Dale Fuerte a la Bola"},
+		ExpectedContent: []string{"Padel League"},
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -107,7 +107,7 @@ func TestGen2_PlayerProfile_DateOrdering(t *testing.T) {
 		Name:            "player profile recent matches sorted by date descending",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Dale Fuerte a la Bola"},
+		ExpectedContent: []string{"Padel League"},
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -180,7 +180,7 @@ func TestGen2_PlayerProfile_DedupMultiPair(t *testing.T) {
 		Name:            "player on both pairs counts match once",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Dale Fuerte a la Bola"},
+		ExpectedContent: []string{"Padel League"},
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -243,7 +243,7 @@ func TestGen2_PlayerProfile_CompetitionStats(t *testing.T) {
 		Name:            "player profile shows correct per-competition stats",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Dale Fuerte a la Bola"},
+		ExpectedContent: []string{"Padel League"},
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
@@ -316,11 +316,11 @@ func TestGen2_PlayerProfile_CompetitionStats(t *testing.T) {
 		// Liga Alfa row: name, then Pos, PJ=2, PG=2, PP=0 (both pages now show
 		// ShowPosition, so the row gains a Pos cell between name and PJ).
 		assert.Contains(tb, compact,
-			`Liga Alfa</a></td> <td class="text-center">1</td> <td class="text-center">2</td> <td class="text-center text-success">2</td> <td class="text-center text-error">0</td>`,
+			`Liga Alfa</a> </span> </td> <td class="text-center">1</td> <td class="text-center">2</td> <td class="text-center text-success">2</td> <td class="text-center text-error">0</td>`,
 			"Liga Alfa row: position 1, 2 played, 2 wins, 0 losses")
 		// Liga Beta row: name, then Pos, PJ=1, PG=0, PP=1.
 		assert.Contains(tb, compact,
-			`Liga Beta</a></td> <td class="text-center">2</td> <td class="text-center">1</td> <td class="text-center text-success">0</td> <td class="text-center text-error">1</td>`,
+			`Liga Beta</a> </span> </td> <td class="text-center">2</td> <td class="text-center">1</td> <td class="text-center text-success">0</td> <td class="text-center text-error">1</td>`,
 			"Liga Beta row: position 2, 1 played, 0 wins, 1 loss")
 	}
 
@@ -336,7 +336,7 @@ func TestGen2_PlayerProfile_ZeroMatches(t *testing.T) {
 		Name:            "player with no matches shows 0% win rate",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Dale Fuerte a la Bola"},
+		ExpectedContent: []string{"Padel League"},
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {

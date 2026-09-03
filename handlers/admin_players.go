@@ -122,7 +122,7 @@ func (h *AdminPlayerHandler) PlayerPreCreate(e *core.RequestEvent) error {
 
 	resetURL := buildResetURL(e, resetToken)
 
-	notify.SendEmail(h.app, email, "Bienvenido a Dale Fuerte a la Bola",
+	notify.SendEmail(h.app, email, "Bienvenido a Padel League",
 		buildOnboardingEmail(email, resetURL))
 
 	name := displayName
@@ -213,17 +213,17 @@ func buildResetURL(e *core.RequestEvent, token string) string {
 }
 
 func buildOnboardingEmail(email, resetURL string) string {
-	return fmt.Sprintf(`<h2>Bienvenido a Dale Fuerte a la Bola</h2>
+	return fmt.Sprintf(`<h2>Bienvenido a Padel League</h2>
 <p>Se ha creado una cuenta para <strong>%s</strong>.</p>
 <p>Establece tu contraseña para acceder:</p>
 <p><a href="%s">Establecer contraseña</a></p>
-<p>— Dale Fuerte a la Bola</p>`, html.EscapeString(email), html.EscapeString(resetURL))
+<p>— Padel League</p>`, html.EscapeString(email), html.EscapeString(resetURL))
 }
 
 func buildInviteEmail(registerURL string) string {
-	return fmt.Sprintf(`<h2>Dale Fuerte a la Bola</h2>
-<p>Has sido invitado a unirte a Dale Fuerte a la Bola.</p>
+	return fmt.Sprintf(`<h2>Padel League</h2>
+<p>Has sido invitado a unirte a Padel League.</p>
 <p>Regístrate con el siguiente enlace:</p>
 <p><a href="%s">Registrarse</a></p>
-<p>— Dale Fuerte a la Bola</p>`, html.EscapeString(registerURL))
+<p>— Padel League</p>`, html.EscapeString(registerURL))
 }

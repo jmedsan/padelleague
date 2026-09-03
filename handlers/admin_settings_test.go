@@ -199,7 +199,7 @@ func TestResetLoadFullSample(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		comps, err := app.FindRecordsByFilter("competitions", "name = 'Liga de ejemplo'", "", 0, 0)
+		comps, err := app.FindRecordsByFilter("competitions", "name = 'Dale Fuerte a la Bola'", "", 0, 0)
 		require.NoError(tb, err)
 		assert.Len(tb, comps, 1, "sample competition should exist")
 
