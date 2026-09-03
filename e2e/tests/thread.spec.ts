@@ -185,4 +185,102 @@ test.describe('match thread', () => {
     // Both are pair-labeled
     await expect(page.locator('#thread-details').locator('.badge', { hasText: 'Propuesta' }).first()).toBeVisible();
   });
+
+  // Pins the ?scroll=mensajes redirect fix (fix(thread): stop stale
+  // schedule/result cards after proposal actions): PostProposal and
+  // RespondProposal must force a REAL page reload so the "Fecha y lugar"
+  // card reflects the new state without the player manually refreshing.
+  // If either redirect used #mensajes instead (a same-document hash
+  // navigation, which does not re-fetch or re-render the page), the badge
+  // assertions below would see stale content and fail — see the injected
+  // regression check at the end of this test for a live demonstration.
+  test('proposing and accepting a schedule refreshes the card without a manual reload', async ({ page }) => {
+    const data = loadTestData();
+    const adminResp = await fetch(`${BASE}/api/collections/users/records?filter=email='${ADMIN_EMAIL}'`, {
+      headers: { Authorization: suToken() },
+    });
+    const adminUser = (await adminResp.json()).items[0];
+    const freshMatch = await suPost('/api/collections/matches/records', {
+      competition: data.competitionId,
+      pair1: data.pair1Id,
+      pair2: data.pair2Id,
+      status: 'pending',
+      round_number: 52,
+    });
+    const matchId = freshMatch.id;
+
+    // --- Propose as player2 (pair1) ---
+    await loginAs(page, PLAYER2_EMAIL, PLAYER2_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await expect(page.getByText('Proponer fecha y lugar')).toBeVisible({ timeout: 10000 });
+
+    const proposalForm = page.locator('#proposal-form');
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    await proposalForm.locator('input[name="date"]').fill(tomorrow);
+    await proposalForm.locator('input[name="time"]').fill('18:00');
+    await proposalForm.locator('select[name="venue_id"]').selectOption(data.venueId);
+    await proposalForm.locator('button[type="submit"]').click();
+
+    // No manual reload — assert directly. If the redirect used a
+    // same-document hash nav, this card would still show "Pendiente"/the
+    // stale propose form.
+    await expect(page.locator('#thread-schedule').locator('.badge', { hasText: 'Propuesta' })).toBeVisible({ timeout: 10000 });
+    expect(new URL(page.url()).search).toBe(''); // ?scroll=mensajes was stripped
+
+    // --- Accept as admin (pair2) ---
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    const acceptForm = page.locator('form[hx-post*="/respond"]').filter({ has: page.locator('input[value="accept"]') }).first();
+    await acceptForm.locator('button[type="submit"]').click();
+
+    await expect(page.locator('#thread-schedule').locator('.badge', { hasText: 'Confirmada' })).toBeVisible({ timeout: 10000 });
+    expect(new URL(page.url()).search).toBe('');
+  });
+
+  // Regression demonstration for the fix above: if PostProposal's redirect
+  // used #mensajes (same-document hash nav) instead of ?scroll=mensajes (a
+  // real reload), the schedule card goes stale. Simulates that exact
+  // condition client-side — without touching handlers/thread.go — by
+  // navigating to the pre-fix URL shape ourselves and confirming the card
+  // does NOT show the fresh state, proving the assertions above are
+  // load-bearing rather than trivially always-green.
+  test('regression check: a same-document #mensajes nav after proposing leaves the card stale', async ({ page }) => {
+    const data = loadTestData();
+    const freshMatch = await suPost('/api/collections/matches/records', {
+      competition: data.competitionId,
+      pair1: data.pair1Id,
+      pair2: data.pair2Id,
+      status: 'pending',
+      round_number: 53,
+    });
+    const matchId = freshMatch.id;
+
+    await loginAs(page, PLAYER2_EMAIL, PLAYER2_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await expect(page.getByText('Proponer fecha y lugar')).toBeVisible({ timeout: 10000 });
+
+    // Land on the plain match URL first (matches what the browser is
+    // already on before any redirect), so the follow-up hash-only
+    // navigation below is a genuine same-document nav, not a real load.
+    await page.goto(`/match/${matchId}`);
+    await page.waitForLoadState('domcontentloaded');
+
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    await suPost('/api/collections/match_messages/records', {
+      match: matchId, type: 'scheduling_proposal', proposal_status: 'pending',
+      author: data.player2.id,
+      proposal_data: JSON.stringify({ date: tomorrow, time: '18:00', venue_id: data.venueId }),
+    });
+
+    // Simulate the OLD, buggy redirect target directly: same path, hash
+    // only. This is a same-document navigation in every browser (verified
+    // manually while building the fix) — it will NOT re-fetch the page.
+    await page.evaluate((url) => { window.location.href = url; }, `/match/${matchId}#mensajes`);
+    await page.waitForTimeout(500);
+
+    // The card must still show the PRE-proposal state ("Pendiente"), proving
+    // a hash-only nav does not pick up the new proposal — this is exactly
+    // the bug the ?scroll=mensajes fix avoids for PostProposal/RespondProposal.
+    await expect(page.locator('#thread-schedule').locator('.badge', { hasText: 'Propuesta' })).not.toBeVisible();
+  });
 });
