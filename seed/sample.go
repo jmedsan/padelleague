@@ -9,6 +9,10 @@ import (
 	"io/fs"
 	"time"
 
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/math/fixed"
+
 	"padelleague/league"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -881,6 +885,15 @@ func generateSampleAvatar(initials string, index int) (*filesystem.File, error) 
 			}
 		}
 	}
+	face := basicfont.Face7x13
+	w := font.MeasureString(face, initials).Ceil()
+	d := &font.Drawer{
+		Dst:  img,
+		Src:  image.White,
+		Face: face,
+		Dot:  fixed.P((size-w)/2, size/2+6),
+	}
+	d.DrawString(initials)
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
 		return nil, err
