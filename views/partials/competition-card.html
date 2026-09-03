@@ -84,16 +84,7 @@
             {{end}}
         </a>
         {{if gt .PendingCount 0}}
-        <div class="mt-3">
-            <p class="text-sm opacity-70 mb-2">{{.PendingCount}} partido{{if gt .PendingCount 1}}s{{end}} pendiente{{if gt .PendingCount 1}}s{{end}}</p>
-            {{if .PendingDetails}}
-            <div class="space-y-1">
-                {{range .PendingDetails}}
-                {{template "matchRow" .}}
-                {{end}}
-            </div>
-            {{end}}
-        </div>
+        <p class="text-sm opacity-70 mt-3">{{.PendingCount}} partido{{if gt .PendingCount 1}}s{{end}} pendiente{{if gt .PendingCount 1}}s{{end}}</p>
         {{else}}
         <p class="text-sm opacity-50 mt-3">Sin partidos pendientes</p>
         {{end}}
