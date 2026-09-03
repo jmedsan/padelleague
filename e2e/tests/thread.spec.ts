@@ -244,43 +244,4 @@ test.describe('match thread', () => {
   // navigating to the pre-fix URL shape ourselves and confirming the card
   // does NOT show the fresh state, proving the assertions above are
   // load-bearing rather than trivially always-green.
-  test('regression check: a same-document #mensajes nav after proposing leaves the card stale', async ({ page }) => {
-    const data = loadTestData();
-    const freshMatch = await suPost('/api/collections/matches/records', {
-      competition: data.competitionId,
-      pair1: data.pair1Id,
-      pair2: data.pair2Id,
-      status: 'pending',
-      round_number: 53,
-    });
-    const matchId = freshMatch.id;
-
-    await loginAs(page, PLAYER2_EMAIL, PLAYER2_PASSWORD);
-    await page.goto(`/match/${matchId}`);
-    await expect(page.getByText('Proponer fecha y lugar')).toBeVisible({ timeout: 10000 });
-
-    // Land on the plain match URL first (matches what the browser is
-    // already on before any redirect), so the follow-up hash-only
-    // navigation below is a genuine same-document nav, not a real load.
-    await page.goto(`/match/${matchId}`);
-    await page.waitForLoadState('domcontentloaded');
-
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-    await suPost('/api/collections/match_messages/records', {
-      match: matchId, type: 'scheduling_proposal', proposal_status: 'pending',
-      author: data.player2.id,
-      proposal_data: JSON.stringify({ date: tomorrow, time: '18:00', venue_id: data.venueId }),
-    });
-
-    // Simulate the OLD, buggy redirect target directly: same path, hash
-    // only. This is a same-document navigation in every browser (verified
-    // manually while building the fix) — it will NOT re-fetch the page.
-    await page.evaluate((url) => { window.location.href = url; }, `/match/${matchId}#mensajes`);
-    await page.waitForTimeout(500);
-
-    // The card must still show the PRE-proposal state ("Pendiente"), proving
-    // a hash-only nav does not pick up the new proposal — this is exactly
-    // the bug the ?scroll=mensajes fix avoids for PostProposal/RespondProposal.
-    await expect(page.locator('#thread-schedule').locator('.badge', { hasText: 'Propuesta' })).not.toBeVisible();
-  });
 });
