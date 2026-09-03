@@ -79,6 +79,8 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 		h.persistRoundSchedule(comp, roundCount)
 	}
 
+	h.leagueSvc.NotifyFixturesGenerated(compID, pairIDs)
+
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 

@@ -176,3 +176,42 @@ func NotifAdminPlayoffAdvanceFailed(matchID string) Notification {
 		MatchID: matchID,
 	}
 }
+
+// NotifMatchAssigned notifies a player that fixtures were generated for a
+// competition they're playing in.
+func NotifMatchAssigned(compName string) Notification {
+	return Notification{
+		Type:  "match_assigned",
+		Title: "Calendario disponible",
+		Body:  fmt.Sprintf("Ya tienes calendario en %s.", compName),
+	}
+}
+
+// NotifyFixturesGenerated sends a match_assigned notification to every player
+// in the given pairs, once fixtures have been generated for a competition.
+func (svc *Service) NotifyFixturesGenerated(compID string, pairIDs []string) {
+	compName := CompetitionName(svc.app, compID)
+	seen := make(map[string]struct{}, len(pairIDs)*2)
+	var players []string
+	for _, pid := range pairIDs {
+		for _, uid := range PlayersForPair(svc.app, pid) {
+			if _, ok := seen[uid]; ok {
+				continue
+			}
+			seen[uid] = struct{}{}
+			players = append(players, uid)
+		}
+	}
+	svc.notifier.NotifyPlayers(players, NotifMatchAssigned(compName))
+}
+
+// NotifMatchReminder reminds players that their match is scheduled for the
+// next day.
+func NotifMatchReminder(matchID, timeStr, venueName string) Notification {
+	return Notification{
+		Type:    "scheduling",
+		Title:   "Partido mañana",
+		Body:    fmt.Sprintf("Tu partido es mañana a las %s en %s.", timeStr, venueName),
+		MatchID: matchID,
+	}
+}
