@@ -63,7 +63,7 @@
             </div>
             <div class="flex-1 min-w-0">
                 <p class="font-medium text-sm truncate">vs <span data-testid="upcoming-opponent">{{.Opponent}}</span></p>
-                <p class="text-xs opacity-60">{{template "competitionIdentity" (dict "Name" .CompetitionName "Mode" (dict) "NoLink" true)}}{{if .DisplayDate}} · {{.DisplayDate}}{{end}}{{if .ProposedVenue}} · {{.ProposedVenue}}{{end}}</p>
+                <p class="text-xs opacity-60">{{template "competitionIdentity" (dict "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true) "NoLink" true "Small" true)}}{{if .DisplayDate}} · {{.DisplayDate}}{{end}}{{if .ProposedVenue}} · {{.ProposedVenue}}{{end}}</p>
             </div>
             {{template "scheduleStatusBadge" .ScheduleStatus}}
         </a>
@@ -83,7 +83,8 @@
         "Won" .Won
         "Date" (.Match.GetString "date")
         "CompetitionID" (.Match.GetString "competition")
-        "CompetitionName" .CompetitionName)}}
+        "CompetitionName" .CompetitionName
+        "CompetitionLogo" .CompetitionLogo)}}
     {{end}}
 </div>
 {{else if .Competitions}}

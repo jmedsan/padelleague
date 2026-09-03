@@ -18,7 +18,7 @@
    class="flex items-center gap-3 p-3 rounded-xl bg-base-200/50 hover:bg-base-200 transition-colors">
     <div class="flex-1 min-w-0">
         <p class="font-medium text-sm">{{if $item.Pair2}}{{$item.Pair1}} vs {{$item.Pair2}}{{else}}{{$item.Pair1}}{{end}}</p>
-        {{if not .HideCompetition}}<p class="text-xs opacity-60">{{template "competitionIdentity" (dict "ID" $item.CompID "Name" $item.CompName "Mode" (dict) "NoLink" true)}}{{if $item.Round}} J{{$item.Round}}{{end}}</p>{{end}}
+        {{if not .HideCompetition}}<p class="text-xs opacity-60">{{template "competitionIdentity" (dict "ID" $item.CompID "Name" $item.CompName "Mode" (dict "Row" true) "NoLink" true "Small" true)}}{{if $item.Round}} J{{$item.Round}}{{end}}</p>{{end}}
     </div>
     {{if $item.Warning}}{{template "warningBadge" $item.Warning}}{{end}}
     {{if and .ShowCategory $item.CategoryBadge}}<span class="badge badge-sm {{if $item.Urgent}}badge-soft-error{{else}}badge-soft-warning{{end}} whitespace-nowrap">{{$item.CategoryBadge}}</span>{{end}}

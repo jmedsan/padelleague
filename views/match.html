@@ -3,7 +3,7 @@
     <div class="text-sm breadcrumbs mb-4 opacity-60">
         <ul>
             <li><a href="/">Inicio</a></li>
-            <li>{{template "competitionIdentity" (dict "ID" .CompetitionID "Name" .CompetitionName "Mode" (dict))}}</li>
+            <li>{{template "competitionIdentity" (dict "ID" .CompetitionID "Name" .CompetitionName "Mode" (dict "Row" true) "Small" true)}}</li>
             <li>{{.RoundLabel}}</li>
         </ul>
     </div>

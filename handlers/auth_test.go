@@ -9,6 +9,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -87,6 +88,63 @@ func TestRegisterPage_SingleUse_Count1_Refused(t *testing.T) {
 		setupAllRoutes(tb, app, e)
 		inv := makeInviteWithUses(tb, app, 1, 1)
 		s.URL = "/register?token=" + inv.GetString("token")
+	}
+	s.Test(t)
+}
+
+// A competition-scoped invitation shows "Únete a <comp>" and, when the
+// competition has a logo, the logo hero above the wordmark (oracle B2).
+func TestRegisterPage_ShowsCompetitionName(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET register shows the scoped competition name in the subtitle",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Únete a Liga Registro"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		inv := makeInviteWithUses(tb, app, 1, 0)
+		comp, err := app.FindRecordById("competitions", inv.GetString("competition"))
+		require.NoError(tb, err)
+		comp.Set("name", "Liga Registro")
+		require.NoError(tb, app.Save(comp))
+		s.URL = "/register?token=" + inv.GetString("token")
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.NotContains(tb, body, "avatar mb-4", "no logo set: no avatar hero block should render")
+	}
+	s.Test(t)
+}
+
+// Same as above but the competition has a logo: the hero block must render.
+func TestRegisterPage_ShowsCompetitionLogo(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET register shows the competition logo hero when the competition has a logo",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Únete a Liga Logo"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		inv := makeInviteWithUses(tb, app, 1, 0)
+		comp, err := app.FindRecordById("competitions", inv.GetString("competition"))
+		require.NoError(tb, err)
+		comp.Set("name", "Liga Logo")
+		f, err := filesystem.NewFileFromBytes([]byte("fake-logo-bytes"), "logo.png")
+		require.NoError(tb, err)
+		comp.Set("logo", f)
+		require.NoError(tb, app.Save(comp))
+		s.URL = "/register?token=" + inv.GetString("token")
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "avatar mb-4", "a logo-scoped invitation must show the hero block")
+		assert.Contains(tb, body, "/api/files/competitions/", "hero image src must be a served competition file URL")
 	}
 	s.Test(t)
 }

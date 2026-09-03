@@ -27,6 +27,7 @@ type MatchCard struct {
 	Pair1Name       string
 	Pair2Name       string
 	CompetitionName string
+	CompetitionLogo string
 	RoundNum        int
 	StatusLabel     string
 	StatusClass     string
@@ -65,8 +66,10 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 	status := match.GetString("status")
 	pairNames := league.PairNames(app, []string{match.GetString("pair1"), match.GetString("pair2")})
 	competitionName := ""
+	competitionLogo := ""
 	if competition, err := app.FindRecordById("competitions", match.GetString("competition")); err == nil {
 		competitionName = competition.GetString("name")
+		competitionLogo = league.CompetitionLogoURL(competition.Id, competition.GetString("logo"))
 	}
 	c := MatchCard{
 		Mode:              mode,
@@ -74,6 +77,7 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 		Pair1Name:         pairNames[match.GetString("pair1")],
 		Pair2Name:         pairNames[match.GetString("pair2")],
 		CompetitionName:   competitionName,
+		CompetitionLogo:   competitionLogo,
 		RoundNum:          int(match.GetFloat("round_number")),
 		StatusLabel:       league.StatusLabel(status),
 		StatusClass:       statusClass(status),

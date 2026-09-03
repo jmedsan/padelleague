@@ -8,6 +8,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 
+	"padelleague/league"
 	"padelleague/middleware"
 )
 
@@ -84,10 +85,17 @@ func (h *AuthHandler) Register(e *core.RequestEvent) error {
 		})
 	}
 
-	return h.renderPage(e, "register.html", map[string]any{
+	data := map[string]any{
 		"Token":       token,
 		"InviteEmail": invite.GetString("email"),
-	})
+	}
+	if compID := invite.GetString("competition"); compID != "" {
+		if comp, err := h.app.FindRecordById("competitions", compID); err == nil {
+			data["CompetitionName"] = comp.GetString("name")
+			data["CompetitionLogo"] = league.CompetitionLogoURL(comp.Id, comp.GetString("logo"))
+		}
+	}
+	return h.renderPage(e, "register.html", data)
 }
 
 // RegisterSubmit processes the registration form and creates the user account.
