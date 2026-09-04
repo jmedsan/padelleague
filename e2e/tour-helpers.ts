@@ -242,9 +242,11 @@ export async function attachDocumentToCompetition(
   page: Page,
   docTitle: string,
 ): Promise<void> {
-  const select = page.locator('select[name="document"]');
-  await select.selectOption({ label: docTitle });
-  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Adjuntar")'));
+  // Scoped to the form: the sponsors section has an identical "Adjuntar"
+  // button for its own attach form, so an unscoped locator hits strict mode.
+  const form = page.locator('form:has(select[name="document"])');
+  await form.locator('select[name="document"]').selectOption({ label: docTitle });
+  await clickAndWaitForHxRedirect(page, form.locator('button:has-text("Adjuntar")'));
 }
 
 export async function acceptDocsGate(page: Page): Promise<void> {

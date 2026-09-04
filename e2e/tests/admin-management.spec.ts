@@ -128,7 +128,10 @@ test.describe('admin management', () => {
     await page.waitForLoadState('domcontentloaded');
 
     await expect(page.getByText('Liga E2E Test te invita a')).toBeVisible();
-    await expect(page.locator('img[src*="/api/files/competitions/"]')).toBeVisible();
+    // Scoped to main: the site footer now also renders this competition's
+    // logo (single active competition, out-of-context promotion), so the
+    // unscoped selector matches both and violates Playwright's strict mode.
+    await expect(page.locator('main img[src*="/api/files/competitions/"]')).toBeVisible();
   });
 
   test('admin can create venue', async ({ page }) => {
@@ -192,5 +195,73 @@ test.describe('admin management', () => {
     expect(options).toContain('Mixta');
     expect(options).toContain('Masculina');
     expect(options).toContain('Femenina');
+  });
+
+  test('M10: sponsor created, attached, and shown in the scoped competition footer', async ({ page }) => {
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+
+    // 1. Create a sponsor via the admin/sponsors page.
+    await page.goto('/admin/sponsors');
+    await page.waitForLoadState('domcontentloaded');
+    const sponsorName = `Test Sponsor ${Date.now()}`;
+    await page.getByRole('button', { name: /nuevo patrocinador/i }).click();
+    await page.locator('#modal-create-sponsor input[name="name"]').fill(sponsorName);
+
+    // 4x4 red JPEG, built in-memory — same approach as the competition logo
+    // upload tour assertion above, no fixture file needed on disk.
+    const sponsorJpeg = Buffer.from(
+      '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAEAAQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDk6KKK8I/Vj//Z',
+      'base64'
+    );
+    await page.setInputFiles('#modal-create-sponsor input[name="logo"]', {
+      name: 'sponsor.jpg',
+      mimeType: 'image/jpeg',
+      buffer: sponsorJpeg,
+    });
+    await page.locator('#modal-create-sponsor input[name="url"]').fill('https://example.com');
+    await Promise.all([
+      page.waitForEvent('load', { timeout: 10000 }),
+      page.locator('#modal-create-sponsor button[type="submit"]').click(),
+    ]);
+
+    // 2. The sponsor row appears in the library list.
+    const sponsorCard = page.locator('[data-testid="sponsor-card"]', { hasText: sponsorName });
+    await expect(sponsorCard).toBeVisible({ timeout: 5000 });
+
+    // 3. Navigate to the competition detail page and attach the sponsor.
+    await page.goto('/admin/competitions');
+    await page.locator('.card-title', { hasText: 'Liga E2E Test' }).first().click();
+    await page.waitForLoadState('domcontentloaded');
+    const attachSponsorForm = page.locator('form:has(select[name="sponsor"])');
+    await attachSponsorForm.locator('select[name="sponsor"]').selectOption({ label: sponsorName });
+    await Promise.all([
+      page.waitForEvent('load', { timeout: 10000 }),
+      attachSponsorForm.getByRole('button', { name: /adjuntar/i }).click(),
+    ]);
+    await expect(
+      page.locator('[data-testid="sponsor-attach-card"]', { hasText: sponsorName })
+    ).toBeVisible({ timeout: 5000 });
+
+    // 4. Reload the competition detail page — its footer is scoped to this
+    // competition (FooterCompetitionID), so the assertions below fail if
+    // either the attach or the footer rendering regresses.
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+
+    // 5. The footer shows the sponsor as a linked, alt-labeled image.
+    const sponsorLink = page.locator('footer a', { has: page.locator(`img[alt="${sponsorName}"]`) });
+    await expect(sponsorLink).toBeVisible();
+    await expect(sponsorLink).toHaveAttribute('href', 'https://example.com');
+
+    // 6. The footer shows the competition identity (logo + name), not just
+    // the ambient "active competitions" list — proof the footer is scoped.
+    await expect(page.locator('footer', { hasText: 'Liga E2E Test' })).toBeVisible();
+
+    // 7. A 404-style page (unmatched record) still renders the footer, but
+    // without this competition's identity — the out-of-context shape.
+    await page.goto('/match/does-not-exist');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('footer')).toBeVisible();
+    await expect(page.locator('footer', { hasText: sponsorName })).toHaveCount(0);
   });
 });
