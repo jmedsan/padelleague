@@ -144,6 +144,7 @@ func registerAdminSponsorRoutes(g *router.RouterGroup[*core.RequestEvent], deps 
 	sponsor := handlers.NewAdminSponsorHandler(deps.App, deps.Renderer.Page)
 	g.GET("/sponsors", sponsor.Sponsors)
 	g.POST("/sponsors", sponsor.SponsorsCreate)
+	g.POST("/sponsors/{id}", sponsor.SponsorsUpdate)
 	g.POST("/sponsors/{id}/delete", sponsor.SponsorsDelete)
 	g.POST("/competitions/{id}/attach-sponsor", sponsor.AttachSponsor)
 	g.POST("/competitions/{id}/detach-sponsor/{sponsorId}", sponsor.DetachSponsor)
