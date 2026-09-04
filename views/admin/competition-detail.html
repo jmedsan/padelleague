@@ -383,6 +383,7 @@
         </div>
         {{else}}
         {{template "emptyState" "No hay documentos adjuntos"}}
+        <p class="text-center -mt-4 mb-2"><a href="/admin/documents" class="text-xs link">Ir a documentos</a></p>
         {{end}}
 
         {{if .UnattachedDocs}}
@@ -427,6 +428,7 @@
         </div>
         {{else}}
         {{template "emptyState" "No hay patrocinadores adjuntos"}}
+        <p class="text-center -mt-4 mb-2"><a href="/admin/sponsors" class="text-xs link">Ir a patrocinadores</a></p>
         {{end}}
 
         {{if .UnattachedSponsors}}
@@ -550,6 +552,7 @@
         </div>
         {{else}}
         {{template "emptyState" "No hay invitaciones para esta competición"}}
+        <p class="text-center -mt-4 mb-2 text-xs opacity-60">Crea una invitación arriba</p>
         {{end}}
     </div>
 </div>

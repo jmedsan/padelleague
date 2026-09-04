@@ -6,11 +6,13 @@
 // Run:
 //   cd e2e/manual && npm install playwright && DISPLAY=:0 node push-error-handling.mjs
 //
-// Verifies 4 error-handling paths in static/js/push.js:
+// Verifies 5 error-handling paths in static/js/push.js:
 //   1. Subscribe POST returns non-ok → toggle reverts, error toast shown
 //   2. Subscribe POST network error  → same
 //   3. Unsubscribe POST returns non-ok → warning toast shown
 //   4. Unsubscribe POST network error  → same
+//   5. Notification.permission denied → toggle reverts, explanatory toast,
+//      no subscribe request is made
 //
 // Approach: window.fetch is mocked in the browser context before push.js
 // loads. page.route() cannot intercept fetches from a SW-controlled page,
@@ -52,7 +54,7 @@ const BASE = `http://127.0.0.1:${PORT}`;
 console.log(`Server on ${BASE}`);
 
 let passed = 0;
-const total = 4;
+const total = 5;
 function ok(name) { passed++; console.log(`  PASS — ${name}`); }
 function fail(name, detail) { console.error(`  FAIL — ${name}: ${detail}`); }
 
@@ -184,6 +186,36 @@ try {
             } catch (e) {
                 fail('unsubscribe-network', `timeout: ${e.message}`);
             }
+        }
+        await page.close();
+    }
+
+    // --- Path 5: Notification.permission denied ---
+    console.log('\n--- Path 5: notification permission denied ---');
+    {
+        const page = await context.newPage();
+        await page.addInitScript(() => {
+            Object.defineProperty(Notification, 'permission', { get: () => 'denied' });
+            Notification.requestPermission = () => Promise.resolve('denied');
+        });
+        await page.goto(BASE);
+        await page.waitForTimeout(2000);
+
+        await page.evaluate(() => { window._fetchMode = 'ok'; window._fetchLog = []; });
+        await page.click('#push-toggle');
+        try {
+            await waitForToast(page);
+            const toastText = await page.evaluate(() => document.getElementById('push-error-toast').textContent);
+            const toggleChecked = await page.isChecked('#push-toggle');
+            const log = await page.evaluate(() => window._fetchLog);
+            if (!toggleChecked && toastText.includes('bloqueadas') && log.length === 0) {
+                ok('permission-denied: toggle reverted + explanatory toast, no subscribe request made');
+            } else {
+                fail('permission-denied', `toggle=${toggleChecked}, toast="${toastText}", log=${JSON.stringify(log)}`);
+            }
+        } catch (e) {
+            const toggleChecked = await page.isChecked('#push-toggle');
+            fail('permission-denied', `timeout. toggle=${toggleChecked}, err=${e.message}`);
         }
         await page.close();
     }
