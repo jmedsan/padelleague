@@ -173,6 +173,7 @@ func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) 
 func (r *Renderer) ErrorPage(e *core.RequestEvent, statusCode int, message string) error {
 	data := map[string]any{"ErrorMessage": message}
 	r.withAuth(e, data)
+	data["Footer"] = league.FooterContext(e.App, "", "", false)
 	files := append([]string{"views/layout.html"}, r.partialFiles()...)
 	files = append(files, "views/error.html")
 	html, err := r.registry.LoadFS(r.viewsFS, files...).Render(data)

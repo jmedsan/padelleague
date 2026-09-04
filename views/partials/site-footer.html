@@ -12,14 +12,16 @@
             </div>
             {{end}}
             {{if .Competition}}
-            <a href="/competition/{{.Competition.ID}}" class="hover:opacity-80 transition-opacity sm:order-first">
-                {{if .Competition.LogoURL}}<img src="{{.Competition.LogoURL}}" alt="{{.Competition.Name}}" style="height:80px;width:auto" loading="lazy">{{end}}
+            <a href="/competition/{{.Competition.ID}}" class="flex items-center gap-3 hover:opacity-80 transition-opacity sm:order-first">
+                {{if .Competition.LogoURL}}<img src="{{.Competition.LogoURL}}" alt="{{.Competition.Name}}" class="rounded-xl" style="height:70px;width:auto" loading="lazy">{{end}}
+                <span class="text-lg font-bold">{{.Competition.Name}}</span>
             </a>
             {{else if .Active}}
             <div class="flex flex-col sm:flex-row flex-wrap justify-center items-center gap-6 sm:gap-8 sm:order-first">
                 {{range .Active}}
-                <a href="/competition/{{.ID}}" class="hover:opacity-80 transition-opacity block text-center">
-                    {{if .LogoURL}}<img src="{{.LogoURL}}" alt="{{.Name}}" style="height:70px;width:auto;display:inline-block" loading="lazy">{{end}}
+                <a href="/competition/{{.ID}}" class="flex flex-col items-center gap-1 hover:opacity-80 transition-opacity text-center">
+                    {{if .LogoURL}}<img src="{{.LogoURL}}" alt="{{.Name}}" class="rounded-xl" style="height:60px;width:auto" loading="lazy">{{end}}
+                    <span class="text-xs font-medium opacity-70">{{.Name}}</span>
                 </a>
                 {{end}}
             </div>
@@ -33,6 +35,6 @@
 
 {{define "sponsorTile"}}
 {{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener sponsor" class="hover:opacity-100 transition-opacity">
-    <img src="{{.LogoURL}}" alt="{{.Name}}" class="brightness-0 invert opacity-80" style="height:50px;width:auto" loading="lazy">
-</a>{{else}}<img src="{{.LogoURL}}" alt="{{.Name}}" class="brightness-0 invert opacity-80" style="height:50px;width:auto" loading="lazy">{{end}}
+    <img src="{{.LogoURL}}" alt="{{.Name}}" class="rounded-lg" style="height:50px;width:auto" loading="lazy">
+</a>{{else}}<img src="{{.LogoURL}}" alt="{{.Name}}" class="rounded-lg" style="height:50px;width:auto" loading="lazy">{{end}}
 {{end}}
