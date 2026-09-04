@@ -67,7 +67,7 @@
 
 {{/* matchWalkoverApprove — admin approves an incomparecencia. */}}
 {{define "matchWalkoverApprove"}}
-<form hx-post="/admin/disputes/{{.Match.Id}}/walkover-approve" hx-target="closest .card" hx-swap="outerHTML" class="mt-2">
+<form hx-post="/admin/disputes/{{.Match.Id}}/walkover-approve" hx-target="closest .card" hx-swap="outerHTML" hx-confirm="¿Aprobar esta incomparecencia? Se aplicará el resultado y la penalización configurados." class="mt-2">
     <div class="flex flex-wrap gap-3 items-end">
         <div class="form-control">
             <label class="label"><span class="label-text">Ganador</span></label>
@@ -89,7 +89,7 @@
         <input type="checkbox" class="peer">
         <div class="collapse-title font-bold text-sm uppercase tracking-wider opacity-50">Corrección de administrador</div>
         <div class="collapse-content">
-            <form hx-post="/match/{{.Match.Id}}/admin-override" hx-target="body">
+            <form hx-post="/match/{{.Match.Id}}/admin-override" hx-target="body" hx-confirm="¿Aplicar esta corrección de administrador?">
                 <div class="mb-3">
                     <label class="label py-1"><span class="label-text text-xs">Resultado</span></label>
                     {{template "scoreInput" .ScoreOverride}}

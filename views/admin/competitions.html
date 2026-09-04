@@ -88,7 +88,7 @@
     <div class="modal-box">
         <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
         <h3 class="text-lg font-bold mb-6">Nueva competición</h3>
-        <div id="create-error" class="mb-4"></div>
+        <div id="create-error" class="mb-4" aria-live="polite"></div>
         <form hx-post="/admin/competitions" hx-target="#create-error">
             <div class="form-control w-full">
                 <label class="label" for="create-comp-name"><span class="label-text font-medium">Nombre</span></label>
