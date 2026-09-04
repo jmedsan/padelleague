@@ -8,6 +8,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/pocketbase/pocketbase/tools/types"
 	"github.com/stretchr/testify/require"
 
@@ -106,6 +107,20 @@ func makeMessage(t *testing.T, app core.App, matchID, authorID, msgType, parentI
 	dt, err := types.ParseDateTime(created)
 	require.NoError(t, err)
 	record.SetRaw("created", dt)
+	require.NoError(t, app.Save(record))
+	return record
+}
+
+func makeSponsor(t *testing.T, app core.App, name, rawURL string) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("sponsors")
+	require.NoError(t, err)
+	f, err := filesystem.NewFileFromBytes([]byte("fake-png-bytes"), "logo.png")
+	require.NoError(t, err)
+	record := core.NewRecord(col)
+	record.Set("name", name)
+	record.Set("logo", f)
+	record.Set("url", rawURL)
 	require.NoError(t, app.Save(record))
 	return record
 }

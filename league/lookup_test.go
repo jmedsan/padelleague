@@ -102,6 +102,20 @@ func TestPrecedents_SortsByPlayDateNotCreationOrder(t *testing.T) {
 	assert.Equal(t, "6-3 6-4", summary.LastScore)
 }
 
+func TestSponsorLogoURL(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		sponsorID, filename, want string
+	}{
+		{"spon1", "logo.png", "/api/files/sponsors/spon1/logo.png"},
+		{"spon1", "", ""},
+	}
+	for _, tt := range tests {
+		got := SponsorLogoURL(tt.sponsorID, tt.filename)
+		assert.Equal(t, tt.want, got, "SponsorLogoURL(%q, %q)", tt.sponsorID, tt.filename)
+	}
+}
+
 func TestEntityURL(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
