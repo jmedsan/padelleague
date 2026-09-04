@@ -485,7 +485,7 @@
                         </td>
                         <td>
                             {{if eq (.GetString "status") "pending"}}
-                            <span class="badge badge-soft-warning badge-sm">Pendiente</span>
+                            <span class="badge badge-ghost badge-sm">Pendiente</span>
                             {{else if eq (.GetString "status") "used"}}
                             <span class="badge badge-soft-success badge-sm">Usada</span>
                             {{else}}
@@ -526,7 +526,7 @@
                 <div class="flex justify-between items-start gap-2">
                     <span class="text-sm font-medium">{{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="badge badge-info badge-sm">Enlace genérico</span>{{end}}</span>
                     {{if eq (.GetString "status") "pending"}}
-                    <span class="badge badge-soft-warning badge-sm">Pendiente</span>
+                    <span class="badge badge-ghost badge-sm">Pendiente</span>
                     {{else if eq (.GetString "status") "used"}}
                     <span class="badge badge-soft-success badge-sm">Usada</span>
                     {{else}}
