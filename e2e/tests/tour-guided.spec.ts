@@ -228,6 +228,7 @@ test.describe('guided navigation tour', () => {
     await goHome(page);
     await clickSetupConfigure(page, competitionId);
     await page.waitForLoadState('domcontentloaded');
+    page.once('dialog', dialog => dialog.accept());
     await clickAndWaitForHxRedirect(page, page.locator('.toggle.toggle-success'));
 
     // =======================================================================
@@ -412,6 +413,7 @@ test.describe('guided navigation tour', () => {
     await generateFixtures(page);
 
     // Activate playoff via toggle
+    page.once('dialog', dialog => dialog.accept());
     await clickAndWaitForHxRedirect(page, page.locator('.toggle.toggle-success'));
 
     // =======================================================================
