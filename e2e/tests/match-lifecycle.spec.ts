@@ -127,31 +127,62 @@ test.describe('match lifecycle', () => {
     await expect(si.locator('[name="s1b"]')).toHaveValue('3');
   });
 
-  test('match page shows precedentes strip from a prior meeting between the same pairs', async ({ page }) => {
-    const data = loadTestData();
+  test('match page shows precedentes strip from a prior meeting between the same pairs', async ({ page }, testInfo) => {
+    // Uses its own competition + pairs, not the shared seeded pair1/pair2 —
+    // Precedents() picks the most recent 'final' meeting between two pairs,
+    // so if another spec (e.g. the mobile tour) creates a later final match
+    // between the shared pairs, it silently outranks this test's fixture.
+    const suffix = `${Date.now()}-${testInfo.project.name}`;
+    const comp = await suPost('/api/collections/competitions/records', {
+      name: `Precedentes Test ${suffix}`, type: 'league', active: true,
+    });
+    const pA1 = await suPost('/api/collections/users/records', {
+      email: `prec-a1-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: `Prec A1 ${suffix}`, roles: ['player'], verified: true, gender: 'male',
+    });
+    const pA2 = await suPost('/api/collections/users/records', {
+      email: `prec-a2-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: `Prec A2 ${suffix}`, roles: ['player'], verified: true, gender: 'male',
+    });
+    const pB1 = await suPost('/api/collections/users/records', {
+      email: `prec-b1-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: `Prec B1 ${suffix}`, roles: ['player'], verified: true, gender: 'male',
+    });
+    const pB2 = await suPost('/api/collections/users/records', {
+      email: `prec-b2-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: `Prec B2 ${suffix}`, roles: ['player'], verified: true, gender: 'male',
+    });
+    const pairA = await suPost('/api/collections/pairs/records', {
+      name: `Prec Pareja A ${suffix}`, player1: pA1.id, player2: pA2.id,
+    });
+    const pairB = await suPost('/api/collections/pairs/records', {
+      name: `Prec Pareja B ${suffix}`, player1: pB1.id, player2: pB2.id,
+    });
+    await suPatch(`/api/collections/competitions/records/${comp.id}`, {
+      pairs: [pairA.id, pairB.id],
+    });
 
-    // Finalize a fresh match between pair1/pair2, distinct from the shared
-    // seeded matches other tests mutate.
+    // Finalize a prior meeting between the two dedicated pairs.
     const prior = await suPost('/api/collections/matches/records', {
-      competition: data.competitionId,
-      pair1: data.pair1Id,
-      pair2: data.pair2Id,
+      competition: comp.id,
+      pair1: pairA.id,
+      pair2: pairB.id,
       status: 'final',
       scores: '6-2 6-1',
-      winner: data.pair1Id,
+      winner: pairA.id,
       round_number: 98,
     });
 
     // A second, pending match between the same pairs — the one we view.
     const current = await suPost('/api/collections/matches/records', {
-      competition: data.competitionId,
-      pair1: data.pair1Id,
-      pair2: data.pair2Id,
+      competition: comp.id,
+      pair1: pairA.id,
+      pair2: pairB.id,
       status: 'pending',
       round_number: 97,
     });
 
-    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await loginAs(page, pA1.email, 'testpass123456');
     await page.goto(`/match/${current.id}`);
     await expect(page.getByRole('heading', { name: 'Precedentes' })).toBeVisible();
     const strip = page.locator('.card', { has: page.getByRole('heading', { name: 'Precedentes' }) });
