@@ -154,7 +154,7 @@ export async function markAllPairsPaid(page: Page): Promise<void> {
   await page.waitForLoadState('domcontentloaded');
   const btn = page.getByRole('button', { name: /marcar todos como pagado/i });
   if (await btn.count() === 0) return;
-  page.once('dialog', d => d.accept());
+
   await Promise.all([
     page.waitForResponse((r) => r.url().includes('/payment-all')),
     btn.first().click(),
@@ -202,13 +202,13 @@ export async function resolveDispute(page: Page, matchId: string, score: string)
   await scoreInput.waitFor({ state: 'visible', timeout: 3000 });
   const suffix = await scoreInput.getAttribute('data-suffix') ?? undefined;
   await enterScore(page, score, { suffix });
-  page.once('dialog', d => d.accept());
+
   await clickAndWaitForHxRedirect(page, row.locator('button:has-text("Resolver")'));
 }
 
 export async function approveWalkover(page: Page, matchId: string): Promise<void> {
   const row = page.locator(`form[hx-post*="/admin/disputes/${matchId}/walkover-approve"]`).first();
-  page.once('dialog', d => d.accept());
+
   await clickAndWaitForHxRedirect(page, row.locator('button:has-text("Aprobar")'));
 }
 
