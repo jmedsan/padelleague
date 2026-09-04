@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -108,12 +109,23 @@ func TestSponsorsCreateValidImage(t *testing.T) {
 		hdrs["Content-Type"] = w.FormDataContentType()
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
 		sponsors, err := app.FindRecordsByFilter("sponsors", "name = 'Wurko'", "", 0, 0, nil)
 		require.NoError(tb, err)
 		require.Len(tb, sponsors, 1)
 		assert.Equal(tb, "https://www.wurko.es", sponsors[0].GetString("url"))
 		assert.NotEmpty(tb, sponsors[0].GetString("logo"))
+
+		flashSet := false
+		for _, c := range res.Cookies() {
+			if c.Name == "flash_msg" {
+				flashSet = true
+				msg, err := url.QueryUnescape(c.Value)
+				require.NoError(tb, err)
+				assert.Equal(tb, "Patrocinador creado", msg)
+			}
+		}
+		assert.True(tb, flashSet, "response must set the flash_msg cookie")
 	}
 	s.Test(t)
 }

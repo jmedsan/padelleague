@@ -6,6 +6,7 @@ import (
 	"html"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"slices"
 	"time"
 
@@ -70,6 +71,25 @@ func flashAlert(e *core.RequestEvent, class, msg string) error {
 		e.Response.Header().Set("HX-Reswap", "innerHTML")
 	}
 	return e.HTML(http.StatusOK, fragment)
+}
+
+// flashCookie is the short-lived cookie a redirecting handler uses to carry a
+// success message across the redirect; render.Page reads and clears it on
+// the next request. Named apart from the users.session cookies.
+const flashCookie = "flash_msg"
+
+// flash sets a short-lived cookie carrying msg, for handlers that redirect
+// (redirectHX or e.Redirect) instead of rendering an inline alert — the
+// redirect target's next page render picks it up and clears it.
+func flash(e *core.RequestEvent, msg string) {
+	http.SetCookie(e.Response, &http.Cookie{
+		Name:     flashCookie,
+		Value:    url.QueryEscape(msg),
+		Path:     "/",
+		MaxAge:   5,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
 }
 
 // errHandled is returned by guards that have already written a response
