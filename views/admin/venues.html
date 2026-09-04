@@ -49,12 +49,12 @@
         <h3 class="text-lg font-bold mb-4">Editar club</h3>
         <form hx-post="/admin/venues/{{.Id}}" hx-target="body">
             <div class="form-control">
-                <label class="label"><span class="label-text font-medium">Nombre</span></label>
-                <input type="text" name="name" value="{{.GetString "name"}}" class="input input-bordered w-full" required>
+                <label class="label" for="edit-venue-name-{{.Id}}"><span class="label-text font-medium">Nombre</span></label>
+                <input type="text" id="edit-venue-name-{{.Id}}" name="name" value="{{.GetString "name"}}" class="input input-bordered w-full" required>
             </div>
             <div class="form-control mt-3">
-                <label class="label"><span class="label-text font-medium">Dirección</span></label>
-                <input type="text" name="address" value="{{.GetString "address"}}" class="input input-bordered w-full">
+                <label class="label" for="edit-venue-address-{{.Id}}"><span class="label-text font-medium">Dirección</span></label>
+                <input type="text" id="edit-venue-address-{{.Id}}" name="address" value="{{.GetString "address"}}" class="input input-bordered w-full">
             </div>
             <div class="modal-action">
                 <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Guardar</button>
@@ -72,12 +72,12 @@
         <div id="create-venue-error" class="mb-2" aria-live="polite"></div>
         <form hx-post="/admin/venues" hx-target="#create-venue-error">
             <div class="form-control">
-                <label class="label"><span class="label-text font-medium">Nombre</span></label>
-                <input type="text" name="name" class="input input-bordered w-full" placeholder="Nombre del club" required>
+                <label class="label" for="create-venue-name"><span class="label-text font-medium">Nombre</span></label>
+                <input type="text" id="create-venue-name" name="name" class="input input-bordered w-full" placeholder="Nombre del club" required>
             </div>
             <div class="form-control mt-3">
-                <label class="label"><span class="label-text font-medium">Dirección</span></label>
-                <input type="text" name="address" class="input input-bordered w-full" placeholder="Dirección">
+                <label class="label" for="create-venue-address"><span class="label-text font-medium">Dirección</span></label>
+                <input type="text" id="create-venue-address" name="address" class="input input-bordered w-full" placeholder="Dirección">
             </div>
             <div class="modal-action">
                 <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Crear</button>

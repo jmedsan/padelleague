@@ -41,8 +41,8 @@
         <h3 class="text-lg font-bold mb-4">Editar patrocinador</h3>
         <form hx-post="/admin/sponsors/{{.Id}}" hx-target="body" enctype="multipart/form-data">
             <div class="form-control">
-                <label class="label"><span class="label-text font-medium">Nombre</span></label>
-                <input type="text" name="name" value="{{.GetString "name"}}" class="input input-bordered w-full" required>
+                <label class="label" for="edit-sponsor-name-{{.Id}}"><span class="label-text font-medium">Nombre</span></label>
+                <input type="text" id="edit-sponsor-name-{{.Id}}" name="name" value="{{.GetString "name"}}" class="input input-bordered w-full" required>
             </div>
             <div class="form-control mt-3">
                 <label class="label"><span class="label-text font-medium">Logo</span></label>
@@ -50,8 +50,8 @@
                 <p class="text-xs opacity-50 mt-1">Deja vacío para conservar el logo actual.</p>
             </div>
             <div class="form-control mt-3">
-                <label class="label"><span class="label-text font-medium">Enlace</span></label>
-                <input type="url" name="url" value="{{.GetString "url"}}" class="input input-bordered w-full" placeholder="https://...">
+                <label class="label" for="edit-sponsor-url-{{.Id}}"><span class="label-text font-medium">Enlace</span></label>
+                <input type="url" id="edit-sponsor-url-{{.Id}}" name="url" value="{{.GetString "url"}}" class="input input-bordered w-full" placeholder="https://...">
             </div>
             <div class="modal-action">
                 <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Guardar</button>
@@ -69,16 +69,16 @@
         <div id="create-sponsor-error" class="mb-2" aria-live="polite"></div>
         <form hx-post="/admin/sponsors" hx-target="#create-sponsor-error" enctype="multipart/form-data">
             <div class="form-control">
-                <label class="label"><span class="label-text font-medium">Nombre</span></label>
-                <input type="text" name="name" class="input input-bordered w-full" placeholder="Nombre del patrocinador" required>
+                <label class="label" for="create-sponsor-name"><span class="label-text font-medium">Nombre</span></label>
+                <input type="text" id="create-sponsor-name" name="name" class="input input-bordered w-full" placeholder="Nombre del patrocinador" required>
             </div>
             <div class="form-control mt-3">
                 <label class="label"><span class="label-text font-medium">Logo</span></label>
                 <input type="file" name="logo" class="file-input file-input-bordered w-full" accept="image/*" required>
             </div>
             <div class="form-control mt-3">
-                <label class="label"><span class="label-text font-medium">Enlace</span></label>
-                <input type="url" name="url" class="input input-bordered w-full" placeholder="https://...">
+                <label class="label" for="create-sponsor-url"><span class="label-text font-medium">Enlace</span></label>
+                <input type="url" id="create-sponsor-url" name="url" class="input input-bordered w-full" placeholder="https://...">
             </div>
             <div class="modal-action">
                 <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Crear</button>
