@@ -155,6 +155,11 @@ async function gotoMatchViaCompCard(page: Page, compId: string, matchId: string)
   if (await page.getByRole('heading', { name: 'Documentos obligatorios' }).isVisible().catch(() => false)) {
     await acceptDocsGate(page);
   }
+  const jornadasTab = page.getByRole('tab', { name: 'Jornadas' });
+  if (await jornadasTab.isVisible().catch(() => false)) {
+    await jornadasTab.click();
+    await page.waitForTimeout(300);
+  }
   await page.locator(`a[href="/match/${matchId}"]`).first().click();
   await page.waitForLoadState('domcontentloaded');
 }
