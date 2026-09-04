@@ -1,13 +1,13 @@
-function urlBase64ToUint8Array(base64String) {
-    var padding = '='.repeat((4 - base64String.length % 4) % 4);
-    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    var raw = atob(base64);
-    var arr = new Uint8Array(raw.length);
-    for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-    return arr;
-}
-
 (function() {
+    function urlBase64ToUint8Array(base64String) {
+        var padding = '='.repeat((4 - base64String.length % 4) % 4);
+        var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        var raw = atob(base64);
+        var arr = new Uint8Array(raw.length);
+        for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+        return arr;
+    }
+
     var toggle = document.getElementById('push-toggle');
     if (!toggle || !window.VAPID_PUBLIC_KEY) return;
 
@@ -38,6 +38,9 @@ function urlBase64ToUint8Array(base64String) {
             Notification.requestPermission().then(function(perm) {
                 if (perm !== 'granted') {
                     toggle.checked = false;
+                    if (perm === 'denied') {
+                        showPushError('Las notificaciones están bloqueadas en el navegador. Actívalas en los ajustes del sitio para continuar.');
+                    }
                     return;
                 }
                 navigator.serviceWorker.ready.then(function(reg) {
