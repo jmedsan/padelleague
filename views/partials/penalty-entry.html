@@ -3,7 +3,7 @@
     <span class="badge badge-error badge-sm">-{{.Penalty.Amount}}</span>
     <span>{{.Penalty.Reason}}</span>
     <span class="text-base-content/60">{{.Penalty.AdminName}}, {{.Penalty.Date}}</span>
-    <form hx-post="/admin/competitions/{{.CompetitionID}}/penalty" class="inline">
+    <form hx-post="/admin/competitions/{{.CompetitionID}}/penalty" hx-confirm="¿Estás seguro?" class="inline">
         <input type="hidden" name="action" value="remove">
         <input type="hidden" name="penalty_id" value="{{.Penalty.ID}}">
         <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs btn-circle opacity-50" aria-label="quitar penalización">&#10005;</button>

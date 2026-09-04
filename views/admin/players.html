@@ -41,7 +41,7 @@
                     </td>
                     <td class="flex gap-1">
                         <label for="edit-player-{{.Id}}" class="btn btn-ghost btn-xs">Editar</label>
-                        <button class="btn btn-ghost btn-xs" hx-post="/admin/players/{{.Id}}/regenerate-link" hx-target="#regen-result" hx-swap="innerHTML">Regenerar contraseña</button>
+                        <button class="btn btn-ghost btn-xs" hx-post="/admin/players/{{.Id}}/regenerate-link" hx-target="#regen-result" hx-swap="innerHTML" hx-confirm="¿Estás seguro?" hx-disabled-elt="this">Regenerar contraseña</button>
                     </td>
                 </tr>
                 {{end}}
@@ -61,7 +61,7 @@
             </p>
             <div class="flex gap-2">
                 <label for="edit-player-{{.Id}}" class="btn btn-ghost btn-sm">Editar</label>
-                <button class="btn btn-ghost btn-sm" hx-post="/admin/players/{{.Id}}/regenerate-link" hx-target="#regen-result" hx-swap="innerHTML">Regenerar contraseña</button>
+                <button class="btn btn-ghost btn-sm" hx-post="/admin/players/{{.Id}}/regenerate-link" hx-target="#regen-result" hx-swap="innerHTML" hx-confirm="¿Estás seguro?" hx-disabled-elt="this">Regenerar contraseña</button>
             </div>
         </div>
         {{end}}
