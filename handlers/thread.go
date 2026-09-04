@@ -77,7 +77,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	pair1ID := match.GetString("pair1")
 	pair2ID := match.GetString("pair2")
 	if pair1ID == "" || pair2ID == "" {
-		return e.HTML(http.StatusOK, `<div class="text-center py-6 opacity-60">Parejas pendientes de asignacion</div>`)
+		return e.HTML(http.StatusOK, `<div class="text-center py-6 opacity-60">Parejas pendientes de asignación</div>`)
 	}
 
 	isAdmin := isEffectiveAdmin(e)

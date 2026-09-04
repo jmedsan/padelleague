@@ -100,8 +100,12 @@ func (h *AdminSponsorHandler) AttachSponsor(e *core.RequestEvent) error {
 		return alertError(e, "Competición no encontrada")
 	}
 	sponsorID := e.Request.FormValue("sponsor")
+	if _, err := h.app.FindRecordById("sponsors", sponsorID); err != nil {
+		return alertError(e, "Patrocinador no encontrado")
+	}
 	comp.Set("sponsors", league.AppendUnique(comp.GetStringSlice("sponsors"), sponsorID))
 	if err := h.app.Save(comp); err != nil {
+		slog.Error("attach sponsor", "comp", comp.Id, "sponsor", sponsorID, "err", err)
 		return alertError(e, "Error al adjuntar el patrocinador")
 	}
 	return redirectHX(e, "/admin/competitions/"+comp.Id)

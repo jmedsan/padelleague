@@ -1,6 +1,10 @@
 package league
 
-import "github.com/pocketbase/pocketbase/core"
+import (
+	"log/slog"
+
+	"github.com/pocketbase/pocketbase/core"
+)
 
 // FooterCompIdent identifies a competition in the footer.
 type FooterCompIdent struct {
@@ -32,7 +36,11 @@ func FooterContext(app core.App, compID, userID string, isAdmin bool) FooterData
 	if compID != "" {
 		return footerForComp(app, compID)
 	}
-	active, _ := app.FindRecordsByFilter("competitions", "active = true", "name", 0, 0, nil)
+	active, err := app.FindRecordsByFilter("competitions", "active = true", "name", 0, 0, nil)
+	if err != nil {
+		slog.Warn("footer: load active competitions", "err", err)
+		return FooterData{}
+	}
 	if userID != "" && !isAdmin {
 		active = filterCompetitionsForPlayer(app, active, userID)
 	}
@@ -51,7 +59,11 @@ func FooterContext(app core.App, compID, userID string, isAdmin bool) FooterData
 }
 
 func filterCompetitionsForPlayer(app core.App, comps []*core.Record, userID string) []*core.Record {
-	pairs, _ := PairsForPlayer(app, userID)
+	pairs, err := PairsForPlayer(app, userID)
+	if err != nil {
+		slog.Warn("footer: load pairs for player", "user", userID, "err", err)
+		return nil
+	}
 	pairIDs := make(map[string]struct{}, len(pairs))
 	for _, p := range pairs {
 		pairIDs[p.Id] = struct{}{}
