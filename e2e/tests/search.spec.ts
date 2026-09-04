@@ -43,18 +43,18 @@ test.describe('global search', () => {
 
   test('player does not see admin-only entries', async ({ page }, testInfo) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    const results = await openSearchAndType(page, testInfo, 'Pistas');
+    const results = await openSearchAndType(page, testInfo, 'Configuración');
 
     await expect(results).toBeVisible({ timeout: 10000 });
-    await expect(results.locator('a', { hasText: 'Pistas' })).not.toBeVisible({ timeout: 3000 });
+    await expect(results.locator('a', { hasText: 'Configuración' })).not.toBeVisible({ timeout: 3000 });
     await expect(results.getByText('No se encontraron resultados')).toBeVisible();
   });
 
   test('admin sees admin-only entries', async ({ page }, testInfo) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    const results = await openSearchAndType(page, testInfo, 'Pistas');
+    const results = await openSearchAndType(page, testInfo, 'Configuración');
 
-    await expect(results.locator('a', { hasText: 'Pistas' })).toBeVisible({ timeout: 10000 });
+    await expect(results.locator('a', { hasText: 'Configuración' })).toBeVisible({ timeout: 10000 });
   });
 
   test('search result link resolves', async ({ page }, testInfo) => {
