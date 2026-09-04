@@ -71,6 +71,9 @@ func populateSampleLeague(txApp core.App, comp *core.Record, pairIDs []string, o
 	if err := createSampleVenues(txApp); err != nil {
 		return err
 	}
+	if err := createSampleSponsor(txApp, comp, opts.StaticFS); err != nil {
+		return err
+	}
 	if err := createSampleInvitations(txApp, comp.Id); err != nil {
 		return err
 	}
@@ -872,17 +875,4 @@ func createSamplePlayoff(txApp core.App, pairIDs []string) error {
 		return fmt.Errorf("create sample playoff: %w", err)
 	}
 	return generateSampleBracket(txApp, comp.Id, pairIDs)
-}
-
-// loadSampleAvatar reads the sample PNG for playerNum and runs it through the
-// same compression pipeline a real upload uses, so seeded avatars are the
-// same 400x400 JPEG shape a live upload produces (no divergence between seed
-// data and the live handler flow).
-func loadSampleAvatar(staticFS fs.FS, playerNum int) (*filesystem.File, error) {
-	path := fmt.Sprintf("static/img/sample-avatars/player-%d.png", playerNum)
-	data, err := fs.ReadFile(staticFS, path)
-	if err != nil {
-		return nil, err
-	}
-	return league.CompressAvatarBytes(bytes.NewReader(data), fmt.Sprintf("avatar-player-%d.jpg", playerNum))
 }

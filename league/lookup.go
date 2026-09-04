@@ -112,6 +112,15 @@ func CompetitionLogoURL(compID, filename string) string {
 	return "/api/files/competitions/" + compID + "/" + filename
 }
 
+// SponsorLogoURL builds the served URL for a sponsor's logo file, or "" if
+// filename is empty.
+func SponsorLogoURL(sponsorID, filename string) string {
+	if filename == "" {
+		return ""
+	}
+	return "/api/files/sponsors/" + sponsorID + "/" + filename
+}
+
 // PlayersForPair returns the user IDs of both players in a pair.
 func PlayersForPair(app core.App, pairID string) []string {
 	pair, err := app.FindRecordById("pairs", pairID)

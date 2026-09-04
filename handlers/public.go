@@ -622,25 +622,8 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		playerPairIDs[p.Id] = struct{}{}
 	}
 
-	if league.IsParticipant(comp, playerPairIDs) {
-		if pending := league.UnacknowledgedMandatory(h.app, comp, userID); len(pending) > 0 {
-			allDocs := league.AttachedDocuments(h.app, comp)
-			mandatoryIDs := make([]string, len(pending))
-			for i, d := range pending {
-				mandatoryIDs[i] = d.Id
-			}
-			docViews := make([]DocumentView, len(allDocs))
-			for i, d := range allDocs {
-				docViews[i] = NewDocumentView(d, PlayerSummary)
-			}
-			return h.renderPage(e, "competition-docs-gate.html", map[string]any{
-				"PageTitle":     "Documentos",
-				"Competition":   comp,
-				"DocumentViews": docViews,
-				"MandatoryIDs":  mandatoryIDs,
-				"Mode":          PlayerRow,
-			})
-		}
+	if gate := h.docsGate(e, comp, userID, playerPairIDs); gate != nil {
+		return gate
 	}
 
 	matches := findRecordsLogged(h.app, "Competition: find matches", RecordQuery{
@@ -667,8 +650,36 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	data["ShowAll"] = showAll
 	data["Mode"] = PlayerSummary
 	data["OGImage"] = league.CompetitionLogoURL(comp.Id, comp.GetString("logo"))
+	data["FooterCompetitionID"] = comp.Id
 	h.addCompetitionDocViews(data, comp, userID)
 	return h.renderPage(e, "competition.html", data)
+}
+
+func (h *PublicHandler) docsGate(e *core.RequestEvent, comp *core.Record, userID string, playerPairIDs map[string]struct{}) error {
+	if !league.IsParticipant(comp, playerPairIDs) {
+		return nil
+	}
+	pending := league.UnacknowledgedMandatory(h.app, comp, userID)
+	if len(pending) == 0 {
+		return nil
+	}
+	allDocs := league.AttachedDocuments(h.app, comp)
+	mandatoryIDs := make([]string, len(pending))
+	for i, d := range pending {
+		mandatoryIDs[i] = d.Id
+	}
+	docViews := make([]DocumentView, len(allDocs))
+	for i, d := range allDocs {
+		docViews[i] = NewDocumentView(d, PlayerSummary)
+	}
+	return h.renderPage(e, "competition-docs-gate.html", map[string]any{
+		"PageTitle":           "Documentos",
+		"Competition":         comp,
+		"DocumentViews":       docViews,
+		"MandatoryIDs":        mandatoryIDs,
+		"Mode":                PlayerRow,
+		"FooterCompetitionID": comp.Id,
+	})
 }
 
 // addCompetitionDocViews sets DocumentView entries on data when the
