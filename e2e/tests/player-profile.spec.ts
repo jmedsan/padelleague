@@ -24,7 +24,7 @@ async function suPost(path: string, data: Record<string, unknown>): Promise<any>
 async function createFreshPlayer(label: string): Promise<{ email: string; password: string }> {
   const email = `avatar-${label}-${Date.now()}@test.local`;
   await suPost('/api/collections/users/records', {
-    email, display_name: `Avatar Test ${label}`,
+    email, display_name: `Foto Test ${label}`,
     gender: 'male', roles: ['player'],
     password: FRESH_PLAYER_PASSWORD, passwordConfirm: FRESH_PLAYER_PASSWORD,
     verified: true,
@@ -86,7 +86,7 @@ test.describe('player profile and stats', () => {
       // own profile (views/layout.html) — click it as a real affordance.
       // loginAs already lands on / (helpers.ts setAuthCookie navigates and
       // asserts the URL), so no extra goto is needed here.
-      await page.getByRole('link', { name: 'Avatar Test upload', exact: true }).click();
+      await page.getByRole('link', { name: 'Foto Test upload', exact: true }).click();
     }
     await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('#avatar-identity')).toBeVisible();

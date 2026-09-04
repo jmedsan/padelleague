@@ -68,10 +68,10 @@ test.describe('competition lifecycle', () => {
     // competition this test fully controls, per season-simulation.spec.ts's
     // pattern of building its own fixtures rather than trusting shared state.
     const suffix = `${testInfo.project.name}-${Date.now()}`;
-    const compName = `Standings Test ${suffix}`;
+    const compName = `Clasificación Test ${suffix}`;
     const makePlayer = async (label: string) => suPost('/api/collections/users/records', {
-      email: `standings-${label}-${suffix}@test.local`,
-      display_name: `Standings ${label} ${suffix}`,
+      email: `clasif-${label}-${suffix}@test.local`,
+      display_name: `Clasif ${label} ${suffix}`,
       gender: 'male', roles: ['player'],
       password: 'TestPass123456', passwordConfirm: 'TestPass123456',
       verified: true,
@@ -81,11 +81,11 @@ test.describe('competition lifecycle', () => {
       name: compName, type: 'league', active: true,
     });
     const pairAlpha = await suPost('/api/collections/pairs/records', {
-      name: `Pareja Standings A ${suffix}`,
+      name: `Pareja Clasif A ${suffix}`,
       player1: p1.id, player2: p2.id,
     });
     const pairBeta = await suPost('/api/collections/pairs/records', {
-      name: `Pareja Standings B ${suffix}`,
+      name: `Pareja Clasif B ${suffix}`,
       player1: p3.id, player2: p4.id,
     });
     await suPatch(`/api/collections/competitions/records/${comp.id}`, {
