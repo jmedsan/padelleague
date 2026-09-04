@@ -1,0 +1,40 @@
+{{define "siteFooter"}}
+<footer class="footer footer-center p-6 bg-neutral text-neutral-content border-t border-white/10">
+    <div class="flex flex-col items-center gap-4 w-full max-w-2xl mx-auto">
+        {{if .Competition}}
+        <a href="/competition/{{.Competition.ID}}" class="hover:opacity-80 transition-opacity">
+            {{template "competitionIdentity" (dict "ID" .Competition.ID "Name" .Competition.Name "LogoURL" .Competition.LogoURL "Mode" (dict "Full" true) "NoLink" true)}}
+        </a>
+        {{else if .Active}}
+        <p class="text-[11px] uppercase tracking-widest opacity-50">Competiciones activas</p>
+        <div class="flex flex-wrap justify-center gap-3">
+            {{range .Active}}
+            <a href="/competition/{{.ID}}" class="hover:opacity-80 transition-opacity">
+                {{template "competitionIdentity" (dict "ID" .ID "Name" .Name "LogoURL" .LogoURL "Mode" (dict "Summary" true))}}
+            </a>
+            {{end}}
+        </div>
+        {{end}}
+
+        {{if .Sponsors}}
+        <p class="text-[11px] uppercase tracking-widest opacity-50">Patrocinadores</p>
+        <div class="flex flex-wrap justify-center gap-3">
+            {{range .Sponsors}}
+            {{template "sponsorTile" .}}
+            {{end}}
+        </div>
+        {{end}}
+
+        <div class="w-full max-w-2xl h-px bg-white/10"></div>
+        <p class="text-xs opacity-50">Padel League &copy; 2026</p>
+    </div>
+</footer>
+{{end}}
+
+{{define "sponsorTile"}}
+{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener sponsor" class="bg-white/5 rounded-lg px-4 py-2 opacity-80 hover:opacity-100 transition-opacity">
+    <img src="{{.LogoURL}}" alt="{{.Name}}" class="h-8 w-auto max-w-[120px] object-contain" loading="lazy">
+</a>{{else}}<div class="bg-white/5 rounded-lg px-4 py-2 opacity-80">
+    <img src="{{.LogoURL}}" alt="{{.Name}}" class="h-8 w-auto max-w-[120px] object-contain" loading="lazy">
+</div>{{end}}
+{{end}}

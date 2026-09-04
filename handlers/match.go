@@ -106,15 +106,16 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	precedentes := buildPrecedentesView(h.app, match, mc.Pair1Name, mc.Pair2Name)
 
 	return h.renderPage(e, "match.html", map[string]any{
-		"PageTitle":       matchPageTitle(mc),
-		"Card":            mc,
-		"CompetitionName": compName,
-		"CompetitionID":   compID,
-		"RoundLabel":      roundLabel,
-		"ShareText":       shareText,
-		"ShareURL":        shareURL,
-		"Precedentes":     precedentes,
-		"OGImage":         mc.CompetitionLogo,
+		"PageTitle":           matchPageTitle(mc),
+		"Card":                mc,
+		"CompetitionName":     compName,
+		"CompetitionID":       compID,
+		"RoundLabel":          roundLabel,
+		"ShareText":           shareText,
+		"ShareURL":            shareURL,
+		"Precedentes":         precedentes,
+		"OGImage":             mc.CompetitionLogo,
+		"FooterCompetitionID": compID,
 	})
 }
 

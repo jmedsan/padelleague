@@ -150,6 +150,8 @@ func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) 
 		data = map[string]any{}
 	}
 	r.withAuth(e, data)
+	compID, _ := data["FooterCompetitionID"].(string)
+	data["Footer"] = league.FooterContext(e.App, compID)
 	files := append([]string{"views/layout.html"}, r.partialFiles()...)
 	files = append(files, "views/"+page)
 	html, err := r.registry.LoadFS(r.viewsFS, files...).Render(data)
