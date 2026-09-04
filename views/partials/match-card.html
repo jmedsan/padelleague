@@ -203,7 +203,7 @@
     </div>
     <div class="flex-1 min-w-0">
         <p class="font-medium text-sm truncate">vs <span data-testid="upcoming-opponent">{{.Opponent}}</span></p>
-        <p class="text-xs opacity-60">{{template "competitionIdentity" (dict "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true) "NoLink" true "Small" true)}}{{if .DisplayDate}} · {{.DisplayDate}}{{end}}{{if .ProposedVenue}} · {{.ProposedVenue}}{{end}}</p>
+        <p class="text-xs opacity-60">{{template "competitionIdentity" (dict "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true) "NoLink" true "Small" true)}}{{if .DisplayDate}} · <span class="whitespace-nowrap">{{.DisplayDate}}</span>{{end}}{{if .ProposedVenue}} · {{.ProposedVenue}}{{end}}</p>
     </div>
     {{template "scheduleStatusBadge" .ScheduleStatus}}
 </a>
@@ -287,9 +287,8 @@
     {{if .ResultPanel.HasFinal}}
     {{/* State: FINAL / accepted */}}
     <div class="card bg-success/10 border border-success/20 rounded-xl">
-        <div class="card-body p-4 text-center">
-            <p class="text-2xl font-black tracking-wide my-2">{{.ResultPanel.FinalScore}}</p>
-            {{if .ResultPanel.WinnerName}}<p class="text-sm font-medium text-success">Ganador: {{.ResultPanel.WinnerName}}</p>{{end}}
+        <div class="card-body p-4">
+            {{template "resultBox" (dict "Score" .ResultPanel.FinalScore "Pair1Name" $c.Pair1Name "Pair2Name" $c.Pair2Name)}}
         </div>
     </div>
 
