@@ -1,6 +1,37 @@
 import { test, expect } from '@playwright/test';
 import { loginAs, loadTestData, isMobile, openDrawer, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
+const BASE = 'http://localhost:8099';
+const FRESH_PLAYER_PASSWORD = 'TestPass123456';
+
+function suToken(): string {
+  return loadTestData().adminToken;
+}
+
+async function suPost(path: string, data: Record<string, unknown>): Promise<any> {
+  const resp = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: suToken() },
+    body: JSON.stringify(data),
+  });
+  if (!resp.ok) throw new Error(`suPost ${path}: ${resp.status} ${await resp.text()}`);
+  return resp.json();
+}
+
+// createFreshPlayer makes a player who has never uploaded an avatar, so the
+// "placeholder" assertion below is not racing the mobile tour project (which
+// runs first in the shared suite and uploads an avatar for PLAYER1).
+async function createFreshPlayer(label: string): Promise<{ email: string; password: string }> {
+  const email = `avatar-${label}-${Date.now()}@test.local`;
+  await suPost('/api/collections/users/records', {
+    email, display_name: `Avatar Test ${label}`,
+    gender: 'male', roles: ['player'],
+    password: FRESH_PLAYER_PASSWORD, passwordConfirm: FRESH_PLAYER_PASSWORD,
+    verified: true,
+  });
+  return { email, password: FRESH_PLAYER_PASSWORD };
+}
+
 test.describe('player profile and stats', () => {
   test('player can view own profile with stats', async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
@@ -40,7 +71,13 @@ test.describe('player profile and stats', () => {
   });
 
   test('player can upload their own avatar photo', async ({ page }) => {
-    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    // Fresh player: the shared seed's PLAYER1 already has an avatar by the
+    // time mobile runs before desktop (mobile tour uploads one), so the
+    // "starts as placeholder" assertion needs a player this test fully
+    // controls, per season-simulation.spec.ts's pattern of not trusting
+    // shared seed state.
+    const player = await createFreshPlayer('upload');
+    await loginAs(page, player.email, player.password);
     if (isMobile(page)) {
       await openDrawer(page);
       await page.locator('.drawer-side a', { hasText: 'Mi perfil' }).click();
@@ -49,7 +86,7 @@ test.describe('player profile and stats', () => {
       // own profile (views/layout.html) — click it as a real affordance.
       // loginAs already lands on / (helpers.ts setAuthCookie navigates and
       // asserts the URL), so no extra goto is needed here.
-      await page.getByRole('link', { name: 'Test Player', exact: true }).click();
+      await page.getByRole('link', { name: 'Avatar Test upload', exact: true }).click();
     }
     await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('#avatar-identity')).toBeVisible();
