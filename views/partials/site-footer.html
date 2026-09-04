@@ -1,34 +1,50 @@
 {{define "siteFooter"}}
-<footer class="bg-neutral text-neutral-content border-t border-white/10 px-6 py-8">
-    <div class="max-w-5xl mx-auto flex flex-col items-center gap-6">
-        <div class="flex flex-wrap items-center justify-center gap-8 sm:gap-12">
-            {{if .Competition}}
-            <a href="/competition/{{.Competition.ID}}" class="hover:opacity-80 transition-opacity">
-                {{if .Competition.LogoURL}}<div class="avatar"><div class="w-20 sm:w-24 rounded-xl"><img src="{{.Competition.LogoURL}}" alt="{{.Competition.Name}}" loading="lazy"></div></div>{{end}}
-            </a>
-            {{else if .Active}}
-            {{range .Active}}
-            <a href="/competition/{{.ID}}" class="hover:opacity-80 transition-opacity">
-                {{if .LogoURL}}<span class="avatar"><span class="w-16 sm:w-20 rounded-xl"><img src="{{.LogoURL}}" alt="{{.Name}}" loading="lazy"></span></span>{{end}}
-            </a>
-            {{end}}
-            {{end}}
-            {{if .Sponsors}}
+{{if .Competition}}
+<div class="border-t border-base-300" style="background: #ffffff">
+    <div class="max-w-5xl mx-auto px-6 py-6 sm:py-10 flex items-center justify-center gap-8 sm:gap-12">
+        <a href="/competition/{{.Competition.ID}}" class="hover:opacity-80 transition-opacity">
+            {{if .Competition.LogoURL}}<div class="avatar"><div class="w-24 sm:w-32 rounded-[20px]"><img src="{{.Competition.LogoURL}}" alt="{{.Competition.Name}}" loading="lazy"></div></div>{{end}}
+        </a>
+        {{if .Sponsors}}
+        <div class="flex items-center gap-8 sm:gap-12">
             {{range .Sponsors}}
-            <div class="flex flex-col items-center gap-1">
-                <span class="text-[10px] uppercase tracking-widest opacity-40">Patrocinado por</span>
+            <div class="flex flex-col items-center gap-1.5">
+                <span class="text-xs uppercase tracking-widest font-medium" style="color: rgba(0,0,0,0.5)">Patrocinado por</span>
                 {{template "sponsorTile" .}}
             </div>
             {{end}}
+        </div>
+        {{end}}
+    </div>
+</div>
+{{else if .Active}}
+<div class="border-t border-base-300" style="background: #ffffff">
+    <div class="max-w-5xl mx-auto px-6 py-6 sm:py-8 flex items-center justify-center gap-8 sm:gap-12">
+        <div class="flex flex-wrap justify-center items-center gap-6">
+            {{range .Active}}
+            <a href="/competition/{{.ID}}" class="hover:opacity-80 transition-opacity">
+                {{if .LogoURL}}<span class="avatar"><span class="w-20 sm:w-24 rounded-xl"><img src="{{.LogoURL}}" alt="{{.Name}}" loading="lazy"></span></span>{{end}}
+            </a>
             {{end}}
         </div>
-        <p class="text-xs opacity-40">Padel League &copy; 2026</p>
+        {{if .Sponsors}}
+        <div class="flex items-center gap-8 sm:gap-12">
+            {{range .Sponsors}}
+            <div class="flex flex-col items-center gap-1.5">
+                <span class="text-xs uppercase tracking-widest font-medium" style="color: rgba(0,0,0,0.5)">Patrocinado por</span>
+                {{template "sponsorTile" .}}
+            </div>
+            {{end}}
+        </div>
+        {{end}}
     </div>
-</footer>
+</div>
+{{end}}
+<div class="bg-neutral text-neutral-content text-center text-xs opacity-50 px-6 py-3">Padel League &copy; 2026</div>
 {{end}}
 
 {{define "sponsorTile"}}
-{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener sponsor" class="hover:opacity-100 transition-opacity">
-    <img src="{{.LogoURL}}" alt="{{.Name}}" class="h-12 sm:h-16 w-auto max-w-[200px] sm:max-w-[280px] object-contain brightness-0 invert opacity-70" loading="lazy">
-</a>{{else}}<img src="{{.LogoURL}}" alt="{{.Name}}" class="h-12 sm:h-16 w-auto max-w-[200px] sm:max-w-[280px] object-contain brightness-0 invert opacity-70" loading="lazy">{{end}}
+{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener sponsor" class="hover:opacity-80 transition-opacity">
+    <img src="{{.LogoURL}}" alt="{{.Name}}" class="h-16 sm:h-20 w-auto max-w-[160px] sm:max-w-[280px] object-contain" loading="lazy">
+</a>{{else}}<img src="{{.LogoURL}}" alt="{{.Name}}" class="h-16 sm:h-20 w-auto max-w-[160px] sm:max-w-[280px] object-contain" loading="lazy">{{end}}
 {{end}}
