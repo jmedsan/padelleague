@@ -13,13 +13,13 @@
             {{end}}
             {{if .Competition}}
             <a href="/competition/{{.Competition.ID}}" class="hover:opacity-80 transition-opacity sm:order-first">
-                {{if .Competition.LogoURL}}<img src="{{.Competition.LogoURL}}" alt="{{.Competition.Name}}" class="rounded-xl" style="height:70px;width:auto" loading="lazy">{{end}}
+                {{if .Competition.LogoURL}}<img src="{{.Competition.LogoURL}}" alt="{{.Competition.Name}}" class="rounded-xl" style="height:70px;width:auto" loading="lazy">{{else}}<span class="text-sm font-semibold opacity-70">{{.Competition.Name}}</span>{{end}}
             </a>
             {{else if .Active}}
             <div class="flex flex-col sm:flex-row flex-wrap justify-center items-center gap-6 sm:gap-8 sm:order-first">
                 {{range .Active}}
-                <a href="/competition/{{.ID}}" class="hover:opacity-80 transition-opacity">
-                    {{if .LogoURL}}<img src="{{.LogoURL}}" alt="{{.Name}}" class="rounded-xl" style="height:60px;width:auto" loading="lazy">{{end}}
+                <a href="/competition/{{.ID}}" class="hover:opacity-80 transition-opacity text-center">
+                    {{if .LogoURL}}<img src="{{.LogoURL}}" alt="{{.Name}}" class="rounded-xl" style="height:60px;width:auto" loading="lazy">{{else}}<span class="text-sm font-semibold opacity-70">{{.Name}}</span>{{end}}
                 </a>
                 {{end}}
             </div>
