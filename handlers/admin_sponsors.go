@@ -57,7 +57,7 @@ func (h *AdminSponsorHandler) SponsorsCreate(e *core.RequestEvent) error {
 
 	record := core.NewRecord(col)
 
-	f, errMsg := compressAvatar(fh, record.Id+"_logo.jpg")
+	f, errMsg := compressLogo(fh, record.Id+"_logo.jpg")
 	if errMsg != "" {
 		return alertError(e, errMsg)
 	}

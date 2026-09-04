@@ -66,6 +66,29 @@ func (h *PlayerHandler) PlayerAvatarUpload(e *core.RequestEvent) error {
 // compressAvatar opens the uploaded multipart file and runs it through
 // league.CompressAvatarBytes, translating failures into user-facing Spanish
 // messages instead of raw errors.
+func compressLogo(fh *multipart.FileHeader, filename string) (*filesystem.File, string) {
+	src, err := fh.Open()
+	if err != nil {
+		return nil, "No se pudo leer la imagen"
+	}
+	defer func() { _ = src.Close() }()
+
+	f, err := league.CompressLogoBytes(src, filename)
+	if err != nil {
+		switch {
+		case errors.Is(err, league.ErrAvatarTooLarge):
+			return nil, "La imagen es demasiado grande"
+		case errors.Is(err, league.ErrAvatarInvalid):
+			return nil, "Imagen no válida"
+		case errors.Is(err, league.ErrAvatarUnreadable):
+			return nil, "No se pudo leer la imagen"
+		default:
+			return nil, "Error al procesar la imagen"
+		}
+	}
+	return f, ""
+}
+
 func compressAvatar(fh *multipart.FileHeader, filename string) (*filesystem.File, string) {
 	src, err := fh.Open()
 	if err != nil {
