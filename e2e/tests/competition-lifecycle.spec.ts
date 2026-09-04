@@ -67,7 +67,7 @@ test.describe('competition lifecycle', () => {
     // dot count is not a fixed "1" — asserting on it needs a fresh
     // competition this test fully controls, per season-simulation.spec.ts's
     // pattern of building its own fixtures rather than trusting shared state.
-    const suffix = `${testInfo.project.name}-${Date.now()}`;
+    const suffix = `${testInfo.project.name.charAt(0)}${Date.now() % 100000}`;
     const compName = `Clasificación Test ${suffix}`;
     const makePlayer = async (label: string) => suPost('/api/collections/users/records', {
       email: `clasif-${label}-${suffix}@test.local`,

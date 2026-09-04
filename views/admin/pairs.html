@@ -14,7 +14,7 @@
     {{range .Pairs}}
     <div class="card bg-base-100 shadow-sm border border-base-300">
         <div class="card-body p-5">
-            <h2 class="card-title text-base">{{.Record.GetString "name"}}</h2>
+            <h2 class="card-title text-base break-words min-w-0">{{.Record.GetString "name"}}</h2>
             {{template "pairPlayers" (dict "Mode" $.Mode "Player1ID" (.Record.GetString "player1") "Player1Name" .Player1 "Player1Avatar" .Player1Avatar "Player2ID" (.Record.GetString "player2") "Player2Name" .Player2 "Player2Avatar" .Player2Avatar)}}
             <div class="card-actions justify-end mt-3">
                 <button class="btn btn-ghost btn-sm" onclick="openEditPair('{{.Record.Id}}', '{{.Record.GetString "name"}}', '{{.Record.GetString "player1"}}', '{{.Record.GetString "player2"}}')">
