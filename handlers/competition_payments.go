@@ -35,6 +35,7 @@ func (h *CompetitionPaymentsHandler) TogglePayment(e *core.RequestEvent) error {
 		return alertError(e, "Error al cambiar el estado de pago")
 	}
 
+	flash(e, "Pago registrado")
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
@@ -57,6 +58,7 @@ func (h *CompetitionPaymentsHandler) TogglePaymentAll(e *core.RequestEvent) erro
 		return alertError(e, "Error al guardar")
 	}
 
+	flash(e, "Todos marcados como pagados")
 	return redirectHX(e, "/admin/competitions/"+id)
 }
 

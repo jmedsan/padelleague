@@ -100,6 +100,7 @@ func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 			buildInviteEmail(registerURL))
 	}
 
+	flash(e, "Invitación creada")
 	return redirectHX(e, "/admin/competitions/"+competition)
 }
 
@@ -137,6 +138,7 @@ func (h *InvitationHandler) InvitationsRevoke(e *core.RequestEvent) error {
 		return alertError(e, "Error al revocar la invitación")
 	}
 
+	flash(e, "Invitación revocada")
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 

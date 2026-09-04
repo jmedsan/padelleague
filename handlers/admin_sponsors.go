@@ -146,6 +146,7 @@ func (h *AdminSponsorHandler) AttachSponsor(e *core.RequestEvent) error {
 		slog.Error("attach sponsor", "comp", comp.Id, "sponsor", sponsorID, "err", err)
 		return alertError(e, "Error al adjuntar el patrocinador")
 	}
+	flash(e, "Patrocinador adjuntado")
 	return redirectHX(e, "/admin/competitions/"+comp.Id)
 }
 
@@ -160,5 +161,6 @@ func (h *AdminSponsorHandler) DetachSponsor(e *core.RequestEvent) error {
 	if err := h.app.Save(comp); err != nil {
 		return alertError(e, "Error al quitar el patrocinador")
 	}
+	flash(e, "Patrocinador desvinculado")
 	return redirectHX(e, "/admin/competitions/"+comp.Id)
 }

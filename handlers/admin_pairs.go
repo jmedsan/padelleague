@@ -81,6 +81,7 @@ func (h *PairHandler) PairsCreate(e *core.RequestEvent) error {
 		return alertError(e, "Error al crear la pareja")
 	}
 
+	flash(e, "Pareja creada")
 	return redirectHX(e, "/admin/pairs")
 }
 
@@ -110,5 +111,6 @@ func (h *PairHandler) PairsUpdate(e *core.RequestEvent) error {
 		return alertError(e, "Error al actualizar la pareja")
 	}
 
+	flash(e, "Pareja actualizada")
 	return redirectHX(e, "/admin/pairs")
 }
