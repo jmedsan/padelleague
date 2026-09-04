@@ -1,24 +1,27 @@
 {{/* competitionIdentity — ONE component for rendering a competition's name
      (with an optional logo) across every surface, three size presets driven
      by the standard Mode:
-       - Mode.Full    (header): 56px logo, name as a text-3xl h1.
+       - Mode.Full    (header): 56px logo, name as a text-3xl heading.
        - Mode.Row     (compact list rows): 20px logo inline before the
          linked name; set Small on text-xs lines for a 16px logo instead.
        - default/Summary (cards): 32px logo inline before the name.
+     Hero modifier (footer): stacks vertically with larger logo and centered
+     text. Full+Hero = 80/96px logo + text-2xl/3xl name; Summary+Hero =
+     56/64px logo + text-sm name in a fixed-width tile.
      No placeholder icon when LogoURL is empty — just the name. Set NoLink
      when the caller already wraps the whole thing in its own <a> (e.g. a
      card link) — nesting <a> tags is invalid HTML. */}}
 {{define "competitionIdentity"}}
 {{if .Mode.Full}}
-<div class="flex items-center gap-4">
+<div class="flex {{if .Hero}}flex-col text-center gap-4{{else}}items-center gap-4{{end}}">
     {{if .LogoURL}}
-    <div class="avatar">
-        <div class="w-14 rounded-xl ring-1 ring-white/10">
+    <div class="avatar{{if .Hero}} mx-auto{{end}}">
+        <div class="{{if .Hero}}w-20 sm:w-24 rounded-2xl{{else}}w-14 rounded-xl{{end}} ring-1 ring-white/10">
             <img src="{{.LogoURL}}" alt="{{.Name}}" loading="lazy">
         </div>
     </div>
     {{end}}
-    <h1 class="text-3xl font-bold">{{.Name}}</h1>
+    {{if .Hero}}<span class="text-2xl sm:text-3xl font-bold tracking-tight">{{.Name}}</span>{{else}}<h1 class="text-3xl font-bold">{{.Name}}</h1>{{end}}
 </div>
 {{else if .Mode.Row}}
 <span class="inline-flex items-center gap-1.5">
@@ -32,7 +35,16 @@
     {{if and .ID (not .NoLink)}}<a href="{{competitionURL .ID}}" class="link link-hover">{{.Name}}</a>{{else}}{{.Name}}{{end}}
 </span>
 {{else}}
-<span class="inline-flex items-center gap-3">
+{{if .Hero}}<span class="flex flex-col items-center gap-2.5 w-40 text-center">
+    {{if .LogoURL}}
+    <span class="avatar">
+        <span class="w-14 sm:w-16 rounded-xl ring-1 ring-white/10">
+            <img src="{{.LogoURL}}" alt="{{.Name}}" loading="lazy">
+        </span>
+    </span>
+    {{end}}
+    <span class="text-sm font-semibold leading-5">{{if and .ID (not .NoLink)}}<a href="{{competitionURL .ID}}" class="link link-hover">{{.Name}}</a>{{else}}{{.Name}}{{end}}</span>
+</span>{{else}}<span class="inline-flex items-center gap-3">
     {{if .LogoURL}}
     <span class="avatar">
         <span class="w-8 rounded-lg">
@@ -41,6 +53,6 @@
     </span>
     {{end}}
     {{if and .ID (not .NoLink)}}<a href="{{competitionURL .ID}}" class="link link-hover">{{.Name}}</a>{{else}}{{.Name}}{{end}}
-</span>
+</span>{{end}}
 {{end}}
 {{end}}
