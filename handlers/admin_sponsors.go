@@ -74,6 +74,44 @@ func (h *AdminSponsorHandler) SponsorsCreate(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/sponsors")
 }
 
+// SponsorsUpdate handles POST to modify an existing sponsor's name, url, and
+// optionally its logo.
+func (h *AdminSponsorHandler) SponsorsUpdate(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	record, err := h.app.FindRecordById("sponsors", id)
+	if err != nil {
+		return alertError(e, "Patrocinador no encontrado")
+	}
+
+	name := strings.TrimSpace(e.Request.FormValue("name"))
+	if name == "" {
+		return alertError(e, "El nombre es obligatorio")
+	}
+	record.Set("name", name)
+	record.Set("url", e.Request.FormValue("url"))
+
+	if fh := fileHeader(e, "logo"); fh != nil {
+		if !strings.HasPrefix(fh.Header.Get("Content-Type"), "image/") {
+			return alertError(e, "El archivo debe ser una imagen")
+		}
+		if fh.Size > avatarMaxUploadSize {
+			return alertError(e, "La imagen no puede superar los 5 MB")
+		}
+		f, errMsg := compressLogo(fh, "sponsor_logo.jpg")
+		if errMsg != "" {
+			return alertError(e, errMsg)
+		}
+		record.Set("logo", f)
+	}
+
+	if err := h.app.Save(record); err != nil {
+		slog.Error("update sponsor failed", "err", err)
+		return alertError(e, "Error al guardar el patrocinador")
+	}
+
+	return redirectHX(e, "/admin/sponsors")
+}
+
 // SponsorsDelete handles POST to remove a sponsor from the library.
 func (h *AdminSponsorHandler) SponsorsDelete(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")

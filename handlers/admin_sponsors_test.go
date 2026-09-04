@@ -31,6 +31,7 @@ func setupSponsorRoutes(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.BindFunc(requireAdminTest)
 	g.GET("/sponsors", sponsor.Sponsors)
 	g.POST("/sponsors", sponsor.SponsorsCreate)
+	g.POST("/sponsors/{id}", sponsor.SponsorsUpdate)
 	g.POST("/sponsors/{id}/delete", sponsor.SponsorsDelete)
 	g.POST("/competitions/{id}/attach-sponsor", sponsor.AttachSponsor)
 	g.POST("/competitions/{id}/detach-sponsor/{sponsorId}", sponsor.DetachSponsor)
@@ -208,6 +209,113 @@ func TestSponsorsCreateNonImageRejected(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		sponsors, _ := app.FindRecordsByFilter("sponsors", "name = 'NotAnImage'", "", 0, 0, nil)
 		assert.Empty(tb, sponsors)
+	}
+	s.Test(t)
+}
+
+func TestSponsorsUpdateNameAndURL(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/sponsors/{id} updates name and url, keeping the logo",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var sponsorID, origLogo string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSponsorRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		sponsor := makeSponsorTB(tb, app, "Old Name", "https://old.com")
+		sponsorID = sponsor.Id
+		origLogo = sponsor.GetString("logo")
+		require.NotEmpty(tb, origLogo)
+
+		var buf bytes.Buffer
+		w := multipart.NewWriter(&buf)
+		require.NoError(tb, w.WriteField("name", "New Name"))
+		require.NoError(tb, w.WriteField("url", "https://new.com"))
+		require.NoError(tb, w.Close())
+
+		s.URL = "/admin/sponsors/" + sponsor.Id
+		s.Body = &buf
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = w.FormDataContentType()
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		sponsor, err := app.FindRecordById("sponsors", sponsorID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "New Name", sponsor.GetString("name"))
+		assert.Equal(tb, "https://new.com", sponsor.GetString("url"))
+		assert.Equal(tb, origLogo, sponsor.GetString("logo"), "logo must be unchanged when no new file is uploaded")
+	}
+	s.Test(t)
+}
+
+func TestSponsorsUpdateReplacesLogo(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/sponsors/{id} with a new logo replaces the file",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var sponsorID, origLogo string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSponsorRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		sponsor := makeSponsorTB(tb, app, "Logo Swap", "https://swap.com")
+		sponsorID = sponsor.Id
+		origLogo = sponsor.GetString("logo")
+		require.NotEmpty(tb, origLogo)
+
+		var buf bytes.Buffer
+		w := multipart.NewWriter(&buf)
+		require.NoError(tb, w.WriteField("name", "Logo Swap"))
+		part, err := createFormImagePart(w, "logo", "new-logo.png")
+		require.NoError(tb, err)
+		_, err = part.Write(testPNGBytes(tb, 200, 200))
+		require.NoError(tb, err)
+		require.NoError(tb, w.Close())
+
+		s.URL = "/admin/sponsors/" + sponsor.Id
+		s.Body = &buf
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = w.FormDataContentType()
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		sponsor, err := app.FindRecordById("sponsors", sponsorID)
+		require.NoError(tb, err)
+		assert.NotEmpty(tb, sponsor.GetString("logo"))
+		assert.NotEqual(tb, origLogo, sponsor.GetString("logo"), "logo file must be replaced")
+	}
+	s.Test(t)
+}
+
+func TestSponsorsUpdateMissingSponsor(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/sponsors/{id} for a missing sponsor rejects",
+		Method:          http.MethodPost,
+		URL:             "/admin/sponsors/nonexistent",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Patrocinador no encontrado"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSponsorRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+
+		var buf bytes.Buffer
+		w := multipart.NewWriter(&buf)
+		require.NoError(tb, w.WriteField("name", "Whatever"))
+		require.NoError(tb, w.Close())
+
+		s.Body = &buf
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = w.FormDataContentType()
+		s.Headers = hdrs
 	}
 	s.Test(t)
 }

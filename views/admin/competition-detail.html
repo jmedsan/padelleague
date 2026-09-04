@@ -381,9 +381,7 @@
             {{end}}
         </div>
         {{else}}
-        <div class="text-center py-6 text-base-content/60">
-            <p class="text-sm">No hay documentos adjuntos</p>
-        </div>
+        {{template "emptyState" "No hay documentos adjuntos"}}
         {{end}}
 
         {{if .UnattachedDocs}}
@@ -427,9 +425,7 @@
             {{end}}
         </div>
         {{else}}
-        <div class="text-center py-6 text-base-content/60">
-            <p class="text-sm">No hay patrocinadores adjuntos</p>
-        </div>
+        {{template "emptyState" "No hay patrocinadores adjuntos"}}
         {{end}}
 
         {{if .UnattachedSponsors}}
@@ -552,9 +548,7 @@
             {{end}}
         </div>
         {{else}}
-        <div class="text-center py-6 text-base-content/60">
-            <p class="text-sm">No hay invitaciones para esta competición</p>
-        </div>
+        {{template "emptyState" "No hay invitaciones para esta competición"}}
         {{end}}
     </div>
 </div>
@@ -616,9 +610,7 @@ function copyInviteLink(token, btn) {
         {{if .Standings}}
         {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "Mode" .Mode)}}
         {{else}}
-        <div class="text-center py-6 text-base-content/60">
-            <p class="text-sm">No hay datos de clasificación todavía</p>
-        </div>
+        {{template "emptyState" "No hay datos de clasificación todavía"}}
         {{end}}
     </div>
 </div>
