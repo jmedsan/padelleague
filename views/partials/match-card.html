@@ -371,7 +371,7 @@
 
     {{if $c.CanWalkover}}
     <div class="text-center mt-3">
-        <button type="button" class="link link-warning text-xs" onclick="document.getElementById('walkover-modal-{{$c.Match.Id}}').showModal()">Reportar partido no jugado</button>
+        <button type="button" class="btn btn-sm btn-outline btn-warning" onclick="document.getElementById('walkover-modal-{{$c.Match.Id}}').showModal()">Reportar partido no jugado</button>
     </div>
     {{template "walkoverModal" $c}}
     {{end}}

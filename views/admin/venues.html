@@ -26,9 +26,9 @@
                     <td class="font-medium">{{.GetString "name"}}</td>
                     <td class="hidden sm:table-cell opacity-60 text-sm">{{if .GetString "address"}}{{.GetString "address"}}{{else}}<span class="opacity-60">—</span>{{end}}</td>
                     <td class="text-right">
-                        <button class="btn btn-ghost btn-xs" onclick="document.getElementById('modal-edit-venue-{{.Id}}').showModal()">Editar</button>
+                        <button class="btn btn-ghost btn-xs sm:btn-sm" onclick="document.getElementById('modal-edit-venue-{{.Id}}').showModal()">Editar</button>
                         <form hx-post="/admin/venues/{{.Id}}/delete" hx-confirm="¿Eliminar este club?">
-                            <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs text-error">Eliminar</button>
+                            <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs sm:btn-sm text-error">Eliminar</button>
                         </form>
                     </td>
                 </tr>

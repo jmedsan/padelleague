@@ -42,7 +42,7 @@
                 </td>{{end}}
                 <td class="text-center hidden sm:table-cell">
                     <div class="flex gap-1 justify-center">
-                        {{range .Form}}<span class="inline-block w-2 h-2 rounded-full {{if .}}bg-success{{else}}bg-error{{end}}"></span>{{end}}
+                        {{range .Form}}<span class="inline-block w-2 h-2 rounded-full {{if .}}bg-success{{else}}bg-error{{end}}" title="{{if .}}Victoria{{else}}Derrota{{end}}" aria-label="{{if .}}Victoria{{else}}Derrota{{end}}"></span>{{end}}
                     </div>
                 </td>
             </tr>

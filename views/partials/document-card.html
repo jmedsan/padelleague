@@ -50,9 +50,9 @@
            {{if .IsMandatory}}data-mandatory-id="{{.Document.Id}}"{{end}}>Abrir</a>
         {{end}}
         {{if and .Mode.Admin .Mode.Editable}}
-        <button class="btn btn-ghost btn-xs" onclick="document.getElementById('modal-edit-doc-{{.Document.Id}}').showModal()">Editar</button>
+        <button class="btn btn-ghost btn-xs sm:btn-sm" onclick="document.getElementById('modal-edit-doc-{{.Document.Id}}').showModal()">Editar</button>
         <form hx-post="/admin/documents/{{.Document.Id}}/delete" hx-confirm="¿Eliminar este documento?">
-            <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs text-error">Eliminar</button>
+            <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs sm:btn-sm text-error">Eliminar</button>
         </form>
         {{end}}
     </div>
