@@ -75,7 +75,7 @@ test.describe('end-of-league recovery window', () => {
     const comp = await apiGetRecord(page.request, 'competitions', compId);
     expect(comp.finalized).toBe(true);
     await expect(page.locator('[data-testid="finalize-league"]')).not.toBeVisible();
-    await expect(page.getByText('Finalizada')).toBeVisible();
+    await expect(page.getByText('Finalizada', { exact: true })).toBeVisible();
 
     // Cleanup
     await apiDeleteRecord(page.request, 'competitions', compId);

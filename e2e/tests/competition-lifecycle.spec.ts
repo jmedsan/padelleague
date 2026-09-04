@@ -68,7 +68,7 @@ test.describe('competition lifecycle', () => {
     // competition this test fully controls, per season-simulation.spec.ts's
     // pattern of building its own fixtures rather than trusting shared state.
     const suffix = `${testInfo.project.name.charAt(0)}${Date.now() % 100000}`;
-    const compName = `Clasificación Test ${suffix}`;
+    const compName = `Liga Clasif ${suffix}`;
     const makePlayer = async (label: string) => suPost('/api/collections/users/records', {
       email: `clasif-${label}-${suffix}@test.local`,
       display_name: `Clasif ${label} ${suffix}`,
