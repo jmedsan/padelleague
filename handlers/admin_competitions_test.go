@@ -1332,6 +1332,102 @@ func TestDetailRoundSortOrder(t *testing.T) {
 	s.Test(t)
 }
 
+func TestDetailRoundShowsPlayedCount(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/competitions/{id} shows played/total per jornada",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"1/2 partidos jugados"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "PC A")
+		p2 := makePairTB(tb, app, "PC B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m1 := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+		require.NoError(tb, app.Save(m1))
+		makeMatchTB(tb, app, comp.Id, p2.Id, p1.Id, "pending")
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestDetailRoundShowsOverdueWarning(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/competitions/{id} shows overdue warning on a stale jornada",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Vencido"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "OD A")
+		p2 := makePairTB(tb, app, "OD B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		now := time.Now().UTC()
+		comp.Set("start_date", now.Add(-14*24*time.Hour))
+		comp.Set("end_date", now.Add(-7*24*time.Hour))
+		comp.Set("rounds", 1)
+		comp.Set("arrange_grace_days", 0)
+		require.NoError(tb, app.Save(comp))
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestDetailAutoExpandsFirstIncompleteRound(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/competitions/{id} auto-expands the first incomplete jornada",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Jornada 1", "Jornada 2"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "AE A")
+		p2 := makePairTB(tb, app, "AE B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m1 := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+		require.NoError(tb, app.Save(m1))
+		m2 := makeMatchTB(tb, app, comp.Id, p2.Id, p1.Id, "pending")
+		m2.Set("round_number", 2)
+		require.NoError(tb, app.Save(m2))
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body, err := io.ReadAll(res.Body)
+		require.NoError(tb, err)
+		b := string(body)
+		collapseOpen := "<input type=\"checkbox\""
+		idx1 := strings.Index(b, "Jornada 1")
+		idx2 := strings.Index(b, "Jornada 2")
+		require.Greater(tb, idx1, -1)
+		require.Greater(tb, idx2, -1)
+		checkbox1 := strings.LastIndex(b[:idx1], collapseOpen)
+		checkbox2 := strings.LastIndex(b[:idx2], collapseOpen)
+		require.Greater(tb, checkbox1, -1)
+		require.Greater(tb, checkbox2, -1)
+		row1End := checkbox1 + strings.Index(b[checkbox1:], ">")
+		row2End := checkbox2 + strings.Index(b[checkbox2:], ">")
+		assert.NotContains(tb, b[checkbox1:row1End], "checked", "Jornada 1 (complete) must not be auto-expanded")
+		assert.Contains(tb, b[checkbox2:row2End], "checked", "Jornada 2 (first incomplete) must be auto-expanded")
+	}
+	s.Test(t)
+}
+
 // TestPaymentStatusSurvivesDBRoundTrip toggles a pair's payment, then
 // re-reads the competition from the database and verifies the status
 // persists. The bug: getPaymentStatus used a type switch that didn't

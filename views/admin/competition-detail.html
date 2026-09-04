@@ -134,10 +134,11 @@
         <div class="space-y-2">
             {{range .Rounds}}
             <div class="collapse collapse-arrow bg-base-200 rounded-box">
-                <input type="checkbox">
+                <input type="checkbox" {{if eq $.AutoExpandRound .Number}}checked{{end}}>
                 <div class="collapse-title font-medium text-sm">
                     Jornada {{.Number}}
-                    <span class="badge badge-soft-ghost badge-sm ml-2">{{len .Matches}} partido{{if ne (len .Matches) 1}}s{{end}}</span>
+                    <span class="badge badge-soft-ghost badge-sm ml-2">{{.Played}}/{{.Total}} partido{{if ne .Total 1}}s{{end}} jugado{{if ne .Total 1}}s{{end}}</span>
+                    {{template "warningBadge" .Warning}}
                 </div>
                 <div class="collapse-content">
                     <div class="divide-y divide-base-200 pt-2">
