@@ -1,17 +1,20 @@
 {{define "siteFooter"}}
-<footer class="bg-neutral text-neutral-content border-t border-white/10 px-6 py-8">
-    <div class="max-w-5xl mx-auto flex flex-col items-center gap-6">
-        <div class="flex flex-wrap items-center justify-center gap-8 sm:gap-12">
+<footer class="bg-neutral text-neutral-content border-t border-white/10 px-6 py-6 sm:py-8">
+    <div class="max-w-5xl mx-auto flex flex-col items-center gap-5">
+        {{if or .Competition .Active .Sponsors}}
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-10">
             {{if .Competition}}
             <a href="/competition/{{.Competition.ID}}" class="hover:opacity-80 transition-opacity">
-                {{if .Competition.LogoURL}}<div class="avatar"><div class="w-14 sm:w-16 rounded-xl"><img src="{{.Competition.LogoURL}}" alt="{{.Competition.Name}}" loading="lazy"></div></div>{{end}}
+                {{if .Competition.LogoURL}}<img src="{{.Competition.LogoURL}}" alt="{{.Competition.Name}}" class="h-12 sm:h-16 w-auto max-w-[240px] sm:max-w-[300px] object-contain" loading="lazy">{{end}}
             </a>
             {{else if .Active}}
-            {{range .Active}}
-            <a href="/competition/{{.ID}}" class="hover:opacity-80 transition-opacity">
-                {{if .LogoURL}}<span class="avatar"><span class="w-12 sm:w-14 rounded-xl"><img src="{{.LogoURL}}" alt="{{.Name}}" loading="lazy"></span></span>{{end}}
-            </a>
-            {{end}}
+            <div class="flex flex-wrap justify-center items-center gap-4 sm:gap-6">
+                {{range .Active}}
+                <a href="/competition/{{.ID}}" class="hover:opacity-80 transition-opacity">
+                    {{if .LogoURL}}<img src="{{.LogoURL}}" alt="{{.Name}}" class="h-10 sm:h-14 w-auto max-w-[200px] sm:max-w-[260px] object-contain" loading="lazy">{{end}}
+                </a>
+                {{end}}
+            </div>
             {{end}}
             {{if .Sponsors}}
             {{range .Sponsors}}
@@ -22,6 +25,7 @@
             {{end}}
             {{end}}
         </div>
+        {{end}}
         <p class="text-xs opacity-40">Padel League &copy; 2026</p>
     </div>
 </footer>
@@ -29,6 +33,6 @@
 
 {{define "sponsorTile"}}
 {{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener sponsor" class="hover:opacity-100 transition-opacity">
-    <img src="{{.LogoURL}}" alt="{{.Name}}" class="h-12 sm:h-16 w-auto max-w-[200px] sm:max-w-[280px] object-contain brightness-0 invert opacity-70" loading="lazy">
-</a>{{else}}<img src="{{.LogoURL}}" alt="{{.Name}}" class="h-12 sm:h-16 w-auto max-w-[200px] sm:max-w-[280px] object-contain brightness-0 invert opacity-70" loading="lazy">{{end}}
+    <img src="{{.LogoURL}}" alt="{{.Name}}" class="h-8 sm:h-12 w-auto max-w-[180px] sm:max-w-[260px] object-contain brightness-0 invert opacity-70" loading="lazy">
+</a>{{else}}<img src="{{.LogoURL}}" alt="{{.Name}}" class="h-8 sm:h-12 w-auto max-w-[180px] sm:max-w-[260px] object-contain brightness-0 invert opacity-70" loading="lazy">{{end}}
 {{end}}
