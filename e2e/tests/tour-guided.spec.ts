@@ -175,6 +175,9 @@ test.describe('guided navigation tour', () => {
     test.setTimeout(420000);
     resetFallbacks();
 
+    // Auto-accept all confirm dialogs (A3 hx-confirm on admin actions)
+    page.on('dialog', d => d.accept());
+
     // --- Auth superuser for API lookups ---
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     const authResp = await page.request.post('/api/collections/_superusers/auth-with-password', {
@@ -233,7 +236,6 @@ test.describe('guided navigation tour', () => {
     await goHome(page);
     await clickSetupConfigure(page, competitionId);
     await page.waitForLoadState('domcontentloaded');
-    page.once('dialog', dialog => dialog.accept());
     await clickAndWaitForHxRedirect(page, page.locator('.toggle.toggle-success'));
 
     // =======================================================================
@@ -384,7 +386,6 @@ test.describe('guided navigation tour', () => {
     await clickAdminQuickLink(page, 'Competiciones');
     await page.getByRole('link', { name: COMP_NAME }).first().click();
     await page.waitForLoadState('domcontentloaded');
-    page.once('dialog', dialog => dialog.accept());
     await clickAndWaitForHxRedirect(page, page.getByTestId('finalize-league'));
 
     // =======================================================================
@@ -418,7 +419,6 @@ test.describe('guided navigation tour', () => {
     await generateFixtures(page);
 
     // Activate playoff via toggle
-    page.once('dialog', dialog => dialog.accept());
     await clickAndWaitForHxRedirect(page, page.locator('.toggle.toggle-success'));
 
     // =======================================================================

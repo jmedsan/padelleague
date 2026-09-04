@@ -154,6 +154,7 @@ export async function markAllPairsPaid(page: Page): Promise<void> {
   await page.waitForLoadState('domcontentloaded');
   const btn = page.getByRole('button', { name: /marcar todos como pagado/i });
   if (await btn.count() === 0) return;
+  page.once('dialog', d => d.accept());
   await Promise.all([
     page.waitForResponse((r) => r.url().includes('/payment-all')),
     btn.first().click(),
