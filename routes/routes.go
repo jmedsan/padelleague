@@ -127,6 +127,7 @@ func registerAdminRoutes(se *core.ServeEvent, deps Deps) {
 	registerAdminPlayerRoutes(g, deps)
 	registerAdminVenueRoutes(g, deps)
 	registerAdminDocumentRoutes(g, deps)
+	registerAdminSponsorRoutes(g, deps)
 	registerAdminSettingsRoutes(g, deps)
 	registerAdminHealthRoutes(g, deps)
 }
@@ -137,6 +138,15 @@ func registerAdminDocumentRoutes(g *router.RouterGroup[*core.RequestEvent], deps
 	g.POST("/documents", doc.DocumentsCreate)
 	g.POST("/documents/{id}", doc.DocumentsUpdate)
 	g.POST("/documents/{id}/delete", doc.DocumentsDelete)
+}
+
+func registerAdminSponsorRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
+	sponsor := handlers.NewAdminSponsorHandler(deps.App, deps.Renderer.Page)
+	g.GET("/sponsors", sponsor.Sponsors)
+	g.POST("/sponsors", sponsor.SponsorsCreate)
+	g.POST("/sponsors/{id}/delete", sponsor.SponsorsDelete)
+	g.POST("/competitions/{id}/attach-sponsor", sponsor.AttachSponsor)
+	g.POST("/competitions/{id}/detach-sponsor/{sponsorId}", sponsor.DetachSponsor)
 }
 
 func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {

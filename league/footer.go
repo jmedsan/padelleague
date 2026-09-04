@@ -24,14 +24,18 @@ type FooterData struct {
 }
 
 // FooterContext resolves footer data. When compID is non-empty, the footer
-// shows that competition's identity and sponsors. When empty, it loads all
-// active competitions; if exactly one is active, it promotes to the
-// in-context shape (full logo + sponsors).
-func FooterContext(app core.App, compID string) FooterData {
+// shows that competition's identity and sponsors. When empty, it loads the
+// active competitions userID participates in (all active ones for an admin
+// or an anonymous/system caller with userID == ""); if exactly one matches,
+// it promotes to the in-context shape (full logo + sponsors).
+func FooterContext(app core.App, compID, userID string, isAdmin bool) FooterData {
 	if compID != "" {
 		return footerForComp(app, compID)
 	}
 	active, _ := app.FindRecordsByFilter("competitions", "active = true", "name", 0, 0, nil)
+	if userID != "" && !isAdmin {
+		active = filterCompetitionsForPlayer(app, active, userID)
+	}
 	if len(active) == 1 {
 		return footerForComp(app, active[0].Id)
 	}
@@ -44,6 +48,24 @@ func FooterContext(app core.App, compID string) FooterData {
 		})
 	}
 	return fd
+}
+
+func filterCompetitionsForPlayer(app core.App, comps []*core.Record, userID string) []*core.Record {
+	pairs, _ := PairsForPlayer(app, userID)
+	pairIDs := make(map[string]struct{}, len(pairs))
+	for _, p := range pairs {
+		pairIDs[p.Id] = struct{}{}
+	}
+	var filtered []*core.Record
+	for _, c := range comps {
+		for _, pid := range c.GetStringSlice("pairs") {
+			if _, ok := pairIDs[pid]; ok {
+				filtered = append(filtered, c)
+				break
+			}
+		}
+	}
+	return filtered
 }
 
 func footerForComp(app core.App, compID string) FooterData {

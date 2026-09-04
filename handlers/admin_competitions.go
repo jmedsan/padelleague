@@ -105,6 +105,32 @@ func (h *CompetitionHandler) addDetailExtras(data map[string]any, comp *core.Rec
 	attachedViews, unattachedDocs := h.buildDetailDocs(comp)
 	data["AttachedDocViews"] = attachedViews
 	data["UnattachedDocs"] = unattachedDocs
+
+	attachedSponsors, unattachedSponsors := h.buildDetailSponsors(comp)
+	data["AttachedSponsors"] = attachedSponsors
+	data["UnattachedSponsors"] = unattachedSponsors
+}
+
+func (h *CompetitionHandler) buildDetailSponsors(comp *core.Record) ([]*core.Record, []*core.Record) {
+	attachedIDs := comp.GetStringSlice("sponsors")
+	var attached []*core.Record
+	attachedSet := make(map[string]struct{}, len(attachedIDs))
+	for _, sid := range attachedIDs {
+		attachedSet[sid] = struct{}{}
+		if s, err := h.app.FindRecordById("sponsors", sid); err == nil {
+			attached = append(attached, s)
+		}
+	}
+	allSponsors := findRecordsLogged(h.app, "buildDetailSponsors: find sponsors", RecordQuery{
+		Collection: "sponsors", Sort: "name",
+	})
+	var unattached []*core.Record
+	for _, s := range allSponsors {
+		if _, ok := attachedSet[s.Id]; !ok {
+			unattached = append(unattached, s)
+		}
+	}
+	return attached, unattached
 }
 
 func (h *CompetitionHandler) buildDetailDocs(comp *core.Record) ([]DocumentView, []*core.Record) {

@@ -24,7 +24,7 @@ func setupSettingsRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent, d
 	auth := NewAuthHandler(app, r.Page)
 	e.Router.GET("/login", auth.Login)
 
-	settings := NewAdminSettingsHandler(app, devTools, nil, r.Page)
+	settings := NewAdminSettingsHandler(app, devTools, viewsFS, r.Page)
 
 	g := e.Router.Group("/admin")
 	g.BindFunc(requireAuthTest)

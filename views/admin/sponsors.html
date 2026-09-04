@@ -1,0 +1,59 @@
+{{define "content"}}
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div>
+        <a href="/admin/competitions" class="link link-hover text-sm opacity-60">← Competiciones</a>
+        <h1 class="text-2xl font-bold mt-1">Patrocinadores</h1>
+    </div>
+    <button class="btn btn-primary btn-sm sm:btn-md" onclick="document.getElementById('modal-create-sponsor').showModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+        Nuevo patrocinador
+    </button>
+</div>
+
+<div class="space-y-3">
+    {{range .Sponsors}}
+    <div class="flex items-center justify-between gap-3 p-3 bg-base-200/50 rounded-lg" data-testid="sponsor-card">
+        <div class="flex items-center gap-3 flex-1 min-w-0">
+            <img src="{{sponsorLogoURL .Id (.GetString "logo")}}" alt="{{.GetString "name"}}" class="w-12 h-12 object-contain rounded bg-base-100 flex-none">
+            <div class="min-w-0">
+                <p class="font-medium truncate">{{.GetString "name"}}</p>
+                {{if .GetString "url"}}
+                <a href="{{.GetString "url"}}" target="_blank" rel="noopener" class="link link-primary text-sm truncate block">{{.GetString "url"}}</a>
+                {{end}}
+            </div>
+        </div>
+        <form hx-post="/admin/sponsors/{{.Id}}/delete" hx-confirm="¿Eliminar este patrocinador?" class="flex-none">
+            <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs text-error">Eliminar</button>
+        </form>
+    </div>
+    {{else}}
+    {{template "emptyState" "No hay patrocinadores registrados"}}
+    {{end}}
+</div>
+
+<dialog id="modal-create-sponsor" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box">
+        <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">x</button></form>
+        <h3 class="text-lg font-bold mb-4">Nuevo patrocinador</h3>
+        <div id="create-sponsor-error" class="mb-2"></div>
+        <form hx-post="/admin/sponsors" hx-target="#create-sponsor-error" enctype="multipart/form-data">
+            <div class="form-control">
+                <label class="label"><span class="label-text font-medium">Nombre</span></label>
+                <input type="text" name="name" class="input input-bordered w-full" placeholder="Nombre del patrocinador" required>
+            </div>
+            <div class="form-control mt-3">
+                <label class="label"><span class="label-text font-medium">Logo</span></label>
+                <input type="file" name="logo" class="file-input file-input-bordered w-full" accept="image/*" required>
+            </div>
+            <div class="form-control mt-3">
+                <label class="label"><span class="label-text font-medium">Enlace</span></label>
+                <input type="url" name="url" class="input input-bordered w-full" placeholder="https://...">
+            </div>
+            <div class="modal-action">
+                <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Crear</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>cerrar</button></form>
+</dialog>
+{{end}}

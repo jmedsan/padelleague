@@ -228,7 +228,10 @@ func TestSampleLeague(t *testing.T) {
 	svc := league.New(app, notifier)
 	hooks.Register(app, svc, notifier, nil)
 
-	require.NoError(t, SampleLeaguePartial(app, SampleOptions{Players: true, Pairs: true, Competitions: true, Matches: true}))
+	require.NoError(t, SampleLeaguePartial(app, SampleOptions{
+		Players: true, Pairs: true, Competitions: true, Matches: true,
+		StaticFS: os.DirFS(".."),
+	}))
 
 	players, err := app.FindRecordsByFilter("users", "email ~ '@padelleague.com'", "", 0, 0)
 	require.NoError(t, err)
@@ -361,6 +364,7 @@ func TestSampleLeagueWithPlayoff(t *testing.T) {
 
 	require.NoError(t, SampleLeaguePartial(app, SampleOptions{
 		Players: true, Pairs: true, Competitions: true, Matches: true, Playoff: true,
+		StaticFS: os.DirFS(".."),
 	}))
 
 	comps, err := app.FindRecordsByFilter("competitions", "id != ''", "name", 0, 0)
