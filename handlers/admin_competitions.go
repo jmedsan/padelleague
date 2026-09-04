@@ -53,7 +53,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 
 	pairNameMap := league.PairNames(h.app, pairIDs)
 
-	rounds := h.buildRoundGroups(matches, pairNameMap)
+	rounds := h.buildRoundGroups(comp, matches, pairNameMap)
 	disputes := league.CompHealthItems(h.app, id, time.Now(), "disputes", "walkovers")
 	allUsers := findRecordsLogged(h.app, "Detail: find players", RecordQuery{
 		Collection: "users", Filter: "roles ~ 'player'", Sort: "display_name",
@@ -68,6 +68,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"AllCompetitions":     allComps,
 		"AllUsers":            allUsers,
 		"Rounds":              rounds,
+		"AutoExpandRound":     firstIncompleteRoundGroup(rounds),
 		"Disputes":            disputes,
 		"PenaltyRows":         penaltyRows,
 		"IsLeague":            isLeague,
@@ -394,6 +395,9 @@ type roundDate struct {
 type roundGroup struct {
 	Number  int
 	Matches []MatchCard
+	Played  int
+	Total   int
+	Warning league.Warning
 }
 
 func (h *CompetitionHandler) buildRoundDates(comp *core.Record) []roundDate {
@@ -412,7 +416,7 @@ func (h *CompetitionHandler) buildRoundDates(comp *core.Record) []roundDate {
 	return dates
 }
 
-func (h *CompetitionHandler) buildRoundGroups(matches []*core.Record, pairNames map[string]string) []roundGroup {
+func (h *CompetitionHandler) buildRoundGroups(comp *core.Record, matches []*core.Record, pairNames map[string]string) []roundGroup {
 	noPairs := map[string]struct{}{}
 	var allCards []MatchCard
 	roundMap := map[int][]int{}
@@ -439,7 +443,42 @@ func (h *CompetitionHandler) buildRoundGroups(matches []*core.Record, pairNames 
 			rounds[ri].Matches[mi].PopulateFeeder(prevRound, mi)
 		}
 	}
+	populateRoundProgress(comp, rounds)
 	return rounds
+}
+
+// firstIncompleteRoundGroup returns the number of the first round with an
+// unplayed match, or 0 if every round is complete (or there are none).
+func firstIncompleteRoundGroup(rounds []roundGroup) int {
+	for _, r := range rounds {
+		if r.Played < r.Total {
+			return r.Number
+		}
+	}
+	return 0
+}
+
+// populateRoundProgress fills each round's Played/Total/Warning in place.
+// Warning is skipped for playoffs, which have admin-fixed dates instead of
+// the recommended-arrange-by deadlines this warning is based on.
+func populateRoundProgress(comp *core.Record, rounds []roundGroup) {
+	isPlayoff := league.IsPlayoff(comp)
+	graceDays := comp.GetInt("arrange_grace_days")
+	now := time.Now()
+	for i := range rounds {
+		rounds[i].Total = len(rounds[i].Matches)
+		for _, m := range rounds[i].Matches {
+			if m.Match.GetString("status") == league.StatusFinal {
+				rounds[i].Played++
+			}
+		}
+		if isPlayoff || rounds[i].Played == rounds[i].Total {
+			continue
+		}
+		if deadline, ok := league.RoundArrangeDate(comp, rounds[i].Number); ok {
+			rounds[i].Warning = league.WarningLevel(deadline, graceDays, now)
+		}
+	}
 }
 
 // PenaltyRow is one penalty entry for the admin UI.
