@@ -306,7 +306,7 @@ func (h *CompetitionHandler) LogoUpload(e *core.RequestEvent) error {
 		return alertError(e, "La imagen no puede superar los 5 MB")
 	}
 
-	f, errMsg := compressAvatar(fh, id+"_logo.jpg")
+	f, errMsg := compressLogo(fh, id+"_logo.jpg")
 	if errMsg != "" {
 		return alertError(e, errMsg)
 	}

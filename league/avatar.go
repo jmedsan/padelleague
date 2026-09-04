@@ -36,6 +36,38 @@ var (
 	ErrAvatarTooLarge   = errors.New("avatar: source image too large")
 )
 
+// CompressLogoBytes decodes an image from r, corrects EXIF orientation,
+// resizes it to fit within 800x800 preserving aspect ratio, and re-encodes
+// as JPEG. Unlike CompressAvatarBytes it does NOT crop to square.
+func CompressLogoBytes(r io.ReadSeeker, filename string) (*filesystem.File, error) {
+	cfg, _, err := image.DecodeConfig(r)
+	if err != nil {
+		return nil, ErrAvatarInvalid
+	}
+	if cfg.Width*cfg.Height > avatarMaxSourcePixels {
+		return nil, ErrAvatarTooLarge
+	}
+	if _, err := r.Seek(0, 0); err != nil {
+		return nil, ErrAvatarUnreadable
+	}
+	orientation := readOrientation(r)
+	if _, err := r.Seek(0, 0); err != nil {
+		return nil, ErrAvatarUnreadable
+	}
+	img, _, err := image.Decode(r)
+	if err != nil {
+		return nil, ErrAvatarInvalid
+	}
+	small := resizeToFit(img, 800, 800)
+	oriented := applyOrientation(small, orientation)
+	opaque := flattenOnWhite(oriented)
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, opaque, &jpeg.Options{Quality: 85}); err != nil {
+		return nil, err
+	}
+	return filesystem.NewFileFromBytes(buf.Bytes(), filename)
+}
+
 // CompressAvatarBytes decodes an image from r, corrects EXIF orientation,
 // center-crops it to a square, resizes it to fit within avatarMaxDim x
 // avatarMaxDim, and re-encodes it as a JPEG file under the given filename.

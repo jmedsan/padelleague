@@ -1,17 +1,17 @@
 {{define "siteFooter"}}
-<footer class="bg-neutral text-neutral-content border-t border-white/10 px-6 py-8 sm:py-10">
-    <div class="max-w-5xl mx-auto flex flex-col items-center gap-6">
+<footer class="bg-neutral text-neutral-content border-t border-white/10 px-6 py-6 sm:py-8">
+    <div class="max-w-5xl mx-auto flex flex-col items-center gap-5">
         {{if or .Competition .Active .Sponsors}}
         <div class="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-10">
             {{if .Competition}}
             <a href="/competition/{{.Competition.ID}}" class="hover:opacity-80 transition-opacity">
-                {{if .Competition.LogoURL}}<img src="{{.Competition.LogoURL}}" alt="{{.Competition.Name}}" class="h-16 sm:h-24 w-auto max-w-[280px] sm:max-w-[400px] object-contain" loading="lazy">{{end}}
+                {{if .Competition.LogoURL}}<img src="{{.Competition.LogoURL}}" alt="{{.Competition.Name}}" style="height:80px;width:auto" loading="lazy">{{end}}
             </a>
             {{else if .Active}}
             <div class="flex flex-wrap justify-center items-center gap-6 sm:gap-8">
                 {{range .Active}}
                 <a href="/competition/{{.ID}}" class="hover:opacity-80 transition-opacity">
-                    {{if .LogoURL}}<img src="{{.LogoURL}}" alt="{{.Name}}" class="h-14 sm:h-20 w-auto max-w-[240px] sm:max-w-[340px] object-contain" loading="lazy">{{end}}
+                    {{if .LogoURL}}<img src="{{.LogoURL}}" alt="{{.Name}}" style="height:70px;width:auto" loading="lazy">{{end}}
                 </a>
                 {{end}}
             </div>
@@ -33,6 +33,6 @@
 
 {{define "sponsorTile"}}
 {{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener sponsor" class="hover:opacity-100 transition-opacity">
-    <img src="{{.LogoURL}}" alt="{{.Name}}" class="h-12 sm:h-16 w-auto max-w-[220px] sm:max-w-[300px] object-contain brightness-0 invert opacity-80" loading="lazy">
-</a>{{else}}<img src="{{.LogoURL}}" alt="{{.Name}}" class="h-12 sm:h-16 w-auto max-w-[220px] sm:max-w-[300px] object-contain brightness-0 invert opacity-80" loading="lazy">{{end}}
+    <img src="{{.LogoURL}}" alt="{{.Name}}" class="brightness-0 invert opacity-80" style="height:50px;width:auto" loading="lazy">
+</a>{{else}}<img src="{{.LogoURL}}" alt="{{.Name}}" class="brightness-0 invert opacity-80" style="height:50px;width:auto" loading="lazy">{{end}}
 {{end}}

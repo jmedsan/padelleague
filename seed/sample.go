@@ -205,7 +205,7 @@ func loadSampleLogo(staticFS fs.FS) (*filesystem.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return league.CompressAvatarBytes(bytes.NewReader(data), "sample-logo.jpg")
+	return league.CompressLogoBytes(bytes.NewReader(data), "sample-logo.jpg")
 }
 
 // sampleCtx bundles collections and timing needed while building sample matches.
