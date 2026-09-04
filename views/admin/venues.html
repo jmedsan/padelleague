@@ -69,7 +69,7 @@
     <div class="modal-box">
         <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">x</button></form>
         <h3 class="text-lg font-bold mb-4">Nuevo club</h3>
-        <div id="create-venue-error" class="mb-2"></div>
+        <div id="create-venue-error" class="mb-2" aria-live="polite"></div>
         <form hx-post="/admin/venues" hx-target="#create-venue-error">
             <div class="form-control">
                 <label class="label"><span class="label-text font-medium">Nombre</span></label>
