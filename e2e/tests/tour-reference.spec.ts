@@ -283,7 +283,8 @@ test.describe('reference navigation tour', () => {
     await expect(upcomingSection).toBeVisible();
     const upcomingRow = upcomingSection.locator('[data-testid="upcoming-match"]').first();
     await expect(upcomingRow).toBeVisible();
-    await expect(upcomingRow).toContainText(scheduleDateDisplay);
+    await expect(upcomingRow).toContainText('mañana');
+    await expect(upcomingRow.locator(`[title*="${scheduleDateDisplay}"]`)).toBeVisible();
     // The competition logo uploaded above must also render on the player's
     // home upcoming-match card, not just the admin competition header.
     await expect(upcomingRow.locator('img[src*="/api/files/competitions/"]')).toBeVisible();
