@@ -65,6 +65,7 @@ func New(viewsFS fs.FS, vapidPublicKey string, appDevTools bool) *Renderer {
 		},
 		"scoreWinner": scoreWinner,
 		"initials":    Initials,
+		"truncate":    league.Truncate,
 	})
 	return &Renderer{
 		registry:       reg,

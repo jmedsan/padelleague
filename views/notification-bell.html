@@ -1,0 +1,15 @@
+<div class="card card-compact w-80 bg-base-100 shadow-xl">
+    <div class="card-body">
+        <div class="flex justify-between items-center mb-2">
+            <h3 class="font-bold">Notificaciones</h3>
+            <button hx-post="/notifications/read-all" hx-swap="none" class="btn btn-ghost btn-xs">Marcar todas</button>
+        </div>
+        <div id="notif-list">
+            {{template "notificationListItems" .}}
+        </div>
+        <div class="mt-2 flex justify-between items-center">
+            <a href="/notifications/history" class="text-xs link">Ver todas →</a>
+            <a href="/profile/notifications" class="text-xs link">Preferencias</a>
+        </div>
+    </div>
+</div>

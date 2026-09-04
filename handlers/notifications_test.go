@@ -232,6 +232,57 @@ func TestNotificationListWithBody(t *testing.T) {
 	s.Test(t)
 }
 
+func TestNotificationListRowStructureAndDismissTarget(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /notifications/list renders a dismissible row via the shared notification partial",
+		Method:          http.MethodGet,
+		URL:             "/notifications/list",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Row Test"},
+	}
+	var notifID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupNotifRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Row Struct", "")
+		n := makeNotification(t, app, user.Id, "Row Test", "", false)
+		notifID = n.Id
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body, err := io.ReadAll(res.Body)
+		require.NoError(tb, err)
+		html := string(body)
+		assert.Contains(tb, html, `id="notif-row-`+notifID+`"`, "row must carry the id the dismiss button targets")
+		assert.Contains(tb, html, `hx-post="/notifications/`+notifID+`/dismiss"`)
+		assert.Contains(tb, html, `hx-target="#notif-row-`+notifID+`"`)
+		assert.Contains(tb, html, `hx-swap="delete"`)
+	}
+	s.Test(t)
+}
+
+func TestNotificationListShowsCompName(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /notifications/list shows the competition name so multi-league players can tell notifications apart",
+		Method:          http.MethodGet,
+		URL:             "/notifications/list",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Liga de Verano"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupNotifRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "CompName Notif", "")
+		n := makeNotification(t, app, user.Id, "Con competición", "", false)
+		n.Set("comp_name", "Liga de Verano")
+		require.NoError(tb, app.Save(n))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
 // List: empty notification list (line 60)
 
 func TestNotificationListEmpty(t *testing.T) {
