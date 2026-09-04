@@ -2,7 +2,7 @@
 <div class="-mx-4 -mt-6 -mb-6 min-h-[80vh] flex flex-col items-center justify-center relative overflow-hidden bg-neutral py-12" style="margin-left:calc(-50vw + 50%);margin-right:calc(-50vw + 50%);width:100vw">
     <div class="text-center mb-8 px-4">
         {{if .CompetitionLogo}}
-        <div class="avatar mb-4"><div class="w-20 rounded-2xl ring-2 ring-primary/40 shadow-lg"><img src="{{.CompetitionLogo}}" alt="{{.CompetitionName}}" loading="lazy"></div></div>
+        <img src="{{.CompetitionLogo}}" alt="{{.CompetitionName}}" class="mb-4 rounded-2xl ring-2 ring-primary/40 shadow-lg" style="height:80px;width:auto" loading="lazy">
         <p class="text-sm uppercase tracking-widest text-neutral-content/60">{{.CompetitionName}} te invita a</p>
         {{end}}
         <h1 class="text-3xl sm:text-4xl font-black italic uppercase tracking-tight text-neutral-content"><span class="text-primary">Padel</span> League</h1>
