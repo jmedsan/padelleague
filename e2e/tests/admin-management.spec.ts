@@ -255,7 +255,8 @@ test.describe('admin management', () => {
 
     // 6. The footer shows the competition identity (logo + name), not just
     // the ambient "active competitions" list — proof the footer is scoped.
-    await expect(page.locator('footer', { hasText: 'Liga E2E Test' })).toBeVisible();
+    const compInFooter = page.locator('footer a', { has: page.locator('img[alt="Liga E2E Test"], :text("Liga E2E Test")') });
+    await expect(compInFooter.first()).toBeVisible();
 
     // 7. A 404-style page (unmatched record) still renders the footer, but
     // without this competition's identity — the out-of-context shape.
