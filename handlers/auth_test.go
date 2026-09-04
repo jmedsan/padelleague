@@ -114,7 +114,7 @@ func TestRegisterPage_ShowsCompetitionName(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		assert.NotContains(tb, body, "avatar mb-4", "no logo set: no avatar hero block should render")
+		assert.NotContains(tb, body, "rounded-2xl ring-2", "no logo set: no hero image should render")
 	}
 	s.Test(t)
 }
@@ -143,7 +143,7 @@ func TestRegisterPage_ShowsCompetitionLogo(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		assert.Contains(tb, body, "avatar mb-4", "a logo-scoped invitation must show the hero block")
+		assert.Contains(tb, body, "rounded-2xl ring-2", "a logo-scoped invitation must show the hero image")
 		assert.Contains(tb, body, "/api/files/competitions/", "hero image src must be a served competition file URL")
 	}
 	s.Test(t)

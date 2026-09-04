@@ -145,12 +145,7 @@ func (r *Renderer) partialFiles() []string {
 	return entries
 }
 
-// Page renders a full page within the site layout.
-func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) error {
-	if data == nil {
-		data = map[string]any{}
-	}
-	r.withAuth(e, data)
+func resolveFooter(e *core.RequestEvent, data map[string]any) {
 	compID, _ := data["FooterCompetitionID"].(string)
 	var userID string
 	var isAdmin bool
@@ -159,6 +154,15 @@ func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) 
 		isAdmin = slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
 	}
 	data["Footer"] = league.FooterContext(e.App, compID, userID, isAdmin)
+}
+
+// Page renders a full page within the site layout.
+func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) error {
+	if data == nil {
+		data = map[string]any{}
+	}
+	r.withAuth(e, data)
+	resolveFooter(e, data)
 	files := append([]string{"views/layout.html"}, r.partialFiles()...)
 	files = append(files, "views/"+page)
 	html, err := r.registry.LoadFS(r.viewsFS, files...).Render(data)
@@ -173,7 +177,7 @@ func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) 
 func (r *Renderer) ErrorPage(e *core.RequestEvent, statusCode int, message string) error {
 	data := map[string]any{"ErrorMessage": message}
 	r.withAuth(e, data)
-	data["Footer"] = league.FooterContext(e.App, "", "", false)
+	resolveFooter(e, data)
 	files := append([]string{"views/layout.html"}, r.partialFiles()...)
 	files = append(files, "views/error.html")
 	html, err := r.registry.LoadFS(r.viewsFS, files...).Render(data)
