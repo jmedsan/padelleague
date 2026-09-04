@@ -120,6 +120,9 @@ test.describe('reference navigation tour', () => {
   test('complete league + playoff via nav-menu navigation', async ({ page }) => {
     test.setTimeout(420000);
 
+    // Auto-accept all confirm dialogs (A3 hx-confirm on admin actions)
+    page.on('dialog', d => d.accept());
+
     // --- Dark mode is the default theme, before any login or toggle ---
     await page.goto('/login');
     await page.waitForLoadState('domcontentloaded');
