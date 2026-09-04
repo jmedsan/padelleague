@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -136,6 +137,41 @@ func TestPage_NilData(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Contains(t, body(rec), "<html>")
+}
+
+var flashFS = fstest.MapFS{
+	"views/layout.html": &fstest.MapFile{
+		Data: []byte(`<html><body>{{if .Flash}}<div id="flash-msg">{{.Flash}}</div>{{end}}{{block "content" .}}{{end}}</body></html>`),
+	},
+	"views/page.html": &fstest.MapFile{
+		Data: []byte(`{{define "content"}}<h1>ok</h1>{{end}}`),
+	},
+}
+
+func TestPage_Flash_ReadsAndClearsCookie(t *testing.T) {
+	t.Parallel()
+	r := New(flashFS, "", true)
+	e, rec := makeEvent(nil)
+	e.Request.AddCookie(&http.Cookie{Name: "flash_msg", Value: url.QueryEscape("Patrocinador creado")})
+
+	err := r.Page(e, "page.html", map[string]any{})
+
+	require.NoError(t, err)
+	assert.Contains(t, body(rec), `<div id="flash-msg">Patrocinador creado</div>`)
+
+	setCookie := rec.Result().Header.Get("Set-Cookie")
+	assert.Contains(t, setCookie, "flash_msg=;", "response must clear the flash cookie")
+}
+
+func TestPage_Flash_NoCookieMeansNoFlash(t *testing.T) {
+	t.Parallel()
+	r := New(flashFS, "", true)
+	e, rec := makeEvent(nil)
+
+	err := r.Page(e, "page.html", map[string]any{})
+
+	require.NoError(t, err)
+	assert.NotContains(t, body(rec), "flash-msg")
 }
 
 func TestPartial_RendersWithoutLayout(t *testing.T) {

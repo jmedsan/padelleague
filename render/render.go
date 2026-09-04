@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -146,6 +147,34 @@ func (r *Renderer) partialFiles() []string {
 	return entries
 }
 
+// flashCookie is the short-lived cookie name handlers.flash writes to carry
+// a success message across a redirect. Duplicated here (not imported from
+// handlers) to avoid a render->handlers import cycle; handlers is the only
+// writer, render is the only reader.
+const flashCookie = "flash_msg"
+
+// resolveFlash reads and clears the flash cookie, setting data["Flash"] to
+// its decoded value when present.
+func resolveFlash(e *core.RequestEvent, data map[string]any) {
+	c, err := e.Request.Cookie(flashCookie)
+	if err != nil || c.Value == "" {
+		return
+	}
+	msg, err := url.QueryUnescape(c.Value)
+	if err != nil {
+		return
+	}
+	data["Flash"] = msg
+	http.SetCookie(e.Response, &http.Cookie{
+		Name:     flashCookie,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
 func resolveFooter(e *core.RequestEvent, data map[string]any) {
 	compID, _ := data["FooterCompetitionID"].(string)
 	var userID string
@@ -164,6 +193,7 @@ func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) 
 	}
 	r.withAuth(e, data)
 	resolveFooter(e, data)
+	resolveFlash(e, data)
 	files := append([]string{"views/layout.html"}, r.partialFiles()...)
 	files = append(files, "views/"+page)
 	html, err := r.registry.LoadFS(r.viewsFS, files...).Render(data)

@@ -71,6 +71,7 @@ func (h *AdminSponsorHandler) SponsorsCreate(e *core.RequestEvent) error {
 		return alertError(e, "Error al guardar el patrocinador")
 	}
 
+	flash(e, "Patrocinador creado")
 	return redirectHX(e, "/admin/sponsors")
 }
 
@@ -109,6 +110,7 @@ func (h *AdminSponsorHandler) SponsorsUpdate(e *core.RequestEvent) error {
 		return alertError(e, "Error al guardar el patrocinador")
 	}
 
+	flash(e, "Patrocinador actualizado")
 	return redirectHX(e, "/admin/sponsors")
 }
 
@@ -125,6 +127,7 @@ func (h *AdminSponsorHandler) SponsorsDelete(e *core.RequestEvent) error {
 		return alertError(e, "Error al eliminar el patrocinador")
 	}
 
+	flash(e, "Patrocinador eliminado")
 	return redirectHX(e, "/admin/sponsors")
 }
 

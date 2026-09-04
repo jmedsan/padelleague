@@ -152,7 +152,12 @@
             </div>
             <script>if(localStorage.getItem('banner-dismissed'))document.getElementById('verify-banner').remove()</script>
             {{end}}
-            <div id="flash" class="container mx-auto px-4 max-w-5xl" role="alert" aria-live="polite"></div>
+            <div id="flash" class="container mx-auto px-4 max-w-5xl" role="alert" aria-live="polite">
+                {{if .Flash}}
+                <div id="flash-msg" class="alert alert-success text-sm py-2">{{.Flash}}</div>
+                <script>setTimeout(function() { var el = document.getElementById('flash-msg'); if (el) el.remove(); }, 3000)</script>
+                {{end}}
+            </div>
             <main class="flex-1 container mx-auto px-4 py-6 max-w-5xl">
                 {{block "content" .}}{{end}}
             </main>
