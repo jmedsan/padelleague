@@ -81,6 +81,7 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 
 	h.leagueSvc.NotifyFixturesGenerated(compID, pairIDs)
 
+	flash(e, "Calendario generado")
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 

@@ -75,6 +75,7 @@ func (h *DocumentHandler) DocumentsCreate(e *core.RequestEvent) error {
 		return alertError(e, "Error al guardar el documento")
 	}
 
+	flash(e, "Documento creado")
 	return redirectHX(e, "/admin/documents")
 }
 
@@ -111,6 +112,7 @@ func (h *DocumentHandler) DocumentsUpdate(e *core.RequestEvent) error {
 		return alertError(e, "Error al guardar el documento")
 	}
 
+	flash(e, "Documento actualizado")
 	return redirectHX(e, "/admin/documents")
 }
 
@@ -127,6 +129,7 @@ func (h *DocumentHandler) DocumentsDelete(e *core.RequestEvent) error {
 		return alertError(e, "Error al eliminar el documento")
 	}
 
+	flash(e, "Documento eliminado")
 	return redirectHX(e, "/admin/documents")
 }
 

@@ -233,6 +233,7 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 		}
 	}
 
+	flash(e, "Competición creada")
 	return redirectHX(e, "/admin/competitions/"+record.Id)
 }
 
@@ -280,6 +281,7 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 		h.refreshRoundSchedule(record)
 	}
 
+	flash(e, "Competición actualizada")
 	return redirectHX(e, "/admin/competitions")
 }
 
@@ -317,6 +319,7 @@ func (h *CompetitionHandler) LogoUpload(e *core.RequestEvent) error {
 		return alertError(e, "Error al guardar el logo")
 	}
 
+	flash(e, "Logo actualizado")
 	return redirectHX(e, "/admin/competitions/"+id)
 }
 
@@ -351,6 +354,7 @@ func (h *CompetitionHandler) FinalizeCompetition(e *core.RequestEvent) error {
 		return alertError(e, "Error al finalizar la competición")
 	}
 
+	flash(e, "Competición finalizada")
 	return redirectHX(e, "/admin/competitions/"+id)
 }
 
@@ -704,6 +708,7 @@ func (h *CompetitionHandler) AttachDocument(e *core.RequestEvent) error {
 	if err := h.app.Save(comp); err != nil {
 		return alertError(e, "Error al adjuntar el documento")
 	}
+	flash(e, "Documento adjuntado")
 	return redirectHX(e, "/admin/competitions/"+comp.Id)
 }
 
@@ -718,6 +723,7 @@ func (h *CompetitionHandler) DetachDocument(e *core.RequestEvent) error {
 	if err := h.app.Save(comp); err != nil {
 		return alertError(e, "Error al quitar el documento")
 	}
+	flash(e, "Documento desvinculado")
 	return redirectHX(e, "/admin/competitions/"+comp.Id)
 }
 

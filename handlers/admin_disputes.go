@@ -89,17 +89,27 @@ func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 		MatchID: match.Id, ActorID: e.Auth.Id, Kind: "result_event",
 		Detail: "aprobó incomparecencia a favor de " + league.PairNames(h.app, []string{winnerID})[winnerID],
 	})
-	if penalty := comp.GetFloat("default_penalty"); penalty > 0 {
-		if err := league.ApplyPenalty(h.app, league.PenaltyInput{CompetitionID: compID, PairID: loserID, Reason: "Incomparecencia aprobada", AdminID: e.Auth.Id, Amount: penalty}); err != nil {
-			slog.Error("apply walkover penalty", "comp", compID, "pair", loserID, "err", err)
-			return alertError(e, "Incomparecencia aprobada, pero no se pudo aplicar la penalización. Aplícala manualmente.")
-		}
+	if err := h.applyWalkoverPenalty(e, comp, loserID); err != nil {
+		return err
 	}
 
 	n := league.NotifWalkoverApproved(match.Id, comp.GetString("name"))
 	h.notifyMatchPlayers(match, n.Type, n.Title, n.Body)
 
+	flash(e, "Incomparecencia aprobada")
 	return redirectHX(e, "/admin/competitions/"+compID)
+}
+
+func (h *DisputeHandler) applyWalkoverPenalty(e *core.RequestEvent, comp *core.Record, loserID string) error {
+	penalty := comp.GetFloat("default_penalty")
+	if penalty <= 0 {
+		return nil
+	}
+	if err := league.ApplyPenalty(h.app, league.PenaltyInput{CompetitionID: comp.Id, PairID: loserID, Reason: "Incomparecencia aprobada", AdminID: e.Auth.Id, Amount: penalty}); err != nil {
+		slog.Error("apply walkover penalty", "comp", comp.Id, "pair", loserID, "err", err)
+		return alertError(e, "Incomparecencia aprobada, pero no se pudo aplicar la penalización. Aplícala manualmente.")
+	}
+	return nil
 }
 
 // DisputesResolve handles POST to resolve a disputed match with the admin's chosen score.
@@ -141,6 +151,7 @@ func (h *DisputeHandler) DisputesResolve(e *core.RequestEvent) error {
 	n := league.NotifDisputeResolved(match.Id, league.CompetitionName(h.app, compID))
 	h.notifyMatchPlayers(match, n.Type, n.Title, n.Body)
 
+	flash(e, "Disputa resuelta")
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
