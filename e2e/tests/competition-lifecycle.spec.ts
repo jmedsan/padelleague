@@ -29,7 +29,10 @@ test.describe('competition lifecycle', () => {
     await page.locator('dialog button[type="submit"]').click();
     await page.waitForURL(/\/admin/, { timeout: 10000 });
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.getByText(name)).toBeVisible({ timeout: 10000 });
+    // Scoped to the heading: the site footer also renders this competition's
+    // name (single active competition, out-of-context promotion), so the
+    // unscoped getByText matches both and violates Playwright's strict mode.
+    await expect(page.getByRole('heading', { name })).toBeVisible({ timeout: 10000 });
   });
 
   test('player can view competition standings', async ({ page }) => {
