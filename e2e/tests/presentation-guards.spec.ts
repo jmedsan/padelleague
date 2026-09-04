@@ -58,7 +58,7 @@ test.describe('R-178: presentation quality guards', () => {
 
     // Key headings and text are visible
     await expect(page.locator('h1:has-text("Competiciones")')).toBeVisible();
-    await expect(page.locator('text=Competiciones activas')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Competiciones activas' })).toBeVisible();
 
     // Click into a competition detail
     const compLink = page.locator('a[href^="/admin/competitions/"]').first();

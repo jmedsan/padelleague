@@ -22,25 +22,25 @@
         <form hx-post="/match/{{.MatchID}}/admin-override" hx-target="body" class="space-y-3">
             <div class="grid grid-cols-2 gap-3">
                 <div class="form-control">
-                    <label class="label py-1"><span class="label-text text-xs">Fecha</span></label>
-                    <input type="date" name="date" class="input input-bordered input-sm" required>
+                    <label class="label py-1" for="playoff-date"><span class="label-text text-xs">Fecha</span></label>
+                    <input type="date" id="playoff-date" name="date" class="input input-bordered input-sm" required>
                 </div>
                 <div class="form-control">
-                    <label class="label py-1"><span class="label-text text-xs">Hora</span></label>
-                    <input type="time" name="time" class="input input-bordered input-sm">
+                    <label class="label py-1" for="playoff-time"><span class="label-text text-xs">Hora</span></label>
+                    <input type="time" id="playoff-time" name="time" class="input input-bordered input-sm">
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div class="form-control">
-                    <label class="label py-1"><span class="label-text text-xs">Club</span></label>
-                    <select name="venue_id" class="select select-bordered select-sm w-full">
+                    <label class="label py-1" for="playoff-venue"><span class="label-text text-xs">Club</span></label>
+                    <select id="playoff-venue" name="venue_id" class="select select-bordered select-sm w-full">
                         <option value="">—</option>
                         {{range .Venues}}<option value="{{.Id}}">{{.GetString "name"}}</option>{{end}}
                     </select>
                 </div>
                 <div class="form-control">
-                    <label class="label py-1"><span class="label-text text-xs">Pista</span></label>
-                    <input type="text" name="court_number" class="input input-bordered input-sm" placeholder="Ej: 3">
+                    <label class="label py-1" for="playoff-court"><span class="label-text text-xs">Pista</span></label>
+                    <input type="text" id="playoff-court" name="court_number" class="input input-bordered input-sm" placeholder="Ej: 3">
                 </div>
             </div>
             <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm">Asignar fecha</button>
@@ -214,7 +214,7 @@
             {{end}}
             <form hx-post="/match/{{.MatchID}}/thread/message" hx-target="body" class="flex gap-2">
                 <input type="hidden" name="type" value="chat">
-                <input type="text" name="content" class="input input-bordered input-sm flex-1" placeholder="Escribe un mensaje..." required>
+                <input type="text" name="content" aria-label="Mensaje" class="input input-bordered input-sm flex-1" placeholder="Escribe un mensaje..." required>
                 <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm">Enviar</button>
             </form>
         </div>
@@ -226,17 +226,17 @@
 <form id="proposal-form" hx-post="/match/{{.MatchID}}/thread/proposal" hx-target="body">
     <div class="grid grid-cols-2 gap-3">
         <div class="form-control">
-            <label class="label py-1"><span class="label-text text-xs">Fecha</span></label>
-            <input type="date" name="date" class="input input-bordered input-sm">
+            <label class="label py-1" for="proposal-date"><span class="label-text text-xs">Fecha</span></label>
+            <input type="date" id="proposal-date" name="date" class="input input-bordered input-sm">
         </div>
         <div class="form-control">
-            <label class="label py-1"><span class="label-text text-xs">Hora</span></label>
-            <input type="time" name="time" class="input input-bordered input-sm" value="{{.ProposalDefaultTime}}">
+            <label class="label py-1" for="proposal-time"><span class="label-text text-xs">Hora</span></label>
+            <input type="time" id="proposal-time" name="time" class="input input-bordered input-sm" value="{{.ProposalDefaultTime}}">
         </div>
     </div>
     <div class="form-control mt-3">
-        <label class="label py-1"><span class="label-text text-xs">Club</span></label>
-        <select name="venue_id" class="select select-bordered select-sm w-full" onchange="document.getElementById('venue-text-wrap').classList.toggle('hidden', this.value !== 'otro')">
+        <label class="label py-1" for="proposal-venue"><span class="label-text text-xs">Club</span></label>
+        <select id="proposal-venue" name="venue_id" class="select select-bordered select-sm w-full" onchange="document.getElementById('venue-text-wrap').classList.toggle('hidden', this.value !== 'otro')">
             <option value="">Seleccionar...</option>
             {{range .Venues}}
             <option value="{{.Id}}" {{if eq (.GetString "name") $.ProposalDefaultVenue}}selected{{end}}>{{.GetString "name"}}</option>
@@ -245,7 +245,8 @@
         </select>
     </div>
     <div id="venue-text-wrap" class="form-control mt-2 hidden">
-        <input type="text" name="venue_text" class="input input-bordered input-sm" placeholder="Nombre del club">
+        <label class="label py-1" for="proposal-venue-text"><span class="label-text text-xs">Nombre del club</span></label>
+        <input type="text" id="proposal-venue-text" name="venue_text" class="input input-bordered input-sm" placeholder="Nombre del club">
     </div>
     <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm w-full mt-3">Proponer fecha</button>
 </form>
