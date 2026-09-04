@@ -372,6 +372,34 @@ func TestScoreWinner(t *testing.T) {
 	}
 }
 
+func TestRelDate(t *testing.T) {
+	t.Parallel()
+	now := time.Now().In(madrid)
+	dayStr := func(offset int) string {
+		return now.AddDate(0, 0, offset).Format("2006-01-02")
+	}
+	tests := []struct {
+		name, input, want string
+	}{
+		{"empty", "", ""},
+		{"unparseable", "not-a-date", "not-a-date"},
+		{"today", dayStr(0), "hoy"},
+		{"tomorrow", dayStr(1), "mañana"},
+		{"yesterday", dayStr(-1), "ayer"},
+		{"in 2 days", dayStr(2), "en 2 días"},
+		{"in 7 days", dayStr(7), "en 7 días"},
+		{"8 days out falls back to absolute", dayStr(8), FmtDate(dayStr(8))},
+		{"2 days ago", dayStr(-2), "hace 2 días"},
+		{"7 days ago", dayStr(-7), "hace 7 días"},
+		{"8 days ago falls back to absolute", dayStr(-8), FmtDate(dayStr(-8))},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, RelDate(tt.input))
+		})
+	}
+}
+
 func TestInitials(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {

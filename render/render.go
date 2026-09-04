@@ -2,6 +2,7 @@
 package render
 
 import (
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -40,6 +41,7 @@ func New(viewsFS fs.FS, vapidPublicKey string, appDevTools bool) *Renderer {
 			return league.EntityURL("competition", id)
 		},
 		"fmtDate": FmtDate,
+		"relDate": RelDate,
 		"elink": func(id, name string) map[string]string {
 			return map[string]string{"ID": id, "Name": name}
 		},
@@ -262,6 +264,57 @@ func hasExplicitUTC(raw string) bool {
 	return strings.HasSuffix(raw, "Z") ||
 		strings.Contains(raw, "+00:00") ||
 		strings.Contains(raw, "+0000")
+}
+
+// RelDate parses a date string and returns Spanish relative text for
+// recent/near dates (hoy, mañana, ayer, "en N días", "hace N días"),
+// falling back to FmtDate's DD/MM/YYYY beyond a 7-day window either way.
+// Day boundaries are computed in Europe/Madrid.
+func RelDate(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	var parsed time.Time
+	var found bool
+	for _, layout := range dateLayouts {
+		t, err := time.Parse(layout, raw)
+		if err != nil {
+			continue
+		}
+		parsed = t
+		found = true
+		break
+	}
+	if !found {
+		return raw
+	}
+	if hasExplicitUTC(raw) {
+		parsed = parsed.In(madrid)
+	}
+
+	today := startOfDay(time.Now().In(madrid))
+	y, m, d := parsed.Date()
+	target := time.Date(y, m, d, 0, 0, 0, 0, madrid)
+	days := int(target.Sub(today).Hours() / 24)
+
+	switch {
+	case days == 0:
+		return "hoy"
+	case days == 1:
+		return "mañana"
+	case days == -1:
+		return "ayer"
+	case days > 1 && days <= 7:
+		return fmt.Sprintf("en %d días", days)
+	case days < -1 && days >= -7:
+		return fmt.Sprintf("hace %d días", -days)
+	}
+	return FmtDate(raw)
+}
+
+func startOfDay(t time.Time) time.Time {
+	y, m, d := t.Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, t.Location())
 }
 
 // scoreWinner returns the winning pair's name for a complete, valid padel
