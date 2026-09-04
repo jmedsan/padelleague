@@ -47,11 +47,12 @@ type MatchCard struct {
 	Opponent  string
 	Won       bool
 
-	CanSubmit       bool
-	CanEdit         bool
-	CanWalkover     bool
-	CanCorrect      bool
-	HasDateAndPlace bool
+	CanSubmit                    bool
+	CanEdit                      bool
+	CanWalkover                  bool
+	CanCorrect                   bool
+	HasDateAndPlace              bool
+	HasPendingSchedulingProposal bool
 
 	Venues []*core.Record
 
@@ -159,6 +160,7 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 	isSubmitter := viewerIsSubmitter(app, match, team)
 
 	c.HasDateAndPlace = match.GetString("date") != "" && match.GetString("club") != ""
+	c.HasPendingSchedulingProposal = hasPendingSchedulingProposal(app, match.Id)
 	c.CanSubmit = league.IsPreScore(status) && team > 0
 	c.CanEdit = league.IsPreScore(status) && team > 0
 	c.CanWalkover = canReportUnplayed(status, team)
@@ -168,6 +170,15 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 	c.ScoreSubmit = ScoreInputVM{FieldName: "scores", IDSuffix: mid, Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
 	c.ScoreCorrect = ScoreInputVM{FieldName: "scores", Value: match.GetString("scores"), IDSuffix: mid + "-correct", Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
 
+}
+
+// hasPendingSchedulingProposal reports whether matchID has a scheduling
+// proposal awaiting the rival pair's response.
+func hasPendingSchedulingProposal(app core.App, matchID string) bool {
+	msgs, _ := app.FindRecordsByFilter("match_messages",
+		"match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'pending'",
+		"", 1, 0, map[string]any{"mid": matchID})
+	return len(msgs) > 0
 }
 
 func viewerIsSubmitter(app core.App, match *core.Record, viewerTeam int) bool {

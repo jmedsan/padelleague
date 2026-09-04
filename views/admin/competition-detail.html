@@ -18,7 +18,7 @@
                 {{end}}
                 <input type="file" id="comp-logo-input" name="logo" accept="image/jpeg,image/png,image/webp"
                        class="file-input file-input-bordered file-input-sm flex-1"
-                       hx-post="/admin/competitions/{{.Competition.Id}}/logo" hx-trigger="change" hx-encoding="multipart/form-data">
+                       hx-post="/admin/competitions/{{.Competition.Id}}/logo" hx-trigger="change" hx-encoding="multipart/form-data" hx-disabled-elt="this">
             </div>
         </div>
         <form hx-post="/admin/competitions/{{.Competition.Id}}">
@@ -122,9 +122,9 @@
                 Calendario
             </h2>
             {{if .HasFixtures}}
-                <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" hx-confirm="¿Regenerar el calendario? Se perderán todos los partidos y resultados existentes." class="btn btn-warning btn-sm">Regenerar</button>
+                <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" hx-confirm="¿Regenerar el calendario? Se perderán todos los partidos y resultados existentes." hx-disabled-elt="this" class="btn btn-warning btn-sm">Regenerar</button>
             {{else if .Entries}}
-                <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" class="btn btn-primary btn-sm">Generar calendario</button>
+                <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" hx-disabled-elt="this" class="btn btn-primary btn-sm">Generar calendario</button>
             {{end}}
         </div>
 
@@ -330,6 +330,7 @@
         <div class="flex justify-end mb-2">
             <button hx-post="/admin/competitions/{{.Competition.Id}}/round-dates/regenerate"
                     hx-confirm="¿Regenerar las fechas? Esto sobrescribe las fechas editadas."
+                    hx-disabled-elt="this"
                     class="btn btn-ghost btn-sm">Regenerar fechas</button>
         </div>
         <form hx-post="/admin/competitions/{{.Competition.Id}}/round-dates" class="space-y-2">

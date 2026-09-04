@@ -350,9 +350,13 @@
             </form>
         </div>
     </div>
+    {{else if $c.HasPendingSchedulingProposal}}
+    <div class="alert alert-warning">
+        <span>Fecha propuesta, pendiente de confirmación.</span>
+    </div>
     {{else}}
     <div class="alert alert-info">
-        <span>Primero propón una fecha y lugar en el hilo del partido.</span>
+        <span>Primero propón una fecha y lugar a continuación.</span>
     </div>
     {{end}}
     {{end}}
