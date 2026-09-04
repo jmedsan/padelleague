@@ -252,7 +252,7 @@ test.describe('responsive - no horizontal overflow', () => {
 
     // Key text elements should be visible (not invisible due to low opacity)
     await expect(page.locator('h1:has-text("Competiciones")')).toBeVisible();
-    await expect(page.locator('text=Competiciones activas')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Competiciones activas' })).toBeVisible();
   });
 
   test('R-review: pair/player history renders as cards, not a table, at 390px', async ({ page }) => {

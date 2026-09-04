@@ -111,7 +111,7 @@
                     {{if .DisplayName}}
                     <div class="dropdown dropdown-end">
                         <div class="form-control">
-                            <input id="global-search" type="text" placeholder="Buscar…" class="input input-sm w-40 lg:w-56 bg-white/15 border-white/20 placeholder-white/50 text-neutral-content focus:bg-white/25"
+                            <input id="global-search" type="text" placeholder="Buscar…" aria-label="Buscar" class="input input-sm w-40 lg:w-56 bg-white/15 border-white/20 placeholder-white/50 text-neutral-content focus:bg-white/25"
                                    hx-get="/search" hx-trigger="keyup changed delay:200ms, focus" hx-target="#search-results-dropdown" name="q" autocomplete="off">
                         </div>
                         <div id="search-results-dropdown" tabindex="0" class="dropdown-content z-40 mt-1 w-80 max-h-96 overflow-y-auto bg-base-100 text-base-content rounded-box shadow-xl"></div>
@@ -171,7 +171,7 @@
                 </div>
                 {{if .DisplayName}}
                 <div class="p-4 pb-0 relative z-20">
-                    <input type="text" placeholder="Buscar…" class="input input-bordered input-sm w-full"
+                    <input type="text" placeholder="Buscar…" aria-label="Buscar" class="input input-bordered input-sm w-full"
                            hx-get="/search" hx-trigger="keyup changed delay:200ms, focus" hx-target="#search-results-mobile" name="q" autocomplete="off">
                     <div id="search-results-mobile" class="absolute left-4 right-4 mt-1 max-h-64 overflow-y-auto bg-base-100 rounded-box shadow-xl z-10"></div>
                 </div>
