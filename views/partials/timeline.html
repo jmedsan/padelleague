@@ -10,7 +10,7 @@
                 <span class="font-bold">{{.AuthorName}}</span>
                 <span>{{.Content}}</span>
             </div>
-            <span class="text-xs opacity-50 whitespace-nowrap">{{.CreatedAt}}</span>
+            <span class="text-xs opacity-50 whitespace-nowrap" title="{{.CreatedAt}}">{{relDate .CreatedRel}}</span>
         </div>
         {{if .Date}}
         {{/* scheduling proposal/response — reuse the shared dateBox */}}

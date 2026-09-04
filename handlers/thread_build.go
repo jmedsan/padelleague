@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"time"
+
 	"github.com/pocketbase/pocketbase/core"
 
 	"padelleague/league"
@@ -22,7 +24,8 @@ type TimelineEntryVM struct {
 	IsMyTeam    bool
 	Content     string
 	Note        string // rejection reason, shown below the dateBox/resultBox
-	CreatedAt   string // render.FmtShortTime — DD/MM HH:MM
+	CreatedAt   string // render.FmtShortTime — DD/MM HH:MM, shown as the title (hover) text
+	CreatedRel  string // RFC3339 raw value for {{relDate}} — the visible timeline timestamp
 	Score       string // result_submission only
 	Pair1Name   string // result_submission only, for the winner-name calculation
 	Pair2Name   string // result_submission only, for the winner-name calculation
@@ -124,15 +127,18 @@ type msgCtx struct {
 	authorName string
 	authorTeam int
 	created    string
+	createdRaw string // RFC3339, for {{relDate}}
 }
 
 func (bc *threadBuildCtx) processMessage(msg *core.Record, authorID, cachedName string, td *ThreadData) {
+	createdTime := msg.GetDateTime("created").Time()
 	mc := msgCtx{
 		msg:        msg,
 		msgType:    msg.GetString("type"),
 		authorName: cachedName,
 		authorTeam: playerTeamOf(authorID, bc.pair1Players, bc.pair2Players),
-		created:    render.FmtShortTime(msg.GetDateTime("created").Time()),
+		created:    render.FmtShortTime(createdTime),
+		createdRaw: createdTime.Format(time.RFC3339),
 	}
 	if isProposalOrResponse(mc.msgType) {
 		mc.authorName = pairPlayerLabel(bc.app, authorID, bc.match)
@@ -153,6 +159,7 @@ func (bc *threadBuildCtx) timelineEntry(mc msgCtx) TimelineEntryVM {
 		AuthorName: mc.authorName,
 		IsMyTeam:   bc.myTeam != 0 && mc.authorTeam == bc.myTeam,
 		CreatedAt:  mc.created,
+		CreatedRel: mc.createdRaw,
 	}
 	fillTimelineEntryData(&entry, pd, mc.msgType)
 	if mc.msgType == "result_submission" || mc.msgType == "result_response" {

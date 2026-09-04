@@ -203,7 +203,7 @@
     </div>
     <div class="flex-1 min-w-0">
         <p class="font-medium text-sm truncate">vs <span data-testid="upcoming-opponent">{{.Opponent}}</span></p>
-        <p class="text-xs opacity-60">{{template "competitionIdentity" (dict "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true) "NoLink" true "Small" true)}}{{if .DisplayDate}} · <span class="whitespace-nowrap">{{.DisplayDate}}</span>{{end}}{{if .ProposedVenue}} · {{.ProposedVenue}}{{end}}</p>
+        <p class="text-xs opacity-60">{{template "competitionIdentity" (dict "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true) "NoLink" true "Small" true)}}{{if .DisplayDate}} · <span class="whitespace-nowrap" title="{{fmtDate .DisplayDate}}">{{relDate .DisplayDate}}</span>{{end}}{{if .ProposedVenue}} · {{.ProposedVenue}}{{end}}</p>
     </div>
     {{template "scheduleStatusBadge" .ScheduleStatus}}
 </a>
