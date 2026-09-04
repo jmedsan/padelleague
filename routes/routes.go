@@ -38,7 +38,7 @@ func Register(se *core.ServeEvent, deps Deps) {
 	})
 
 	auth := handlers.NewAuthHandler(deps.App, deps.Renderer.Page)
-	notif := handlers.NewNotificationHandler(deps.App, deps.Renderer.Page)
+	notif := handlers.NewNotificationHandler(deps.App, deps.Renderer.Page, deps.Renderer.Partial)
 
 	registerStaticRoutes(se, deps)
 	registerAuthRoutes(se, deps, auth)

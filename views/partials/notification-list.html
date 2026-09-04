@@ -1,0 +1,11 @@
+{{/* notificationListItems renders the bell dropdown's rows, or its empty
+     state. .Notifications holds []NotificationView (Mode: PlayerRow). */}}
+{{define "notificationListItems"}}
+{{if .Notifications}}
+{{range .Notifications}}
+{{template "notificationRow" .}}
+{{end}}
+{{else}}
+<p class="text-sm text-base-content/50">No tienes notificaciones</p>
+{{end}}
+{{end}}

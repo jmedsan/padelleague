@@ -33,7 +33,7 @@ func setupNotifRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	auth := NewAuthHandler(app, r.Page)
 	e.Router.GET("/login", auth.Login)
 
-	notif := NewNotificationHandler(app, r.Page)
+	notif := NewNotificationHandler(app, r.Page, r.Partial)
 	e.Router.GET("/notifications/count", notif.Count).BindFunc(requireAuthTest)
 	e.Router.GET("/notifications/list", notif.List).BindFunc(requireAuthTest)
 	e.Router.POST("/notifications/{id}/read", notif.MarkRead).BindFunc(requireAuthTest)
