@@ -56,14 +56,17 @@ func (h *AdminSponsorHandler) SponsorsCreate(e *core.RequestEvent) error {
 	}
 
 	record := core.NewRecord(col)
+	record.Set("name", name)
+	record.Set("url", e.Request.FormValue("url"))
+	if err := h.app.Save(record); err != nil {
+		return alertError(e, "Error al crear el patrocinador")
+	}
 
 	f, errMsg := compressLogo(fh, record.Id+"_logo.jpg")
 	if errMsg != "" {
+		_ = h.app.Delete(record)
 		return alertError(e, errMsg)
 	}
-
-	record.Set("name", name)
-	record.Set("url", e.Request.FormValue("url"))
 	record.Set("logo", f)
 
 	if err := h.app.Save(record); err != nil {

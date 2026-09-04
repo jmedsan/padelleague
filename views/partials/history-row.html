@@ -28,7 +28,7 @@
 <a href="{{entityURL "match" .MatchID}}" class="flex items-center gap-3 p-3 rounded-xl bg-base-200/50 hover:bg-base-200 transition-colors">
     <div class="flex-1 min-w-0">
         <p class="font-medium text-sm truncate">{{.Opponent}}</p>
-        <p class="text-xs opacity-60">{{fmtDate .Date}} · {{.Score}} · {{template "competitionIdentity" (dict "ID" .CompetitionID "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true) "NoLink" true "Small" true)}}</p>
+        <p class="text-xs opacity-60">{{if .Date}}{{fmtDate .Date}} · {{end}}{{.Score}} · {{template "competitionIdentity" (dict "ID" .CompetitionID "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true) "NoLink" true "Small" true)}}</p>
     </div>
     {{template "wonBadge" .}}
 </a>

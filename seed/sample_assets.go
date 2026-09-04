@@ -20,9 +20,9 @@ func createSampleSponsor(txApp core.App, comp *core.Record, staticFS fs.FS) erro
 	if err != nil {
 		return fmt.Errorf("read sponsor logo: %w", err)
 	}
-	f, err := filesystem.NewFileFromBytes(data, "decathlon.png")
+	f, err := league.CompressLogoBytes(bytes.NewReader(data), "decathlon-logo.jpg")
 	if err != nil {
-		return fmt.Errorf("sponsor logo file: %w", err)
+		return fmt.Errorf("compress sponsor logo: %w", err)
 	}
 	sponsor := core.NewRecord(col)
 	sponsor.Set("name", "Decathlon")

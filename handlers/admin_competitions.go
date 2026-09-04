@@ -283,9 +283,8 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 }
 
 // LogoUpload handles POST to upload and set a competition's logo image.
-// Admin only. The image is compressed via the same pipeline used for
-// player avatars (league.CompressAvatarBytes) before being saved on the
-// record.
+// Admin only. The image is compressed via league.CompressLogoBytes
+// (aspect-ratio-preserving, no square crop) before being saved.
 func (h *CompetitionHandler) LogoUpload(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	record, err := h.app.FindRecordById("competitions", id)
