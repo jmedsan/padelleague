@@ -4,16 +4,35 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	_ "padelleague/migrations"
 )
+
+// testApp is a package-wide throwaway PocketBase test app used to satisfy
+// league.FooterContext's app.FindRecordsByFilter call from Page/Partial.
+var testApp *tests.TestApp
+
+func TestMain(m *testing.M) {
+	app, err := tests.NewTestApp()
+	if err != nil {
+		panic(err)
+	}
+	testApp = app
+	code := m.Run()
+	testApp.Cleanup()
+	os.Exit(code)
+}
 
 func makeEvent(auth *core.Record) (*core.RequestEvent, *httptest.ResponseRecorder) {
 	rec := httptest.NewRecorder()
@@ -21,6 +40,7 @@ func makeEvent(auth *core.Record) (*core.RequestEvent, *httptest.ResponseRecorde
 	e := &core.RequestEvent{
 		Auth: auth,
 	}
+	e.App = testApp
 	e.Response = &router.ResponseWriter{ResponseWriter: rec}
 	e.Request = req
 	return e, rec

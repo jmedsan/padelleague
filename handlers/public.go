@@ -622,8 +622,8 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		playerPairIDs[p.Id] = struct{}{}
 	}
 
-	if gate := h.docsGate(e, comp, userID, playerPairIDs); gate != nil {
-		return gate
+	if gated, err := h.docsGate(e, comp, userID, playerPairIDs); gated || err != nil {
+		return err
 	}
 
 	matches := findRecordsLogged(h.app, "Competition: find matches", RecordQuery{
@@ -655,13 +655,16 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	return h.renderPage(e, "competition.html", data)
 }
 
-func (h *PublicHandler) docsGate(e *core.RequestEvent, comp *core.Record, userID string, playerPairIDs map[string]struct{}) error {
+// docsGate renders the mandatory-documents gate page and reports gated=true
+// when the player has unacknowledged mandatory documents; the caller must
+// stop processing the request in that case regardless of err.
+func (h *PublicHandler) docsGate(e *core.RequestEvent, comp *core.Record, userID string, playerPairIDs map[string]struct{}) (gated bool, err error) {
 	if !league.IsParticipant(comp, playerPairIDs) {
-		return nil
+		return false, nil
 	}
 	pending := league.UnacknowledgedMandatory(h.app, comp, userID)
 	if len(pending) == 0 {
-		return nil
+		return false, nil
 	}
 	allDocs := league.AttachedDocuments(h.app, comp)
 	mandatoryIDs := make([]string, len(pending))
@@ -672,7 +675,7 @@ func (h *PublicHandler) docsGate(e *core.RequestEvent, comp *core.Record, userID
 	for i, d := range allDocs {
 		docViews[i] = NewDocumentView(d, PlayerSummary)
 	}
-	return h.renderPage(e, "competition-docs-gate.html", map[string]any{
+	err = h.renderPage(e, "competition-docs-gate.html", map[string]any{
 		"PageTitle":           "Documentos",
 		"Competition":         comp,
 		"DocumentViews":       docViews,
@@ -680,6 +683,7 @@ func (h *PublicHandler) docsGate(e *core.RequestEvent, comp *core.Record, userID
 		"Mode":                PlayerRow,
 		"FooterCompetitionID": comp.Id,
 	})
+	return true, err
 }
 
 // addCompetitionDocViews sets DocumentView entries on data when the

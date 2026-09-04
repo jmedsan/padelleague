@@ -18,7 +18,7 @@ func TestFooterContext_ExplicitCompID(t *testing.T) {
 	comp.Set("sponsors", []string{sponsor.Id})
 	require.NoError(t, app.Save(comp))
 
-	fd := FooterContext(app, comp.Id)
+	fd := FooterContext(app, comp.Id, "", false)
 
 	require.NotNil(t, fd.Competition)
 	assert.Equal(t, comp.Id, fd.Competition.ID)
@@ -40,7 +40,7 @@ func TestFooterContext_NoCompID_SingleActive_PromotesToInContext(t *testing.T) {
 	comp.Set("sponsors", []string{sponsor.Id})
 	require.NoError(t, app.Save(comp))
 
-	fd := FooterContext(app, "")
+	fd := FooterContext(app, "", "", false)
 
 	require.NotNil(t, fd.Competition, "single active competition must be promoted to the in-context shape")
 	assert.Equal(t, comp.Id, fd.Competition.ID)
@@ -59,7 +59,7 @@ func TestFooterContext_NoCompID_MultipleActive_ReturnsActiveList(t *testing.T) {
 	comp1 := makeCompetition(t, app, []*core.Record{p1, p2})
 	comp2 := makeCompetition(t, app, []*core.Record{p3, p4})
 
-	fd := FooterContext(app, "")
+	fd := FooterContext(app, "", "", false)
 
 	assert.Nil(t, fd.Competition, "multiple active competitions must not resolve a single in-context identity")
 	assert.Nil(t, fd.Sponsors)
@@ -77,7 +77,7 @@ func TestFooterContext_NoCompID_ZeroActive_ReturnsEmpty(t *testing.T) {
 	comp.Set("active", false)
 	require.NoError(t, app.Save(comp))
 
-	fd := FooterContext(app, "")
+	fd := FooterContext(app, "", "", false)
 
 	assert.Equal(t, FooterData{}, fd)
 }

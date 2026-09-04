@@ -31,9 +31,10 @@ func New(viewsFS fs.FS, vapidPublicKey string, appDevTools bool) *Renderer {
 		"contains": func(slice []string, item string) bool {
 			return slices.Contains(slice, item)
 		},
-		"entityURL":   league.EntityURL,
-		"avatarURL":   league.AvatarURL,
-		"compLogoURL": league.CompetitionLogoURL,
+		"entityURL":      league.EntityURL,
+		"avatarURL":      league.AvatarURL,
+		"compLogoURL":    league.CompetitionLogoURL,
+		"sponsorLogoURL": league.SponsorLogoURL,
 		"competitionURL": func(id string) string {
 			return league.EntityURL("competition", id)
 		},
@@ -151,7 +152,13 @@ func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) 
 	}
 	r.withAuth(e, data)
 	compID, _ := data["FooterCompetitionID"].(string)
-	data["Footer"] = league.FooterContext(e.App, compID)
+	var userID string
+	var isAdmin bool
+	if e.Auth != nil {
+		userID = e.Auth.Id
+		isAdmin = slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
+	}
+	data["Footer"] = league.FooterContext(e.App, compID, userID, isAdmin)
 	files := append([]string{"views/layout.html"}, r.partialFiles()...)
 	files = append(files, "views/"+page)
 	html, err := r.registry.LoadFS(r.viewsFS, files...).Render(data)

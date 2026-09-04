@@ -403,6 +403,52 @@
     </div>
 </div>
 
+<!-- Patrocinadores -->
+<div class="card bg-base-100 shadow mb-6">
+    <div class="card-body">
+        <h2 class="card-title text-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Patrocinadores
+            {{if .AttachedSponsors}}<span class="badge badge-neutral badge-sm">{{len .AttachedSponsors}}</span>{{end}}
+        </h2>
+
+        {{if .AttachedSponsors}}
+        <div class="space-y-2">
+            {{range .AttachedSponsors}}
+            <div class="flex items-center justify-between gap-3 p-3 bg-base-200/50 rounded-lg" data-testid="sponsor-attach-card">
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <img src="{{sponsorLogoURL .Id (.GetString "logo")}}" alt="{{.GetString "name"}}" class="w-10 h-10 object-contain rounded bg-base-100 flex-none">
+                    <p class="font-medium text-sm truncate">{{.GetString "name"}}</p>
+                </div>
+                <form hx-post="/admin/competitions/{{$.Competition.Id}}/detach-sponsor/{{.Id}}" hx-confirm="¿Quitar este patrocinador de la competición?" class="flex-none">
+                    <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm text-error">Quitar</button>
+                </form>
+            </div>
+            {{end}}
+        </div>
+        {{else}}
+        <div class="text-center py-6 text-base-content/60">
+            <p class="text-sm">No hay patrocinadores adjuntos</p>
+        </div>
+        {{end}}
+
+        {{if .UnattachedSponsors}}
+        <div class="divider text-xs uppercase tracking-wider">Adjuntar patrocinador</div>
+        <form hx-post="/admin/competitions/{{.Competition.Id}}/attach-sponsor" class="flex items-end gap-2">
+            <div class="form-control flex-1 min-w-0">
+                <select name="sponsor" class="select select-bordered select-sm w-full" required>
+                    <option value="">Patrocinador…</option>
+                    {{range .UnattachedSponsors}}
+                    <option value="{{.Id}}">{{.GetString "name"}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm">Adjuntar</button>
+        </form>
+        {{end}}
+    </div>
+</div>
+
 <!-- Invitaciones -->
 <div class="card bg-base-100 shadow mb-6">
     <div class="card-body">
