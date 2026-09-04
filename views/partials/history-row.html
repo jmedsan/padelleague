@@ -8,7 +8,7 @@
      link nested in a <td> is valid) so a player in multiple competitions
      can tell matches apart (L1). */}}
 {{define "resultHistoryRow"}}
-<tr class="hover cursor-pointer" onclick="window.location='{{entityURL "match" .MatchID}}'">
+<tr class="hover cursor-pointer" onclick="window.location='{{entityURL "match" .MatchID}}'" role="link" tabindex="0" onkeydown="if(event.key==='Enter')this.click()">
     <td class="text-sm opacity-70">{{fmtDate .Date}}</td>
     <td>{{template "pairLink" (elink .Pair1ID .PairName1)}}</td>
     <td>{{template "pairLink" (elink .Pair2ID .PairName2)}}</td>

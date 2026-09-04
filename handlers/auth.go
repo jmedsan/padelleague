@@ -59,7 +59,8 @@ func (h *AuthHandler) Register(e *core.RequestEvent) error {
 	token := e.Request.URL.Query().Get("token")
 	if token == "" {
 		return h.renderPage(e, "register.html", map[string]any{
-			"NoInvite": true,
+			"PageTitle": "Registro",
+			"NoInvite":  true,
 		})
 	}
 
@@ -69,6 +70,7 @@ func (h *AuthHandler) Register(e *core.RequestEvent) error {
 		map[string]any{"token": token})
 	if err != nil || len(invites) == 0 || isInviteExpired(invites[0]) {
 		return h.renderPage(e, "register.html", map[string]any{
+			"PageTitle":     "Registro",
 			"InvalidInvite": true,
 		})
 	}
@@ -86,6 +88,7 @@ func (h *AuthHandler) Register(e *core.RequestEvent) error {
 	}
 
 	data := map[string]any{
+		"PageTitle":   "Registro",
 		"Token":       token,
 		"InviteEmail": invite.GetString("email"),
 	}
@@ -225,7 +228,9 @@ func consumeInvite(txApp core.App, inviteID, userID, note string) error {
 
 // ProfileComplete renders the display-name form for new users.
 func (h *AuthHandler) ProfileComplete(e *core.RequestEvent) error {
-	return h.renderPage(e, "profile-complete.html", map[string]any{})
+	return h.renderPage(e, "profile-complete.html", map[string]any{
+		"PageTitle": "Completa tu perfil",
+	})
 }
 
 // ProfileCompleteSubmit saves the display name and redirects to home.
