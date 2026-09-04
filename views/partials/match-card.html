@@ -58,7 +58,7 @@
         <div class="divider my-2"></div>
         <form hx-post="/admin/disputes/{{.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
             {{template "scoreInput" .ScoreResolve}}
-            <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm mt-4">Resolver</button>
+            <button type="submit" hx-disabled-elt="this" hx-confirm="¿Resolver esta disputa con el marcador introducido?" class="btn btn-primary btn-sm mt-4">Resolver</button>
         </form>
     </div>
     {{end}}
@@ -309,7 +309,7 @@
         <div class="divider my-2"></div>
         <form hx-post="/admin/disputes/{{$c.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
             {{template "scoreInput" $c.ScoreResolve}}
-            <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm mt-4">Resolver</button>
+            <button type="submit" hx-disabled-elt="this" hx-confirm="¿Resolver esta disputa con el marcador introducido?" class="btn btn-primary btn-sm mt-4">Resolver</button>
         </form>
         {{end}}
     </div>

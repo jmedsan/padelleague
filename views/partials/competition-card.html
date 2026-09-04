@@ -56,10 +56,10 @@
             {{end}}
         </div>
         <div class="flex gap-2 mt-1">
-            <a href="{{.URL}}" data-testid="setup-configure" class="btn btn-outline btn-xs">Configurar</a>
+            <a href="{{.URL}}" data-testid="setup-configure" class="btn btn-outline btn-xs sm:btn-sm">Configurar</a>
             {{if .Setup.Ready}}
             <form hx-post="/admin/competitions/{{.Competition.Id}}/toggle">
-                <button type="submit" hx-disabled-elt="this" class="btn btn-success btn-xs">Activar</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-success btn-xs sm:btn-sm">Activar</button>
             </form>
             {{end}}
         </div>
