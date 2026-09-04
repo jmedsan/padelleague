@@ -3,26 +3,26 @@
     <div class="max-w-5xl mx-auto flex flex-col items-center gap-5">
         {{if or .Competition .Active .Sponsors}}
         <div class="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-10">
-            {{if .Competition}}
-            <a href="/competition/{{.Competition.ID}}" class="hover:opacity-80 transition-opacity">
-                {{if .Competition.LogoURL}}<img src="{{.Competition.LogoURL}}" alt="{{.Competition.Name}}" style="height:80px;width:auto" loading="lazy">{{end}}
-            </a>
-            {{else if .Active}}
-            <div class="flex flex-wrap justify-center items-center gap-6 sm:gap-8">
-                {{range .Active}}
-                <a href="/competition/{{.ID}}" class="hover:opacity-80 transition-opacity">
-                    {{if .LogoURL}}<img src="{{.LogoURL}}" alt="{{.Name}}" style="height:70px;width:auto" loading="lazy">{{end}}
-                </a>
+            {{if .Sponsors}}
+            <div class="flex flex-col items-center gap-1.5 sm:order-last">
+                {{range .Sponsors}}
+                <span class="text-[10px] uppercase tracking-widest opacity-40">Patrocinado por</span>
+                {{template "sponsorTile" .}}
                 {{end}}
             </div>
             {{end}}
-            {{if .Sponsors}}
-            {{range .Sponsors}}
-            <div class="flex flex-col items-center gap-1.5">
-                <span class="text-[10px] uppercase tracking-widest opacity-40">Patrocinado por</span>
-                {{template "sponsorTile" .}}
+            {{if .Competition}}
+            <a href="/competition/{{.Competition.ID}}" class="hover:opacity-80 transition-opacity sm:order-first">
+                {{if .Competition.LogoURL}}<img src="{{.Competition.LogoURL}}" alt="{{.Competition.Name}}" style="height:80px;width:auto" loading="lazy">{{end}}
+            </a>
+            {{else if .Active}}
+            <div class="flex flex-col sm:flex-row flex-wrap justify-center items-center gap-6 sm:gap-8 sm:order-first">
+                {{range .Active}}
+                <a href="/competition/{{.ID}}" class="hover:opacity-80 transition-opacity block text-center">
+                    {{if .LogoURL}}<img src="{{.LogoURL}}" alt="{{.Name}}" style="height:70px;width:auto;display:inline-block" loading="lazy">{{end}}
+                </a>
+                {{end}}
             </div>
-            {{end}}
             {{end}}
         </div>
         {{end}}
