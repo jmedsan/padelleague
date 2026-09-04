@@ -80,16 +80,16 @@
         <h3 class="font-bold text-lg mb-4">Editar jugador</h3>
         <form hx-post="/admin/players/{{.Id}}" hx-target="body">
             <div class="form-control">
-                <label class="label">
+                <label class="label" for="edit-player-name-{{.Id}}">
                     <span class="label-text text-xs font-medium">Nombre</span>
                 </label>
-                <input type="text" name="display_name" class="input input-bordered w-full" value="{{.GetString "display_name"}}" required>
+                <input type="text" id="edit-player-name-{{.Id}}" name="display_name" class="input input-bordered w-full" value="{{.GetString "display_name"}}" required>
             </div>
             <div class="form-control mt-3">
-                <label class="label">
+                <label class="label" for="edit-player-gender-{{.Id}}">
                     <span class="label-text text-xs font-medium">Género</span>
                 </label>
-                <select name="gender" class="select select-bordered w-full" required>
+                <select id="edit-player-gender-{{.Id}}" name="gender" class="select select-bordered w-full" required>
                     <option value="male" {{if eq (.GetString "gender") "male"}}selected{{end}}>Hombre</option>
                     <option value="female" {{if eq (.GetString "gender") "female"}}selected{{end}}>Mujer</option>
                 </select>
@@ -110,10 +110,10 @@
                 </label>
             </div>
             <div class="form-control mt-3">
-                <label class="label">
+                <label class="label" for="edit-player-email-{{.Id}}">
                     <span class="label-text text-xs font-medium">Email</span>
                 </label>
-                <input type="email" class="input input-bordered w-full opacity-60" value="{{.GetString "email"}}" disabled>
+                <input type="email" id="edit-player-email-{{.Id}}" name="email" class="input input-bordered w-full opacity-60" value="{{.GetString "email"}}" disabled>
             </div>
             <div class="modal-action">
                 <label for="edit-player-{{.Id}}" class="btn btn-ghost">Cancelar</label>
@@ -132,22 +132,22 @@
         <p class="text-sm opacity-60 mb-4">Crea un usuario y genera una invitación vinculada a su email.</p>
         <form hx-post="/admin/players/pre-create" hx-target="#regen-result" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful){document.getElementById('precreate-modal').checked=false}">
             <div class="form-control">
-                <label class="label">
+                <label class="label" for="precreate-email">
                     <span class="label-text text-xs font-medium">Email</span>
                 </label>
-                <input type="email" name="email" class="input input-bordered w-full" placeholder="jugador@email.com" required>
+                <input type="email" id="precreate-email" name="email" class="input input-bordered w-full" placeholder="jugador@email.com" required>
             </div>
             <div class="form-control mt-3">
-                <label class="label">
+                <label class="label" for="precreate-name">
                     <span class="label-text text-xs font-medium">Nombre (opcional)</span>
                 </label>
-                <input type="text" name="display_name" class="input input-bordered w-full" placeholder="Nombre del jugador">
+                <input type="text" id="precreate-name" name="display_name" class="input input-bordered w-full" placeholder="Nombre del jugador">
             </div>
             <div class="form-control mt-3">
-                <label class="label">
+                <label class="label" for="precreate-gender">
                     <span class="label-text text-xs font-medium">Género</span>
                 </label>
-                <select name="gender" class="select select-bordered w-full" required>
+                <select id="precreate-gender" name="gender" class="select select-bordered w-full" required>
                     <option value="" disabled selected>Selecciona</option>
                     <option value="male">Hombre</option>
                     <option value="female">Mujer</option>

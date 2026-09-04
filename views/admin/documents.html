@@ -25,16 +25,16 @@
         <h3 class="text-lg font-bold mb-4">Editar documento</h3>
         <form hx-post="/admin/documents/{{.Id}}" hx-target="body" enctype="multipart/form-data">
             <div class="form-control">
-                <label class="label"><span class="label-text font-medium">Título</span></label>
-                <input type="text" name="title" value="{{.GetString "title"}}" class="input input-bordered w-full" required>
+                <label class="label" for="edit-doc-title-{{.Id}}"><span class="label-text font-medium">Título</span></label>
+                <input type="text" id="edit-doc-title-{{.Id}}" name="title" value="{{.GetString "title"}}" class="input input-bordered w-full" required>
             </div>
             <div class="form-control mt-3">
-                <label class="label"><span class="label-text font-medium">Descripción</span></label>
-                <textarea name="description" class="textarea textarea-bordered w-full" rows="2">{{.GetString "description"}}</textarea>
+                <label class="label" for="edit-doc-description-{{.Id}}"><span class="label-text font-medium">Descripción</span></label>
+                <textarea id="edit-doc-description-{{.Id}}" name="description" class="textarea textarea-bordered w-full" rows="2">{{.GetString "description"}}</textarea>
             </div>
             <div class="form-control mt-3">
-                <label class="label"><span class="label-text font-medium">Enlace</span></label>
-                <input type="url" name="url" value="{{.GetString "url"}}" class="input input-bordered w-full" placeholder="https://...">
+                <label class="label" for="edit-doc-url-{{.Id}}"><span class="label-text font-medium">Enlace</span></label>
+                <input type="url" id="edit-doc-url-{{.Id}}" name="url" value="{{.GetString "url"}}" class="input input-bordered w-full" placeholder="https://...">
             </div>
             <div class="form-control mt-3">
                 <label class="label"><span class="label-text font-medium">Archivo</span></label>
@@ -69,16 +69,16 @@
         <div id="create-doc-error" class="mb-2" aria-live="polite"></div>
         <form hx-post="/admin/documents" hx-target="#create-doc-error" enctype="multipart/form-data">
             <div class="form-control">
-                <label class="label"><span class="label-text font-medium">Título</span></label>
-                <input type="text" name="title" class="input input-bordered w-full" placeholder="Título del documento" required>
+                <label class="label" for="create-doc-title"><span class="label-text font-medium">Título</span></label>
+                <input type="text" id="create-doc-title" name="title" class="input input-bordered w-full" placeholder="Título del documento" required>
             </div>
             <div class="form-control mt-3">
-                <label class="label"><span class="label-text font-medium">Descripción</span></label>
-                <textarea name="description" class="textarea textarea-bordered w-full" rows="2" placeholder="Descripción opcional"></textarea>
+                <label class="label" for="create-doc-description"><span class="label-text font-medium">Descripción</span></label>
+                <textarea id="create-doc-description" name="description" class="textarea textarea-bordered w-full" rows="2" placeholder="Descripción opcional"></textarea>
             </div>
             <div class="form-control mt-3">
-                <label class="label"><span class="label-text font-medium">Enlace</span></label>
-                <input type="url" name="url" class="input input-bordered w-full" placeholder="https://...">
+                <label class="label" for="create-doc-url"><span class="label-text font-medium">Enlace</span></label>
+                <input type="url" id="create-doc-url" name="url" class="input input-bordered w-full" placeholder="https://...">
             </div>
             <div class="form-control mt-3">
                 <label class="label"><span class="label-text font-medium">Archivo</span></label>

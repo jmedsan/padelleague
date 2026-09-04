@@ -271,7 +271,7 @@
                 <p class="text-sm font-semibold mb-3">Desde el listado</p>
                 <div id="add-pair-result" class="mb-2" aria-live="polite"></div>
                 <form hx-post="/admin/competitions/{{.Competition.Id}}/pairs" hx-target="#add-pair-result">
-                    <select name="pair" class="select select-bordered select-sm w-full" required>
+                    <select name="pair" aria-label="Pareja" class="select select-bordered select-sm w-full" required>
                         <option value="">Seleccionar pareja…</option>
                         {{range .AllPairs}}
                         <option value="{{.Id}}">{{.GetString "name"}}</option>
@@ -288,7 +288,7 @@
                 <p class="text-sm font-semibold mb-3">Copiar de otra competición</p>
                 <div id="copy-result" class="mb-2"></div>
                 <form hx-post="/admin/competitions/{{.Competition.Id}}/copy-pairs" hx-target="#copy-result">
-                    <select name="source_competition" class="select select-bordered select-sm w-full" required>
+                    <select name="source_competition" aria-label="Competición origen" class="select select-bordered select-sm w-full" required>
                         <option value="">Competición origen…</option>
                         {{range .AllCompetitions}}
                         <option value="{{.Id}}">{{.GetString "name"}}</option>
@@ -302,14 +302,14 @@
                 <p class="text-sm font-semibold mb-3">Crear nueva pareja</p>
                 <div id="create-pair-result" class="mb-2" aria-live="polite"></div>
                 <form hx-post="/admin/pairs" hx-target="#create-pair-result">
-                    <input type="text" name="name" class="input input-bordered input-sm w-full" placeholder="Nombre de la pareja" required>
-                    <select name="player1" class="select select-bordered select-sm w-full mt-2" required>
+                    <input type="text" name="name" aria-label="Nombre de la pareja" class="input input-bordered input-sm w-full" placeholder="Nombre de la pareja" required>
+                    <select name="player1" aria-label="Jugador 1" class="select select-bordered select-sm w-full mt-2" required>
                         <option value="">Jugador 1…</option>
                         {{range .AllUsers}}
                         <option value="{{.Id}}">{{.GetString "display_name"}}</option>
                         {{end}}
                     </select>
-                    <select name="player2" class="select select-bordered select-sm w-full mt-2" required>
+                    <select name="player2" aria-label="Jugador 2" class="select select-bordered select-sm w-full mt-2" required>
                         <option value="">Jugador 2…</option>
                         {{range .AllUsers}}
                         <option value="{{.Id}}">{{.GetString "display_name"}}</option>
@@ -337,8 +337,8 @@
         <form hx-post="/admin/competitions/{{.Competition.Id}}/round-dates" class="space-y-2">
             {{range .RoundDates}}
             <div class="flex items-center gap-3">
-                <span class="text-sm font-medium w-24">Jornada {{.Number}}</span>
-                <input type="date" name="round_date_{{.Number}}" value="{{.Date}}"
+                <label class="text-sm font-medium w-24" for="round_date_{{.Number}}">Jornada {{.Number}}</label>
+                <input type="date" id="round_date_{{.Number}}" name="round_date_{{.Number}}" value="{{.Date}}"
                        class="input input-bordered input-sm flex-1 max-w-xs">
             </div>
             {{end}}
@@ -626,10 +626,10 @@ function copyInviteLink(token, btn) {
         <h2 class="card-title text-lg">Enviar anuncio</h2>
         <form hx-post="/admin/competitions/{{.Competition.Id}}/broadcast" hx-swap="none" class="space-y-3">
             <div class="form-control">
-                <input type="text" name="title" placeholder="Título del anuncio" class="input input-bordered w-full" required>
+                <input type="text" name="title" aria-label="Título del anuncio" placeholder="Título del anuncio" class="input input-bordered w-full" required>
             </div>
             <div class="form-control">
-                <textarea name="body" placeholder="Mensaje para todos los jugadores" class="textarea textarea-bordered w-full" rows="3" required></textarea>
+                <textarea name="body" aria-label="Mensaje para todos los jugadores" placeholder="Mensaje para todos los jugadores" class="textarea textarea-bordered w-full" rows="3" required></textarea>
             </div>
             <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm">Enviar anuncio</button>
         </form>
