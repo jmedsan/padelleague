@@ -39,7 +39,7 @@
 </div>
 {{else if .Mode.Row}}
 <div class="bg-neutral text-neutral-content rounded-2xl p-6 mb-6 shadow-lg">
-    <h1 class="text-3xl font-bold">{{.Comp.GetString "name"}}</h1>
+    {{template "competitionIdentity" (dict "ID" .Comp.Id "Name" (.Comp.GetString "name") "LogoURL" (compLogoURL .Comp.Id (.Comp.GetString "logo")) "Mode" (dict "Full" true))}}
 </div>
 {{else}}
 <div class="bg-neutral text-neutral-content rounded-2xl p-6 mb-6 shadow-lg">
