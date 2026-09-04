@@ -50,6 +50,7 @@ func (h *VenueHandler) VenuesCreate(e *core.RequestEvent) error {
 		return alertError(e, "Error al guardar el club")
 	}
 
+	flash(e, "Club creado")
 	return redirectHX(e, "/admin/venues")
 }
 
@@ -73,6 +74,7 @@ func (h *VenueHandler) VenuesUpdate(e *core.RequestEvent) error {
 		return alertError(e, "Error al guardar el club")
 	}
 
+	flash(e, "Club actualizado")
 	return redirectHX(e, "/admin/venues")
 }
 
@@ -89,5 +91,6 @@ func (h *VenueHandler) VenuesDelete(e *core.RequestEvent) error {
 		return alertError(e, "Error al eliminar el club")
 	}
 
+	flash(e, "Club eliminado")
 	return redirectHX(e, "/admin/venues")
 }
