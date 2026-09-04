@@ -208,7 +208,7 @@ func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) 
 
 // ErrorPage renders an error page with the given status code and message.
 func (r *Renderer) ErrorPage(e *core.RequestEvent, statusCode int, message string) error {
-	data := map[string]any{"ErrorMessage": message}
+	data := map[string]any{"ErrorMessage": message, "PageTitle": "Error"}
 	r.withAuth(e, data)
 	resolveFooter(e, data)
 	files := append([]string{"views/layout.html"}, r.partialFiles()...)
