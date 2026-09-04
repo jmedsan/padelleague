@@ -4,12 +4,12 @@
         <div class="flex flex-wrap items-center justify-center gap-8 sm:gap-12">
             {{if .Competition}}
             <a href="/competition/{{.Competition.ID}}" class="hover:opacity-80 transition-opacity">
-                {{if .Competition.LogoURL}}<div class="avatar"><div class="w-20 sm:w-24 rounded-xl"><img src="{{.Competition.LogoURL}}" alt="{{.Competition.Name}}" loading="lazy"></div></div>{{end}}
+                {{if .Competition.LogoURL}}<div class="avatar"><div class="w-14 sm:w-16 rounded-xl"><img src="{{.Competition.LogoURL}}" alt="{{.Competition.Name}}" loading="lazy"></div></div>{{end}}
             </a>
             {{else if .Active}}
             {{range .Active}}
             <a href="/competition/{{.ID}}" class="hover:opacity-80 transition-opacity">
-                {{if .LogoURL}}<span class="avatar"><span class="w-16 sm:w-20 rounded-xl"><img src="{{.LogoURL}}" alt="{{.Name}}" loading="lazy"></span></span>{{end}}
+                {{if .LogoURL}}<span class="avatar"><span class="w-12 sm:w-14 rounded-xl"><img src="{{.LogoURL}}" alt="{{.Name}}" loading="lazy"></span></span>{{end}}
             </a>
             {{end}}
             {{end}}
