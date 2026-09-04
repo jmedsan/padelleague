@@ -45,7 +45,7 @@
 {{range .Venues}}
 <dialog id="modal-edit-venue-{{.Id}}" class="modal modal-bottom sm:modal-middle">
     <div class="modal-box">
-        <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">x</button></form>
+        <form method="dialog"><button class="btn btn-ghost btn-sm btn-circle absolute right-2 top-2" aria-label="cerrar">&times;</button></form>
         <h3 class="text-lg font-bold mb-4">Editar club</h3>
         <form hx-post="/admin/venues/{{.Id}}" hx-target="body">
             <div class="form-control">
@@ -67,7 +67,7 @@
 
 <dialog id="modal-create-venue" class="modal modal-bottom sm:modal-middle">
     <div class="modal-box">
-        <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">x</button></form>
+        <form method="dialog"><button class="btn btn-ghost btn-sm btn-circle absolute right-2 top-2" aria-label="cerrar">&times;</button></form>
         <h3 class="text-lg font-bold mb-4">Nuevo club</h3>
         <div id="create-venue-error" class="mb-2" aria-live="polite"></div>
         <form hx-post="/admin/venues" hx-target="#create-venue-error">
