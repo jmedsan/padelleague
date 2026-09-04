@@ -40,12 +40,28 @@ func FooterContext(app core.App, compID, userID string, isAdmin bool) FooterData
 		return footerForComp(app, active[0].Id)
 	}
 	var fd FooterData
+	seen := make(map[string]struct{})
 	for _, c := range active {
 		fd.Active = append(fd.Active, FooterCompIdent{
 			ID:      c.Id,
 			Name:    c.GetString("name"),
 			LogoURL: CompetitionLogoURL(c.Id, c.GetString("logo")),
 		})
+		for _, sid := range c.GetStringSlice("sponsors") {
+			if _, ok := seen[sid]; ok {
+				continue
+			}
+			seen[sid] = struct{}{}
+			s, err := app.FindRecordById("sponsors", sid)
+			if err != nil {
+				continue
+			}
+			fd.Sponsors = append(fd.Sponsors, FooterSponsor{
+				Name:    s.GetString("name"),
+				LogoURL: SponsorLogoURL(s.Id, s.GetString("logo")),
+				URL:     s.GetString("url"),
+			})
+		}
 	}
 	return fd
 }
