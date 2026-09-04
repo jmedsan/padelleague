@@ -1,40 +1,42 @@
 {{define "siteFooter"}}
-<footer class="footer footer-center p-6 bg-neutral text-neutral-content border-t border-white/10">
-    <div class="flex flex-col items-center gap-4 w-full max-w-2xl mx-auto">
+<footer class="footer footer-center bg-neutral text-neutral-content border-t border-white/10 px-6 py-10 sm:py-12">
+    <div class="flex flex-col items-center gap-8 w-full max-w-3xl mx-auto">
         {{if .Competition}}
         <a href="/competition/{{.Competition.ID}}" class="hover:opacity-80 transition-opacity">
-            {{template "competitionIdentity" (dict "ID" .Competition.ID "Name" .Competition.Name "LogoURL" .Competition.LogoURL "Mode" (dict "Full" true) "NoLink" true)}}
+            {{template "competitionIdentity" (dict "ID" .Competition.ID "Name" .Competition.Name "LogoURL" .Competition.LogoURL "Mode" (dict "Full" true) "Hero" true "NoLink" true)}}
         </a>
         {{else if .Active}}
-        <p class="text-[11px] uppercase tracking-widest opacity-50">Competiciones activas</p>
-        <div class="flex flex-wrap justify-center gap-3">
-            {{range .Active}}
-            <a href="/competition/{{.ID}}" class="hover:opacity-80 transition-opacity">
-                {{template "competitionIdentity" (dict "ID" .ID "Name" .Name "LogoURL" .LogoURL "Mode" (dict "Summary" true))}}
-            </a>
-            {{end}}
+        <div class="flex flex-col items-center gap-4">
+            <p class="text-[11px] uppercase tracking-[0.14em] opacity-50">Competiciones activas</p>
+            <div class="flex flex-wrap justify-center gap-x-4 gap-y-6">
+                {{range .Active}}
+                <a href="/competition/{{.ID}}" class="hover:opacity-80 transition-opacity">
+                    {{template "competitionIdentity" (dict "ID" .ID "Name" .Name "LogoURL" .LogoURL "Mode" (dict "Summary" true) "Hero" true "NoLink" true)}}
+                </a>
+                {{end}}
+            </div>
         </div>
         {{end}}
 
         {{if .Sponsors}}
-        <p class="text-[11px] uppercase tracking-widest opacity-50">Patrocinadores</p>
-        <div class="flex flex-wrap justify-center gap-3">
-            {{range .Sponsors}}
-            {{template "sponsorTile" .}}
-            {{end}}
+        <div class="flex flex-col items-center gap-3">
+            <p class="text-[11px] uppercase tracking-[0.14em] opacity-50">Patrocinadores</p>
+            <div class="flex flex-wrap justify-center gap-4">
+                {{range .Sponsors}}{{template "sponsorTile" .}}{{end}}
+            </div>
         </div>
         {{end}}
 
-        <div class="w-full max-w-2xl h-px bg-white/10"></div>
-        <p class="text-xs opacity-50">Padel League &copy; 2026</p>
+        <div class="w-full h-px bg-white/10"></div>
+        <p class="text-xs opacity-40">Padel League &copy; 2026</p>
     </div>
 </footer>
 {{end}}
 
 {{define "sponsorTile"}}
-{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener sponsor" class="bg-white/5 rounded-lg px-4 py-2 opacity-80 hover:opacity-100 transition-opacity">
-    <img src="{{.LogoURL}}" alt="{{.Name}}" class="h-8 w-auto max-w-[120px] object-contain" loading="lazy">
-</a>{{else}}<div class="bg-white/5 rounded-lg px-4 py-2 opacity-80">
-    <img src="{{.LogoURL}}" alt="{{.Name}}" class="h-8 w-auto max-w-[120px] object-contain" loading="lazy">
+{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener sponsor" class="bg-white/5 rounded-xl px-6 py-4 opacity-80 hover:opacity-100 transition-opacity">
+    <img src="{{.LogoURL}}" alt="{{.Name}}" class="h-12 sm:h-16 w-auto max-w-[160px] sm:max-w-[220px] object-contain" loading="lazy">
+</a>{{else}}<div class="bg-white/5 rounded-xl px-6 py-4 opacity-80">
+    <img src="{{.LogoURL}}" alt="{{.Name}}" class="h-12 sm:h-16 w-auto max-w-[160px] sm:max-w-[220px] object-contain" loading="lazy">
 </div>{{end}}
 {{end}}
