@@ -39,4 +39,21 @@
     border: none;
     font-weight: 500;
   }
+
+  /* Playoff bracket connector lines — pure CSS, no SVG/JS. Each round's
+     matches sit in --slot-tall slots so that a round with half as many
+     matches (--slot doubling each round) lines up its cards with the
+     midpoint of the two feeder cards in the previous round. */
+  .bracket { --gap: 40px; --cell-h: 68px; --line: rgb(226 232 240 / .35); display: flex; gap: var(--gap); align-items: stretch; }
+  .bracket .round { display: flex; flex-direction: column; min-width: 220px; }
+  .bracket .slots { display: flex; flex-direction: column; }
+  .bracket .match { position: relative; display: block; height: var(--cell-h); margin: calc((var(--slot) - var(--cell-h)) / 2) 0; box-sizing: border-box; }
+  .bracket .round.has-next .match::after { content: ''; position: absolute; top: 50%; right: calc(-1 * var(--gap) / 2); width: calc(var(--gap) / 2); border-top: 1px solid var(--line); }
+  .bracket .round.has-next .match:nth-child(odd)::before { content: ''; position: absolute; top: 50%; right: calc(-1 * var(--gap) / 2); height: calc(var(--slot) / 2); border-right: 1px solid var(--line); }
+  .bracket .round.has-next .match:nth-child(even)::before { content: ''; position: absolute; bottom: 50%; right: calc(-1 * var(--gap) / 2); height: calc(var(--slot) / 2); border-right: 1px solid var(--line); }
+  .bracket .round.has-prev .match > .in { position: absolute; top: 50%; left: calc(-1 * var(--gap) / 2); width: calc(var(--gap) / 2); border-top: 1px solid var(--line); }
+  @media (max-width: 640px) {
+    .bracket { --gap: 32px; }
+    .bracket .round { min-width: 180px; scroll-snap-align: start; }
+  }
 }

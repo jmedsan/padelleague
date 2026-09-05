@@ -575,16 +575,24 @@ type RoundView struct {
 }
 
 // BracketRound holds one round of a single-elimination bracket for display.
+// Slot is the CSS vertical slot height (in px) each match in this round
+// occupies, doubling each round so a match's slot always spans the midpoint
+// of its two feeder matches in the previous round — see the ".bracket" CSS
+// connector rules in static/css/input.css.
 type BracketRound struct {
 	Name    string
+	Index   int
+	Slot    int
 	Matches []MatchCard
 }
 
 func buildBracket(rounds []RoundView, maxRound int) []BracketRound {
 	var bracket []BracketRound
-	for _, r := range rounds {
+	for i, r := range rounds {
 		bracket = append(bracket, BracketRound{
 			Name:    bracketRoundName(r.RoundNumber, maxRound),
+			Index:   i,
+			Slot:    84 << i,
 			Matches: r.Matches,
 		})
 	}
@@ -806,12 +814,6 @@ func buildRounds(matches []*core.Record, pairNames map[string]string, playerPair
 	rounds := make([]RoundView, 0, len(roundNums))
 	for _, rn := range roundNums {
 		rounds = append(rounds, RoundView{RoundNumber: rn, Matches: roundMap[rn]})
-	}
-	for ri := 1; ri < len(rounds); ri++ {
-		prevRound := rounds[ri-1].RoundNumber
-		for mi := range rounds[ri].Matches {
-			rounds[ri].Matches[mi].PopulateFeeder(prevRound, mi)
-		}
 	}
 	return rounds
 }

@@ -2,7 +2,7 @@
 <div class="card {{if and .Mode.Full (not .Mode.Editable)}}bg-neutral text-neutral-content{{else}}bg-base-100{{end}} shadow-lg rounded-2xl overflow-hidden">
     <div class="card-body">
         <div class="flex items-center justify-between">
-            {{if .Mode.Full}}<h1 class="card-title flex-wrap {{if not .Mode.Editable}}text-2xl font-bold{{else}}text-lg{{end}}">{{else}}<h2 class="card-title flex-wrap text-lg">{{end}}<span class="min-w-0 break-words">{{if .Pair1Name}}{{template "pairLink" (elink (.Match.GetString "pair1") .Pair1Name)}}{{else if .Feeder1}}{{.Feeder1}}{{else}}Por definir{{end}}</span> <span class="text-sm opacity-60 flex-none">vs</span> <span class="min-w-0 break-words">{{if .Pair2Name}}{{template "pairLink" (elink (.Match.GetString "pair2") .Pair2Name)}}{{else if .Feeder2}}{{.Feeder2}}{{else}}Por definir{{end}}</span>{{if .Mode.Full}}</h1>{{else}}</h2>{{end}}
+            {{if .Mode.Full}}<h1 class="card-title flex-wrap {{if not .Mode.Editable}}text-2xl font-bold{{else}}text-lg{{end}}">{{else}}<h2 class="card-title flex-wrap text-lg">{{end}}<span class="min-w-0 break-words">{{if .Pair1Name}}{{template "pairLink" (elink (.Match.GetString "pair1") .Pair1Name)}}{{else}}Por definir{{end}}</span> <span class="text-sm opacity-60 flex-none">vs</span> <span class="min-w-0 break-words">{{if .Pair2Name}}{{template "pairLink" (elink (.Match.GetString "pair2") .Pair2Name)}}{{else}}Por definir{{end}}</span>{{if .Mode.Full}}</h1>{{else}}</h2>{{end}}
             {{if not (and .Mode.Full (not .Mode.Editable))}}<span class="badge {{.StatusClass}}">{{.StatusLabel}}</span>{{end}}
         </div>
 
@@ -171,9 +171,9 @@
 <a href="/match/{{.Match.Id}}" class="block rounded-lg py-2 px-2 sm:px-3 transition-all duration-150 hover:shadow-md overflow-hidden {{if .IsMyMatch}}bg-neutral/5 border-l-4 border-l-neutral hover:bg-neutral/10{{else}}bg-base-200/50 hover:bg-base-200{{end}}">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2 min-w-0">
         <div class="flex items-center gap-1 min-w-0 sm:flex-1">
-            <span class="font-medium text-sm sm:text-base truncate min-w-0 flex-1">{{if .Pair1Name}}{{.Pair1Name}}{{else if .Feeder1}}{{.Feeder1}}{{else}}Por definir{{end}}</span>
+            <span class="font-medium text-sm sm:text-base truncate min-w-0 flex-1">{{if .Pair1Name}}{{.Pair1Name}}{{else}}Por definir{{end}}</span>
             <span class="text-xs opacity-60 flex-none sm:hidden">vs</span>
-            <span class="font-medium text-sm sm:text-base truncate min-w-0 flex-1">{{if .Pair2Name}}{{.Pair2Name}}{{else if .Feeder2}}{{.Feeder2}}{{else}}Por definir{{end}}</span>
+            <span class="font-medium text-sm sm:text-base truncate min-w-0 flex-1">{{if .Pair2Name}}{{.Pair2Name}}{{else}}Por definir{{end}}</span>
         </div>
         <div class="flex items-center gap-1 sm:gap-2 flex-none">
             <div class="hidden sm:block px-1 sm:px-3">
@@ -453,14 +453,15 @@
      pairs, winner highlighted). Genuinely distinct layout from matchRow's
      horizontal row; kept separate rather than forced into one template. */}}
 {{define "matchBracketCell"}}
-<a href="/match/{{.Match.Id}}" class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md transition-shadow">
+<a href="/match/{{.Match.Id}}" class="match card bg-base-100 shadow-sm border border-base-300 hover:shadow-md transition-shadow">
     <div class="card-body p-3 gap-1">
+        <span class="in"></span>
         <div class="flex items-center justify-between gap-2">
-            <span class="text-sm flex-1 truncate {{if and (.Match.GetString "winner") (eq (.Match.GetString "winner") (.Match.GetString "pair1"))}}font-bold text-accent{{end}}">{{if .Pair1Name}}{{.Pair1Name}}{{else if .Feeder1}}{{.Feeder1}}{{else}}Por definir{{end}}</span>
+            <span class="text-sm flex-1 truncate {{if and (.Match.GetString "winner") (eq (.Match.GetString "winner") (.Match.GetString "pair1"))}}font-bold text-accent{{end}}">{{if .Pair1Name}}{{.Pair1Name}}{{else}}<span class="opacity-35 border-b border-dashed inline-block w-full h-3" aria-label="Por definir"></span>{{end}}</span>
         </div>
         <div class="divider my-0 h-0"></div>
         <div class="flex items-center justify-between gap-2">
-            <span class="text-sm flex-1 truncate {{if and (.Match.GetString "winner") (eq (.Match.GetString "winner") (.Match.GetString "pair2"))}}font-bold text-accent{{end}}">{{if .Pair2Name}}{{.Pair2Name}}{{else if .Feeder2}}{{.Feeder2}}{{else}}Por definir{{end}}</span>
+            <span class="text-sm flex-1 truncate {{if and (.Match.GetString "winner") (eq (.Match.GetString "winner") (.Match.GetString "pair2"))}}font-bold text-accent{{end}}">{{if .Pair2Name}}{{.Pair2Name}}{{else}}<span class="opacity-35 border-b border-dashed inline-block w-full h-3" aria-label="Por definir"></span>{{end}}</span>
         </div>
         {{if .Score}}
         <div class="text-center mt-1">

@@ -41,8 +41,6 @@ type MatchCard struct {
 	ReviewType        string
 	RequestedBy       string
 
-	Feeder1   string
-	Feeder2   string
 	IsMyMatch bool
 	Opponent  string
 	Won       bool
@@ -96,11 +94,6 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 	}
 	if mode.Editable && mode.Admin {
 		c.fillAdminScoreVMs(match)
-	}
-	if c.Pair1Name == "" || c.Pair2Name == "" {
-		if prevRound, matchIdx, _, ok := league.PlayoffFeederInfo(app, match); ok {
-			c.PopulateFeeder(prevRound, matchIdx)
-		}
 	}
 	return c
 }
@@ -212,16 +205,6 @@ func (c *MatchCard) fillAdminScoreVMs(match *core.Record) {
 	mid := match.Id
 	c.ScoreResolve = ScoreInputVM{FieldName: "score", Value: c.SubmittedScore, IDSuffix: mid + "-resolve", Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
 	c.ScoreOverride = ScoreInputVM{FieldName: "scores", Value: match.GetString("scores"), IDSuffix: mid + "-override", Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
-}
-
-// PopulateFeeder sets the playoff placeholder text for unresolved pairs.
-func (c *MatchCard) PopulateFeeder(prevRound, matchIdx int) {
-	if c.Pair1Name == "" {
-		c.Feeder1 = fmt.Sprintf("Ganador de J%d-%d", prevRound, matchIdx*2+1)
-	}
-	if c.Pair2Name == "" {
-		c.Feeder2 = fmt.Sprintf("Ganador de J%d-%d", prevRound, matchIdx*2+2)
-	}
 }
 
 // SummaryLine is the notification-mode rendering: one raw line naming the
