@@ -183,7 +183,7 @@ func TestNotificationPrefsSave(t *testing.T) {
 		URL:             "/profile/notifications",
 		Body:            strings.NewReader("quorum_request=on&dispute=on"),
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Padel League"},
+		ExpectedContent: []string{"Liga Dale Fuerte"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupNotifRoutes(tb, app, e)

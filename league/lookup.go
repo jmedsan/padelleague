@@ -121,6 +121,15 @@ func SponsorLogoURL(sponsorID, filename string) string {
 	return "/api/files/sponsors/" + sponsorID + "/" + filename
 }
 
+// SettingsLogoURL builds the served URL for the app_settings singleton's
+// league logo file, or "" if filename is empty.
+func SettingsLogoURL(settingsID, filename string) string {
+	if filename == "" {
+		return ""
+	}
+	return "/api/files/app_settings/" + settingsID + "/" + filename
+}
+
 // PlayersForPair returns the user IDs of both players in a pair.
 func PlayersForPair(app core.App, pairID string) []string {
 	pair, err := app.FindRecordById("pairs", pairID)

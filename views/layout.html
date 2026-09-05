@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{if .PageTitle}}{{.PageTitle}} — {{end}}Padel League</title>
-    <meta property="og:title" content="{{if .PageTitle}}{{.PageTitle}} — {{end}}Padel League">
+    <title>{{if .PageTitle}}{{.PageTitle}} — {{end}}{{.Branding.Name}}</title>
+    <meta property="og:title" content="{{if .PageTitle}}{{.PageTitle}} — {{end}}{{.Branding.Name}}">
     <meta property="og:image" content="{{.BaseURL}}{{if .OGImage}}{{.OGImage}}{{else}}/static/img/icon-512.png{{end}}">
     <meta property="og:url" content="{{.BaseURL}}{{.RequestPath}}">
     <link rel="stylesheet" href="/static/css/styles.css">
@@ -55,8 +55,9 @@
                     </label>
                 </div>{{end}}
                 <div class="flex-1">
-                    <a href="/" class="btn btn-ghost normal-case hover:bg-white/10 px-2">
-                        <span class="font-black italic uppercase tracking-tight text-neutral-content"><span class="text-primary">Padel</span> League</span>
+                    <a href="/" class="btn btn-ghost normal-case hover:bg-white/10 px-2 flex-col items-start leading-tight">
+                        <span class="font-black italic uppercase tracking-tight text-neutral-content"><span class="text-primary">Liga</span> Dale Fuerte</span>
+                        <span class="hidden lg:block text-[10px] uppercase tracking-widest opacity-60">A La Pelota</span>
                     </a>
                 </div>
                 {{if .HasBothRoles}}
@@ -183,7 +184,7 @@
             <label for="main-drawer" aria-label="cerrar menú" class="drawer-overlay"></label>
             <div class="bg-base-100 min-h-full w-72 p-0">
                 <div class="p-4 bg-neutral text-neutral-content">
-                    <span class="font-black italic uppercase tracking-tight"><span class="text-primary">Padel</span> League</span>
+                    <span class="font-black italic uppercase tracking-tight"><span class="text-primary">Liga</span> Dale Fuerte</span>
                 </div>
                 {{if .DisplayName}}
                 <div class="p-4 pb-0 relative z-20">

@@ -186,6 +186,7 @@ func resolveFooter(e *core.RequestEvent, data map[string]any) {
 		isAdmin = slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
 	}
 	data["Footer"] = league.FooterContext(e.App, compID, userID, isAdmin)
+	data["Branding"] = league.Branding(e.App, compID)
 }
 
 // Page renders a full page within the site layout.
