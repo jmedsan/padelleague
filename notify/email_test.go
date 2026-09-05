@@ -101,7 +101,7 @@ func TestSendEmail_Sends(t *testing.T) {
 	assert.Equal(t, "<p>Cuerpo</p>", msg.HTML)
 	require.Len(t, msg.To, 1)
 	assert.Equal(t, "player@test.local", msg.To[0].Address)
-	assert.Equal(t, app.Settings().Meta.AppName, msg.From.Name)
+	assert.Equal(t, app.Settings().Meta.SenderName, msg.From.Name)
 	assert.Equal(t, app.Settings().Meta.SenderAddress, msg.From.Address)
 }
 
