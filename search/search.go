@@ -30,6 +30,10 @@ type Entry struct {
 	URL        string
 	Keywords   []string
 	Scope      Scope
+	// RecordID identifies the source record for Upsert. A record that fans
+	// out into several entries (e.g. a pair indexed once per competition)
+	// shares one RecordID across all of them.
+	RecordID string
 }
 
 // Index holds the search entries behind a read-write lock.
@@ -77,6 +81,25 @@ func (ix *Index) Replace(entries []Entry) {
 	ix.entries = entries
 }
 
+// Upsert removes any existing entries for the given record ID and appends
+// the replacements, so a single record's create/update can refresh its
+// searchable entries without waiting for the next full rebuild. Passing no
+// replacements just removes the record's entries (e.g. it no longer
+// qualifies for indexing). Matching by RecordID (rather than URL) keeps
+// records that share a URL, like venues pointing at the same list page,
+// from wiping each other out.
+func (ix *Index) Upsert(recordID string, replacements []Entry) {
+	ix.mu.Lock()
+	defer ix.mu.Unlock()
+	kept := ix.entries[:0:0]
+	for _, e := range ix.entries {
+		if e.RecordID != recordID {
+			kept = append(kept, e)
+		}
+	}
+	ix.entries = append(kept, replacements...)
+}
+
 // Search returns ranked results filtered by the viewer's access scope.
 func (ix *Index) Search(query string, v Viewer, limit int) []Result {
 	if query == "" {
@@ -99,10 +122,11 @@ func (ix *Index) Search(query string, v Viewer, limit int) []Result {
 	seen := make(map[string]struct{}, len(hits))
 	deduped := hits[:0]
 	for _, h := range hits {
-		if _, ok := seen[h.entry.URL]; ok {
+		key := h.entry.dedupKey()
+		if _, ok := seen[key]; ok {
 			continue
 		}
-		seen[h.entry.URL] = struct{}{}
+		seen[key] = struct{}{}
 		deduped = append(deduped, h)
 	}
 	hits = deduped
@@ -180,6 +204,17 @@ func fuzzyScoreMap(query string, targets []string, minScore float64) map[int]flo
 		result[m.Index] = s
 	}
 	return result
+}
+
+// dedupKey identifies the source record for Search's dedup pass. Two fan-out
+// entries from the same record (e.g. a pair listed once per competition)
+// share a RecordID and collapse to one result; entries without a RecordID
+// (static pages) fall back to URL, which is unique for them.
+func (e Entry) dedupKey() string {
+	if e.RecordID != "" {
+		return e.RecordID
+	}
+	return e.URL
 }
 
 func (e Entry) visibleTo(v Viewer) bool {

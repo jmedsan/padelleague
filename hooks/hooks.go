@@ -200,5 +200,16 @@ func Register(app core.App, svc *league.Service, notifier *notify.Notifier, sear
 		app.Cron().MustAdd("search-index-rebuild", "*/10 * * * *", func() {
 			searchIndex.Rebuild(app)
 		})
+
+		for _, collection := range []string{"users", "pairs", "competitions", "matches", "venues"} {
+			app.OnRecordAfterCreateSuccess(collection).BindFunc(func(e *core.RecordEvent) error {
+				search.UpsertRecord(searchIndex, app, e.Record.Collection().Name, e.Record)
+				return e.Next()
+			})
+			app.OnRecordAfterUpdateSuccess(collection).BindFunc(func(e *core.RecordEvent) error {
+				search.UpsertRecord(searchIndex, app, e.Record.Collection().Name, e.Record)
+				return e.Next()
+			})
+		}
 	}
 }
