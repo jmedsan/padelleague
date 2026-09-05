@@ -193,6 +193,9 @@
                 {{end}}
                 <ul class="menu p-4 gap-1">
                     <li><a href="/" class="rounded-lg font-medium">Inicio</a></li>
+                    {{if .Footer.Competition}}
+                    <li><a href="/competition/{{.Footer.Competition.ID}}" class="rounded-lg font-medium">{{.Footer.Competition.Name}}</a></li>
+                    {{end}}
                     {{if .AdminView}}
                     <li class="menu-title mt-4 text-xs uppercase tracking-wider opacity-60">Gestión</li>
                     <li><a href="/admin/competitions" class="rounded-lg">Competiciones</a></li>
