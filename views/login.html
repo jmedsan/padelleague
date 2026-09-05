@@ -1,6 +1,7 @@
 {{define "content"}}
 <div class="-mx-4 -mt-6 -mb-6 min-h-[80vh] flex flex-col items-center justify-center relative overflow-hidden bg-neutral" style="margin-left:calc(-50vw + 50%);margin-right:calc(-50vw + 50%);width:100vw">
     <div class="text-center mb-8 px-4">
+        {{if .Branding.LogoURL}}<img src="{{.Branding.LogoURL}}" alt="{{.Branding.Name}}" class="mx-auto mb-4 rounded-2xl" style="height:120px;width:auto" loading="lazy">{{end}}
         <h1 class="text-4xl sm:text-5xl font-black italic uppercase tracking-tight text-neutral-content"><span class="text-primary">Liga</span> Dale Fuerte</h1>
         <p class="text-neutral-content/60 text-sm uppercase tracking-widest mt-2">A La Pelota</p>
     </div>
