@@ -1,6 +1,9 @@
 {
     "name": "Padel League",
     "short_name": "Padel League",
+    "description": "Gestión de ligas de pádel: fixtures, resultados, clasificaciones y notificaciones.",
+    "lang": "es",
+    "id": "/",
     "start_url": "/",
     "display": "standalone",
     "theme_color": "#0B0B0B",

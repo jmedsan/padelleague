@@ -255,6 +255,30 @@ func TestStaticRoutes_ServiceWorker(t *testing.T) {
 	s.Test(t)
 }
 
+func TestStaticRoutes_HealthzOK(t *testing.T) {
+	s := &tests.ApiScenario{
+		Name:            "GET /healthz without auth returns ok when the DB is reachable",
+		Method:          http.MethodGet,
+		URL:             "/healthz",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{`"status":"ok"`},
+	}
+	s.BeforeTestFunc = func(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		viewsFS := minimalFS()
+		renderer := render.New(viewsFS, "", true)
+		notifier := notify.NewNotifier(app, "", "")
+		svc := league.New(app, notifier)
+		Register(e, Deps{
+			App:       app,
+			Renderer:  renderer,
+			Notifier:  notifier,
+			LeagueSvc: svc,
+			StaticFS:  viewsFS,
+		})
+	}
+	s.Test(t)
+}
+
 func makePlayer(tb testing.TB, app core.App) *core.Record {
 	tb.Helper()
 	col, err := app.FindCollectionByNameOrId("users")
