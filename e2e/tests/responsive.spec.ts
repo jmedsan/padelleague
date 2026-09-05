@@ -351,7 +351,7 @@ test.describe('responsive - no horizontal overflow', () => {
     // at 390px otherwise (see review-principles.md).
     const table = page.locator('table.table-sm').filter({ hasText: '6-3' });
     await expect(table).toBeHidden();
-    const card = page.locator('.sm\\:hidden.space-y-2 > a').first();
+    const card = page.locator('.sm\\:hidden.space-y-3 > a').first();
     await expect(card).toBeVisible();
     await expect(card.getByText('6-3')).toBeVisible();
     await expect(card.locator('.badge')).toBeVisible();

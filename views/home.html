@@ -4,7 +4,7 @@
 <div class="card bg-base-100 shadow-md mb-6" data-testid="onboard-checklist">
     <div class="card-body">
         <h2 class="card-title text-lg">Primeros pasos</h2>
-        <ul class="space-y-2">
+        <ul class="space-y-3">
             {{range .OnboardSteps}}
             <li class="flex items-center gap-3">
                 {{if .Done}}
@@ -24,7 +24,7 @@
 {{if .Actions}}
 <div class="mb-6" data-testid="home-actions">
     <h2 class="text-lg font-bold mb-3">Acciones pendientes</h2>
-    <div class="space-y-2">
+    <div class="space-y-3">
         {{range .Actions}}
         <a href="{{.URL}}" class="flex items-center gap-3 p-3 rounded-xl {{if eq .Accent "error"}}bg-error/10 hover:bg-error/20{{else if eq .Accent "warning"}}bg-warning/10 hover:bg-warning/20{{else}}bg-info/10 hover:bg-info/20{{end}} transition-colors">
             <div class="w-8 h-8 rounded-full {{if eq .Accent "error"}}bg-error/20{{else if eq .Accent "warning"}}bg-warning/20{{else}}bg-info/20{{end}} flex items-center justify-center flex-none">
@@ -55,7 +55,7 @@
 {{if .UpcomingMatches}}
 <div class="mb-6" data-testid="upcoming-matches">
     <h2 class="text-lg font-bold mb-3">Próximos partidos</h2>
-    <div class="space-y-2">
+    <div class="space-y-3">
         {{range .UpcomingMatches}}
         {{template "upcomingMatchRow" .}}
         {{end}}
@@ -66,7 +66,7 @@
 {{if .Competitions}}
 <h2 class="text-lg font-bold mb-3">Mis últimos partidos</h2>
 {{if .RecentResults}}
-<div class="space-y-2 mb-6">
+<div class="space-y-3 mb-6">
     {{range .RecentResults}}
     {{template "historyMatchCard" (dict
         "MatchID" .Match.Id
@@ -105,7 +105,7 @@
 {{end}}
 {{else}}
 <h2 class="text-xl font-bold mb-4" data-testid="player-competitions-heading">Mis competiciones</h2>
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     {{range .Competitions}}
     {{template "competitionCard" .}}
     {{end}}

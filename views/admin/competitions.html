@@ -1,5 +1,5 @@
 {{define "content"}}
-<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
     <h1 class="text-2xl font-bold">Competiciones</h1>
     <button class="btn btn-primary" onclick="document.getElementById('modal-create').showModal()">
         <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
@@ -37,7 +37,7 @@
 {{if .UrgentItems}}
 <div class="mb-6" data-testid="admin-urgent-items">
     <h2 class="text-lg font-bold mb-3">Alertas</h2>
-    <div class="space-y-2">
+    <div class="space-y-3">
         {{range .UrgentItems}}
         {{template "healthItemRow" (dict "Item" . "ShowCategory" true)}}
         {{end}}
@@ -55,21 +55,21 @@
     </a>
 </div>
 
-<h2 class="text-lg font-semibold mb-4">Competiciones activas</h2>
+<h2 class="text-lg font-bold mb-6">Competiciones activas</h2>
 {{if .Active}}
-<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
     {{range .Active}}
     {{template "competitionCard" .}}
     {{end}}
 </div>
 {{else}}
-<div class="mb-8">
+<div class="mb-6">
     {{template "emptyState" "No hay competiciones activas — crea una nueva competición para empezar"}}
 </div>
 {{end}}
 
 {{if .Inactive}}
-<div class="collapse collapse-arrow bg-base-200 rounded-box mb-8">
+<div class="collapse collapse-arrow bg-base-200 rounded-box mb-6">
     <input type="checkbox">
     <div class="collapse-title font-semibold text-base-content/70">
         Competiciones inactivas ({{len .Inactive}})

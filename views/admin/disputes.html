@@ -5,7 +5,7 @@
 </div>
 
 {{if .Items}}
-<div class="space-y-2">
+<div class="space-y-3">
     {{range .Items}}
     {{template "healthItemRow" (dict "Item" . "ShowCategory" true)}}
     {{end}}
