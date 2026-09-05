@@ -170,6 +170,7 @@ type Deps struct {
 	Notifier    *notify.Notifier
 	SearchIndex *search.Index
 	Backup      BackupConfig
+	SMTP        SMTPConfig
 }
 
 // Register wires all PocketBase event hooks and cron jobs onto the given app.
@@ -230,4 +231,5 @@ func Register(app core.App, deps Deps) {
 	}
 
 	registerBackup(app, deps.Backup.ServiceAccountJSON, deps.Backup.FolderID)
+	registerSMTP(app, deps.SMTP)
 }

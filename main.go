@@ -50,6 +50,16 @@ func main() {
 			ServiceAccountJSON: cfg.GDriveServiceAccount,
 			FolderID:           cfg.GDriveFolderID,
 		},
+		SMTP: hooks.SMTPConfig{
+			Host:       cfg.SMTPHost,
+			Port:       cfg.SMTPPort,
+			Username:   cfg.SMTPUser,
+			Password:   cfg.SMTPPass,
+			TLS:        cfg.SMTPTLS,
+			Sender:     cfg.SMTPSender,
+			SenderName: cfg.SMTPSenderName,
+			AppURL:     cfg.AppURL,
+		},
 	})
 
 	slog.Info("startup",
