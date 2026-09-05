@@ -95,7 +95,10 @@ func registerAuthRoutes(se *core.ServeEvent, deps Deps, auth *handlers.AuthHandl
 }
 
 func registerPublicRoutes(se *core.ServeEvent, deps Deps) {
-	pub := handlers.NewPublicHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page, deps.Renderer.ErrorPage)
+	pub := handlers.NewPublicHandler(deps.App, deps.LeagueSvc, handlers.PublicRenderers{
+		Page:      deps.Renderer.Page,
+		ErrorPage: deps.Renderer.ErrorPage,
+	}, deps.Notifier.PushEnabled())
 	se.Router.GET("/{$}", pub.Home).BindFunc(middleware.RequireAuth)
 	se.Router.GET("/competition/{id}", pub.Competition).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/competition/{id}/accept-docs", pub.AcceptDocs).BindFunc(middleware.RequireAuth)

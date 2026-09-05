@@ -30,17 +30,25 @@ var actionKindPriority = map[string]int{
 	"organize": 2,
 }
 
+// PublicRenderers bundles the render functions a PublicHandler needs.
+type PublicRenderers struct {
+	Page      RenderFunc
+	ErrorPage RenderErrorFunc
+}
+
 // PublicHandler serves player-facing pages like the dashboard and competition views.
 type PublicHandler struct {
-	app             core.App
-	leagueSvc       *league.Service
-	renderPage      RenderFunc
-	renderErrorPage RenderErrorFunc
+	app         core.App
+	leagueSvc   *league.Service
+	render      PublicRenderers
+	pushEnabled bool
 }
 
 // NewPublicHandler creates a PublicHandler with the given dependencies.
-func NewPublicHandler(app core.App, leagueSvc *league.Service, renderPage RenderFunc, renderErrorPage RenderErrorFunc) *PublicHandler {
-	return &PublicHandler{app: app, leagueSvc: leagueSvc, renderPage: renderPage, renderErrorPage: renderErrorPage}
+// pushEnabled reports whether push notifications are configured server-wide
+// (VAPID keys set) — see notify.Notifier.PushEnabled.
+func NewPublicHandler(app core.App, leagueSvc *league.Service, render PublicRenderers, pushEnabled bool) *PublicHandler {
+	return &PublicHandler{app: app, leagueSvc: leagueSvc, render: render, pushEnabled: pushEnabled}
 }
 
 // OnboardStep is one item in the player onboarding checklist.
@@ -117,7 +125,7 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 		}
 	}
 
-	return h.renderPage(e, "home.html", data)
+	return h.render.Page(e, "home.html", data)
 }
 
 type homeAggregation struct {
@@ -164,14 +172,25 @@ func (h *PublicHandler) aggregateHomeData(userID string, playerPairIDs map[strin
 // actionable step is done (so the template hides the card).
 func (h *PublicHandler) onboardingSteps(user *core.Record) []OnboardStep {
 	profileDone := user.GetString("display_name") != ""
-
-	if profileDone {
-		return nil
-	}
-
-	return []OnboardStep{
+	steps := []OnboardStep{
 		{Label: "Completa tu perfil", URL: "/profile/complete", Done: profileDone},
 	}
+
+	if h.pushEnabled {
+		sub, _ := h.app.FindFirstRecordByFilter("push_subscriptions", "user = {:user}", map[string]any{"user": user.Id})
+		steps = append(steps, OnboardStep{
+			Label: "Activa las notificaciones push",
+			URL:   "/profile/notifications",
+			Done:  sub != nil,
+		})
+	}
+
+	for _, s := range steps {
+		if !s.Done {
+			return steps
+		}
+	}
+	return nil
 }
 
 func (h *PublicHandler) playerInCompetition(c *core.Record, playerPairIDs map[string]struct{}) bool {
@@ -622,7 +641,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	comp, err := h.app.FindRecordById("competitions", id)
 	if err != nil {
-		return h.renderErrorPage(e, http.StatusNotFound, "Competición no encontrada")
+		return h.render.ErrorPage(e, http.StatusNotFound, "Competición no encontrada")
 	}
 
 	userID := e.Auth.Id
@@ -662,7 +681,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	data["OGImage"] = league.CompetitionLogoURL(comp.Id, comp.GetString("logo"))
 	data["FooterCompetitionID"] = comp.Id
 	h.addCompetitionDocViews(data, comp, userID)
-	return h.renderPage(e, "competition.html", data)
+	return h.render.Page(e, "competition.html", data)
 }
 
 // docsGate renders the mandatory-documents gate page and reports gated=true
@@ -685,7 +704,7 @@ func (h *PublicHandler) docsGate(e *core.RequestEvent, comp *core.Record, userID
 	for i, d := range allDocs {
 		docViews[i] = NewDocumentView(d, PlayerSummary)
 	}
-	err = h.renderPage(e, "competition-docs-gate.html", map[string]any{
+	err = h.render.Page(e, "competition-docs-gate.html", map[string]any{
 		"PageTitle":           "Documentos",
 		"Competition":         comp,
 		"DocumentViews":       docViews,
@@ -720,7 +739,7 @@ func (h *PublicHandler) addCompetitionDocViews(data map[string]any, comp *core.R
 func (h *PublicHandler) AcceptDocs(e *core.RequestEvent) error {
 	comp, err := h.app.FindRecordById("competitions", e.Request.PathValue("id"))
 	if err != nil {
-		return h.renderErrorPage(e, http.StatusNotFound, "Competición no encontrada")
+		return h.render.ErrorPage(e, http.StatusNotFound, "Competición no encontrada")
 	}
 	mandatoryIDs := league.MandatoryDocIDs(h.app, comp)
 	ack, err := league.FindOrNewAck(h.app, comp.Id, e.Auth.Id)
