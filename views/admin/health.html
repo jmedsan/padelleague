@@ -12,7 +12,7 @@
     {{if .Items}}
     <div class="card bg-base-100 shadow-sm">
         <div class="card-body p-4">
-            <h2 class="card-title text-base">
+            <h2 class="card-title text-lg">
                 {{if .ListURL}}<a href="{{.ListURL}}" class="link link-hover">{{.Title}}</a>{{else}}{{.Title}}{{end}}
                 <span class="badge {{if .Urgent}}badge-error{{else}}badge-warning{{end}} badge-sm">{{len .Items}}</span>
             </h2>

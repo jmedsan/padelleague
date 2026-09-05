@@ -77,7 +77,7 @@
 <input type="checkbox" id="edit-player-{{.Id}}" class="modal-toggle">
 <div class="modal" role="dialog">
     <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">Editar jugador</h3>
+        <h3 class="text-lg font-bold mb-4">Editar jugador</h3>
         <form hx-post="/admin/players/{{.Id}}" hx-target="body">
             <div class="form-control">
                 <label class="label" for="edit-player-name-{{.Id}}">
@@ -128,7 +128,7 @@
 <input type="checkbox" id="precreate-modal" class="modal-toggle">
 <div class="modal" role="dialog">
     <div class="modal-box">
-        <h3 class="font-bold text-lg mb-2">Crear jugador</h3>
+        <h3 class="text-lg font-bold mb-4">Crear jugador</h3>
         <p class="text-sm opacity-60 mb-4">Crea un usuario y genera una invitación vinculada a su email.</p>
         <form hx-post="/admin/players/pre-create" hx-target="#regen-result" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful){document.getElementById('precreate-modal').checked=false}">
             <div class="form-control">

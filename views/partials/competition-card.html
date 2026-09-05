@@ -5,7 +5,7 @@
 <a href="{{.URL}}" class="card bg-base-100 shadow-md border-l-4 border-neutral hover:shadow-xl hover:-translate-y-1 transition-all duration-200">
     <div class="card-body gap-3">
         <div class="flex justify-between items-start">
-            <h3 class="card-title text-base">{{template "competitionIdentity" (dict "ID" .Competition.Id "Name" .Name "LogoURL" .CompetitionLogo "Mode" (dict) "NoLink" true)}}</h3>
+            <h3 class="card-title text-lg">{{template "competitionIdentity" (dict "ID" .Competition.Id "Name" .Name "LogoURL" .CompetitionLogo "Mode" (dict) "NoLink" true)}}</h3>
             <div class="flex gap-1">
                 {{if gt .AlertCount 0}}
                 <span class="badge badge-error badge-sm gap-1">{{.AlertCount}} alerta{{if gt .AlertCount 1}}s{{end}}</span>
@@ -40,7 +40,7 @@
 <div class="card bg-base-100 shadow-sm border-l-4 border-base-300">
     <div class="card-body py-4 gap-2">
         <a href="{{.URL}}" class="flex justify-between items-start hover:opacity-70 transition-opacity">
-            <h3 class="card-title text-sm">{{template "competitionIdentity" (dict "ID" .Competition.Id "Name" .Name "LogoURL" .CompetitionLogo "Mode" (dict) "NoLink" true)}}</h3>
+            <h3 class="card-title text-lg">{{template "competitionIdentity" (dict "ID" .Competition.Id "Name" .Name "LogoURL" .CompetitionLogo "Mode" (dict) "NoLink" true)}}</h3>
             {{if eq (.Competition.GetString "type") "league"}}
             <span class="badge badge-primary badge-sm">Liga</span>
             {{else}}

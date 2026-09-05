@@ -10,7 +10,7 @@
 {{if .AdminBootstrap}}
 <div class="card bg-primary text-primary-content shadow-lg mb-6" data-testid="bootstrap-create">
     <div class="card-body text-center py-8">
-        <h2 class="card-title text-xl justify-center">Crea tu primera competición</h2>
+        <h2 class="card-title text-lg justify-center">Crea tu primera competición</h2>
         <p class="text-sm opacity-70 mt-1">Empieza configurando una liga o un playoff</p>
         <div class="card-actions justify-center mt-4">
             <button class="btn bg-white/20 border-0 hover:bg-white/30" onclick="document.getElementById('modal-create').showModal()">Crear competición</button>
@@ -55,7 +55,7 @@
     </a>
 </div>
 
-<h2 class="text-lg font-bold mb-6">Competiciones activas</h2>
+<h2 class="text-lg font-bold mb-3">Competiciones activas</h2>
 {{if .Active}}
 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
     {{range .Active}}
@@ -87,7 +87,7 @@
 <dialog id="modal-create" class="modal">
     <div class="modal-box">
         <form method="dialog"><button class="btn btn-ghost btn-sm btn-circle absolute right-2 top-2" aria-label="cerrar">&times;</button></form>
-        <h3 class="text-lg font-bold mb-6">Nueva competición</h3>
+        <h3 class="text-lg font-bold mb-4">Nueva competición</h3>
         <div id="create-error" class="mb-4" aria-live="polite"></div>
         <form hx-post="/admin/competitions" hx-target="#create-error">
             <div class="form-control w-full">

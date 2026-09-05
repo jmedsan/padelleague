@@ -50,7 +50,7 @@ func TestHealth_AllEmptyShowsSinIncidencias(t *testing.T) {
 		URL:                "/admin/health",
 		ExpectedStatus:     200,
 		ExpectedContent:    []string{"Sin incidencias — todo en orden"},
-		NotExpectedContent: []string{"card-title text-base"},
+		NotExpectedContent: []string{"card-title text-lg"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupHealthRoute(tb, app, e)
@@ -68,7 +68,7 @@ func TestHealth_MixedShowsOnlyNonEmptyCategories(t *testing.T) {
 		Method:             http.MethodGet,
 		URL:                "/admin/health",
 		ExpectedStatus:     200,
-		ExpectedContent:    []string{"card-title text-base"},
+		ExpectedContent:    []string{"card-title text-lg"},
 		NotExpectedContent: []string{"Sin incidencias — todo en orden", "Sin pagar"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
