@@ -186,6 +186,10 @@ func (h *AuthHandler) registerUser(p registerParams) (*core.Record, string, erro
 			userRecord.Set("gender", p.gender)
 		}
 		userRecord.SetPassword(p.password)
+		// Registration is invite-only — the admin already vetted this player
+		// by sending the invite, so there is no separate email-ownership
+		// check to perform.
+		userRecord.SetVerified(true)
 
 		if err := txApp.Save(userRecord); err != nil {
 			return err

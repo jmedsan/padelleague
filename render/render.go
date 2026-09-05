@@ -231,6 +231,7 @@ var dateLayouts = []string{
 var madrid = func() *time.Location {
 	loc, err := time.LoadLocation("Europe/Madrid")
 	if err != nil {
+		slog.Error("render: failed to load Europe/Madrid timezone, falling back to UTC", "err", err)
 		return time.UTC
 	}
 	return loc

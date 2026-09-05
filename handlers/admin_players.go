@@ -105,6 +105,7 @@ func (h *AdminPlayerHandler) PlayerPreCreate(e *core.RequestEvent) error {
 	user.Set("gender", gender)
 	user.Set("roles", []string{"player"})
 	user.SetPassword(tempPassword)
+	user.SetVerified(true)
 
 	if err := h.app.Save(user); err != nil {
 		slog.Error("create player failed", "err", err)

@@ -451,6 +451,7 @@ func TestRegisterSubmitValidInvite(t *testing.T) {
 		require.NoError(tb, err)
 		require.Equal(tb, 1, len(users))
 		assert.Equal(tb, "New Player", users[0].GetString("display_name"))
+		assert.True(tb, users[0].Verified(), "registration is invite-only — the admin already vetted the player, so the account should be verified without a confirmation email")
 
 		inv, err := app.FindRecordById("invitations", inviteID)
 		require.NoError(tb, err)

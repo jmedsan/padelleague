@@ -5,6 +5,7 @@ import (
 	"embed"
 	"log"
 	"log/slog"
+	_ "time/tzdata"
 
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
