@@ -233,6 +233,11 @@
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js');
 }
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredPrompt = e;
+});
 document.addEventListener('click', function(e) {
     document.querySelectorAll('.dropdown').forEach(function(d) {
         if (!d.contains(e.target)) {
