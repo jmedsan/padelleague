@@ -104,7 +104,7 @@
             Alertas
             <span class="badge badge-error badge-sm">{{len .Disputes}}</span>
         </h2>
-        <div class="space-y-2 mt-2">
+        <div class="space-y-3 mt-2">
             {{range .Disputes}}
             {{template "healthItemRow" (dict "Item" . "ShowCategory" true "HideCompetition" true)}}
             {{end}}
@@ -131,7 +131,7 @@
         <div id="generate-result" class="mb-2" aria-live="polite"></div>
 
         {{if .HasFixtures}}
-        <div class="space-y-2">
+        <div class="space-y-3">
             {{range .Rounds}}
             <div class="collapse collapse-arrow bg-base-200 rounded-box">
                 <input type="checkbox" {{if eq $.AutoExpandRound .Number}}checked{{end}}>
@@ -334,7 +334,7 @@
                     hx-disabled-elt="this"
                     class="btn btn-ghost btn-sm">Regenerar fechas</button>
         </div>
-        <form hx-post="/admin/competitions/{{.Competition.Id}}/round-dates" class="space-y-2">
+        <form hx-post="/admin/competitions/{{.Competition.Id}}/round-dates" class="space-y-3">
             {{range .RoundDates}}
             <div class="flex items-center gap-3">
                 <label class="text-sm font-medium w-24" for="round_date_{{.Number}}">Jornada {{.Number}}</label>
@@ -377,7 +377,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="sm:hidden space-y-2">
+        <div class="sm:hidden space-y-3">
             {{range .AttachedDocViews}}
             {{template "documentAttachCard" .}}
             {{end}}
@@ -414,7 +414,7 @@
         </h2>
 
         {{if .AttachedSponsors}}
-        <div class="space-y-2">
+        <div class="space-y-3">
             {{range .AttachedSponsors}}
             <div class="flex items-center justify-between gap-3 p-3 bg-base-200/50 rounded-lg" data-testid="sponsor-attach-card">
                 <div class="flex items-center gap-3 flex-1 min-w-0">

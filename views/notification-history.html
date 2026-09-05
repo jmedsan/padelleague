@@ -4,7 +4,7 @@
 
     {{/* .Notifications holds []NotificationView (Mode: PlayerReadOnly) — the full, read-only variant. */}}
     {{if .Notifications}}
-    <div class="space-y-2">
+    <div class="space-y-3">
         {{range .Notifications}}
         {{template "notificationRow" .}}
         {{end}}
