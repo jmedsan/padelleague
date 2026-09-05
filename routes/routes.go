@@ -71,6 +71,13 @@ func registerStaticRoutes(se *core.ServeEvent, deps Deps) {
 	se.Router.GET("/version", func(e *core.RequestEvent) error {
 		return e.JSON(http.StatusOK, map[string]string{"version": version})
 	})
+
+	se.Router.GET("/healthz", func(e *core.RequestEvent) error {
+		if _, err := deps.App.FindCollectionByNameOrId("users"); err != nil {
+			return e.JSON(http.StatusServiceUnavailable, map[string]string{"status": "error"})
+		}
+		return e.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	})
 }
 
 func registerAuthRoutes(se *core.ServeEvent, deps Deps, auth *handlers.AuthHandler) {
