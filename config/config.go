@@ -32,6 +32,15 @@ type Config struct {
 
 	GDriveServiceAccount string `env:"GDRIVE_SERVICE_ACCOUNT"`
 	GDriveFolderID       string `env:"GDRIVE_FOLDER_ID"`
+
+	SMTPHost       string `env:"SMTP_HOST"`
+	SMTPPort       int    `env:"SMTP_PORT" envDefault:"587"`
+	SMTPUser       string `env:"SMTP_USERNAME"`
+	SMTPPass       string `env:"SMTP_PASSWORD"`
+	SMTPTLS        bool   `env:"SMTP_TLS" envDefault:"false"`
+	SMTPSender     string `env:"SMTP_SENDER_ADDRESS"`
+	SMTPSenderName string `env:"SMTP_SENDER_NAME" envDefault:"Padel League"`
+	AppURL         string `env:"APP_URL"`
 }
 
 // Load parses environment variables into a Config struct.
