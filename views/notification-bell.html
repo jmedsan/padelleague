@@ -2,7 +2,7 @@
     <div class="card-body">
         <div class="flex justify-between items-center mb-2">
             <h3 class="font-bold">Notificaciones</h3>
-            <button hx-post="/notifications/read-all" hx-swap="none" class="btn btn-ghost btn-xs">Marcar todas</button>
+            <button hx-post="/notifications/read-all" hx-swap="none" hx-disabled-elt="this" class="btn btn-ghost btn-xs">Marcar todas</button>
         </div>
         <div id="notif-list">
             {{template "notificationListItems" .}}

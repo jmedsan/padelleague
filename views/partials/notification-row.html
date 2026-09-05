@@ -11,7 +11,7 @@
         <p class="text-xs text-base-content/50">{{.}}</p>
         {{end}}
     </a>
-    <button hx-post="/notifications/{{.Record.Id}}/dismiss" hx-target="#notif-row-{{.Record.Id}}" hx-swap="delete"
+    <button hx-post="/notifications/{{.Record.Id}}/dismiss" hx-target="#notif-row-{{.Record.Id}}" hx-swap="delete" hx-disabled-elt="this"
             class="btn btn-ghost btn-xs btn-circle opacity-50 hover:opacity-100" aria-label="marcar leída">&#10005;</button>
 </div>
 {{else}}
@@ -25,7 +25,7 @@
         {{with .Record.GetString "comp_name"}}
         <p class="text-xs text-base-content/50">{{.}}</p>
         {{end}}
-        <p class="text-xs text-base-content/40 mt-1">{{fmtDate (.Record.GetString "created")}}</p>
+        <p class="text-xs text-base-content/40 mt-1" title="{{fmtDate (.Record.GetString "created")}}">{{relDate (.Record.GetString "created")}}</p>
     </div>
     <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 opacity-30 flex-none"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
 </a>
