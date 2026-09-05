@@ -23,7 +23,7 @@
         {{if eq (.Match.GetString "status") "disputed"}}
         {{if eq .ReviewType "walkover"}}
         <div class="alert alert-warning mt-3">
-            <span>Solicitud de incomparecencia por {{.RequestedBy}}{{if .DisputeNotes}}: {{.DisputeNotes}}{{end}}</span>
+            <span>Solicitud de partido no jugado por {{.RequestedBy}}{{if .DisputeNotes}}: {{.DisputeNotes}}{{end}}</span>
         </div>
         {{else if not (and .Mode.Admin .Mode.Editable)}}
         <div class="space-y-2">
@@ -127,7 +127,7 @@
 <dialog id="walkover-modal-{{.Match.Id}}" class="modal">
     <div class="modal-box">
         <h3 class="font-bold text-lg mb-2">Reportar partido no jugado</h3>
-        <p class="text-sm opacity-70 mb-4">Pasará a revisión del administrador. Si se aprueba como incomparecencia, se registrará el resultado por defecto y podría aplicarse una penalización de puntos al equipo responsable.</p>
+        <p class="text-sm opacity-70 mb-4">Pasará a revisión del administrador. Si se aprueba, se registrará el resultado por defecto y podría aplicarse una penalización de puntos al equipo responsable.</p>
         <form hx-post="/match/{{.Match.Id}}/report-unplayed" hx-target="body">
             <div class="form-control">
                 <label class="label py-1" for="walkover-reason-{{.Match.Id}}"><span class="label-text text-xs">Motivo</span></label>
@@ -218,7 +218,7 @@
         <div class="card-body p-3">
             <div class="flex items-center gap-2">
                 <span class="text-sm font-bold">{{.AuthorLabel}}</span>
-                <span class="text-xs opacity-50">{{.CreatedAt}}</span>
+                <span class="text-xs opacity-50" title="{{.CreatedAt}}">{{relDate .CreatedRel}}</span>
                 {{if .IsAccepted}}<span class="badge badge-soft-success badge-xs">Confirmada</span>{{end}}
                 {{if eq .Status "superseded"}}<span class="badge badge-ghost badge-xs">Rechazada</span>{{end}}
             </div>
@@ -296,7 +296,7 @@
     {{/* State: DISPUTED — the two proposals; admin gets clickable-to-fill + resolve */}}
     {{if eq $c.ReviewType "walkover"}}
     <div class="alert alert-warning">
-        <span>Solicitud de incomparecencia por {{$c.RequestedBy}}{{if $c.DisputeNotes}}: {{$c.DisputeNotes}}{{end}}</span>
+        <span>Solicitud de partido no jugado por {{$c.RequestedBy}}{{if $c.DisputeNotes}}: {{$c.DisputeNotes}}{{end}}</span>
     </div>
     {{if and $c.Mode.Admin $c.Mode.Editable}}{{template "matchWalkoverApprove" $c}}{{end}}
     {{else}}
@@ -324,7 +324,7 @@
         <div class="flex gap-2 mt-2">
             <form hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/respond" hx-target="body" class="flex-1">
                 <input type="hidden" name="action" value="accept">
-                <button type="submit" hx-disabled-elt="this" class="btn btn-success btn-sm w-full">Confirmar</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-success btn-sm w-full">Aceptar resultado</button>
             </form>
             <button type="button" class="btn btn-error btn-outline btn-sm flex-1" onclick="this.parentElement.nextElementSibling.classList.toggle('hidden')">Contraproponer</button>
         </div>
@@ -351,7 +351,7 @@
         </div>
     </div>
     {{else if $c.HasPendingSchedulingProposal}}
-    <div class="alert alert-warning">
+    <div class="alert alert-info">
         <span>Fecha propuesta, pendiente de confirmación.</span>
     </div>
     {{else}}
@@ -364,7 +364,7 @@
     {{if $c.CanCorrect}}
     <div class="card bg-base-200/50 rounded-xl mt-3">
         <div class="card-body p-4">
-            <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Corregir marcador</h3>
+            <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Corregir resultado</h3>
             <form hx-post="/match/{{$c.Match.Id}}/correct" hx-target="body">
                 {{template "scoreInput" $c.ScoreCorrect}}
                 <button type="submit" hx-disabled-elt="this" class="btn btn-warning mt-3 w-full">Corregir resultado</button>
