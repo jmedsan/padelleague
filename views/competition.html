@@ -56,13 +56,13 @@
     <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Jornadas"{{if not .Standings}} checked{{end}}>
     <div role="tabpanel" class="tab-content pt-6">
         {{if not .IsPlayoff}}
-        <div class="flex justify-end mb-3" data-testid="mine-only-toggle">
+        <div class="flex flex-wrap justify-end gap-1 mb-3" data-testid="mine-only-toggle">
             {{if .ShowAll}}
-            <a href="/competition/{{.Competition.Id}}" hx-boost="true" class="btn btn-sm btn-ghost gap-1">Mis partidos</a>
-            <span class="btn btn-sm btn-primary gap-1">Todos</span>
+            <a href="/competition/{{.Competition.Id}}" hx-boost="true" class="btn btn-xs sm:btn-sm btn-ghost gap-1">Mis partidos</a>
+            <span class="btn btn-xs sm:btn-sm btn-primary gap-1">Todos</span>
             {{else}}
-            <span class="btn btn-sm btn-primary gap-1">Mis partidos</span>
-            <a href="/competition/{{.Competition.Id}}?all=1" hx-boost="true" class="btn btn-sm btn-ghost gap-1">Todos</a>
+            <span class="btn btn-xs sm:btn-sm btn-primary gap-1">Mis partidos</span>
+            <a href="/competition/{{.Competition.Id}}?all=1" hx-boost="true" class="btn btn-xs sm:btn-sm btn-ghost gap-1">Todos</a>
             {{end}}
         </div>
         {{end}}

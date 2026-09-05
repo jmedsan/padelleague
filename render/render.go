@@ -297,13 +297,24 @@ func RelDate(raw string) string {
 	target := time.Date(y, m, d, 0, 0, 0, 0, madrid)
 	days := int(target.Sub(today).Hours() / 24)
 
+	hasTime := !(parsed.Hour() == 0 && parsed.Minute() == 0 && parsed.Second() == 0)
+	withTime := func(label string) string {
+		if !hasTime {
+			return label
+		}
+		if hasExplicitUTC(raw) {
+			parsed = parsed.In(madrid)
+		}
+		return label + " " + parsed.Format("15:04")
+	}
+
 	switch {
 	case days == 0:
-		return "hoy"
+		return withTime("hoy")
 	case days == 1:
 		return "mañana"
 	case days == -1:
-		return "ayer"
+		return withTime("ayer")
 	case days > 1 && days <= 7:
 		return fmt.Sprintf("en %d días", days)
 	case days < -1 && days >= -7:

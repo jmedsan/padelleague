@@ -91,6 +91,10 @@ test.describe('scheduling, walkover & bracket', () => {
       pair2: data.pair2Id,
       status: 'pending',
       round_number: 1,
+      // A date is required for the walkover affordance to show (W5: can't
+      // report "not played" on a match with no scheduled date at all).
+      date: '2026-12-01',
+      club: 'Padel 360',
     });
 
     // Player reports the match as unplayed via the real UI form.
@@ -118,7 +122,7 @@ test.describe('scheduling, walkover & bracket', () => {
     await page.goto('/admin/disputes');
     await page.locator(`a[href="/match/${matchId}"]`).click();
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText('Solicitud de incomparecencia')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Solicitud de partido no jugado')).toBeVisible({ timeout: 10000 });
 
     const woForm = page.locator(`form[hx-post*="/admin/disputes/${matchId}/walkover-approve"]`);
     await woForm.locator('select[name="winner"]').selectOption(data.pair1Id);

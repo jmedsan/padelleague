@@ -400,6 +400,40 @@ func TestRelDate(t *testing.T) {
 	}
 }
 
+func TestRelDate_TodayYesterdayIncludeTime(t *testing.T) {
+	t.Parallel()
+	now := time.Now().In(madrid)
+	dayTimeStr := func(offset int) string {
+		d := now.AddDate(0, 0, offset)
+		return time.Date(d.Year(), d.Month(), d.Day(), 14, 39, 0, 0, madrid).Format("2006-01-02 15:04")
+	}
+	tests := []struct {
+		name, input, want string
+	}{
+		{"today with time", dayTimeStr(0), "hoy 14:39"},
+		{"yesterday with time", dayTimeStr(-1), "ayer 14:39"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, RelDate(tt.input))
+		})
+	}
+}
+
+func TestRelDate_TomorrowNeverIncludesTime(t *testing.T) {
+	t.Parallel()
+	now := time.Now().In(madrid)
+	tomorrow := now.AddDate(0, 0, 1)
+	input := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 14, 39, 0, 0, madrid).Format("2006-01-02 15:04")
+	assert.Equal(t, "mañana", RelDate(input))
+}
+
+func TestRelDate_MidnightTodayHasNoTime(t *testing.T) {
+	t.Parallel()
+	now := time.Now().In(madrid)
+	assert.Equal(t, "hoy", RelDate(now.Format("2006-01-02")))
+}
+
 func TestInitials(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
