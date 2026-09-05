@@ -605,11 +605,13 @@ func bracketRoundName(round, maxRound int) string {
 	case 0:
 		return "Final"
 	case 1:
-		return "Semifinal"
+		return "Semifinales"
 	case 2:
 		return "Cuartos"
 	case 3:
 		return "Octavos"
+	case 4:
+		return "Dieciseisavos"
 	default:
 		return fmt.Sprintf("Ronda %d", round)
 	}
