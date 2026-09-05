@@ -62,6 +62,37 @@ test.describe('match thread', () => {
     await expect(page.locator('input[type="time"]')).toBeVisible({ timeout: 3000 });
   });
 
+  test('W2: after proposing a date, the form collapses into "Proponer otra fecha"', async ({ page }) => {
+    const data = loadTestData();
+    const match = await suPost('/api/collections/matches/records', {
+      competition: data.competitionId, pair1: data.pair1Id, pair2: data.pair2Id,
+      status: 'pending', round_number: 99,
+    });
+
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/match/${match.id}`);
+    await page.waitForSelector('#proposal-date', { timeout: 10000 });
+    await expect(page.getByText('Proponer fecha y lugar')).toBeVisible();
+
+    await page.fill('#proposal-date', '2026-12-01');
+    await page.fill('#proposal-time', '10:00');
+    await page.locator('#proposal-venue').selectOption({ index: 1 });
+    await Promise.all([
+      page.waitForEvent('load', { timeout: 10000 }),
+      page.locator('#proposal-form button:has-text("Proponer fecha")').click(),
+    ]);
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForSelector('#thread-schedule', { timeout: 10000 });
+
+    // The open "Proponer fecha y lugar" card must be gone — a pending
+    // proposal now exists, so the form collapses into an accordion instead
+    // of staying open below the pending-proposal card (W2).
+    await expect(page.getByText('Proponer fecha y lugar')).toHaveCount(0);
+    const accordion = page.locator('.collapse', { hasText: 'Proponer otra fecha' });
+    await expect(accordion).toBeVisible();
+    await expect(accordion.locator('input[type="checkbox"]')).not.toBeChecked();
+  });
+
   test('admin non-participant can post in thread', async ({ page }) => {
     const data = loadTestData();
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);

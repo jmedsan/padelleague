@@ -55,7 +55,15 @@
         {{template "schedProposalPanel" .}}
 
         {{if .CanPropose}}
-        {{if not .HasDateAndPlace}}
+        {{if .SchedProposals}}
+        <div class="collapse collapse-arrow bg-base-200 rounded-lg mt-3">
+            <input type="checkbox" class="peer">
+            <div class="collapse-title text-sm font-medium py-2 min-h-0">Proponer otra fecha</div>
+            <div class="collapse-content">
+                {{template "proposalForm" .}}
+            </div>
+        </div>
+        {{else if not .HasDateAndPlace}}
         <div class="card bg-primary/10 border-2 border-primary/30 rounded-xl mt-3">
             <div class="card-body p-4">
                 <h3 class="font-bold text-sm">Proponer fecha y lugar</h3>

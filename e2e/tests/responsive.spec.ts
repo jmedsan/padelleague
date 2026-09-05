@@ -117,6 +117,64 @@ test.describe('responsive - no horizontal overflow', () => {
     await expect(standingsCard.getByText('Pareja Alpha').first()).toBeVisible();
   });
 
+  test('W13: long pair names in a jornada match row stay within the card at 390px', async ({ page }) => {
+    await getSuperuserToken(page);
+    const suffix = `w13-${Date.now()}`;
+    const p1a = await apiCreateRecord(page.request, 'users', {
+      email: `${suffix}-a1@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: 'Alejandro Fernandez', roles: ['player'], verified: true, gender: 'male',
+    });
+    const p1b = await apiCreateRecord(page.request, 'users', {
+      email: `${suffix}-a2@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: 'Bartolome Gutierrez', roles: ['player'], verified: true, gender: 'male',
+    });
+    const p2a = await apiCreateRecord(page.request, 'users', {
+      email: `${suffix}-b1@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: 'Cristobal Rodriguez', roles: ['player'], verified: true, gender: 'male',
+    });
+    const p2b = await apiCreateRecord(page.request, 'users', {
+      email: `${suffix}-b2@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: 'Domingo Hernandez', roles: ['player'], verified: true, gender: 'male',
+    });
+    const pairA = await apiCreateRecord(page.request, 'pairs', {
+      name: 'Alejandro Fernandez / Bartolome Gutierrez', player1: p1a, player2: p1b,
+    });
+    const pairB = await apiCreateRecord(page.request, 'pairs', {
+      name: 'Cristobal Rodriguez / Domingo Hernandez', player1: p2a, player2: p2b,
+    });
+    const compId = await apiCreateRecord(page.request, 'competitions', {
+      name: `W13 Long Names ${suffix}`, type: 'league', active: true, pairs: [pairA, pairB],
+    });
+    await apiCreateRecord(page.request, 'matches', {
+      competition: compId, pair1: pairA, pair2: pairB, status: 'pending', round_number: 1,
+    });
+
+    await page.setViewportSize(MOBILE);
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/admin/competitions/${compId}`);
+    await page.waitForLoadState('domcontentloaded');
+    await checkNoOverflow(page);
+
+    // At least one pair-name span must actually be truncating (ellipsis
+    // engaged) — without flex-1, a span sizes to its content instead of
+    // sharing the row's width with its sibling, so neither ever truncates
+    // and the row overflows instead.
+    const pairSpans = page.locator('a[href^="/match/"] span.truncate');
+    const spanCount = await pairSpans.count();
+    expect(spanCount, 'both pair-name spans must be present').toBeGreaterThanOrEqual(2);
+    let anyTruncating = false;
+    for (let i = 0; i < 2; i++) {
+      const isTruncating = await pairSpans.nth(i).evaluate(el => el.scrollWidth > el.clientWidth);
+      if (isTruncating) anyTruncating = true;
+    }
+    expect(anyTruncating, 'at least one pair-name span must be truncating (ellipsis engaged)').toBe(true);
+
+    await apiDeleteRecord(page.request, 'competitions', compId);
+    await apiDeleteRecord(page.request, 'pairs', pairA);
+    await apiDeleteRecord(page.request, 'pairs', pairB);
+    for (const uid of [p1a, p1b, p2a, p2b]) await apiDeleteRecord(page.request, 'users', uid);
+  });
+
   test('admin pairs', async ({ page }) => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
