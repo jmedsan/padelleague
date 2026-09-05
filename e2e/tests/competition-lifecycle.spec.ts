@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { loginAs, loadTestData, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
-const BASE = 'http://localhost:8099';
+const BASE = `http://localhost:${process.env.E2E_PORT || 8099}`;
 
 function suToken(): string {
   return loadTestData().adminToken;
