@@ -32,14 +32,14 @@ func newTestApp(t *testing.T) *tests.TestApp {
 func registerHooks(t *testing.T, app *tests.TestApp) {
 	t.Helper()
 	svc := league.New(app, nil)
-	Register(app, svc, nil, nil)
+	Register(app, Deps{Svc: svc})
 }
 
 func registerHooksWithNotifier(t *testing.T, app *tests.TestApp) {
 	t.Helper()
 	svc := league.New(app, nil)
 	notifier := notify.NewNotifier(app, "", "")
-	Register(app, svc, notifier, nil)
+	Register(app, Deps{Svc: svc, Notifier: notifier})
 }
 
 func makeAdminUser(t *testing.T, app core.App) {
@@ -828,7 +828,7 @@ func registerHooksWithSearch(t *testing.T, app *tests.TestApp) *search.Index {
 	t.Helper()
 	svc := league.New(app, nil)
 	ix := &search.Index{}
-	Register(app, svc, nil, ix)
+	Register(app, Deps{Svc: svc, SearchIndex: ix})
 	return ix
 }
 

@@ -42,7 +42,15 @@ func main() {
 	leagueSvc := league.New(app, notifier)
 
 	searchIndex := &search.Index{}
-	hooks.Register(app, leagueSvc, notifier, searchIndex)
+	hooks.Register(app, hooks.Deps{
+		Svc:         leagueSvc,
+		Notifier:    notifier,
+		SearchIndex: searchIndex,
+		Backup: hooks.BackupConfig{
+			ServiceAccountJSON: cfg.GDriveServiceAccount,
+			FolderID:           cfg.GDriveFolderID,
+		},
+	})
 
 	slog.Info("startup",
 		"app_env", cfg.AppEnv,

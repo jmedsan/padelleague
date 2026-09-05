@@ -226,7 +226,7 @@ func TestSampleLeague(t *testing.T) {
 
 	notifier := notify.NewNotifier(app, "", "")
 	svc := league.New(app, notifier)
-	hooks.Register(app, svc, notifier, nil)
+	hooks.Register(app, hooks.Deps{Svc: svc, Notifier: notifier})
 
 	require.NoError(t, SampleLeaguePartial(app, SampleOptions{
 		Players: true, Pairs: true, Competitions: true, Matches: true,
@@ -317,7 +317,7 @@ func TestSampleLeague_AvatarsUseLiveCompressionPipeline(t *testing.T) {
 
 	notifier := notify.NewNotifier(app, "", "")
 	svc := league.New(app, notifier)
-	hooks.Register(app, svc, notifier, nil)
+	hooks.Register(app, hooks.Deps{Svc: svc, Notifier: notifier})
 
 	require.NoError(t, SampleLeaguePartial(app, SampleOptions{
 		Players:      true,
@@ -360,7 +360,7 @@ func TestSampleLeagueWithPlayoff(t *testing.T) {
 
 	notifier := notify.NewNotifier(app, "", "")
 	svc := league.New(app, notifier)
-	hooks.Register(app, svc, notifier, nil)
+	hooks.Register(app, hooks.Deps{Svc: svc, Notifier: notifier})
 
 	require.NoError(t, SampleLeaguePartial(app, SampleOptions{
 		Players: true, Pairs: true, Competitions: true, Matches: true, Playoff: true,
