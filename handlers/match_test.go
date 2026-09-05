@@ -551,24 +551,24 @@ func TestBuildMatchViewFlags(t *testing.T) {
 		{
 			name: "confirmed/opponent", status: "confirmed", viewer: "opponent",
 			submitted: true, hasDate: true,
-			want:      []string{markerCanWalkover},
-			deny:      []string{markerCanSubmit, markerCanCorrect},
+			want: []string{markerCanWalkover},
+			deny: []string{markerCanSubmit, markerCanCorrect},
 		},
 		{
 			name: "confirmed/outsider", status: "confirmed", viewer: "outsider",
 			submitted: true, hasDate: true,
-			deny:      []string{markerCanSubmit, markerCanCorrect},
+			deny: []string{markerCanSubmit, markerCanCorrect},
 		},
 		{
 			name: "confirmed/admin-nonparticipant", status: "confirmed", viewer: "admin",
 			submitted: true, hasDate: true,
-			deny:      []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
+			deny: []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
 		},
 		{
 			name: "confirmed/no-submitter/opponent", status: "confirmed", viewer: "opponent",
 			submitted: false, hasDate: true,
-			want:      []string{markerCanWalkover},
-			deny:      []string{markerCanSubmit, markerCanCorrect},
+			want: []string{markerCanWalkover},
+			deny: []string{markerCanSubmit, markerCanCorrect},
 		},
 		{
 			name: "confirmed/no-date/opponent", status: "confirmed", viewer: "opponent",

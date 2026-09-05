@@ -504,13 +504,17 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 		Kind: "result_event", Detail: "reportó el partido como no jugado",
 	})
 
+	h.notifyUnplayed(match, reporterTeam)
+	return redirectHX(e, "/match/"+id)
+}
+
+func (h *MatchHandler) notifyUnplayed(match *core.Record, reporterTeam int) {
+	id := match.Id
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	an := league.NotifAdminMatchUnplayed(id, compName)
 	if err := h.notifier.NotifyAdmins(an); err != nil {
 		slog.Error("notify admins walkover report", "match", id, "err", err)
 	}
-
-	// Tell the rival pair a walkover was filed against them.
 	rivalPairID := match.GetString("pair2")
 	if reporterTeam == 2 {
 		rivalPairID = match.GetString("pair1")
@@ -519,8 +523,6 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 	n := league.NotifMatchReportedUnplayed(id, compName)
 	h.notifier.NotifyPlayers(rivalPlayers, n)
 	h.notifier.EmailPlayers(rivalPlayers, n.Title, n.Body, "/match/"+id)
-
-	return redirectHX(e, "/match/"+id)
 }
 
 func playerNameIfSet(app core.App, userID string) string {
