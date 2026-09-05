@@ -416,14 +416,16 @@
         {{if .AttachedSponsors}}
         <div class="space-y-3">
             {{range .AttachedSponsors}}
-            <div class="flex items-center justify-between gap-3 p-3 bg-base-200/50 rounded-lg" data-testid="sponsor-attach-card">
+            <div class="flex items-center justify-between gap-3 p-3 rounded-lg {{if .GetBool "is_global"}}bg-base-200/20 opacity-70{{else}}bg-base-200/50{{end}}" data-testid="sponsor-attach-card">
                 <div class="flex items-center gap-3 flex-1 min-w-0">
                     <img src="{{sponsorLogoURL .Id (.GetString "logo")}}" alt="{{.GetString "name"}}" class="w-10 h-10 object-contain rounded bg-base-100 flex-none">
-                    <p class="font-medium text-sm truncate">{{.GetString "name"}}</p>
+                    <p class="font-medium text-sm truncate">{{.GetString "name"}} {{if .GetBool "is_global"}}<span class="badge badge-info badge-sm align-middle">Global</span>{{end}}</p>
                 </div>
+                {{if not (.GetBool "is_global")}}
                 <form hx-post="/admin/competitions/{{$.Competition.Id}}/detach-sponsor/{{.Id}}" hx-confirm="¿Quitar este patrocinador de la competición?" class="flex-none">
                     <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm text-error">Quitar</button>
                 </form>
+                {{end}}
             </div>
             {{end}}
         </div>

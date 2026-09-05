@@ -6,6 +6,39 @@
 
 <div class="card bg-base-100 shadow-xl max-w-lg mb-6">
     <div class="card-body">
+        <h2 class="card-title text-lg">Marca de la liga</h2>
+        <p class="text-sm opacity-70 mb-4">Nombre, eslogan y logo mostrados en la cabecera del sitio y en los emails cuando no aplica el de una competición concreta.</p>
+        <div class="form-control mb-3">
+            <label class="label"><span class="label-text">Logo</span></label>
+            <div class="flex items-center gap-3">
+                {{if .Branding.LogoURL}}
+                <div class="avatar">
+                    <div class="w-12 rounded-xl">
+                        <img src="{{.Branding.LogoURL}}" alt="{{.Branding.Name}}" loading="lazy">
+                    </div>
+                </div>
+                {{end}}
+                <input type="file" id="league-logo-input" name="logo" accept="image/jpeg,image/png,image/webp"
+                       class="file-input file-input-bordered file-input-sm flex-1"
+                       hx-post="/admin/settings/logo" hx-trigger="change" hx-encoding="multipart/form-data" hx-disabled-elt="this">
+            </div>
+        </div>
+        <form hx-post="/admin/settings/branding">
+            <div class="form-control w-full">
+                <label class="label" for="league-name"><span class="label-text font-medium">Nombre de la liga</span></label>
+                <input type="text" id="league-name" name="league_name" value="{{.Branding.Name}}" class="input input-bordered w-full" required>
+            </div>
+            <div class="form-control w-full mt-3">
+                <label class="label" for="league-tagline"><span class="label-text font-medium">Eslogan</span></label>
+                <input type="text" id="league-tagline" name="league_tagline" value="{{.Branding.Tagline}}" class="input input-bordered w-full">
+            </div>
+            <button type="submit" hx-disabled-elt="this" class="btn btn-primary w-full mt-4">Guardar</button>
+        </form>
+    </div>
+</div>
+
+<div class="card bg-base-100 shadow-xl max-w-lg mb-6">
+    <div class="card-body">
         <h2 class="card-title text-lg">Valores por defecto</h2>
         <p class="text-sm opacity-70 mb-4">Valores iniciales para nuevas competiciones e invitaciones. Puedes cambiarlos en cada competición al crearla.</p>
         <form hx-post="/admin/settings/defaults">

@@ -98,7 +98,7 @@ func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 		registerURL := render.RequestBaseURL(e) + "/register?token=" + token
 		compName := league.CompetitionName(h.app, competition)
 		notify.SendEmail(h.app, email, "Invitación a Liga Dale Fuerte",
-			buildInviteEmail(registerURL, compName))
+			notify.RenderEmail(h.app, competition, buildInviteEmail(registerURL, compName)))
 	}
 
 	flash(e, "Invitación creada")
@@ -138,7 +138,7 @@ func (h *InvitationHandler) InvitationsResend(e *core.RequestEvent) error {
 	registerURL := render.RequestBaseURL(e) + "/register?token=" + token
 	compName := league.CompetitionName(h.app, compID)
 	notify.SendEmail(h.app, email, "Invitación a Liga Dale Fuerte",
-		buildInviteEmail(registerURL, compName))
+		notify.RenderEmail(h.app, compID, buildInviteEmail(registerURL, compName)))
 	flash(e, "Invitación reenviada")
 	return redirectHX(e, "/admin/competitions/"+compID)
 }

@@ -64,6 +64,7 @@ func (h *AdminSponsorHandler) SponsorsCreate(e *core.RequestEvent) error {
 
 	record.Set("name", name)
 	record.Set("url", e.Request.FormValue("url"))
+	record.Set("is_global", e.Request.FormValue("is_global") == "on")
 	record.Set("logo", f)
 
 	if err := h.app.Save(record); err != nil {
@@ -90,6 +91,7 @@ func (h *AdminSponsorHandler) SponsorsUpdate(e *core.RequestEvent) error {
 	}
 	record.Set("name", name)
 	record.Set("url", e.Request.FormValue("url"))
+	record.Set("is_global", e.Request.FormValue("is_global") == "on")
 
 	if fh := fileHeader(e, "logo"); fh != nil {
 		if !strings.HasPrefix(fh.Header.Get("Content-Type"), "image/") {

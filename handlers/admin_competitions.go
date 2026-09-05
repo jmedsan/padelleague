@@ -112,10 +112,15 @@ func (h *CompetitionHandler) addDetailExtras(data map[string]any, comp *core.Rec
 	data["UnattachedSponsors"] = unattachedSponsors
 }
 
+// buildDetailSponsors returns the sponsors shown as "attached" (the
+// competition's own picks plus every global sponsor, which the Branding
+// pipeline shows on every competition regardless of attachment) and the
+// sponsors still available to attach (non-global, not already attached —
+// attaching a global sponsor would be a no-op since it's already shown).
 func (h *CompetitionHandler) buildDetailSponsors(comp *core.Record) ([]*core.Record, []*core.Record) {
 	attachedIDs := comp.GetStringSlice("sponsors")
-	var attached []*core.Record
 	attachedSet := make(map[string]struct{}, len(attachedIDs))
+	var attached []*core.Record
 	for _, sid := range attachedIDs {
 		attachedSet[sid] = struct{}{}
 		if s, err := h.app.FindRecordById("sponsors", sid); err == nil {
@@ -127,9 +132,14 @@ func (h *CompetitionHandler) buildDetailSponsors(comp *core.Record) ([]*core.Rec
 	})
 	var unattached []*core.Record
 	for _, s := range allSponsors {
-		if _, ok := attachedSet[s.Id]; !ok {
-			unattached = append(unattached, s)
+		if _, ok := attachedSet[s.Id]; ok {
+			continue
 		}
+		if s.GetBool("is_global") {
+			attached = append(attached, s)
+			continue
+		}
+		unattached = append(unattached, s)
 	}
 	return attached, unattached
 }

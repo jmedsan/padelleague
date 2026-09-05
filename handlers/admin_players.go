@@ -125,7 +125,7 @@ func (h *AdminPlayerHandler) PlayerPreCreate(e *core.RequestEvent) error {
 	resetURL := buildResetURL(e, resetToken)
 
 	notify.SendEmail(h.app, email, "Bienvenido a Liga Dale Fuerte",
-		buildOnboardingEmail(email, resetURL))
+		notify.RenderEmail(h.app, "", buildOnboardingEmail(email, resetURL)))
 
 	name := displayName
 	if name == "" {
@@ -204,11 +204,9 @@ func buildResetURL(e *core.RequestEvent, token string) string {
 }
 
 func buildOnboardingEmail(email, resetURL string) string {
-	return fmt.Sprintf(`<h2>Bienvenido a Liga Dale Fuerte</h2>
-<p>Se ha creado una cuenta para <strong>%s</strong>.</p>
+	return fmt.Sprintf(`<p>Se ha creado una cuenta para <strong>%s</strong>.</p>
 <p>Establece tu contraseña para acceder:</p>
-<p><a href="%s">Establecer contraseña</a></p>
-<p>— Liga Dale Fuerte</p>`, html.EscapeString(email), html.EscapeString(resetURL))
+<p><a href="%s">Establecer contraseña</a></p>`, html.EscapeString(email), html.EscapeString(resetURL))
 }
 
 func buildInviteEmail(registerURL, compName string) string {
@@ -216,9 +214,7 @@ func buildInviteEmail(registerURL, compName string) string {
 	if compName != "" {
 		comp = fmt.Sprintf(" a <strong>%s</strong>", html.EscapeString(compName))
 	}
-	return fmt.Sprintf(`<h2>Liga Dale Fuerte</h2>
-<p>Has sido invitado a unirte%s en Liga Dale Fuerte.</p>
+	return fmt.Sprintf(`<p>Has sido invitado a unirte%s en Liga Dale Fuerte.</p>
 <p>Regístrate con el siguiente enlace:</p>
-<p><a href="%s">Registrarse</a></p>
-<p>— Liga Dale Fuerte</p>`, comp, html.EscapeString(registerURL))
+<p><a href="%s">Registrarse</a></p>`, comp, html.EscapeString(registerURL))
 }
