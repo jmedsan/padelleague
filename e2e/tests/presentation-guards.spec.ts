@@ -225,6 +225,43 @@ test.describe('R-178: presentation quality guards', () => {
     await apiDelete(page.request, suToken, 'competitions', compId);
   });
 
+  test('W12: home keeps "Mis últimos partidos" heading and shows an empty-state message when there are no recent results', async ({ page }, testInfo) => {
+    const suToken = await getSuToken(page.request);
+    const suffix = `${Date.now()}-${testInfo.project.name}`;
+    const email = `w12-${suffix}@test.local`;
+    await apiCreate(page.request, suToken, 'users', {
+      email, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: `W12 Player ${suffix}`, roles: ['player'], verified: true, gender: 'male',
+    });
+    const meResp = await page.request.get(`/api/collections/users/records?filter=email='${email}'`, {
+      headers: { Authorization: suToken },
+    });
+    const playerId = (await meResp.json()).items[0].id;
+    const partnerId = (await page.request.post('/api/collections/users/records', {
+      headers: { Authorization: suToken, 'Content-Type': 'application/json' },
+      data: { email: `w12-partner-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456', display_name: `W12 Partner ${suffix}`, roles: ['player'], verified: true, gender: 'male' },
+    }).then(r => r.json())).id;
+    const pairId = await apiCreate(page.request, suToken, 'pairs', {
+      name: `W12 Pareja ${suffix}`, player1: playerId, player2: partnerId,
+    });
+    const compId = await apiCreate(page.request, suToken, 'competitions', {
+      name: `W12 Comp ${suffix}`, type: 'league', active: true, pairs: [pairId],
+    });
+
+    await loginAs(page, email, 'testpass123456');
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const heading = page.getByRole('heading', { name: 'Mis últimos partidos' });
+    await expect(heading, 'heading must stay visible with zero recent results').toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('No hay resultados recientes'), 'empty-state message must show below the heading').toBeVisible();
+
+    await apiDelete(page.request, suToken, 'competitions', compId);
+    await apiDelete(page.request, suToken, 'pairs', pairId);
+    await apiDelete(page.request, suToken, 'users', playerId);
+    await apiDelete(page.request, suToken, 'users', partnerId);
+  });
+
   test('R-231: notifications dropdown shows entries when notifications exist', async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto('/');

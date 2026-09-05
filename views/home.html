@@ -63,8 +63,9 @@
 </div>
 {{end}}
 
-{{if .RecentResults}}
+{{if .Competitions}}
 <h2 class="text-lg font-bold mb-3">Mis últimos partidos</h2>
+{{if .RecentResults}}
 <div class="space-y-2 mb-6">
     {{range .RecentResults}}
     {{template "historyMatchCard" (dict
@@ -78,8 +79,9 @@
         "CompetitionLogo" .CompetitionLogo)}}
     {{end}}
 </div>
-{{else if .Competitions}}
-{{template "emptyState" "Aún no hay resultados — los partidos irán apareciendo aquí"}}
+{{else}}
+{{template "emptyState" "No hay resultados recientes"}}
+{{end}}
 {{end}}
 
 {{if eq .CompCount 0}}
