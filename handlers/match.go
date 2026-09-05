@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"cmp"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -165,10 +164,10 @@ func buildPrecedentesView(app core.App, match *core.Record, pair1Name, pair2Name
 func matchPageTitle(mc MatchCard) string {
 	p1, p2 := mc.Pair1Name, mc.Pair2Name
 	if p1 == "" {
-		p1 = cmp.Or(mc.Feeder1, "Por definir")
+		p1 = "Por definir"
 	}
 	if p2 == "" {
-		p2 = cmp.Or(mc.Feeder2, "Por definir")
+		p2 = "Por definir"
 	}
 	return p1 + " vs " + p2
 }

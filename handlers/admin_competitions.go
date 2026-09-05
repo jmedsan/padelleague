@@ -441,12 +441,6 @@ func (h *CompetitionHandler) buildRoundGroups(comp *core.Record, matches []*core
 	sort.Slice(rounds, func(i, j int) bool {
 		return rounds[i].Number < rounds[j].Number
 	})
-	for ri := 1; ri < len(rounds); ri++ {
-		prevRound := rounds[ri-1].Number
-		for mi := range rounds[ri].Matches {
-			rounds[ri].Matches[mi].PopulateFeeder(prevRound, mi)
-		}
-	}
 	populateRoundProgress(comp, rounds)
 	return rounds
 }

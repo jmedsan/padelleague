@@ -332,39 +332,18 @@ func TestNewMatchRowFields(t *testing.T) {
 	assert.False(t, mc.CanSubmit)
 }
 
-func TestPopulateFeederOnMatchCard(t *testing.T) {
-	t.Parallel()
-	mc := MatchCard{}
-	mc.PopulateFeeder(1, 0)
-	assert.Equal(t, "Ganador de J1-1", mc.Feeder1)
-	assert.Equal(t, "Ganador de J1-2", mc.Feeder2)
-
-	mc2 := MatchCard{Pair1Name: "A"}
-	mc2.PopulateFeeder(1, 0)
-	assert.Empty(t, mc2.Feeder1)
-	assert.Equal(t, "Ganador de J1-2", mc2.Feeder2)
-
-	// matchIdx > 0 so the *2 in matchIdx*2+n is distinguishable from /2
-	// (at matchIdx 0 both yield 0): idx 3 → feeders 7 and 8.
-	mc3 := MatchCard{}
-	mc3.PopulateFeeder(1, 3)
-	assert.Equal(t, "Ganador de J1-7", mc3.Feeder1)
-	assert.Equal(t, "Ganador de J1-8", mc3.Feeder2)
-}
-
-// R-5: a round-2 playoff match has no pair1/pair2 until round 1 finishes, so
-// NewMatchCard must populate Feeder1/Feeder2 and the matchCard template must
-// render that feeder text (falling back further to "Por definir" only when
-// no feeder is known) instead of an empty pair name in the header.
-func TestMatchDetailShowsFeederForEmptyPlayoffPairs(t *testing.T) {
+// R-5: a round-2 playoff match has no pair1/pair2 until round 1 finishes.
+// The bracket's connector lines show which match feeds it, so the match
+// page header just renders the "Por definir" placeholder instead of a
+// "Ganador de JX-Y" text reference.
+func TestMatchDetailShowsPlaceholderForEmptyPlayoffPairs(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:     testAppFactory,
-		Name:               "GET /match/{id} for an empty-pairs playoff match shows feeder text",
-		Method:             http.MethodGet,
-		ExpectedStatus:     200,
-		ExpectedContent:    []string{"Ganador de J1-1", "Ganador de J1-2", "Final"},
-		NotExpectedContent: []string{"Por definir"},
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /match/{id} for an empty-pairs playoff match shows the Por definir placeholder",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Por definir", "Final"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)

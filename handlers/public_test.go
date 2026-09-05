@@ -1209,25 +1209,10 @@ func TestCompetition_NonParticipantNoGate(t *testing.T) {
 	s.Test(t)
 }
 
-func TestPopulateFeeder(t *testing.T) {
-	t.Parallel()
-
-	t.Run("empty slots get feeder labels", func(t *testing.T) {
-		m := MatchCard{}
-		m.PopulateFeeder(1, 0)
-		assert.Equal(t, "Ganador de J1-1", m.Feeder1)
-		assert.Equal(t, "Ganador de J1-2", m.Feeder2)
-	})
-
-	t.Run("filled slots keep no feeder", func(t *testing.T) {
-		m := MatchCard{Pair1Name: "A"}
-		m.PopulateFeeder(1, 0)
-		assert.Empty(t, m.Feeder1)
-		assert.Equal(t, "Ganador de J1-2", m.Feeder2)
-	})
-}
-
-func TestBuildBracket_PassesThroughFeeders(t *testing.T) {
+// TestBuildBracket_Slot verifies the per-round CSS slot height used by the
+// bracket connector lines doubles each round, so a round-2 match's slot
+// always spans the midpoint of its two round-1 feeder matches.
+func TestBuildBracket_Slot(t *testing.T) {
 	t.Parallel()
 	rounds := []RoundView{
 		{RoundNumber: 1, Matches: []MatchCard{
@@ -1235,20 +1220,17 @@ func TestBuildBracket_PassesThroughFeeders(t *testing.T) {
 			{Pair1Name: "Team C", Pair2Name: "Team D"},
 		}},
 		{RoundNumber: 2, Matches: []MatchCard{
-			{Feeder1: "Ganador de J1-1", Feeder2: "Ganador de J1-2"},
+			{},
 		}},
 	}
 
 	bracket := buildBracket(rounds, 2)
 	require.Len(t, bracket, 2)
 
-	final := bracket[1].Matches[0]
-	assert.Equal(t, "Ganador de J1-1", final.Feeder1)
-	assert.Equal(t, "Ganador de J1-2", final.Feeder2)
-
-	semi := bracket[0].Matches[0]
-	assert.Empty(t, semi.Feeder1, "round 1 should have no feeders")
-	assert.Empty(t, semi.Feeder2, "round 1 should have no feeders")
+	assert.Equal(t, 0, bracket[0].Index)
+	assert.Equal(t, 84, bracket[0].Slot)
+	assert.Equal(t, 1, bracket[1].Index)
+	assert.Equal(t, 168, bracket[1].Slot)
 }
 
 func TestHome_OnboardChecklist_ShownWhenMandatoryDocPending(t *testing.T) {

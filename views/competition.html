@@ -30,18 +30,12 @@
 <div class="mb-6">
     <h2 class="text-lg font-bold mb-3">Cuadro</h2>
     {{if .Bracket}}
-    <div class="overflow-x-auto pb-4">
-        <div class="flex gap-4 min-w-max">
-            {{range .Bracket}}
-            <div class="flex flex-col min-w-[220px]">
-                <div class="sticky top-0 bg-neutral text-neutral-content rounded-lg px-3 py-2 mb-3 text-center">
-                    <span class="font-bold text-sm">{{.Name}}</span>
-                </div>
-                <div class="flex flex-col justify-around flex-1 gap-3">
-                    {{range .Matches}}
-                    {{template "matchBracketCell" .}}
-                    {{end}}
-                </div>
+    <div class="overflow-x-auto pb-4 snap-x snap-mandatory">
+        <div class="bracket min-w-max">
+            {{range $i, $r := .Bracket}}
+            <div class="round {{if $i}}has-prev{{end}} {{if lt $i (sub (len $.Bracket) 1)}}has-next{{end}}" style="--slot:{{$r.Slot}}px">
+                <div class="sticky top-0 bg-neutral text-neutral-content rounded-lg px-3 py-2 mb-3 text-center font-bold text-sm">{{$r.Name}}</div>
+                <div class="slots">{{range $r.Matches}}{{template "matchBracketCell" .}}{{end}}</div>
             </div>
             {{end}}
         </div>
