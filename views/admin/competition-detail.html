@@ -5,7 +5,7 @@
 <input type="checkbox" id="edit-modal" class="modal-toggle">
 <div class="modal" role="dialog">
     <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">Editar competición</h3>
+        <h3 class="text-lg font-bold mb-4">Editar competición</h3>
         <div class="form-control mb-3">
             <label class="label"><span class="label-text">Logo</span></label>
             <div class="flex items-center gap-3">
@@ -239,8 +239,8 @@
 <input type="checkbox" id="penalty-modal-{{.PairID}}" class="modal-toggle">
 <div class="modal" role="dialog">
     <div class="modal-box">
-        <h3 class="font-bold text-lg">Penalizar a {{.PairName}}</h3>
-        <form hx-post="/admin/competitions/{{$.Competition.Id}}/penalty" class="mt-4 space-y-3">
+        <h3 class="text-lg font-bold mb-4">Penalizar a {{.PairName}}</h3>
+        <form hx-post="/admin/competitions/{{$.Competition.Id}}/penalty" class="space-y-3">
             <input type="hidden" name="action" value="apply">
             <input type="hidden" name="pair_id" value="{{.PairID}}">
             <label class="form-control">

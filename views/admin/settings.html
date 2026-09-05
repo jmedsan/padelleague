@@ -6,7 +6,7 @@
 
 <div class="card bg-base-100 shadow-xl max-w-lg mb-6">
     <div class="card-body">
-        <h2 class="card-title">Valores por defecto</h2>
+        <h2 class="card-title text-lg">Valores por defecto</h2>
         <p class="text-sm opacity-70 mb-4">Valores iniciales para nuevas competiciones e invitaciones. Puedes cambiarlos en cada competición al crearla.</p>
         <form hx-post="/admin/settings/defaults">
             <div class="form-control w-full">
@@ -61,7 +61,7 @@
 {{if .DevMode}}
 <div class="card bg-base-100 shadow-xl border border-warning max-w-lg">
     <div class="card-body">
-        <h2 class="card-title">Reiniciar base de datos</h2>
+        <h2 class="card-title text-lg">Reiniciar base de datos</h2>
         <p class="text-sm opacity-70 mb-4">Borra todos los datos y deja la base limpia — se conservan los administradores y las pistas. Marca los datos de ejemplo a cargar tras el borrado; sin marcar nada, la base queda vacía.</p>
 
         <div id="reset-form">
