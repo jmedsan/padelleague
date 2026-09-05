@@ -389,8 +389,9 @@ type OutstandingMatch struct {
 	Status           string
 	StatusLabel      string
 	ArrangeBy        string // "DD/MM", or "" when no schedule (e.g. playoffs)
+	ArrangeByRel     string // RFC3339, for {{relDate}}; "" when no schedule
 	Warning          Warning
-	deadline         time.Time // sort key backing ArrangeBy; zero when unset
+	deadline         time.Time // sort key backing ArrangeBy/ArrangeByRel; zero when unset
 }
 
 // OutstandingMatches returns every non-final match in an active competition,
@@ -445,6 +446,7 @@ func outstandingForComp(app core.App, c *core.Record, now time.Time) []Outstandi
 			if deadline, ok := RoundArrangeDate(c, om.RoundNumber); ok {
 				om.deadline = deadline
 				om.ArrangeBy = fmtShortDate(deadline)
+				om.ArrangeByRel = deadline.Format(time.RFC3339)
 				om.Warning = WarningLevel(deadline, graceDays, now)
 			}
 		}

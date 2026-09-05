@@ -48,6 +48,7 @@ type SchedProposalVM struct {
 	CanRespond        bool
 	CanChangeDecision bool
 	CreatedAt         string
+	CreatedRel        string // RFC3339, for {{relDate}}
 }
 
 // ResultPanelVM is the result box: the final result once quorum is reached,
@@ -196,26 +197,27 @@ func (bc *threadBuildCtx) appendToPanel(mc msgCtx, td *ThreadData) {
 	status := mc.msg.GetString("proposal_status")
 	sameTeam := mc.authorTeam == bc.myTeam || bc.myTeam == 0
 	if mc.msgType == "scheduling_proposal" && status == "pending" {
-		td.SchedProposals = append(td.SchedProposals, bc.schedProposal(mc.msg, mc.authorName, mc.created, sameTeam))
+		td.SchedProposals = append(td.SchedProposals, bc.schedProposal(mc, sameTeam))
 	}
 	if mc.msgType == "result_submission" && status == "pending" && !td.ResultPanel.HasFinal {
 		td.ResultPanel.Live = append(td.ResultPanel.Live, bc.resultProposal(mc.msg, mc.authorName, mc.authorTeam, sameTeam))
 	}
 }
 
-func (bc *threadBuildCtx) schedProposal(msg *core.Record, authorName, created string, sameTeam bool) SchedProposalVM {
-	status := msg.GetString("proposal_status")
+func (bc *threadBuildCtx) schedProposal(mc msgCtx, sameTeam bool) SchedProposalVM {
+	status := mc.msg.GetString("proposal_status")
 	canRespond, canChange := proposalActions("scheduling_proposal", bc.matchStatus, sameTeam, status)
 	return SchedProposalVM{
-		RecordID:          msg.Id,
+		RecordID:          mc.msg.Id,
 		MatchID:           bc.matchID,
-		AuthorLabel:       authorName,
-		Data:              ParseProposalData(msg.GetString("proposal_data")),
+		AuthorLabel:       mc.authorName,
+		Data:              ParseProposalData(mc.msg.GetString("proposal_data")),
 		Status:            status,
 		IsAccepted:        status == "accepted",
 		CanRespond:        canRespond && bc.compModifiable,
 		CanChangeDecision: canChange && bc.compModifiable,
-		CreatedAt:         created,
+		CreatedAt:         mc.created,
+		CreatedRel:        mc.createdRaw,
 	}
 }
 
