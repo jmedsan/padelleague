@@ -217,8 +217,19 @@ document.addEventListener('click', function(e) {
     document.querySelectorAll('.dropdown').forEach(function(d) {
         if (!d.contains(e.target)) {
             d.querySelector('[tabindex]')?.blur();
+            d.dataset.open = '';
             var det = d.querySelector('details[open]');
             if (det) det.removeAttribute('open');
+        } else {
+            var btn = d.querySelector('[tabindex="0"]');
+            if (btn && btn.contains(e.target)) {
+                if (d.dataset.open === '1') {
+                    btn.blur();
+                    d.dataset.open = '';
+                } else {
+                    d.dataset.open = '1';
+                }
+            }
         }
     });
 });
