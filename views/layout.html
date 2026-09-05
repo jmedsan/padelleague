@@ -28,6 +28,21 @@
     </script>
 </head>
 <body class="min-h-screen flex flex-col bg-base-200 overflow-x-hidden">
+    <div id="global-htmx-indicator" class="htmx-indicator fixed top-0 left-0 w-full h-0.5 bg-primary z-50 animate-pulse"></div>
+    <script>
+        (function() {
+            var bar = document.getElementById('global-htmx-indicator');
+            var inFlight = 0;
+            document.body.addEventListener('htmx:beforeRequest', function() {
+                inFlight++;
+                bar.classList.add('htmx-request');
+            });
+            document.body.addEventListener('htmx:afterRequest', function() {
+                inFlight = Math.max(0, inFlight - 1);
+                if (inFlight === 0) bar.classList.remove('htmx-request');
+            });
+        })();
+    </script>
     <div class="drawer flex-1">
         <input id="main-drawer" type="checkbox" class="drawer-toggle" tabindex="-1">
         <div class="drawer-content flex flex-col flex-1">
