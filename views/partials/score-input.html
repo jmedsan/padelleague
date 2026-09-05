@@ -2,18 +2,24 @@
 
 {{define "scoreInput"}}
 <div class="score-input" data-suffix="{{.IDSuffix}}" data-pair1="{{.Pair1Name}}" data-pair2="{{.Pair2Name}}"{{if .Value}} data-value="{{.Value}}"{{end}}>
+    {{if or .Pair1Name .Pair2Name}}
+    <p class="text-xs opacity-50 mb-1">{{truncate .Pair1Name 16}} <span class="opacity-70">vs</span> {{truncate .Pair2Name 16}}</p>
+    {{end}}
     <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
         <div class="flex items-center gap-1 score-set-group" data-set="1">
+            <span class="text-xs opacity-50">S1</span>
             <select name="s1a" class="select select-bordered select-sm w-14 score-cell" aria-label="Set 1">{{template "scoreOptions"}}</select>
             <span class="opacity-50">-</span>
             <select name="s1b" class="select select-bordered select-sm w-14 score-cell" aria-label="Set 1">{{template "scoreOptions"}}</select>
         </div>
         <div class="flex items-center gap-1 score-set-group" data-set="2">
+            <span class="text-xs opacity-50">S2</span>
             <select name="s2a" class="select select-bordered select-sm w-14 score-cell" aria-label="Set 2">{{template "scoreOptions"}}</select>
             <span class="opacity-50">-</span>
             <select name="s2b" class="select select-bordered select-sm w-14 score-cell" aria-label="Set 2">{{template "scoreOptions"}}</select>
         </div>
         <div class="flex items-center gap-1 score-set-group set3-group hidden" data-set="3">
+            <span class="text-xs opacity-50">S3</span>
             <select name="s3a" class="select select-bordered select-sm w-14 score-cell" aria-label="Set 3">{{template "scoreOptions"}}</select>
             <span class="opacity-50">-</span>
             <select name="s3b" class="select select-bordered select-sm w-14 score-cell" aria-label="Set 3">{{template "scoreOptions"}}</select>
