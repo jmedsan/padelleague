@@ -14,6 +14,7 @@ import (
 
 	"padelleague/league"
 	"padelleague/notify"
+	"padelleague/search"
 
 	_ "padelleague/migrations"
 )
@@ -817,4 +818,103 @@ func TestCronRegistration_SchedulingReminders(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "scheduling-reminders cron job must be registered")
+}
+
+// Search index real-time upsert tests (W10): a record created/updated on a
+// hooked collection must be searchable immediately, without waiting for the
+// periodic Rebuild cron.
+
+func registerHooksWithSearch(t *testing.T, app *tests.TestApp) *search.Index {
+	t.Helper()
+	svc := league.New(app, nil)
+	ix := &search.Index{}
+	Register(app, svc, nil, ix)
+	return ix
+}
+
+func makeVenue(t *testing.T, app core.App, name string) {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("venues")
+	require.NoError(t, err)
+	r := core.NewRecord(col)
+	r.Set("name", name)
+	require.NoError(t, app.Save(r))
+}
+
+func TestSearchUpsert_UserCreateIsImmediatelySearchable(t *testing.T) {
+	app := newTestApp(t)
+	ix := registerHooksWithSearch(t, app)
+
+	u := makeUser(t, app, "player")
+	u.Set("display_name", "Hookindex Player")
+	require.NoError(t, app.Save(u))
+
+	admin := search.Viewer{IsAdmin: true}
+	results := ix.Search("hookindex", admin, 10)
+	require.NotEmpty(t, results, "newly created user must be searchable without a rebuild")
+	assert.Equal(t, "Hookindex Player", results[0].Label)
+}
+
+func TestSearchUpsert_CompetitionUpdateRefreshesEntry(t *testing.T) {
+	app := newTestApp(t)
+	ix := registerHooksWithSearch(t, app)
+
+	p1 := makePair(t, app, "SuA")
+	p2 := makePair(t, app, "SuB")
+	comp := makePlayoffComp(t, app, []*core.Record{p1, p2})
+	comp.Set("name", "Renamed Competition Xyz")
+	require.NoError(t, app.Save(comp))
+
+	admin := search.Viewer{IsAdmin: true}
+	results := ix.Search("renamed competition xyz", admin, 10)
+	require.NotEmpty(t, results, "updated competition name must be searchable without a rebuild")
+	assert.Equal(t, "Renamed Competition Xyz", results[0].Label)
+}
+
+func TestSearchUpsert_MatchCreateIsImmediatelySearchable(t *testing.T) {
+	app := newTestApp(t)
+	ix := registerHooksWithSearch(t, app)
+
+	p1 := makePair(t, app, "SuMatchA")
+	p2 := makePair(t, app, "SuMatchB")
+	comp := makePlayoffComp(t, app, []*core.Record{p1, p2})
+	makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+
+	admin := search.Viewer{IsAdmin: true}
+	results := ix.Search("sumatcha", admin, 10)
+	require.NotEmpty(t, results, "newly created match must be searchable without a rebuild")
+}
+
+func TestSearchUpsert_VenueCreateDoesNotEvictOtherVenues(t *testing.T) {
+	app := newTestApp(t)
+	ix := registerHooksWithSearch(t, app)
+
+	makeVenue(t, app, "First Venue Xyz")
+	makeVenue(t, app, "Second Venue Xyz")
+
+	admin := search.Viewer{IsAdmin: true}
+	results := ix.Search("venue xyz", admin, 10)
+	labels := make(map[string]bool, len(results))
+	for _, r := range results {
+		labels[r.Label] = true
+	}
+	assert.True(t, labels["First Venue Xyz"], "creating a second venue must not evict the first venue's entry (shared URL)")
+	assert.True(t, labels["Second Venue Xyz"])
+}
+
+func TestSearchUpsert_PairUpdateRefreshesEntry(t *testing.T) {
+	app := newTestApp(t)
+	ix := registerHooksWithSearch(t, app)
+
+	p := makePair(t, app, "Quokka Ferrari")
+	p.Set("name", "Zebra Mongoose")
+	require.NoError(t, app.Save(p))
+
+	admin := search.Viewer{IsAdmin: true}
+	results := ix.Search("zebra mongoose", admin, 10)
+	require.NotEmpty(t, results, "updated pair name must be searchable without a rebuild")
+	assert.Equal(t, "Zebra Mongoose", results[0].Label)
+
+	stale := ix.Search("quokka ferrari", admin, 10)
+	assert.Empty(t, stale, "the pair's old name must no longer match")
 }
