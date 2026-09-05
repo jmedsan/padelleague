@@ -58,11 +58,11 @@
         {{if not .IsPlayoff}}
         <div class="flex justify-end mb-3" data-testid="mine-only-toggle">
             {{if .ShowAll}}
-            <a href="/competition/{{.Competition.Id}}" class="btn btn-sm btn-ghost gap-1">Mis partidos</a>
+            <a href="/competition/{{.Competition.Id}}" hx-boost="true" class="btn btn-sm btn-ghost gap-1">Mis partidos</a>
             <span class="btn btn-sm btn-primary gap-1">Todos</span>
             {{else}}
             <span class="btn btn-sm btn-primary gap-1">Mis partidos</span>
-            <a href="/competition/{{.Competition.Id}}?all=1" class="btn btn-sm btn-ghost gap-1">Todos</a>
+            <a href="/competition/{{.Competition.Id}}?all=1" hx-boost="true" class="btn btn-sm btn-ghost gap-1">Todos</a>
             {{end}}
         </div>
         {{end}}
