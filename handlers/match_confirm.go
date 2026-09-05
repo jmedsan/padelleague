@@ -102,7 +102,7 @@ func (h *MatchHandler) validateCorrectionInput(e *core.RequestEvent, match *core
 		return "", alertError(e, "Debes indicar el marcador corregido")
 	}
 	if strings.EqualFold(strings.TrimSpace(scores), "WO") {
-		return "", alertError(e, "Usa el botón de incomparecencia para reportar un WO")
+		return "", alertError(e, `Usa el botón de "partido no jugado" para reportarlo`)
 	}
 	if _, err := league.ParseScore(scores); err != nil {
 		return "", alertError(e, "Marcador no válido")

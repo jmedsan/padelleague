@@ -5,7 +5,7 @@ const NAV_LABELS: Record<string, string> = {
   '/admin/competitions': 'Competiciones',
   '/admin/health': 'Salud',
   '/admin/players': 'Jugadores',
-  '/admin/venues': 'Pistas',
+  '/admin/venues': 'Clubes',
 };
 
 async function navToAdmin(page: Page, href: string): Promise<void> {

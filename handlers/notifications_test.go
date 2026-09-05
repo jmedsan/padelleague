@@ -293,7 +293,7 @@ func TestNotificationListEmpty(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/notifications/list",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"No tienes notificaciones"},
+		ExpectedContent: []string{"No hay notificaciones"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupNotifRoutes(tb, app, e)
@@ -480,7 +480,7 @@ func TestNotificationHistoryEmpty(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/notifications/history",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"No tienes notificaciones"},
+		ExpectedContent: []string{"No hay notificaciones"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupNotifRoutes(tb, app, e)

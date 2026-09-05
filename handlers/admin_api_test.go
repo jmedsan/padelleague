@@ -175,7 +175,7 @@ func TestAdminVenuesPage(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/admin/venues",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Pistas"},
+		ExpectedContent: []string{"Clubes"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)

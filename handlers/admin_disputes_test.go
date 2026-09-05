@@ -137,6 +137,9 @@ func TestReportUnplayed(t *testing.T) {
 		p2 := makePairTB(tb, app, "RptB")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match.Set("date", "2026-09-01")
+		match.Set("club", "Padel 360")
+		require.NoError(tb, app.Save(match))
 		matchID = match.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		userID = user.Id

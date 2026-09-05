@@ -28,6 +28,9 @@ func TestNewMatchCardActions(t *testing.T) {
 	outsider := makeUserTB(t, app, "Card Outsider", "")
 	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
 	match := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
+	match.Set("date", "2026-09-01")
+	match.Set("club", "Padel 360")
+	require.NoError(t, app.Save(match))
 
 	cases := []struct {
 		name      string
@@ -258,8 +261,8 @@ func TestMatchCardCrossRoleLeakGuard(t *testing.T) {
 			ExpectedContent: []string{"Resolver"},
 			NotExpectedContent: []string{
 				"Registrar resultado",
-				"Confirmar",
-				"Corregir marcador",
+				"Aceptar resultado",
+				"Corregir resultado",
 				"Reportar partido no jugado",
 			},
 		}

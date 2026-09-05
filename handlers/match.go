@@ -48,8 +48,10 @@ func statusClass(status string) string {
 }
 
 // canReportUnplayed mirrors the status precondition ReportUnplayed enforces.
-func canReportUnplayed(status string, team int) bool {
-	return team > 0 && (league.IsPreScore(status) || status == league.StatusConfirmed)
+// A match with no date set at all can't have been "not played" — the walkover
+// affordance only makes sense once a date exists (proposed or confirmed).
+func canReportUnplayed(status string, team int, date string) bool {
+	return team > 0 && date != "" && (league.IsPreScore(status) || status == league.StatusConfirmed)
 }
 
 // matchRoundLabel returns the breadcrumb label for a match's round: the
@@ -212,7 +214,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	}
 
 	if strings.EqualFold(strings.TrimSpace(scores), "WO") {
-		return alertError(e, "Usa el botón de incomparecencia para reportar un WO")
+		return alertError(e, `Usa el botón de "partido no jugado" para reportarlo`)
 	}
 
 	if _, err := league.ParseScore(scores); err != nil {
@@ -482,6 +484,9 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 	status := match.GetString("status")
 	if !league.IsPreScore(status) && status != league.StatusConfirmed {
 		return alertError(e, "Este partido no puede reportarse como no jugado")
+	}
+	if match.GetString("date") == "" {
+		return alertError(e, "Este partido aún no tiene fecha; no se puede reportar como no jugado")
 	}
 
 	reason := e.Request.FormValue("reason")

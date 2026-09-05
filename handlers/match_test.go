@@ -481,7 +481,7 @@ func TestPlayerNameIfSet(t *testing.T) {
 const (
 	markerCanSubmit   = "Registrar resultado"
 	markerCanWalkover = "Reportar partido no jugado"
-	markerCanCorrect  = "Corregir marcador"
+	markerCanCorrect  = "Corregir resultado"
 	markerDateGate    = "Primero propón una fecha y lugar"
 )
 
@@ -500,11 +500,12 @@ type matchViewCase struct {
 func TestBuildMatchViewFlags(t *testing.T) {
 	t.Parallel()
 	cases := []matchViewCase{
-		// Pending without date → submit gated
+		// Pending without date → submit gated; no date also means no
+		// walkover affordance (can't report "not played" with no date set).
 		{
 			name: "pending/no-date/submitter", status: "pending", viewer: "submitter",
-			want: []string{markerDateGate, markerCanWalkover},
-			deny: []string{markerCanSubmit, markerCanCorrect},
+			want: []string{markerDateGate},
+			deny: []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
 		},
 		// Pending with date+place → submit visible
 		{
@@ -537,37 +538,42 @@ func TestBuildMatchViewFlags(t *testing.T) {
 		// Confirmed with submitter set (legacy status — no confirm/dispute buttons)
 		{
 			name: "confirmed/submitter/recent", status: "confirmed", viewer: "submitter",
-			submitted: true, recentSubmit: true,
+			submitted: true, recentSubmit: true, hasDate: true,
 			want: []string{markerCanCorrect, markerCanWalkover},
 			deny: []string{markerCanSubmit},
 		},
 		{
 			name: "confirmed/submitter/expired", status: "confirmed", viewer: "submitter",
-			submitted: true, recentSubmit: false,
+			submitted: true, recentSubmit: false, hasDate: true,
 			want: []string{markerCanWalkover},
 			deny: []string{markerCanSubmit, markerCanCorrect},
 		},
 		{
 			name: "confirmed/opponent", status: "confirmed", viewer: "opponent",
-			submitted: true,
+			submitted: true, hasDate: true,
 			want:      []string{markerCanWalkover},
 			deny:      []string{markerCanSubmit, markerCanCorrect},
 		},
 		{
 			name: "confirmed/outsider", status: "confirmed", viewer: "outsider",
-			submitted: true,
+			submitted: true, hasDate: true,
 			deny:      []string{markerCanSubmit, markerCanCorrect},
 		},
 		{
 			name: "confirmed/admin-nonparticipant", status: "confirmed", viewer: "admin",
-			submitted: true,
+			submitted: true, hasDate: true,
 			deny:      []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
 		},
 		{
 			name: "confirmed/no-submitter/opponent", status: "confirmed", viewer: "opponent",
-			submitted: false,
+			submitted: false, hasDate: true,
 			want:      []string{markerCanWalkover},
 			deny:      []string{markerCanSubmit, markerCanCorrect},
+		},
+		{
+			name: "confirmed/no-date/opponent", status: "confirmed", viewer: "opponent",
+			submitted: true,
+			deny:      []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
 		},
 
 		// Disputed

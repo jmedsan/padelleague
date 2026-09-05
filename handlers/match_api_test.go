@@ -167,7 +167,7 @@ func TestMatchSubmitWORejected(t *testing.T) {
 		Name:            "POST /match/{id}/submit with WO score rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"incomparecencia"},
+		ExpectedContent: []string{"partido no jugado"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
@@ -357,7 +357,7 @@ func TestMatchCorrectWORejected(t *testing.T) {
 		Name:            "POST /match/{id}/correct with WO score rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"incomparecencia"},
+		ExpectedContent: []string{"partido no jugado"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
