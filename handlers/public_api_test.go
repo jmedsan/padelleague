@@ -30,7 +30,7 @@ func setupPublicRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	e.Router.GET("/profile/complete", auth.ProfileComplete).BindFunc(requireAuthTest)
 	e.Router.POST("/profile/complete", auth.ProfileCompleteSubmit).BindFunc(requireAuthTest)
 
-	pub := NewPublicHandler(app, svc, r.Page, r.ErrorPage)
+	pub := NewPublicHandler(app, svc, PublicRenderers{Page: r.Page, ErrorPage: r.ErrorPage}, false)
 	e.Router.GET("/", pub.Home).BindFunc(requireAuthTest)
 	e.Router.GET("/competition/{id}", pub.Competition).BindFunc(requireAuthTest)
 	e.Router.POST("/competition/{id}/accept-docs", pub.AcceptDocs).BindFunc(requireAuthTest)

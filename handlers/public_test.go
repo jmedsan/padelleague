@@ -1299,6 +1299,49 @@ func TestHome_OnboardChecklist_HiddenWhenAllDone(t *testing.T) {
 	s.Test(t)
 }
 
+// P3: push notification opt-in must appear on the onboarding checklist when
+// push is configured server-wide (VAPID keys set) and the player has no
+// push_subscriptions record yet — otherwise it's buried two navigations deep
+// at /profile/notifications.
+func TestOnboardingSteps_PushStep(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	user := makeUserTB(t, app, "Push Test", "")
+
+	t.Run("push disabled server-wide: no push step", func(t *testing.T) {
+		h := &PublicHandler{app: app, pushEnabled: false}
+		steps := h.onboardingSteps(user)
+		for _, s := range steps {
+			assert.NotEqual(t, "/profile/notifications", s.URL)
+		}
+	})
+
+	t.Run("push enabled, no subscription: step shown and undone", func(t *testing.T) {
+		h := &PublicHandler{app: app, pushEnabled: true}
+		steps := h.onboardingSteps(user)
+		require.NotEmpty(t, steps)
+		last := steps[len(steps)-1]
+		assert.Equal(t, "Activa las notificaciones push", last.Label)
+		assert.Equal(t, "/profile/notifications", last.URL)
+		assert.False(t, last.Done)
+	})
+
+	t.Run("push enabled, subscribed: step marked done and checklist hidden", func(t *testing.T) {
+		col, err := app.FindCollectionByNameOrId("push_subscriptions")
+		require.NoError(t, err)
+		sub := core.NewRecord(col)
+		sub.Set("user", user.Id)
+		sub.Set("endpoint", "https://push.example.com/abc")
+		sub.Set("p256dh", "key")
+		sub.Set("auth", "auth")
+		require.NoError(t, app.Save(sub))
+
+		h := &PublicHandler{app: app, pushEnabled: true}
+		steps := h.onboardingSteps(user)
+		assert.Empty(t, steps, "display_name and push both done: checklist hidden")
+	})
+}
+
 func TestBuildHomeActions_AllKindsMap(t *testing.T) {
 	tasks := []league.PlayerTask{
 		{Kind: league.TaskDispute, MatchID: "m1", Opponent: "Rival", CompetitionName: "Liga", RoundNumber: 1},

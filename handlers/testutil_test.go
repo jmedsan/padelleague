@@ -257,7 +257,7 @@ func setupAllRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	e.Router.GET("/reset-password", pwReset.ResetPassword)
 	e.Router.POST("/reset-password", pwReset.ResetPasswordSubmit)
 
-	pub := NewPublicHandler(app, svc, r.Page, r.ErrorPage)
+	pub := NewPublicHandler(app, svc, PublicRenderers{Page: r.Page, ErrorPage: r.ErrorPage}, false)
 	e.Router.GET("/", pub.Home).BindFunc(requireAuthTest)
 	e.Router.GET("/competition/{id}", pub.Competition).BindFunc(requireAuthTest)
 
