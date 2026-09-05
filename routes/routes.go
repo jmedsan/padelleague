@@ -110,6 +110,8 @@ func registerPublicRoutes(se *core.ServeEvent, deps Deps) {
 	})
 	se.Router.GET("/player/{id}", player.Player).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/player/{id}/avatar", player.PlayerAvatarUpload).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/player/{id}/name", player.PlayerNameUpdate).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/player/{id}/password", player.PlayerPasswordUpdate).BindFunc(middleware.RequireAuth)
 
 	pair := handlers.NewPairPageHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page, deps.Renderer.ErrorPage)
 	se.Router.GET("/pair/{id}", pair.PairPage).BindFunc(middleware.RequireAuth)
