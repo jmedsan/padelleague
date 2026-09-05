@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { loginAs, scratchMatchId, loadTestData, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { enterScore } from '../tour-helpers';
 
-const BASE = 'http://localhost:8099';
+const BASE = `http://localhost:${process.env.E2E_PORT || 8099}`;
 
 function suToken(): string {
   return loadTestData().adminToken;

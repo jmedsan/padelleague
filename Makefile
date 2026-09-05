@@ -100,7 +100,9 @@ e2e-push:
 	cd e2e/manual && DISPLAY=$${DISPLAY:-:0} node push-error-handling.mjs
 
 e2e:
-	cd e2e && npx playwright test
+	@E2E_PORT=$$(node e2e/find-free-port.mjs) && \
+	echo "Using port $$E2E_PORT" && \
+	cd e2e && E2E_PORT=$$E2E_PORT npx playwright test
 
 stop:
 	@pid=$$(lsof -ti :8090 2>/dev/null) && kill $$pid 2>/dev/null && echo "stopped (pid $$pid)" || echo "not running"

@@ -3,9 +3,14 @@ import { mkdtempSync, writeFileSync, mkdirSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-const PORT = 8099;
+// Port must match playwright.config.ts's resolution of E2E_PORT (see the
+// comment there) so the server we spawn and the baseURL tests navigate
+// against are the same value.
+const PORT = process.env.E2E_PORT ? Number(process.env.E2E_PORT) : 8099;
 const BASE_URL = `http://localhost:${PORT}`;
-const BINARY = '/tmp/padelleague-test';
+// Unique per run (not a fixed path) so two concurrent `make e2e` runs don't
+// share — or race to overwrite — the same binary file.
+const BINARY = join(mkdtempSync(join(tmpdir(), 'pl-')), 'padelleague');
 
 export const ADMIN_EMAIL = 'admin@test.com';
 export const ADMIN_PASSWORD = 'testpass123456';
