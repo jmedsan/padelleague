@@ -1,5 +1,13 @@
-var CACHE_NAME = 'padelleague-v1';
-var ASSETS = ['/static/css/styles.css', '/static/js/htmx.min.js'];
+var CACHE_NAME = 'padelleague-v2';
+var OFFLINE_URL = '/static/offline.html';
+var ASSETS = [
+    '/static/css/styles.css',
+    '/static/js/htmx.min.js',
+    '/static/js/score-input.js',
+    '/static/img/icon-192.png',
+    '/static/img/icon-512.png',
+    OFFLINE_URL,
+];
 
 self.addEventListener('install', function(event) {
     event.waitUntil(
@@ -23,6 +31,14 @@ self.addEventListener('activate', function(event) {
 });
 
 self.addEventListener('fetch', function(event) {
+    if (event.request.mode === 'navigate') {
+        event.respondWith(
+            fetch(event.request).catch(function() {
+                return caches.match(OFFLINE_URL);
+            })
+        );
+        return;
+    }
     if (event.request.url.includes('/static/')) {
         event.respondWith(
             caches.match(event.request).then(function(cached) {
