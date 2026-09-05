@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -80,4 +81,80 @@ func TestFooterContext_NoCompID_ZeroActive_ReturnsEmpty(t *testing.T) {
 	fd := FooterContext(app, "", "", false)
 
 	assert.Equal(t, FooterData{}, fd)
+}
+
+func TestBranding_OutOfContext_UsesLeagueDefaultsAndGlobalSponsorsOnly(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	global := makeSponsor(t, app, "Decathlon", "https://www.decathlon.es")
+	global.Set("is_global", true)
+	require.NoError(t, app.Save(global))
+	makeSponsor(t, app, "NonGlobal", "https://www.example.com")
+
+	bd := Branding(app, "")
+
+	assert.Equal(t, "Liga Dale Fuerte", bd.Name)
+	assert.Equal(t, "A La Pelota", bd.Tagline)
+	assert.Nil(t, bd.Competition)
+	require.Len(t, bd.Sponsors, 1)
+	assert.Equal(t, "Decathlon", bd.Sponsors[0].Name)
+}
+
+func TestBranding_InContext_CompetitionLogoTakesPriorityOverLeagueLogo(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "BrandA")
+	p2 := makePair(t, app, "BrandB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	f, err := filesystem.NewFileFromBytes([]byte("fake-png-bytes"), "complogo.png")
+	require.NoError(t, err)
+	comp.Set("logo", f)
+	require.NoError(t, app.Save(comp))
+
+	bd := Branding(app, comp.Id)
+
+	require.NotNil(t, bd.Competition)
+	assert.Equal(t, CompetitionLogoURL(comp.Id, comp.GetString("logo")), bd.Competition.LogoURL)
+}
+
+func TestBranding_InContext_FallsBackToLeagueLogoWhenCompetitionHasNone(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "BrandC")
+	p2 := makePair(t, app, "BrandD")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	records, err := app.FindRecordsByFilter("app_settings", "", "", 1, 0, nil)
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	settings := records[0]
+	f, err := filesystem.NewFileFromBytes([]byte("fake-png-bytes"), "leaguelogo.png")
+	require.NoError(t, err)
+	settings.Set("league_logo", f)
+	require.NoError(t, app.Save(settings))
+
+	bd := Branding(app, comp.Id)
+
+	require.NotNil(t, bd.Competition)
+	assert.Equal(t, SettingsLogoURL(settings.Id, settings.GetString("league_logo")), bd.Competition.LogoURL)
+}
+
+func TestBranding_InContext_MergesCompetitionAndGlobalSponsorsDedupedByID(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "BrandE")
+	p2 := makePair(t, app, "BrandF")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	global := makeSponsor(t, app, "Decathlon", "https://www.decathlon.es")
+	global.Set("is_global", true)
+	require.NoError(t, app.Save(global))
+	own := makeSponsor(t, app, "Wurko", "https://www.wurko.es")
+	comp.Set("sponsors", []string{global.Id, own.Id})
+	require.NoError(t, app.Save(comp))
+
+	bd := Branding(app, comp.Id)
+
+	require.Len(t, bd.Sponsors, 2)
+	names := []string{bd.Sponsors[0].Name, bd.Sponsors[1].Name}
+	assert.ElementsMatch(t, []string{"Wurko", "Decathlon"}, names)
 }

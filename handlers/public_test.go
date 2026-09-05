@@ -229,7 +229,7 @@ func TestHomeGen2_OwnProposalNoAction(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Padel League"},
+		ExpectedContent: []string{"Liga Dale Fuerte"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -293,7 +293,7 @@ func TestHomeGen2_OwnScoreNoConfirmAction(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Padel League"},
+		ExpectedContent: []string{"Liga Dale Fuerte"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -914,7 +914,7 @@ func TestHome_NonAdminSeesNoAdminCards(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Padel League"},
+		ExpectedContent: []string{"Liga Dale Fuerte"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -1241,7 +1241,7 @@ func TestHome_OnboardChecklist_ShownWhenMandatoryDocPending(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Padel League"},
+		ExpectedContent: []string{"Liga Dale Fuerte"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
@@ -1280,7 +1280,7 @@ func TestHome_OnboardChecklist_HiddenWhenAllDone(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Padel League"},
+		ExpectedContent: []string{"Liga Dale Fuerte"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
