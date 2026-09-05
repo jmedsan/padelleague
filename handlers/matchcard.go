@@ -165,9 +165,10 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 	c.CanEdit = league.IsPreScore(status) && team > 0
 	c.CanWalkover = canReportUnplayed(status, team, match.GetString("date"))
 	c.CanCorrect = isSubmitter && canCorrectNow(match, status)
-	if team == 1 {
+	switch team {
+	case 1:
 		c.Opponent = c.Pair2Name
-	} else if team == 2 {
+	case 2:
 		c.Opponent = c.Pair1Name
 	}
 
