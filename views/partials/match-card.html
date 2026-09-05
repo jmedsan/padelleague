@@ -364,8 +364,7 @@
     {{if $c.CanCorrect}}
     <div class="card bg-base-200/50 rounded-xl mt-3">
         <div class="card-body p-4">
-            {{template "resultBox" (dict "PairLabel" (or $c.SubmitterPairName "Propuesta") "Score" $c.SubmittedScore "Pair1Name" $c.Pair1Name "Pair2Name" $c.Pair2Name)}}
-            <p class="text-sm opacity-60 mt-2">Esperando confirmación de {{$c.Opponent}}</p>
+            <p class="text-sm opacity-60">Esperando confirmación de {{$c.Opponent}}</p>
             <details class="mt-3">
                 <summary class="text-sm link link-hover cursor-pointer">¿Te has equivocado? Corregir</summary>
                 <div class="mt-3">
