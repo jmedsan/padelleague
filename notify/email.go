@@ -26,7 +26,7 @@ func SendEmail(app core.App, to, subject, htmlBody string) {
 	client := app.NewMailClient()
 	msg := &mailer.Message{
 		From: mail.Address{
-			Name:    app.Settings().Meta.AppName,
+			Name:    app.Settings().Meta.SenderName,
 			Address: app.Settings().Meta.SenderAddress,
 		},
 		To:      []mail.Address{{Address: to}},
