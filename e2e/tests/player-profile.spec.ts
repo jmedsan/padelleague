@@ -119,4 +119,70 @@ test.describe('player profile and stats', () => {
     await expect(page.locator('#avatar-identity')).toBeVisible();
     await expect(page.locator('#avatar-file-input')).toHaveCount(0);
   });
+
+  test('player can change their own display name from Mi cuenta', async ({ page }) => {
+    const player = await createFreshPlayer('rename');
+    await loginAs(page, player.email, player.password);
+    if (isMobile(page)) {
+      await openDrawer(page);
+      await page.locator('.drawer-side a', { hasText: 'Mi perfil' }).click();
+    } else {
+      await page.getByRole('link', { name: 'Foto Test rename', exact: true }).click();
+    }
+    await page.waitForLoadState('domcontentloaded');
+
+    const account = page.locator('[data-testid="my-account"]');
+    await expect(account).toBeVisible();
+    await account.locator('#display_name').fill('Renombrado E2E');
+    await account.getByRole('button', { name: 'Guardar nombre' }).click();
+    await page.waitForURL(/\/player\//);
+    await page.waitForLoadState('domcontentloaded');
+
+    await expect(page.getByText('Nombre actualizado')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Renombrado E2E' })).toBeVisible();
+    await expect(account.locator('#display_name')).toHaveValue('Renombrado E2E');
+  });
+
+  test('Mi cuenta section is hidden when viewing another player', async ({ page }) => {
+    const data = loadTestData();
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/player/${data.player2.id}`);
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('[data-testid="my-account"]')).toHaveCount(0);
+  });
+
+  test('wrong current password shows an error and does not change the password', async ({ page }) => {
+    const player = await createFreshPlayer('badpass');
+    await loginAs(page, player.email, player.password);
+    if (isMobile(page)) {
+      await openDrawer(page);
+      await page.locator('.drawer-side a', { hasText: 'Mi perfil' }).click();
+    } else {
+      await page.getByRole('link', { name: 'Foto Test badpass', exact: true }).click();
+    }
+    await page.waitForLoadState('domcontentloaded');
+
+    const account = page.locator('[data-testid="my-account"]');
+    await account.locator('#current_password').fill('wrong-password');
+    await account.locator('#new_password').fill('newpassword12345');
+    await account.locator('#new_password_confirm').fill('newpassword12345');
+    await account.getByRole('button', { name: 'Cambiar contraseña' }).click();
+
+    await expect(page.getByText('La contraseña actual no es correcta')).toBeVisible({ timeout: 5000 });
+
+    // The old password must still be valid — proves the rejected attempt
+    // didn't change it. Bypasses loginAs's token cache, which would mask a
+    // regression by reusing the token from the first successful login above.
+    // Retries on 429 like loginAs does — the auth endpoint is rate-limited
+    // and this suite logs in frequently.
+    let authResp;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      authResp = await page.request.post('/api/collections/users/auth-with-password', {
+        data: { identity: player.email, password: player.password },
+      });
+      if (authResp.status() !== 429) break;
+      await new Promise(r => setTimeout(r, 15000));
+    }
+    expect(authResp!.ok()).toBe(true);
+  });
 });

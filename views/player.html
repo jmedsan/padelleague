@@ -11,6 +11,52 @@
     </div>
 </div>
 
+{{if .Data.CanEditAvatar}}
+<div class="card bg-base-100 shadow-sm mb-6" data-testid="my-account">
+    <div class="card-body">
+        <h2 class="card-title text-lg">Mi cuenta</h2>
+
+        <div class="mt-2">
+            <div id="name-error" class="mb-2" aria-live="polite"></div>
+            <form hx-post="/player/{{.Data.User.Id}}/name" hx-target="#name-error" class="flex flex-wrap items-end gap-3">
+                <div class="form-control flex-1 min-w-[200px]">
+                    <label class="label py-1" for="display_name"><span class="label-text">Nombre</span></label>
+                    <input type="text" id="display_name" name="display_name" class="input input-bordered input-sm w-full" value="{{.Data.User.GetString "display_name"}}" required>
+                </div>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm">Guardar nombre</button>
+            </form>
+        </div>
+
+        <div class="divider my-1"></div>
+
+        <div>
+            <div id="password-error" class="mb-2" aria-live="polite"></div>
+            <form hx-post="/player/{{.Data.User.Id}}/password" hx-target="#password-error" class="space-y-3">
+                <div class="form-control">
+                    <label class="label py-1" for="current_password"><span class="label-text">Contraseña actual</span></label>
+                    <input type="password" id="current_password" name="current_password" class="input input-bordered input-sm w-full max-w-xs" required>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="form-control">
+                        <label class="label py-1" for="new_password"><span class="label-text">Nueva contraseña</span></label>
+                        <input type="password" id="new_password" name="new_password" class="input input-bordered input-sm w-full" required minlength="8">
+                    </div>
+                    <div class="form-control">
+                        <label class="label py-1" for="new_password_confirm"><span class="label-text">Confirmar contraseña</span></label>
+                        <input type="password" id="new_password_confirm" name="new_password_confirm" class="input input-bordered input-sm w-full" required minlength="8">
+                    </div>
+                </div>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm">Cambiar contraseña</button>
+            </form>
+        </div>
+
+        <div class="divider my-1"></div>
+
+        <a href="/profile/notifications" class="link link-hover text-sm">Preferencias de notificaciones →</a>
+    </div>
+</div>
+{{end}}
+
 <h2 class="text-lg font-bold mb-3">Todas las competiciones</h2>
 {{template "statsTiles" .Data.Stats}}
 

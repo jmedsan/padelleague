@@ -38,6 +38,8 @@ func setupPublicRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	player := NewPlayerHandler(app, svc, PlayerRenderers{Page: r.Page, Partial: r.Partial, ErrorPage: r.ErrorPage})
 	e.Router.GET("/player/{id}", player.Player).BindFunc(requireAuthTest)
 	e.Router.POST("/player/{id}/avatar", player.PlayerAvatarUpload).BindFunc(requireAuthTest)
+	e.Router.POST("/player/{id}/name", player.PlayerNameUpdate).BindFunc(requireAuthTest)
+	e.Router.POST("/player/{id}/password", player.PlayerPasswordUpdate).BindFunc(requireAuthTest)
 
 	pair := NewPairPageHandler(app, svc, r.Page, r.ErrorPage)
 	e.Router.GET("/pair/{id}", pair.PairPage).BindFunc(requireAuthTest)
