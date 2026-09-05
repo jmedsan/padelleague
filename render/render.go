@@ -179,6 +179,11 @@ func resolveFlash(e *core.RequestEvent, data map[string]any) {
 
 func resolveFooter(e *core.RequestEvent, data map[string]any) {
 	compID, _ := data["FooterCompetitionID"].(string)
+	if e.Auth == nil && compID == "" {
+		data["Footer"] = league.FooterData{}
+		data["Branding"] = league.Branding(e.App, "")
+		return
+	}
 	var userID string
 	var isAdmin bool
 	if e.Auth != nil {
