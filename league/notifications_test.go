@@ -3,6 +3,8 @@ package league
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNotificationConstructors(t *testing.T) {
@@ -48,13 +50,13 @@ func TestNotificationConstructors(t *testing.T) {
 		},
 		{
 			name: "Proposal",
-			got:  NotifProposal(ProposalParams{MatchID: "m1", AuthorName: "Carlos", Date: "15/03", Time: "18:00", VenueName: "Padel 360", CompName: "Liga Primavera"}),
+			got:  NotifProposal(ProposalParams{MatchID: "m1", AuthorName: "Carlos", Date: "2026-03-15", Time: "18:00", VenueName: "Padel 360", CompName: "Liga Primavera"}),
 			want: Notification{Type: "scheduling", Title: "Propuesta de fecha", Body: "Carlos propone jugar el 15/03 a las 18:00 en Padel 360", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "ProposalAccepted",
 			got: NotifProposalAccepted(ProposalAcceptedParams{
-				MatchID: "m1", ResponderName: "María", Date: "15/03", Time: "18:00", CompName: "Liga Primavera",
+				MatchID: "m1", ResponderName: "María", Date: "2026-03-15", Time: "18:00", CompName: "Liga Primavera",
 			}),
 			want: Notification{Type: "scheduling", Title: "Propuesta aceptada", Body: "María aceptó tu propuesta para el 15/03 a las 18:00", MatchID: "m1", CompName: "Liga Primavera"},
 		},
@@ -71,7 +73,7 @@ func TestNotificationConstructors(t *testing.T) {
 		{
 			name: "DecisionChangedToAccepted",
 			got: NotifDecisionChangedToAccepted(DecisionChangedToAcceptedParams{
-				MatchID: "m1", ResponderName: "María", Date: "15/03", Time: "18:00", CompName: "Liga Primavera",
+				MatchID: "m1", ResponderName: "María", Date: "2026-03-15", Time: "18:00", CompName: "Liga Primavera",
 			}),
 			want: Notification{Type: "scheduling", Title: "Decisión cambiada", Body: "María cambió su decisión: propuesta ahora aceptada para el 15/03 a las 18:00", MatchID: "m1", CompName: "Liga Primavera"},
 		},
@@ -130,6 +132,22 @@ func TestNotificationConstructors(t *testing.T) {
 			if tt.got != tt.want {
 				t.Errorf("got %+v, want %+v", tt.got, tt.want)
 			}
+		})
+	}
+}
+
+func TestFmtNotifDate(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name, date, time, want string
+	}{
+		{"with time", "2026-03-15", "18:00", "el 15/03 a las 18:00"},
+		{"no time", "2026-03-15", "", "el 15/03/2026"},
+		{"unparseable falls back to raw", "not-a-date", "18:00", "not-a-date"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, fmtNotifDate(tt.date, tt.time))
 		})
 	}
 }

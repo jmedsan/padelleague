@@ -70,7 +70,7 @@ type ProposalParams struct {
 func NotifProposal(p ProposalParams) Notification {
 	return Notification{
 		Type: "scheduling", Title: "Propuesta de fecha",
-		Body:     fmt.Sprintf("%s propone jugar el %s a las %s en %s", p.AuthorName, p.Date, p.Time, p.VenueName),
+		Body:     fmt.Sprintf("%s propone jugar %s en %s", p.AuthorName, fmtNotifDate(p.Date, p.Time), p.VenueName),
 		MatchID:  p.MatchID,
 		CompName: p.CompName,
 	}
@@ -85,7 +85,7 @@ type ProposalAcceptedParams struct {
 func NotifProposalAccepted(p ProposalAcceptedParams) Notification {
 	return Notification{
 		Type: "scheduling", Title: "Propuesta aceptada",
-		Body:     fmt.Sprintf("%s aceptó tu propuesta para el %s a las %s", p.ResponderName, p.Date, p.Time),
+		Body:     fmt.Sprintf("%s aceptó tu propuesta para %s", p.ResponderName, fmtNotifDate(p.Date, p.Time)),
 		MatchID:  p.MatchID,
 		CompName: p.CompName,
 	}
@@ -121,7 +121,7 @@ type DecisionChangedToAcceptedParams struct {
 func NotifDecisionChangedToAccepted(p DecisionChangedToAcceptedParams) Notification {
 	return Notification{
 		Type: "scheduling", Title: "Decisión cambiada",
-		Body:     fmt.Sprintf("%s cambió su decisión: propuesta ahora aceptada para el %s a las %s", p.ResponderName, p.Date, p.Time),
+		Body:     fmt.Sprintf("%s cambió su decisión: propuesta ahora aceptada para %s", p.ResponderName, fmtNotifDate(p.Date, p.Time)),
 		MatchID:  p.MatchID,
 		CompName: p.CompName,
 	}
@@ -245,4 +245,19 @@ func NotifMatchReminder(matchID, timeStr, venueName, compName string) Notificati
 		MatchID:  matchID,
 		CompName: compName,
 	}
+}
+
+// fmtNotifDate formats a scheduling proposal's raw date/time (from an HTML
+// date input "2006-01-02" and time input "15:04") into Spanish notification
+// text: "el DD/MM a las HH:MM", or "el DD/MM/YYYY" when timeStr is empty.
+// Falls back to the raw dateStr if it doesn't parse.
+func fmtNotifDate(dateStr, timeStr string) string {
+	d, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		return dateStr
+	}
+	if timeStr == "" {
+		return "el " + d.Format("02/01/2006")
+	}
+	return fmt.Sprintf("el %s a las %s", d.Format("02/01"), timeStr)
 }
