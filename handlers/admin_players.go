@@ -211,10 +211,14 @@ func buildOnboardingEmail(email, resetURL string) string {
 <p>— Padel League</p>`, html.EscapeString(email), html.EscapeString(resetURL))
 }
 
-func buildInviteEmail(registerURL string) string {
+func buildInviteEmail(registerURL, compName string) string {
+	comp := ""
+	if compName != "" {
+		comp = fmt.Sprintf(" a <strong>%s</strong>", html.EscapeString(compName))
+	}
 	return fmt.Sprintf(`<h2>Padel League</h2>
-<p>Has sido invitado a unirte a Padel League.</p>
+<p>Has sido invitado a unirte%s en Padel League.</p>
 <p>Regístrate con el siguiente enlace:</p>
 <p><a href="%s">Registrarse</a></p>
-<p>— Padel League</p>`, html.EscapeString(registerURL))
+<p>— Padel League</p>`, comp, html.EscapeString(registerURL))
 }

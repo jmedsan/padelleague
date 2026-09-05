@@ -12,6 +12,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 
+	"padelleague/league"
 	"padelleague/notify"
 	"padelleague/render"
 )
@@ -94,10 +95,10 @@ func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 	}
 
 	if email != "" {
-		// Token in URL is inherent: the invite link requires it; admin-only copy-paste, not logged.
 		registerURL := render.RequestBaseURL(e) + "/register?token=" + token
+		compName := league.CompetitionName(h.app, competition)
 		notify.SendEmail(h.app, email, "Invitación a Padel League",
-			buildInviteEmail(registerURL))
+			buildInviteEmail(registerURL, compName))
 	}
 
 	flash(e, "Invitación creada")
@@ -119,6 +120,27 @@ func parsePositiveInt(v string, def int) (int, error) {
 		return 0, fmt.Errorf("must be at least 1, got %d", n)
 	}
 	return n, nil
+}
+
+// InvitationsResend re-sends the invitation email for an existing invitation.
+func (h *InvitationHandler) InvitationsResend(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	invitation, err := h.app.FindRecordById("invitations", id)
+	if err != nil {
+		return alertError(e, "Invitación no encontrada")
+	}
+	email := invitation.GetString("email")
+	if email == "" {
+		return alertError(e, "Esta invitación no tiene email")
+	}
+	token := invitation.GetString("token")
+	compID := invitation.GetString("competition")
+	registerURL := render.RequestBaseURL(e) + "/register?token=" + token
+	compName := league.CompetitionName(h.app, compID)
+	notify.SendEmail(h.app, email, "Invitación a Padel League",
+		buildInviteEmail(registerURL, compName))
+	flash(e, "Invitación reenviada")
+	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
 // InvitationsRevoke deactivates an invitation so it can no longer be used.

@@ -203,6 +203,7 @@ func registerAdminInvitationRoutes(g *router.RouterGroup[*core.RequestEvent], de
 	g.GET("/invitations", h.InvitationsList)
 	g.POST("/invitations", h.InvitationsCreate)
 	g.POST("/invitations/{id}/revoke", h.InvitationsRevoke)
+	g.POST("/invitations/{id}/resend", h.InvitationsResend)
 	g.GET("/outstanding", h.Outstanding)
 }
 
