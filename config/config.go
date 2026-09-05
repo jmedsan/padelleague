@@ -29,6 +29,9 @@ type Config struct {
 
 	AppEnv      string `env:"APP_ENV" envDefault:"dev"`
 	AppDevTools bool   `env:"APP_DEV_TOOLS" envDefault:"false"`
+
+	GDriveServiceAccount string `env:"GDRIVE_SERVICE_ACCOUNT"`
+	GDriveFolderID       string `env:"GDRIVE_FOLDER_ID"`
 }
 
 // Load parses environment variables into a Config struct.

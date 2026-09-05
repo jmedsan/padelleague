@@ -157,8 +157,24 @@ func sameDay(a, b time.Time) bool {
 	return ay == by && am == bm && ad == bd
 }
 
+// BackupConfig configures the hourly Google Drive backup cron (see
+// registerBackup). An empty ServiceAccountJSON disables it.
+type BackupConfig struct {
+	ServiceAccountJSON string
+	FolderID           string
+}
+
+// Deps holds the shared dependencies Register wires onto the app.
+type Deps struct {
+	Svc         *league.Service
+	Notifier    *notify.Notifier
+	SearchIndex *search.Index
+	Backup      BackupConfig
+}
+
 // Register wires all PocketBase event hooks and cron jobs onto the given app.
-func Register(app core.App, svc *league.Service, notifier *notify.Notifier, searchIndex *search.Index) {
+func Register(app core.App, deps Deps) {
+	svc, notifier, searchIndex := deps.Svc, deps.Notifier, deps.SearchIndex
 	app.OnRecordCreate("users").BindFunc(func(e *core.RecordEvent) error {
 		if len(e.Record.GetStringSlice("roles")) == 0 {
 			e.Record.Set("roles", []string{"player"})
@@ -212,4 +228,6 @@ func Register(app core.App, svc *league.Service, notifier *notify.Notifier, sear
 			})
 		}
 	}
+
+	registerBackup(app, deps.Backup.ServiceAccountJSON, deps.Backup.FolderID)
 }
