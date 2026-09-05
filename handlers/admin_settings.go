@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
 
@@ -34,6 +35,7 @@ func (h *AdminSettingsHandler) Settings(e *core.RequestEvent) error {
 		"PageTitle": "Configuración",
 		"DevMode":   h.devTools,
 		"Settings":  league.LoadSettings(h.app),
+		"Branding":  league.Branding(h.app, ""),
 	})
 }
 
@@ -69,6 +71,66 @@ func (h *AdminSettingsHandler) SaveDefaults(e *core.RequestEvent) error {
 	league.InvalidateSettingsCache()
 
 	return alertSuccess(e, "Configuración guardada")
+}
+
+// SaveBranding handles POST to update the league's name and tagline.
+func (h *AdminSettingsHandler) SaveBranding(e *core.RequestEvent) error {
+	records, err := h.app.FindRecordsByFilter("app_settings", "", "", 1, 0, nil)
+	if err != nil || len(records) == 0 {
+		return alertError(e, "No se encontró la configuración")
+	}
+	rec := records[0]
+
+	name := strings.TrimSpace(e.Request.FormValue("league_name"))
+	if name == "" {
+		return alertError(e, "El nombre de la liga es obligatorio")
+	}
+	rec.Set("league_name", name)
+	rec.Set("league_tagline", strings.TrimSpace(e.Request.FormValue("league_tagline")))
+
+	if err := h.app.Save(rec); err != nil {
+		slog.Error("save league branding", "error", err)
+		return alertError(e, "Error al guardar la marca de la liga")
+	}
+
+	flash(e, "Marca de la liga actualizada")
+	return redirectHX(e, "/admin/settings")
+}
+
+// SettingsLogoUpload handles POST to upload and set the league-wide logo.
+// Admin only. The image is compressed via compressLogo (aspect-ratio-preserving,
+// no square crop) before being saved.
+func (h *AdminSettingsHandler) SettingsLogoUpload(e *core.RequestEvent) error {
+	records, err := h.app.FindRecordsByFilter("app_settings", "", "", 1, 0, nil)
+	if err != nil || len(records) == 0 {
+		return alertError(e, "No se encontró la configuración")
+	}
+	rec := records[0]
+
+	fh := fileHeader(e, "logo")
+	if fh == nil {
+		return alertError(e, "Selecciona una imagen")
+	}
+	if !strings.HasPrefix(fh.Header.Get("Content-Type"), "image/") {
+		return alertError(e, "El archivo debe ser una imagen")
+	}
+	if fh.Size > avatarMaxUploadSize {
+		return alertError(e, "La imagen no puede superar los 5 MB")
+	}
+
+	f, errMsg := compressLogo(fh, "league_logo.jpg")
+	if errMsg != "" {
+		return alertError(e, errMsg)
+	}
+
+	rec.Set("league_logo", f)
+	if err := h.app.Save(rec); err != nil {
+		slog.Error("save league logo", "err", err)
+		return alertError(e, "Error al guardar el logo")
+	}
+
+	flash(e, "Logo actualizado")
+	return redirectHX(e, "/admin/settings")
 }
 
 // settingsFormFields holds the parsed, validated numeric fields from the
