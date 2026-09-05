@@ -297,7 +297,7 @@ func RelDate(raw string) string {
 	target := time.Date(y, m, d, 0, 0, 0, 0, madrid)
 	days := int(target.Sub(today).Hours() / 24)
 
-	hasTime := !(parsed.Hour() == 0 && parsed.Minute() == 0 && parsed.Second() == 0)
+	hasTime := parsed.Hour() != 0 || parsed.Minute() != 0 || parsed.Second() != 0
 	withTime := func(label string) string {
 		if !hasTime {
 			return label
