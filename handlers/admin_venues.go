@@ -24,7 +24,7 @@ func (h *VenueHandler) Venues(e *core.RequestEvent) error {
 		"id != ''", "name", 0, 0, nil)
 
 	return h.renderPage(e, "admin/venues.html", map[string]any{
-		"PageTitle": "Pistas",
+		"PageTitle": "Clubes",
 		"Venues":    venues,
 	})
 }

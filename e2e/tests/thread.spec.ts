@@ -118,8 +118,8 @@ test.describe('match thread', () => {
     // structured content (dateBox/resultBox) in a small card, but the cards
     // carry no actionable controls (asserted above and below).
 
-    // P1 positive control: result panel has visible Confirmar button
-    const confirmBtn = page.locator('#thread-details button:has-text("Confirmar")');
+    // P1 positive control: result panel has visible Aceptar resultado button
+    const confirmBtn = page.locator('#thread-details button:has-text("Aceptar resultado")');
     await expect(confirmBtn.first()).toBeVisible({ timeout: 5000 });
 
     // P4: result status badge shows "Propuesta", not "Confirmado", when pending

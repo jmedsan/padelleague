@@ -388,7 +388,7 @@ async function submitScore(page: Page, matchId: string, score: string) {
 async function confirmScore(page: Page, matchId: string) {
   await page.goto(`/match/${matchId}`);
   await page.waitForSelector('#thread-details', { timeout: 5000 });
-  const acceptBtn = page.locator('#thread-details button:has-text("Confirmar")').first();
+  const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
   await acceptBtn.waitFor({ timeout: 5000 });
   await clickAndWaitForHxRedirect(page, acceptBtn);
 }

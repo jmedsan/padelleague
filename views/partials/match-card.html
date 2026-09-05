@@ -364,11 +364,18 @@
     {{if $c.CanCorrect}}
     <div class="card bg-base-200/50 rounded-xl mt-3">
         <div class="card-body p-4">
-            <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Corregir resultado</h3>
-            <form hx-post="/match/{{$c.Match.Id}}/correct" hx-target="body">
-                {{template "scoreInput" $c.ScoreCorrect}}
-                <button type="submit" hx-disabled-elt="this" class="btn btn-warning mt-3 w-full">Corregir resultado</button>
-            </form>
+            {{template "resultBox" (dict "PairLabel" (or $c.SubmitterPairName "Propuesta") "Score" $c.SubmittedScore "Pair1Name" $c.Pair1Name "Pair2Name" $c.Pair2Name)}}
+            <p class="text-sm opacity-60 mt-2">Esperando confirmación de {{$c.Opponent}}</p>
+            <details class="mt-3">
+                <summary class="text-sm link link-hover cursor-pointer">¿Te has equivocado? Corregir</summary>
+                <div class="mt-3">
+                    <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Corregir resultado</h3>
+                    <form hx-post="/match/{{$c.Match.Id}}/correct" hx-target="body">
+                        {{template "scoreInput" $c.ScoreCorrect}}
+                        <button type="submit" hx-disabled-elt="this" class="btn btn-warning mt-3 w-full">Corregir resultado</button>
+                    </form>
+                </div>
+            </details>
         </div>
     </div>
     {{end}}

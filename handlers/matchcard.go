@@ -163,8 +163,13 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 	c.HasPendingSchedulingProposal = hasPendingSchedulingProposal(app, match.Id)
 	c.CanSubmit = league.IsPreScore(status) && team > 0
 	c.CanEdit = league.IsPreScore(status) && team > 0
-	c.CanWalkover = canReportUnplayed(status, team)
+	c.CanWalkover = canReportUnplayed(status, team, match.GetString("date"))
 	c.CanCorrect = isSubmitter && canCorrectNow(match, status)
+	if team == 1 {
+		c.Opponent = c.Pair2Name
+	} else if team == 2 {
+		c.Opponent = c.Pair1Name
+	}
 
 	mid := match.Id
 	c.ScoreSubmit = ScoreInputVM{FieldName: "scores", IDSuffix: mid, Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
