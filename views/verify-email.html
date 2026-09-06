@@ -1,0 +1,22 @@
+{{define "content"}}
+<div class="flex items-center justify-center min-h-[60vh]">
+    <div class="card bg-base-100 shadow-xl w-full max-w-sm">
+        <div class="card-body text-center">
+            {{if .Verified}}
+            <h2 class="card-title justify-center text-lg mb-4">Email confirmado</h2>
+            <div class="alert alert-success text-sm">
+                Tu dirección de email ha sido verificada correctamente.
+            </div>
+            <div class="mt-4">
+                <a href="/" class="btn btn-primary btn-sm">Ir a Inicio</a>
+            </div>
+            {{else}}
+            <h2 class="card-title justify-center text-lg mb-4">Enlace inválido</h2>
+            <div class="alert alert-error text-sm">
+                Este enlace de verificación ha expirado o ya fue utilizado.
+            </div>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

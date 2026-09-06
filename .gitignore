@@ -9,3 +9,4 @@ screenshots/
 *.test
 test-results/
 VERSION
+gdrive-sa.json

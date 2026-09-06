@@ -50,7 +50,7 @@ func TestRenderEmail_LogoURLIsAbsolute(t *testing.T) {
 
 	got := RenderEmail(app, "", "<p>body</p>")
 
-	assert.Contains(t, got, testAppURL+"/api/files/app_settings/"+settings.Id+"/")
+	assert.Contains(t, got, testAppURL+"/logo/league")
 }
 
 func TestRenderEmail_NoLogo_OmitsImgTag(t *testing.T) {
@@ -82,7 +82,7 @@ func TestRenderEmail_GlobalSponsor_ShownWithAbsoluteLogoAndSingularHeading(t *te
 
 	assert.Contains(t, got, "Patrocinado por")
 	assert.NotContains(t, got, "Patrocinadores")
-	assert.Contains(t, got, testAppURL+"/api/files/sponsors/"+sponsor.Id+"/")
+	assert.Contains(t, got, testAppURL+"/logo/sponsor/"+sponsor.Id)
 }
 
 func TestRenderEmail_MultipleSponsors_UsesPluralHeading(t *testing.T) {

@@ -61,6 +61,15 @@
                         <option value="female">Mujer</option>
                     </select>
                 </div>
+                <div class="form-control mt-3">
+                    <label class="label" for="phone">
+                        <span class="label-text text-xs font-medium">Teléfono</span>
+                    </label>
+                    <input type="tel" id="phone" name="phone" inputmode="tel" autocomplete="tel" class="input input-bordered w-full" placeholder="+34 612 345 678" required>
+                    <label class="label">
+                        <span class="label-text-alt opacity-50">Solo lo verán los administradores para organizar los partidos</span>
+                    </label>
+                </div>
                 {{template "passwordSetFields" (dict "Suffix" "-register" "ConfirmName" "password_confirm" "TopMargin" true)}}
                 <div class="form-control mt-3">
                     <label class="label" for="note">

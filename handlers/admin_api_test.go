@@ -150,19 +150,17 @@ func TestAdminPlayersPage(t *testing.T) {
 func TestAdminInvitationsPage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "GET /admin/invitations redirects to /admin/competitions",
-		Method:         http.MethodGet,
-		URL:            "/admin/invitations",
-		ExpectedStatus: http.StatusFound,
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/invitations returns invitations list",
+		Method:          http.MethodGet,
+		URL:             "/admin/invitations",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Invitaciones"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Headers = authHeaders(tb, admin)
-	}
-	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		assert.Equal(tb, "/admin/competitions", res.Header.Get("Location"))
 	}
 	s.Test(t)
 }

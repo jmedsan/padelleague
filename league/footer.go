@@ -162,7 +162,11 @@ func FooterContext(app core.App, compID, userID string, isAdmin bool) FooterData
 	if len(active) == 1 {
 		return footerForComp(app, active[0].Id)
 	}
+	gs, _ := globalSponsors(app)
 	var fd FooterData
+	if len(gs) > 0 {
+		fd.Sponsors = gs
+	}
 	for _, c := range active {
 		fd.Active = append(fd.Active, FooterCompIdent{
 			ID:      c.Id,

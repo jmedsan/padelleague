@@ -22,17 +22,16 @@ func findLatestInvitation(tb testing.TB, app *tests.TestApp) *core.Record {
 	return invites[0]
 }
 
-// Creating invitation without competition → rejected
+// Creating invitation without competition → allowed, invitations are global
 
-func TestInvitationRequiresCompetition(t *testing.T) {
+func TestInvitationWithoutCompetitionAllowed(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "POST /admin/invitations without competition is rejected",
-		Method:          http.MethodPost,
-		URL:             "/admin/invitations",
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"La competición es obligatoria"},
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/invitations without competition is allowed",
+		Method:         http.MethodPost,
+		URL:            "/admin/invitations",
+		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
@@ -43,8 +42,34 @@ func TestInvitationRequiresCompetition(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		invites, _ := app.FindRecordsByFilter("invitations", "status = 'pending'", "", 0, 0, nil)
-		assert.Equal(tb, 0, len(invites), "no invitation should be created without competition")
+		inv := findLatestInvitation(tb, app)
+		assert.Empty(tb, inv.GetString("competition"), "invitation should have no competition")
+	}
+	s.Test(t)
+}
+
+// admin_note is stored on the invitation record
+
+func TestInvitationStoresAdminNote(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/invitations stores admin_note",
+		Method:         http.MethodPost,
+		URL:            "/admin/invitations",
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.Body = strings.NewReader("max_uses=1&admin_note=Reserved+for+Juan")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		inv := findLatestInvitation(tb, app)
+		assert.Equal(tb, "Reserved for Juan", inv.GetString("admin_note"))
 	}
 	s.Test(t)
 }

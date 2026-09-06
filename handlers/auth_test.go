@@ -144,7 +144,7 @@ func TestRegisterPage_ShowsCompetitionLogo(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		assert.Contains(tb, body, "rounded-2xl ring-2", "a logo-scoped invitation must show the hero image")
-		assert.Contains(tb, body, "/api/files/competitions/", "hero image src must be a served competition file URL")
+		assert.Contains(tb, body, "/logo/competition/", "hero image src must be a predictable logo URL")
 	}
 	s.Test(t)
 }
@@ -241,7 +241,7 @@ func TestRegisterSubmit_SingleUse_Count0_Succeeds(t *testing.T) {
 		invID = inv.Id
 		usersBefore = countUsers(tb, app)
 		s.Body = strings.NewReader("token=" + inv.GetString("token") +
-			"&email=newuser1@test.local&display_name=New+User&password=testpass123456&password_confirm=testpass123456&gender=male")
+			"&email=newuser1@test.local&display_name=New+User&password=testpass123456&password_confirm=testpass123456&gender=male&phone=612345678")
 		s.Headers = map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
@@ -299,7 +299,7 @@ func TestRegisterSubmit_FiveUse_Count4_Succeeds(t *testing.T) {
 		inv := makeInviteWithUses(tb, app, 5, 4)
 		invID = inv.Id
 		s.Body = strings.NewReader("token=" + inv.GetString("token") +
-			"&email=fiveuse4@test.local&display_name=Five+Four&password=testpass123456&password_confirm=testpass123456&gender=male")
+			"&email=fiveuse4@test.local&display_name=Five+Four&password=testpass123456&password_confirm=testpass123456&gender=male&phone=612345678")
 		s.Headers = map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
@@ -354,7 +354,7 @@ func TestRegisterSubmit_MaxUses0_Count0_Succeeds(t *testing.T) {
 		inv := makeInviteWithUses(tb, app, 0, 0)
 		invID = inv.Id
 		s.Body = strings.NewReader("token=" + inv.GetString("token") +
-			"&email=maxzero@test.local&display_name=Max+Zero&password=testpass123456&password_confirm=testpass123456&gender=male")
+			"&email=maxzero@test.local&display_name=Max+Zero&password=testpass123456&password_confirm=testpass123456&gender=male&phone=612345678")
 		s.Headers = map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
@@ -440,7 +440,7 @@ func TestRegisterSubmitValidInvite(t *testing.T) {
 		token := invite.GetString("token")
 		n := userSeq.Add(1)
 		regEmail = fmt.Sprintf("reg%d@test.local", n)
-		body := fmt.Sprintf("token=%s&email=%s&display_name=New+Player&password=testpass123456&password_confirm=testpass123456&gender=male", token, regEmail)
+		body := fmt.Sprintf("token=%s&email=%s&display_name=New+Player&password=testpass123456&password_confirm=testpass123456&gender=male&phone=612345678", token, regEmail)
 		s.Body = strings.NewReader(body)
 		s.Headers = map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
 	}
@@ -451,7 +451,7 @@ func TestRegisterSubmitValidInvite(t *testing.T) {
 		require.NoError(tb, err)
 		require.Equal(tb, 1, len(users))
 		assert.Equal(tb, "New Player", users[0].GetString("display_name"))
-		assert.True(tb, users[0].Verified(), "registration is invite-only — the admin already vetted the player, so the account should be verified without a confirmation email")
+		assert.False(tb, users[0].Verified(), "open-link invite (no email) requires separate email verification")
 
 		inv, err := app.FindRecordById("invitations", inviteID)
 		require.NoError(tb, err)

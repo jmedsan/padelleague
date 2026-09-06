@@ -107,7 +107,7 @@ func TestSponsorLogoURL(t *testing.T) {
 	tests := []struct {
 		sponsorID, filename, want string
 	}{
-		{"spon1", "logo.png", "/api/files/sponsors/spon1/logo.png"},
+		{"spon1", "logo.png", "/logo/sponsor/spon1"},
 		{"spon1", "", ""},
 	}
 	for _, tt := range tests {

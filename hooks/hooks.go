@@ -157,10 +157,12 @@ func sameDay(a, b time.Time) bool {
 	return ay == by && am == bm && ad == bd
 }
 
-// BackupConfig configures the hourly Google Drive backup cron (see
-// registerBackup). An empty ServiceAccountJSON disables it.
+// BackupConfig configures the hourly Google Drive backup cron. Supports
+// two auth modes: ServiceAccountJSON (Google Workspace) or DriveToken
+// (free Gmail, from `rclone config`). An empty FolderID disables it.
 type BackupConfig struct {
 	ServiceAccountJSON string
+	DriveToken         string
 	FolderID           string
 }
 
@@ -230,6 +232,7 @@ func Register(app core.App, deps Deps) {
 		}
 	}
 
-	registerBackup(app, deps.Backup.ServiceAccountJSON, deps.Backup.FolderID)
+	registerBackup(app, deps.Backup)
 	registerSMTP(app, deps.SMTP)
+	registerMailerBranding(app)
 }

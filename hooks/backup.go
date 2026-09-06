@@ -1,43 +1,57 @@
 package hooks
 
 import (
+	"archive/zip"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// rcloneConfigTemplate is the Google Drive remote definition rclone needs to
-// sync with a service account (no interactive OAuth flow).
+// rcloneConfigTemplate is the Google Drive remote config for rclone.
+// When GDRIVE_SERVICE_ACCOUNT is set, it uses a service account (requires
+// Google Workspace). When RCLONE_DRIVE_TOKEN is set, it uses OAuth2 (works
+// with free Gmail — run `rclone config` once to generate the token).
 const rcloneConfigTemplate = `[gdrive]
 type = drive
-scope = drive
-service_account_file = %s
+scope = drive.file
 root_folder_id = %s
+%s
 `
 
-// registerBackup wires an hourly rclone sync of the PocketBase data
-// directory to a Google Drive folder, when GDRIVE_SERVICE_ACCOUNT is
-// configured. Backups are best-effort: a single failed sync just logs and
-// waits for the next hourly run, since a full data-dir sync is idempotent.
-func registerBackup(app core.App, serviceAccountJSON, folderID string) {
-	if serviceAccountJSON == "" {
+// registerBackup wires an hourly backup of the PocketBase data directory
+// to Google Drive, when configured. Supports two auth modes:
+// - Service account (GDRIVE_SERVICE_ACCOUNT): for Google Workspace
+// - OAuth token (RCLONE_DRIVE_TOKEN): for free Gmail (one-time setup)
+func registerBackup(app core.App, cfg BackupConfig) {
+	if cfg.FolderID == "" {
 		slog.Info("startup", "backup", "disabled")
 		return
 	}
 
-	saPath := filepath.Join(os.TempDir(), "gdrive-sa.json")
-	if err := os.WriteFile(saPath, []byte(serviceAccountJSON), 0o600); err != nil {
-		slog.Error("backup: failed to write service account file", "err", err)
-		slog.Info("startup", "backup", "disabled")
+	authLine := ""
+	if cfg.ServiceAccountJSON != "" {
+		saPath := filepath.Join(os.TempDir(), "gdrive-sa.json")
+		if err := os.WriteFile(saPath, []byte(cfg.ServiceAccountJSON), 0o600); err != nil {
+			slog.Error("backup: failed to write service account file", "err", err)
+			slog.Info("startup", "backup", "disabled")
+			return
+		}
+		authLine = "service_account_file = " + saPath
+	} else if cfg.DriveToken != "" {
+		authLine = "token = " + cfg.DriveToken
+	} else {
+		slog.Info("startup", "backup", "disabled (no auth: set GDRIVE_SERVICE_ACCOUNT or RCLONE_DRIVE_TOKEN)")
 		return
 	}
 
 	configPath := filepath.Join(os.TempDir(), "rclone.conf")
-	config := fmt.Sprintf(rcloneConfigTemplate, saPath, folderID)
+	config := fmt.Sprintf(rcloneConfigTemplate, cfg.FolderID, authLine)
 	if err := os.WriteFile(configPath, []byte(config), 0o600); err != nil {
 		slog.Error("backup: failed to write rclone config", "err", err)
 		slog.Info("startup", "backup", "disabled")
@@ -49,18 +63,77 @@ func registerBackup(app core.App, serviceAccountJSON, folderID string) {
 		runBackup(configPath, dataDir)
 	})
 
-	slog.Info("startup", "backup", "gdrive", "folder", folderID)
+	backupConfigPath = configPath
+	backupDataDir = dataDir
+
+	slog.Info("startup", "backup", "gdrive", "folder", cfg.FolderID)
 }
 
-// runBackup syncs dataDir to the root of the "gdrive" remote configured at
-// configPath. The remote's root_folder_id already scopes it to the target
-// Drive folder, so the destination is just "gdrive:" with no path suffix.
+var backupConfigPath, backupDataDir string
+
+// BackupEnabled reports whether Google Drive backup is configured.
+func BackupEnabled() bool { return backupConfigPath != "" }
+
+// RunBackupNow triggers an immediate backup. Returns nil on success.
+func RunBackupNow() error {
+	if backupConfigPath == "" {
+		return fmt.Errorf("backup not configured")
+	}
+	runBackup(backupConfigPath, backupDataDir)
+	return nil
+}
+
 func runBackup(configPath, dataDir string) {
-	cmd := exec.Command("rclone", "sync", dataDir, "gdrive:", "--config", configPath)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		slog.Error("backup: rclone sync failed", "err", err, "output", string(output))
+	// Create a timestamped zip of the data directory to avoid syncing
+	// the live SQLite (which may be mid-write). PocketBase's data dir
+	// contains data.db, auxiliary.db, and the storage/ folder.
+	zipPath := filepath.Join(os.TempDir(), fmt.Sprintf("pb-backup-%s.zip", time.Now().Format("20060102-150405")))
+	if err := zipDir(dataDir, zipPath); err != nil {
+		slog.Error("backup: zip failed", "err", err)
 		return
 	}
-	slog.Info("backup: rclone sync succeeded")
+	defer os.Remove(zipPath)
+
+	cmd := exec.Command("rclone", "copy", zipPath, "gdrive:", "--config", configPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		slog.Error("backup: rclone copy failed", "err", err, "output", string(output))
+		return
+	}
+	slog.Info("backup: uploaded", "file", filepath.Base(zipPath))
+}
+
+func zipDir(srcDir, dstPath string) error {
+	f, err := os.Create(dstPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	w := zip.NewWriter(f)
+	defer w.Close()
+
+	return filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(srcDir, path)
+		if err != nil {
+			return err
+		}
+		zf, err := w.Create(rel)
+		if err != nil {
+			return err
+		}
+		src, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer src.Close()
+		_, err = io.Copy(zf, src)
+		return err
+	})
 }

@@ -2,8 +2,11 @@ package handlers
 
 import (
 	"log/slog"
+	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
 )
 
 // PlayerNameUpdate handles POST to change a player's own display name. Only
@@ -31,6 +34,34 @@ func (h *PlayerHandler) PlayerNameUpdate(e *core.RequestEvent) error {
 	}
 
 	flash(e, "Nombre actualizado")
+	return redirectHX(e, "/player/"+id)
+}
+
+// PlayerPhoneUpdate handles POST to change a player's own phone number.
+// Only the player themselves may edit it.
+func (h *PlayerHandler) PlayerPhoneUpdate(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	if e.Auth == nil || e.Auth.Id != id {
+		return alertError(e, "No puedes editar el perfil de otro jugador")
+	}
+
+	phone, phoneErr := league.NormalizePhone(strings.TrimSpace(e.Request.FormValue("phone")))
+	if phoneErr != nil {
+		return alertError(e, phoneErr.Error()) //nolint:goerr113 // user-facing Spanish
+	}
+
+	user, err := h.app.FindRecordById("users", id)
+	if err != nil {
+		return alertError(e, "Jugador no encontrado")
+	}
+
+	user.Set("phone", phone)
+	if err := h.app.Save(user); err != nil {
+		slog.Error("update player phone", "err", err)
+		return alertError(e, "Error al guardar el teléfono")
+	}
+
+	flash(e, "Teléfono actualizado")
 	return redirectHX(e, "/player/"+id)
 }
 

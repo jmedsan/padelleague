@@ -17,6 +17,7 @@ type User struct {
 	Roles       []string
 	DisplayName string
 	Gender      string
+	Phone       string
 }
 
 // Run creates any users that do not already exist in the database.
@@ -53,6 +54,9 @@ func createSeedUser(app core.App, u User) error {
 	}
 	if u.Gender != "" {
 		record.Set("gender", u.Gender)
+	}
+	if u.Phone != "" {
+		record.Set("phone", u.Phone)
 	}
 	record.SetVerified(true)
 	return app.Save(record)

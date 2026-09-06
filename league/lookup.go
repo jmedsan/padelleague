@@ -103,31 +103,40 @@ func AvatarURL(userID, filename string) string {
 	return "/api/files/users/" + userID + "/" + filename
 }
 
-// CompetitionLogoURL builds the served URL for a competition's logo file, or
-// "" if filename is empty.
+// CompetitionLogoURL returns a predictable public URL for a competition's
+// logo, or "" if filename is empty.
 func CompetitionLogoURL(compID, filename string) string {
 	if filename == "" {
 		return ""
 	}
-	return "/api/files/competitions/" + compID + "/" + filename
+	return "/logo/competition/" + compID
 }
 
-// SponsorLogoURL builds the served URL for a sponsor's logo file, or "" if
-// filename is empty.
+// SponsorLogoURL returns a predictable public URL for a sponsor's logo,
+// or "" if filename is empty.
 func SponsorLogoURL(sponsorID, filename string) string {
 	if filename == "" {
 		return ""
 	}
-	return "/api/files/sponsors/" + sponsorID + "/" + filename
+	return "/logo/sponsor/" + sponsorID
 }
 
-// SettingsLogoURL builds the served URL for the app_settings singleton's
-// league logo file, or "" if filename is empty.
-func SettingsLogoURL(settingsID, filename string) string {
+// SettingsLogoURL returns a predictable public URL for the league logo,
+// or "" if filename is empty.
+func SettingsLogoURL(_, filename string) string {
 	if filename == "" {
 		return ""
 	}
-	return "/api/files/app_settings/" + settingsID + "/" + filename
+	return "/logo/league"
+}
+
+// PBFileURL builds the internal PocketBase file path used by the logo
+// redirect handler.
+func PBFileURL(collection, recordID, filename string) string {
+	if filename == "" {
+		return ""
+	}
+	return "/api/files/" + collection + "/" + recordID + "/" + filename
 }
 
 // PlayersForPair returns the user IDs of both players in a pair.
