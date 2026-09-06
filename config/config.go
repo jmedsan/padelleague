@@ -30,8 +30,9 @@ type Config struct {
 	AppEnv      string `env:"APP_ENV" envDefault:"dev"`
 	AppDevTools bool   `env:"APP_DEV_TOOLS" envDefault:"false"`
 
-	GDriveFolderID   string `env:"GDRIVE_FOLDER_ID"`
-	RCloneDriveToken string `env:"RCLONE_DRIVE_TOKEN"`
+	GDriveFolderID    string `env:"GDRIVE_FOLDER_ID"`
+	RCloneDriveToken  string `env:"RCLONE_DRIVE_TOKEN"`
+	BackupIntervalMin int    `env:"BACKUP_INTERVAL_MINUTES" envDefault:"60"`
 
 	SMTPHost       string `env:"SMTP_HOST"`
 	SMTPPort       int    `env:"SMTP_PORT" envDefault:"587"`

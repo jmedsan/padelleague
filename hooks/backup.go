@@ -24,9 +24,10 @@ root_folder_id = %s
 token = %s
 `
 
-// registerBackup wires an hourly backup of the PocketBase data directory to
+// registerBackup wires a periodic backup of the PocketBase data directory to
 // Google Drive via an OAuth token (RCLONE_DRIVE_TOKEN, from a one-time
-// `rclone config` run). An empty FolderID or DriveToken disables it.
+// `rclone config` run). An empty FolderID or DriveToken disables it. The
+// cron frequency is set by cfg.IntervalMin (BACKUP_INTERVAL_MINUTES).
 func registerBackup(app core.App, cfg BackupConfig) {
 	if cfg.FolderID == "" || cfg.DriveToken == "" {
 		slog.Info("startup", "backup", "disabled")
@@ -44,11 +45,28 @@ func registerBackup(app core.App, cfg BackupConfig) {
 	backupApp = app
 	backupConfigPath = configPath
 
-	app.Cron().MustAdd("gdrive-backup", "0 * * * *", func() {
+	expr := backupCronExpr(cfg.IntervalMin)
+	app.Cron().MustAdd("gdrive-backup", expr, func() {
 		runBackup(app, configPath)
 	})
 
-	slog.Info("startup", "backup", "gdrive", "folder", cfg.FolderID)
+	slog.Info("startup", "backup", "gdrive", "folder", cfg.FolderID, "interval_min", cfg.IntervalMin, "cron", expr)
+}
+
+// backupCronExpr builds the cron expression for the backup job from an
+// interval in minutes. Intervals under 60 run every N minutes; 60 and above
+// run every N/60 hours. Zero or negative defaults to hourly.
+func backupCronExpr(intervalMin int) string {
+	if intervalMin <= 0 {
+		intervalMin = 60
+	}
+	if intervalMin < 60 {
+		return fmt.Sprintf("*/%d * * * *", intervalMin)
+	}
+	if hours := intervalMin / 60; hours > 1 {
+		return fmt.Sprintf("0 */%d * * *", hours)
+	}
+	return "0 * * * *"
 }
 
 var (
