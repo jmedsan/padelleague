@@ -335,6 +335,24 @@ func (h *CompetitionHandler) LogoUpload(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions/"+id)
 }
 
+// LogoDelete handles POST to clear a competition's logo. Admin only.
+func (h *CompetitionHandler) LogoDelete(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	record, err := h.app.FindRecordById("competitions", id)
+	if err != nil {
+		return alertError(e, "Competición no encontrada")
+	}
+
+	record.Set("logo", "")
+	if err := h.app.Save(record); err != nil {
+		slog.Error("delete competition logo", "err", err)
+		return alertError(e, "Error al eliminar el logo")
+	}
+
+	flash(e, "Logo eliminado")
+	return redirectHX(e, "/admin/competitions/"+id)
+}
+
 // Toggle switches a competition between active and inactive states.
 func (h *CompetitionHandler) Toggle(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
