@@ -177,6 +177,18 @@ func FooterContext(app core.App, compID, userID string, isAdmin bool) FooterData
 	return fd
 }
 
+// GlobalSponsorsOnlyFooter returns footer data with global sponsors but no
+// competition list — for contexts (like admin pages) that aren't
+// competition-scoped and shouldn't imply one by showing active competitions.
+func GlobalSponsorsOnlyFooter(app core.App) FooterData {
+	gs, _ := globalSponsors(app)
+	var fd FooterData
+	if len(gs) > 0 {
+		fd.Sponsors = gs
+	}
+	return fd
+}
+
 func filterCompetitionsForPlayer(app core.App, comps []*core.Record, userID string) []*core.Record {
 	pairs, err := PairsForPlayer(app, userID)
 	if err != nil {

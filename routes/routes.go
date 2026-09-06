@@ -193,6 +193,7 @@ func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], d
 	g.GET("/competitions/{id}", comp.Detail)
 	g.POST("/competitions/{id}", comp.Update)
 	g.POST("/competitions/{id}/logo", comp.LogoUpload)
+	g.POST("/competitions/{id}/logo/delete", comp.LogoDelete)
 	g.POST("/competitions/{id}/attach-doc", comp.AttachDocument)
 	g.POST("/competitions/{id}/detach-doc/{docId}", comp.DetachDocument)
 	g.POST("/competitions/{id}/toggle", comp.Toggle)
@@ -257,6 +258,7 @@ func registerAdminSettingsRoutes(g *router.RouterGroup[*core.RequestEvent], deps
 	g.POST("/settings/defaults", settings.SaveDefaults)
 	g.POST("/settings/branding", settings.SaveBranding)
 	g.POST("/settings/logo", settings.SettingsLogoUpload)
+	g.POST("/settings/logo/delete", settings.SettingsLogoDelete)
 	g.POST("/settings/reset", settings.Reset)
 }
 

@@ -133,6 +133,24 @@ func (h *AdminSettingsHandler) SettingsLogoUpload(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/settings")
 }
 
+// SettingsLogoDelete handles POST to clear the league-wide logo. Admin only.
+func (h *AdminSettingsHandler) SettingsLogoDelete(e *core.RequestEvent) error {
+	records, err := h.app.FindRecordsByFilter("app_settings", "", "", 1, 0, nil)
+	if err != nil || len(records) == 0 {
+		return alertError(e, "No se encontró la configuración")
+	}
+	rec := records[0]
+
+	rec.Set("league_logo", "")
+	if err := h.app.Save(rec); err != nil {
+		slog.Error("delete league logo", "err", err)
+		return alertError(e, "Error al eliminar el logo")
+	}
+
+	flash(e, "Logo eliminado")
+	return redirectHX(e, "/admin/settings")
+}
+
 // settingsFormFields holds the parsed, validated numeric fields from the
 // defaults form.
 type settingsFormFields struct {

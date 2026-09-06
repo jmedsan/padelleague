@@ -15,6 +15,7 @@
                         <img src="{{.}}" alt="{{$.Competition.GetString "name"}}" loading="lazy">
                     </div>
                 </div>
+                <button type="button" hx-post="/admin/competitions/{{$.Competition.Id}}/logo/delete" hx-confirm="¿Eliminar logo?" hx-target="body" hx-disabled-elt="this" class="btn btn-ghost btn-xs text-error" aria-label="Eliminar logo">Eliminar</button>
                 {{end}}
                 <input type="file" id="comp-logo-input" name="logo" accept="image/jpeg,image/png,image/webp"
                        class="file-input file-input-bordered file-input-sm flex-1"
