@@ -112,6 +112,23 @@ func TestGlobalSponsorsOnlyFooter_NoGlobalSponsors_ReturnsEmpty(t *testing.T) {
 	assert.Equal(t, FooterData{}, fd)
 }
 
+func TestGlobalSponsorsOnlyFooter_IncludesLeagueLogo(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	records, err := app.FindRecordsByFilter("app_settings", "", "", 1, 0, nil)
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	settings := records[0]
+	f, err := filesystem.NewFileFromBytes([]byte("fake-png-bytes"), "leaguelogo.png")
+	require.NoError(t, err)
+	settings.Set("league_logo", f)
+	require.NoError(t, app.Save(settings))
+
+	fd := GlobalSponsorsOnlyFooter(app)
+
+	assert.Equal(t, SettingsLogoURL(settings.Id, settings.GetString("league_logo")), fd.LeagueLogoURL)
+}
+
 func TestBranding_OutOfContext_UsesLeagueDefaultsAndGlobalSponsorsOnly(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
