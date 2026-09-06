@@ -126,7 +126,10 @@ export async function addPairToCompetition(page: Page, pairId: string, seed?: nu
   if (seed !== undefined) {
     await page.fill('input[name="seed"]', String(seed));
   }
-  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Añadir")'));
+  // Scoped to section-add-pairs: the page also has an "Inscritos sin pareja"
+  // section with its own "Añadir jugador" and modal "Añadir" buttons, so an
+  // unscoped text match is ambiguous.
+  await clickAndWaitForHxRedirect(page, page.getByTestId('section-add-pairs').locator('button:has-text("Añadir")'));
 }
 
 export async function generateFixtures(page: Page): Promise<void> {

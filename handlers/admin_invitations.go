@@ -130,6 +130,9 @@ func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 	}
 
 	flash(e, "Invitación creada")
+	if competition != "" {
+		return redirectHX(e, "/admin/competitions/"+competition)
+	}
 	return redirectHX(e, "/admin/invitations")
 }
 
