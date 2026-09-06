@@ -171,12 +171,8 @@ func (h *NotificationHandler) PrefsSave(e *core.RequestEvent) error {
 		return alertError(e, "Error al guardar preferencias")
 	}
 
-	return h.renderPage(e, "notification-prefs.html", map[string]any{
-		"Prefs":         prefs,
-		"Success":       true,
-		"EmailVerified": emailVerified,
-		"HasPushSub":    hasPushSub,
-	})
+	flash(e, "Preferencias guardadas")
+	return redirectHX(e, "/profile/notifications")
 }
 
 // hasActivePushSubscription reports whether userID has at least one stored

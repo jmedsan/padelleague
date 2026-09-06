@@ -2,10 +2,6 @@
 <div class="max-w-lg mx-auto">
     <h1 class="text-2xl font-bold mb-6">Preferencias de notificaciones</h1>
 
-    {{if .Success}}
-    <div class="alert alert-success mb-4">Preferencias guardadas</div>
-    {{end}}
-
     <form method="POST" action="/profile/notifications">
         <div class="card bg-base-100 shadow-md">
             <div class="card-body space-y-4">
