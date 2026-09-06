@@ -27,10 +27,7 @@ func NewSearchHandler(app core.App, leagueSvc *league.Service, index *search.Ind
 // Search handles GET /search. Empty q returns recent+suggestions; non-empty q
 // returns ranked, scope-filtered results grouped by type.
 func (h *SearchHandler) Search(e *core.RequestEvent) error {
-	q := e.Request.URL.Query().Get("q")
-	if len([]rune(q)) > 100 {
-		q = string([]rune(q)[:100])
-	}
+	q := truncateRunes(e.Request.URL.Query().Get("q"), 100)
 	viewer := h.buildViewer(e)
 
 	if q == "" {

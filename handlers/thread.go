@@ -199,18 +199,15 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 	}
 
 	myTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
-	isAdmin := isEffectiveAdmin(e)
-	if myTeam == 0 && !isAdmin {
-		return alertError(e, "No eres participante de este partido")
+	if err := checkParticipantOrAdmin(e, myTeam); err != nil {
+		return err
 	}
 
 	content := strings.TrimSpace(e.Request.FormValue("content"))
 	if content == "" {
 		return alertError(e, "El mensaje no puede estar vacío")
 	}
-	if len([]rune(content)) > 2000 {
-		return alertError(e, "El mensaje es demasiado largo (máximo 2000 caracteres)")
-	}
+	content = truncateRunes(content, 2000)
 
 	msgType := e.Request.FormValue("type")
 	if msgType != "chat" && msgType != "score_discussion" {
