@@ -54,10 +54,10 @@ test.describe('global search', () => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     const results = await openSearchAndType(page, testInfo, 'Configuración');
 
-    // Exact match: a competition can legitimately be named with "configuración"
+    // Match by URL: a competition can legitimately be named with "configuración"
     // in its own label (e.g. "... — configuración pendiente"), which also
-    // matches a loose hasText filter alongside the actual settings-page link.
-    await expect(results.getByRole('link', { name: 'Configuración', exact: true })).toBeVisible({ timeout: 10000 });
+    // matches a loose hasText/name filter alongside the actual settings-page link.
+    await expect(results.locator('a[href="/admin/settings"]')).toBeVisible({ timeout: 10000 });
   });
 
   test('search result link resolves', async ({ page }, testInfo) => {
@@ -68,6 +68,38 @@ test.describe('global search', () => {
     await expect(link).toBeVisible({ timeout: 10000 });
     await link.click();
     await expect(page).toHaveURL(/\/player\//, { timeout: 10000 });
+  });
+
+  test('clicking a recent search loads results into the dropdown, not a bare page', async ({ page }, testInfo) => {
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+
+    // First search records the query in search_history.
+    const firstResults = await openSearchAndType(page, testInfo, 'clasif');
+    await expect(firstResults.locator('.text-sm.font-medium', { hasText: 'Clasificación' })).toBeVisible({ timeout: 10000 });
+
+    // Re-open the search box at zero query to see it listed as recent.
+    const isMobile = testInfo.project.name === 'mobile';
+    const searchInput = isMobile
+      ? page.locator('.drawer-side input[name="q"]')
+      : page.locator('#global-search');
+    const results = isMobile
+      ? page.locator('#search-results-mobile #search-results')
+      : page.locator('#search-results-dropdown #search-results');
+
+    await searchInput.fill('');
+    await searchInput.blur();
+    await searchInput.click();
+    await expect(results).toBeVisible({ timeout: 10000 });
+    await expect(results.getByText('Búsquedas recientes')).toBeVisible({ timeout: 10000 });
+
+    const recentButton = results.locator('button', { hasText: 'clasif' });
+    await expect(recentButton).toBeVisible();
+    await recentButton.click();
+
+    // Clicking a recent search must populate the dropdown in place — the URL
+    // must not navigate to the bare, unstyled /search partial.
+    await expect(results.locator('.text-sm.font-medium', { hasText: 'Clasificación' })).toBeVisible({ timeout: 10000 });
+    expect(page.url()).not.toContain('/search?q=');
   });
 
   test('zero-query panel shows quick-nav with links', async ({ page }, testInfo) => {
@@ -112,6 +144,6 @@ test.describe('global search', () => {
     await expect(results).toBeVisible({ timeout: 10000 });
 
     await expect(results.locator('a', { hasText: 'Disputas' })).toBeVisible();
-    await expect(results.locator('a', { hasText: 'Jugadores' })).toBeVisible();
+    await expect(results.locator('a', { hasText: 'Usuarios' })).toBeVisible();
   });
 });

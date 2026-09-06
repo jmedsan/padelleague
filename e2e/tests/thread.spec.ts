@@ -93,6 +93,33 @@ test.describe('match thread', () => {
     await expect(accordion.locator('input[type="checkbox"]')).not.toBeChecked();
   });
 
+  test('proposal form shows inline error instead of a native alert when "Otro" club has no name', async ({ page }) => {
+    const data = loadTestData();
+    const match = await suPost('/api/collections/matches/records', {
+      competition: data.competitionId, pair1: data.pair1Id, pair2: data.pair2Id,
+      status: 'pending', round_number: 99,
+    });
+
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/match/${match.id}`);
+    await page.waitForSelector('#proposal-date', { timeout: 10000 });
+
+    let dialogFired = false;
+    page.on('dialog', () => { dialogFired = true; });
+
+    await page.fill('#proposal-date', '2026-12-01');
+    await page.fill('#proposal-time', '10:00');
+    await page.locator('#proposal-venue').selectOption('otro');
+    await expect(page.locator('#venue-text-wrap')).toBeVisible();
+    await page.locator('#proposal-form button:has-text("Proponer fecha")').click();
+
+    await expect(page.locator('#proposal-form-error')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('#proposal-form-error')).toHaveText('Indica el nombre del club');
+    expect(dialogFired).toBe(false);
+    // Must not have navigated away — the form is still on the page.
+    await expect(page.locator('#proposal-form')).toBeVisible();
+  });
+
   test('admin non-participant can post in thread', async ({ page }) => {
     const data = loadTestData();
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);

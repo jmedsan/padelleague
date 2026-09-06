@@ -41,7 +41,9 @@
         <div class="mb-3">
             <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/60 mb-1 px-1">Búsquedas recientes</h3>
             {{range .Recent}}
-            <a href="/search?q={{.}}" class="block px-3 py-2 text-sm rounded-lg hover:bg-base-200 transition-colors">{{.}}</a>
+            <button type="button" hx-get="/search?q={{.}}" hx-target="closest [id^='search-results-']"
+                    onclick="this.closest('[id^=search-results-]').focus()"
+                    class="block w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-base-200 transition-colors">{{.}}</button>
             {{end}}
         </div>
         {{end}}
