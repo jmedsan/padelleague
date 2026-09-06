@@ -112,6 +112,7 @@
                                     <li><a href="/admin/documents">Documentos</a></li>
                                     <li><a href="/admin/sponsors">Patrocinadores</a></li>
                                     <li><a href="/admin/settings">Configuración</a></li>
+                                    {{if .AppDevTools}}<li><a href="/admin/dev-tools">Dev Tools</a></li>{{end}}
                                 </ul>
                             </details>
                         </li>
@@ -224,6 +225,7 @@
                     <li><a href="/admin/documents" class="rounded-lg">Documentos</a></li>
                     <li><a href="/admin/sponsors" class="rounded-lg">Patrocinadores</a></li>
                     <li><a href="/admin/settings" class="rounded-lg">Configuración</a></li>
+                    {{if .AppDevTools}}<li><a href="/admin/dev-tools" class="rounded-lg">Dev Tools</a></li>{{end}}
                     {{end}}
                     <li class="mt-4">
                         <button onclick="toggleTheme()" class="rounded-lg">Cambiar tema</button>
