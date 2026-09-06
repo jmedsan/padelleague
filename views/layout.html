@@ -98,22 +98,22 @@
                 {{end}}
                 <div class="hidden lg:flex items-center gap-1 text-neutral-content">
                     <ul class="menu menu-horizontal px-1 gap-1">
-                        <li><a href="/" class="rounded-lg hover:bg-white/10">Inicio</a></li>
+                        <li><a href="/" class="rounded-lg hover:bg-white/10{{if eq .RequestPath "/"}} active{{end}}">Inicio</a></li>
                         {{if .AdminView}}
                         <li>
                             <details>
                                 <summary class="rounded-lg hover:bg-white/10">Gestión</summary>
                                 <ul class="bg-base-100 text-base-content rounded-box shadow-lg p-2 z-30 w-48">
-                                    <li><a href="/admin/competitions">Competiciones</a></li>
-                                    <li><a href="/admin/health">Salud</a></li>
-                                    <li><a href="/admin/players">Usuarios</a></li>
-                                    <li><a href="/admin/invitations">Invitaciones</a></li>
-                                    <li><a href="/admin/pairs">Parejas</a></li>
-                                    <li><a href="/admin/venues">Clubes</a></li>
-                                    <li><a href="/admin/documents">Documentos</a></li>
-                                    <li><a href="/admin/sponsors">Patrocinadores</a></li>
-                                    <li><a href="/admin/settings">Configuración</a></li>
-                                    {{if .AppDevTools}}<li><a href="/admin/dev-tools">Dev Tools</a></li>{{end}}
+                                    <li><a href="/admin/competitions" class="{{if hasPrefix .RequestPath "/admin/competitions"}}active{{end}}">Competiciones</a></li>
+                                    <li><a href="/admin/health" class="{{if hasPrefix .RequestPath "/admin/health"}}active{{end}}">Salud</a></li>
+                                    <li><a href="/admin/players" class="{{if hasPrefix .RequestPath "/admin/players"}}active{{end}}">Usuarios</a></li>
+                                    <li><a href="/admin/invitations" class="{{if hasPrefix .RequestPath "/admin/invitations"}}active{{end}}">Invitaciones</a></li>
+                                    <li><a href="/admin/pairs" class="{{if hasPrefix .RequestPath "/admin/pairs"}}active{{end}}">Parejas</a></li>
+                                    <li><a href="/admin/venues" class="{{if hasPrefix .RequestPath "/admin/venues"}}active{{end}}">Clubes</a></li>
+                                    <li><a href="/admin/documents" class="{{if hasPrefix .RequestPath "/admin/documents"}}active{{end}}">Documentos</a></li>
+                                    <li><a href="/admin/sponsors" class="{{if hasPrefix .RequestPath "/admin/sponsors"}}active{{end}}">Patrocinadores</a></li>
+                                    <li><a href="/admin/settings" class="{{if hasPrefix .RequestPath "/admin/settings"}}active{{end}}">Configuración</a></li>
+                                    {{if .AppDevTools}}<li><a href="/admin/dev-tools" class="{{if hasPrefix .RequestPath "/admin/dev-tools"}}active{{end}}">Dev Tools</a></li>{{end}}
                                 </ul>
                             </details>
                         </li>
@@ -167,13 +167,15 @@
                 </div>
             </div>
             {{if and .DisplayName (not .Verified)}}
-            <div class="alert alert-warning shadow-md mx-4 mt-4 max-w-[calc(100%-2rem)] text-sm">
+            <div id="verify-banner" class="alert alert-warning shadow-md mx-4 mt-4 max-w-[calc(100%-2rem)] text-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                 <span>Confirma tu email para recibir avisos.</span>
                 <form method="POST" action="/resend-verification" class="inline" hx-post="/resend-verification" hx-target="#flash" hx-swap="innerHTML">
                     <button type="submit" class="link link-primary font-semibold">Reenviar</button>
                 </form>
+                <button type="button" onclick="sessionStorage.setItem('verify-dismissed','1');this.parentElement.remove()" aria-label="Descartar aviso" class="btn btn-ghost btn-xs btn-circle">✕</button>
             </div>
+            <script>if(sessionStorage.getItem('verify-dismissed'))document.getElementById('verify-banner')?.remove();</script>
             {{end}}
             <div id="flash" class="container mx-auto px-4 max-w-5xl" role="alert" aria-live="polite">
                 {{if .Flash}}
@@ -211,22 +213,22 @@
                 </div>
                 {{end}}
                 <ul class="menu p-4 gap-1">
-                    <li><a href="/" class="rounded-lg font-medium">Inicio</a></li>
+                    <li><a href="/" class="rounded-lg font-medium{{if eq .RequestPath "/"}} active{{end}}">Inicio</a></li>
                     {{if .Footer.Competition}}
-                    <li><a href="/competition/{{.Footer.Competition.ID}}" class="rounded-lg font-medium">{{.Footer.Competition.Name}}</a></li>
+                    <li><a href="/competition/{{.Footer.Competition.ID}}" class="rounded-lg font-medium{{if hasPrefix .RequestPath (print "/competition/" .Footer.Competition.ID)}} active{{end}}">{{.Footer.Competition.Name}}</a></li>
                     {{end}}
                     {{if .AdminView}}
                     <li class="menu-title mt-4 text-xs uppercase tracking-wider opacity-60">Gestión</li>
-                    <li><a href="/admin/competitions" class="rounded-lg">Competiciones</a></li>
-                    <li><a href="/admin/health" class="rounded-lg">Salud</a></li>
-                    <li><a href="/admin/players" class="rounded-lg">Usuarios</a></li>
-                    <li><a href="/admin/invitations" class="rounded-lg">Invitaciones</a></li>
-                    <li><a href="/admin/pairs" class="rounded-lg">Parejas</a></li>
-                    <li><a href="/admin/venues" class="rounded-lg">Clubes</a></li>
-                    <li><a href="/admin/documents" class="rounded-lg">Documentos</a></li>
-                    <li><a href="/admin/sponsors" class="rounded-lg">Patrocinadores</a></li>
-                    <li><a href="/admin/settings" class="rounded-lg">Configuración</a></li>
-                    {{if .AppDevTools}}<li><a href="/admin/dev-tools" class="rounded-lg">Dev Tools</a></li>{{end}}
+                    <li><a href="/admin/competitions" class="rounded-lg{{if hasPrefix .RequestPath "/admin/competitions"}} active{{end}}">Competiciones</a></li>
+                    <li><a href="/admin/health" class="rounded-lg{{if hasPrefix .RequestPath "/admin/health"}} active{{end}}">Salud</a></li>
+                    <li><a href="/admin/players" class="rounded-lg{{if hasPrefix .RequestPath "/admin/players"}} active{{end}}">Usuarios</a></li>
+                    <li><a href="/admin/invitations" class="rounded-lg{{if hasPrefix .RequestPath "/admin/invitations"}} active{{end}}">Invitaciones</a></li>
+                    <li><a href="/admin/pairs" class="rounded-lg{{if hasPrefix .RequestPath "/admin/pairs"}} active{{end}}">Parejas</a></li>
+                    <li><a href="/admin/venues" class="rounded-lg{{if hasPrefix .RequestPath "/admin/venues"}} active{{end}}">Clubes</a></li>
+                    <li><a href="/admin/documents" class="rounded-lg{{if hasPrefix .RequestPath "/admin/documents"}} active{{end}}">Documentos</a></li>
+                    <li><a href="/admin/sponsors" class="rounded-lg{{if hasPrefix .RequestPath "/admin/sponsors"}} active{{end}}">Patrocinadores</a></li>
+                    <li><a href="/admin/settings" class="rounded-lg{{if hasPrefix .RequestPath "/admin/settings"}} active{{end}}">Configuración</a></li>
+                    {{if .AppDevTools}}<li><a href="/admin/dev-tools" class="rounded-lg{{if hasPrefix .RequestPath "/admin/dev-tools"}} active{{end}}">Dev Tools</a></li>{{end}}
                     {{end}}
                     <li class="mt-4">
                         <button onclick="toggleTheme()" class="rounded-lg">Cambiar tema</button>

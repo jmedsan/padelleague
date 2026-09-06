@@ -1,6 +1,6 @@
 {{define "content"}}
 <div class="mb-6">
-    <a href="/" class="btn btn-ghost btn-sm">← Inicio</a>
+    <a href="/" class="link link-hover text-sm opacity-60">← Inicio</a>
 </div>
 
 <div class="card bg-neutral text-neutral-content rounded-xl mb-6">
@@ -70,7 +70,7 @@
 </div>
 {{end}}
 
-<h2 class="text-lg font-bold mb-3">Todas las competiciones</h2>
+<h2 class="text-lg font-bold mb-3">Estadísticas</h2>
 {{template "statsTiles" .Data.Stats}}
 
 {{if .Data.Pairs}}
