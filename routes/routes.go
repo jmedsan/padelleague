@@ -90,6 +90,12 @@ func registerStaticRoutes(se *core.ServeEvent, deps Deps) {
 	se.Router.GET("/privacy", func(e *core.RequestEvent) error {
 		return deps.Renderer.Page(e, "privacy.html", map[string]any{"PageTitle": "Política de Privacidad"})
 	})
+	se.Router.GET("/cookies", func(e *core.RequestEvent) error {
+		return deps.Renderer.Page(e, "cookies.html", map[string]any{"PageTitle": "Política de Cookies"})
+	})
+	se.Router.GET("/aviso-legal", func(e *core.RequestEvent) error {
+		return deps.Renderer.Page(e, "aviso-legal.html", map[string]any{"PageTitle": "Aviso Legal"})
+	})
 
 	se.Router.GET("/healthz", func(e *core.RequestEvent) error {
 		if _, err := deps.App.FindCollectionByNameOrId("users"); err != nil {
