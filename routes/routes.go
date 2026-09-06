@@ -205,7 +205,6 @@ func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], d
 	pairs := handlers.NewCompetitionPairsHandler(deps.App)
 	payments := handlers.NewCompetitionPaymentsHandler(deps.App)
 	fixture := handlers.NewFixtureHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page)
-	signups := handlers.NewSignupHandler(deps.App)
 
 	g.GET("", dash.AdminEntry)
 	g.GET("/competitions", dash.Dashboard)
@@ -228,9 +227,6 @@ func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], d
 	g.POST("/competitions/{id}/round-dates", comp.UpdateRoundDates)
 	g.POST("/competitions/{id}/round-dates/regenerate", comp.RegenerateRoundDates)
 	g.POST("/competitions/{id}/broadcast", comp.AdminBroadcast)
-	g.POST("/competitions/{id}/signups", signups.AddSignup)
-	g.POST("/competitions/{id}/signups/pair", signups.PairSignups)
-	g.POST("/competitions/{id}/signups/{signupId}/reject", signups.RejectSignup)
 }
 
 func registerAdminDisputeRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {

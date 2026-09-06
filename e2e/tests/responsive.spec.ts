@@ -212,14 +212,10 @@ test.describe('responsive - no horizontal overflow', () => {
     await expect(page.getByText('Pista Central')).toBeVisible();
   });
 
-  test('admin invitations (inline on competition detail)', async ({ page }) => {
-    // Invitations moved from a standalone /admin/invitations page into the
-    // competition detail page, like Documentos — reached via a real click.
+  test('admin invitations', async ({ page }) => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto('/admin/competitions');
-    await page.locator('.card-title', { hasText: 'Liga E2E Test' }).first().click();
-    await page.waitForLoadState('domcontentloaded');
+    await navViaDrawer(page, '/admin/invitations');
     await checkNoOverflow(page);
     await expect(page.getByRole('heading', { name: 'Invitaciones' })).toBeVisible();
 
@@ -234,10 +230,7 @@ test.describe('responsive - no horizontal overflow', () => {
 
     const table = page.locator('table').filter({ hasText: 'Destinatario' });
     await expect(table).toBeHidden();
-    // Scoped by the invite's own email: the page also has an "Inscritos sin
-    // pareja" section with its own .sm:hidden.divide-y card list, so an
-    // unscoped `.first()` can match the wrong section.
-    const card = page.locator('.sm\\:hidden.divide-y > div').filter({ hasText: invEmail });
+    const card = page.locator('.lg\\:hidden.divide-y > div').filter({ hasText: invEmail });
     await expect(card).toBeVisible();
     await expect(card.getByText('Copiar')).toBeVisible();
   });

@@ -12,7 +12,6 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 
-	"padelleague/league"
 	"padelleague/notify"
 	"padelleague/render"
 )
@@ -40,48 +39,16 @@ func (h *InvitationHandler) InvitationsList(e *core.RequestEvent) error {
 			invitations[j].GetDateTime("created").Time())
 	})
 
-	competitions, err := h.app.FindRecordsByFilter("competitions",
-		"active = true", "name", 0, 0, nil)
-	if err != nil {
-		slog.Error("InvitationsList: find competitions", "err", err)
-	}
-
-	compNames := make(map[string]string, len(invitations))
-	for _, inv := range invitations {
-		if compID := inv.GetString("competition"); compID != "" {
-			if _, ok := compNames[compID]; !ok {
-				compNames[compID] = league.CompetitionName(h.app, compID)
-			}
-		}
-	}
-
 	return h.renderPage(e, "admin/invitations.html", map[string]any{
-		"PageTitle":    "Invitaciones",
-		"Invitations":  invitations,
-		"Competitions": competitions,
-		"CompNames":    compNames,
-		"BaseURL":      render.RequestBaseURL(e),
+		"PageTitle":   "Invitaciones",
+		"Invitations": invitations,
+		"BaseURL":     render.RequestBaseURL(e),
 	})
-}
-
-// CompetitionInvitations returns a competition's invitations, newest first —
-// shared by CompetitionHandler.Detail (renders the Invitaciones section
-// inline, like Documentos) so invitation management lives per-competition.
-func CompetitionInvitations(app core.App, compID string) []*core.Record {
-	invitations, _ := app.FindRecordsByFilter("invitations",
-		"competition = {:cid}", "", 0, 0,
-		map[string]any{"cid": compID})
-	sort.Slice(invitations, func(i, j int) bool {
-		return invitations[i].GetDateTime("created").Time().After(
-			invitations[j].GetDateTime("created").Time())
-	})
-	return invitations
 }
 
 // InvitationsCreate generates a new invitation token with the given max uses.
 func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 	email := strings.TrimSpace(e.Request.FormValue("email"))
-	competition := e.Request.FormValue("competition")
 	adminNote := strings.TrimSpace(e.Request.FormValue("admin_note"))
 	if email != "" && !strings.Contains(email, "@") {
 		return alertError(e, "El email no es válido")
@@ -110,7 +77,6 @@ func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 	record := core.NewRecord(col)
 	record.Set("token", token)
 	record.Set("email", email)
-	record.Set("competition", competition)
 	record.Set("admin_note", adminNote)
 	record.Set("created_by", e.Auth.Id)
 	record.Set("status", "pending")
@@ -124,15 +90,11 @@ func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 
 	if email != "" {
 		registerURL := render.RequestBaseURL(e) + "/register?token=" + token
-		compName := league.CompetitionName(h.app, competition)
 		notify.SendEmail(h.app, email, notify.SubjectPrefix()+"Invitación a Liga Dale Fuerte",
-			notify.RenderEmail(h.app, competition, buildInviteEmail(registerURL, compName)))
+			notify.RenderEmail(h.app, "", buildInviteEmail(registerURL)))
 	}
 
 	flash(e, "Invitación creada")
-	if competition != "" {
-		return redirectHX(e, "/admin/competitions/"+competition)
-	}
 	return redirectHX(e, "/admin/invitations")
 }
 
@@ -165,11 +127,9 @@ func (h *InvitationHandler) InvitationsResend(e *core.RequestEvent) error {
 		return alertError(e, "Esta invitación no tiene email")
 	}
 	token := invitation.GetString("token")
-	compID := invitation.GetString("competition")
 	registerURL := render.RequestBaseURL(e) + "/register?token=" + token
-	compName := league.CompetitionName(h.app, compID)
 	notify.SendEmail(h.app, email, notify.SubjectPrefix()+"Invitación a Liga Dale Fuerte",
-		notify.RenderEmail(h.app, compID, buildInviteEmail(registerURL, compName)))
+		notify.RenderEmail(h.app, "", buildInviteEmail(registerURL)))
 	flash(e, "Invitación reenviada")
 	return redirectHX(e, "/admin/invitations")
 }
