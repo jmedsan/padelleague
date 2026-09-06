@@ -15,7 +15,7 @@ import (
 
 func setupHealthRoute(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	r := render.New(os.DirFS(".."), "", true)
-	h := NewAdminHealthHandler(app, nil, r.Page)
+	h := NewAdminHealthHandler(app, r.Page)
 	e.Router.GET("/admin/health", h.Health).BindFunc(requireAuthTest).BindFunc(requireAdminTest)
 }
 

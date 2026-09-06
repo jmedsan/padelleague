@@ -1,0 +1,329 @@
+package handlers
+
+import (
+	"net/http"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tests"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"padelleague/middleware"
+	"padelleague/render"
+)
+
+func setupDevToolsRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+	viewsFS := os.DirFS("..")
+	r := render.New(viewsFS, "", true)
+
+	e.Router.BindFunc(middleware.CookieAuth)
+
+	auth := NewAuthHandler(app, r.Page)
+	e.Router.GET("/login", auth.Login)
+
+	h := NewAdminDevToolsHandler(app, nil, viewsFS, r.Page)
+
+	g := e.Router.Group("/admin")
+	g.BindFunc(requireAuthTest)
+	g.BindFunc(requireAdminTest)
+	g.GET("/dev-tools", h.DevTools)
+	g.POST("/dev-tools/reset", h.Reset)
+}
+
+func TestDevToolsGET(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/dev-tools returns 200 with reset form",
+		Method:          http.MethodGet,
+		URL:             "/admin/dev-tools",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Reiniciar base de datos", "Datos de ejemplo a cargar", "reset-overlay", "Reiniciando la base de datos"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupDevToolsRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestDevToolsShowsPlayoffCheckbox(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/dev-tools shows split Liga/Playoff checkboxes",
+		Method:          http.MethodGet,
+		URL:             "/admin/dev-tools",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Liga de ejemplo", "Playoff de ejemplo"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupDevToolsRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestResetWrongConfirm(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST reset with wrong confirm leaves data unchanged",
+		Method:          http.MethodPost,
+		URL:             "/admin/dev-tools/reset",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Escribe DELETE"},
+	}
+	var playerID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupDevToolsRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		player := makeUserTB(tb, app, "Player", "")
+		playerID = player.Id
+		s.Body = strings.NewReader("confirm=WRONG&players=on")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		_, err := app.FindRecordById("users", playerID)
+		assert.NoError(tb, err, "player should still exist")
+		assert.Contains(tb, res.Header.Get("Content-Type"), "text/html")
+	}
+	s.Test(t)
+}
+
+func TestResetFromScratch(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST reset with no example checkboxes wipes to a clean DB, admins survive",
+		Method:          http.MethodPost,
+		URL:             "/admin/dev-tools/reset",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"reiniciada", "vacía"},
+	}
+	var admin1ID, admin2ID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupDevToolsRoutes(tb, app, e)
+		admin1 := makeAdminUser(tb, app)
+		admin2 := makeAdminUser(tb, app)
+		admin1ID = admin1.Id
+		admin2ID = admin2.Id
+		makeUserTB(tb, app, "Player1", "")
+		makePairTB(tb, app, "TestPair")
+		s.Body = strings.NewReader("confirm=DELETE")
+		hdrs := authHeaders(tb, admin1)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		_, err := app.FindRecordById("users", admin1ID)
+		assert.NoError(tb, err, "admin1 should survive")
+		_, err = app.FindRecordById("users", admin2ID)
+		assert.NoError(tb, err, "admin2 should survive")
+
+		players, err := app.FindRecordsByFilter("users", "roles ~ 'player'", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Empty(tb, players, "players should be wiped and none loaded")
+
+		pairs, err := app.FindRecordsByFilter("pairs", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Empty(tb, pairs, "pairs should be wiped and none loaded")
+
+		comps, err := app.FindRecordsByFilter("competitions", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Empty(tb, comps, "competitions should be wiped and none loaded")
+	}
+	s.Test(t)
+}
+
+func TestResetLoadPlayersOnly(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST reset players=on wipes all then loads only sample players",
+		Method:          http.MethodPost,
+		URL:             "/admin/dev-tools/reset",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"reiniciada", "ejemplo"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupDevToolsRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		makeUserTB(tb, app, "OldPlayer", "")
+		s.Body = strings.NewReader("confirm=DELETE&players=on")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		players, err := app.FindRecordsByFilter("users", "roles ~ 'player'", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Len(tb, players, 8, "the 8 sample players should be loaded (old ones wiped)")
+
+		pairs, err := app.FindRecordsByFilter("pairs", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Empty(tb, pairs, "no pairs loaded when only players selected")
+
+		comps, err := app.FindRecordsByFilter("competitions", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Empty(tb, comps, "no competition loaded when only players selected")
+	}
+	s.Test(t)
+}
+
+func TestResetLoadFullSample(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST reset with all example categories loads the full sample league",
+		Method:          http.MethodPost,
+		URL:             "/admin/dev-tools/reset",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"reiniciada", "ejemplo"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupDevToolsRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.Body = strings.NewReader("confirm=DELETE&players=on&pairs=on&competitions=on&matches=on")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		comps, err := app.FindRecordsByFilter("competitions", "name = 'Dale Fuerte a la Bola'", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Len(tb, comps, 1, "sample competition should exist")
+
+		players, err := app.FindRecordsByFilter("users", "roles ~ 'player'", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Len(tb, players, 8, "should have 8 sample players")
+
+		finals, err := app.FindRecordsByFilter("matches", "status = 'final'", "", 0, 0)
+		require.NoError(tb, err)
+		assert.NotEmpty(tb, finals, "rounds 1-4 should be played (matches selected)")
+
+		disputed, err := app.FindRecordsByFilter("matches", "status = 'disputed'", "", 0, 0)
+		require.NoError(tb, err)
+		assert.NotEmpty(tb, disputed, "sample should include a live dispute (incident)")
+
+		notifs, err := app.FindRecordsByFilter("notifications", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.NotEmpty(tb, notifs, "sample should file notifications to players")
+	}
+	s.Test(t)
+}
+
+func TestResetLoadCompetitionNotPlayed(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST reset competitions=on matches=off loads the competition with no played matches",
+		Method:          http.MethodPost,
+		URL:             "/admin/dev-tools/reset",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"reiniciada", "ejemplo"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupDevToolsRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.Body = strings.NewReader("confirm=DELETE&players=on&pairs=on&competitions=on")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		comps, err := app.FindRecordsByFilter("competitions", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Len(tb, comps, 2, "the sample competitions should be loaded")
+
+		matches, err := app.FindRecordsByFilter("matches", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.NotEmpty(tb, matches, "rounds/fixtures should exist")
+
+		finals, err := app.FindRecordsByFilter("matches", "status = 'final'", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Empty(tb, finals, "no matches played when 'matches' not selected")
+	}
+	s.Test(t)
+}
+
+func TestResetLoadPlayoff(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST reset with playoff=on loads a sample playoff competition",
+		Method:          http.MethodPost,
+		URL:             "/admin/dev-tools/reset",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"reiniciada", "ejemplo"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupDevToolsRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.Body = strings.NewReader("confirm=DELETE&players=on&pairs=on&competitions=on&playoff=on")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		comps, err := app.FindRecordsByFilter("competitions", "type = 'playoff'", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Len(tb, comps, 1, "a sample playoff should be loaded")
+
+		league, err := app.FindRecordsByFilter("competitions", "type = 'league'", "", 0, 0)
+		require.NoError(tb, err)
+		assert.Len(tb, league, 2, "leagues should also exist (main + mixed)")
+
+		assert.NotEmpty(tb, comps[0].GetStringSlice("documents"),
+			"playoff should have default documents attached")
+	}
+	s.Test(t)
+}
+
+func TestResetLoadDocuments(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST reset with competitions=on loads sample documents attached to comp",
+		Method:          http.MethodPost,
+		URL:             "/admin/dev-tools/reset",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"reiniciada", "ejemplo"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupDevToolsRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.Body = strings.NewReader("confirm=DELETE&players=on&pairs=on&competitions=on")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		docs, err := app.FindRecordsByFilter("documents", "id != ''", "", 0, 0)
+		require.NoError(tb, err)
+		assert.GreaterOrEqual(tb, len(docs), 2, "at least 2 sample documents")
+
+		mandatory, err := app.FindRecordsByFilter("documents", "is_mandatory = true", "", 0, 0)
+		require.NoError(tb, err)
+		assert.NotEmpty(tb, mandatory, "at least one mandatory document")
+
+		comp, err := app.FindRecordsByFilter("competitions", "type = 'league'", "", 0, 0)
+		require.NoError(tb, err)
+		require.Len(tb, comp, 2)
+		docsAttached := false
+		for _, c := range comp {
+			if len(c.GetStringSlice("documents")) > 0 {
+				docsAttached = true
+			}
+		}
+		assert.True(tb, docsAttached, "documents should be attached to at least one league competition")
+	}
+	s.Test(t)
+}

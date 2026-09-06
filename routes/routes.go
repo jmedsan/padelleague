@@ -178,6 +178,7 @@ func registerAdminRoutes(se *core.ServeEvent, deps Deps) {
 	registerAdminSponsorRoutes(g, deps)
 	registerAdminSettingsRoutes(g, deps)
 	registerAdminHealthRoutes(g, deps)
+	registerAdminDevToolsRoutes(g, deps)
 }
 
 func registerAdminDocumentRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
@@ -272,23 +273,29 @@ func registerAdminVenueRoutes(g *router.RouterGroup[*core.RequestEvent], deps De
 }
 
 func registerAdminSettingsRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
-	settings := handlers.NewAdminSettingsHandler(deps.App, deps.AppDevTools, deps.StaticFS, deps.Renderer.Page)
+	settings := handlers.NewAdminSettingsHandler(deps.App, deps.Renderer.Page)
 	g.GET("/settings", settings.Settings)
 	g.POST("/settings/defaults", settings.SaveDefaults)
 	g.POST("/settings/branding", settings.SaveBranding)
 	g.POST("/settings/logo", settings.SettingsLogoUpload)
 	g.POST("/settings/logo/delete", settings.SettingsLogoDelete)
-	g.POST("/settings/reset", settings.Reset)
 }
 
 func registerAdminHealthRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
-	h := handlers.NewAdminHealthHandler(deps.App, deps.Notifier, deps.Renderer.Page)
+	h := handlers.NewAdminHealthHandler(deps.App, deps.Renderer.Page)
 	g.GET("/health", h.Health)
 	g.POST("/health/backup", h.BackupNow)
-	if deps.AppDevTools {
-		g.POST("/health/test-push", h.TestPush)
-		g.POST("/health/test-email", h.TestEmail)
+}
+
+func registerAdminDevToolsRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
+	if !deps.AppDevTools {
+		return
 	}
+	h := handlers.NewAdminDevToolsHandler(deps.App, deps.Notifier, deps.StaticFS, deps.Renderer.Page)
+	g.GET("/dev-tools", h.DevTools)
+	g.POST("/dev-tools/test-push", h.TestPush)
+	g.POST("/dev-tools/test-email", h.TestEmail)
+	g.POST("/dev-tools/reset", h.Reset)
 }
 
 func registerMatchRoutes(se *core.ServeEvent, deps Deps) {
