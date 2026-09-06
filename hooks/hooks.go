@@ -157,13 +157,12 @@ func sameDay(a, b time.Time) bool {
 	return ay == by && am == bm && ad == bd
 }
 
-// BackupConfig configures the hourly Google Drive backup cron. Supports
-// two auth modes: ServiceAccountJSON (Google Workspace) or DriveToken
-// (free Gmail, from `rclone config`). An empty FolderID disables it.
+// BackupConfig configures the hourly Google Drive backup cron via an OAuth
+// token (DriveToken, from a one-time `rclone config` run). An empty
+// DriveToken or FolderID disables it.
 type BackupConfig struct {
-	ServiceAccountJSON string
-	DriveToken         string
-	FolderID           string
+	DriveToken string
+	FolderID   string
 }
 
 // Deps holds the shared dependencies Register wires onto the app.

@@ -38,6 +38,17 @@ func (h *AuthHandler) Login(e *core.RequestEvent) error {
 
 // LoginSubmit processes the login form and sets the auth cookie on success.
 func (h *AuthHandler) LoginSubmit(e *core.RequestEvent) error {
+	// H2 diagnostic: temporary, to identify which proxy header carries the
+	// real client IP on Northflank. Remove once TrustedProxy is configured.
+	slog.Info("login-diag",
+		"remote_ip", e.RemoteIP(),
+		"xff", e.Request.Header.Get("X-Forwarded-For"),
+		"xri", e.Request.Header.Get("X-Real-IP"),
+		"xeea", e.Request.Header.Get("X-Envoy-External-Address"),
+		"fci", e.Request.Header.Get("Fastly-Client-IP"),
+		"tci", e.Request.Header.Get("True-Client-IP"),
+	)
+
 	email := e.Request.FormValue("email")
 	password := e.Request.FormValue("password")
 

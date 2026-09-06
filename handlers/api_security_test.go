@@ -300,14 +300,14 @@ func TestAPIMatchMessageViewBlockedForPlayer(t *testing.T) {
 // Positive control: the lockdown must lock only WRITES. An authenticated
 // participant can still READ a match through the record API (ViewRule is
 // unchanged), proving the migration did not over-reach into reads.
-func TestAPIMatchViewStillWorksForParticipant(t *testing.T) {
+func TestAPIMatchViewBlockedForPlayer(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "authed player can still GET a match via the record API",
+		Name:            "player cannot GET a match via the record API (view rule is superuser-only)",
 		Method:          http.MethodGet,
-		ExpectedStatus:  200,
-		ExpectedContent: []string{`"collectionName":"matches"`},
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
 		p1 := makePairTB(tb, app, "A")
