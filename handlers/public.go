@@ -3,7 +3,6 @@ package handlers
 import (
 	"fmt"
 	"net/http"
-	"slices"
 	"sort"
 	"time"
 
@@ -38,24 +37,14 @@ type PublicRenderers struct {
 
 // PublicHandler serves player-facing pages like the dashboard and competition views.
 type PublicHandler struct {
-	app         core.App
-	leagueSvc   *league.Service
-	render      PublicRenderers
-	pushEnabled bool
+	app       core.App
+	leagueSvc *league.Service
+	render    PublicRenderers
 }
 
 // NewPublicHandler creates a PublicHandler with the given dependencies.
-// pushEnabled reports whether push notifications are configured server-wide
-// (VAPID keys set) — see notify.Notifier.PushEnabled.
-func NewPublicHandler(app core.App, leagueSvc *league.Service, render PublicRenderers, pushEnabled bool) *PublicHandler {
-	return &PublicHandler{app: app, leagueSvc: leagueSvc, render: render, pushEnabled: pushEnabled}
-}
-
-// OnboardStep is one item in the player onboarding checklist.
-type OnboardStep struct {
-	Label string
-	URL   string
-	Done  bool
+func NewPublicHandler(app core.App, leagueSvc *league.Service, render PublicRenderers) *PublicHandler {
+	return &PublicHandler{app: app, leagueSvc: leagueSvc, render: render}
 }
 
 // NextMatch holds the player's next upcoming match details for the dashboard.
@@ -119,12 +108,6 @@ func (h *PublicHandler) Home(e *core.RequestEvent) error {
 		"RecentResults":   agg.recent,
 	}
 
-	if slices.Contains(e.Auth.GetStringSlice("roles"), "player") {
-		if steps := h.onboardingSteps(e.Auth); len(steps) > 0 {
-			data["OnboardSteps"] = steps
-		}
-	}
-
 	return h.render.Page(e, "home.html", data)
 }
 
@@ -166,31 +149,6 @@ func (h *PublicHandler) aggregateHomeData(userID string, playerPairIDs map[strin
 		agg.recent = agg.recent[:5]
 	}
 	return agg
-}
-
-// onboardingSteps returns the player onboarding checklist, or nil when every
-// actionable step is done (so the template hides the card).
-func (h *PublicHandler) onboardingSteps(user *core.Record) []OnboardStep {
-	profileDone := user.GetString("display_name") != ""
-	steps := []OnboardStep{
-		{Label: "Completa tu perfil", URL: "/profile/complete", Done: profileDone},
-	}
-
-	if h.pushEnabled {
-		sub, _ := h.app.FindFirstRecordByFilter("push_subscriptions", "user = {:user}", map[string]any{"user": user.Id})
-		steps = append(steps, OnboardStep{
-			Label: "Activa las notificaciones push",
-			URL:   "/profile/notifications",
-			Done:  sub != nil,
-		})
-	}
-
-	for _, s := range steps {
-		if !s.Done {
-			return steps
-		}
-	}
-	return nil
 }
 
 func (h *PublicHandler) playerInCompetition(c *core.Record, playerPairIDs map[string]struct{}) bool {

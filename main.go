@@ -81,6 +81,7 @@ func main() {
 			SearchIndex: searchIndex,
 			StaticFS:    staticFS,
 			AppDevTools: cfg.AppDevTools,
+			AppEnv:      cfg.AppEnv,
 			Version:     Version,
 		})
 		return se.Next()

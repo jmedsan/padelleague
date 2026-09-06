@@ -29,6 +29,7 @@ type Deps struct {
 	SearchIndex *search.Index
 	StaticFS    fs.FS
 	AppDevTools bool
+	AppEnv      string
 	Version     string
 }
 
@@ -114,8 +115,10 @@ func registerAuthRoutes(se *core.ServeEvent, deps Deps, auth *handlers.AuthHandl
 	se.Router.GET("/login", auth.Login)
 	se.Router.POST("/login", auth.LoginSubmit).
 		BindFunc(middleware.LimitByClientIP(loginLimiter, tooManyAttempts))
+	registerLimiter := middleware.NewRateLimiter(5, 10*time.Minute)
 	se.Router.GET("/register", auth.Register)
-	se.Router.POST("/register", auth.RegisterSubmit)
+	se.Router.POST("/register", auth.RegisterSubmit).
+		BindFunc(middleware.LimitByClientIP(registerLimiter, tooManyAttempts))
 	se.Router.POST("/logout", auth.Logout)
 	se.Router.GET("/verify", auth.VerifyEmail)
 	se.Router.POST("/resend-verification", auth.ResendVerification).
@@ -133,7 +136,7 @@ func registerPublicRoutes(se *core.ServeEvent, deps Deps) {
 	pub := handlers.NewPublicHandler(deps.App, deps.LeagueSvc, handlers.PublicRenderers{
 		Page:      deps.Renderer.Page,
 		ErrorPage: deps.Renderer.ErrorPage,
-	}, deps.Notifier.PushEnabled())
+	})
 	se.Router.GET("/{$}", pub.Home).BindFunc(middleware.RequireAuth)
 	se.Router.GET("/competition/{id}", pub.Competition).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/competition/{id}/accept-docs", pub.AcceptDocs).BindFunc(middleware.RequireAuth)
@@ -284,7 +287,7 @@ func registerAdminHealthRoutes(g *router.RouterGroup[*core.RequestEvent], deps D
 }
 
 func registerAdminDevToolsRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
-	if !deps.AppDevTools {
+	if !deps.AppDevTools || deps.AppEnv == "prod" {
 		return
 	}
 	h := handlers.NewAdminDevToolsHandler(deps.App, deps.Notifier, deps.StaticFS, deps.Renderer.Page)

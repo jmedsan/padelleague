@@ -130,15 +130,6 @@ func SettingsLogoURL(_, filename string) string {
 	return "/logo/league"
 }
 
-// PBFileURL builds the internal PocketBase file path used by the logo
-// redirect handler.
-func PBFileURL(collection, recordID, filename string) string {
-	if filename == "" {
-		return ""
-	}
-	return "/api/files/" + collection + "/" + recordID + "/" + filename
-}
-
 // PlayersForPair returns the user IDs of both players in a pair.
 func PlayersForPair(app core.App, pairID string) []string {
 	pair, err := app.FindRecordById("pairs", pairID)

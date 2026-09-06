@@ -1,26 +1,5 @@
 {{define "content"}}
 <h1 class="text-2xl font-bold mb-4">Inicio</h1>
-{{if .OnboardSteps}}
-<div class="card bg-base-100 shadow-md mb-6" data-testid="onboard-checklist">
-    <div class="card-body">
-        <h2 class="card-title text-lg">Primeros pasos</h2>
-        <ul class="space-y-3">
-            {{range .OnboardSteps}}
-            <li class="flex items-center gap-3">
-                {{if .Done}}
-                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-success flex-none"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                <span class="opacity-60 line-through">{{.Label}}</span>
-                {{else}}
-                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-base-content/60 flex-none"><circle cx="12" cy="12" r="9" /></svg>
-                <a href="{{.URL}}" class="link link-hover font-medium">{{.Label}}</a>
-                {{end}}
-            </li>
-            {{end}}
-        </ul>
-    </div>
-</div>
-{{end}}
-
 {{if .Actions}}
 <div class="mb-6" data-testid="home-actions">
     <h2 class="text-lg font-bold mb-3">Acciones pendientes</h2>
