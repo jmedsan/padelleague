@@ -16,7 +16,6 @@
         return;
     }
 
-    toggle.removeAttribute('disabled');
 
     function showPushError(msg) {
         var existing = document.getElementById('push-error-toast');
