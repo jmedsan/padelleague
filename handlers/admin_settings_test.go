@@ -8,6 +8,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -31,6 +32,9 @@ func setupSettingsRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent, d
 	g.BindFunc(requireAdminTest)
 	g.GET("/settings", settings.Settings)
 	g.POST("/settings/defaults", settings.SaveDefaults)
+	g.POST("/settings/branding", settings.SaveBranding)
+	g.POST("/settings/logo", settings.SettingsLogoUpload)
+	g.POST("/settings/logo/delete", settings.SettingsLogoDelete)
 	g.POST("/settings/reset", settings.Reset)
 }
 
@@ -406,6 +410,39 @@ func TestSaveDefaults_InvalidWalkoverScoreRejected(t *testing.T) {
 		require.NoError(tb, err)
 		require.Len(tb, records, 1)
 		assert.Equal(tb, "6-0 6-0", records[0].GetString("walkover_score"), "invalid save must not persist")
+	}
+	s.Test(t)
+}
+
+func TestSettingsLogoDelete_ClearsLogoAndRedirects(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/settings/logo/delete clears the league logo and redirects",
+		Method:         http.MethodPost,
+		URL:            "/admin/settings/logo/delete",
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSettingsRoutes(tb, app, e, true)
+		admin := makeAdminUser(tb, app)
+		s.Headers = authHeaders(tb, admin)
+
+		records, err := app.FindRecordsByFilter("app_settings", "", "", 1, 0)
+		require.NoError(tb, err)
+		require.Len(tb, records, 1)
+		rec := records[0]
+		f, err := filesystem.NewFileFromBytes([]byte("fake-league-logo-bytes"), "league_logo.png")
+		require.NoError(tb, err)
+		rec.Set("league_logo", f)
+		require.NoError(tb, app.Save(rec))
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/admin/settings", res.Header.Get("HX-Redirect"))
+		records, err := app.FindRecordsByFilter("app_settings", "", "", 1, 0)
+		require.NoError(tb, err)
+		require.Len(tb, records, 1)
+		assert.Empty(tb, records[0].GetString("league_logo"))
 	}
 	s.Test(t)
 }
