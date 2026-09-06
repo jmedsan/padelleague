@@ -29,7 +29,7 @@
                     <td class="text-sm">
                         {{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="badge badge-info badge-sm">Enlace genérico</span>{{end}}
                     </td>
-                    <td class="text-sm opacity-70 max-w-[16rem] truncate">{{.GetString "admin_note"}}</td>
+                    <td class="text-sm opacity-70 max-w-[16rem] truncate" title="{{.GetString "admin_note"}}">{{.GetString "admin_note"}}</td>
                     <td>
                         {{if eq (.GetString "status") "pending"}}
                         <span class="badge badge-ghost badge-sm">Pendiente</span>
@@ -43,17 +43,39 @@
                         {{.GetString "use_count"}}/{{if and (.GetString "max_uses") (ne (.GetString "max_uses") "0")}}{{.GetString "max_uses"}}{{else}}1{{end}}
                     </td>
                     <td class="hidden xl:table-cell text-sm opacity-60">{{fmtDate (.GetString "created")}}</td>
-                    <td class="flex flex-wrap gap-1 justify-end">
+                    <td class="text-right">
+                        <div class="flex flex-wrap gap-1 justify-end">
                         {{if eq (.GetString "status") "pending"}}
-                        <button class="btn btn-ghost btn-xs" onclick="copyInviteLink('{{.GetString "token"}}', this)" title="Copiar enlace">Copiar</button>
-                        <a class="btn btn-ghost btn-xs" target="_blank" rel="noopener" href="https://wa.me/?text={{urlquery (print "Regístrate en Liga Dale Fuerte: " $.BaseURL "/register?token=" (.GetString "token"))}}" title="Enviar por WhatsApp">WhatsApp</a>
-                        {{if .GetString "email"}}<form hx-post="/admin/invitations/{{.Id}}/resend"><button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs">Reenviar</button></form>{{end}}
+                        <span class="tooltip tooltip-left" data-tip="Copiar enlace">
+                            <button class="btn btn-ghost btn-xs btn-square" aria-label="Copiar enlace" onclick="copyInviteLink('{{.GetString "token"}}', this)">
+                                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" /></svg>
+                            </button>
+                        </span>
+                        <span class="tooltip tooltip-left" data-tip="Enviar por WhatsApp">
+                            <a class="btn btn-ghost btn-xs btn-square" aria-label="Enviar por WhatsApp" target="_blank" rel="noopener" href="https://wa.me/?text={{urlquery (print "Regístrate en Liga Dale Fuerte: " $.BaseURL "/register?token=" (.GetString "token"))}}">
+                                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" viewBox="0 0 24 24" class="h-4 w-4 fill-success"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.075-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12.05 0C5.495 0 .16 5.335.16 11.89c0 2.096.547 4.142 1.588 5.945L0 24l6.31-1.658a11.86 11.86 0 005.74 1.462h.005c6.554 0 11.89-5.335 11.89-11.89C23.945 5.335 18.61 0 12.05 0zm0 21.657h-.004a9.786 9.786 0 01-4.987-1.365l-.358-.213-3.744.982.999-3.65-.233-.375a9.756 9.756 0 01-1.494-5.146c0-5.394 4.39-9.784 9.79-9.784 2.615 0 5.075 1.018 6.923 2.868 1.849 1.85 2.868 4.31 2.868 6.923 0 5.395-4.39 9.76-9.76 9.76z"/></svg>
+                            </a>
+                        </span>
+                        {{if .GetString "email"}}
+                        <form hx-post="/admin/invitations/{{.Id}}/resend">
+                            <span class="tooltip tooltip-left" data-tip="Reenviar">
+                                <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs btn-square" aria-label="Reenviar">
+                                    <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.126A59.768 59.768 0 0 1 21.485 12 59.77 59.77 0 0 1 3.27 20.876L5.999 12Zm0 0h7.5" /></svg>
+                                </button>
+                            </span>
+                        </form>
+                        {{end}}
                         <form hx-post="/admin/invitations/{{.Id}}/revoke" hx-confirm="¿Revocar esta invitación?" data-confirm-danger data-confirm-ok="Revocar">
-                            <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs text-error">Revocar</button>
+                            <span class="tooltip tooltip-left" data-tip="Revocar">
+                                <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs btn-square text-error" aria-label="Revocar">
+                                    <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                                </button>
+                            </span>
                         </form>
                         {{else}}
                         <span class="text-xs opacity-60">-</span>
                         {{end}}
+                        </div>
                     </td>
                 </tr>
                 {{end}}
@@ -80,11 +102,31 @@
             </p>
             {{if eq (.GetString "status") "pending"}}
             <div class="flex flex-wrap gap-2">
-                <button class="btn btn-outline btn-sm" onclick="copyInviteLink('{{.GetString "token"}}', this)" title="Copiar enlace">Copiar</button>
-                <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="https://wa.me/?text={{urlquery (print "Regístrate en Liga Dale Fuerte: " $.BaseURL "/register?token=" (.GetString "token"))}}" title="Enviar por WhatsApp">WhatsApp</a>
-                {{if .GetString "email"}}<form hx-post="/admin/invitations/{{.Id}}/resend"><button type="submit" hx-disabled-elt="this" class="btn btn-outline btn-sm">Reenviar</button></form>{{end}}
+                <span class="tooltip tooltip-bottom" data-tip="Copiar enlace">
+                    <button class="btn btn-outline btn-sm btn-square" aria-label="Copiar enlace" onclick="copyInviteLink('{{.GetString "token"}}', this)">
+                        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" /></svg>
+                    </button>
+                </span>
+                <span class="tooltip tooltip-bottom" data-tip="Enviar por WhatsApp">
+                    <a class="btn btn-outline btn-sm btn-square" aria-label="Enviar por WhatsApp" target="_blank" rel="noopener" href="https://wa.me/?text={{urlquery (print "Regístrate en Liga Dale Fuerte: " $.BaseURL "/register?token=" (.GetString "token"))}}">
+                        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" viewBox="0 0 24 24" class="h-4 w-4 fill-success"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.075-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12.05 0C5.495 0 .16 5.335.16 11.89c0 2.096.547 4.142 1.588 5.945L0 24l6.31-1.658a11.86 11.86 0 005.74 1.462h.005c6.554 0 11.89-5.335 11.89-11.89C23.945 5.335 18.61 0 12.05 0zm0 21.657h-.004a9.786 9.786 0 01-4.987-1.365l-.358-.213-3.744.982.999-3.65-.233-.375a9.756 9.756 0 01-1.494-5.146c0-5.394 4.39-9.784 9.79-9.784 2.615 0 5.075 1.018 6.923 2.868 1.849 1.85 2.868 4.31 2.868 6.923 0 5.395-4.39 9.76-9.76 9.76z"/></svg>
+                    </a>
+                </span>
+                {{if .GetString "email"}}
+                <form hx-post="/admin/invitations/{{.Id}}/resend">
+                    <span class="tooltip tooltip-bottom" data-tip="Reenviar">
+                        <button type="submit" hx-disabled-elt="this" class="btn btn-outline btn-sm btn-square" aria-label="Reenviar">
+                            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.126A59.768 59.768 0 0 1 21.485 12 59.77 59.77 0 0 1 3.27 20.876L5.999 12Zm0 0h7.5" /></svg>
+                        </button>
+                    </span>
+                </form>
+                {{end}}
                 <form hx-post="/admin/invitations/{{.Id}}/revoke" hx-confirm="¿Revocar esta invitación?" data-confirm-danger data-confirm-ok="Revocar">
-                    <button type="submit" hx-disabled-elt="this" class="btn btn-outline btn-sm text-error">Revocar</button>
+                    <span class="tooltip tooltip-bottom" data-tip="Revocar">
+                        <button type="submit" hx-disabled-elt="this" class="btn btn-outline btn-sm btn-square text-error" aria-label="Revocar">
+                            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                        </button>
+                    </span>
                 </form>
             </div>
             {{end}}

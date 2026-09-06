@@ -212,13 +212,21 @@
                                 {{end}}
                             </div>
                             <div class="mt-2">
-                                <label for="penalty-modal-{{.PairID}}" class="btn btn-ghost btn-xs text-warning">Penalizar</label>
+                                <span class="tooltip tooltip-left" data-tip="Penalizar">
+                                    <label for="penalty-modal-{{.PairID}}" class="btn btn-ghost btn-xs btn-square text-warning" aria-label="Penalizar">
+                                        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+                                    </label>
+                                </span>
                             </div>
                         </td>
                         <td class="text-right">
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja de la competición?" data-confirm-danger data-confirm-ok="Quitar" class="inline">
                                 <input type="hidden" name="pair_id" value="{{.PairID}}">
-                                <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs text-error">Quitar</button>
+                                <span class="tooltip tooltip-left" data-tip="Quitar">
+                                    <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs btn-square text-error" aria-label="Quitar">
+                                        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </span>
                             </form>
                         </td>
                     </tr>
@@ -330,10 +338,14 @@
     <div class="collapse-title text-lg font-bold">Fechas límite por jornada</div>
     <div class="collapse-content">
         <div class="flex justify-end mb-2">
-            <button hx-post="/admin/competitions/{{.Competition.Id}}/round-dates/regenerate"
-                    hx-confirm="¿Regenerar las fechas? Esto sobrescribe las fechas editadas." data-confirm-ok="Regenerar"
-                    hx-disabled-elt="this"
-                    class="btn btn-ghost btn-sm">Regenerar fechas</button>
+            <span class="tooltip tooltip-left" data-tip="Regenerar fechas">
+                <button hx-post="/admin/competitions/{{.Competition.Id}}/round-dates/regenerate"
+                        hx-confirm="¿Regenerar las fechas? Esto sobrescribe las fechas editadas." data-confirm-ok="Regenerar"
+                        hx-disabled-elt="this"
+                        class="btn btn-ghost btn-sm btn-square" aria-label="Regenerar fechas">
+                    <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+                </button>
+            </span>
         </div>
         <form hx-post="/admin/competitions/{{.Competition.Id}}/round-dates" class="space-y-3">
             {{range .RoundDates}}
@@ -424,7 +436,11 @@
                 </div>
                 {{if not (.GetBool "is_global")}}
                 <form hx-post="/admin/competitions/{{$.Competition.Id}}/detach-sponsor/{{.Id}}" hx-confirm="¿Quitar este patrocinador de la competición?" data-confirm-danger data-confirm-ok="Quitar" class="flex-none">
-                    <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm text-error">Quitar</button>
+                    <span class="tooltip tooltip-left" data-tip="Quitar">
+                        <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm btn-square text-error" aria-label="Quitar">
+                            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                        </button>
+                    </span>
                 </form>
                 {{end}}
             </div>
