@@ -86,6 +86,10 @@ func registerStaticRoutes(se *core.ServeEvent, deps Deps) {
 	se.Router.GET("/logo/competition/{id}", logo.CompetitionLogo)
 	se.Router.GET("/logo/sponsor/{id}", logo.SponsorLogo)
 
+	se.Router.GET("/privacy", func(e *core.RequestEvent) error {
+		return deps.Renderer.Page(e, "privacy.html", map[string]any{"PageTitle": "Política de Privacidad"})
+	})
+
 	se.Router.GET("/healthz", func(e *core.RequestEvent) error {
 		if _, err := deps.App.FindCollectionByNameOrId("users"); err != nil {
 			return e.JSON(http.StatusServiceUnavailable, map[string]string{"status": "error"})

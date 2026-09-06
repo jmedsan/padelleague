@@ -9,16 +9,42 @@
     <form method="POST" action="/profile/notifications">
         <div class="card bg-base-100 shadow-md">
             <div class="card-body space-y-4">
+                <h2 class="font-semibold text-sm uppercase tracking-wide text-base-content/60">Canales</h2>
+                <div class="form-control">
+                    <label class="label cursor-pointer">
+                        <span class="label-text">Campanita (en la app)</span>
+                        <input type="checkbox" class="toggle toggle-primary" checked disabled>
+                    </label>
+                    <span class="label-text-alt text-base-content/60">Siempre activa</span>
+                </div>
+                <div class="form-control">
+                    <label class="label cursor-pointer">
+                        <span class="label-text">Email</span>
+                        <input type="checkbox" name="email" class="toggle toggle-primary"
+                            {{if index .Prefs "email"}}checked{{end}}
+                            {{if not .EmailVerified}}disabled{{end}}>
+                    </label>
+                    {{if not .EmailVerified}}
+                    <span class="label-text-alt text-warning">Verifica tu email para activar esta opción</span>
+                    {{end}}
+                </div>
                 {{if .VAPIDPublicKey}}
                 <div class="form-control">
                     <label class="label cursor-pointer">
                         <span class="label-text">Notificaciones push</span>
-                        <input type="checkbox" id="push-toggle" class="toggle toggle-primary">
+                        <input type="checkbox" id="push-toggle" name="push" class="toggle toggle-primary"
+                            {{if index .Prefs "push"}}checked{{end}}
+                            {{if not .HasPushSub}}disabled{{end}}>
                     </label>
+                    {{if .HasPushSub}}
                     <span class="label-text-alt text-base-content/60">Recibe notificaciones en tu dispositivo</span>
+                    {{else}}
+                    <span class="label-text-alt text-warning">Activa las notificaciones push en tu dispositivo para usar esta opción</span>
+                    {{end}}
                 </div>
-                <div class="divider my-1"></div>
                 {{end}}
+                <div class="divider my-1"></div>
+                <h2 class="font-semibold text-sm uppercase tracking-wide text-base-content/60">Tipos de evento</h2>
                 <div class="form-control">
                     <label class="label cursor-pointer">
                         <span class="label-text">Propuestas de resultado</span>

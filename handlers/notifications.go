@@ -138,17 +138,26 @@ func (h *NotificationHandler) History(e *core.RequestEvent) error {
 
 // Prefs renders the notification preferences page.
 func (h *NotificationHandler) Prefs(e *core.RequestEvent) error {
-	prefs := notify.NotificationPrefs(e.Auth)
-
 	return h.renderPage(e, "notification-prefs.html", map[string]any{
-		"PageTitle": "Preferencias",
-		"Prefs":     prefs,
+		"PageTitle":     "Preferencias",
+		"Prefs":         notify.NotificationPrefs(e.Auth),
+		"EmailVerified": e.Auth.Verified(),
+		"HasPushSub":    h.hasActivePushSubscription(e.Auth.Id),
 	})
 }
 
-// PrefsSave handles POST to update the user's notification preferences.
+// PrefsSave handles POST to update the user's notification preferences. The
+// email/push toggles are disabled in the form (and so absent from the POST
+// body) until email is verified / a push subscription exists — in that case
+// the existing stored value is kept rather than forced to false.
 func (h *NotificationHandler) PrefsSave(e *core.RequestEvent) error {
+	current := notify.NotificationPrefs(e.Auth)
+	emailVerified := e.Auth.Verified()
+	hasPushSub := h.hasActivePushSubscription(e.Auth.Id)
+
 	prefs := map[string]any{
+		"email":          formToggle(e, "email", emailVerified, current),
+		"push":           formToggle(e, "push", hasPushSub, current),
 		"quorum_request": e.Request.FormValue("quorum_request") == "on",
 		"dispute":        e.Request.FormValue("dispute") == "on",
 		"match_assigned": e.Request.FormValue("match_assigned") == "on",
@@ -163,9 +172,31 @@ func (h *NotificationHandler) PrefsSave(e *core.RequestEvent) error {
 	}
 
 	return h.renderPage(e, "notification-prefs.html", map[string]any{
-		"Prefs":   prefs,
-		"Success": true,
+		"Prefs":         prefs,
+		"Success":       true,
+		"EmailVerified": emailVerified,
+		"HasPushSub":    hasPushSub,
 	})
+}
+
+// hasActivePushSubscription reports whether userID has at least one stored
+// web push subscription.
+func (h *NotificationHandler) hasActivePushSubscription(userID string) bool {
+	sub, err := h.app.FindFirstRecordByFilter("push_subscriptions",
+		"user = {:user}", map[string]any{"user": userID})
+	return err == nil && sub != nil
+}
+
+// formToggle reads a checkbox field from the POST body. When the field's
+// prerequisite (email verified, push subscription active) is not met, the
+// toggle is disabled client-side and absent from the form — formToggle keeps
+// the user's existing stored value instead of defaulting it to false.
+func formToggle(e *core.RequestEvent, field string, prereqMet bool, current map[string]any) bool {
+	if !prereqMet {
+		v, _ := current[field].(bool)
+		return v
+	}
+	return e.Request.FormValue(field) == "on"
 }
 
 // notificationLink resolves where a notification points: its own link,

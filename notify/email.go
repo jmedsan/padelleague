@@ -84,6 +84,9 @@ func (n *Notifier) EmailPlayers(playerUserIDs []string, subject, body, link stri
 			slog.Info("skip email to unverified user", "to", maskEmail(email))
 			continue
 		}
+		if !EmailChannelEnabled(user) {
+			continue
+		}
 
 		displayName := user.GetString("display_name")
 		htmlBody := RenderEmail(n.app, "", BuildNotificationEmail(displayName, body, link))
