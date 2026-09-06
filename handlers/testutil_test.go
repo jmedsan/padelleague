@@ -298,6 +298,7 @@ func setupAllRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.POST("/competitions", comp.Create)
 	g.POST("/competitions/{id}", comp.Update)
 	g.POST("/competitions/{id}/logo", comp.LogoUpload)
+	g.POST("/competitions/{id}/logo/delete", comp.LogoDelete)
 	g.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
 	g.POST("/competitions/{id}/toggle", comp.Toggle)
 	g.POST("/competitions/{id}/finalize", comp.FinalizeCompetition)

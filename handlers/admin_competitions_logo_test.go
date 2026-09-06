@@ -10,6 +10,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -264,6 +265,57 @@ func TestLogoUpload_ValidImageSavesAndRedirects(t *testing.T) {
 		comp, err := app.FindRecordById("competitions", compID)
 		require.NoError(tb, err)
 		assert.NotEmpty(tb, comp.GetString("logo"))
+	}
+	s.Test(t)
+}
+
+func TestLogoDelete_ClearsLogoAndRedirects(t *testing.T) {
+	t.Parallel()
+	var compID string
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/logo/delete clears the logo and redirects",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "Logo A")
+		p2 := makePairTB(tb, app, "Logo B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/logo/delete"
+		s.Headers = authHeaders(tb, admin)
+
+		f, err := filesystem.NewFileFromBytes([]byte("fake-logo-bytes"), "logo.png")
+		require.NoError(tb, err)
+		comp.Set("logo", f)
+		require.NoError(tb, app.Save(comp))
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/admin/competitions/"+compID, res.Header.Get("HX-Redirect"))
+		comp, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Empty(tb, comp.GetString("logo"))
+	}
+	s.Test(t)
+}
+
+func TestLogoDelete_MissingCompetitionRejected(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/competitions/{id}/logo/delete with an unknown competition id",
+		Method:          http.MethodPost,
+		URL:             "/admin/competitions/does-not-exist/logo/delete",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Competición no encontrada"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
 	}
 	s.Test(t)
 }
