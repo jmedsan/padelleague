@@ -75,7 +75,10 @@ func runBackup(app core.App, configPath string) {
 		return
 	}
 	zipPath := filepath.Join(app.DataDir(), core.LocalBackupsDirName, name)
-	defer func() { _ = os.Remove(zipPath) }()
+	defer func() {
+		_ = os.Remove(zipPath)
+		_ = os.Remove(zipPath + ".attrs")
+	}()
 
 	cmd := exec.Command("rclone", "copy", zipPath, "gdrive:", "--config", configPath)
 	output, err := cmd.CombinedOutput()
