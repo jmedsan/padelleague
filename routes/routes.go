@@ -276,9 +276,13 @@ func registerAdminSettingsRoutes(g *router.RouterGroup[*core.RequestEvent], deps
 }
 
 func registerAdminHealthRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
-	h := handlers.NewAdminHealthHandler(deps.App, deps.Renderer.Page)
+	h := handlers.NewAdminHealthHandler(deps.App, deps.Notifier, deps.Renderer.Page)
 	g.GET("/health", h.Health)
 	g.POST("/health/backup", h.BackupNow)
+	if deps.AppDevTools {
+		g.POST("/health/test-push", h.TestPush)
+		g.POST("/health/test-email", h.TestEmail)
+	}
 }
 
 func registerMatchRoutes(se *core.ServeEvent, deps Deps) {
