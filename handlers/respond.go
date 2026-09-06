@@ -150,7 +150,24 @@ func checkCompModifiable(app core.App, e *core.RequestEvent, match *core.Record)
 	return nil
 }
 
+// checkParticipantOrAdmin rejects a thread action from a user who is neither
+// on either pair in the match nor an admin.
+func checkParticipantOrAdmin(e *core.RequestEvent, myTeam int) error {
+	if myTeam == 0 && !isEffectiveAdmin(e) {
+		return alertError(e, "No eres participante de este partido")
+	}
+	return nil
+}
+
 func redirectHX(e *core.RequestEvent, url string) error {
 	e.Response.Header().Set("HX-Redirect", url)
 	return e.NoContent(http.StatusNoContent)
+}
+
+// truncateRunes caps s at n runes, cutting on rune boundaries.
+func truncateRunes(s string, n int) string {
+	if runes := []rune(s); len(runes) > n {
+		return string(runes[:n])
+	}
+	return s
 }
