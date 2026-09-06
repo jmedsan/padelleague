@@ -55,7 +55,7 @@ func (n *Notifier) NotifyPlayers(playerUserIDs []string, notif league.Notificati
 		if !notificationEnabled(user, notif.Type) {
 			continue
 		}
-		n.deliver(notifCol, userID, notif, "notify player failed")
+		n.deliver(notifCol, user, notif, "notify player failed")
 	}
 }
 
@@ -71,17 +71,18 @@ func (n *Notifier) NotifyAdmins(notif league.Notification, excludeUserIDs ...str
 		return err
 	}
 	for _, admin := range filterRecipients(admins, notif.Type, excludeUserIDs) {
-		n.deliver(notifCol, admin.Id, notif, "notify admin failed")
+		n.deliver(notifCol, admin, notif, "notify admin failed")
 	}
 	return nil
 }
 
-// deliver saves the in-app notification record for userID and fires its push.
-// saveFailMsg is the slog message logged when the save fails, so callers keep
-// a distinct diagnostic per recipient class (player vs admin).
-func (n *Notifier) deliver(notifCol *core.Collection, userID string, notif league.Notification, saveFailMsg string) {
+// deliver saves the in-app notification record for user and fires its push
+// (unless the user has push disabled in notification_prefs). saveFailMsg is
+// the slog message logged when the save fails, so callers keep a distinct
+// diagnostic per recipient class (player vs admin).
+func (n *Notifier) deliver(notifCol *core.Collection, user *core.Record, notif league.Notification, saveFailMsg string) {
 	rec := core.NewRecord(notifCol)
-	rec.Set("user", userID)
+	rec.Set("user", user.Id)
 	rec.Set("type", notif.Type)
 	rec.Set("title", notif.Title)
 	rec.Set("body", notif.Body)
@@ -96,9 +97,11 @@ func (n *Notifier) deliver(notifCol *core.Collection, userID string, notif leagu
 		rec.Set("link", link)
 	}
 	if err := n.save(rec); err != nil {
-		slog.Error(saveFailMsg, "user", userID, "err", err)
+		slog.Error(saveFailMsg, "user", user.Id, "err", err)
 	}
-	go n.sendPush(userID, notif.Title, notif.Body, link)
+	if PushChannelEnabled(user) {
+		go n.sendPush(user.Id, notif.Title, notif.Body, link)
+	}
 }
 
 func notificationEnabled(user *core.Record, notifType string) bool {
@@ -203,9 +206,33 @@ func (n *Notifier) deliverPush(sub *core.Record, payload []byte, subscriber stri
 	}
 }
 
+// EmailChannelEnabled reports whether user has the email channel enabled in
+// notification_prefs. Callers must separately check user.Verified() — the
+// channel toggle and verification status are independent gates.
+func EmailChannelEnabled(user *core.Record) bool {
+	return channelEnabled(user, "email")
+}
+
+// PushChannelEnabled reports whether user has the push channel enabled in
+// notification_prefs.
+func PushChannelEnabled(user *core.Record) bool {
+	return channelEnabled(user, "push")
+}
+
+func channelEnabled(user *core.Record, channel string) bool {
+	enabled, ok := NotificationPrefs(user)[channel]
+	if !ok {
+		return true
+	}
+	b, ok := enabled.(bool)
+	return !ok || b
+}
+
 // NotificationPrefs returns the user's notification preferences with defaults applied.
 func NotificationPrefs(user *core.Record) map[string]any {
 	defaults := map[string]any{
+		"email":          true,
+		"push":           true,
 		"quorum_request": true,
 		"dispute":        true,
 		"match_assigned": true,

@@ -235,6 +235,105 @@ func TestNotificationPrefsPageReflectsSavedPrefs(t *testing.T) {
 	s.Test(t)
 }
 
+func TestNotificationPrefsPage_EmailToggleDisabledWhenUnverified(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /profile/notifications disables the email toggle for an unverified user",
+		Method:          http.MethodGet,
+		URL:             "/profile/notifications",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{`name="email" class="toggle toggle-primary"`, "disabled"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupNotifRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Unverified User", "")
+		user.SetVerified(false)
+		require.NoError(tb, app.Save(user))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestNotificationPrefsPage_EmailToggleEnabledWhenVerified(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:     testAppFactory,
+		Name:               "GET /profile/notifications enables the email toggle for a verified user",
+		Method:             http.MethodGet,
+		URL:                "/profile/notifications",
+		ExpectedStatus:     200,
+		NotExpectedContent: []string{`name="email" class="toggle toggle-primary" checked disabled`},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupNotifRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Verified User", "")
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestNotificationPrefsSave_UnverifiedEmailTogglePreservesExistingValue(t *testing.T) {
+	t.Parallel()
+	var userID string
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /profile/notifications keeps email pref unchanged when user is unverified",
+		Method:          http.MethodPost,
+		URL:             "/profile/notifications",
+		Body:            strings.NewReader("general=on"),
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Liga Dale Fuerte"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupNotifRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Unverified Saver", "")
+		user.SetVerified(false)
+		user.Set("notification_prefs", map[string]any{"email": false})
+		require.NoError(tb, app.Save(user))
+		userID = user.Id
+		hdrs := authHeaders(tb, user)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		user, err := app.FindRecordById("users", userID)
+		require.NoError(tb, err)
+		prefs := notify.NotificationPrefs(user)
+		assert.Equal(tb, false, prefs["email"], "the omitted disabled field must not be silently flipped to true")
+	}
+	s.Test(t)
+}
+
+func TestNotificationPrefsSave_VerifiedUserCanToggleEmailOff(t *testing.T) {
+	t.Parallel()
+	var userID string
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /profile/notifications turns email off for a verified user who unchecks it",
+		Method:          http.MethodPost,
+		URL:             "/profile/notifications",
+		Body:            strings.NewReader("general=on"),
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Liga Dale Fuerte"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupNotifRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Verified Saver", "")
+		userID = user.Id
+		hdrs := authHeaders(tb, user)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		user, err := app.FindRecordById("users", userID)
+		require.NoError(tb, err)
+		prefs := notify.NotificationPrefs(user)
+		assert.Equal(tb, false, prefs["email"], "verified user's unchecked email box must be honored")
+	}
+	s.Test(t)
+}
+
 func TestPushSubscribeHTTPS(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

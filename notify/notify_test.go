@@ -218,6 +218,40 @@ func TestNotificationPrefs_WithPrefsSet(t *testing.T) {
 	assert.Equal(t, true, prefs["scheduling"])
 }
 
+func TestEmailChannelEnabled_DefaultsTrue(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	user := makeUser(t, app, "player")
+
+	assert.True(t, EmailChannelEnabled(user))
+}
+
+func TestEmailChannelEnabled_RespectsFalsePref(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	user := makeUser(t, app, "player")
+	user.Set("notification_prefs", map[string]any{"email": false})
+
+	assert.False(t, EmailChannelEnabled(user))
+}
+
+func TestPushChannelEnabled_DefaultsTrue(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	user := makeUser(t, app, "player")
+
+	assert.True(t, PushChannelEnabled(user))
+}
+
+func TestPushChannelEnabled_RespectsFalsePref(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	user := makeUser(t, app, "player")
+	user.Set("notification_prefs", map[string]any{"push": false})
+
+	assert.False(t, PushChannelEnabled(user))
+}
+
 // Regression: PocketBase returns a saved JSONField as types.JSONRaw, so a
 // stored preference has to survive the round-trip through the database.
 func TestNotificationPrefs_SurvivesRoundTrip(t *testing.T) {
@@ -255,7 +289,9 @@ func TestNotificationPrefs_MalformedFallsBackToDefaults(t *testing.T) {
 			prefs := NotificationPrefs(user)
 			assert.Equal(t, true, prefs["general"])
 			assert.Equal(t, true, prefs["match_progress"])
-			assert.Len(t, prefs, 6)
+			assert.Equal(t, true, prefs["email"])
+			assert.Equal(t, true, prefs["push"])
+			assert.Len(t, prefs, 8)
 		})
 	}
 }

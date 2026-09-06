@@ -145,6 +145,21 @@ func TestEmailNotifyPlayers_SkipsPlayerWithoutEmail(t *testing.T) {
 	assert.Equal(t, withEmail.Email(), app.TestMailer.LastMessage().To[0].Address)
 }
 
+func TestEmailNotifyPlayers_SkipsPlayerWithEmailChannelDisabled(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	enableSMTP(t, app)
+	enabled := makeUser(t, app, "player")
+	disabled := makeUser(t, app, "player")
+	disabled.Set("notification_prefs", map[string]any{"email": false})
+	require.NoError(t, app.Save(disabled))
+
+	NewNotifier(app, "", "").EmailPlayers([]string{disabled.Id, enabled.Id}, "Test", "Body", "")
+
+	require.Equal(t, 1, app.TestMailer.TotalSend())
+	assert.Equal(t, enabled.Email(), app.TestMailer.LastMessage().To[0].Address)
+}
+
 func TestMaskEmail_Boundaries(t *testing.T) {
 	t.Parallel()
 	for name, tc := range map[string]struct {
