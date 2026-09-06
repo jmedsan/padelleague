@@ -36,7 +36,7 @@ test.describe('mobile match lifecycle', () => {
     await page.waitForLoadState('networkidle');
     await page.goto(`/match/${matchId}`);
     await page.waitForSelector('#thread-details', { timeout: 5000 });
-    const acceptBtn = page.locator('#thread-details button:has-text("Confirmar")').first();
+    const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
     await acceptBtn.waitFor({ timeout: 5000 });
     await acceptBtn.click();
     await page.waitForLoadState('networkidle');
