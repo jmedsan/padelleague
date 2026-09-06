@@ -124,6 +124,9 @@ func wipeAll(txApp core.App, opts WipeOptions, summary *WipeSummary) error {
 }
 
 func wipeCompetitions(txApp core.App, summary *WipeSummary) error {
+	if err := wipeCollection(txApp, "competition_signups", new(int)); err != nil {
+		return err
+	}
 	if err := wipeCollection(txApp, "document_acks", new(int)); err != nil {
 		return err
 	}
@@ -151,6 +154,9 @@ func wipePlayers(txApp core.App, summary *WipeSummary) error {
 		return err
 	}
 	if err := wipeCollection(txApp, "push_subscriptions", &summary.Subscriptions); err != nil {
+		return err
+	}
+	if err := wipeCollection(txApp, "search_history", new(int)); err != nil {
 		return err
 	}
 	return wipeNonAdminUsers(txApp, &summary.Players)
