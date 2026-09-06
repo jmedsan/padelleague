@@ -54,7 +54,10 @@ test.describe('global search', () => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     const results = await openSearchAndType(page, testInfo, 'Configuración');
 
-    await expect(results.locator('a', { hasText: 'Configuración' })).toBeVisible({ timeout: 10000 });
+    // Exact match: a competition can legitimately be named with "configuración"
+    // in its own label (e.g. "... — configuración pendiente"), which also
+    // matches a loose hasText filter alongside the actual settings-page link.
+    await expect(results.getByRole('link', { name: 'Configuración', exact: true })).toBeVisible({ timeout: 10000 });
   });
 
   test('search result link resolves', async ({ page }, testInfo) => {
