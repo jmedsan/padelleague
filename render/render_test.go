@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/league"
 	_ "padelleague/migrations"
 )
 
@@ -36,8 +37,12 @@ func TestMain(m *testing.M) {
 }
 
 func makeEvent(auth *core.Record) (*core.RequestEvent, *httptest.ResponseRecorder) {
+	return makeEventForPath(auth, "/")
+}
+
+func makeEventForPath(auth *core.Record, path string) (*core.RequestEvent, *httptest.ResponseRecorder) {
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, path, nil)
 	e := &core.RequestEvent{
 		Auth: auth,
 	}
@@ -115,6 +120,43 @@ var competitionURLFS = fstest.MapFS{
 	"views/comp.html": &fstest.MapFile{
 		Data: []byte(`{{define "content"}}<a href="{{competitionURL .ID}}">go</a>{{end}}`),
 	},
+}
+
+func TestResolveFooter_AdminPath_NoCompetitionList(t *testing.T) {
+	t.Parallel()
+	e, _ := makeEventForPath(makeAdmin(), "/admin/invitations")
+	data := map[string]any{}
+
+	resolveFooter(e, data)
+
+	footer, ok := data["Footer"].(league.FooterData)
+	require.True(t, ok)
+	assert.Nil(t, footer.Active, "admin pages must not list active competitions in the footer")
+	assert.Nil(t, footer.Competition)
+}
+
+func TestResolveFooter_AdminPath_WithExplicitCompetition_ShowsCompetition(t *testing.T) {
+	t.Parallel()
+	col, err := testApp.FindCollectionByNameOrId("competitions")
+	require.NoError(t, err)
+	comp := core.NewRecord(col)
+	comp.Set("name", "Footer Admin Test Comp")
+	comp.Set("type", "league")
+	comp.Set("active", true)
+	require.NoError(t, testApp.Save(comp))
+
+	e, _ := makeEventForPath(makeAdmin(), "/admin/competitions/"+comp.Id)
+	data := map[string]any{"FooterCompetitionID": comp.Id}
+
+	resolveFooter(e, data)
+
+	// An explicit FooterCompetitionID (e.g. an admin viewing one competition's
+	// detail page) must still resolve that competition's identity, not fall
+	// into the sponsors-only admin path.
+	footer, ok := data["Footer"].(league.FooterData)
+	require.True(t, ok)
+	require.NotNil(t, footer.Competition, "explicit FooterCompetitionID must resolve the competition")
+	assert.Equal(t, comp.Id, footer.Competition.ID)
 }
 
 func TestCompetitionURL_Func(t *testing.T) {

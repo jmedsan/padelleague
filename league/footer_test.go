@@ -83,6 +83,35 @@ func TestFooterContext_NoCompID_ZeroActive_ReturnsEmpty(t *testing.T) {
 	assert.Equal(t, FooterData{}, fd)
 }
 
+func TestGlobalSponsorsOnlyFooter_IgnoresActiveCompetitions(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "FooterAdminA")
+	p2 := makePair(t, app, "FooterAdminB")
+	makeCompetition(t, app, []*core.Record{p1, p2})
+	global := makeSponsor(t, app, "Decathlon", "https://www.decathlon.es")
+	global.Set("is_global", true)
+	require.NoError(t, app.Save(global))
+	makeSponsor(t, app, "NonGlobal", "https://www.example.com")
+
+	fd := GlobalSponsorsOnlyFooter(app)
+
+	assert.Nil(t, fd.Competition)
+	assert.Nil(t, fd.Active, "admin footer must not list active competitions")
+	require.Len(t, fd.Sponsors, 1)
+	assert.Equal(t, "Decathlon", fd.Sponsors[0].Name)
+}
+
+func TestGlobalSponsorsOnlyFooter_NoGlobalSponsors_ReturnsEmpty(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	makeSponsor(t, app, "NonGlobal", "https://www.example.com")
+
+	fd := GlobalSponsorsOnlyFooter(app)
+
+	assert.Equal(t, FooterData{}, fd)
+}
+
 func TestBranding_OutOfContext_UsesLeagueDefaultsAndGlobalSponsorsOnly(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
