@@ -177,13 +177,12 @@ func TestNotificationPrefsSave(t *testing.T) {
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "POST /profile/notifications saves prefs",
-		Method:          http.MethodPost,
-		URL:             "/profile/notifications",
-		Body:            strings.NewReader("quorum_request=on&dispute=on"),
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"Liga Dale Fuerte"},
+		TestAppFactory: testAppFactory,
+		Name:           "POST /profile/notifications saves prefs",
+		Method:         http.MethodPost,
+		URL:            "/profile/notifications",
+		Body:           strings.NewReader("quorum_request=on&dispute=on"),
+		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupNotifRoutes(tb, app, e)
@@ -193,7 +192,8 @@ func TestNotificationPrefsSave(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/profile/notifications", res.Header.Get("HX-Redirect"))
 		user, err := app.FindRecordById("users", userID)
 		require.NoError(tb, err)
 		prefs := notify.NotificationPrefs(user)
@@ -277,13 +277,12 @@ func TestNotificationPrefsSave_UnverifiedEmailTogglePreservesExistingValue(t *te
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "POST /profile/notifications keeps email pref unchanged when user is unverified",
-		Method:          http.MethodPost,
-		URL:             "/profile/notifications",
-		Body:            strings.NewReader("general=on"),
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"Liga Dale Fuerte"},
+		TestAppFactory: testAppFactory,
+		Name:           "POST /profile/notifications keeps email pref unchanged when user is unverified",
+		Method:         http.MethodPost,
+		URL:            "/profile/notifications",
+		Body:           strings.NewReader("general=on"),
+		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupNotifRoutes(tb, app, e)
@@ -309,13 +308,12 @@ func TestNotificationPrefsSave_VerifiedUserCanToggleEmailOff(t *testing.T) {
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "POST /profile/notifications turns email off for a verified user who unchecks it",
-		Method:          http.MethodPost,
-		URL:             "/profile/notifications",
-		Body:            strings.NewReader("general=on"),
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"Liga Dale Fuerte"},
+		TestAppFactory: testAppFactory,
+		Name:           "POST /profile/notifications turns email off for a verified user who unchecks it",
+		Method:         http.MethodPost,
+		URL:            "/profile/notifications",
+		Body:           strings.NewReader("general=on"),
+		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupNotifRoutes(tb, app, e)
