@@ -36,7 +36,7 @@ func (h *AdminPlayerHandler) Players(e *core.RequestEvent) error {
 		"status = 'pending'", "", 0, 0, nil)
 
 	return h.renderPage(e, "admin/players.html", map[string]any{
-		"PageTitle":      "Jugadores",
+		"PageTitle":      "Usuarios",
 		"Players":        players,
 		"PendingInvites": len(pendingInvites),
 		"Mode":           AdminSummary,
@@ -223,12 +223,8 @@ func buildOnboardingEmail(email, resetURL string) string {
 <p><a href="%s">Establecer contraseña</a></p>`, html.EscapeString(email), html.EscapeString(resetURL))
 }
 
-func buildInviteEmail(registerURL, compName string) string {
-	comp := ""
-	if compName != "" {
-		comp = fmt.Sprintf(" a <strong>%s</strong>", html.EscapeString(compName))
-	}
-	return fmt.Sprintf(`<p>Has sido invitado a unirte%s en Liga Dale Fuerte.</p>
+func buildInviteEmail(registerURL string) string {
+	return fmt.Sprintf(`<p>Has sido invitado a unirte a Liga Dale Fuerte.</p>
 <p>Regístrate con el siguiente enlace:</p>
-<p><a href="%s">Registrarse</a></p>`, comp, html.EscapeString(registerURL))
+<p><a href="%s">Registrarse</a></p>`, html.EscapeString(registerURL))
 }

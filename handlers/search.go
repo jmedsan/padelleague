@@ -146,7 +146,7 @@ func quickNav(authID string, isAdmin bool) []navLink {
 			navLink{"Disputas", "/admin/disputes"},
 			navLink{"Salud", "/admin/health"},
 			navLink{"Parejas", "/admin/pairs"},
-			navLink{"Jugadores", "/admin/players"},
+			navLink{"Usuarios", "/admin/players"},
 			navLink{"Sedes", "/admin/venues"},
 			navLink{"Ajustes", "/admin/settings"},
 		)
