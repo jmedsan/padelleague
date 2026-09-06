@@ -34,6 +34,17 @@ test.describe('global search', () => {
     });
   });
 
+  test('type badge does not repeat per row — group heading is the only type label', async ({ page }, testInfo) => {
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    const results = await openSearchAndType(page, testInfo, 'clasif');
+
+    const row = results.locator('a', { hasText: 'Clasificación' });
+    await expect(row).toBeVisible({ timeout: 10000 });
+    // The group heading above already names the type; the row itself must
+    // carry no separate type badge.
+    await expect(row.locator('.badge')).toHaveCount(0);
+  });
+
   test('accent-folded search matches', async ({ page }, testInfo) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     const results = await openSearchAndType(page, testInfo, 'notificacion');
