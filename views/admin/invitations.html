@@ -19,14 +19,12 @@
                     <th>Nota</th>
                     <th>Estado</th>
                     <th>Usos</th>
-                    <th>Competición</th>
                     <th class="hidden xl:table-cell">Creada</th>
                     <th></th>
                 </tr>
             </thead>
             <tbody>
                 {{range .Invitations}}
-                {{$compID := .GetString "competition"}}
                 <tr class="hover">
                     <td class="text-sm">
                         {{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="badge badge-info badge-sm">Enlace genérico</span>{{end}}
@@ -43,9 +41,6 @@
                     </td>
                     <td class="text-sm">
                         {{.GetString "use_count"}}/{{if and (.GetString "max_uses") (ne (.GetString "max_uses") "0")}}{{.GetString "max_uses"}}{{else}}1{{end}}
-                    </td>
-                    <td class="text-sm opacity-70">
-                        {{if $compID}}{{index $.CompNames $compID}}{{else}}<span class="opacity-50 italic">Sin competición</span>{{end}}
                     </td>
                     <td class="hidden xl:table-cell text-sm opacity-60">{{fmtDate (.GetString "created")}}</td>
                     <td class="flex flex-wrap gap-1 justify-end">
@@ -67,7 +62,6 @@
     </div>
     <div class="lg:hidden divide-y divide-base-300">
         {{range .Invitations}}
-        {{$compID := .GetString "competition"}}
         <div class="p-3 flex flex-col gap-2">
             <div class="flex justify-between items-start gap-2">
                 <span class="text-sm font-medium">{{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="badge badge-info badge-sm">Enlace genérico</span>{{end}}</span>
@@ -82,7 +76,6 @@
             {{if .GetString "admin_note"}}<p class="text-sm opacity-70">{{.GetString "admin_note"}}</p>{{end}}
             <p class="text-sm opacity-60">
                 {{.GetString "use_count"}}/{{if and (.GetString "max_uses") (ne (.GetString "max_uses") "0")}}{{.GetString "max_uses"}}{{else}}1{{end}} usos
-                · {{if $compID}}{{index $.CompNames $compID}}{{else}}Sin competición{{end}}
                 · {{fmtDate (.GetString "created")}}
             </p>
             {{if eq (.GetString "status") "pending"}}
@@ -118,15 +111,6 @@
             <div class="form-control w-full mt-3">
                 <label class="label" for="invite-note"><span class="label-text font-medium">Nota interna (opcional)</span></label>
                 <textarea name="admin_note" id="invite-note" class="textarea textarea-bordered w-full" maxlength="500" rows="2" placeholder="Para uso interno del admin"></textarea>
-            </div>
-            <div class="form-control w-full mt-3">
-                <label class="label" for="invite-competition"><span class="label-text font-medium">Competición (opcional)</span></label>
-                <select name="competition" id="invite-competition" class="select select-bordered w-full">
-                    <option value="">Sin competición</option>
-                    {{range .Competitions}}
-                    <option value="{{.Id}}">{{.GetString "name"}}</option>
-                    {{end}}
-                </select>
             </div>
             <div id="generic-fields">
                 <div class="form-control w-full mt-3">

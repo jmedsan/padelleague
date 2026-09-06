@@ -239,9 +239,7 @@ async function addPairToCompetition(page: Page, compId: string, pairId: string, 
     await page.fill('input[name="seed"]', String(seed));
   }
   // AddPair returns redirectHX (204 → window.location); await the redirect so it
-  // does not race the next navigation. Scoped to section-add-pairs: the page
-  // also has an "Inscritos sin pareja" section with its own "Añadir jugador"
-  // and modal "Añadir" buttons, so an unscoped text match is ambiguous.
+  // does not race the next navigation.
   await clickAndWaitForHxRedirect(page, page.getByTestId('section-add-pairs').locator('button:has-text("Añadir")'));
 }
 

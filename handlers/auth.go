@@ -153,7 +153,6 @@ func (h *AuthHandler) parseRegistrationForm(e *core.RequestEvent) (registerParam
 	return registerParams{
 		inviteID:    invite.Id,
 		inviteEmail: invite.GetString("email"),
-		compHint:    invite.GetString("competition"),
 		adminNote:   invite.GetString("admin_note"),
 		email:       e.Request.FormValue("email"),
 		displayName: e.Request.FormValue("display_name"),
@@ -188,7 +187,7 @@ func (h *AuthHandler) validateInviteToken(token, email string) (*core.Record, st
 }
 
 type registerParams struct {
-	inviteID, inviteEmail, compHint, adminNote        string
+	inviteID, inviteEmail, adminNote                  string
 	email, displayName, password, gender, phone, note string
 }
 
@@ -236,9 +235,6 @@ func (h *AuthHandler) createUserInTx(p registerParams, verified bool) (*core.Rec
 		if err := consumeInvite(txApp, p.inviteID, userRecord.Id); err != nil {
 			return err
 		}
-		if p.compHint != "" {
-			createSignup(txApp, p.compHint, userRecord.Id, "invite")
-		}
 
 		authToken, err = userRecord.NewAuthToken()
 		return err
@@ -269,22 +265,6 @@ func consumeInvite(txApp core.App, inviteID, userID string) error {
 		freshInvite.Set("status", "used")
 	}
 	return txApp.Save(freshInvite)
-}
-
-func createSignup(txApp core.App, compID, userID, source string) {
-	col, err := txApp.FindCollectionByNameOrId("competition_signups")
-	if err != nil {
-		slog.Error("signup collection not found", "err", err)
-		return
-	}
-	rec := core.NewRecord(col)
-	rec.Set("competition", compID)
-	rec.Set("user", userID)
-	rec.Set("status", "pending")
-	rec.Set("source", source)
-	if err := txApp.Save(rec); err != nil {
-		slog.Error("create signup failed", "competition", compID, "user", userID, "err", err)
-	}
 }
 
 // ProfileComplete renders the display-name form for new users.

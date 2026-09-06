@@ -22,13 +22,11 @@ func findLatestInvitation(tb testing.TB, app *tests.TestApp) *core.Record {
 	return invites[0]
 }
 
-// Creating invitation without competition → allowed, invitations are global
-
-func TestInvitationWithoutCompetitionAllowed(t *testing.T) {
+func TestInvitationAllowed(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "POST /admin/invitations without competition is allowed",
+		Name:           "POST /admin/invitations is allowed",
 		Method:         http.MethodPost,
 		URL:            "/admin/invitations",
 		ExpectedStatus: 204,
@@ -43,7 +41,7 @@ func TestInvitationWithoutCompetitionAllowed(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		inv := findLatestInvitation(tb, app)
-		assert.Empty(tb, inv.GetString("competition"), "invitation should have no competition")
+		assert.Equal(tb, "test@test.com", inv.GetString("email"))
 	}
 	s.Test(t)
 }
@@ -88,8 +86,7 @@ func TestInvitationLinkMaxUses5(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
-		s.Body = strings.NewReader("max_uses=5&competition=" + comp.Id)
+		s.Body = strings.NewReader("max_uses=5")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -116,8 +113,7 @@ func TestInvitationLinkMaxUses0Rejected(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
-		s.Body = strings.NewReader("max_uses=0&competition=" + comp.Id)
+		s.Body = strings.NewReader("max_uses=0")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -145,8 +141,7 @@ func TestInvitationLinkMaxUsesNegativeRejected(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
-		s.Body = strings.NewReader("max_uses=-3&competition=" + comp.Id)
+		s.Body = strings.NewReader("max_uses=-3")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -174,8 +169,7 @@ func TestInvitationLinkMaxUsesNonNumericRejected(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
-		s.Body = strings.NewReader("max_uses=abc&competition=" + comp.Id)
+		s.Body = strings.NewReader("max_uses=abc")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -202,8 +196,7 @@ func TestInvitationEmailHonorsMaxUses(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
-		s.Body = strings.NewReader("email=someone@test.com&max_uses=10&competition=" + comp.Id)
+		s.Body = strings.NewReader("email=someone@test.com&max_uses=10")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -232,8 +225,7 @@ func TestInvitationExpiration3Days(t *testing.T) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		beforeCreate = time.Now()
-		comp := makeCompetitionTB(tb, app, "league", nil)
-		s.Body = strings.NewReader("email=exp3@test.com&expiration_days=3&competition=" + comp.Id)
+		s.Body = strings.NewReader("email=exp3@test.com&expiration_days=3")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -266,8 +258,7 @@ func TestInvitationExpiration0Rejected(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
-		s.Body = strings.NewReader("email=exp0@test.com&expiration_days=0&competition=" + comp.Id)
+		s.Body = strings.NewReader("email=exp0@test.com&expiration_days=0")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -295,8 +286,7 @@ func TestInvitationExpirationNegativeRejected(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
-		s.Body = strings.NewReader("email=expneg@test.com&expiration_days=-5&competition=" + comp.Id)
+		s.Body = strings.NewReader("email=expneg@test.com&expiration_days=-5")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -324,8 +314,7 @@ func TestInvitationExpirationNonNumericRejected(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
-		s.Body = strings.NewReader("email=expbad@test.com&expiration_days=abc&competition=" + comp.Id)
+		s.Body = strings.NewReader("email=expbad@test.com&expiration_days=abc")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -353,8 +342,7 @@ func TestInvitationInvalidEmailRejected(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
-		s.Body = strings.NewReader("email=not-an-email&competition=" + comp.Id)
+		s.Body = strings.NewReader("email=not-an-email")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -383,8 +371,7 @@ func TestInvitationExpirationDefault7Days(t *testing.T) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		beforeCreate = time.Now()
-		comp := makeCompetitionTB(tb, app, "league", nil)
-		s.Body = strings.NewReader("email=expdef@test.com&competition=" + comp.Id)
+		s.Body = strings.NewReader("email=expdef@test.com")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -439,8 +426,7 @@ func TestInvitationEmailSendsOnboardingEmail(t *testing.T) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		enableSMTP(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
-		s.Body = strings.NewReader("email=newplayer@test.com&competition=" + comp.Id)
+		s.Body = strings.NewReader("email=newplayer@test.com")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -468,8 +454,7 @@ func TestInvitationLinkNoEmailNoEmail(t *testing.T) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		enableSMTP(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
-		s.Body = strings.NewReader("max_uses=5&competition=" + comp.Id)
+		s.Body = strings.NewReader("max_uses=5")
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
