@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -99,17 +100,25 @@ func registerStaticRoutes(se *core.ServeEvent, deps Deps) {
 }
 
 func registerAuthRoutes(se *core.ServeEvent, deps Deps, auth *handlers.AuthHandler) {
+	loginLimiter := middleware.NewRateLimiter(10, 5*time.Minute)
+	forgotPasswordLimiter := middleware.NewRateLimiter(3, 10*time.Minute)
+	resendVerificationLimiter := middleware.NewRateLimiter(5, 10*time.Minute)
+	tooManyAttempts := "Demasiados intentos. Inténtalo en unos minutos."
+
 	se.Router.GET("/login", auth.Login)
-	se.Router.POST("/login", auth.LoginSubmit)
+	se.Router.POST("/login", auth.LoginSubmit).
+		BindFunc(middleware.LimitByClientIP(loginLimiter, tooManyAttempts))
 	se.Router.GET("/register", auth.Register)
 	se.Router.POST("/register", auth.RegisterSubmit)
 	se.Router.POST("/logout", auth.Logout)
 	se.Router.GET("/verify", auth.VerifyEmail)
-	se.Router.POST("/resend-verification", auth.ResendVerification)
+	se.Router.POST("/resend-verification", auth.ResendVerification).
+		BindFunc(middleware.LimitByClientIP(resendVerificationLimiter, tooManyAttempts))
 
 	pwReset := handlers.NewPasswordResetHandler(deps.App, deps.Renderer.Page)
 	se.Router.GET("/forgot-password", pwReset.ForgotPassword)
-	se.Router.POST("/forgot-password", pwReset.ForgotPasswordSubmit)
+	se.Router.POST("/forgot-password", pwReset.ForgotPasswordSubmit).
+		BindFunc(middleware.LimitByClientIP(forgotPasswordLimiter, tooManyAttempts))
 	se.Router.GET("/reset-password", pwReset.ResetPassword)
 	se.Router.POST("/reset-password", pwReset.ResetPasswordSubmit)
 }
