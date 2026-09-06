@@ -179,7 +179,7 @@ export async function submitScore(page: Page, score: string): Promise<void> {
 
 export async function confirmScore(page: Page): Promise<void> {
   await page.waitForSelector('#thread-details', { timeout: 15000 });
-  const acceptBtn = page.locator('#thread-details button:has-text("Confirmar")').first();
+  const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
   await acceptBtn.waitFor({ timeout: 10000 });
   await clickAndWaitForHxRedirect(page, acceptBtn);
 }
