@@ -48,11 +48,32 @@ func TestRegisterBackup_OAuthToken_RegistersHourlyCron(t *testing.T) {
 	for _, j := range jobs {
 		if j.Id() == "gdrive-backup" {
 			found = true
-			assert.Equal(t, "0 * * * *", j.Expression())
+			assert.Equal(t, "0 * * * *", j.Expression(), "zero IntervalMin defaults to hourly")
 			break
 		}
 	}
 	assert.True(t, found, "gdrive-backup cron job must be registered when an OAuth token is configured")
+}
+
+func TestBackupCronExpr(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name        string
+		intervalMin int
+		want        string
+	}{
+		{"zero defaults to hourly", 0, "0 * * * *"},
+		{"negative defaults to hourly", -5, "0 * * * *"},
+		{"sub-hour interval runs every N minutes", 15, "*/15 * * * *"},
+		{"exactly 60 runs hourly", 60, "0 * * * *"},
+		{"multi-hour interval", 180, "0 */3 * * *"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, backupCronExpr(tc.intervalMin))
+		})
+	}
 }
 
 func TestRegisterBackup_WritesRcloneConfig(t *testing.T) {
