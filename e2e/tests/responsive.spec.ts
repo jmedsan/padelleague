@@ -226,14 +226,18 @@ test.describe('responsive - no horizontal overflow', () => {
     // R-review: Usos/Expira/Enlace/Revocar columns are off-screen at 390px,
     // hiding the page's main action (Copiar). Below sm, a card per invitation
     // must keep "Copiar" reachable without a sideways scroll.
+    const invEmail = `resp-mobile-${Date.now()}@example.com`;
     await page.locator('button:has-text("Nueva invitación")').click();
-    await page.locator('#modal-create-invite input[name="email"]').fill(`resp-mobile-${Date.now()}@example.com`);
+    await page.locator('#modal-create-invite input[name="email"]').fill(invEmail);
     await page.locator('#modal-create-invite button[type="submit"]').click();
     await page.waitForLoadState('networkidle');
 
     const table = page.locator('table').filter({ hasText: 'Destinatario' });
     await expect(table).toBeHidden();
-    const card = page.locator('.sm\\:hidden.divide-y > div').first();
+    // Scoped by the invite's own email: the page also has an "Inscritos sin
+    // pareja" section with its own .sm:hidden.divide-y card list, so an
+    // unscoped `.first()` can match the wrong section.
+    const card = page.locator('.sm\\:hidden.divide-y > div').filter({ hasText: invEmail });
     await expect(card).toBeVisible();
     await expect(card.getByText('Copiar')).toBeVisible();
   });
