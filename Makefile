@@ -89,7 +89,7 @@ invariants:
 	if [ "$$fail" != "0" ]; then exit 1; fi; \
 	echo "invariants hold"
 
-ci: fmt-check lint dead invariants test vuln
+ci: fmt-check lint dead css invariants test vuln
 	@echo "CI gate passed"
 
 # Push notification error paths. Needs system Chrome with the Push API and a
