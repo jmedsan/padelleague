@@ -2,10 +2,9 @@ package handlers
 
 import (
 	"net/http"
+	"path/filepath"
 
 	"github.com/pocketbase/pocketbase/core"
-
-	"padelleague/league"
 )
 
 // LogoHandler serves logo files at predictable URLs so email clients
@@ -37,7 +36,7 @@ func (h *LogoHandler) CompetitionLogo(e *core.RequestEvent) error {
 	if filename == "" {
 		return e.JSON(http.StatusNotFound, map[string]string{"error": "no logo"})
 	}
-	return h.redirect(e, league.PBFileURL("competitions", rec.Id, filename))
+	return h.serveRecordFile(e, rec, filename)
 }
 
 // SponsorLogo serves a sponsor's logo.
@@ -51,7 +50,7 @@ func (h *LogoHandler) SponsorLogo(e *core.RequestEvent) error {
 	if filename == "" {
 		return e.JSON(http.StatusNotFound, map[string]string{"error": "no logo"})
 	}
-	return h.redirect(e, league.PBFileURL("sponsors", rec.Id, filename))
+	return h.serveRecordFile(e, rec, filename)
 }
 
 func (h *LogoHandler) serveFile(e *core.RequestEvent, collection string, getFilename func(*core.Record) string) error {
@@ -63,9 +62,32 @@ func (h *LogoHandler) serveFile(e *core.RequestEvent, collection string, getFile
 	if filename == "" {
 		return e.JSON(http.StatusNotFound, map[string]string{"error": "no logo"})
 	}
-	return h.redirect(e, league.PBFileURL("app_settings", records[0].Id, filename))
+	return h.serveRecordFile(e, records[0], filename)
 }
 
-func (h *LogoHandler) redirect(e *core.RequestEvent, path string) error {
-	return e.Redirect(http.StatusFound, path)
+func (h *LogoHandler) serveRecordFile(e *core.RequestEvent, rec *core.Record, filename string) error {
+	fsys, err := h.app.NewFilesystem()
+	if err != nil {
+		return e.JSON(http.StatusInternalServerError, map[string]string{"error": "filesystem error"})
+	}
+	defer fsys.Close()
+
+	key := filepath.Join(rec.Collection().Id, rec.Id, filename)
+	blob, err := fsys.GetFile(key)
+	if err != nil {
+		return e.JSON(http.StatusNotFound, map[string]string{"error": "file not found"})
+	}
+	defer blob.Close()
+
+	contentType := "image/jpeg"
+	switch filepath.Ext(filename) {
+	case ".png":
+		contentType = "image/png"
+	case ".webp":
+		contentType = "image/webp"
+	case ".svg":
+		contentType = "image/svg+xml"
+	}
+	e.Response.Header().Set("Cache-Control", "public, max-age=86400")
+	return e.Stream(http.StatusOK, contentType, blob)
 }
