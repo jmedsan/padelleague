@@ -6,7 +6,11 @@
     <form hx-post="/admin/competitions/{{.CompetitionID}}/penalty" hx-confirm="¿Quitar esta penalización?" data-confirm-danger data-confirm-ok="Quitar" class="inline">
         <input type="hidden" name="action" value="remove">
         <input type="hidden" name="penalty_id" value="{{.Penalty.ID}}">
-        <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs btn-circle opacity-50" aria-label="quitar penalización">&#10005;</button>
+        <span class="tooltip tooltip-left" data-tip="Quitar">
+            <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs btn-circle opacity-50 text-error" aria-label="Quitar">
+                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+            </button>
+        </span>
     </form>
 </div>
 {{end}}

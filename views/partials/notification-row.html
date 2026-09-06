@@ -11,8 +11,12 @@
         <p class="text-xs text-base-content/50">{{.}}</p>
         {{end}}
     </a>
-    <button hx-post="/notifications/{{.Record.Id}}/dismiss" hx-target="#notif-row-{{.Record.Id}}" hx-swap="delete" hx-disabled-elt="this"
-            class="btn btn-ghost btn-xs btn-circle opacity-50 hover:opacity-100" aria-label="marcar leída">&#10005;</button>
+    <span class="tooltip tooltip-left" data-tip="Descartar">
+        <button hx-post="/notifications/{{.Record.Id}}/dismiss" hx-target="#notif-row-{{.Record.Id}}" hx-swap="delete" hx-disabled-elt="this"
+                class="btn btn-ghost btn-xs btn-circle opacity-50 hover:opacity-100" aria-label="Descartar">
+            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+        </button>
+    </span>
 </div>
 {{else}}
 <a href="{{.Link}}" hx-post="/notifications/{{.Record.Id}}/read" hx-swap="none"
