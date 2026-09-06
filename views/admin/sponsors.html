@@ -24,7 +24,7 @@
         </div>
         <div class="flex items-center gap-1 flex-none">
             <button class="btn btn-ghost btn-xs sm:btn-sm" onclick="document.getElementById('modal-edit-sponsor-{{.Id}}').showModal()">Editar</button>
-            <form hx-post="/admin/sponsors/{{.Id}}/delete" hx-confirm="¿Eliminar este patrocinador?">
+            <form hx-post="/admin/sponsors/{{.Id}}/delete" hx-confirm="¿Eliminar este patrocinador?" data-confirm-danger data-confirm-ok="Eliminar">
                 <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs sm:btn-sm text-error">Eliminar</button>
             </form>
         </div>

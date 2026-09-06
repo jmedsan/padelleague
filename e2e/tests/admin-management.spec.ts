@@ -99,7 +99,7 @@ test.describe('admin management', () => {
       mimeType: 'image/jpeg',
       buffer: logoJpeg,
     });
-    await expect(page.locator('img[src*="/api/files/competitions/"]').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('img[src*="/logo/competition/"]').first()).toBeVisible({ timeout: 10000 });
 
     // Create an invitation and read its register link straight off the
     // "Copiar" button's onclick attribute (copyInviteLink(token, this)) —
@@ -131,7 +131,7 @@ test.describe('admin management', () => {
     // Scoped to main: the site footer now also renders this competition's
     // logo (single active competition, out-of-context promotion), so the
     // unscoped selector matches both and violates Playwright's strict mode.
-    await expect(page.locator('main img[src*="/api/files/competitions/"]')).toBeVisible();
+    await expect(page.locator('main img[src*="/logo/competition/"]')).toBeVisible();
   });
 
   test('admin can create venue', async ({ page }) => {

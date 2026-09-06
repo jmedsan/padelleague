@@ -170,7 +170,7 @@ test.describe('reference navigation tour', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // Before upload: no logo image anywhere in the header (red state).
-    await expect(page.locator('img[src*="/api/files/competitions/"]')).toHaveCount(0);
+    await expect(page.locator('img[src*="/logo/competition/"]')).toHaveCount(0);
 
     // Admin uploads a competition logo via the edit modal (4x4 red JPEG,
     // built in-memory — same approach as the avatar upload test, no fixture
@@ -191,7 +191,7 @@ test.describe('reference navigation tour', () => {
     // directly instead of an intermediate load-state signal.
 
     // After upload: the competition header shows the logo image (green state).
-    await expect(page.locator('img[src*="/api/files/competitions/"]').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('img[src*="/logo/competition/"]').first()).toBeVisible({ timeout: 10000 });
 
     for (const pairId of pairIds) {
       await addPairToCompetition(page, pairId);
@@ -287,7 +287,7 @@ test.describe('reference navigation tour', () => {
     await expect(upcomingRow.locator(`[title*="${scheduleDateDisplay}"]`)).toBeVisible();
     // The competition logo uploaded above must also render on the player's
     // home upcoming-match card, not just the admin competition header.
-    await expect(upcomingRow.locator('img[src*="/api/files/competitions/"]')).toBeVisible();
+    await expect(upcomingRow.locator('img[src*="/logo/competition/"]')).toBeVisible();
     await upcomingRow.click();
     await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain(`/match/${scheduledFixture.id}`);
