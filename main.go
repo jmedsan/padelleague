@@ -48,9 +48,8 @@ func main() {
 		Notifier:    notifier,
 		SearchIndex: searchIndex,
 		Backup: hooks.BackupConfig{
-			ServiceAccountJSON: cfg.GDriveServiceAccount,
-			DriveToken:         cfg.RCloneDriveToken,
-			FolderID:           cfg.GDriveFolderID,
+			DriveToken: cfg.RCloneDriveToken,
+			FolderID:   cfg.GDriveFolderID,
 		},
 		SMTP: hooks.SMTPConfig{
 			Host:       cfg.SMTPHost,
