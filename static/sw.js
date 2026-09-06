@@ -62,8 +62,8 @@ self.addEventListener('push', function(event) {
     event.waitUntil(
         self.registration.showNotification(data.title || 'Dale Fuerte a la Bola', {
             body: data.body || '',
-            icon: '/static/img/icon-192.png',
-            badge: '/static/img/icon-192.png',
+            icon: '/logo/league',
+            badge: '/logo/league',
             data: { url: data.url || '/' }
         })
     );
