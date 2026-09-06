@@ -26,14 +26,9 @@
                     <label class="label cursor-pointer">
                         <span class="label-text">Notificaciones push</span>
                         <input type="checkbox" id="push-toggle" name="push" class="toggle toggle-primary"
-                            {{if index .Prefs "push"}}checked{{end}}
-                            {{if not .HasPushSub}}disabled{{end}}>
+                            {{if index .Prefs "push"}}checked{{end}}>
                     </label>
-                    {{if .HasPushSub}}
-                    <span class="label-text-alt text-base-content/60">Recibe notificaciones en tu dispositivo</span>
-                    {{else}}
-                    <span class="label-text-alt text-warning">Activa las notificaciones push en tu dispositivo para usar esta opción</span>
-                    {{end}}
+                    <span id="push-hint" class="label-text-alt text-base-content/60">{{if .HasPushSub}}Recibe notificaciones en tu dispositivo{{else}}Activa el interruptor para recibir notificaciones push{{end}}</span>
                 </div>
                 {{end}}
                 <div class="divider my-1"></div>

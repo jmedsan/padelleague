@@ -13,6 +13,7 @@
     <link rel="manifest" href="/manifest.json">
     <link rel="icon" href="/static/img/icon-192.png" type="image/png">
     <meta name="theme-color" content="#0B0B0B">
+    {{if .VAPIDPublicKey}}<script>window.VAPID_PUBLIC_KEY = '{{.VAPIDPublicKey}}';</script>{{end}}
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/confirm.js" defer></script>
     <script src="/static/js/score-input.js"></script>
@@ -245,9 +246,6 @@
             </div>
         </div>
     </div>
-{{if .VAPIDPublicKey}}
-<script>window.VAPID_PUBLIC_KEY = '{{.VAPIDPublicKey}}';</script>
-{{end}}
 <script>
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js');
