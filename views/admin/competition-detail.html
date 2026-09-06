@@ -451,6 +451,99 @@
     </div>
 </div>
 
+<!-- Inscritos sin pareja -->
+<div class="card bg-base-100 shadow mb-6" data-testid="section-signups">
+    <div class="card-body">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="card-title text-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                Inscritos sin pareja
+                <span class="badge badge-neutral badge-sm">{{len .PendingSignups}}</span>
+            </h2>
+            <button class="btn btn-primary btn-sm" onclick="document.getElementById('modal-add-signup').showModal()">Añadir jugador</button>
+        </div>
+
+        {{if .PendingSignups}}
+        <div id="pair-signups-result" class="mb-2" aria-live="polite"></div>
+        <form hx-post="/admin/competitions/{{.Competition.Id}}/signups/pair" hx-target="#pair-signups-result">
+        <div class="hidden sm:block overflow-x-auto">
+            <table class="table table-zebra">
+                <thead>
+                    <tr>
+                        <th class="w-8"></th>
+                        <th>Jugador</th>
+                        <th>Teléfono</th>
+                        <th>Origen</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .PendingSignups}}
+                    <tr class="hover">
+                        <td><input type="checkbox" name="signup" value="{{.Record.Id}}" class="checkbox checkbox-sm"></td>
+                        <td>{{.Name}}</td>
+                        <td class="text-sm">
+                            {{if .Phone}}
+                            {{fmtPhone .Phone}}
+                            <a href="{{whatsappURL .Phone}}" target="_blank" rel="noopener" class="link link-hover ml-1" title="WhatsApp" aria-label="Contactar por WhatsApp">
+                                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" viewBox="0 0 24 24" class="h-4 w-4 inline fill-success"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.075-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12.05 0C5.495 0 .16 5.335.16 11.89c0 2.096.547 4.142 1.588 5.945L0 24l6.31-1.658a11.86 11.86 0 005.74 1.462h.005c6.554 0 11.89-5.335 11.89-11.89C23.945 5.335 18.61 0 12.05 0zm0 21.657h-.004a9.786 9.786 0 01-4.987-1.365l-.358-.213-3.744.982.999-3.65-.233-.375a9.756 9.756 0 01-1.494-5.146c0-5.394 4.39-9.784 9.79-9.784 2.615 0 5.075 1.018 6.923 2.868 1.849 1.85 2.868 4.31 2.868 6.923 0 5.395-4.39 9.76-9.76 9.76z"/></svg>
+                            </a>
+                            {{else}}<span class="opacity-50 italic text-xs">Sin teléfono</span>{{end}}
+                        </td>
+                        <td class="text-sm opacity-60">
+                            {{if eq .Source "invite"}}Invitación{{else if eq .Source "admin"}}Admin{{else}}Registro{{end}}
+                        </td>
+                        <td>
+                            <button type="button" hx-post="/admin/competitions/{{$.Competition.Id}}/signups/{{.Record.Id}}/reject" hx-confirm="¿Rechazar esta inscripción?" hx-disabled-elt="this" class="btn btn-ghost btn-xs text-error">Rechazar</button>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        <div class="sm:hidden divide-y divide-base-300">
+            {{range .PendingSignups}}
+            <div class="py-3 flex flex-col gap-2">
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" name="signup" value="{{.Record.Id}}" class="checkbox checkbox-sm">
+                    <span class="text-sm font-medium">{{.Name}}</span>
+                </div>
+                <p class="text-sm opacity-60">
+                    {{if .Phone}}{{fmtPhone .Phone}} · <a href="{{whatsappURL .Phone}}" target="_blank" rel="noopener" class="link link-hover">WhatsApp</a>{{else}}Sin teléfono{{end}}
+                    · {{if eq .Source "invite"}}Invitación{{else if eq .Source "admin"}}Admin{{else}}Registro{{end}}
+                </p>
+                <button type="button" hx-post="/admin/competitions/{{$.Competition.Id}}/signups/{{.Record.Id}}/reject" hx-confirm="¿Rechazar esta inscripción?" hx-disabled-elt="this" class="btn btn-outline btn-sm text-error self-start">Rechazar</button>
+            </div>
+            {{end}}
+        </div>
+        <button type="submit" hx-disabled-elt="this" class="btn btn-secondary btn-sm mt-3">Formar pareja</button>
+        </form>
+        {{else}}
+        {{template "emptyState" "No hay inscritos sin pareja"}}
+        {{end}}
+    </div>
+</div>
+
+<dialog id="modal-add-signup" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box">
+        <form method="dialog"><button class="btn btn-ghost btn-sm btn-circle absolute right-2 top-2" aria-label="cerrar">&times;</button></form>
+        <h3 class="text-lg font-bold mb-4">Añadir jugador a inscritos</h3>
+        <div id="add-signup-error" class="mb-2" aria-live="polite"></div>
+        <form hx-post="/admin/competitions/{{.Competition.Id}}/signups" hx-target="#add-signup-error">
+            <select name="user" aria-label="Jugador" class="select select-bordered w-full" required>
+                <option value="">Seleccionar jugador…</option>
+                {{range .UnsignedUpPlayers}}
+                <option value="{{.Id}}">{{.GetString "display_name"}}</option>
+                {{end}}
+            </select>
+            <div class="modal-action">
+                <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Añadir</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>cerrar</button></form>
+</dialog>
+
 <!-- Invitaciones -->
 <div class="card bg-base-100 shadow mb-6">
     <div class="card-body">

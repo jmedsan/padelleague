@@ -1,0 +1,169 @@
+{{define "content"}}
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl font-bold">Invitaciones</h1>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="document.getElementById('modal-create-invite').showModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+        Nueva invitación
+    </button>
+</div>
+
+<div class="card bg-base-100 shadow-sm border border-base-300">
+    {{if .Invitations}}
+    <div class="hidden lg:block overflow-x-auto">
+        <table class="table table-zebra">
+            <thead>
+                <tr>
+                    <th>Destinatario</th>
+                    <th>Nota</th>
+                    <th>Estado</th>
+                    <th>Usos</th>
+                    <th>Competición</th>
+                    <th class="hidden xl:table-cell">Creada</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Invitations}}
+                {{$compID := .GetString "competition"}}
+                <tr class="hover">
+                    <td class="text-sm">
+                        {{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="badge badge-info badge-sm">Enlace genérico</span>{{end}}
+                    </td>
+                    <td class="text-sm opacity-70 max-w-[16rem] truncate">{{.GetString "admin_note"}}</td>
+                    <td>
+                        {{if eq (.GetString "status") "pending"}}
+                        <span class="badge badge-ghost badge-sm">Pendiente</span>
+                        {{else if eq (.GetString "status") "used"}}
+                        <span class="badge badge-soft-success badge-sm">Usada</span>
+                        {{else}}
+                        <span class="badge badge-soft-error badge-sm">Expirada</span>
+                        {{end}}
+                    </td>
+                    <td class="text-sm">
+                        {{.GetString "use_count"}}/{{if and (.GetString "max_uses") (ne (.GetString "max_uses") "0")}}{{.GetString "max_uses"}}{{else}}1{{end}}
+                    </td>
+                    <td class="text-sm opacity-70">
+                        {{if $compID}}{{index $.CompNames $compID}}{{else}}<span class="opacity-50 italic">Sin competición</span>{{end}}
+                    </td>
+                    <td class="hidden xl:table-cell text-sm opacity-60">{{fmtDate (.GetString "created")}}</td>
+                    <td class="flex flex-wrap gap-1 justify-end">
+                        {{if eq (.GetString "status") "pending"}}
+                        <button class="btn btn-ghost btn-xs" onclick="copyInviteLink('{{.GetString "token"}}', this)" title="Copiar enlace">Copiar</button>
+                        <a class="btn btn-ghost btn-xs" target="_blank" rel="noopener" href="https://wa.me/?text={{urlquery (print "Regístrate en Liga Dale Fuerte: " $.BaseURL "/register?token=" (.GetString "token"))}}" title="Enviar por WhatsApp">WhatsApp</a>
+                        {{if .GetString "email"}}<form hx-post="/admin/invitations/{{.Id}}/resend"><button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs">Reenviar</button></form>{{end}}
+                        <form hx-post="/admin/invitations/{{.Id}}/revoke" hx-confirm="¿Revocar esta invitación?">
+                            <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs text-error">Revocar</button>
+                        </form>
+                        {{else}}
+                        <span class="text-xs opacity-60">-</span>
+                        {{end}}
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+    <div class="lg:hidden divide-y divide-base-300">
+        {{range .Invitations}}
+        {{$compID := .GetString "competition"}}
+        <div class="p-3 flex flex-col gap-2">
+            <div class="flex justify-between items-start gap-2">
+                <span class="text-sm font-medium">{{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="badge badge-info badge-sm">Enlace genérico</span>{{end}}</span>
+                {{if eq (.GetString "status") "pending"}}
+                <span class="badge badge-ghost badge-sm">Pendiente</span>
+                {{else if eq (.GetString "status") "used"}}
+                <span class="badge badge-soft-success badge-sm">Usada</span>
+                {{else}}
+                <span class="badge badge-soft-error badge-sm">Expirada</span>
+                {{end}}
+            </div>
+            {{if .GetString "admin_note"}}<p class="text-sm opacity-70">{{.GetString "admin_note"}}</p>{{end}}
+            <p class="text-sm opacity-60">
+                {{.GetString "use_count"}}/{{if and (.GetString "max_uses") (ne (.GetString "max_uses") "0")}}{{.GetString "max_uses"}}{{else}}1{{end}} usos
+                · {{if $compID}}{{index $.CompNames $compID}}{{else}}Sin competición{{end}}
+                · {{fmtDate (.GetString "created")}}
+            </p>
+            {{if eq (.GetString "status") "pending"}}
+            <div class="flex flex-wrap gap-2">
+                <button class="btn btn-outline btn-sm" onclick="copyInviteLink('{{.GetString "token"}}', this)" title="Copiar enlace">Copiar</button>
+                <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="https://wa.me/?text={{urlquery (print "Regístrate en Liga Dale Fuerte: " $.BaseURL "/register?token=" (.GetString "token"))}}" title="Enviar por WhatsApp">WhatsApp</a>
+                {{if .GetString "email"}}<form hx-post="/admin/invitations/{{.Id}}/resend"><button type="submit" hx-disabled-elt="this" class="btn btn-outline btn-sm">Reenviar</button></form>{{end}}
+                <form hx-post="/admin/invitations/{{.Id}}/revoke" hx-confirm="¿Revocar esta invitación?">
+                    <button type="submit" hx-disabled-elt="this" class="btn btn-outline btn-sm text-error">Revocar</button>
+                </form>
+            </div>
+            {{end}}
+        </div>
+        {{end}}
+    </div>
+    {{else}}
+    {{template "emptyState" "No hay invitaciones"}}
+    <p class="text-center -mt-4 mb-4 text-xs opacity-60">Crea una invitación arriba</p>
+    {{end}}
+</div>
+
+<dialog id="modal-create-invite" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box">
+        <form method="dialog"><button class="btn btn-ghost btn-sm btn-circle absolute right-2 top-2" aria-label="cerrar">&times;</button></form>
+        <h3 class="text-lg font-bold mb-4">Nueva invitación</h3>
+        <div id="create-invite-error" class="mb-2" aria-live="polite"></div>
+        <form hx-post="/admin/invitations" hx-target="#create-invite-error">
+            <div class="form-control w-full">
+                <label class="label" for="invite-email"><span class="label-text font-medium">Email (opcional)</span></label>
+                <input type="email" name="email" id="invite-email" class="input input-bordered w-full" placeholder="jugador@email.com" oninput="toggleGenericFields()">
+                <label class="label"><span class="label-text-alt opacity-50">Vacío = enlace genérico que cualquiera puede usar</span></label>
+            </div>
+            <div class="form-control w-full mt-3">
+                <label class="label" for="invite-note"><span class="label-text font-medium">Nota interna (opcional)</span></label>
+                <textarea name="admin_note" id="invite-note" class="textarea textarea-bordered w-full" maxlength="500" rows="2" placeholder="Para uso interno del admin"></textarea>
+            </div>
+            <div class="form-control w-full mt-3">
+                <label class="label" for="invite-competition"><span class="label-text font-medium">Competición (opcional)</span></label>
+                <select name="competition" id="invite-competition" class="select select-bordered w-full">
+                    <option value="">Sin competición</option>
+                    {{range .Competitions}}
+                    <option value="{{.Id}}">{{.GetString "name"}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div id="generic-fields">
+                <div class="form-control w-full mt-3">
+                    <label class="label" for="invite-max-uses"><span class="label-text font-medium">Usos máximos <span class="tooltip tooltip-right" data-tip="Número de veces que se puede usar este enlace de invitación"><span class="text-info cursor-help">ⓘ</span></span></span></label>
+                    <input type="number" id="invite-max-uses" name="max_uses" class="input input-bordered w-full" value="10" min="1">
+                </div>
+            </div>
+            <div class="form-control w-full mt-3">
+                <label class="label" for="invite-expiration"><span class="label-text font-medium">Días hasta expirar</span></label>
+                <input type="number" id="invite-expiration" name="expiration_days" class="input input-bordered w-full" value="7" min="1">
+            </div>
+            <div class="modal-action">
+                <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Crear invitación</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>cerrar</button></form>
+</dialog>
+
+<script>
+function toggleGenericFields() {
+    var email = document.getElementById('invite-email').value.trim();
+    var maxUses = document.getElementById('invite-max-uses');
+    var expiration = document.getElementById('invite-expiration');
+    var isEmail = email !== '';
+    document.getElementById('generic-fields').classList.toggle('hidden', isEmail);
+    maxUses.value = isEmail ? '1' : '10';
+    expiration.value = isEmail ? '7' : '30';
+}
+
+function copyInviteLink(token, btn) {
+    var url = window.location.origin + '/register?token=' + token;
+    navigator.clipboard.writeText(url).then(function() {
+        var orig = btn.innerHTML;
+        btn.innerHTML = '<span class="text-success text-xs">¡Copiado!</span>';
+        setTimeout(function() { btn.innerHTML = orig; }, 2000);
+    });
+}
+</script>
+{{end}}

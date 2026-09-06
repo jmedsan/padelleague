@@ -28,6 +28,9 @@ func NewSearchHandler(app core.App, leagueSvc *league.Service, index *search.Ind
 // returns ranked, scope-filtered results grouped by type.
 func (h *SearchHandler) Search(e *core.RequestEvent) error {
 	q := e.Request.URL.Query().Get("q")
+	if len([]rune(q)) > 100 {
+		q = string([]rune(q)[:100])
+	}
 	viewer := h.buildViewer(e)
 
 	if q == "" {

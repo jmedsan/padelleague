@@ -4,6 +4,7 @@ package routes
 import (
 	"io/fs"
 	"net/http"
+	"strings"
 
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -36,6 +37,14 @@ func Register(se *core.ServeEvent, deps Deps) {
 		Func:     middleware.CookieAuth,
 		Priority: -1030,
 	})
+	se.Router.Bind(&hook.Handler[*core.RequestEvent]{
+		Func:     middleware.RejectCrossSitePOST,
+		Priority: -1029,
+	})
+
+	if !deps.AppDevTools {
+		blockPBDashboard(se)
+	}
 
 	auth := handlers.NewAuthHandler(deps.App, deps.Renderer.Page)
 	notif := handlers.NewNotificationHandler(deps.App, deps.Renderer.Page, deps.Renderer.Partial)
@@ -72,6 +81,11 @@ func registerStaticRoutes(se *core.ServeEvent, deps Deps) {
 		return e.JSON(http.StatusOK, map[string]string{"version": version})
 	})
 
+	logo := handlers.NewLogoHandler(deps.App)
+	se.Router.GET("/logo/league", logo.LeagueLogo)
+	se.Router.GET("/logo/competition/{id}", logo.CompetitionLogo)
+	se.Router.GET("/logo/sponsor/{id}", logo.SponsorLogo)
+
 	se.Router.GET("/healthz", func(e *core.RequestEvent) error {
 		if _, err := deps.App.FindCollectionByNameOrId("users"); err != nil {
 			return e.JSON(http.StatusServiceUnavailable, map[string]string{"status": "error"})
@@ -86,6 +100,8 @@ func registerAuthRoutes(se *core.ServeEvent, deps Deps, auth *handlers.AuthHandl
 	se.Router.GET("/register", auth.Register)
 	se.Router.POST("/register", auth.RegisterSubmit)
 	se.Router.POST("/logout", auth.Logout)
+	se.Router.GET("/verify", auth.VerifyEmail)
+	se.Router.POST("/resend-verification", auth.ResendVerification)
 
 	pwReset := handlers.NewPasswordResetHandler(deps.App, deps.Renderer.Page)
 	se.Router.GET("/forgot-password", pwReset.ForgotPassword)
@@ -111,6 +127,7 @@ func registerPublicRoutes(se *core.ServeEvent, deps Deps) {
 	se.Router.GET("/player/{id}", player.Player).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/player/{id}/avatar", player.PlayerAvatarUpload).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/player/{id}/name", player.PlayerNameUpdate).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/player/{id}/phone", player.PlayerPhoneUpdate).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/player/{id}/password", player.PlayerPasswordUpdate).BindFunc(middleware.RequireAuth)
 
 	pair := handlers.NewPairPageHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page, deps.Renderer.ErrorPage)
@@ -168,6 +185,7 @@ func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], d
 	pairs := handlers.NewCompetitionPairsHandler(deps.App)
 	payments := handlers.NewCompetitionPaymentsHandler(deps.App)
 	fixture := handlers.NewFixtureHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page)
+	signups := handlers.NewSignupHandler(deps.App)
 
 	g.GET("", dash.AdminEntry)
 	g.GET("/competitions", dash.Dashboard)
@@ -189,6 +207,9 @@ func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], d
 	g.POST("/competitions/{id}/round-dates", comp.UpdateRoundDates)
 	g.POST("/competitions/{id}/round-dates/regenerate", comp.RegenerateRoundDates)
 	g.POST("/competitions/{id}/broadcast", comp.AdminBroadcast)
+	g.POST("/competitions/{id}/signups", signups.AddSignup)
+	g.POST("/competitions/{id}/signups/pair", signups.PairSignups)
+	g.POST("/competitions/{id}/signups/{signupId}/reject", signups.RejectSignup)
 }
 
 func registerAdminDisputeRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
@@ -242,6 +263,7 @@ func registerAdminSettingsRoutes(g *router.RouterGroup[*core.RequestEvent], deps
 func registerAdminHealthRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
 	h := handlers.NewAdminHealthHandler(deps.App, deps.Renderer.Page)
 	g.GET("/health", h.Health)
+	g.POST("/health/backup", h.BackupNow)
 }
 
 func registerMatchRoutes(se *core.ServeEvent, deps Deps) {
@@ -281,4 +303,29 @@ func registerProfileRoutes(se *core.ServeEvent, auth *handlers.AuthHandler, noti
 	se.Router.POST("/profile/complete", auth.ProfileCompleteSubmit).BindFunc(middleware.RequireAuth)
 	se.Router.GET("/profile/notifications", notif.Prefs).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/profile/notifications", notif.PrefsSave).BindFunc(middleware.RequireAuth)
+}
+
+// blockPBDashboard blocks access to PocketBase's admin dashboard and
+// sensitive API routes in production via a high-priority middleware.
+func blockPBDashboard(se *core.ServeEvent) {
+	blockedPrefixes := []string{"/_/", "/api/settings", "/api/backups", "/api/logs"}
+	blockedExact := []string{"/api/collections/_superusers/auth-with-password"}
+
+	se.Router.Bind(&hook.Handler[*core.RequestEvent]{
+		Func: func(e *core.RequestEvent) error {
+			path := e.Request.URL.Path
+			for _, p := range blockedPrefixes {
+				if strings.HasPrefix(path, p) {
+					return e.JSON(http.StatusNotFound, map[string]string{"message": "not found"})
+				}
+			}
+			for _, p := range blockedExact {
+				if path == p {
+					return e.JSON(http.StatusNotFound, map[string]string{"message": "not found"})
+				}
+			}
+			return e.Next()
+		},
+		Priority: -1050,
+	})
 }

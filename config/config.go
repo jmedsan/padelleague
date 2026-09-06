@@ -32,6 +32,7 @@ type Config struct {
 
 	GDriveServiceAccount string `env:"GDRIVE_SERVICE_ACCOUNT"`
 	GDriveFolderID       string `env:"GDRIVE_FOLDER_ID"`
+	RCloneDriveToken     string `env:"RCLONE_DRIVE_TOKEN"`
 
 	SMTPHost       string `env:"SMTP_HOST"`
 	SMTPPort       int    `env:"SMTP_PORT" envDefault:"587"`

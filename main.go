@@ -37,6 +37,7 @@ func main() {
 
 	app := pocketbase.New()
 
+	notify.SetDevEnv(cfg.AppEnv != "prod")
 	r := render.New(viewsFS, cfg.VAPIDPublicKey, cfg.AppDevTools)
 	notifier := notify.NewNotifier(app, cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey)
 	leagueSvc := league.New(app, notifier)
@@ -48,6 +49,7 @@ func main() {
 		SearchIndex: searchIndex,
 		Backup: hooks.BackupConfig{
 			ServiceAccountJSON: cfg.GDriveServiceAccount,
+			DriveToken:         cfg.RCloneDriveToken,
 			FolderID:           cfg.GDriveFolderID,
 		},
 		SMTP: hooks.SMTPConfig{

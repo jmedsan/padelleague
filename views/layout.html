@@ -103,6 +103,7 @@
                                     <li><a href="/admin/competitions">Competiciones</a></li>
                                     <li><a href="/admin/health">Salud</a></li>
                                     <li><a href="/admin/players">Jugadores</a></li>
+                                    <li><a href="/admin/invitations">Invitaciones</a></li>
                                     <li><a href="/admin/pairs">Parejas</a></li>
                                     <li><a href="/admin/venues">Clubes</a></li>
                                     <li><a href="/admin/documents">Documentos</a></li>
@@ -161,12 +162,13 @@
                 </div>
             </div>
             {{if and .DisplayName (not .Verified)}}
-            <div id="verify-banner" class="alert alert-warning shadow-md mx-4 mt-4 max-w-[calc(100%-2rem)]">
-                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                <span>Tu email no está verificado. Revisa tu bandeja de entrada.</span>
-                <button onclick="document.getElementById('verify-banner').remove();localStorage.setItem('banner-dismissed','1')" class="btn btn-ghost btn-sm btn-circle" aria-label="cerrar">&times;</button>
+            <div class="alert alert-warning shadow-md mx-4 mt-4 max-w-[calc(100%-2rem)] text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                <span>Confirma tu email para recibir avisos.</span>
+                <form method="POST" action="/resend-verification" class="inline" hx-post="/resend-verification" hx-target="#flash" hx-swap="innerHTML">
+                    <button type="submit" class="link link-primary font-semibold">Reenviar</button>
+                </form>
             </div>
-            <script>if(localStorage.getItem('banner-dismissed'))document.getElementById('verify-banner').remove()</script>
             {{end}}
             <div id="flash" class="container mx-auto px-4 max-w-5xl" role="alert" aria-live="polite">
                 {{if .Flash}}
@@ -202,6 +204,7 @@
                     <li><a href="/admin/competitions" class="rounded-lg">Competiciones</a></li>
                     <li><a href="/admin/health" class="rounded-lg">Salud</a></li>
                     <li><a href="/admin/players" class="rounded-lg">Jugadores</a></li>
+                    <li><a href="/admin/invitations" class="rounded-lg">Invitaciones</a></li>
                     <li><a href="/admin/pairs" class="rounded-lg">Parejas</a></li>
                     <li><a href="/admin/venues" class="rounded-lg">Clubes</a></li>
                     <li><a href="/admin/documents" class="rounded-lg">Documentos</a></li>

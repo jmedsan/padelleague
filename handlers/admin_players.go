@@ -5,11 +5,13 @@ import (
 	"html"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/security"
 
+	"padelleague/league"
 	"padelleague/notify"
 	"padelleague/render"
 )
@@ -66,9 +68,21 @@ func (h *AdminPlayerHandler) PlayerUpdate(e *core.RequestEvent) error {
 		return alertError(e, "El género es obligatorio")
 	}
 
+	phoneRaw := strings.TrimSpace(e.Request.FormValue("phone"))
+	phone := ""
+	if phoneRaw != "" {
+		normalized, phoneErr := league.NormalizePhone(phoneRaw)
+		if phoneErr != nil {
+			return alertError(e, phoneErr.Error()) //nolint:goerr113 // user-facing Spanish
+		}
+		phone = normalized
+	}
+
 	user.Set("display_name", displayName)
 	user.Set("gender", gender)
 	user.Set("roles", roles)
+	user.Set("phone", phone)
+	user.Set("admin_note", strings.TrimSpace(e.Request.FormValue("admin_note")))
 
 	if err := h.app.Save(user); err != nil {
 		slog.Error("save player failed", "err", err)
@@ -124,7 +138,7 @@ func (h *AdminPlayerHandler) PlayerPreCreate(e *core.RequestEvent) error {
 
 	resetURL := buildResetURL(e, resetToken)
 
-	notify.SendEmail(h.app, email, "Bienvenido a Liga Dale Fuerte",
+	notify.SendEmail(h.app, email, notify.SubjectPrefix()+"Bienvenido a Liga Dale Fuerte",
 		notify.RenderEmail(h.app, "", buildOnboardingEmail(email, resetURL)))
 
 	name := displayName

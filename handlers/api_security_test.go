@@ -346,11 +346,11 @@ func TestAPIAdminCannotCreateCompetitionViaRecordAPI(t *testing.T) {
 func TestAPIUserRolesHiddenFromPlayer(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:     testAppFactory,
-		Name:               "player cannot read another user's roles via the record API (roles hidden)",
-		Method:             http.MethodGet,
-		ExpectedStatus:     200,
-		NotExpectedContent: []string{`"roles"`},
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot read another user via the record API (view rule restricts to self)",
+		Method:          http.MethodGet,
+		ExpectedStatus:  404,
+		ExpectedContent: []string{"resource wasn't found"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
 		p1 := makePairTB(tb, app, "A")

@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"net/http"
+	"log/slog"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,11 +28,40 @@ func NewInvitationHandler(app core.App, renderPage RenderFunc) *InvitationHandle
 	return &InvitationHandler{app: app, renderPage: renderPage}
 }
 
-// InvitationsList redirects to /admin/competitions — invitation management
-// lives per-competition (inline in competition-detail.html, like Documentos)
-// now, not on a standalone global list.
+// InvitationsList renders the global admin invitations page, newest first.
 func (h *InvitationHandler) InvitationsList(e *core.RequestEvent) error {
-	return e.Redirect(http.StatusFound, "/admin/competitions")
+	invitations, err := h.app.FindRecordsByFilter("invitations",
+		"id != ''", "", 0, 0, nil)
+	if err != nil {
+		slog.Error("InvitationsList: find invitations", "err", err)
+	}
+	sort.Slice(invitations, func(i, j int) bool {
+		return invitations[i].GetDateTime("created").Time().After(
+			invitations[j].GetDateTime("created").Time())
+	})
+
+	competitions, err := h.app.FindRecordsByFilter("competitions",
+		"active = true", "name", 0, 0, nil)
+	if err != nil {
+		slog.Error("InvitationsList: find competitions", "err", err)
+	}
+
+	compNames := make(map[string]string, len(invitations))
+	for _, inv := range invitations {
+		if compID := inv.GetString("competition"); compID != "" {
+			if _, ok := compNames[compID]; !ok {
+				compNames[compID] = league.CompetitionName(h.app, compID)
+			}
+		}
+	}
+
+	return h.renderPage(e, "admin/invitations.html", map[string]any{
+		"PageTitle":    "Invitaciones",
+		"Invitations":  invitations,
+		"Competitions": competitions,
+		"CompNames":    compNames,
+		"BaseURL":      render.RequestBaseURL(e),
+	})
 }
 
 // CompetitionInvitations returns a competition's invitations, newest first —
@@ -53,9 +82,7 @@ func CompetitionInvitations(app core.App, compID string) []*core.Record {
 func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 	email := strings.TrimSpace(e.Request.FormValue("email"))
 	competition := e.Request.FormValue("competition")
-	if competition == "" {
-		return alertError(e, "La competición es obligatoria")
-	}
+	adminNote := strings.TrimSpace(e.Request.FormValue("admin_note"))
 	if email != "" && !strings.Contains(email, "@") {
 		return alertError(e, "El email no es válido")
 	}
@@ -84,6 +111,7 @@ func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 	record.Set("token", token)
 	record.Set("email", email)
 	record.Set("competition", competition)
+	record.Set("admin_note", adminNote)
 	record.Set("created_by", e.Auth.Id)
 	record.Set("status", "pending")
 	record.Set("max_uses", maxUses)
@@ -97,12 +125,12 @@ func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 	if email != "" {
 		registerURL := render.RequestBaseURL(e) + "/register?token=" + token
 		compName := league.CompetitionName(h.app, competition)
-		notify.SendEmail(h.app, email, "Invitación a Liga Dale Fuerte",
+		notify.SendEmail(h.app, email, notify.SubjectPrefix()+"Invitación a Liga Dale Fuerte",
 			notify.RenderEmail(h.app, competition, buildInviteEmail(registerURL, compName)))
 	}
 
 	flash(e, "Invitación creada")
-	return redirectHX(e, "/admin/competitions/"+competition)
+	return redirectHX(e, "/admin/invitations")
 }
 
 // parsePositiveInt parses a form value as a positive integer, returning def
@@ -137,10 +165,10 @@ func (h *InvitationHandler) InvitationsResend(e *core.RequestEvent) error {
 	compID := invitation.GetString("competition")
 	registerURL := render.RequestBaseURL(e) + "/register?token=" + token
 	compName := league.CompetitionName(h.app, compID)
-	notify.SendEmail(h.app, email, "Invitación a Liga Dale Fuerte",
+	notify.SendEmail(h.app, email, notify.SubjectPrefix()+"Invitación a Liga Dale Fuerte",
 		notify.RenderEmail(h.app, compID, buildInviteEmail(registerURL, compName)))
 	flash(e, "Invitación reenviada")
-	return redirectHX(e, "/admin/competitions/"+compID)
+	return redirectHX(e, "/admin/invitations")
 }
 
 // InvitationsRevoke deactivates an invitation so it can no longer be used.
@@ -155,13 +183,12 @@ func (h *InvitationHandler) InvitationsRevoke(e *core.RequestEvent) error {
 		return alertError(e, "Solo se pueden revocar invitaciones pendientes")
 	}
 
-	compID := invitation.GetString("competition")
 	if err := h.app.Delete(invitation); err != nil {
 		return alertError(e, "Error al revocar la invitación")
 	}
 
 	flash(e, "Invitación revocada")
-	return redirectHX(e, "/admin/competitions/"+compID)
+	return redirectHX(e, "/admin/invitations")
 }
 
 func generateInviteToken() (string, error) {

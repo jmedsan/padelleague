@@ -27,7 +27,7 @@ open-local:
 	$(OPENER) $(LOCAL_URL)
 
 open-remote:
-	$(OPENER) $(REMOTE_URL)
+	$(OPENER) $(APP_URL)
 
 open: open-local
 

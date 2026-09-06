@@ -240,6 +240,9 @@ func fold(s string) string {
 
 func wordSimilarity(query, target string) float64 {
 	qWords := strings.Fields(query)
+	if len(qWords) > 8 {
+		qWords = qWords[:8]
+	}
 	tWords := strings.Fields(target)
 	if len(qWords) == 0 || len(tWords) == 0 {
 		return 0

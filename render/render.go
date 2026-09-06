@@ -49,8 +49,11 @@ func New(viewsFS fs.FS, vapidPublicKey string, appDevTools bool) *Renderer {
 			_, ok := m[key]
 			return ok
 		},
-		"sub":  func(a, b int) int { return a - b },
-		"mulf": func(a float64, b int) float64 { return a * float64(b) },
+		"fmtPhone":    league.FormatPhone,
+		"whatsappURL": league.WhatsAppURL,
+		"maskPhone":   league.MaskPhone,
+		"sub":         func(a, b int) int { return a - b },
+		"mulf":        func(a float64, b int) float64 { return a * float64(b) },
 		"dict": func(pairs ...any) map[string]any {
 			m := make(map[string]any, len(pairs)/2)
 			for i := 0; i+1 < len(pairs); i += 2 {
@@ -180,7 +183,7 @@ func resolveFlash(e *core.RequestEvent, data map[string]any) {
 func resolveFooter(e *core.RequestEvent, data map[string]any) {
 	compID, _ := data["FooterCompetitionID"].(string)
 	if e.Auth == nil && compID == "" {
-		data["Footer"] = league.FooterData{}
+		data["Footer"] = league.FooterContext(e.App, "", "", false)
 		data["Branding"] = league.Branding(e.App, "")
 		return
 	}

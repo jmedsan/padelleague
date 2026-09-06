@@ -5,6 +5,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 
+	"padelleague/hooks"
 	"padelleague/league"
 )
 
@@ -30,8 +31,18 @@ func (h *AdminHealthHandler) Health(e *core.RequestEvent) error {
 		}
 	}
 	return h.renderPage(e, "admin/health.html", map[string]any{
-		"PageTitle":  "Salud",
-		"Categories": categories,
-		"AllEmpty":   allEmpty,
+		"PageTitle":     "Salud",
+		"Categories":    categories,
+		"AllEmpty":      allEmpty,
+		"BackupEnabled": hooks.BackupEnabled(),
 	})
+}
+
+// BackupNow triggers an immediate Google Drive backup.
+func (h *AdminHealthHandler) BackupNow(e *core.RequestEvent) error {
+	if err := hooks.RunBackupNow(); err != nil {
+		return alertError(e, "Backup no configurado")
+	}
+	flash(e, "Backup iniciado")
+	return redirectHX(e, "/admin/health")
 }

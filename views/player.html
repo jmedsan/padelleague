@@ -29,6 +29,19 @@
 
         <div class="divider my-1"></div>
 
+        <div class="mt-2">
+            <div id="phone-error" class="mb-2" aria-live="polite"></div>
+            <form hx-post="/player/{{.Data.User.Id}}/phone" hx-target="#phone-error" class="flex flex-wrap items-end gap-3">
+                <div class="form-control flex-1 min-w-[200px]">
+                    <label class="label py-1" for="phone"><span class="label-text">Teléfono</span></label>
+                    <input type="tel" id="phone" name="phone" inputmode="tel" autocomplete="tel" class="input input-bordered input-sm w-full" value="{{fmtPhone (.Data.User.GetString "phone")}}" placeholder="+34 612 345 678" required>
+                </div>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm">Guardar teléfono</button>
+            </form>
+        </div>
+
+        <div class="divider my-1"></div>
+
         <div>
             <div id="password-error" class="mb-2" aria-live="polite"></div>
             <form hx-post="/player/{{.Data.User.Id}}/password" hx-target="#password-error" class="space-y-3">

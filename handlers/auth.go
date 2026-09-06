@@ -6,10 +6,15 @@ import (
 	"strings"
 	"time"
 
+	"log/slog"
+	"sync"
+
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/mails"
 
 	"padelleague/league"
 	"padelleague/middleware"
+	"padelleague/notify"
 )
 
 // AuthHandler handles login, registration, and profile completion.
@@ -103,26 +108,67 @@ func (h *AuthHandler) Register(e *core.RequestEvent) error {
 
 // RegisterSubmit processes the registration form and creates the user account.
 func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
+	params, validationMsg := h.parseRegistrationForm(e)
+	if validationMsg != "" {
+		return alertError(e, validationMsg)
+	}
+
+	_, authToken, err := h.registerUser(params)
+	if err != nil {
+		return alertError(e, "Error al crear la cuenta. Verifica los datos e intenta de nuevo.")
+	}
+
+	middleware.SetAuthCookie(e, authToken)
+	if e.Request.Header.Get("HX-Request") == "true" {
+		return redirectHX(e, "/")
+	}
+	return e.Redirect(http.StatusFound, "/")
+}
+
+func (h *AuthHandler) parseRegistrationForm(e *core.RequestEvent) (registerParams, string) {
 	token := e.Request.FormValue("token")
-	displayName := e.Request.FormValue("display_name")
-	email := e.Request.FormValue("email")
-	password := e.Request.FormValue("password")
-	passwordConfirm := e.Request.FormValue("password_confirm")
-
 	if token == "" {
-		return alertError(e, "Invitación requerida")
+		return registerParams{}, "Invitación requerida"
+	}
+	password := e.Request.FormValue("password")
+	if password != e.Request.FormValue("password_confirm") {
+		return registerParams{}, "Las contraseñas no coinciden"
 	}
 
-	if password != passwordConfirm {
-		return alertError(e, "Las contraseñas no coinciden")
+	invite, msg := h.validateInviteToken(token, e.Request.FormValue("email"))
+	if msg != "" {
+		return registerParams{}, msg
 	}
 
+	gender := e.Request.FormValue("gender")
+	if gender != "male" && gender != "female" {
+		return registerParams{}, "El género es obligatorio"
+	}
+
+	phone, phoneErr := league.NormalizePhone(strings.TrimSpace(e.Request.FormValue("phone")))
+	if phoneErr != nil {
+		return registerParams{}, phoneErr.Error() //nolint:goerr113 // user-facing Spanish
+	}
+
+	return registerParams{
+		inviteID:    invite.Id,
+		inviteEmail: invite.GetString("email"),
+		compHint:    invite.GetString("competition"),
+		adminNote:   invite.GetString("admin_note"),
+		email:       e.Request.FormValue("email"),
+		displayName: e.Request.FormValue("display_name"),
+		password:    password,
+		gender:      gender,
+		phone:       phone,
+		note:        strings.TrimSpace(e.Request.FormValue("note")),
+	}, ""
+}
+
+func (h *AuthHandler) validateInviteToken(token, email string) (*core.Record, string) {
 	invites, err := h.app.FindRecordsByFilter("invitations",
-		"token = {:token}",
-		"", 1, 0,
-		map[string]any{"token": token})
+		"token = {:token}", "", 1, 0, map[string]any{"token": token})
 	if err != nil || len(invites) == 0 || isInviteExpired(invites[0]) {
-		return alertError(e, "Invitación inválida o expirada")
+		return nil, "Invitación inválida o expirada"
 	}
 	invite := invites[0]
 
@@ -130,45 +176,40 @@ func (h *AuthHandler) RegisterSubmit(e *core.RequestEvent) error {
 	if maxUses < 1 {
 		maxUses = 1
 	}
-	useCount := int(invite.GetFloat("use_count"))
-	if useCount >= maxUses {
-		return alertError(e, "Invitación agotada")
+	if int(invite.GetFloat("use_count")) >= maxUses {
+		return nil, "Invitación agotada"
 	}
 
 	inviteEmail := invite.GetString("email")
 	if inviteEmail != "" && !strings.EqualFold(email, inviteEmail) {
-		return alertError(e, "Esta invitación no es válida o ya fue usada")
+		return nil, "Esta invitación no es válida o ya fue usada"
 	}
-
-	gender := e.Request.FormValue("gender")
-	if gender != "male" && gender != "female" {
-		return alertError(e, "El género es obligatorio")
-	}
-
-	note := strings.TrimSpace(e.Request.FormValue("note"))
-
-	_, authToken, err := h.registerUser(registerParams{
-		inviteID: invite.Id, email: email, displayName: displayName,
-		password: password, gender: gender, note: note,
-	})
-
-	if err != nil {
-		return alertError(e, "Error al crear la cuenta. Verifica los datos e intenta de nuevo.")
-	}
-
-	middleware.SetAuthCookie(e, authToken)
-
-	if e.Request.Header.Get("HX-Request") == "true" {
-		return redirectHX(e, "/")
-	}
-	return e.Redirect(http.StatusFound, "/")
+	return invite, ""
 }
 
 type registerParams struct {
-	inviteID, email, displayName, password, gender, note string
+	inviteID, inviteEmail, compHint, adminNote        string
+	email, displayName, password, gender, phone, note string
 }
 
 func (h *AuthHandler) registerUser(p registerParams) (*core.Record, string, error) {
+	boundInvite := p.inviteEmail != "" && strings.EqualFold(p.email, p.inviteEmail)
+
+	userRecord, authToken, err := h.createUserInTx(p, boundInvite)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if !boundInvite && notify.IsMailerConfigured(h.app) {
+		if err := mails.SendRecordVerification(h.app, userRecord); err != nil {
+			slog.Error("verification email failed", "err", err)
+		}
+	}
+
+	return userRecord, authToken, nil
+}
+
+func (h *AuthHandler) createUserInTx(p registerParams, verified bool) (*core.Record, string, error) {
 	var userRecord *core.Record
 	var authToken string
 
@@ -182,21 +223,21 @@ func (h *AuthHandler) registerUser(p registerParams) (*core.Record, string, erro
 		userRecord.Set("email", p.email)
 		userRecord.Set("display_name", p.displayName)
 		userRecord.Set("roles", []string{"player"})
-		if p.gender != "" {
-			userRecord.Set("gender", p.gender)
-		}
+		userRecord.Set("phone", p.phone)
+		userRecord.Set("gender", p.gender)
+		userRecord.Set("admin_note", p.adminNote)
+		userRecord.Set("registration_note", p.note)
 		userRecord.SetPassword(p.password)
-		// Registration is invite-only — the admin already vetted this player
-		// by sending the invite, so there is no separate email-ownership
-		// check to perform.
-		userRecord.SetVerified(true)
+		userRecord.SetVerified(verified)
 
 		if err := txApp.Save(userRecord); err != nil {
 			return err
 		}
-
-		if err := consumeInvite(txApp, p.inviteID, userRecord.Id, p.note); err != nil {
+		if err := consumeInvite(txApp, p.inviteID, userRecord.Id); err != nil {
 			return err
+		}
+		if p.compHint != "" {
+			createSignup(txApp, p.compHint, userRecord.Id, "invite")
 		}
 
 		authToken, err = userRecord.NewAuthToken()
@@ -205,7 +246,7 @@ func (h *AuthHandler) registerUser(p registerParams) (*core.Record, string, erro
 	return userRecord, authToken, err
 }
 
-func consumeInvite(txApp core.App, inviteID, userID, note string) error {
+func consumeInvite(txApp core.App, inviteID, userID string) error {
 	freshInvite, err := txApp.FindRecordById("invitations", inviteID)
 	if err != nil {
 		return fmt.Errorf("invitation not found")
@@ -219,15 +260,31 @@ func consumeInvite(txApp core.App, inviteID, userID, note string) error {
 		return fmt.Errorf("invitation exhausted")
 	}
 	freshInvite.Set("use_count", currentCount+1)
-	freshInvite.Set("used_by", userID)
+	// Append to multi-relation used_by
+	usedBy := freshInvite.GetStringSlice("used_by")
+	usedBy = append(usedBy, userID)
+	freshInvite.Set("used_by", usedBy)
 	freshInvite.Set("used_at", time.Now().UTC().Format("2006-01-02 15:04:05.000Z"))
 	if currentCount+1 >= maxUses {
 		freshInvite.Set("status", "used")
 	}
-	if note != "" {
-		freshInvite.Set("registration_note", note)
-	}
 	return txApp.Save(freshInvite)
+}
+
+func createSignup(txApp core.App, compID, userID, source string) {
+	col, err := txApp.FindCollectionByNameOrId("competition_signups")
+	if err != nil {
+		slog.Error("signup collection not found", "err", err)
+		return
+	}
+	rec := core.NewRecord(col)
+	rec.Set("competition", compID)
+	rec.Set("user", userID)
+	rec.Set("status", "pending")
+	rec.Set("source", source)
+	if err := txApp.Save(rec); err != nil {
+		slog.Error("create signup failed", "competition", compID, "user", userID, "err", err)
+	}
 }
 
 // ProfileComplete renders the display-name form for new users.
@@ -259,6 +316,71 @@ func (h *AuthHandler) ProfileCompleteSubmit(e *core.RequestEvent) error {
 		return redirectHX(e, "/")
 	}
 	return e.Redirect(http.StatusFound, "/")
+}
+
+// VerifyEmail confirms a verification token from the email link and marks
+// the user as verified.
+func (h *AuthHandler) VerifyEmail(e *core.RequestEvent) error {
+	token := e.Request.URL.Query().Get("token")
+	if token == "" {
+		return h.renderPage(e, "verify-email.html", map[string]any{
+			"PageTitle": "Verificar email",
+			"Error":     true,
+		})
+	}
+
+	record, err := h.app.FindAuthRecordByToken(token, core.TokenTypeVerification)
+	if err != nil {
+		return h.renderPage(e, "verify-email.html", map[string]any{
+			"PageTitle": "Verificar email",
+			"Error":     true,
+		})
+	}
+
+	record.SetVerified(true)
+	if err := h.app.Save(record); err != nil {
+		return h.renderPage(e, "verify-email.html", map[string]any{
+			"PageTitle": "Verificar email",
+			"Error":     true,
+		})
+	}
+
+	return h.renderPage(e, "verify-email.html", map[string]any{
+		"PageTitle": "Email confirmado",
+		"Verified":  true,
+	})
+}
+
+// resendLimiter tracks the last verification resend per user.
+var resendLimiter = struct {
+	sync.Mutex
+	sent map[string]time.Time
+}{sent: make(map[string]time.Time)}
+
+// ResendVerification sends a new verification email. Rate-limited to one
+// per 10 minutes per user.
+func (h *AuthHandler) ResendVerification(e *core.RequestEvent) error {
+	if e.Auth == nil {
+		return e.Redirect(http.StatusFound, "/login")
+	}
+
+	if e.Auth.Verified() {
+		return alertSuccess(e, "Tu email ya está verificado.")
+	}
+
+	resendLimiter.Lock()
+	last, exists := resendLimiter.sent[e.Auth.Id]
+	if exists && time.Since(last) < 10*time.Minute {
+		resendLimiter.Unlock()
+		return alertError(e, "Ya enviamos un email hace poco. Inténtalo en unos minutos.")
+	}
+	resendLimiter.sent[e.Auth.Id] = time.Now()
+	resendLimiter.Unlock()
+
+	if err := mails.SendRecordVerification(h.app, e.Auth); err != nil {
+		return alertError(e, "No se pudo enviar el email. Inténtalo de nuevo.")
+	}
+	return alertSuccess(e, "Email de verificación enviado.")
 }
 
 // Logout clears the auth cookie and redirects to login.
