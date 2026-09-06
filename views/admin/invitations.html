@@ -53,7 +53,7 @@
                         <button class="btn btn-ghost btn-xs" onclick="copyInviteLink('{{.GetString "token"}}', this)" title="Copiar enlace">Copiar</button>
                         <a class="btn btn-ghost btn-xs" target="_blank" rel="noopener" href="https://wa.me/?text={{urlquery (print "Regístrate en Liga Dale Fuerte: " $.BaseURL "/register?token=" (.GetString "token"))}}" title="Enviar por WhatsApp">WhatsApp</a>
                         {{if .GetString "email"}}<form hx-post="/admin/invitations/{{.Id}}/resend"><button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs">Reenviar</button></form>{{end}}
-                        <form hx-post="/admin/invitations/{{.Id}}/revoke" hx-confirm="¿Revocar esta invitación?">
+                        <form hx-post="/admin/invitations/{{.Id}}/revoke" hx-confirm="¿Revocar esta invitación?" data-confirm-danger data-confirm-ok="Revocar">
                             <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs text-error">Revocar</button>
                         </form>
                         {{else}}
@@ -90,7 +90,7 @@
                 <button class="btn btn-outline btn-sm" onclick="copyInviteLink('{{.GetString "token"}}', this)" title="Copiar enlace">Copiar</button>
                 <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="https://wa.me/?text={{urlquery (print "Regístrate en Liga Dale Fuerte: " $.BaseURL "/register?token=" (.GetString "token"))}}" title="Enviar por WhatsApp">WhatsApp</a>
                 {{if .GetString "email"}}<form hx-post="/admin/invitations/{{.Id}}/resend"><button type="submit" hx-disabled-elt="this" class="btn btn-outline btn-sm">Reenviar</button></form>{{end}}
-                <form hx-post="/admin/invitations/{{.Id}}/revoke" hx-confirm="¿Revocar esta invitación?">
+                <form hx-post="/admin/invitations/{{.Id}}/revoke" hx-confirm="¿Revocar esta invitación?" data-confirm-danger data-confirm-ok="Revocar">
                     <button type="submit" hx-disabled-elt="this" class="btn btn-outline btn-sm text-error">Revocar</button>
                 </form>
             </div>

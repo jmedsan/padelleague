@@ -22,13 +22,14 @@
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <form hx-post="/admin/competitions/{{.Comp.Id}}/toggle"
-                  hx-on:htmx:confirm="event.preventDefault(); if(confirm('¿Estás seguro?')){event.detail.issueRequest(true)}else{this.querySelector('input[type=checkbox]').checked = !this.querySelector('input[type=checkbox]').checked}"
+                  hx-confirm="¿Cambiar el estado de la competición?" data-confirm-ok="Cambiar"
+                  hx-on:confirm:cancelled="this.querySelector('input[type=checkbox]').checked = !this.querySelector('input[type=checkbox]').checked"
                   class="flex items-center gap-2">
                 <span class="label-text text-sm">{{if .Comp.GetBool "active"}}Activa{{else}}Inactiva{{end}}</span>
                 <input type="checkbox" class="toggle toggle-success" onchange="this.form.requestSubmit()" {{if .Comp.GetBool "active"}}checked{{end}}>
             </form>
             {{if and .IsLeague (or (eq .PhaseStr "playing") (eq .PhaseStr "recovery"))}}
-            <form hx-post="/admin/competitions/{{.Comp.Id}}/finalize" onsubmit="return confirm('¿Finalizar esta liga ahora? Esta acción no se puede deshacer.')">
+            <form hx-post="/admin/competitions/{{.Comp.Id}}/finalize" hx-confirm="¿Finalizar esta liga ahora? Esta acción no se puede deshacer." data-confirm-title="Finalizar liga" data-confirm-danger data-confirm-ok="Finalizar">
                 <button type="submit" hx-disabled-elt="this" class="btn btn-warning btn-xs sm:btn-sm" data-testid="finalize-league">Finalizar</button>
             </form>
             {{end}}

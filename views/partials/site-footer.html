@@ -1,7 +1,7 @@
 {{define "siteFooter"}}
 <footer class="bg-neutral text-neutral-content border-t border-white/10 px-6 py-6 sm:py-8">
     <div class="max-w-5xl mx-auto flex flex-col items-center gap-5">
-        {{if or .Competition .Active .Sponsors}}
+        {{if or .Competition .Active .Sponsors .LeagueLogoURL}}
         <div class="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-10">
             {{if .Sponsors}}
             <div class="flex flex-col items-center gap-1.5 sm:order-last">
@@ -23,6 +23,10 @@
                 </a>
                 {{end}}
             </div>
+            {{else if .LeagueLogoURL}}
+            <a href="/" class="hover:opacity-80 transition-opacity sm:order-first">
+                <img src="{{.LeagueLogoURL}}" alt="Liga Dale Fuerte" class="rounded-xl" style="height:70px;width:auto" loading="lazy">
+            </a>
             {{end}}
         </div>
         {{end}}

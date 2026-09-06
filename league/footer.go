@@ -22,9 +22,10 @@ type FooterSponsor struct {
 
 // FooterData holds everything the site footer template needs.
 type FooterData struct {
-	Competition *FooterCompIdent
-	Sponsors    []FooterSponsor
-	Active      []FooterCompIdent
+	Competition   *FooterCompIdent
+	Sponsors      []FooterSponsor
+	Active        []FooterCompIdent
+	LeagueLogoURL string
 }
 
 // BrandingData holds the league's identity and sponsor list for a given
@@ -51,9 +52,7 @@ func Branding(app core.App, compID string) BrandingData {
 	bd := BrandingData{
 		Name:    settingsString(settings, "league_name", "Liga Dale Fuerte"),
 		Tagline: settingsString(settings, "league_tagline", "A La Pelota"),
-	}
-	if settings != nil {
-		bd.LogoURL = SettingsLogoURL(settings.Id, settings.GetString("league_logo"))
+		LogoURL: leagueLogoURL(settings),
 	}
 
 	globalSponsors, globalIDs := globalSponsors(app)
@@ -88,6 +87,15 @@ func leagueSettingsRecord(app core.App) *core.Record {
 		return nil
 	}
 	return records[0]
+}
+
+// leagueLogoURL resolves the league-wide logo URL from the app_settings
+// singleton, or "" when unset or absent.
+func leagueLogoURL(settings *core.Record) string {
+	if settings == nil {
+		return ""
+	}
+	return SettingsLogoURL(settings.Id, settings.GetString("league_logo"))
 }
 
 func settingsString(rec *core.Record, field, fallback string) string {
@@ -163,7 +171,7 @@ func FooterContext(app core.App, compID, userID string, isAdmin bool) FooterData
 		return footerForComp(app, active[0].Id)
 	}
 	gs, _ := globalSponsors(app)
-	var fd FooterData
+	fd := FooterData{LeagueLogoURL: leagueLogoURL(leagueSettingsRecord(app))}
 	if len(gs) > 0 {
 		fd.Sponsors = gs
 	}
@@ -177,12 +185,13 @@ func FooterContext(app core.App, compID, userID string, isAdmin bool) FooterData
 	return fd
 }
 
-// GlobalSponsorsOnlyFooter returns footer data with global sponsors but no
-// competition list — for contexts (like admin pages) that aren't
-// competition-scoped and shouldn't imply one by showing active competitions.
+// GlobalSponsorsOnlyFooter returns footer data with global sponsors and the
+// league logo but no competition list — for contexts (like admin pages) that
+// aren't competition-scoped and shouldn't imply one by showing active
+// competitions.
 func GlobalSponsorsOnlyFooter(app core.App) FooterData {
 	gs, _ := globalSponsors(app)
-	var fd FooterData
+	fd := FooterData{LeagueLogoURL: leagueLogoURL(leagueSettingsRecord(app))}
 	if len(gs) > 0 {
 		fd.Sponsors = gs
 	}

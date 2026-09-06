@@ -12,6 +12,7 @@
     <link rel="icon" href="/static/img/icon-192.png" type="image/png">
     <meta name="theme-color" content="#0B0B0B">
     <script src="/static/js/htmx.min.js"></script>
+    <script src="/static/js/confirm.js" defer></script>
     <script src="/static/js/score-input.js"></script>
     <script>
         (function() {
@@ -176,6 +177,17 @@
                 <script>setTimeout(function() { var el = document.getElementById('flash-msg'); if (el) el.remove(); }, 3000)</script>
                 {{end}}
             </div>
+            <dialog id="confirm-modal" class="modal modal-bottom sm:modal-middle">
+                <div class="modal-box">
+                    <h3 id="confirm-title" class="text-lg font-bold">Confirmar</h3>
+                    <p id="confirm-message" class="py-4"></p>
+                    <div class="modal-action">
+                        <button type="button" class="btn btn-ghost" data-confirm="cancel">Cancelar</button>
+                        <button type="button" id="confirm-ok" class="btn btn-primary" data-confirm="ok">Confirmar</button>
+                    </div>
+                </div>
+                <form method="dialog" class="modal-backdrop"><button aria-label="cerrar">cerrar</button></form>
+            </dialog>
             <main class="flex-1 container mx-auto px-4 py-6 max-w-5xl">
                 {{block "content" .}}{{end}}
             </main>
