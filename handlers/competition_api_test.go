@@ -26,7 +26,7 @@ func setupCompRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 
 	e.Router.BindFunc(middleware.CookieAuth)
 
-	auth := NewAuthHandler(app, r.Page)
+	auth := NewAuthHandler(app, nil, r.Page)
 	e.Router.GET("/login", auth.Login)
 
 	comp := NewCompetitionHandler(app, svc, notifier, r.Page)

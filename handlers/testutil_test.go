@@ -228,7 +228,7 @@ func authHeaders(t testing.TB, user *core.Record) map[string]string {
 func setupAuthRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	viewsFS := os.DirFS("..")
 	r := render.New(viewsFS, "", true)
-	auth := NewAuthHandler(app, r.Page)
+	auth := NewAuthHandler(app, nil, r.Page)
 	e.Router.GET("/login", auth.Login)
 	e.Router.POST("/login", auth.LoginSubmit)
 	e.Router.GET("/register", auth.Register)
@@ -244,7 +244,7 @@ func setupAllRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 
 	e.Router.BindFunc(middleware.CookieAuth)
 
-	auth := NewAuthHandler(app, r.Page)
+	auth := NewAuthHandler(app, nil, r.Page)
 	e.Router.GET("/login", auth.Login)
 	e.Router.POST("/login", auth.LoginSubmit)
 	e.Router.GET("/register", auth.Register)
@@ -493,7 +493,7 @@ func setupFullAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) 
 
 	e.Router.BindFunc(middleware.CookieAuth)
 
-	auth := NewAuthHandler(app, r.Page)
+	auth := NewAuthHandler(app, nil, r.Page)
 	e.Router.GET("/login", auth.Login)
 
 	comp := NewCompetitionHandler(app, svc, notifier, r.Page)
