@@ -25,9 +25,10 @@ func (h *DocumentHandler) Documents(e *core.RequestEvent) error {
 	docs, _ := h.app.FindRecordsByFilter("documents",
 		"id != ''", "title", 0, 0, nil)
 
+	ft := fileTokenFor(e)
 	docViews := make([]DocumentView, len(docs))
 	for i, d := range docs {
-		docViews[i] = NewDocumentView(d, AdminFull)
+		docViews[i] = NewDocumentView(d, AdminFull, ft)
 	}
 	return h.renderPage(e, "admin/documents.html", map[string]any{
 		"PageTitle":     "Documentos",
