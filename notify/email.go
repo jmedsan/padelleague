@@ -57,43 +57,6 @@ func SendEmail(app core.App, to, subject, htmlBody string) {
 	}
 }
 
-// EmailPlayers sends a notification email to each player in the list.
-func (n *Notifier) EmailPlayers(playerUserIDs []string, subject, body, link string) {
-	if !IsMailerConfigured(n.app) {
-		return
-	}
-	subject = SubjectPrefix() + subject
-
-	if strings.HasPrefix(link, "/") {
-		if baseURL := strings.TrimRight(n.app.Settings().Meta.AppURL, "/"); baseURL != "" {
-			link = baseURL + link
-		}
-	}
-
-	for _, userID := range playerUserIDs {
-		user, err := n.app.FindRecordById("users", userID)
-		if err != nil {
-			continue
-		}
-
-		email := user.Email()
-		if email == "" {
-			continue
-		}
-		if !user.Verified() {
-			slog.Info("skip email to unverified user", "to", maskEmail(email))
-			continue
-		}
-		if !EmailChannelEnabled(user) {
-			continue
-		}
-
-		displayName := user.GetString("display_name")
-		htmlBody := RenderEmail(n.app, "", BuildNotificationEmail(displayName, body, link))
-		SendEmail(n.app, email, subject, htmlBody)
-	}
-}
-
 func maskEmail(email string) string {
 	at := strings.Index(email, "@")
 	if at <= 0 {
@@ -122,8 +85,11 @@ func BuildNotificationEmail(displayName, body, link string) string {
 	linkHTML := ""
 	if link != "" {
 		label := "Ver partido"
-		if strings.Contains(link, "/competition/") {
+		switch {
+		case strings.Contains(link, "/competition/"):
 			label = "Ver competición"
+		case !strings.Contains(link, "/match/"):
+			label = "Abrir"
 		}
 		linkHTML = ctaHTML(link, label)
 	}

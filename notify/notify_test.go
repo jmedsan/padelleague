@@ -291,7 +291,7 @@ func TestNotificationPrefs_MalformedFallsBackToDefaults(t *testing.T) {
 			assert.Equal(t, true, prefs["match_progress"])
 			assert.Equal(t, true, prefs["email"])
 			assert.Equal(t, true, prefs["push"])
-			assert.Len(t, prefs, 8)
+			assert.Len(t, prefs, 10)
 		})
 	}
 }
@@ -387,14 +387,15 @@ func TestNotifyPlayers_WithPushSub(t *testing.T) {
 	assert.Len(t, notifs, 1)
 }
 
-func TestEmailNotifyPlayers_NoEmail(t *testing.T) {
+func TestNotifyPlayers_EmailSkippedWhenUserHasNoEmail(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
+	enableSMTP(t, app)
 	user := makeUser(t, app, "player")
 	user.Set("email", "")
 	require.NoError(t, app.Save(user))
 
-	NewNotifier(app, "", "").EmailPlayers([]string{user.Id}, "Test", "Body", "link")
+	NewNotifier(app, "", "").NotifyPlayers([]string{user.Id}, league.Notification{Type: "general", Title: "Test", Body: "Body"})
 
 	assert.Equal(t, 0, app.TestMailer.TotalSend())
 }

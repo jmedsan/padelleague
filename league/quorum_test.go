@@ -27,14 +27,6 @@ func (f *fakeNotifier) NotifyPlayers(playerUserIDs []string, n Notification) {
 	})
 }
 
-func (f *fakeNotifier) EmailPlayers(playerUserIDs []string, subject, _, _ string) {
-	f.calls = append(f.calls, notifyCall{
-		playerIDs: playerUserIDs,
-		notifType: "email",
-		title:     subject,
-	})
-}
-
 func TestConfirmStaleMatches_Finalizes(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
@@ -124,13 +116,12 @@ func TestRemindPendingConfirmations_SendsReminder(t *testing.T) {
 	svc := New(app, notifier)
 	svc.RemindPendingConfirmations(time.Now())
 
-	// Confirming team (p2) gets in-app + email = 2 calls
-	require.Len(t, notifier.calls, 2)
+	// Email delivery is now folded into NotifyPlayers via deliver, so the
+	// fake (which only models the in-app call) sees a single call.
+	require.Len(t, notifier.calls, 1)
 	p2Players := PlayersForPair(app, p2.Id)
 	assert.ElementsMatch(t, p2Players, notifier.calls[0].playerIDs)
 	assert.Equal(t, "quorum_request", notifier.calls[0].notifType)
-	assert.Equal(t, "email", notifier.calls[1].notifType)
-	assert.ElementsMatch(t, p2Players, notifier.calls[1].playerIDs)
 
 	// Submitting pair (p1) gets zero
 	p1Players := PlayersForPair(app, p1.Id)
@@ -228,7 +219,7 @@ func TestRemindPendingConfirmations_TimeoutZero_StillReminds(t *testing.T) {
 	notifier := &fakeNotifier{}
 	svc := New(app, notifier)
 	svc.RemindPendingConfirmations(time.Now())
-	require.Len(t, notifier.calls, 2, "timeout==0 must still remind")
+	require.Len(t, notifier.calls, 1, "timeout==0 must still remind")
 }
 
 func TestRemindPendingConfirmations_RearmAfterCorrection(t *testing.T) {
@@ -255,7 +246,7 @@ func TestRemindPendingConfirmations_RearmAfterCorrection(t *testing.T) {
 	notifier := &fakeNotifier{}
 	svc := New(app, notifier)
 	svc.RemindPendingConfirmations(time.Now())
-	require.Len(t, notifier.calls, 2)
+	require.Len(t, notifier.calls, 1)
 
 	// Simulate correction: reset flag and submitted_at
 	fresh, err := app.FindRecordById("matches", match.Id)
@@ -269,7 +260,7 @@ func TestRemindPendingConfirmations_RearmAfterCorrection(t *testing.T) {
 
 	notifier.calls = nil
 	svc.RemindPendingConfirmations(time.Now())
-	require.Len(t, notifier.calls, 2, "re-armed match must re-remind")
+	require.Len(t, notifier.calls, 1, "re-armed match must re-remind")
 }
 
 func TestRemindPendingConfirmations_AutoFinalizedSkipped(t *testing.T) {
@@ -368,7 +359,7 @@ func TestRemindPendingConfirmations_ExactBoundary(t *testing.T) {
 	notifier := &fakeNotifier{}
 	svc := New(app, notifier)
 	svc.RemindPendingConfirmations(time.Now())
-	require.Len(t, notifier.calls, 2, "at exact threshold boundary, reminder must fire")
+	require.Len(t, notifier.calls, 1, "at exact threshold boundary, reminder must fire")
 }
 
 func makeResultProposal(t *testing.T, app core.App, matchID, authorID, scores string) *core.Record { //nolint:unparam

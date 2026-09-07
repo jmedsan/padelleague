@@ -338,7 +338,7 @@ func TestCronRegistration_QuorumTimeout(t *testing.T) {
 
 // Playoff advance notification tests (S-3)
 
-func TestAdvancePlayoffFailure_NotifiesAdmins(t *testing.T) {
+func TestAdvancePlayoffFailure_LogsOnly(t *testing.T) {
 	app := newTestApp(t)
 	makeAdminUser(t, app)
 	registerHooksWithNotifier(t, app)
@@ -370,8 +370,7 @@ func TestAdvancePlayoffFailure_NotifiesAdmins(t *testing.T) {
 		"type = 'admin_message' && title = 'Error en avance de playoff'",
 		"", 0, 0, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(notifs), "expected exactly one admin notification for playoff failure")
-	assert.Contains(t, notifs[0].GetString("body"), "Revisa el panel de administración")
+	assert.Empty(t, notifs, "advance failure should not create a notification")
 }
 
 func TestAdvancePlayoffSuccess_NoNotification(t *testing.T) {
@@ -917,4 +916,28 @@ func TestSearchUpsert_PairUpdateRefreshesEntry(t *testing.T) {
 
 	stale := ix.Search("quokka ferrari", admin, 10)
 	assert.Empty(t, stale, "the pair's old name must no longer match")
+}
+
+func TestUserJoined_NotifiesAdmins(t *testing.T) {
+	app := newTestApp(t)
+	makeAdminUser(t, app)
+	registerHooksWithNotifier(t, app)
+
+	col, err := app.FindCollectionByNameOrId("users")
+	require.NoError(t, err)
+	n := userSeq.Add(1)
+	u := core.NewRecord(col)
+	u.Set("email", fmt.Sprintf("newplayer%d@test.local", n))
+	u.Set("username", fmt.Sprintf("newplayer%d", n))
+	u.Set("display_name", "Nuevo Jugador")
+	u.SetPassword("testpass123456")
+	u.SetVerified(true)
+	require.NoError(t, app.Save(u))
+
+	notifs, err := app.FindRecordsByFilter("notifications",
+		"type = 'user_joined'", "", 0, 0, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(notifs))
+	assert.Contains(t, notifs[0].GetString("body"), "Nuevo Jugador")
+	assert.Equal(t, "/admin/players", notifs[0].GetString("link"))
 }

@@ -16,7 +16,6 @@ type Notification struct {
 // Notifier sends player notifications; implemented by notify.Notifier.
 type Notifier interface {
 	NotifyPlayers(playerUserIDs []string, n Notification)
-	EmailPlayers(playerUserIDs []string, subject, body, link string)
 }
 
 // Service provides domain operations for competitions, matches, and standings.

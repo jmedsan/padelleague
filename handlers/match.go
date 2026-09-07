@@ -306,7 +306,6 @@ func (h *MatchHandler) notifyResultProposal(match *core.Record, userID, scores s
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	n := league.NotifResultSubmitted(match.Id, myPairName, compName, scores)
 	h.notifier.NotifyPlayers(rivalPlayers, n)
-	h.notifier.EmailPlayers(rivalPlayers, n.Title, n.Body, "/match/"+match.Id)
 
 	participants := matchParticipantUserIDs(h.app, match)
 	an := league.NotifAdminMatchProgress(match.Id, "Resultado propuesto: "+scores)
@@ -521,7 +520,6 @@ func (h *MatchHandler) notifyUnplayed(match *core.Record, reporterTeam int) {
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
 	n := league.NotifMatchReportedUnplayed(id, compName)
 	h.notifier.NotifyPlayers(rivalPlayers, n)
-	h.notifier.EmailPlayers(rivalPlayers, n.Title, n.Body, "/match/"+id)
 }
 
 func playerNameIfSet(app core.App, userID string) string {

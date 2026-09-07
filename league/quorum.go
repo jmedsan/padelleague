@@ -344,12 +344,10 @@ func (svc *Service) remindProposalIfDue(m, comp *core.Record, now time.Time) {
 
 	title := "Resultado pendiente de respuesta"
 	body := fmt.Sprintf("%s propuso un resultado hace más de %d horas · %s. Acepta o contrapropón.", submitterName, threshold, comp.GetString("name"))
-	link := "/match/" + m.Id
 
 	svc.notifier.NotifyPlayers(players, Notification{
 		Type: "quorum_request", Title: title, Body: body, MatchID: m.Id,
 	})
-	svc.notifier.EmailPlayers(players, title, body, link)
 
 	m.Set("confirm_reminded", true)
 	if err := svc.app.Save(m); err != nil {
@@ -405,12 +403,10 @@ func (svc *Service) remindIfDue(m *core.Record, comp *core.Record, now time.Time
 
 	title := "Resultado pendiente de confirmar"
 	body := fmt.Sprintf("%s envió un resultado hace más de %d horas · %s. Confirma o contrapropón.", submitterName, threshold, comp.GetString("name"))
-	link := "/match/" + fresh.Id
 
 	svc.notifier.NotifyPlayers(players, Notification{
 		Type: "quorum_request", Title: title, Body: body, MatchID: fresh.Id,
 	})
-	svc.notifier.EmailPlayers(players, title, body, link)
 
 	fresh.Set("confirm_reminded", true)
 	if err := svc.app.Save(fresh); err != nil {
