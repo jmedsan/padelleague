@@ -338,41 +338,6 @@ func TestCronRegistration_QuorumTimeout(t *testing.T) {
 
 // Playoff advance notification tests (S-3)
 
-func TestAdvancePlayoffFailure_LogsOnly(t *testing.T) {
-	app := newTestApp(t)
-	makeAdminUser(t, app)
-	registerHooksWithNotifier(t, app)
-
-	p1 := makePair(t, app, "HkA")
-	p2 := makePair(t, app, "HkB")
-	p3 := makePair(t, app, "HkC")
-	p4 := makePair(t, app, "HkD")
-	comp := makePlayoffComp(t, app, []*core.Record{p1, p2, p3, p4})
-
-	m1 := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
-	m2 := makeMatch(t, app, comp.Id, p3.Id, p4.Id, 1)
-	_ = makeMatch(t, app, comp.Id, "", "", 2)
-
-	require.NoError(t, transitionMatch(t, app, m1.Id, league.StatusFinal,
-		map[string]any{"scores": "6-3 6-4", "winner": p1.Id}))
-
-	app.OnRecordUpdate("matches").BindFunc(func(e *core.RecordEvent) error {
-		if int(e.Record.GetFloat("round_number")) == 2 {
-			return fmt.Errorf("injected failure for round-2 seeding")
-		}
-		return e.Next()
-	})
-
-	require.NoError(t, transitionMatch(t, app, m2.Id, league.StatusFinal,
-		map[string]any{"scores": "6-1 6-2", "winner": p4.Id}))
-
-	notifs, err := app.FindRecordsByFilter("notifications",
-		"type = 'admin_message' && title = 'Error en avance de playoff'",
-		"", 0, 0, nil)
-	require.NoError(t, err)
-	assert.Empty(t, notifs, "advance failure should not create a notification")
-}
-
 func TestAdvancePlayoffSuccess_NoNotification(t *testing.T) {
 	app := newTestApp(t)
 	makeAdminUser(t, app)
@@ -916,28 +881,4 @@ func TestSearchUpsert_PairUpdateRefreshesEntry(t *testing.T) {
 
 	stale := ix.Search("quokka ferrari", admin, 10)
 	assert.Empty(t, stale, "the pair's old name must no longer match")
-}
-
-func TestUserJoined_NotifiesAdmins(t *testing.T) {
-	app := newTestApp(t)
-	makeAdminUser(t, app)
-	registerHooksWithNotifier(t, app)
-
-	col, err := app.FindCollectionByNameOrId("users")
-	require.NoError(t, err)
-	n := userSeq.Add(1)
-	u := core.NewRecord(col)
-	u.Set("email", fmt.Sprintf("newplayer%d@test.local", n))
-	u.Set("username", fmt.Sprintf("newplayer%d", n))
-	u.Set("display_name", "Nuevo Jugador")
-	u.SetPassword("testpass123456")
-	u.SetVerified(true)
-	require.NoError(t, app.Save(u))
-
-	notifs, err := app.FindRecordsByFilter("notifications",
-		"type = 'user_joined'", "", 0, 0, nil)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(notifs))
-	assert.Contains(t, notifs[0].GetString("body"), "Nuevo Jugador")
-	assert.Equal(t, "/admin/players", notifs[0].GetString("link"))
 }

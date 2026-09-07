@@ -48,7 +48,7 @@ func Register(se *core.ServeEvent, deps Deps) {
 		blockPBDashboard(se)
 	}
 
-	auth := handlers.NewAuthHandler(deps.App, deps.Renderer.Page)
+	auth := handlers.NewAuthHandler(deps.App, deps.Notifier, deps.Renderer.Page)
 	notif := handlers.NewNotificationHandler(deps.App, deps.Renderer.Page, deps.Renderer.Partial)
 
 	registerStaticRoutes(se, deps)

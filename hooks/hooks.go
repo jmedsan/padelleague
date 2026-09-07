@@ -181,14 +181,6 @@ func Register(app core.App, deps Deps) {
 		return e.Next()
 	})
 
-	app.OnRecordAfterCreateSuccess("users").BindFunc(func(e *core.RecordEvent) error {
-		if notifier != nil {
-			n := league.NotifAdminUserJoined(e.Record.GetString("display_name"))
-			_ = notifier.NotifyAdmins(n, e.Record.Id)
-		}
-		return e.Next()
-	})
-
 	app.OnRecordUpdate("matches").BindFunc(func(e *core.RecordEvent) error {
 		old := e.Record.Original().GetString("status")
 		if err := validateTransition(old, e.Record.GetString("status")); err != nil {

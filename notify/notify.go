@@ -14,7 +14,7 @@ import (
 	"padelleague/league"
 )
 
-// Notifier delivers in-app and push notifications to players.
+// Notifier delivers in-app, push, and email notifications to players.
 type Notifier struct {
 	app             core.App
 	vapidPublicKey  string
@@ -41,7 +41,7 @@ func (n *Notifier) PushEnabled() bool {
 	return n.vapidPublicKey != "" && n.vapidPrivateKey != ""
 }
 
-// NotifyPlayers creates an in-app notification and sends a push for each player.
+// NotifyPlayers creates an in-app notification, sends a push, and emails each player.
 func (n *Notifier) NotifyPlayers(playerUserIDs []string, notif league.Notification) {
 	notifCol, err := n.app.FindCollectionByNameOrId("notifications")
 	if err != nil {
@@ -60,7 +60,7 @@ func (n *Notifier) NotifyPlayers(playerUserIDs []string, notif league.Notificati
 	}
 }
 
-// NotifyAdmins creates an in-app notification and sends a push for each admin user.
+// NotifyAdmins creates an in-app notification, sends a push, and emails each admin user.
 // excludeUserIDs are skipped (e.g. participants already notified as players).
 func (n *Notifier) NotifyAdmins(notif league.Notification, excludeUserIDs ...string) error {
 	notifCol, err := n.app.FindCollectionByNameOrId("notifications")

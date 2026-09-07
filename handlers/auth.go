@@ -20,12 +20,13 @@ import (
 // AuthHandler handles login, registration, and profile completion.
 type AuthHandler struct {
 	app        core.App
+	notifier   *notify.Notifier
 	renderPage RenderFunc
 }
 
 // NewAuthHandler creates an AuthHandler with the given dependencies.
-func NewAuthHandler(app core.App, renderPage RenderFunc) *AuthHandler {
-	return &AuthHandler{app: app, renderPage: renderPage}
+func NewAuthHandler(app core.App, notifier *notify.Notifier, renderPage RenderFunc) *AuthHandler {
+	return &AuthHandler{app: app, notifier: notifier, renderPage: renderPage}
 }
 
 // Login renders the login page, redirecting authenticated users to home.
@@ -197,6 +198,11 @@ func (h *AuthHandler) registerUser(p registerParams) (*core.Record, string, erro
 	userRecord, authToken, err := h.createUserInTx(p, boundInvite)
 	if err != nil {
 		return nil, "", err
+	}
+
+	if h.notifier != nil {
+		n := league.NotifAdminUserJoined(userRecord.GetString("display_name"))
+		_ = h.notifier.NotifyAdmins(n, userRecord.Id)
 	}
 
 	if !boundInvite && notify.IsMailerConfigured(h.app) {
