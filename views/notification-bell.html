@@ -2,7 +2,7 @@
     <div class="card-body">
         <div class="flex justify-between items-center mb-2">
             <h3 class="font-bold">Notificaciones</h3>
-            <button hx-post="/notifications/read-all" hx-swap="none" hx-on::after-request="htmx.ajax('GET','/notifications/count','#notif-badge');htmx.ajax('GET','/notifications/count','#notif-badge-mobile')" hx-disabled-elt="this" class="btn btn-ghost btn-xs">Descartar todas</button>
+            <button hx-post="/notifications/read-all" hx-target="#notif-list" hx-swap="innerHTML" hx-disabled-elt="this" class="btn btn-ghost btn-xs">Descartar todas</button>
         </div>
         <div id="notif-list">
             {{template "notificationListItems" .}}
