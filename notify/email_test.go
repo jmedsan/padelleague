@@ -3,6 +3,7 @@ package notify
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/mailer"
@@ -55,7 +56,8 @@ func TestNotifyPlayers_EmailSkippedWhenSMTPOff(t *testing.T) {
 
 	NewNotifier(app, "", "").NotifyPlayers([]string{user.Id}, league.Notification{Type: "general", Title: "Test", Body: "Body"})
 
-	assert.Equal(t, 0, app.TestMailer.TotalSend(), "nothing may be sent while SMTP is off")
+	assert.Never(t, func() bool { return app.TestMailer.TotalSend() > 0 },
+		200*time.Millisecond, 20*time.Millisecond, "nothing may be sent while SMTP is off")
 }
 
 func TestNotifyPlayers_EmailSkippedForInvalidUser(t *testing.T) {
@@ -65,7 +67,8 @@ func TestNotifyPlayers_EmailSkippedForInvalidUser(t *testing.T) {
 
 	NewNotifier(app, "", "").NotifyPlayers([]string{"nonexistent"}, league.Notification{Type: "general", Title: "Test", Body: "Body"})
 
-	assert.Equal(t, 0, app.TestMailer.TotalSend())
+	assert.Never(t, func() bool { return app.TestMailer.TotalSend() > 0 },
+		200*time.Millisecond, 20*time.Millisecond)
 }
 
 // failingMailer replaces the TestMailer so the send-error branch runs.
@@ -117,7 +120,8 @@ func TestNotifyPlayers_EmailSendsOnePerPlayer(t *testing.T) {
 	NewNotifier(app, "", "").NotifyPlayers([]string{one.Id, two.Id},
 		league.Notification{Type: "general", Title: "Partido confirmado", Body: "Body", MatchID: match.Id})
 
-	require.Equal(t, 2, app.TestMailer.TotalSend())
+	assert.Eventually(t, func() bool { return app.TestMailer.TotalSend() == 2 },
+		2*time.Second, 50*time.Millisecond)
 
 	got := make(map[string]string, 2)
 	for _, msg := range app.TestMailer.Messages() {
@@ -146,7 +150,8 @@ func TestNotifyPlayers_EmailSkipsPlayerWithoutEmail(t *testing.T) {
 	NewNotifier(app, "", "").NotifyPlayers([]string{withoutEmail.Id, withEmail.Id},
 		league.Notification{Type: "general", Title: "Test", Body: "Body"})
 
-	require.Equal(t, 1, app.TestMailer.TotalSend())
+	assert.Eventually(t, func() bool { return app.TestMailer.TotalSend() == 1 },
+		2*time.Second, 50*time.Millisecond)
 	assert.Equal(t, withEmail.Email(), app.TestMailer.LastMessage().To[0].Address)
 }
 
@@ -162,7 +167,8 @@ func TestNotifyPlayers_EmailSkipsPlayerWithEmailChannelDisabled(t *testing.T) {
 	NewNotifier(app, "", "").NotifyPlayers([]string{disabled.Id, enabled.Id},
 		league.Notification{Type: "general", Title: "Test", Body: "Body"})
 
-	require.Equal(t, 1, app.TestMailer.TotalSend())
+	assert.Eventually(t, func() bool { return app.TestMailer.TotalSend() == 1 },
+		2*time.Second, 50*time.Millisecond)
 	assert.Equal(t, enabled.Email(), app.TestMailer.LastMessage().To[0].Address)
 }
 

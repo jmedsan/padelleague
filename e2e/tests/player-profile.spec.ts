@@ -53,7 +53,7 @@ test.describe('player profile and stats', () => {
     await expect(page.getByText('Pareja Alpha').first()).toBeVisible();
   });
 
-  test('player can view notification preferences', async ({ page }) => {
+  test('player sees notification prefs with message toggle but no admin section', async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     if (isMobile(page)) {
       await openDrawer(page);
@@ -63,6 +63,22 @@ test.describe('player profile and stats', () => {
     }
     await page.waitForLoadState('domcontentloaded');
     await expect(page.getByRole('heading', { name: /Preferencias de notificaciones/i })).toBeVisible();
+    await expect(page.locator('input[name="message"]')).toBeVisible();
+    await expect(page.getByText('Administrador')).not.toBeVisible();
+  });
+
+  test('player can toggle message notifications off and save', async ({ page }) => {
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto('/profile/notifications');
+    await page.waitForLoadState('domcontentloaded');
+    const toggle = page.locator('input[name="message"]');
+    await expect(toggle).toBeChecked();
+    await toggle.uncheck();
+    await page.click('button:has-text("Guardar")');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('input[name="message"]')).not.toBeChecked();
+    await toggle.check();
+    await page.click('button:has-text("Guardar")');
   });
 
   test('notification count loads', async ({ page }) => {
