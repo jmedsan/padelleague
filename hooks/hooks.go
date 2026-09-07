@@ -35,17 +35,12 @@ func validateTransition(oldStatus, newStatus string) error {
 	return nil
 }
 
-func handleAdvance(app core.App, svc *league.Service, notifier *notify.Notifier, rec *core.Record) {
+func handleAdvance(svc *league.Service, rec *core.Record) {
 	if rec.GetString("status") != league.StatusFinal {
 		return
 	}
 	if err := svc.AdvancePlayoff(rec); err != nil {
 		slog.Error("auto-advance playoff failed", "match", rec.Id, "err", err)
-		if notifier != nil {
-			compName := league.CompetitionName(app, rec.GetString("competition"))
-			n := league.NotifAdminPlayoffAdvanceFailed(rec.Id, compName)
-			_ = notifier.NotifyAdmins(n)
-		}
 	}
 }
 
@@ -186,6 +181,14 @@ func Register(app core.App, deps Deps) {
 		return e.Next()
 	})
 
+	app.OnRecordAfterCreateSuccess("users").BindFunc(func(e *core.RecordEvent) error {
+		if notifier != nil {
+			n := league.NotifAdminUserJoined(e.Record.GetString("display_name"))
+			_ = notifier.NotifyAdmins(n, e.Record.Id)
+		}
+		return e.Next()
+	})
+
 	app.OnRecordUpdate("matches").BindFunc(func(e *core.RecordEvent) error {
 		old := e.Record.Original().GetString("status")
 		if err := validateTransition(old, e.Record.GetString("status")); err != nil {
@@ -195,7 +198,7 @@ func Register(app core.App, deps Deps) {
 	})
 
 	app.OnRecordAfterUpdateSuccess("matches").BindFunc(func(e *core.RecordEvent) error {
-		handleAdvance(app, svc, notifier, e.Record)
+		handleAdvance(svc, e.Record)
 		return e.Next()
 	})
 
@@ -212,28 +215,31 @@ func Register(app core.App, deps Deps) {
 		svc.RemindPendingConfirmations(time.Now())
 	})
 
-	if searchIndex != nil {
-		app.OnServe().BindFunc(func(e *core.ServeEvent) error {
-			searchIndex.Rebuild(app)
-			return e.Next()
-		})
-		app.Cron().MustAdd("search-index-rebuild", "*/10 * * * *", func() {
-			searchIndex.Rebuild(app)
-		})
-
-		for _, collection := range []string{"users", "pairs", "competitions", "matches", "venues"} {
-			app.OnRecordAfterCreateSuccess(collection).BindFunc(func(e *core.RecordEvent) error {
-				search.UpsertRecord(searchIndex, app, e.Record.Collection().Name, e.Record)
-				return e.Next()
-			})
-			app.OnRecordAfterUpdateSuccess(collection).BindFunc(func(e *core.RecordEvent) error {
-				search.UpsertRecord(searchIndex, app, e.Record.Collection().Name, e.Record)
-				return e.Next()
-			})
-		}
-	}
-
+	registerSearch(app, searchIndex)
 	registerBackup(app, deps.Backup)
 	registerSMTP(app, deps.SMTP)
 	registerMailerBranding(app)
+}
+
+func registerSearch(app core.App, idx *search.Index) {
+	if idx == nil {
+		return
+	}
+	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
+		idx.Rebuild(app)
+		return e.Next()
+	})
+	app.Cron().MustAdd("search-index-rebuild", "*/10 * * * *", func() {
+		idx.Rebuild(app)
+	})
+	for _, collection := range []string{"users", "pairs", "competitions", "matches", "venues"} {
+		app.OnRecordAfterCreateSuccess(collection).BindFunc(func(e *core.RecordEvent) error {
+			search.UpsertRecord(idx, app, e.Record.Collection().Name, e.Record)
+			return e.Next()
+		})
+		app.OnRecordAfterUpdateSuccess(collection).BindFunc(func(e *core.RecordEvent) error {
+			search.UpsertRecord(idx, app, e.Record.Collection().Name, e.Record)
+			return e.Next()
+		})
+	}
 }

@@ -321,7 +321,6 @@ func (h *ThreadHandler) notifyProposal(match *core.Record, myTeam int, n proposa
 		MatchID: match.Id, AuthorName: authorName, Date: n.Date, Time: n.Time, VenueName: n.VenueName, CompName: compName,
 	})
 	h.notifier.NotifyPlayers(rivalPlayers, notif)
-	h.notifier.EmailPlayers(rivalPlayers, notif.Title, notif.Body, "/match/"+match.Id)
 }
 
 func (h *ThreadHandler) parseProposalForm(e *core.RequestEvent) (ProposalData, error) {
@@ -492,7 +491,6 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 		MatchID: match.Id, ResponderName: league.PlayerName(h.app, e.Auth.Id), Date: pd.Date, Time: pd.Time, CompName: compName,
 	})
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
-	h.notifier.EmailPlayers(proposerPlayers, notif.Title, notif.Body, "/match/"+match.Id)
 	return nil
 }
 
@@ -525,7 +523,6 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	notif := league.NotifProposalRejected(match.Id, league.PlayerName(h.app, e.Auth.Id), reason, compName)
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
-	h.notifier.EmailPlayers(proposerPlayers, notif.Title, notif.Body, "/match/"+match.Id)
 	return nil
 }
 
@@ -569,7 +566,6 @@ func (h *ThreadHandler) acceptResultProposal(e *core.RequestEvent, match, msg *c
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	n := league.NotifResultConfirmed(match.Id, responderPairName, compName)
 	h.notifier.NotifyPlayers(proposerPlayers, n)
-	h.notifier.EmailPlayers(proposerPlayers, n.Title, n.Body, "/match/"+match.Id)
 	return nil
 }
 
@@ -633,7 +629,6 @@ func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *c
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	notif := league.NotifResultCountered(match.Id, counterPairName, compName)
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
-	h.notifier.EmailPlayers(proposerPlayers, notif.Title, notif.Body, "/match/"+match.Id)
 	return nil
 }
 
@@ -706,7 +701,6 @@ func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	notif := league.NotifDecisionChangedToRejected(match.Id, league.PlayerName(h.app, e.Auth.Id), compName)
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
-	h.notifier.EmailPlayers(proposerPlayers, notif.Title, notif.Body, "/match/"+match.Id)
 	return nil
 }
 
@@ -755,7 +749,6 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 		MatchID: match.Id, ResponderName: league.PlayerName(h.app, e.Auth.Id), Date: pd.Date, Time: pd.Time, CompName: compName,
 	})
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
-	h.notifier.EmailPlayers(proposerPlayers, notif.Title, notif.Body, "/match/"+match.Id)
 	return nil
 }
 

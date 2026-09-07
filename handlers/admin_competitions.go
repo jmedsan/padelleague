@@ -778,7 +778,6 @@ func (h *CompetitionHandler) AdminBroadcast(e *core.RequestEvent) error {
 		Body:  body,
 		Link:  "/competition/" + comp.Id,
 	})
-	h.notifier.EmailPlayers(players, title, body, "/competition/"+comp.Id)
 
 	slog.Info("broadcast sent", "competition", comp.Id, "players", len(players))
 	return alertSuccess(e, "Anuncio enviado a "+strconv.Itoa(len(players))+" jugadores")

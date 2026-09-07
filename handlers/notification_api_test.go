@@ -332,6 +332,40 @@ func TestNotificationPrefsSave_VerifiedUserCanToggleEmailOff(t *testing.T) {
 	s.Test(t)
 }
 
+func TestNotificationPrefsSave_NonAdminPreservesAdminPrefs(t *testing.T) {
+	t.Parallel()
+	var userID string
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /profile/notifications preserves admin prefs for non-admin user",
+		Method:         http.MethodPost,
+		URL:            "/profile/notifications",
+		Body:           strings.NewReader("general=on&dispute=on"),
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupNotifRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Non Admin", "")
+		user.Set("notification_prefs", map[string]any{
+			"admin_message": true, "user_joined": true, "match_progress": true,
+		})
+		require.NoError(tb, app.Save(user))
+		userID = user.Id
+		hdrs := authHeaders(tb, user)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		user, err := app.FindRecordById("users", userID)
+		require.NoError(tb, err)
+		prefs := notify.NotificationPrefs(user)
+		assert.Equal(tb, true, prefs["admin_message"], "non-admin must not reset admin_message")
+		assert.Equal(tb, true, prefs["user_joined"], "non-admin must not reset user_joined")
+		assert.Equal(tb, true, prefs["match_progress"], "non-admin must not reset match_progress")
+	}
+	s.Test(t)
+}
+
 func TestPushSubscribeHTTPS(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

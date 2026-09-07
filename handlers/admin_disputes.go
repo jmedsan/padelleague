@@ -161,5 +161,4 @@ func (h *DisputeHandler) notifyMatchPlayers(match *core.Record, notifType, title
 	h.notifier.NotifyPlayers(allPlayers, league.Notification{
 		Type: notifType, Title: title, Body: body, MatchID: match.Id,
 	})
-	h.notifier.EmailPlayers(allPlayers, title, body, "/match/"+match.Id)
 }

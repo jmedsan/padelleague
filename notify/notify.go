@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
@@ -102,6 +103,35 @@ func (n *Notifier) deliver(notifCol *core.Collection, user *core.Record, notif l
 	if PushChannelEnabled(user) {
 		go n.sendPush(user.Id, notif.Title, notif.Body, link)
 	}
+	n.emailNotification(user, notif, link)
+}
+
+// emailNotification sends notif as an email to user, gated on SMTP being
+// configured, the user having a verified email, and the email channel being
+// enabled in their prefs. Runs synchronously so callers observe delivery
+// before returning.
+func (n *Notifier) emailNotification(user *core.Record, notif league.Notification, link string) {
+	if !IsMailerConfigured(n.app) || user.Email() == "" {
+		return
+	}
+	if !user.Verified() {
+		slog.Info("skip email to unverified user", "to", maskEmail(user.Email()))
+		return
+	}
+	if !EmailChannelEnabled(user) {
+		return
+	}
+
+	if strings.HasPrefix(link, "/") {
+		if baseURL := strings.TrimRight(n.app.Settings().Meta.AppURL, "/"); baseURL != "" {
+			link = baseURL + link
+		}
+	}
+
+	subject := SubjectPrefix() + notif.Title
+	displayName := user.GetString("display_name")
+	htmlBody := RenderEmail(n.app, "", BuildNotificationEmail(displayName, notif.Body, link))
+	SendEmail(n.app, user.Email(), subject, htmlBody)
 }
 
 func notificationEnabled(user *core.Record, notifType string) bool {
@@ -239,6 +269,8 @@ func NotificationPrefs(user *core.Record) map[string]any {
 		"general":        true,
 		"scheduling":     true,
 		"match_progress": true,
+		"admin_message":  true,
+		"user_joined":    true,
 	}
 	prefs, ok := decodePrefs(user.Get("notification_prefs"))
 	if !ok {

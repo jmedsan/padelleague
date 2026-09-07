@@ -10,6 +10,8 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/league"
 )
 
 // enableSMTP flips the app into "mailer configured" mode. tests.TestApp binds
@@ -46,22 +48,22 @@ func TestBuildNotificationEmail_EscapesHTML(t *testing.T) {
 	assert.Contains(t, html, "&lt;script&gt;")
 }
 
-func TestEmailNotifyPlayers_NoSMTP(t *testing.T) {
+func TestNotifyPlayers_EmailSkippedWhenSMTPOff(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 	user := makeUser(t, app, "player")
 
-	NewNotifier(app, "", "").EmailPlayers([]string{user.Id}, "Test", "Body", "")
+	NewNotifier(app, "", "").NotifyPlayers([]string{user.Id}, league.Notification{Type: "general", Title: "Test", Body: "Body"})
 
 	assert.Equal(t, 0, app.TestMailer.TotalSend(), "nothing may be sent while SMTP is off")
 }
 
-func TestEmailNotifyPlayers_InvalidUser(t *testing.T) {
+func TestNotifyPlayers_EmailSkippedForInvalidUser(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 	enableSMTP(t, app)
 
-	NewNotifier(app, "", "").EmailPlayers([]string{"nonexistent"}, "Test", "Body", "")
+	NewNotifier(app, "", "").NotifyPlayers([]string{"nonexistent"}, league.Notification{Type: "general", Title: "Test", Body: "Body"})
 
 	assert.Equal(t, 0, app.TestMailer.TotalSend())
 }
@@ -104,14 +106,16 @@ func TestSendEmail_Sends(t *testing.T) {
 	assert.Equal(t, app.Settings().Meta.SenderAddress, msg.From.Address)
 }
 
-func TestEmailNotifyPlayers_SendsOnePerPlayer(t *testing.T) {
+func TestNotifyPlayers_EmailSendsOnePerPlayer(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 	enableSMTP(t, app)
 	one := makeUser(t, app, "player")
 	two := makeUser(t, app, "player")
+	match := makeMatch(t, app)
 
-	NewNotifier(app, "", "").EmailPlayers([]string{one.Id, two.Id}, "Partido confirmado", "Body", "https://example.com/match/1")
+	NewNotifier(app, "", "").NotifyPlayers([]string{one.Id, two.Id},
+		league.Notification{Type: "general", Title: "Partido confirmado", Body: "Body", MatchID: match.Id})
 
 	require.Equal(t, 2, app.TestMailer.TotalSend())
 
@@ -127,10 +131,10 @@ func TestEmailNotifyPlayers_SendsOnePerPlayer(t *testing.T) {
 	// The body is personalized per recipient and carries the match link.
 	assert.Contains(t, got[one.Email()], one.GetString("display_name"))
 	assert.Contains(t, got[two.Email()], two.GetString("display_name"))
-	assert.Contains(t, got[one.Email()], "https://example.com/match/1")
+	assert.Contains(t, got[one.Email()], "/match/"+match.Id)
 }
 
-func TestEmailNotifyPlayers_SkipsPlayerWithoutEmail(t *testing.T) {
+func TestNotifyPlayers_EmailSkipsPlayerWithoutEmail(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 	enableSMTP(t, app)
@@ -139,13 +143,14 @@ func TestEmailNotifyPlayers_SkipsPlayerWithoutEmail(t *testing.T) {
 	withoutEmail.Set("email", "")
 	require.NoError(t, app.Save(withoutEmail))
 
-	NewNotifier(app, "", "").EmailPlayers([]string{withoutEmail.Id, withEmail.Id}, "Test", "Body", "")
+	NewNotifier(app, "", "").NotifyPlayers([]string{withoutEmail.Id, withEmail.Id},
+		league.Notification{Type: "general", Title: "Test", Body: "Body"})
 
 	require.Equal(t, 1, app.TestMailer.TotalSend())
 	assert.Equal(t, withEmail.Email(), app.TestMailer.LastMessage().To[0].Address)
 }
 
-func TestEmailNotifyPlayers_SkipsPlayerWithEmailChannelDisabled(t *testing.T) {
+func TestNotifyPlayers_EmailSkipsPlayerWithEmailChannelDisabled(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 	enableSMTP(t, app)
@@ -154,7 +159,8 @@ func TestEmailNotifyPlayers_SkipsPlayerWithEmailChannelDisabled(t *testing.T) {
 	disabled.Set("notification_prefs", map[string]any{"email": false})
 	require.NoError(t, app.Save(disabled))
 
-	NewNotifier(app, "", "").EmailPlayers([]string{disabled.Id, enabled.Id}, "Test", "Body", "")
+	NewNotifier(app, "", "").NotifyPlayers([]string{disabled.Id, enabled.Id},
+		league.Notification{Type: "general", Title: "Test", Body: "Body"})
 
 	require.Equal(t, 1, app.TestMailer.TotalSend())
 	assert.Equal(t, enabled.Email(), app.TestMailer.LastMessage().To[0].Address)
