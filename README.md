@@ -16,7 +16,8 @@ A web app for organizing padel leagues. An admin creates competitions, assigns p
 - **Add to calendar** — one-tap "Añadir al calendario" (`.ics`) on a scheduled match
 - **Player profile** — win rate, per-competition stats with links to competitions and partners
 - **Pair page** — canonical page per pair showing players, competition positions, and match history
-- **Notifications** — bell icon with unread count, email, and web push
+- **Notifications** — bell icon with unread count, email, and web push; all three channels delivered automatically from one pipeline. Per-type toggles (result proposals, disputes, scheduling, chat messages, match assignments) in notification preferences
+- **Email verification** — unverified users see a persistent banner with a resend link; email notifications are blocked until verified
 - **Global search** — fuzzy, accent-folded search across players, pairs, competitions, matches, threads, documents, and venues; focusing the search box without typing shows a zero-query panel with pending obligations, active competitions, recent searches, and quick-nav links
 
 ### For admins
@@ -30,6 +31,8 @@ A web app for organizing padel leagues. An admin creates competitions, assigns p
 - **Outstanding matches** — one view of every unresolved match across active competitions with its deadline and urgency, most-urgent first
 - **Invite-only registration** — admin generates invite links, no open signup
 - **Dispute resolution** — review and resolve score disagreements
+- **Admin notifications** — toggleable alerts for match progress, system errors, and new player registrations; admin-only section in notification preferences
+- **Reference documents** — upload files or add links with mandatory/default flags; protected file downloads with per-request tokens
 - **Penalty system** — apply configurable, reasoned point penalties per pair; every application records its admin and timestamp, and removals retain the audit history
 - **Payment tracking** — per-pair payment status with batch toggle
 - **Venue management** — add/edit venues, used in dropdowns across the app
@@ -97,6 +100,14 @@ The `-v` flag persists the SQLite database between container restarts.
 | `APP_PLAYER2_NAME` | Second seed player display name (default: `Jugador 2`) |
 | `APP_ENV` | Environment: `dev` (default) or `prod`. `prod` skips the player seed |
 | `APP_DEV_TOOLS` | `true` to enable the admin database reset tool (default: `false`) |
+| `SMTP_HOST` | SMTP server host (e.g. `smtp.gmail.com`) |
+| `SMTP_PORT` | SMTP port (default: `587`) |
+| `SMTP_USERNAME` | SMTP username |
+| `SMTP_PASSWORD` | SMTP password (app password for Gmail) |
+| `SMTP_TLS` | Enable TLS (default: `false`) |
+| `SMTP_SENDER_ADDRESS` | Sender email address |
+| `SMTP_SENDER_NAME` | Sender display name (default: `Liga Dale Fuerte`) |
+| `APP_URL` | Public app URL for email links (e.g. `https://www.ligadalefuerte.com`) |
 | `VAPID_PUBLIC_KEY` | Web push VAPID public key |
 | `VAPID_PRIVATE_KEY` | Web push VAPID private key |
 
@@ -106,7 +117,7 @@ The `-v` flag persists the SQLite database between container restarts.
 main.go              # Entry point, wires packages together
 config/              # Env-based configuration struct
 league/              # Domain logic (scoring, standings, fixtures, awards, quorum)
-notify/              # Notification delivery (push, in-app, email)
+notify/              # Notification delivery (in-app, push, email — all three from one deliver method)
 handlers/            # HTTP handlers (thin: parse request, call domain, render)
 hooks/               # PocketBase event hooks and cron jobs
 middleware/          # Cookie auth bridge, admin role check
