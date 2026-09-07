@@ -276,4 +276,29 @@ test.describe('admin management', () => {
     await expect(page.locator('footer')).toBeVisible();
     await expect(page.locator('footer', { hasText: sponsorName })).toHaveCount(0);
   });
+
+  test('admin sees admin notification toggles', async ({ page }) => {
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto('/profile/notifications');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.getByText('Administrador')).toBeVisible();
+    await expect(page.locator('input[name="match_progress"]')).toBeVisible();
+    await expect(page.locator('input[name="admin_message"]')).toBeVisible();
+    await expect(page.locator('input[name="user_joined"]')).toBeVisible();
+    await expect(page.locator('input[name="message"]')).toBeVisible();
+  });
+
+  test('admin can toggle admin notifications off and save', async ({ page }) => {
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto('/profile/notifications');
+    await page.waitForLoadState('domcontentloaded');
+    const toggle = page.locator('input[name="user_joined"]');
+    await expect(toggle).toBeChecked();
+    await toggle.uncheck();
+    await page.click('button:has-text("Guardar")');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('input[name="user_joined"]')).not.toBeChecked();
+    await toggle.check();
+    await page.click('button:has-text("Guardar")');
+  });
 });

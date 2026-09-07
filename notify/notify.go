@@ -108,8 +108,8 @@ func (n *Notifier) deliver(notifCol *core.Collection, user *core.Record, notif l
 
 // emailNotification sends notif as an email to user, gated on SMTP being
 // configured, the user having a verified email, and the email channel being
-// enabled in their prefs. Runs synchronously so callers observe delivery
-// before returning.
+// enabled in their prefs. Callers run it in a goroutine; it does not signal
+// completion back.
 func (n *Notifier) emailNotification(user *core.Record, notif league.Notification, link string) {
 	if !IsMailerConfigured(n.app) || user.Email() == "" {
 		return

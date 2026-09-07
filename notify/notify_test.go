@@ -397,7 +397,8 @@ func TestNotifyPlayers_EmailSkippedWhenUserHasNoEmail(t *testing.T) {
 
 	NewNotifier(app, "", "").NotifyPlayers([]string{user.Id}, league.Notification{Type: "general", Title: "Test", Body: "Body"})
 
-	assert.Equal(t, 0, app.TestMailer.TotalSend())
+	assert.Never(t, func() bool { return app.TestMailer.TotalSend() > 0 },
+		200*time.Millisecond, 20*time.Millisecond)
 }
 
 func TestNotifyAdmins_NoMatchID(t *testing.T) {
