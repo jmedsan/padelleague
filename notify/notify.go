@@ -267,6 +267,7 @@ func NotificationPrefs(user *core.Record) map[string]any {
 		"dispute":        true,
 		"match_assigned": true,
 		"general":        true,
+		"message":        true,
 		"scheduling":     true,
 		"match_progress": true,
 		"admin_message":  true,
