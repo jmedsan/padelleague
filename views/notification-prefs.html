@@ -56,16 +56,35 @@
                 </div>
                 <div class="form-control">
                     <label class="label cursor-pointer">
+                        <span class="label-text">Mensajes en el hilo</span>
+                        <input type="checkbox" name="message" class="toggle toggle-primary" {{if index .Prefs "message"}}checked{{end}}>
+                    </label>
+                </div>
+                <div class="form-control">
+                    <label class="label cursor-pointer">
                         <span class="label-text">Propuestas de fecha</span>
                         <input type="checkbox" name="scheduling" class="toggle toggle-primary" {{if index .Prefs "scheduling"}}checked{{end}}>
                     </label>
                 </div>
                 {{if .AdminView}}
                 <div class="divider my-1"></div>
+                <h2 class="font-semibold text-sm uppercase tracking-wide text-base-content/60">Administrador</h2>
                 <div class="form-control">
                     <label class="label cursor-pointer">
-                        <span class="label-text">Progreso de partidos (administrador)</span>
+                        <span class="label-text">Progreso de partidos</span>
                         <input type="checkbox" name="match_progress" class="toggle toggle-primary" {{if index .Prefs "match_progress"}}checked{{end}}>
+                    </label>
+                </div>
+                <div class="form-control">
+                    <label class="label cursor-pointer">
+                        <span class="label-text">Alertas del sistema</span>
+                        <input type="checkbox" name="admin_message" class="toggle toggle-primary" {{if index .Prefs "admin_message"}}checked{{end}}>
+                    </label>
+                </div>
+                <div class="form-control">
+                    <label class="label cursor-pointer">
+                        <span class="label-text">Nuevos jugadores registrados</span>
+                        <input type="checkbox" name="user_joined" class="toggle toggle-primary" {{if index .Prefs "user_joined"}}checked{{end}}>
                     </label>
                 </div>
                 {{end}}

@@ -41,12 +41,12 @@ func TestNotificationConstructors(t *testing.T) {
 		{
 			name: "NewMessage",
 			got:  NotifNewMessage("m1", "Ana", "Hola, ¿jugamos mañana?", "Liga Primavera"),
-			want: Notification{Type: "general", Title: "Nuevo mensaje", Body: "Ana escribió: Hola, ¿jugamos mañana?", MatchID: "m1", CompName: "Liga Primavera"},
+			want: Notification{Type: "message", Title: "Nuevo mensaje", Body: "Ana escribió: Hola, ¿jugamos mañana?", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "NewMessage_truncates",
 			got:  NotifNewMessage("m1", "Ana", "Este es un mensaje muy largo que debería ser truncado porque supera los sesenta caracteres permitidos", "Liga Primavera"),
-			want: Notification{Type: "general", Title: "Nuevo mensaje", Body: "Ana escribió: Este es un mensaje muy largo que debería ser truncado porque...", MatchID: "m1", CompName: "Liga Primavera"},
+			want: Notification{Type: "message", Title: "Nuevo mensaje", Body: "Ana escribió: Este es un mensaje muy largo que debería ser truncado porque...", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "Proposal",
@@ -106,9 +106,9 @@ func TestNotificationConstructors(t *testing.T) {
 			want: Notification{Type: "admin_message", Title: "Propuestas pendientes no actualizadas", Body: "El partido Pareja A vs Pareja B tiene propuestas que no se pudieron marcar como superadas. Revisa el hilo.", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
-			name: "AdminPlayoffAdvanceFailed",
-			got:  NotifAdminPlayoffAdvanceFailed("m1", "Liga Primavera"),
-			want: Notification{Type: "admin_message", Title: "Error en avance de playoff", Body: "El partido finalizó pero el bracket no avanzó automáticamente. Revisa el panel de administración.", MatchID: "m1", CompName: "Liga Primavera"},
+			name: "AdminUserJoined",
+			got:  NotifAdminUserJoined("Carlos García"),
+			want: Notification{Type: "user_joined", Title: "Nuevo jugador registrado", Body: "Carlos García se ha registrado en la liga.", Link: "/admin/players"},
 		},
 		{
 			name: "AdminMatchProgress",

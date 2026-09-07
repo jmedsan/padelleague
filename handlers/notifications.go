@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 
 	"github.com/pocketbase/pocketbase/core"
 
@@ -154,6 +155,7 @@ func (h *NotificationHandler) PrefsSave(e *core.RequestEvent) error {
 	current := notify.NotificationPrefs(e.Auth)
 	emailVerified := e.Auth.Verified()
 	hasPushSub := h.hasActivePushSubscription(e.Auth.Id)
+	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
 
 	prefs := map[string]any{
 		"email":          formToggle(e, "email", emailVerified, current),
@@ -162,8 +164,11 @@ func (h *NotificationHandler) PrefsSave(e *core.RequestEvent) error {
 		"dispute":        e.Request.FormValue("dispute") == "on",
 		"match_assigned": e.Request.FormValue("match_assigned") == "on",
 		"general":        e.Request.FormValue("general") == "on",
+		"message":        e.Request.FormValue("message") == "on",
 		"scheduling":     e.Request.FormValue("scheduling") == "on",
-		"match_progress": e.Request.FormValue("match_progress") == "on",
+		"match_progress": formToggle(e, "match_progress", isAdmin, current),
+		"admin_message":  formToggle(e, "admin_message", isAdmin, current),
+		"user_joined":    formToggle(e, "user_joined", isAdmin, current),
 	}
 
 	e.Auth.Set("notification_prefs", prefs)
