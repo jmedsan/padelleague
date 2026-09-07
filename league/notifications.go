@@ -54,7 +54,7 @@ func NotifResultCountered(matchID, opponent, compName string) Notification {
 // NotifNewMessage notifies the rival of a new thread message.
 func NotifNewMessage(matchID, authorName, content, compName string) Notification {
 	return Notification{
-		Type: "general", Title: "Nuevo mensaje",
+		Type: "message", Title: "Nuevo mensaje",
 		Body:     fmt.Sprintf("%s escribió: %s", authorName, Truncate(content, 60)),
 		MatchID:  matchID,
 		CompName: compName,
@@ -196,16 +196,6 @@ func NotifAdminSupersedeFailed(matchID, pair1Name, pair2Name, compName string) N
 	}
 }
 
-// NotifAdminPlayoffAdvanceFailed alerts admins that automatic playoff advancement failed.
-func NotifAdminPlayoffAdvanceFailed(matchID, compName string) Notification {
-	return Notification{
-		Type: "admin_message", Title: "Error en avance de playoff",
-		Body:     "El partido finalizó pero el bracket no avanzó automáticamente. Revisa el panel de administración.",
-		MatchID:  matchID,
-		CompName: compName,
-	}
-}
-
 // NotifMatchAssigned notifies a player that fixtures were generated for a
 // competition they're playing in.
 func NotifMatchAssigned(compID, compName string) Notification {
@@ -244,6 +234,16 @@ func NotifMatchReminder(matchID, timeStr, venueName, compName string) Notificati
 		Body:     fmt.Sprintf("Tu partido es mañana a las %s en %s.", timeStr, venueName),
 		MatchID:  matchID,
 		CompName: compName,
+	}
+}
+
+// NotifAdminUserJoined alerts admins that a new user registered.
+func NotifAdminUserJoined(displayName string) Notification {
+	return Notification{
+		Type:  "user_joined",
+		Title: "Nuevo jugador registrado",
+		Body:  fmt.Sprintf("%s se ha registrado en la liga.", displayName),
+		Link:  "/admin/players",
 	}
 }
 
