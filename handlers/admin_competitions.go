@@ -79,11 +79,11 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"Mode":                AdminFull,
 		"FooterCompetitionID": id,
 	}
-	h.addDetailExtras(data, comp, matches)
+	h.addDetailExtras(data, comp, matches, fileTokenFor(e))
 	return h.renderPage(e, "admin/competition-detail.html", data)
 }
 
-func (h *CompetitionHandler) addDetailExtras(data map[string]any, comp *core.Record, matches []*core.Record) {
+func (h *CompetitionHandler) addDetailExtras(data map[string]any, comp *core.Record, matches []*core.Record, fileToken string) {
 	if comp.GetString("type") == "league" {
 		rows, _ := h.leagueSvc.ComputeStandings(comp.Id)
 		hasPlayed := false
@@ -102,7 +102,7 @@ func (h *CompetitionHandler) addDetailExtras(data map[string]any, comp *core.Rec
 			data["RoundDates"] = h.buildRoundDates(comp)
 		}
 	}
-	attachedViews, unattachedDocs := h.buildDetailDocs(comp)
+	attachedViews, unattachedDocs := h.buildDetailDocs(comp, fileToken)
 	data["AttachedDocViews"] = attachedViews
 	data["UnattachedDocs"] = unattachedDocs
 
@@ -143,13 +143,13 @@ func (h *CompetitionHandler) buildDetailSponsors(comp *core.Record) ([]*core.Rec
 	return attached, unattached
 }
 
-func (h *CompetitionHandler) buildDetailDocs(comp *core.Record) ([]DocumentView, []*core.Record) {
+func (h *CompetitionHandler) buildDetailDocs(comp *core.Record, fileToken string) ([]DocumentView, []*core.Record) {
 	attachedIDs := comp.GetStringSlice("documents")
 	attachMode := Mode{Admin: true, Editable: true, Row: true}
 	var views []DocumentView
 	for _, did := range attachedIDs {
 		if doc, err := h.app.FindRecordById("documents", did); err == nil {
-			dv := NewDocumentView(doc, attachMode)
+			dv := NewDocumentView(doc, attachMode, fileToken)
 			dv.CompetitionID = comp.Id
 			views = append(views, dv)
 		}

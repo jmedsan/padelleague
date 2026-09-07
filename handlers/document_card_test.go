@@ -15,7 +15,7 @@ func TestNewDocumentView_LinkDoc(t *testing.T) {
 	app := newTestApp(t)
 
 	doc := makeDocumentTB(t, app, "Reglas", true, "https://example.com/reglas")
-	dv := NewDocumentView(doc, PlayerRow)
+	dv := NewDocumentView(doc, PlayerRow, "")
 
 	assert.Equal(t, "Reglas", dv.Title)
 	assert.False(t, dv.IsFile)
@@ -35,7 +35,7 @@ func TestNewDocumentView_DefaultFlags(t *testing.T) {
 	doc.Set("is_default", true)
 	require.NoError(t, app.Save(doc))
 
-	dv := NewDocumentView(doc, AdminFull)
+	dv := NewDocumentView(doc, AdminFull, "")
 
 	assert.Equal(t, "Tarifas", dv.Title)
 	assert.False(t, dv.IsFile)
@@ -59,7 +59,7 @@ func TestNewDocumentView_FileDoc(t *testing.T) {
 	// the same branch without going through FileField upload validation.
 	doc.Set("file", "reglamento_abc123.pdf")
 
-	dv := NewDocumentView(doc, PlayerRow)
+	dv := NewDocumentView(doc, PlayerRow, "")
 
 	assert.True(t, dv.IsFile)
 	assert.Equal(t, "/api/files/documents/docid123456789/reglamento_abc123.pdf", dv.OpenURL)
@@ -73,8 +73,8 @@ func TestNewDocumentViewWithAck(t *testing.T) {
 	other := makeDocumentTB(t, app, "Tarifas", false, "https://example.com/tarifas")
 	acked := map[string]struct{}{doc.Id: {}}
 
-	dvAcked := NewDocumentViewWithAck(doc, PlayerRow, acked)
-	dvNotAcked := NewDocumentViewWithAck(other, PlayerRow, acked)
+	dvAcked := NewDocumentViewWithAck(doc, PlayerRow, "", acked)
+	dvNotAcked := NewDocumentViewWithAck(other, PlayerRow, "", acked)
 
 	assert.True(t, dvAcked.Acked)
 	assert.False(t, dvNotAcked.Acked)

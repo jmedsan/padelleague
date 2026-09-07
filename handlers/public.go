@@ -638,7 +638,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	data["Mode"] = PlayerSummary
 	data["OGImage"] = league.CompetitionLogoURL(comp.Id, comp.GetString("logo"))
 	data["FooterCompetitionID"] = comp.Id
-	h.addCompetitionDocViews(data, comp, userID)
+	h.addCompetitionDocViews(data, comp, userID, fileTokenFor(e))
 	return h.render.Page(e, "competition.html", data)
 }
 
@@ -658,9 +658,10 @@ func (h *PublicHandler) docsGate(e *core.RequestEvent, comp *core.Record, userID
 	for i, d := range pending {
 		mandatoryIDs[i] = d.Id
 	}
+	ft := fileTokenFor(e)
 	docViews := make([]DocumentView, len(allDocs))
 	for i, d := range allDocs {
-		docViews[i] = NewDocumentView(d, PlayerSummary)
+		docViews[i] = NewDocumentView(d, PlayerSummary, ft)
 	}
 	err = h.render.Page(e, "competition-docs-gate.html", map[string]any{
 		"PageTitle":           "Documentos",
@@ -676,7 +677,7 @@ func (h *PublicHandler) docsGate(e *core.RequestEvent, comp *core.Record, userID
 // addCompetitionDocViews sets DocumentView entries on data when the
 // competition has attached documents, marking which ones userID has
 // acknowledged.
-func (h *PublicHandler) addCompetitionDocViews(data map[string]any, comp *core.Record, userID string) {
+func (h *PublicHandler) addCompetitionDocViews(data map[string]any, comp *core.Record, userID, fileToken string) {
 	docs := league.AttachedDocuments(h.app, comp)
 	if len(docs) == 0 {
 		return
@@ -688,7 +689,7 @@ func (h *PublicHandler) addCompetitionDocViews(data map[string]any, comp *core.R
 	}
 	docViews := make([]DocumentView, len(docs))
 	for i, d := range docs {
-		docViews[i] = NewDocumentViewWithAck(d, PlayerSummary, ackedSet)
+		docViews[i] = NewDocumentViewWithAck(d, PlayerSummary, fileToken, ackedSet)
 	}
 	data["DocumentViews"] = docViews
 }

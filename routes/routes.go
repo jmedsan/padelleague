@@ -60,6 +60,9 @@ func Register(se *core.ServeEvent, deps Deps) {
 	registerProfileRoutes(se, auth, notif)
 
 	se.Router.GET("/{path...}", func(e *core.RequestEvent) error {
+		if strings.HasPrefix(e.Request.URL.Path, "/api/") {
+			return e.Next()
+		}
 		return deps.Renderer.ErrorPage(e, http.StatusNotFound, "Página no encontrada")
 	})
 }
