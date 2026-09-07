@@ -92,6 +92,43 @@ func TestAdminPairsCreate(t *testing.T) {
 	s.Test(t)
 }
 
+func TestAdminPairsCreate_WithCompetition(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/pairs with competition_id creates and attaches pair",
+		Method:         http.MethodPost,
+		URL:            "/admin/pairs",
+		ExpectedStatus: 204,
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupFullAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		u1 := makeUserTB(tb, app, "CompPairP1", "")
+		u2 := makeUserTB(tb, app, "CompPairP2", "")
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		compID = comp.Id
+		s.Body = strings.NewReader("name=CompPair&player1=" + u1.Id + "&player2=" + u2.Id + "&competition_id=" + comp.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, resp *http.Response) {
+		pairs, err := app.FindRecordsByFilter("pairs", "name = 'CompPair'", "", 0, 0, nil)
+		require.NoError(tb, err)
+		require.Equal(tb, 1, len(pairs))
+		comp, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Contains(tb, comp.GetStringSlice("pairs"), pairs[0].Id,
+			"new pair must be attached to the competition")
+		loc := resp.Header.Get("HX-Redirect")
+		assert.Equal(tb, "/admin/competitions/"+compID, loc,
+			"should redirect back to competition detail")
+	}
+	s.Test(t)
+}
+
 func TestAdminPairsUpdate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

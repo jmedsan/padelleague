@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"log/slog"
+
 	"github.com/pocketbase/pocketbase/core"
 
 	"padelleague/league"
@@ -79,6 +81,20 @@ func (h *PairHandler) PairsCreate(e *core.RequestEvent) error {
 
 	if err := h.app.Save(record); err != nil {
 		return alertError(e, "Error al crear la pareja")
+	}
+
+	if compID := e.Request.FormValue("competition_id"); compID != "" {
+		comp, err := h.app.FindRecordById("competitions", compID)
+		if err == nil {
+			pairs := comp.GetStringSlice("pairs")
+			pairs = append(pairs, record.Id)
+			comp.Set("pairs", pairs)
+			if err := h.app.Save(comp); err != nil {
+				slog.Error("add new pair to competition", "pair", record.Id, "comp", compID, "err", err)
+			}
+		}
+		flash(e, "Pareja creada y añadida")
+		return redirectHX(e, "/admin/competitions/"+compID)
 	}
 
 	flash(e, "Pareja creada")

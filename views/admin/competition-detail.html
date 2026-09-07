@@ -313,6 +313,7 @@
                 <p class="text-sm font-semibold mb-3">Crear nueva pareja</p>
                 <div id="create-pair-result" class="mb-2" aria-live="polite"></div>
                 <form hx-post="/admin/pairs" hx-target="#create-pair-result">
+                    <input type="hidden" name="competition_id" value="{{.Competition.Id}}">
                     <input type="text" name="name" aria-label="Nombre de la pareja" class="input input-bordered input-sm w-full" placeholder="Nombre de la pareja" required>
                     <select name="player1" aria-label="Jugador 1" class="select select-bordered select-sm w-full mt-2" required>
                         <option value="">Jugador 1…</option>
