@@ -260,7 +260,7 @@ func registerAdminPairRoutes(g *router.RouterGroup[*core.RequestEvent], deps Dep
 }
 
 func registerAdminPlayerRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
-	h := handlers.NewAdminPlayerHandler(deps.App, deps.Renderer.Page)
+	h := handlers.NewAdminPlayerHandler(deps.App, deps.Notifier, deps.Renderer.Page)
 	g.GET("/players", h.Players)
 	g.POST("/players/pre-create", h.PlayerPreCreate)
 	g.POST("/players/{id}", h.PlayerUpdate)

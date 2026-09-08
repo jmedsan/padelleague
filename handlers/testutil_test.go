@@ -504,7 +504,7 @@ func setupFullAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) 
 	dispute := NewDisputeHandler(app, notifier, r.Page)
 	inv := NewInvitationHandler(app, r.Page)
 	pair := NewPairHandler(app, r.Page)
-	player := NewAdminPlayerHandler(app, r.Page)
+	player := NewAdminPlayerHandler(app, notifier, r.Page)
 	venue := NewVenueHandler(app, r.Page)
 
 	g := e.Router.Group("/admin")
