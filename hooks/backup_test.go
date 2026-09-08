@@ -2,6 +2,7 @@ package hooks
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -10,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRegisterBackup_DisabledWithoutConfig(t *testing.T) {
+func TestRegisterBackup_DisabledWithoutEmail(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 
@@ -18,97 +19,103 @@ func TestRegisterBackup_DisabledWithoutConfig(t *testing.T) {
 
 	jobs := app.Cron().Jobs()
 	for _, j := range jobs {
-		assert.NotEqual(t, "gdrive-backup", j.Id(), "no backup cron should be registered without config")
+		assert.NotEqual(t, "email-backup", j.Id(), "no backup cron should be registered without BACKUP_EMAIL")
 	}
 }
 
-func TestRegisterBackup_DisabledWithoutToken(t *testing.T) {
-	t.Parallel()
+func TestRegisterBackup_Enabled_RegistersEvery12hCronAndExposesState(t *testing.T) {
 	app := newTestApp(t)
 
-	registerBackup(app, BackupConfig{FolderID: "test-folder-id"})
-
-	jobs := app.Cron().Jobs()
-	for _, j := range jobs {
-		assert.NotEqual(t, "gdrive-backup", j.Id(), "no backup cron should be registered without a drive token")
-	}
-}
-
-func TestRegisterBackup_OAuthToken_RegistersHourlyCron(t *testing.T) {
-	t.Parallel()
-	app := newTestApp(t)
-
-	registerBackup(app, BackupConfig{
-		DriveToken: `{"access_token":"ya29.test","refresh_token":"1//test","expiry":"2026-01-01T00:00:00Z"}`,
-		FolderID:   "test-folder-id",
-	})
+	registerBackup(app, BackupConfig{Email: "backup@test.local"})
 
 	jobs := app.Cron().Jobs()
 	var found bool
 	for _, j := range jobs {
-		if j.Id() == "gdrive-backup" {
+		if j.Id() == "email-backup" {
 			found = true
-			assert.Equal(t, "0 * * * *", j.Expression(), "zero IntervalMin defaults to hourly")
+			assert.Equal(t, "0 */12 * * *", j.Expression())
 			break
 		}
 	}
-	assert.True(t, found, "gdrive-backup cron job must be registered when an OAuth token is configured")
+	assert.True(t, found, "email-backup cron job must be registered when BACKUP_EMAIL is set")
+	assert.True(t, BackupEnabled())
+	assert.NoError(t, RunBackupNow(), "RunBackupNow only errors when backup is unconfigured; internal send failures are logged, not returned")
 }
 
-func TestBackupCronExpr(t *testing.T) {
+func TestEncryptBackup_ProducesOpensslSaltedFormat(t *testing.T) {
 	t.Parallel()
-	cases := []struct {
-		name        string
-		intervalMin int
-		want        string
-	}{
-		{"zero defaults to hourly", 0, "0 * * * *"},
-		{"negative defaults to hourly", -5, "0 * * * *"},
-		{"sub-hour interval runs every N minutes", 15, "*/15 * * * *"},
-		{"exactly 60 runs hourly", 60, "0 * * * *"},
-		{"multi-hour interval", 180, "0 */3 * * *"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			assert.Equal(t, tc.want, backupCronExpr(tc.intervalMin))
-		})
-	}
-}
-
-func TestRegisterBackup_WritesRcloneConfig(t *testing.T) {
-	t.Parallel()
-	app := newTestApp(t)
-
-	token := `{"access_token":"ya29.test","refresh_token":"1//test"}`
-	registerBackup(app, BackupConfig{
-		DriveToken: token,
-		FolderID:   "test-folder-id",
-	})
-
-	config, err := os.ReadFile(os.TempDir() + "/rclone.conf")
+	plaintext := []byte("pb_data backup contents")
+	ciphertext, err := encryptBackup(plaintext, "test-passphrase")
 	require.NoError(t, err)
-	assert.Contains(t, string(config), "type = drive")
-	assert.Contains(t, string(config), "scope = drive.file")
-	assert.Contains(t, string(config), "root_folder_id = test-folder-id")
-	assert.Contains(t, string(config), "token = "+token)
-	assert.NotContains(t, string(config), "client_id", "config must not contain a custom OAuth client")
-	assert.NotContains(t, string(config), "client_secret", "config must not contain a custom OAuth client")
+
+	require.Len(t, ciphertext, len(opensslSaltedMagic)+8+32, // header(8) + salt(8) + two padded AES blocks
+		"24-byte plaintext PKCS7-pads to two 16-byte AES blocks")
+	assert.Equal(t, opensslSaltedMagic, ciphertext[:8], "must start with the openssl Salted__ magic")
+	assert.NotEqual(t, plaintext, ciphertext, "must not be plaintext")
 }
 
-func TestRunBackup_CreatesBackupViaCreateBackup(t *testing.T) {
+func TestEncryptBackup_RandomSaltEachCall(t *testing.T) {
+	t.Parallel()
+	a, err := encryptBackup([]byte("data"), "pass")
+	require.NoError(t, err)
+	b, err := encryptBackup([]byte("data"), "pass")
+	require.NoError(t, err)
+	assert.NotEqual(t, a, b, "each encryption must use a fresh random salt")
+}
+
+// TestEncryptBackup_DecryptsWithRealOpenssl round-trips through the actual
+// openssl binary to prove the wire format matches
+// `openssl enc -aes-256-cbc -pbkdf2` byte-for-byte, not just our own decoder.
+func TestEncryptBackup_DecryptsWithRealOpenssl(t *testing.T) {
+	if _, err := exec.LookPath("openssl"); err != nil {
+		t.Skip("openssl not available in this environment")
+	}
+	t.Parallel()
+
+	plaintext := []byte("pb_data backup contents for openssl round-trip")
+	passphrase := "correct horse battery staple"
+	ciphertext, err := encryptBackup(plaintext, passphrase)
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	encPath := filepath.Join(dir, "backup.enc")
+	outPath := filepath.Join(dir, "backup.out")
+	require.NoError(t, os.WriteFile(encPath, ciphertext, 0o600))
+
+	cmd := exec.Command("openssl", "enc", "-d", "-aes-256-cbc", "-pbkdf2",
+		"-pass", "pass:"+passphrase, "-in", encPath, "-out", outPath)
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, "openssl decrypt failed: %s", output)
+
+	decrypted, err := os.ReadFile(outPath)
+	require.NoError(t, err)
+	assert.Equal(t, plaintext, decrypted)
+}
+
+func TestRunBackup_WithoutKeyRefusesToSendInAnyEnv(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
-	configPath := filepath.Join(t.TempDir(), "rclone.conf")
-	require.NoError(t, os.WriteFile(configPath, []byte("[gdrive]\n"), 0o600))
 
-	// No rclone binary configured to succeed against a fake remote, but
-	// CreateBackup must run (and the zip must exist briefly) before the
-	// rclone copy attempt, regardless of whether that upload succeeds.
-	runBackup(app, configPath)
+	// A missing EncryptionKey must abort before even creating a backup —
+	// CreateBackup is never called, so the backups dir is never created.
+	runBackup(app, BackupConfig{Email: "backup@test.local"})
+
+	backupsDir := filepath.Join(app.DataDir(), core.LocalBackupsDirName)
+	_, err := os.Stat(backupsDir)
+	assert.True(t, os.IsNotExist(err), "no backup should even be created without an encryption key")
+}
+
+func TestRunBackup_WithKeyCreatesThenRemovesTempFiles(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+
+	// SMTP is not configured in the test app, so sendBackupEmail fails after
+	// CreateBackup — this still exercises the create/read/encrypt/cleanup
+	// path without a real mailer.
+	runBackup(app, BackupConfig{Email: "backup@test.local", EncryptionKey: "test-passphrase"})
 
 	backupsDir := filepath.Join(app.DataDir(), core.LocalBackupsDirName)
 	entries, err := os.ReadDir(backupsDir)
 	require.NoError(t, err)
-	assert.Empty(t, entries, "the zip must be removed after the upload attempt")
+	assert.Empty(t, entries, "the zip and its .attrs sidecar must both be removed after the send attempt")
 }

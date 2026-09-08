@@ -6,7 +6,7 @@ COPY . .
 RUN CGO_ENABLED=0 go build -ldflags="-X main.Version=$(date -u +%Y%m%d-%H%M%S)" -o /padelleague .
 
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates rclone
+RUN apk add --no-cache ca-certificates
 COPY --from=build /padelleague /app/padelleague
 COPY entrypoint.sh /app/entrypoint.sh
 WORKDIR /app
