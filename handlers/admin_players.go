@@ -5,6 +5,7 @@ import (
 	"html"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -19,12 +20,13 @@ import (
 // AdminPlayerHandler handles admin player management.
 type AdminPlayerHandler struct {
 	app        core.App
+	notifier   *notify.Notifier
 	renderPage RenderFunc
 }
 
 // NewAdminPlayerHandler creates an AdminPlayerHandler with the given dependencies.
-func NewAdminPlayerHandler(app core.App, renderPage RenderFunc) *AdminPlayerHandler {
-	return &AdminPlayerHandler{app: app, renderPage: renderPage}
+func NewAdminPlayerHandler(app core.App, notifier *notify.Notifier, renderPage RenderFunc) *AdminPlayerHandler {
+	return &AdminPlayerHandler{app: app, notifier: notifier, renderPage: renderPage}
 }
 
 // Players renders the admin players management page.
@@ -50,6 +52,8 @@ func (h *AdminPlayerHandler) PlayerUpdate(e *core.RequestEvent) error {
 	if err != nil {
 		return alertError(e, "Usuario no encontrado")
 	}
+
+	prevRoles := user.GetStringSlice("roles")
 
 	displayName := e.Request.FormValue("display_name")
 	roles := e.Request.Form["roles"]
@@ -87,6 +91,20 @@ func (h *AdminPlayerHandler) PlayerUpdate(e *core.RequestEvent) error {
 	if err := h.app.Save(user); err != nil {
 		slog.Error("save player failed", "err", err)
 		return alertError(e, "Error al guardar el jugador")
+	}
+
+	sortedPrev := slices.Clone(prevRoles)
+	slices.Sort(sortedPrev)
+	sortedNew := slices.Clone(roles)
+	slices.Sort(sortedNew)
+	if !slices.Equal(sortedPrev, sortedNew) {
+		slog.Info("role changed", "actor", e.Auth.Id, "target", user.Id, "role", roles)
+		h.notifier.NotifyPlayers([]string{user.Id}, league.Notification{
+			Type:  "admin_message",
+			Title: "Cambio de rol",
+			Body:  "Tu rol ha sido actualizado a " + strings.Join(roles, ", "),
+			Link:  "/profile",
+		})
 	}
 
 	return redirectHX(e, "/admin/players")
@@ -167,6 +185,14 @@ func (h *AdminPlayerHandler) RegenerateLink(e *core.RequestEvent) error {
 	if name == "" {
 		name = user.GetString("email")
 	}
+
+	slog.Info("admin password reset", "actor", e.Auth.Id, "target", user.Id)
+	h.notifier.NotifyPlayers([]string{user.Id}, league.Notification{
+		Type:  "admin_message",
+		Title: "Restablecimiento de contraseña",
+		Body:  "Un administrador ha solicitado restablecer tu contraseña",
+	})
+
 	return renderResetLinkPanel(e, name, resetURL, false)
 }
 

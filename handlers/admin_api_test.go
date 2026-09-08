@@ -32,7 +32,7 @@ func setupAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 
 	comp := NewCompetitionHandler(app, svc, notifier, r.Page)
 	dash := NewCompetitionDashboardHandler(app, r.Page)
-	player := NewAdminPlayerHandler(app, r.Page)
+	player := NewAdminPlayerHandler(app, notifier, r.Page)
 	pair := NewPairHandler(app, r.Page)
 	inv := NewInvitationHandler(app, r.Page)
 	venue := NewVenueHandler(app, r.Page)

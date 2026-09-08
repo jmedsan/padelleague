@@ -77,7 +77,7 @@ func (h *CompetitionPairsHandler) AddPair(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
-// RemovePair removes a pair from a competition and deletes its pending matches.
+// RemovePair removes a pair from a competition, refusing if the pair has any matches.
 func (h *CompetitionPairsHandler) RemovePair(e *core.RequestEvent) error {
 	compID := e.Request.PathValue("id")
 	pairID := e.Request.FormValue("pair_id")
@@ -85,6 +85,17 @@ func (h *CompetitionPairsHandler) RemovePair(e *core.RequestEvent) error {
 	comp, err := h.app.FindRecordById("competitions", compID)
 	if err != nil {
 		return alertError(e, "Competición no encontrada")
+	}
+
+	matches, err := h.app.FindRecordsByFilter("matches",
+		"competition = {:cid} && (pair1 = {:pid} || pair2 = {:pid})", "", 1, 0,
+		map[string]any{"cid": compID, "pid": pairID})
+	if err != nil {
+		slog.Error("check pair matches failed", "competition", compID, "pair", pairID, "err", err)
+		return alertError(e, "Error al comprobar los partidos de la pareja")
+	}
+	if len(matches) > 0 {
+		return alertError(e, "No se puede eliminar una pareja con partidos programados o jugados")
 	}
 
 	existingPairIDs := comp.GetStringSlice("pairs")
