@@ -1134,6 +1134,59 @@ func TestPenaltyVoidRetainsHistory(t *testing.T) {
 	s.Test(t)
 }
 
+func TestPenaltyVoidTraceAndNotification(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST penalty remove sets voided_by/voided_at/void_reason and notifies the pair",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var penaltyID, player1ID, player2ID, adminID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		enableSMTP(tb, app)
+		admin := makeAdminUserTB(tb, app)
+		adminID = admin.Id
+		p1 := makePairTB(tb, app, "VoidTrace A")
+		player1ID = p1.GetString("player1")
+		player2ID = p1.GetString("player2")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1})
+		col, err := app.FindCollectionByNameOrId("penalties")
+		require.NoError(tb, err)
+		pen := core.NewRecord(col)
+		pen.Set("competition", comp.Id)
+		pen.Set("pair", p1.Id)
+		pen.Set("amount", 6)
+		pen.Set("reason", "Void trace test")
+		pen.Set("applied_by", admin.Id)
+		pen.Set("voided", false)
+		require.NoError(tb, app.Save(pen))
+		penaltyID = pen.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/penalty"
+		s.Body = strings.NewReader("action=remove&penalty_id=" + pen.Id + "&void_reason=Error+administrativo")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		pen, err := app.FindRecordById("penalties", penaltyID)
+		require.NoError(tb, err)
+		assert.True(tb, pen.GetBool("voided"))
+		assert.Equal(tb, adminID, pen.GetString("voided_by"))
+		assert.Equal(tb, "Error administrativo", pen.GetString("void_reason"))
+		assert.False(tb, pen.GetDateTime("voided_at").IsZero(), "voided_at must be set")
+
+		notifs, err := app.FindRecordsByFilter("notifications",
+			"type = 'penalty' && title = 'Penalización anulada'", "", 0, 0, nil)
+		require.NoError(tb, err)
+		require.Len(tb, notifs, 2, "both players of the penalized pair are notified")
+		notifiedUsers := []string{notifs[0].GetString("user"), notifs[1].GetString("user")}
+		assert.ElementsMatch(tb, []string{player1ID, player2ID}, notifiedUsers)
+	}
+	s.Test(t)
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Group 14: validatePlayerUniqueness
 // ═══════════════════════════════════════════════════════════════════════
@@ -1718,6 +1771,114 @@ func TestRegenerateRoundDates(t *testing.T) {
 		// start=2026-06-01, end=2026-07-01, rounds=2 → round 1 = midpoint, round 2 = end (noon-anchored)
 		assert.Equal(tb, time.Date(2026, 6, 16, 12, 0, 0, 0, time.UTC), stored["1"].UTC())
 		assert.Equal(tb, time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC), stored["2"].UTC())
+	}
+	s.Test(t)
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Group 16: competition_events activity log
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestToggleLogsActivatedEvent(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /competitions/{id}/toggle logs activated when turning on",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, adminID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		adminID = admin.Id
+		p1 := makePairTB(tb, app, "ToggleEvA")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1})
+		comp.Set("active", false)
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+
+		s.URL = "/admin/competitions/" + comp.Id + "/toggle"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		events, err := app.FindRecordsByFilter("competition_events",
+			"competition = {:c}", "", 0, 0, map[string]any{"c": compID})
+		require.NoError(tb, err)
+		require.Len(tb, events, 1)
+		assert.Equal(tb, "activated", events[0].GetString("kind"))
+		assert.Equal(tb, adminID, events[0].GetString("actor"))
+		assert.Contains(tb, events[0].GetString("detail"), "activó")
+	}
+	s.Test(t)
+}
+
+func TestToggleLogsDeactivatedEvent(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /competitions/{id}/toggle logs deactivated when turning off",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, adminID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		adminID = admin.Id
+		p1 := makePairTB(tb, app, "ToggleEvB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1})
+		comp.Set("active", true)
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+
+		s.URL = "/admin/competitions/" + comp.Id + "/toggle"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		events, err := app.FindRecordsByFilter("competition_events",
+			"competition = {:c}", "", 0, 0, map[string]any{"c": compID})
+		require.NoError(tb, err)
+		require.Len(tb, events, 1)
+		assert.Equal(tb, "deactivated", events[0].GetString("kind"))
+		assert.Equal(tb, adminID, events[0].GetString("actor"))
+		assert.Contains(tb, events[0].GetString("detail"), "desactivó")
+	}
+	s.Test(t)
+}
+
+func TestUpdateLogsSettingsChangedEvent(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /competitions/{id} logs settings_changed with old to new quorum hours",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, adminID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		adminID = admin.Id
+		p1 := makePairTB(tb, app, "UpdEvA")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1})
+		comp.Set("quorum_timeout_hours", 48)
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Body = strings.NewReader("name=Test+Competition&type=league&quorum_timeout_hours=24")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		events, err := app.FindRecordsByFilter("competition_events",
+			"competition = {:c} && kind = 'settings_changed'", "", 0, 0, map[string]any{"c": compID})
+		require.NoError(tb, err)
+		require.Len(tb, events, 1)
+		assert.Equal(tb, adminID, events[0].GetString("actor"))
+		assert.Contains(tb, events[0].GetString("detail"), "Tiempo de espera: 48 → 24")
 	}
 	s.Test(t)
 }

@@ -696,11 +696,16 @@ func TestThreadMessages_ResultEventRendersAsSystemLine(t *testing.T) {
 func TestThreadMessages_SystemAuthorRendersAsSistema(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "empty-author message renders author as Sistema",
-		Method:          http.MethodGet,
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"Sistema"},
+		TestAppFactory: testAppFactory,
+		Name:           "empty-author message renders author as Sistema with full result line",
+		Method:         http.MethodGet,
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			"Sistema",
+			"confirmó resultado",
+			"Confirmado",
+			"6-3 6-4",
+		},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)

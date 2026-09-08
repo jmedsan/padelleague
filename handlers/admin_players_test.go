@@ -144,6 +144,70 @@ func TestPlayerUpdateEmptyRolesDefaultsToPlayer(t *testing.T) {
 	s.Test(t)
 }
 
+// PlayerUpdate: role actually changes → admin_message notification sent
+
+func TestPlayerUpdateRoleChangeNotifies(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/players/{id} notifies the player when roles change",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var playerID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAdminRoutes(tb, app, e)
+		enableSMTP(tb, app)
+		admin := makeAdminUser(tb, app)
+		player := makeUserTB(tb, app, "Role Change", "rolechange@test.local")
+		playerID = player.Id
+		s.URL = "/admin/players/" + player.Id
+		s.Body = strings.NewReader("display_name=Role+Change&gender=male&roles=admin&roles=player")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		notifs, err := app.FindRecordsByFilter("notifications",
+			"user = {:uid} && type = 'admin_message'", "", 0, 0, map[string]any{"uid": playerID})
+		require.NoError(tb, err)
+		require.Len(tb, notifs, 1, "role change must notify the player")
+		assert.Equal(tb, "Cambio de rol", notifs[0].GetString("title"))
+	}
+	s.Test(t)
+}
+
+// PlayerUpdate: roles resubmitted unchanged → no notification
+
+func TestPlayerUpdateSameRolesNoNotification(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/players/{id} does not notify when roles are unchanged",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var playerID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		player := makeUserTB(tb, app, "Same Role", "samerole@test.local")
+		playerID = player.Id
+		s.URL = "/admin/players/" + player.Id
+		s.Body = strings.NewReader("display_name=Same+Role&gender=male&roles=player")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		notifs, err := app.FindRecordsByFilter("notifications",
+			"user = {:uid} && type = 'admin_message'", "", 0, 0, map[string]any{"uid": playerID})
+		require.NoError(tb, err)
+		assert.Empty(tb, notifs, "no notification when roles resubmitted unchanged")
+	}
+	s.Test(t)
+}
+
 // createPlayerInvitation: expiry is ~48h (2*24*time.Hour)
 
 func TestPreCreateInvitationExpiry48h(t *testing.T) {
