@@ -171,12 +171,20 @@
     </div>
     <div class="collapse-content">
         {{if .HasUnpaid}}
-        <form hx-post="/admin/competitions/{{.Competition.Id}}/payment-all" hx-confirm="¿Marcar todas las parejas como pagadas?" data-confirm-ok="Marcar" class="mb-3">
-            <button type="submit" hx-disabled-elt="this" class="btn btn-success btn-sm gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                Marcar todos como pagado
+        <div class="flex flex-wrap gap-2 mb-3">
+            <form hx-post="/admin/competitions/{{.Competition.Id}}/payment-all" hx-confirm="¿Marcar todas las parejas como pagadas?" data-confirm-ok="Marcar">
+                <button type="submit" hx-disabled-elt="this" class="btn btn-success btn-sm gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                    Marcar todos como pagado
+                </button>
+            </form>
+            <button hx-post="/admin/competitions/{{.Competition.Id}}/payment-reminder" hx-swap="none"
+                    hx-confirm="¿Enviar recordatorio de pago a las parejas pendientes?"
+                    hx-disabled-elt="this"
+                    class="btn btn-outline btn-warning btn-sm">
+                Enviar recordatorio de pago
             </button>
-        </form>
+        </div>
         {{end}}
 
         {{if .Entries}}

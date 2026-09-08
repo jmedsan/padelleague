@@ -330,39 +330,6 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions")
 }
 
-// competitionUpdateLabels names the display label for each competitions
-// field the admin activity timeline tracks, in the order they're reported.
-var competitionUpdateLabels = []struct {
-	field, label string
-}{
-	{"name", "Nombre"},
-	{"type", "Tipo"},
-	{"play_twice", "Ida y vuelta"},
-	{"gender_type", "Género"},
-	{"quorum_timeout_hours", "Tiempo de espera"},
-	{"start_date", "Fecha inicio"},
-	{"end_date", "Fecha fin"},
-	{"arrange_grace_days", "Días de gracia"},
-	{"walkover_score", "Marcador de incomparecencia"},
-	{"default_penalty", "Penalización por defecto"},
-	{"recovery_days", "Período extra"},
-}
-
-// competitionUpdateDetail builds a "Field: old → new" summary of every
-// tracked field that actually changed between before and after, or "" if
-// nothing changed.
-func competitionUpdateDetail(before, after *core.Record) string {
-	var changes []string
-	for _, f := range competitionUpdateLabels {
-		oldVal := fmt.Sprint(before.Get(f.field))
-		newVal := fmt.Sprint(after.Get(f.field))
-		if oldVal != newVal {
-			changes = append(changes, fmt.Sprintf("%s: %s → %s", f.label, oldVal, newVal))
-		}
-	}
-	return strings.Join(changes, "; ")
-}
-
 // LogoUpload handles POST to upload and set a competition's logo image.
 // Admin only. The image is compressed via league.CompressLogoBytes
 // (aspect-ratio-preserving, no square crop) before being saved.
@@ -917,5 +884,6 @@ func (h *CompetitionHandler) AdminDeleteAnnouncement(e *core.RequestEvent) error
 	if err := h.app.Delete(ann); err != nil {
 		return alertError(e, "Error al eliminar el anuncio")
 	}
-	return alertSuccess(e, "Anuncio eliminado")
+	flash(e, "Anuncio eliminado")
+	return redirectHX(e, "/admin/competitions/"+comp.Id)
 }

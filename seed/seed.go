@@ -130,6 +130,9 @@ func wipeCompetitions(txApp core.App, summary *WipeSummary) error {
 	if err := wipeCollection(txApp, "announcements", new(int)); err != nil {
 		return err
 	}
+	if err := wipeCollection(txApp, "competition_events", new(int)); err != nil {
+		return err
+	}
 	if err := wipeCollection(txApp, "document_acks", new(int)); err != nil {
 		return err
 	}

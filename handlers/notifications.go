@@ -157,18 +157,18 @@ func (h *NotificationHandler) PrefsSave(e *core.RequestEvent) error {
 	hasPushSub := h.hasActivePushSubscription(e.Auth.Id)
 	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
 
+	adminOnly := map[string]bool{"match_progress": true, "admin_message": true, "user_joined": true}
+
 	prefs := map[string]any{
-		"email":          formToggle(e, "email", emailVerified, current),
-		"push":           formToggle(e, "push", hasPushSub, current),
-		"quorum_request": e.Request.FormValue("quorum_request") == "on",
-		"dispute":        e.Request.FormValue("dispute") == "on",
-		"match_assigned": e.Request.FormValue("match_assigned") == "on",
-		"general":        e.Request.FormValue("general") == "on",
-		"message":        e.Request.FormValue("message") == "on",
-		"scheduling":     e.Request.FormValue("scheduling") == "on",
-		"match_progress": formToggle(e, "match_progress", isAdmin, current),
-		"admin_message":  formToggle(e, "admin_message", isAdmin, current),
-		"user_joined":    formToggle(e, "user_joined", isAdmin, current),
+		"email": formToggle(e, "email", emailVerified, current),
+		"push":  formToggle(e, "push", hasPushSub, current),
+	}
+	for _, t := range notify.EventTypes {
+		prereqMet := true
+		if adminOnly[t] {
+			prereqMet = isAdmin
+		}
+		prefs[t] = formToggle(e, t, prereqMet, current)
 	}
 
 	e.Auth.Set("notification_prefs", prefs)

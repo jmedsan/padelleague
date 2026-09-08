@@ -2,19 +2,24 @@ package handlers
 
 import (
 	"log/slog"
+	"strconv"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
+	"padelleague/notify"
 )
 
 // CompetitionPaymentsHandler handles payment status for competition pairs.
 type CompetitionPaymentsHandler struct {
-	app core.App
+	app      core.App
+	notifier *notify.Notifier
 }
 
 // NewCompetitionPaymentsHandler creates a CompetitionPaymentsHandler.
-func NewCompetitionPaymentsHandler(app core.App) *CompetitionPaymentsHandler {
-	return &CompetitionPaymentsHandler{app: app}
+func NewCompetitionPaymentsHandler(app core.App, notifier *notify.Notifier) *CompetitionPaymentsHandler {
+	return &CompetitionPaymentsHandler{app: app, notifier: notifier}
 }
 
 // TogglePayment marks a single pair's payment status as paid or unpaid.
@@ -66,6 +71,41 @@ func (h *CompetitionPaymentsHandler) TogglePaymentAll(e *core.RequestEvent) erro
 
 	flash(e, "Todos marcados como pagados")
 	return redirectHX(e, "/admin/competitions/"+id)
+}
+
+// SendPaymentReminder notifies (bell + push + email) every player from an
+// unpaid pair in the competition.
+func (h *CompetitionPaymentsHandler) SendPaymentReminder(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	comp, err := h.app.FindRecordById("competitions", id)
+	if err != nil {
+		return alertError(e, "Competición no encontrada")
+	}
+
+	paymentStatus := getPaymentStatus(comp)
+	seen := make(map[string]struct{})
+	var players []string
+	for _, pid := range comp.GetStringSlice("pairs") {
+		if paymentStatus[pid] {
+			continue
+		}
+		for _, uid := range league.PlayersForPair(h.app, pid) {
+			if _, ok := seen[uid]; !ok {
+				seen[uid] = struct{}{}
+				players = append(players, uid)
+			}
+		}
+	}
+	if len(players) == 0 {
+		return alertWarning(e, "Todas las parejas están al día")
+	}
+
+	h.notifier.NotifyPlayers(players, league.Notification{
+		Type: "payment", Title: "Recordatorio de pago",
+		Body: "Recuerda realizar el pago para " + comp.GetString("name"),
+		Link: "/competition/" + comp.Id, CompName: comp.GetString("name"),
+	})
+	return alertSuccess(e, "Recordatorio enviado a "+strconv.Itoa(len(players))+" jugadores")
 }
 
 func getPaymentStatus(comp *core.Record) map[string]bool {
