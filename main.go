@@ -50,6 +50,7 @@ func main() {
 		Backup: hooks.BackupConfig{
 			Email:         cfg.BackupEmail,
 			EncryptionKey: cfg.BackupEncryptionKey,
+			IntervalHours: cfg.BackupIntervalHours,
 		},
 		SMTP: hooks.SMTPConfig{
 			Host:       cfg.SMTPHost,

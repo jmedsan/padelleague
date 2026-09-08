@@ -1,45 +1,60 @@
 package hooks
 
 import (
+	"context"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestRegisterBackup_DisabledWithoutEmail(t *testing.T) {
+func TestBackupCronExpr(t *testing.T) {
 	t.Parallel()
-	app := newTestApp(t)
-
-	registerBackup(app, BackupConfig{})
-
-	jobs := app.Cron().Jobs()
-	for _, j := range jobs {
-		assert.NotEqual(t, "email-backup", j.Id(), "no backup cron should be registered without BACKUP_EMAIL")
+	cases := []struct {
+		name          string
+		intervalHours int
+		want          string
+	}{
+		{"zero defaults to every 12h", 0, "0 */12 * * *"},
+		{"negative defaults to every 12h", -3, "0 */12 * * *"},
+		{"sub-24h interval runs every N hours", 6, "0 */6 * * *"},
+		{"exactly 24 runs daily", 24, "0 0 * * *"},
+		{"above 24 runs daily", 48, "0 0 * * *"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, backupCronExpr(tc.intervalHours))
+		})
 	}
 }
 
-func TestRegisterBackup_Enabled_RegistersEvery12hCronAndExposesState(t *testing.T) {
+func TestRegisterBackup_DisabledWithoutEmail(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	before := app.Settings().Backups.Cron
+
+	registerBackup(app, BackupConfig{})
+	require.NoError(t, app.OnServe().Trigger(&core.ServeEvent{App: app}, func(*core.ServeEvent) error { return nil }))
+
+	assert.Equal(t, before, app.Settings().Backups.Cron, "backup settings must be untouched without BACKUP_EMAIL")
+}
+
+func TestRegisterBackup_Enabled_SetsBackupCronSettings(t *testing.T) {
+	t.Parallel()
 	app := newTestApp(t)
 
-	registerBackup(app, BackupConfig{Email: "backup@test.local"})
+	registerBackup(app, BackupConfig{Email: "backup@test.local", IntervalHours: 6})
+	require.NoError(t, app.OnServe().Trigger(&core.ServeEvent{App: app}, func(*core.ServeEvent) error { return nil }))
 
-	jobs := app.Cron().Jobs()
-	var found bool
-	for _, j := range jobs {
-		if j.Id() == "email-backup" {
-			found = true
-			assert.Equal(t, "0 */12 * * *", j.Expression())
-			break
-		}
-	}
-	assert.True(t, found, "email-backup cron job must be registered when BACKUP_EMAIL is set")
-	assert.True(t, BackupEnabled())
-	assert.NoError(t, RunBackupNow(), "RunBackupNow only errors when backup is unconfigured; internal send failures are logged, not returned")
+	assert.Equal(t, "0 */6 * * *", app.Settings().Backups.Cron)
+	assert.Equal(t, 2, app.Settings().Backups.CronMaxKeep)
 }
 
 func TestEncryptBackup_ProducesOpensslSaltedFormat(t *testing.T) {
@@ -92,30 +107,51 @@ func TestEncryptBackup_DecryptsWithRealOpenssl(t *testing.T) {
 	assert.Equal(t, plaintext, decrypted)
 }
 
-func TestRunBackup_WithoutKeyRefusesToSendInAnyEnv(t *testing.T) {
+func TestEmailBackup_WithoutKeyRefusesToSend(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
+	enableSMTPForBackupTest(t, app)
 
-	// A missing EncryptionKey must abort before even creating a backup —
-	// CreateBackup is never called, so the backups dir is never created.
-	runBackup(app, BackupConfig{Email: "backup@test.local"})
+	// A missing EncryptionKey must refuse to send, regardless of environment.
+	emailBackup(app, BackupConfig{Email: "backup@test.local"}, "does-not-matter.zip")
 
-	backupsDir := filepath.Join(app.DataDir(), core.LocalBackupsDirName)
-	_, err := os.Stat(backupsDir)
-	assert.True(t, os.IsNotExist(err), "no backup should even be created without an encryption key")
+	assert.Equal(t, 0, app.TestMailer.TotalSend(), "no email must be sent without an encryption key")
 }
 
-func TestRunBackup_WithKeyCreatesThenRemovesTempFiles(t *testing.T) {
+// TestOnBackupCreate_EmailsEncryptedAttachment drives the real
+// app.CreateBackup() flow (the same path PocketBase's own cron and the
+// admin "Backup ahora" button use) and asserts the OnBackupCreate hook
+// emails an encrypted attachment once the zip exists.
+func TestOnBackupCreate_EmailsEncryptedAttachment(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
+	enableSMTPForBackupTest(t, app)
 
-	// SMTP is not configured in the test app, so sendBackupEmail fails after
-	// CreateBackup — this still exercises the create/read/encrypt/cleanup
-	// path without a real mailer.
-	runBackup(app, BackupConfig{Email: "backup@test.local", EncryptionKey: "test-passphrase"})
+	registerBackup(app, BackupConfig{Email: "backup@test.local", EncryptionKey: "test-passphrase"})
 
-	backupsDir := filepath.Join(app.DataDir(), core.LocalBackupsDirName)
-	entries, err := os.ReadDir(backupsDir)
-	require.NoError(t, err)
-	assert.Empty(t, entries, "the zip and its .attrs sidecar must both be removed after the send attempt")
+	require.NoError(t, app.CreateBackup(context.Background(), "test-backup.zip"))
+
+	require.Equal(t, 1, app.TestMailer.TotalSend())
+	msg := app.TestMailer.LastMessage()
+	assert.Equal(t, "backup@test.local", msg.To[0].Address)
+	assert.Contains(t, msg.Subject, "Backup")
+
+	require.Len(t, msg.Attachments, 1)
+	for name, r := range msg.Attachments {
+		assert.Equal(t, "test-backup.zip.enc", name)
+		data, err := io.ReadAll(r)
+		require.NoError(t, err)
+		assert.Equal(t, opensslSaltedMagic, data[:8], "attachment must be openssl-format encrypted")
+	}
+}
+
+// enableSMTPForBackupTest flips the app into "mailer configured" mode.
+// tests.TestApp routes NewMailClient() to its TestMailer, so nothing leaves
+// the process.
+func enableSMTPForBackupTest(t *testing.T, app *tests.TestApp) {
+	t.Helper()
+	app.Settings().SMTP.Enabled = true
+	app.Settings().SMTP.Host = "smtp.test.local"
+	app.Settings().Meta.SenderAddress = "sender@test.local"
+	app.Settings().Meta.SenderName = "Test Sender"
 }

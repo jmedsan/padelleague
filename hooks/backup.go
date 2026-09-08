@@ -2,7 +2,6 @@ package hooks
 
 import (
 	"bytes"
-	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/pbkdf2"
@@ -22,75 +21,79 @@ import (
 	"padelleague/notify"
 )
 
-// BackupConfig configures the email backup cron. An empty Email disables it.
+// BackupConfig configures PocketBase's native backup cron plus email
+// delivery. An empty Email disables it.
 type BackupConfig struct {
 	Email string
 	// EncryptionKey is the openssl passphrase for the backup archive. Empty
 	// refuses to send in every environment — the archive holds personal data
 	// (names, emails, phones) and is never mailed in the clear.
 	EncryptionKey string
+	// IntervalHours sets how often the backup cron runs. Values under 24 run
+	// every N hours; 24 and above run once daily. Defaults to 12 when zero.
+	IntervalHours int
 }
 
-var (
-	backupApp core.App
-	backupCfg BackupConfig
-)
-
-// BackupEnabled reports whether email backup is configured.
-func BackupEnabled() bool { return backupCfg.Email != "" }
-
-// RunBackupNow triggers an immediate backup. Returns an error if backup is not configured.
-func RunBackupNow() error {
-	if backupCfg.Email == "" {
-		return fmt.Errorf("backup not configured")
+// backupCronExpr builds the cron expression for the backup job from an
+// interval in hours. Zero or negative defaults to every 12 hours; 24 and
+// above run once daily at midnight.
+func backupCronExpr(intervalHours int) string {
+	if intervalHours <= 0 {
+		intervalHours = 12
 	}
-	runBackup(backupApp, backupCfg)
-	return nil
+	if intervalHours >= 24 {
+		return "0 0 * * *"
+	}
+	return fmt.Sprintf("0 */%d * * *", intervalHours)
 }
 
-// registerBackup wires a cron that emails a zip of pb_data/ to cfg.Email
-// every 12 hours. An empty Email disables it.
+// registerBackup enables PocketBase's built-in backup cron (keeping the
+// last 2) and emails a copy of each backup it creates. An empty Email
+// disables it and leaves the backup settings untouched.
 func registerBackup(app core.App, cfg BackupConfig) {
 	if cfg.Email == "" {
 		slog.Info("startup", "backup", "disabled (no BACKUP_EMAIL)")
 		return
 	}
 
-	backupApp = app
-	backupCfg = cfg
+	cronExpr := backupCronExpr(cfg.IntervalHours)
 
-	app.Cron().MustAdd("email-backup", "0 */12 * * *", func() {
-		runBackup(app, cfg)
+	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
+		s := app.Settings()
+		s.Backups.Cron = cronExpr
+		s.Backups.CronMaxKeep = 2
+		if err := app.Save(s); err != nil {
+			slog.Error("backup: failed to save settings", "err", err)
+		}
+		return e.Next()
 	})
 
-	slog.Info("startup", "backup", "email", "interval", "12h", "to", cfg.Email)
+	app.OnBackupCreate().BindFunc(func(e *core.BackupEvent) error {
+		if err := e.Next(); err != nil {
+			return err
+		}
+		emailBackup(app, cfg, e.Name)
+		return nil
+	})
+
+	slog.Info("startup", "backup", "email", "cron", cronExpr, "to", cfg.Email, "maxKeep", 2)
 }
 
 // backupDecryptCmd is the exact command that decrypts an emailed .zip.enc
 // backup, given the BACKUP_ENCRYPTION_KEY value as its passphrase.
 const backupDecryptCmd = "openssl enc -d -aes-256-cbc -pbkdf2 -pass env:BACKUP_ENCRYPTION_KEY -in backup.zip.enc -out backup.zip"
 
-// runBackup creates a zip of pb_data/ via PocketBase's backup API, encrypts
-// it, and emails it to cfg.Email. A missing EncryptionKey aborts the backup
-// in every environment — the archive holds personal data and is never
-// mailed in the clear.
-func runBackup(app core.App, cfg BackupConfig) {
+// emailBackup reads the zip PocketBase just created at name, encrypts it,
+// and emails it to cfg.Email. A missing EncryptionKey refuses to send in
+// every environment rather than mailing personal data in the clear. The zip
+// itself is left in place — PocketBase's own CronMaxKeep prunes old backups.
+func emailBackup(app core.App, cfg BackupConfig, name string) {
 	if cfg.EncryptionKey == "" {
 		slog.Error("backup failed", "err", "BACKUP_ENCRYPTION_KEY is required, refusing to send unencrypted backup")
 		return
 	}
 
-	name := fmt.Sprintf("pb-backup-%s.zip", time.Now().Format("20060102-150405"))
-	if err := app.CreateBackup(context.Background(), name); err != nil {
-		slog.Error("backup failed", "err", err)
-		return
-	}
 	zipPath := filepath.Join(app.DataDir(), core.LocalBackupsDirName, name)
-	defer func() {
-		_ = os.Remove(zipPath)
-		_ = os.Remove(zipPath + ".attrs")
-	}()
-
 	data, err := os.ReadFile(zipPath)
 	if err != nil {
 		slog.Error("backup failed", "err", err)

@@ -32,6 +32,7 @@ type Config struct {
 
 	BackupEmail         string `env:"BACKUP_EMAIL"`
 	BackupEncryptionKey string `env:"BACKUP_ENCRYPTION_KEY"`
+	BackupIntervalHours int    `env:"BACKUP_INTERVAL_HOURS" envDefault:"12"`
 
 	SMTPHost       string `env:"SMTP_HOST"`
 	SMTPPort       int    `env:"SMTP_PORT" envDefault:"587"`
