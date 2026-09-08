@@ -165,6 +165,7 @@ func createMixedCompetition(txApp core.App, pairIDs []string) error {
 	if err := txApp.Save(comp); err != nil {
 		return fmt.Errorf("create mixed competition: %w", err)
 	}
+	league.LogCompetitionEvent(txApp, league.CompetitionEvent{CompetitionID: comp.Id, Kind: "activated", Detail: "activó la competición"})
 	return createSampleAnnouncement(txApp, comp)
 }
 
@@ -200,6 +201,7 @@ func createSampleCompetition(txApp core.App, pairIDs []string, staticFS fs.FS) (
 	if err := txApp.Save(comp); err != nil {
 		return nil, fmt.Errorf("create competition: %w", err)
 	}
+	league.LogCompetitionEvent(txApp, league.CompetitionEvent{CompetitionID: comp.Id, Kind: "activated", Detail: "activó la competición"})
 	return comp, nil
 }
 
@@ -378,7 +380,7 @@ func walkoverSampleMatch(txApp core.App, match *core.Record) error {
 	match.Set("dispute_notes", "[No jugado] El rival no se presentó.")
 
 	compID := match.GetString("competition")
-	if err := league.ApplyPenalty(txApp, league.PenaltyInput{
+	if _, err := league.ApplyPenalty(txApp, league.PenaltyInput{
 		CompetitionID: compID,
 		PairID:        loser,
 		Reason:        "Incomparecencia aprobada",
@@ -757,8 +759,6 @@ func playersOfPair(txApp core.App, pairID string) []string {
 	return []string{pair.GetString("player1"), pair.GetString("player2")}
 }
 
-// createReglamentoPDFDoc creates the bundled sample reglamento as a file document
-// and returns its ID, or "" when no PDF is available (link docs still get added).
 func createSamplePlayoff(txApp core.App, pairIDs []string) error {
 	col, err := txApp.FindCollectionByNameOrId("competitions")
 	if err != nil {
@@ -780,5 +780,6 @@ func createSamplePlayoff(txApp core.App, pairIDs []string) error {
 	if err := txApp.Save(comp); err != nil {
 		return fmt.Errorf("create sample playoff: %w", err)
 	}
+	league.LogCompetitionEvent(txApp, league.CompetitionEvent{CompetitionID: comp.Id, Kind: "activated", Detail: "activó la competición"})
 	return generateSampleBracket(txApp, comp.Id, pairIDs)
 }

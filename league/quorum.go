@@ -131,6 +131,7 @@ func (svc *Service) acceptProposalIfExpired(proposal, m, comp *core.Record) {
 	}
 
 	svc.supersedeSiblingResults(m.Id, proposal.Id)
+	AddSystemResultAccepted(svc.app, fresh.Id, proposal.Id, pd)
 
 	compName := comp.GetString("name")
 	for _, pid := range []string{fresh.GetString("pair1"), fresh.GetString("pair2")} {
@@ -221,6 +222,7 @@ func (svc *Service) confirmIfExpired(m *core.Record, comp *core.Record) {
 		slog.Error("save stale match confirmation", "match", m.Id, "err", err)
 		return
 	}
+	AddSystemResultAccepted(svc.app, fresh.Id, "", fresh.GetString("scores"))
 
 	compName := comp.GetString("name")
 	for _, pid := range []string{fresh.GetString("pair1"), fresh.GetString("pair2")} {

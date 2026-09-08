@@ -693,6 +693,37 @@ func TestThreadMessages_ResultEventRendersAsSystemLine(t *testing.T) {
 	s.Test(t)
 }
 
+func TestThreadMessages_SystemAuthorRendersAsSistema(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "empty-author message renders author as Sistema",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Sistema"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "SysAuth A")
+		p2 := makePairTB(tb, app, "SysAuth B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+
+		col, _ := app.FindCollectionByNameOrId("match_messages")
+		msg := core.NewRecord(col)
+		msg.Set("match", match.Id)
+		msg.Set("type", "result_response")
+		msg.Set("content", "Resultado aceptado: 6-3 6-4")
+		msg.Set("proposal_data", map[string]any{"action": "accept", "scores": "6-3 6-4"})
+		require.NoError(tb, app.Save(msg))
+
+		s.URL = "/match/" + match.Id + "/thread-messages"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
 func TestProposalChangeDecision(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

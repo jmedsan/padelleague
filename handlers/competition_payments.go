@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -27,8 +28,12 @@ func (h *CompetitionPaymentsHandler) TogglePayment(e *core.RequestEvent) error {
 	}
 
 	paymentStatus := getPaymentStatus(comp)
-	paymentStatus[pairID] = !paymentStatus[pairID]
+	nowPaid := !paymentStatus[pairID]
+	paymentStatus[pairID] = nowPaid
 	comp.Set("payment_status", paymentStatus)
+	if nowPaid {
+		setPaymentRecordedBy(comp, pairID, e.Auth.Id)
+	}
 
 	if err := h.app.Save(comp); err != nil {
 		slog.Error("toggle payment failed", "err", err)
@@ -51,6 +56,7 @@ func (h *CompetitionPaymentsHandler) TogglePaymentAll(e *core.RequestEvent) erro
 	status := map[string]bool{}
 	for _, pid := range pairIDs {
 		status[pid] = true
+		setPaymentRecordedBy(comp, pid, e.Auth.Id)
 	}
 
 	comp.Set("payment_status", status)
@@ -68,4 +74,32 @@ func getPaymentStatus(comp *core.Record) map[string]bool {
 		slog.Warn("unmarshal payment_status", "err", err)
 	}
 	return status
+}
+
+// setPaymentRecordedBy stamps the current time and actor for pairID into the
+// competition's payment_paid_at/payment_paid_by maps, ready for Save.
+func setPaymentRecordedBy(comp *core.Record, pairID, actorID string) {
+	paidAt := getPaymentDates(comp)
+	paidAt[pairID] = time.Now().Format(time.RFC3339)
+	comp.Set("payment_paid_at", paidAt)
+
+	paidBy := getPaymentActors(comp)
+	paidBy[pairID] = actorID
+	comp.Set("payment_paid_by", paidBy)
+}
+
+func getPaymentDates(comp *core.Record) map[string]string {
+	dates := make(map[string]string)
+	if err := comp.UnmarshalJSONField("payment_paid_at", &dates); err != nil {
+		slog.Warn("unmarshal payment_paid_at", "err", err)
+	}
+	return dates
+}
+
+func getPaymentActors(comp *core.Record) map[string]string {
+	actors := make(map[string]string)
+	if err := comp.UnmarshalJSONField("payment_paid_by", &actors); err != nil {
+		slog.Warn("unmarshal payment_paid_by", "err", err)
+	}
+	return actors
 }

@@ -109,6 +109,10 @@ func (h *ThreadHandler) buildThreadData(match *core.Record, matchID string, myTe
 	}
 	for _, msg := range messages {
 		authorID := msg.GetString("author")
+		if authorID == "" {
+			bc.processMessage(msg, authorID, "Sistema", &td)
+			continue
+		}
 		if _, ok := nameCache[authorID]; !ok {
 			nameCache[authorID] = league.PlayerName(h.app, authorID)
 		}
@@ -141,7 +145,7 @@ func (bc *threadBuildCtx) processMessage(msg *core.Record, authorID, cachedName 
 		created:    render.FmtShortTime(createdTime),
 		createdRaw: createdTime.Format(time.RFC3339),
 	}
-	if isProposalOrResponse(mc.msgType) {
+	if authorID != "" && isProposalOrResponse(mc.msgType) {
 		mc.authorName = pairPlayerLabel(bc.app, authorID, bc.match)
 	}
 	td.Timeline = append(td.Timeline, bc.timelineEntry(mc))

@@ -60,6 +60,20 @@ func TestConfirmStaleMatches_Finalizes(t *testing.T) {
 	require.Len(t, notifier.calls, 2)
 	assert.Equal(t, "general", notifier.calls[0].notifType)
 	assert.Equal(t, "general", notifier.calls[1].notifType)
+
+	entries, err := app.FindRecordsByFilter("match_messages",
+		"match = {:mid} && type = 'result_response'", "", 0, 0, map[string]any{"mid": match.Id})
+	require.NoError(t, err)
+	require.Len(t, entries, 1, "auto-accept must write a system timeline entry")
+	assert.Equal(t, "", entries[0].GetString("author"))
+	assert.Contains(t, entries[0].GetString("content"), "6-3 6-4")
+	var pd struct {
+		Action string `json:"action"`
+		Scores string `json:"scores"`
+	}
+	require.NoError(t, entries[0].UnmarshalJSONField("proposal_data", &pd))
+	assert.Equal(t, "accept", pd.Action)
+	assert.Equal(t, "6-3 6-4", pd.Scores)
 }
 
 func TestConfirmStaleMatches_NotExpired(t *testing.T) {
@@ -412,6 +426,13 @@ func TestConfirmStaleMatches_ProposalAutoAccept(t *testing.T) {
 	assert.Equal(t, "accepted", updatedProposal.GetString("proposal_status"))
 
 	require.True(t, len(notifier.calls) > 0, "must notify players")
+
+	entries, err := app.FindRecordsByFilter("match_messages",
+		"match = {:mid} && type = 'result_response'", "", 0, 0, map[string]any{"mid": match.Id})
+	require.NoError(t, err)
+	require.Len(t, entries, 1, "auto-accept must write a system timeline entry")
+	assert.Equal(t, "", entries[0].GetString("author"))
+	assert.Equal(t, proposal.Id, entries[0].GetString("parent"))
 }
 
 func TestConfirmStaleMatches_AutoAcceptSupersedesSiblings(t *testing.T) {

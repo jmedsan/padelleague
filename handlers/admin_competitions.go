@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"sort"
 	"strconv"
@@ -38,10 +39,10 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 
 	pairIDs := comp.GetStringSlice("pairs")
 	seeding := getSeeding(comp)
-	paymentStatus := getPaymentStatus(comp)
+	payment := paymentInfo{app: h.app, status: getPaymentStatus(comp), paidAt: getPaymentDates(comp), paidBy: getPaymentActors(comp)}
 	penaltyRows := h.getPenaltyRows(id)
 
-	pairEntries := buildPairEntries(h.app, pairIDs, seeding, paymentStatus)
+	pairEntries := buildPairEntries(pairIDs, seeding, payment)
 	allPairs := availablePairs(h.app, pairIDs)
 	allComps := findRecordsLogged(h.app, "Detail: find other competitions", RecordQuery{
 		Collection: "competitions", Filter: "id != {:cid}", Sort: "name", Params: map[string]any{"cid": id},
@@ -113,6 +114,33 @@ func (h *CompetitionHandler) addDetailExtras(data map[string]any, comp *core.Rec
 	data["Announcements"] = findRecordsLogged(h.app, "addDetailExtras: find announcements", RecordQuery{
 		Collection: "announcements", Filter: "competition = {:cid}", Sort: "-created", Params: map[string]any{"cid": comp.Id},
 	})
+
+	data["Activity"] = h.buildActivityTimeline(comp.Id)
+}
+
+// buildActivityTimeline maps the competition's activity log (competition_events)
+// to the same TimelineEntryVM shape the match thread uses, so the admin
+// detail page can reuse the timelineEntry template.
+func (h *CompetitionHandler) buildActivityTimeline(compID string) []TimelineEntryVM {
+	events := findRecordsLogged(h.app, "buildActivityTimeline: find competition_events", RecordQuery{
+		Collection: "competition_events", Filter: "competition = {:cid}", Sort: "-created", Limit: 50, Params: map[string]any{"cid": compID},
+	})
+	entries := make([]TimelineEntryVM, 0, len(events))
+	for _, ev := range events {
+		actorName := "Sistema"
+		if aid := ev.GetString("actor"); aid != "" {
+			actorName = league.PlayerName(h.app, aid)
+		}
+		created := ev.GetDateTime("created").Time()
+		entries = append(entries, TimelineEntryVM{
+			Kind:       "event",
+			AuthorName: actorName,
+			Content:    ev.GetString("detail"),
+			CreatedAt:  render.FmtShortTime(created),
+			CreatedRel: created.Format(time.RFC3339),
+		})
+	}
+	return entries
 }
 
 // buildDetailSponsors returns the sponsors shown as "attached" (the
@@ -257,6 +285,7 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 	if err != nil {
 		return alertError(e, "Competición no encontrada")
 	}
+	before := record.Original()
 
 	oldStart := record.GetString("start_date")
 	oldEnd := record.GetString("end_date")
@@ -288,6 +317,9 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 		slog.Error("update competition failed", "err", err)
 		return alertError(e, "Error al guardar la competición")
 	}
+	if detail := competitionUpdateDetail(before, record); detail != "" {
+		league.LogCompetitionEvent(h.app, league.CompetitionEvent{CompetitionID: id, ActorID: e.Auth.Id, Kind: "settings_changed", Detail: detail})
+	}
 
 	if record.GetString("start_date") != oldStart || record.GetString("end_date") != oldEnd {
 		resetWarnLevels(h.app, id)
@@ -296,6 +328,39 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 
 	flash(e, "Competición actualizada")
 	return redirectHX(e, "/admin/competitions")
+}
+
+// competitionUpdateLabels names the display label for each competitions
+// field the admin activity timeline tracks, in the order they're reported.
+var competitionUpdateLabels = []struct {
+	field, label string
+}{
+	{"name", "Nombre"},
+	{"type", "Tipo"},
+	{"play_twice", "Ida y vuelta"},
+	{"gender_type", "Género"},
+	{"quorum_timeout_hours", "Tiempo de espera"},
+	{"start_date", "Fecha inicio"},
+	{"end_date", "Fecha fin"},
+	{"arrange_grace_days", "Días de gracia"},
+	{"walkover_score", "Marcador de incomparecencia"},
+	{"default_penalty", "Penalización por defecto"},
+	{"recovery_days", "Período extra"},
+}
+
+// competitionUpdateDetail builds a "Field: old → new" summary of every
+// tracked field that actually changed between before and after, or "" if
+// nothing changed.
+func competitionUpdateDetail(before, after *core.Record) string {
+	var changes []string
+	for _, f := range competitionUpdateLabels {
+		oldVal := fmt.Sprint(before.Get(f.field))
+		newVal := fmt.Sprint(after.Get(f.field))
+		if oldVal != newVal {
+			changes = append(changes, fmt.Sprintf("%s: %s → %s", f.label, oldVal, newVal))
+		}
+	}
+	return strings.Join(changes, "; ")
 }
 
 // LogoUpload handles POST to upload and set a competition's logo image.
@@ -362,11 +427,18 @@ func (h *CompetitionHandler) Toggle(e *core.RequestEvent) error {
 		return alertError(e, "Competición no encontrada")
 	}
 
-	record.Set("active", !record.GetBool("active"))
+	activating := !record.GetBool("active")
+	record.Set("active", activating)
 	if err := h.app.Save(record); err != nil {
 		slog.Error("toggle competition active failed", "err", err)
 		return alertError(e, "Error al cambiar el estado")
 	}
+
+	kind, detail := "deactivated", "desactivó la competición"
+	if activating {
+		kind, detail = "activated", "activó la competición"
+	}
+	league.LogCompetitionEvent(h.app, league.CompetitionEvent{CompetitionID: id, ActorID: e.Auth.Id, Kind: kind, Detail: detail})
 
 	return redirectHX(e, "/admin/competitions")
 }
@@ -384,6 +456,7 @@ func (h *CompetitionHandler) FinalizeCompetition(e *core.RequestEvent) error {
 		slog.Error("finalize competition failed", "err", err)
 		return alertError(e, "Error al finalizar la competición")
 	}
+	league.LogCompetitionEvent(h.app, league.CompetitionEvent{CompetitionID: id, ActorID: e.Auth.Id, Kind: "finalized", Detail: "finalizó la competición"})
 
 	flash(e, "Competición finalizada")
 	return redirectHX(e, "/admin/competitions/"+id)
@@ -396,9 +469,12 @@ func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 
 	if action == "remove" {
 		penaltyID := e.Request.FormValue("penalty_id")
-		if err := league.VoidPenalty(h.app, penaltyID); err != nil {
+		voidReason := strings.TrimSpace(e.Request.FormValue("void_reason"))
+		rec, err := league.VoidPenalty(h.app, league.VoidPenaltyInput{PenaltyID: penaltyID, AdminID: e.Auth.Id, Reason: voidReason})
+		if err != nil {
 			return alertError(e, "Error al quitar la penalización")
 		}
+		h.notifyPenalty(rec, id, "Penalización anulada", fmt.Sprintf("%.0f puntos anulados", rec.GetFloat("amount")))
 		return redirectHX(e, "/admin/competitions/"+id)
 	}
 
@@ -416,10 +492,20 @@ func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 		return alertError(e, "El motivo es obligatorio")
 	}
 
-	if err := league.ApplyPenalty(h.app, league.PenaltyInput{CompetitionID: id, PairID: pairID, Reason: reason, AdminID: e.Auth.Id, Amount: amount}); err != nil {
+	rec, err := league.ApplyPenalty(h.app, league.PenaltyInput{CompetitionID: id, PairID: pairID, Reason: reason, AdminID: e.Auth.Id, Amount: amount})
+	if err != nil {
 		return alertError(e, "Error al guardar la penalización")
 	}
+	h.notifyPenalty(rec, id, "Penalización aplicada", fmt.Sprintf("%.0f puntos — %s", amount, reason))
 	return redirectHX(e, "/admin/competitions/"+id)
+}
+
+// notifyPenalty notifies both players of a penalty's pair after an apply or void.
+func (h *CompetitionHandler) notifyPenalty(penalty *core.Record, compID, title, body string) {
+	players := league.PlayersForPair(h.app, penalty.GetString("pair"))
+	h.notifier.NotifyPlayers(players, league.Notification{
+		Type: "penalty", Title: title, Body: body, Link: "/competition/" + compID,
+	})
 }
 
 type roundDate struct {
@@ -512,16 +598,19 @@ func populateRoundProgress(comp *core.Record, rounds []roundGroup) {
 
 // PenaltyRow is one penalty entry for the admin UI.
 type PenaltyRow struct {
-	ID        string
-	Amount    float64
-	Reason    string
-	AdminName string
-	Date      string
+	ID         string
+	Amount     float64
+	Reason     string
+	AdminName  string
+	Date       string
+	Voided     bool
+	VoidedBy   string
+	VoidReason string
 }
 
 func (h *CompetitionHandler) getPenaltyRows(compID string) map[string][]PenaltyRow {
 	rows, err := h.app.FindRecordsByFilter("penalties",
-		"competition = {:c} && voided = false", "-created", 0, 0,
+		"competition = {:c}", "-created", 0, 0,
 		map[string]any{"c": compID})
 	if err != nil {
 		return map[string][]PenaltyRow{}
@@ -532,13 +621,23 @@ func (h *CompetitionHandler) getPenaltyRows(compID string) map[string][]PenaltyR
 		if aid := r.GetString("applied_by"); aid != "" {
 			adminName = league.PlayerName(h.app, aid)
 		}
-		out[r.GetString("pair")] = append(out[r.GetString("pair")], PenaltyRow{
+		row := PenaltyRow{
 			ID:        r.Id,
 			Amount:    r.GetFloat("amount"),
 			Reason:    r.GetString("reason"),
 			AdminName: adminName,
 			Date:      render.FmtTime(r.GetDateTime("created").Time()),
-		})
+			Voided:    r.GetBool("voided"),
+		}
+		if row.Voided {
+			row.VoidReason = r.GetString("void_reason")
+			if vid := r.GetString("voided_by"); vid != "" {
+				row.VoidedBy = league.PlayerName(h.app, vid)
+			} else {
+				row.VoidedBy = "Sistema"
+			}
+		}
+		out[r.GetString("pair")] = append(out[r.GetString("pair")], row)
 	}
 	return out
 }
@@ -633,6 +732,7 @@ func (h *CompetitionHandler) UpdateRoundDates(e *core.RequestEvent) error {
 		slog.Error("update round dates failed", "competition", id, "err", err)
 		return alertError(e, "Error al guardar las fechas")
 	}
+	league.LogCompetitionEvent(h.app, league.CompetitionEvent{CompetitionID: id, ActorID: e.Auth.Id, Kind: "settings_changed", Detail: "cambió las fechas de jornada"})
 
 	resetWarnLevels(h.app, id)
 	return redirectHX(e, "/admin/competitions/"+id)
@@ -654,6 +754,7 @@ func (h *CompetitionHandler) RegenerateRoundDates(e *core.RequestEvent) error {
 		slog.Error("regenerate round dates failed", "competition", id, "err", err)
 		return alertError(e, "Error al regenerar las fechas")
 	}
+	league.LogCompetitionEvent(h.app, league.CompetitionEvent{CompetitionID: id, ActorID: e.Auth.Id, Kind: "settings_changed", Detail: "cambió las fechas de jornada"})
 
 	resetWarnLevels(h.app, id)
 	return redirectHX(e, "/admin/competitions/"+id)

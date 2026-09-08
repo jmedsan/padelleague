@@ -1,16 +1,23 @@
 {{define "penaltyEntry"}}
-<div class="flex flex-wrap items-center gap-1 text-xs">
+<div class="flex flex-wrap items-center gap-1 text-xs{{if .Penalty.Voided}} line-through opacity-50{{end}}">
     <span class="badge badge-error badge-sm">-{{.Penalty.Amount}}</span>
     <span>{{.Penalty.Reason}}</span>
     <span class="text-base-content/60">{{.Penalty.AdminName}}, {{.Penalty.Date}}</span>
-    <form hx-post="/admin/competitions/{{.CompetitionID}}/penalty" hx-confirm="¿Quitar esta penalización?" data-confirm-danger data-confirm-ok="Quitar" class="inline">
+    {{if .Penalty.Voided}}
+    <span class="tooltip tooltip-left" data-tip="Anulado por {{.Penalty.VoidedBy}}{{if .Penalty.VoidReason}} — {{.Penalty.VoidReason}}{{end}}">
+        <span class="badge badge-ghost badge-sm">Anulado</span>
+    </span>
+    {{else}}
+    <form hx-post="/admin/competitions/{{.CompetitionID}}/penalty" hx-confirm="¿Quitar esta penalización?" data-confirm-danger data-confirm-ok="Quitar" class="inline flex items-center gap-1">
         <input type="hidden" name="action" value="remove">
         <input type="hidden" name="penalty_id" value="{{.Penalty.ID}}">
+        <input type="text" name="void_reason" placeholder="Motivo (opcional)" class="input input-bordered input-xs w-32">
         <span class="tooltip tooltip-left" data-tip="Quitar">
             <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs btn-circle opacity-50 text-error" aria-label="Quitar">
                 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
             </button>
         </span>
     </form>
+    {{end}}
 </div>
 {{end}}
