@@ -1,95 +1,88 @@
 package hooks
 
 import (
+	"bytes"
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/pbkdf2"
+	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"log/slog"
+	"net/mail"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/mailer"
+
+	"padelleague/notify"
 )
 
-// rcloneConfigTemplate is the Google Drive remote config for rclone. It uses
-// OAuth2 with rclone's built-in published client (no client_id/client_secret),
-// which avoids the 7-day token expiry of a custom OAuth app. scope = drive.file
-// means the remote can only see files it created itself — root_folder_id must
-// be a folder created via `rclone mkdir`, not one created in the Drive UI.
-const rcloneConfigTemplate = `[gdrive]
-type = drive
-scope = drive.file
-root_folder_id = %s
-token = %s
-`
+// BackupConfig configures the email backup cron. An empty Email disables it.
+type BackupConfig struct {
+	Email string
+	// EncryptionKey is the openssl passphrase for the backup archive. Empty
+	// refuses to send in every environment — the archive holds personal data
+	// (names, emails, phones) and is never mailed in the clear.
+	EncryptionKey string
+}
 
-// registerBackup wires a periodic backup of the PocketBase data directory to
-// Google Drive via an OAuth token (RCLONE_DRIVE_TOKEN, from a one-time
-// `rclone config` run). An empty FolderID or DriveToken disables it. The
-// cron frequency is set by cfg.IntervalMin (BACKUP_INTERVAL_MINUTES).
-func registerBackup(app core.App, cfg BackupConfig) {
-	if cfg.FolderID == "" || cfg.DriveToken == "" {
-		slog.Info("startup", "backup", "disabled")
-		return
+var (
+	backupApp core.App
+	backupCfg BackupConfig
+)
+
+// BackupEnabled reports whether email backup is configured.
+func BackupEnabled() bool { return backupCfg.Email != "" }
+
+// RunBackupNow triggers an immediate backup. Returns an error if backup is not configured.
+func RunBackupNow() error {
+	if backupCfg.Email == "" {
+		return fmt.Errorf("backup not configured")
 	}
+	runBackup(backupApp, backupCfg)
+	return nil
+}
 
-	configPath := filepath.Join(os.TempDir(), "rclone.conf")
-	config := fmt.Sprintf(rcloneConfigTemplate, cfg.FolderID, cfg.DriveToken)
-	if err := os.WriteFile(configPath, []byte(config), 0o600); err != nil {
-		slog.Error("backup: failed to write rclone config", "err", err)
-		slog.Info("startup", "backup", "disabled")
+// registerBackup wires a cron that emails a zip of pb_data/ to cfg.Email
+// every 12 hours. An empty Email disables it.
+func registerBackup(app core.App, cfg BackupConfig) {
+	if cfg.Email == "" {
+		slog.Info("startup", "backup", "disabled (no BACKUP_EMAIL)")
 		return
 	}
 
 	backupApp = app
-	backupConfigPath = configPath
+	backupCfg = cfg
 
-	expr := backupCronExpr(cfg.IntervalMin)
-	app.Cron().MustAdd("gdrive-backup", expr, func() {
-		runBackup(app, configPath)
+	app.Cron().MustAdd("email-backup", "0 */12 * * *", func() {
+		runBackup(app, cfg)
 	})
 
-	slog.Info("startup", "backup", "gdrive", "folder", cfg.FolderID, "interval_min", cfg.IntervalMin, "cron", expr)
+	slog.Info("startup", "backup", "email", "interval", "12h", "to", cfg.Email)
 }
 
-// backupCronExpr builds the cron expression for the backup job from an
-// interval in minutes. Intervals under 60 run every N minutes; 60 and above
-// run every N/60 hours. Zero or negative defaults to hourly.
-func backupCronExpr(intervalMin int) string {
-	if intervalMin <= 0 {
-		intervalMin = 60
-	}
-	if intervalMin < 60 {
-		return fmt.Sprintf("*/%d * * * *", intervalMin)
-	}
-	if hours := intervalMin / 60; hours > 1 {
-		return fmt.Sprintf("0 */%d * * *", hours)
-	}
-	return "0 * * * *"
-}
+// backupDecryptCmd is the exact command that decrypts an emailed .zip.enc
+// backup, given the BACKUP_ENCRYPTION_KEY value as its passphrase.
+const backupDecryptCmd = "openssl enc -d -aes-256-cbc -pbkdf2 -pass env:BACKUP_ENCRYPTION_KEY -in backup.zip.enc -out backup.zip"
 
-var (
-	backupApp        core.App
-	backupConfigPath string
-)
-
-// BackupEnabled reports whether Google Drive backup is configured.
-func BackupEnabled() bool { return backupConfigPath != "" }
-
-// RunBackupNow triggers an immediate backup. Returns nil on success.
-func RunBackupNow() error {
-	if backupConfigPath == "" {
-		return fmt.Errorf("backup not configured")
+// runBackup creates a zip of pb_data/ via PocketBase's backup API, encrypts
+// it, and emails it to cfg.Email. A missing EncryptionKey aborts the backup
+// in every environment — the archive holds personal data and is never
+// mailed in the clear.
+func runBackup(app core.App, cfg BackupConfig) {
+	if cfg.EncryptionKey == "" {
+		slog.Error("backup failed", "err", "BACKUP_ENCRYPTION_KEY is required, refusing to send unencrypted backup")
+		return
 	}
-	runBackup(backupApp, backupConfigPath)
-	return nil
-}
 
-func runBackup(app core.App, configPath string) {
 	name := fmt.Sprintf("pb-backup-%s.zip", time.Now().Format("20060102-150405"))
 	if err := app.CreateBackup(context.Background(), name); err != nil {
-		slog.Error("backup: create failed", "err", err)
+		slog.Error("backup failed", "err", err)
 		return
 	}
 	zipPath := filepath.Join(app.DataDir(), core.LocalBackupsDirName, name)
@@ -98,11 +91,96 @@ func runBackup(app core.App, configPath string) {
 		_ = os.Remove(zipPath + ".attrs")
 	}()
 
-	cmd := exec.Command("rclone", "copy", zipPath, "gdrive:", "--config", configPath)
-	output, err := cmd.CombinedOutput()
+	data, err := os.ReadFile(zipPath)
 	if err != nil {
-		slog.Error("backup: rclone copy failed", "err", err, "output", string(output))
+		slog.Error("backup failed", "err", err)
 		return
 	}
-	slog.Info("backup: uploaded", "file", name)
+
+	encrypted, err := encryptBackup(data, cfg.EncryptionKey)
+	if err != nil {
+		slog.Error("backup failed", "err", err)
+		return
+	}
+
+	if err := sendBackupEmail(app, cfg.Email, name+".enc", encrypted); err != nil {
+		slog.Error("backup failed", "err", err)
+		return
+	}
+	slog.Info("backup sent", "to", cfg.Email, "size", len(encrypted), "encrypted", true, "decrypt", backupDecryptCmd)
+}
+
+// opensslSaltedMagic is the 8-byte header openssl enc writes on every
+// -pbkdf2 output, identifying the "Salted__" + 8-byte-salt format.
+var opensslSaltedMagic = []byte("Salted__")
+
+// opensslPBKDF2Iter and opensslKeyIVLen match openssl 3.x's defaults for
+// `openssl enc -aes-256-cbc -pbkdf2` with no -iter override: PBKDF2-HMAC-SHA256,
+// 10000 iterations, deriving 48 bytes (32-byte key + 16-byte IV) in one call.
+const (
+	opensslPBKDF2Iter = 10000
+	opensslKeyIVLen   = aes.BlockSize + 32 // 16-byte IV + 32-byte AES-256 key
+)
+
+// encryptBackup encrypts data with AES-256-CBC + PKCS7 padding, using a
+// random 8-byte salt and PBKDF2-derived key/IV from passphrase — the exact
+// wire format `openssl enc -aes-256-cbc -pbkdf2` produces, so the result
+// decrypts with:
+//
+//	openssl enc -d -aes-256-cbc -pbkdf2 -pass pass:<passphrase> -in backup.zip.enc -out backup.zip
+func encryptBackup(data []byte, passphrase string) ([]byte, error) {
+	salt := make([]byte, 8)
+	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
+		return nil, fmt.Errorf("generate salt: %w", err)
+	}
+	keyIV, err := pbkdf2.Key(sha256.New, passphrase, salt, opensslPBKDF2Iter, opensslKeyIVLen)
+	if err != nil {
+		return nil, fmt.Errorf("derive key: %w", err)
+	}
+	key, iv := keyIV[:32], keyIV[32:] // openssl -pbkdf2 derives key bytes first, then IV
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("new cipher: %w", err)
+	}
+	padded := pkcs7Pad(data, aes.BlockSize)
+	ciphertext := make([]byte, len(padded))
+	cipher.NewCBCEncrypter(block, iv).CryptBlocks(ciphertext, padded)
+
+	out := make([]byte, 0, len(opensslSaltedMagic)+len(salt)+len(ciphertext))
+	out = append(out, opensslSaltedMagic...)
+	out = append(out, salt...)
+	out = append(out, ciphertext...)
+	return out, nil
+}
+
+// pkcs7Pad pads data to a multiple of blockSize per RFC 5652 (openssl's default).
+func pkcs7Pad(data []byte, blockSize int) []byte {
+	padLen := blockSize - len(data)%blockSize
+	padding := bytes.Repeat([]byte{byte(padLen)}, padLen)
+	return append(data, padding...)
+}
+
+// sendBackupEmail emails the archive as an attachment via the configured SMTP mailer.
+func sendBackupEmail(app core.App, to, attachmentName string, data []byte) error {
+	if !notify.IsMailerConfigured(app) {
+		return fmt.Errorf("SMTP not configured")
+	}
+	now := time.Now()
+	subject := notify.SubjectPrefix() + "[Liga Dale Fuerte] Backup " + now.Format("2006-01-02")
+	body := "Backup automático de pb_data/ — " + now.Format("2006-01-02 15:04:05")
+
+	msg := &mailer.Message{
+		From: mail.Address{
+			Name:    app.Settings().Meta.SenderName,
+			Address: app.Settings().Meta.SenderAddress,
+		},
+		To:      []mail.Address{{Address: to}},
+		Subject: subject,
+		Text:    body,
+		Attachments: map[string]io.Reader{
+			attachmentName: bytes.NewReader(data),
+		},
+	}
+	return app.NewMailClient().Send(msg)
 }
