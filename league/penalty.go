@@ -2,6 +2,7 @@ package league
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -13,6 +14,13 @@ type PenaltyInput struct {
 	Reason        string
 	AdminID       string
 	Amount        float64
+}
+
+// VoidPenaltyInput is the data recorded when voiding a penalty.
+type VoidPenaltyInput struct {
+	PenaltyID string
+	AdminID   string
+	Reason    string
 }
 
 // PenaltyTotals returns the active (non-voided) penalty sum per pair for a
@@ -31,11 +39,11 @@ func PenaltyTotals(app core.App, competitionID string) (map[string]float64, erro
 	return totals, nil
 }
 
-// ApplyPenalty creates one penalty row.
-func ApplyPenalty(app core.App, input PenaltyInput) error {
+// ApplyPenalty creates one penalty row and returns it.
+func ApplyPenalty(app core.App, input PenaltyInput) (*core.Record, error) {
 	col, err := app.FindCollectionByNameOrId("penalties")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	rec := core.NewRecord(col)
 	rec.Set("competition", input.CompetitionID)
@@ -44,17 +52,24 @@ func ApplyPenalty(app core.App, input PenaltyInput) error {
 	rec.Set("reason", input.Reason)
 	rec.Set("applied_by", input.AdminID)
 	if err := app.Save(rec); err != nil {
-		return fmt.Errorf("apply penalty: %w", err)
+		return nil, fmt.Errorf("apply penalty: %w", err)
 	}
-	return nil
+	return rec, nil
 }
 
-// VoidPenalty marks a penalty row voided, retaining its history.
-func VoidPenalty(app core.App, penaltyID string) error {
-	rec, err := app.FindRecordById("penalties", penaltyID)
+// VoidPenalty marks a penalty row voided, retaining its history, and
+// returns the voided record.
+func VoidPenalty(app core.App, input VoidPenaltyInput) (*core.Record, error) {
+	rec, err := app.FindRecordById("penalties", input.PenaltyID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	rec.Set("voided", true)
-	return app.Save(rec)
+	rec.Set("voided_by", input.AdminID)
+	rec.Set("voided_at", time.Now())
+	rec.Set("void_reason", input.Reason)
+	if err := app.Save(rec); err != nil {
+		return nil, fmt.Errorf("void penalty: %w", err)
+	}
+	return rec, nil
 }

@@ -688,7 +688,8 @@ func TestPenaltyTotals_VoidedRowExcluded(t *testing.T) {
 		map[string]any{"c": comp.Id, "p": p1.Id})
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
-	require.NoError(t, VoidPenalty(app, rows[0].Id))
+	_, err = VoidPenalty(app, VoidPenaltyInput{PenaltyID: rows[0].Id})
+	require.NoError(t, err)
 
 	totals2, err := PenaltyTotals(app, comp.Id)
 	require.NoError(t, err)

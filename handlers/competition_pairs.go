@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"padelleague/league"
+	"padelleague/render"
 )
 
 // CompetitionPairsHandler handles pair enrollment for competitions.
@@ -20,10 +22,12 @@ func NewCompetitionPairsHandler(app core.App) *CompetitionPairsHandler {
 }
 
 type pairEntry struct {
-	PairID   string
-	PairName string
-	Seed     int
-	Paid     bool
+	PairID     string
+	PairName   string
+	Seed       int
+	Paid       bool
+	PaidAt     string // render.FmtTime, empty if never recorded
+	PaidByName string
 }
 
 // AddPair enrolls a pair in a competition, validating player uniqueness.
@@ -195,19 +199,37 @@ func (h *CompetitionPairsHandler) canCopyPair(pairID string, existingSet map[str
 	return validatePairGender(h.app, comp, pairID) == ""
 }
 
-func buildPairEntries(app core.App, pairIDs []string, seeding map[string]int, paymentStatus map[string]bool) []pairEntry {
+// paymentInfo bundles the three payment maps read from a competition record,
+// keeping buildPairEntries within the argument-count limit.
+type paymentInfo struct {
+	status map[string]bool
+	paidAt map[string]string
+	paidBy map[string]string
+	app    core.App
+}
+
+func buildPairEntries(pairIDs []string, seeding map[string]int, payment paymentInfo) []pairEntry {
 	var entries []pairEntry
 	for _, pid := range pairIDs {
-		pair, err := app.FindRecordById("pairs", pid)
+		pair, err := payment.app.FindRecordById("pairs", pid)
 		if err != nil {
 			continue
 		}
-		entries = append(entries, pairEntry{
+		entry := pairEntry{
 			PairID:   pid,
 			PairName: pair.GetString("name"),
 			Seed:     seeding[pid],
-			Paid:     paymentStatus[pid],
-		})
+			Paid:     payment.status[pid],
+		}
+		if raw, ok := payment.paidAt[pid]; ok {
+			if t, err := time.Parse(time.RFC3339, raw); err == nil {
+				entry.PaidAt = render.FmtTime(t)
+			}
+		}
+		if uid, ok := payment.paidBy[pid]; ok && uid != "" {
+			entry.PaidByName = league.PlayerName(payment.app, uid)
+		}
+		entries = append(entries, entry)
 	}
 	return entries
 }

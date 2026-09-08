@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -105,10 +106,17 @@ func (h *DisputeHandler) applyWalkoverPenalty(e *core.RequestEvent, comp *core.R
 	if penalty <= 0 {
 		return nil
 	}
-	if err := league.ApplyPenalty(h.app, league.PenaltyInput{CompetitionID: comp.Id, PairID: loserID, Reason: "Incomparecencia aprobada", AdminID: e.Auth.Id, Amount: penalty}); err != nil {
+	rec, err := league.ApplyPenalty(h.app, league.PenaltyInput{CompetitionID: comp.Id, PairID: loserID, Reason: "Incomparecencia aprobada", AdminID: e.Auth.Id, Amount: penalty})
+	if err != nil {
 		slog.Error("apply walkover penalty", "comp", comp.Id, "pair", loserID, "err", err)
 		return alertError(e, "Incomparecencia aprobada, pero no se pudo aplicar la penalización. Aplícala manualmente.")
 	}
+	players := league.PlayersForPair(h.app, loserID)
+	h.notifier.NotifyPlayers(players, league.Notification{
+		Type: "penalty", Title: "Penalización aplicada",
+		Body: fmt.Sprintf("%.0f puntos — %s", penalty, rec.GetString("reason")),
+		Link: "/competition/" + comp.Id,
+	})
 	return nil
 }
 
