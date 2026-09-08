@@ -639,6 +639,12 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	data["OGImage"] = league.CompetitionLogoURL(comp.Id, comp.GetString("logo"))
 	data["FooterCompetitionID"] = comp.Id
 	h.addCompetitionDocViews(data, comp, userID, fileTokenFor(e))
+	data["Announcements"] = findRecordsLogged(h.app, "Competition: find announcements", RecordQuery{
+		Collection: "announcements",
+		Filter:     "competition = {:cid}",
+		Sort:       "-created",
+		Params:     map[string]any{"cid": id},
+	})
 	return h.render.Page(e, "competition.html", data)
 }
 

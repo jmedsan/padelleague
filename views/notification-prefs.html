@@ -56,6 +56,12 @@
                 </div>
                 <div class="form-control">
                     <label class="label cursor-pointer">
+                        <span class="label-text">Anuncios</span>
+                        <input type="checkbox" name="announcement" class="toggle toggle-primary" {{if index .Prefs "announcement"}}checked{{end}}>
+                    </label>
+                </div>
+                <div class="form-control">
+                    <label class="label cursor-pointer">
                         <span class="label-text">Mensajes en el hilo</span>
                         <input type="checkbox" name="message" class="toggle toggle-primary" {{if index .Prefs "message"}}checked{{end}}>
                     </label>
