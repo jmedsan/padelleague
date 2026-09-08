@@ -63,7 +63,7 @@ test.describe('notification dismiss and history', () => {
     await expect(dismissRow).toBeVisible({ timeout: 5000 });
 
     // Dismiss via × button ("marcar leída")
-    await dismissRow.locator('button[aria-label="marcar leída"]').click();
+    await dismissRow.locator('button[aria-label="Descartar"]').click();
 
     // Row removed from the bell
     await expect(dismissRow).not.toBeAttached({ timeout: 5000 });
@@ -76,7 +76,8 @@ test.describe('notification dismiss and history', () => {
       return r.ok() ? (await r.json()).read : null;
     }, { timeout: 5000 }).toBe(true);
 
-    // Re-open dropdown, kept row still present
+    // Removing the focused Descartar button from the DOM breaks the dropdown's
+    // :focus-within visibility, closing it — re-open to check the kept row.
     await bellButton.click();
     const keepRow = dropdown.locator(`#notif-row-${keepId}`);
     await expect(keepRow).toBeVisible({ timeout: 5000 });
@@ -88,8 +89,7 @@ test.describe('notification dismiss and history', () => {
     await expect(page.getByRole('heading', { name: 'Historial de notificaciones' })).toBeVisible();
     await expect(page.getByText('E2E Dismiss Test')).toBeVisible();
     await expect(page.getByText('E2E Keep Test')).toBeVisible();
-    await expect(page.locator('button[aria-label="marcar leída"]')).toHaveCount(0);
-    await expect(page.locator('button[aria-label="descartar"]')).toHaveCount(0);
+    await expect(page.locator('button[aria-label="Descartar"]')).toHaveCount(0);
   });
 
   test('mobile: dismiss via bell, badge decrements', async ({ page }) => {
@@ -122,7 +122,7 @@ test.describe('notification dismiss and history', () => {
     await expect(dismissRow).toBeVisible({ timeout: 5000 });
 
     // Dismiss — click and wait for the HTMX request to complete
-    const dismissBtn = dismissRow.locator('button[aria-label="marcar leída"]');
+    const dismissBtn = dismissRow.locator('button[aria-label="Descartar"]');
     await Promise.all([
       page.waitForResponse(resp => resp.url().includes('/dismiss') && resp.status() === 200),
       dismissBtn.click(),
@@ -136,8 +136,7 @@ test.describe('notification dismiss and history', () => {
       return r.ok() ? (await r.json()).read : null;
     }, { timeout: 5000 }).toBe(true);
 
-    // Re-open dropdown to verify row is gone
-    await mobileBell.click();
+    // Dismissing doesn't close the dropdown — verify the row is gone without reopening.
     await expect(mobileDropdownContainer.locator(`#notif-row-${dismissId}`)).not.toBeAttached({ timeout: 5000 });
 
     // History page shows both

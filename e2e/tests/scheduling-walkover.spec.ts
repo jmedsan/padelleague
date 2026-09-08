@@ -126,8 +126,11 @@ test.describe('scheduling, walkover & bracket', () => {
 
     const woForm = page.locator(`form[hx-post*="/admin/disputes/${matchId}/walkover-approve"]`);
     await woForm.locator('select[name="winner"]').selectOption(data.pair1Id);
-    page.once('dialog', d => d.accept());
     await woForm.locator('button:has-text("Aprobar incomparecencia")').click();
+    // hx-confirm is intercepted by static/js/confirm.js's custom #confirm-modal
+    // (not the native confirm() dialog), so the request only fires once its
+    // #confirm-ok button is clicked.
+    await page.locator('#confirm-ok').click();
     await expect(woForm).not.toBeVisible({ timeout: 10000 });
 
     // Verify final state

@@ -88,7 +88,7 @@
                             <span id="notif-badge-mobile" hx-get="/notifications/count" hx-trigger="load" hx-swap="innerHTML"></span>
                         </div>
                     </button>
-                    <div tabindex="0" class="dropdown-content z-30 mt-3 w-80 max-w-[calc(100vw-2rem)] text-base-content" hx-get="/notifications/list" hx-trigger="click from:closest .dropdown" hx-swap="innerHTML">
+                    <div tabindex="0" class="dropdown-content z-30 mt-3 w-80 max-w-[calc(100vw-2rem)] text-base-content" hx-get="/notifications/list" hx-trigger="click from:previous button" hx-swap="innerHTML">
                         <div class="card card-compact bg-base-100 shadow-xl">
                             <div class="card-body"><p class="text-sm opacity-50">Cargando...</p></div>
                         </div>
@@ -154,7 +154,7 @@
                                 <span id="notif-badge" hx-get="/notifications/count" hx-trigger="load" hx-swap="innerHTML"></span>
                             </div>
                         </button>
-                        <div tabindex="0" id="notif-dropdown" class="dropdown-content z-30 mt-3 w-80 text-base-content" hx-get="/notifications/list" hx-trigger="click from:closest .dropdown" hx-swap="innerHTML">
+                        <div tabindex="0" id="notif-dropdown" class="dropdown-content z-30 mt-3 w-80 text-base-content" hx-get="/notifications/list" hx-trigger="click from:previous button" hx-swap="innerHTML">
                             <div class="card card-compact bg-base-100 shadow-xl">
                                 <div class="card-body"><p class="text-sm opacity-50">Cargando...</p></div>
                             </div>
@@ -276,6 +276,18 @@ document.addEventListener('click', function(e) {
             }
         }
     });
+});
+// Content removed via hx-swap (e.g. dismissing a notification row) can take
+// the last focused element with it, which closes a :focus-within dropdown
+// without ever going through the click handler above — leaving its
+// data-open bookkeeping stuck at '1' and the next toggle-button click
+// misread as "close" instead of "open". Resync on focus loss.
+document.addEventListener('focusout', function(e) {
+    var d = e.target.closest('.dropdown');
+    if (!d) return;
+    setTimeout(function() {
+        if (!d.contains(document.activeElement)) d.dataset.open = '';
+    }, 0);
 });
 </script>
 </body>
