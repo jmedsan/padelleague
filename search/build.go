@@ -20,6 +20,7 @@ func Build(app core.App) []Entry {
 	entries = append(entries, buildMatches(app)...)
 	entries = append(entries, buildMessages(app)...)
 	entries = append(entries, buildDocuments(app)...)
+	entries = append(entries, buildAnnouncements(app)...)
 	entries = append(entries, buildVenues(app)...)
 	entries = append(entries, buildPairs(app)...)
 	entries = append(entries, buildPenalties(app)...)
@@ -203,6 +204,31 @@ func buildDocuments(app core.App) []Entry {
 	return entries
 }
 
+func buildAnnouncements(app core.App) []Entry {
+	anns, err := app.FindRecordsByFilter("announcements", "", "", 0, 0, nil)
+	if err != nil {
+		slog.Error("search: build announcements", "err", err)
+		return nil
+	}
+	entries := make([]Entry, 0, len(anns))
+	for _, a := range anns {
+		entries = append(entries, buildAnnouncementEntry(a))
+	}
+	return entries
+}
+
+func buildAnnouncementEntry(a *core.Record) Entry {
+	return NewEntry(Entry{
+		Label:     a.GetString("title"),
+		Secondary: a.GetString("body"),
+		Type:      "anuncio",
+		URL:       "/competition/" + a.GetString("competition") + "#anuncios",
+		Keywords:  []string{"anuncio"},
+		Scope:     Scope{CompID: a.GetString("competition")},
+		RecordID:  a.Id,
+	})
+}
+
 func buildVenues(app core.App) []Entry {
 	venues, err := app.FindRecordsByFilter("venues", "", "", 0, 0, nil)
 	if err != nil {
@@ -359,6 +385,8 @@ func UpsertRecord(ix *Index, app core.App, collection string, record *core.Recor
 		ix.Upsert(record.Id, []Entry{buildMatchEntry(app, record)})
 	case "venues":
 		ix.Upsert(record.Id, []Entry{buildVenueEntry(record)})
+	case "announcements":
+		ix.Upsert(record.Id, []Entry{buildAnnouncementEntry(record)})
 	case "pairs":
 		compIDs := pairCompetitionIDs(app, record.Id)
 		ix.Upsert(record.Id, buildPairEntries(app, record, compIDs))

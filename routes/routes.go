@@ -233,6 +233,7 @@ func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], d
 	g.POST("/competitions/{id}/round-dates", comp.UpdateRoundDates)
 	g.POST("/competitions/{id}/round-dates/regenerate", comp.RegenerateRoundDates)
 	g.POST("/competitions/{id}/broadcast", comp.AdminBroadcast)
+	g.POST("/competitions/{id}/announcements/{annId}/delete", comp.AdminDeleteAnnouncement)
 }
 
 func registerAdminDisputeRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {

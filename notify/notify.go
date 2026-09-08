@@ -272,6 +272,7 @@ func NotificationPrefs(user *core.Record) map[string]any {
 		"match_progress": true,
 		"admin_message":  true,
 		"user_joined":    true,
+		"announcement":   true,
 	}
 	prefs, ok := decodePrefs(user.Get("notification_prefs"))
 	if !ok {

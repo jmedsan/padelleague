@@ -224,7 +224,7 @@ func registerSearch(app core.App, idx *search.Index) {
 	app.Cron().MustAdd("search-index-rebuild", "*/10 * * * *", func() {
 		idx.Rebuild(app)
 	})
-	for _, collection := range []string{"users", "pairs", "competitions", "matches", "venues"} {
+	for _, collection := range []string{"users", "pairs", "competitions", "matches", "venues", "announcements"} {
 		app.OnRecordAfterCreateSuccess(collection).BindFunc(func(e *core.RecordEvent) error {
 			search.UpsertRecord(idx, app, e.Record.Collection().Name, e.Record)
 			return e.Next()
@@ -234,4 +234,8 @@ func registerSearch(app core.App, idx *search.Index) {
 			return e.Next()
 		})
 	}
+	app.OnRecordAfterDeleteSuccess("announcements").BindFunc(func(e *core.RecordEvent) error {
+		idx.Upsert(e.Record.Id, nil)
+		return e.Next()
+	})
 }
