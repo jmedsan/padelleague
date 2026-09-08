@@ -83,6 +83,17 @@
         {{end}}
     </div>
 
+    {{if .Announcements}}
+    <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Anuncios" id="tab-anuncios">
+    <div role="tabpanel" class="tab-content pt-6">
+        <div class="space-y-3">
+            {{range .Announcements}}
+            {{template "announcementCard" (dict "Record" . "Mode" $.Mode)}}
+            {{end}}
+        </div>
+    </div>
+    {{end}}
+
     {{if .DocumentViews}}
     <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Documentos" id="tab-documentos">
     <div role="tabpanel" class="tab-content pt-6">
@@ -112,8 +123,12 @@
 </div>
 <script>
 (function(){
-    if (location.hash === '#documentos') {
+    var hash = location.hash;
+    if (hash === '#documentos') {
         var tab = document.getElementById('tab-documentos');
+        if (tab) tab.checked = true;
+    } else if (hash === '#anuncios') {
+        var tab = document.getElementById('tab-anuncios');
         if (tab) tab.checked = true;
     }
 })();

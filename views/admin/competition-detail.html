@@ -492,7 +492,16 @@
 
 <div class="card bg-base-100 shadow-sm mt-6">
     <div class="card-body">
-        <h2 class="card-title text-lg">Enviar anuncio</h2>
+        <h2 class="card-title text-lg">Anuncios
+            {{if .Announcements}}<span class="badge badge-ghost badge-sm">{{len .Announcements}}</span>{{end}}
+        </h2>
+        {{if .Announcements}}
+        <div class="space-y-3 mb-4">
+            {{range .Announcements}}
+            {{template "announcementCard" (dict "Record" . "Mode" $.Mode)}}
+            {{end}}
+        </div>
+        {{end}}
         <form hx-post="/admin/competitions/{{.Competition.Id}}/broadcast" hx-swap="none" class="space-y-3">
             <div class="form-control">
                 <input type="text" name="title" aria-label="Título del anuncio" placeholder="Título del anuncio" class="input input-bordered w-full" required>
