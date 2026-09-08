@@ -303,6 +303,40 @@ func TestCompRemovePair(t *testing.T) {
 	s.Test(t)
 }
 
+func TestCompRemovePairRefusedWithMatches(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/competitions/{id}/remove-pair refuses when pair has matches",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"No se puede eliminar una pareja con partidos programados o jugados"},
+	}
+	var compID, pairID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "RemMatchA")
+		p2 := makePairTB(tb, app, "RemMatchB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		compID = comp.Id
+		pairID = p1.Id
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		s.URL = "/admin/competitions/" + comp.Id + "/remove-pair"
+		s.Body = strings.NewReader("pair_id=" + p1.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Contains(tb, c.GetStringSlice("pairs"), pairID, "pair must not be removed")
+	}
+	s.Test(t)
+}
+
 func TestCompTogglePayment(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
@@ -333,6 +367,91 @@ func TestCompTogglePayment(t *testing.T) {
 		var status map[string]bool
 		require.NoError(tb, json.Unmarshal(b, &status))
 		assert.Equal(tb, true, status[pairID], "pair must be marked as paid")
+	}
+	s.Test(t)
+}
+
+func TestCompTogglePaymentStampsActorAndDate(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/payment records who and when",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, pairID, adminID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		adminID = admin.Id
+		pair := makePairTB(tb, app, "StampPair")
+		pairID = pair.Id
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair})
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/payment"
+		s.Body = strings.NewReader("pair_id=" + pair.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		var paidAt map[string]string
+		require.NoError(tb, c.UnmarshalJSONField("payment_paid_at", &paidAt))
+		var paidBy map[string]string
+		require.NoError(tb, c.UnmarshalJSONField("payment_paid_by", &paidBy))
+		assert.NotEmpty(tb, paidAt[pairID], "payment_paid_at must be stamped")
+		assert.Equal(tb, adminID, paidBy[pairID], "payment_paid_by must record the acting admin")
+	}
+	s.Test(t)
+}
+
+// TestCompTogglePaymentUnpaidKeepsStaleStamp documents current behavior: toggling
+// a pair from paid back to unpaid does NOT clear payment_paid_at/payment_paid_by —
+// only the paid path re-stamps them. This is safe because the admin template only
+// displays the stamp when payment_status is currently true (see PaidAt in
+// competition-detail.html), but the raw stamp fields do go stale on unpaid.
+func TestCompTogglePaymentUnpaidKeepsStaleStamp(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/payment toggling to unpaid leaves prior stamp intact",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, pairID, priorAdminID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		priorAdminID = admin.Id
+		pair := makePairTB(tb, app, "StaleStampPair")
+		pairID = pair.Id
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair})
+		comp.Set("payment_status", map[string]any{pairID: true})
+		comp.Set("payment_paid_at", map[string]any{pairID: "2026-01-01T00:00:00Z"})
+		comp.Set("payment_paid_by", map[string]any{pairID: admin.Id})
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/payment"
+		s.Body = strings.NewReader("pair_id=" + pair.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		var status map[string]bool
+		require.NoError(tb, c.UnmarshalJSONField("payment_status", &status))
+		assert.False(tb, status[pairID], "pair must be marked unpaid after toggle")
+
+		var paidAt map[string]string
+		require.NoError(tb, c.UnmarshalJSONField("payment_paid_at", &paidAt))
+		var paidBy map[string]string
+		require.NoError(tb, c.UnmarshalJSONField("payment_paid_by", &paidBy))
+		assert.Equal(tb, "2026-01-01T00:00:00Z", paidAt[pairID], "stamp is not cleared on unpaid (current behavior)")
+		assert.Equal(tb, priorAdminID, paidBy[pairID], "stamp is not cleared on unpaid (current behavior)")
 	}
 	s.Test(t)
 }
