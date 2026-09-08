@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -203,6 +204,48 @@ func TestNotificationPrefsSave(t *testing.T) {
 		assert.Equal(tb, false, prefs["general"])
 		assert.Equal(tb, false, prefs["match_assigned"])
 		assert.Equal(tb, false, prefs["scheduling"])
+	}
+	s.Test(t)
+}
+
+// A notification type not in the submitted form (i.e. its toggle was
+// switched off, so the browser omits the unchecked checkbox) must be
+// persisted as false — not silently missing from the stored JSON, which
+// would make NotificationPrefs default it back to true on next read.
+func TestNotificationPrefsSave_NewTypesPersistOff(t *testing.T) {
+	t.Parallel()
+	var userID string
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /profile/notifications persists announcement/penalty/payment off",
+		Method:         http.MethodPost,
+		URL:            "/profile/notifications",
+		Body:           strings.NewReader("quorum_request=on"),
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupNotifRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Prefs New Types", "")
+		userID = user.Id
+		hdrs := authHeaders(tb, user)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		user, err := app.FindRecordById("users", userID)
+		require.NoError(tb, err)
+		raw, ok := user.Get("notification_prefs").(types.JSONRaw)
+		require.True(tb, ok, "notification_prefs must be stored as JSON")
+		var stored map[string]any
+		require.NoError(tb, json.Unmarshal(raw, &stored))
+		assert.Equal(tb, false, stored["announcement"], "announcement key must be present and false")
+		assert.Equal(tb, false, stored["penalty"], "penalty key must be present and false")
+		assert.Equal(tb, false, stored["payment"], "payment key must be present and false")
+
+		prefs := notify.NotificationPrefs(user)
+		assert.Equal(tb, false, prefs["announcement"])
+		assert.Equal(tb, false, prefs["penalty"])
+		assert.Equal(tb, false, prefs["payment"])
 	}
 	s.Test(t)
 }

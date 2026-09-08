@@ -32,7 +32,7 @@ func setupCompRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	comp := NewCompetitionHandler(app, svc, notifier, r.Page)
 	dash := NewCompetitionDashboardHandler(app, r.Page)
 	cpairs := NewCompetitionPairsHandler(app)
-	cpayments := NewCompetitionPaymentsHandler(app)
+	cpayments := NewCompetitionPaymentsHandler(app, notifier)
 	fixture := NewFixtureHandler(app, svc, r.Page)
 	dispute := NewDisputeHandler(app, notifier, r.Page)
 

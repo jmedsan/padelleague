@@ -209,7 +209,7 @@ func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], d
 	comp := handlers.NewCompetitionHandler(deps.App, deps.LeagueSvc, deps.Notifier, deps.Renderer.Page)
 	dash := handlers.NewCompetitionDashboardHandler(deps.App, deps.Renderer.Page)
 	pairs := handlers.NewCompetitionPairsHandler(deps.App)
-	payments := handlers.NewCompetitionPaymentsHandler(deps.App)
+	payments := handlers.NewCompetitionPaymentsHandler(deps.App, deps.Notifier)
 	fixture := handlers.NewFixtureHandler(deps.App, deps.LeagueSvc, deps.Renderer.Page)
 
 	g.GET("", dash.AdminEntry)
@@ -228,6 +228,7 @@ func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], d
 	g.POST("/competitions/{id}/remove-pair", pairs.RemovePair)
 	g.POST("/competitions/{id}/payment", payments.TogglePayment)
 	g.POST("/competitions/{id}/payment-all", payments.TogglePaymentAll)
+	g.POST("/competitions/{id}/payment-reminder", payments.SendPaymentReminder)
 	g.POST("/competitions/{id}/penalty", comp.ApplyPenalty)
 	g.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
 	g.POST("/competitions/{id}/round-dates", comp.UpdateRoundDates)

@@ -258,22 +258,25 @@ func channelEnabled(user *core.Record, channel string) bool {
 	return !ok || b
 }
 
+// EventTypes lists every notification event type a user can individually
+// toggle (excludes the "email"/"push" delivery channels, which have their
+// own verified/subscribed gating). NotificationPrefs defaults and
+// handlers.PrefsSave both iterate this list so a new type only needs adding
+// here.
+var EventTypes = []string{
+	"quorum_request", "dispute", "match_assigned", "general", "message",
+	"scheduling", "match_progress", "admin_message", "user_joined",
+	"announcement", "penalty", "payment",
+}
+
 // NotificationPrefs returns the user's notification preferences with defaults applied.
 func NotificationPrefs(user *core.Record) map[string]any {
 	defaults := map[string]any{
-		"email":          true,
-		"push":           true,
-		"quorum_request": true,
-		"dispute":        true,
-		"match_assigned": true,
-		"general":        true,
-		"message":        true,
-		"scheduling":     true,
-		"match_progress": true,
-		"admin_message":  true,
-		"user_joined":    true,
-		"announcement":   true,
-		"penalty":        true,
+		"email": true,
+		"push":  true,
+	}
+	for _, t := range EventTypes {
+		defaults[t] = true
 	}
 	prefs, ok := decodePrefs(user.Get("notification_prefs"))
 	if !ok {

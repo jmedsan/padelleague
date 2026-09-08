@@ -1,12 +1,11 @@
 {{define "penaltyEntry"}}
-<div class="flex flex-wrap items-center gap-1 text-xs{{if .Penalty.Voided}} line-through opacity-50{{end}}">
+<div{{if .Penalty.Voided}} class="opacity-50"{{end}}>
+<div class="flex flex-wrap items-center gap-1 text-xs{{if .Penalty.Voided}} line-through{{end}}">
     <span class="badge badge-error badge-sm">-{{.Penalty.Amount}}</span>
     <span>{{.Penalty.Reason}}</span>
     <span class="text-base-content/60">{{.Penalty.AdminName}}, {{.Penalty.Date}}</span>
     {{if .Penalty.Voided}}
-    <span class="tooltip tooltip-left" data-tip="Anulado por {{.Penalty.VoidedBy}}{{if .Penalty.VoidReason}} — {{.Penalty.VoidReason}}{{end}}">
-        <span class="badge badge-ghost badge-sm">Anulado</span>
-    </span>
+    <span class="badge badge-ghost badge-sm">Anulado</span>
     {{else}}
     <form hx-post="/admin/competitions/{{.CompetitionID}}/penalty" hx-confirm="¿Quitar esta penalización?" data-confirm-danger data-confirm-ok="Quitar" class="inline flex items-center gap-1">
         <input type="hidden" name="action" value="remove">
@@ -19,5 +18,9 @@
         </span>
     </form>
     {{end}}
+</div>
+{{if .Penalty.Voided}}
+<p class="text-xs text-base-content/50">Anulado por {{.Penalty.VoidedBy}}{{if .Penalty.VoidReason}} — {{.Penalty.VoidReason}}{{end}}</p>
+{{end}}
 </div>
 {{end}}

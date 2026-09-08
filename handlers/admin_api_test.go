@@ -36,6 +36,7 @@ func setupAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	pair := NewPairHandler(app, r.Page)
 	inv := NewInvitationHandler(app, r.Page)
 	venue := NewVenueHandler(app, r.Page)
+	payments := NewCompetitionPaymentsHandler(app, notifier)
 
 	g := e.Router.Group("/admin")
 	g.BindFunc(requireAuthTest)
@@ -60,6 +61,7 @@ func setupAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.POST("/venues/{id}/delete", venue.VenuesDelete)
 	g.POST("/competitions/{id}/broadcast", comp.AdminBroadcast)
 	g.POST("/competitions/{id}/announcements/{annId}/delete", comp.AdminDeleteAnnouncement)
+	g.POST("/competitions/{id}/payment-reminder", payments.SendPaymentReminder)
 }
 
 func makeAdminUser(t testing.TB, app core.App) *core.Record {
@@ -589,19 +591,19 @@ func TestDeleteAnnouncement_AdminOnly(t *testing.T) {
 func TestDeleteAnnouncement_Success(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "admin can delete an announcement",
-		Method:          http.MethodPost,
-		URL:             "/placeholder",
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"Anuncio eliminado"},
+		TestAppFactory: testAppFactory,
+		Name:           "admin can delete an announcement",
+		Method:         http.MethodPost,
+		URL:            "/placeholder",
+		ExpectedStatus: 204,
 	}
-	var annID string
+	var annID, compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		p1 := makePair(t, app, "AnnDelA")
 		comp := makeCompetition(t, app, []*core.Record{p1})
+		compID = comp.Id
 
 		col, err := app.FindCollectionByNameOrId("announcements")
 		require.NoError(tb, err)
@@ -616,9 +618,100 @@ func TestDeleteAnnouncement_Success(t *testing.T) {
 		s.URL = "/admin/competitions/" + comp.Id + "/announcements/" + ann.Id + "/delete"
 		s.Headers = authHeaders(tb, admin)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/admin/competitions/"+compID, res.Header.Get("HX-Redirect"))
 		_, err := app.FindRecordById("announcements", annID)
 		assert.Error(tb, err, "announcement should no longer exist")
+	}
+	s.Test(t)
+}
+
+func TestPaymentReminder_SendsToUnpaid(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "payment reminder notifies only unpaid pairs",
+		Method:          http.MethodPost,
+		URL:             "/placeholder",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Recordatorio enviado"},
+	}
+	var paidPlayerID, unpaidPlayerID1, unpaidPlayerID2 string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAdminRoutes(tb, app, e)
+		enableSMTP(tb, app)
+		admin := makeAdminUser(tb, app)
+		paidPair := makePair(t, app, "ReminderPaid")
+		unpaidPair := makePair(t, app, "ReminderUnpaid")
+		comp := makeCompetition(t, app, []*core.Record{paidPair, unpaidPair})
+		comp.Set("payment_status", map[string]any{paidPair.Id: true, unpaidPair.Id: false})
+		require.NoError(tb, app.Save(comp))
+
+		paidPlayerID = paidPair.GetString("player1")
+		unpaidPlayerID1 = unpaidPair.GetString("player1")
+		unpaidPlayerID2 = unpaidPair.GetString("player2")
+
+		s.URL = "/admin/competitions/" + comp.Id + "/payment-reminder"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		notifs, err := app.FindRecordsByFilter("notifications",
+			"type = 'payment'", "", 0, 0, nil)
+		require.NoError(tb, err)
+		require.Len(tb, notifs, 2, "only the unpaid pair's two players are notified")
+		notifiedUsers := []string{notifs[0].GetString("user"), notifs[1].GetString("user")}
+		assert.ElementsMatch(tb, []string{unpaidPlayerID1, unpaidPlayerID2}, notifiedUsers)
+		assert.NotContains(tb, notifiedUsers, paidPlayerID)
+	}
+	s.Test(t)
+}
+
+func TestPaymentReminder_AllPaid(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "payment reminder warns when all pairs are paid",
+		Method:          http.MethodPost,
+		URL:             "/placeholder",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"al día"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePair(t, app, "ReminderAllPaidA")
+		comp := makeCompetition(t, app, []*core.Record{p1})
+		comp.Set("payment_status", map[string]any{p1.Id: true})
+		require.NoError(tb, app.Save(comp))
+
+		s.URL = "/admin/competitions/" + comp.Id + "/payment-reminder"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		notifs, err := app.FindRecordsByFilter("notifications", "type = 'payment'", "", 0, 0, nil)
+		require.NoError(tb, err)
+		assert.Empty(tb, notifs, "no notifications sent when all paid")
+	}
+	s.Test(t)
+}
+
+func TestPaymentReminder_NonAdminDenied(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "non-admin cannot send payment reminder",
+		Method:         http.MethodPost,
+		URL:            "/placeholder",
+		ExpectedStatus: 302,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAdminRoutes(tb, app, e)
+		user := makeUser(t, app, "Regular", "regular-payment-reminder@test.local")
+		p1 := makePair(t, app, "ReminderDenyA")
+		comp := makeCompetition(t, app, []*core.Record{p1})
+
+		s.URL = "/admin/competitions/" + comp.Id + "/payment-reminder"
+		s.Headers = authHeaders(tb, user)
 	}
 	s.Test(t)
 }

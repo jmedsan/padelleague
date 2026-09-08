@@ -62,6 +62,18 @@
                 </div>
                 <div class="form-control">
                     <label class="label cursor-pointer">
+                        <span class="label-text">Pagos</span>
+                        <input type="checkbox" name="payment" class="toggle toggle-primary" {{if index .Prefs "payment"}}checked{{end}}>
+                    </label>
+                </div>
+                <div class="form-control">
+                    <label class="label cursor-pointer">
+                        <span class="label-text">Penalizaciones</span>
+                        <input type="checkbox" name="penalty" class="toggle toggle-primary" {{if index .Prefs "penalty"}}checked{{end}}>
+                    </label>
+                </div>
+                <div class="form-control">
+                    <label class="label cursor-pointer">
                         <span class="label-text">Mensajes en el hilo</span>
                         <input type="checkbox" name="message" class="toggle toggle-primary" {{if index .Prefs "message"}}checked{{end}}>
                     </label>
