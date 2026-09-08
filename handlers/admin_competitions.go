@@ -109,6 +109,10 @@ func (h *CompetitionHandler) addDetailExtras(data map[string]any, comp *core.Rec
 	attachedSponsors, unattachedSponsors := h.buildDetailSponsors(comp)
 	data["AttachedSponsors"] = attachedSponsors
 	data["UnattachedSponsors"] = unattachedSponsors
+
+	data["Announcements"] = findRecordsLogged(h.app, "addDetailExtras: find announcements", RecordQuery{
+		Collection: "announcements", Filter: "competition = {:cid}", Sort: "-created", Params: map[string]any{"cid": comp.Id},
+	})
 }
 
 // buildDetailSponsors returns the sponsors shown as "attached" (the
@@ -748,7 +752,7 @@ func (h *CompetitionHandler) DetachDocument(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions/"+comp.Id)
 }
 
-// AdminBroadcast sends an announcement to all players of a competition.
+// AdminBroadcast saves an announcement for a competition and notifies its players.
 func (h *CompetitionHandler) AdminBroadcast(e *core.RequestEvent) error {
 	comp, err := h.app.FindRecordById("competitions", e.Request.PathValue("id"))
 	if err != nil {
@@ -759,6 +763,20 @@ func (h *CompetitionHandler) AdminBroadcast(e *core.RequestEvent) error {
 	body := strings.TrimSpace(e.Request.FormValue("body"))
 	if title == "" || body == "" {
 		return alertError(e, "El título y el mensaje son obligatorios")
+	}
+
+	col, err := h.app.FindCollectionByNameOrId("announcements")
+	if err != nil {
+		return alertError(e, "Error interno")
+	}
+	ann := core.NewRecord(col)
+	ann.Set("competition", comp.Id)
+	ann.Set("title", title)
+	ann.Set("body", body)
+	ann.Set("created_by", e.Auth.Id)
+	if err := h.app.Save(ann); err != nil {
+		slog.Error("save announcement failed", "competition", comp.Id, "err", err)
+		return alertError(e, "Error al guardar el anuncio")
 	}
 
 	seen := make(map[string]struct{})
@@ -773,12 +791,30 @@ func (h *CompetitionHandler) AdminBroadcast(e *core.RequestEvent) error {
 	}
 
 	h.notifier.NotifyPlayers(players, league.Notification{
-		Type:  "general",
-		Title: title,
-		Body:  body,
-		Link:  "/competition/" + comp.Id,
+		Type:     "announcement",
+		Title:    title,
+		Body:     body,
+		CompName: comp.GetString("name"),
+		Link:     "/competition/" + comp.Id + "#anuncios",
 	})
 
 	slog.Info("broadcast sent", "competition", comp.Id, "players", len(players))
-	return alertSuccess(e, "Anuncio enviado a "+strconv.Itoa(len(players))+" jugadores")
+	flash(e, "Anuncio enviado a "+strconv.Itoa(len(players))+" jugadores")
+	return redirectHX(e, "/admin/competitions/"+comp.Id)
+}
+
+// AdminDeleteAnnouncement removes an announcement from a competition.
+func (h *CompetitionHandler) AdminDeleteAnnouncement(e *core.RequestEvent) error {
+	comp, err := h.app.FindRecordById("competitions", e.Request.PathValue("id"))
+	if err != nil {
+		return alertError(e, "Competición no encontrada")
+	}
+	ann, err := h.app.FindRecordById("announcements", e.Request.PathValue("annId"))
+	if err != nil || ann.GetString("competition") != comp.Id {
+		return alertError(e, "Anuncio no encontrado")
+	}
+	if err := h.app.Delete(ann); err != nil {
+		return alertError(e, "Error al eliminar el anuncio")
+	}
+	return alertSuccess(e, "Anuncio eliminado")
 }
