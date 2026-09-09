@@ -346,6 +346,54 @@ func TestMatchDetailShowsCompName(t *testing.T) {
 	s.Test(t)
 }
 
+func TestMatchDetail_DraftCalendarReturns404ForPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /match/{id} returns 404 for a non-admin when the competition's calendar is draft",
+		Method:          http.MethodGet,
+		ExpectedStatus:  404,
+		ExpectedContent: []string{"Record no encontrado"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "DraftMatch A")
+		p2 := makePairTB(tb, app, "DraftMatch B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("calendar_status", "draft")
+		require.NoError(tb, app.Save(comp))
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + m.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestMatchDetail_DraftCalendarStillVisibleToAdmin(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /match/{id} stays visible to an admin when the competition's calendar is draft",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"DraftAdmin"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "DraftAdmin A")
+		p2 := makePairTB(tb, app, "DraftAdmin B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("calendar_status", "draft")
+		require.NoError(tb, app.Save(comp))
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + m.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
 func TestMatchDetail_OGImageDefaultsToIcon(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

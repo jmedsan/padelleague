@@ -683,15 +683,14 @@ func TestCompGenerateFixtures(t *testing.T) {
 	s.Test(t)
 }
 
-func TestCompGenerateFixtures_NotifiesMatchAssigned(t *testing.T) {
+func TestCompGenerateFixtures_DraftModeNoNotification(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "POST /admin/competitions/{id}/generate notifies all players of match_assigned",
+		Name:           "POST /admin/competitions/{id}/generate sets calendar_status=draft and does not notify players",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var playerIDs []string
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupCompRoutes(tb, app, e)
@@ -703,7 +702,6 @@ func TestCompGenerateFixtures_NotifiesMatchAssigned(t *testing.T) {
 		comp.Set("end_date", "2026-09-01 00:00:00.000Z")
 		require.NoError(tb, app.Save(comp))
 		compID = comp.Id
-		playerIDs = []string{p1.GetString("player1"), p1.GetString("player2"), p2.GetString("player1"), p2.GetString("player2")}
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
 		s.Headers = authHeaders(tb, admin)
 	}
@@ -711,16 +709,48 @@ func TestCompGenerateFixtures_NotifiesMatchAssigned(t *testing.T) {
 		notifs, err := app.FindRecordsByFilter("notifications",
 			"type = 'match_assigned'", "", 0, 0, nil)
 		require.NoError(tb, err)
-		require.Len(tb, notifs, 4, "one match_assigned notification per player")
+		assert.Empty(tb, notifs, "generating fixtures must not notify players — that happens on publish")
 
-		notifiedIDs := make([]string, len(notifs))
-		for i, n := range notifs {
-			notifiedIDs[i] = n.GetString("user")
-			assert.Equal(tb, "Calendario disponible", n.GetString("title"))
-			assert.Contains(tb, n.GetString("body"), "Ya tienes calendario en")
-			assert.Equal(tb, "/competition/"+compID, n.GetString("link"), "bell entry must link to the competition, not be a dead tap")
-		}
-		assert.ElementsMatch(tb, playerIDs, notifiedIDs)
+		comp, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "draft", comp.GetString("calendar_status"))
+
+		events, err := app.FindRecordsByFilter("competition_events",
+			"competition = {:cid} && kind = 'fixtures_generated'", "", 0, 0, map[string]any{"cid": compID})
+		require.NoError(tb, err)
+		assert.Len(tb, events, 1, "generation must log a fixtures_generated competition_event")
+	}
+	s.Test(t)
+}
+
+func TestCompRegenerateFixtures_PublishedGoesBackToDraft(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/generate?confirm=true on a published competition reverts to draft",
+		Method:         http.MethodPost,
+		URL:            "?confirm=true",
+		ExpectedStatus: 204,
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "RegenPubA")
+		p2 := makePairTB(tb, app, "RegenPubB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		comp.Set("calendar_status", "published")
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/generate?confirm=true"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		comp, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "draft", comp.GetString("calendar_status"),
+			"regenerating a published calendar must revert it to draft")
 	}
 	s.Test(t)
 }

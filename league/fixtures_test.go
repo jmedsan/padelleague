@@ -129,3 +129,145 @@ func TestRoundRobin_OddNumber(t *testing.T) {
 	}
 	assert.Equal(t, 3, len(matchups), "3 pairs = 3 unique matchups")
 }
+
+func genPairIDs(n int) []string {
+	ids := make([]string, n)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("p%d", i+1)
+	}
+	return ids
+}
+
+// maxStreak returns the longest run of consecutive rounds in which every
+// pair played the same side (all-home or all-away), across the whole
+// schedule in round order.
+func maxStreak(rounds []Round, pairID string) int {
+	var sides []bool // true = home
+	for _, r := range rounds {
+		for _, m := range r.Matches {
+			switch pairID {
+			case m.Home:
+				sides = append(sides, true)
+			case m.Away:
+				sides = append(sides, false)
+			}
+		}
+	}
+	best, cur := 0, 0
+	for i, side := range sides {
+		if i == 0 || side == sides[i-1] {
+			cur++
+		} else {
+			cur = 1
+		}
+		if cur > best {
+			best = cur
+		}
+	}
+	return best
+}
+
+// homeAwayImbalance returns |home count - away count| for one pair across
+// the whole schedule.
+func homeAwayImbalance(rounds []Round, pairID string) int {
+	home, away := 0, 0
+	for _, r := range rounds {
+		for _, m := range r.Matches {
+			switch pairID {
+			case m.Home:
+				home++
+			case m.Away:
+				away++
+			}
+		}
+	}
+	diff := home - away
+	if diff < 0 {
+		diff = -diff
+	}
+	return diff
+}
+
+func TestRoundRobin_MaxStreakAndImbalance(t *testing.T) {
+	t.Parallel()
+	for n := 2; n <= 16; n++ {
+		for _, double := range []bool{false, true} {
+			t.Run(fmt.Sprintf("n=%d/double=%v", n, double), func(t *testing.T) {
+				ids := genPairIDs(n)
+				rounds := RoundRobin(ids, double)
+				require.NotEmpty(t, rounds)
+
+				wantImbalance := 1
+				if double {
+					wantImbalance = 0
+				}
+				for _, id := range ids {
+					assert.LessOrEqualf(t, maxStreak(rounds, id), 2,
+						"pair %s: home/away streak must be at most 2 (n=%d, double=%v)", id, n, double)
+					assert.LessOrEqualf(t, homeAwayImbalance(rounds, id), wantImbalance,
+						"pair %s: home/away imbalance must be at most %d (n=%d, double=%v)", id, wantImbalance, n, double)
+				}
+			})
+		}
+	}
+}
+
+func TestRoundRobin_DoubleEveryOrderedPairOnce(t *testing.T) {
+	t.Parallel()
+	for n := 2; n <= 16; n++ {
+		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
+			ids := genPairIDs(n)
+			rounds := RoundRobin(ids, true)
+			require.NotEmpty(t, rounds)
+
+			ordered := map[string]int{}
+			for _, r := range rounds {
+				for _, m := range r.Matches {
+					ordered[m.Home+">"+m.Away]++
+				}
+			}
+			for _, home := range ids {
+				for _, away := range ids {
+					if home == away {
+						continue
+					}
+					assert.Equal(t, 1, ordered[home+">"+away],
+						"%s at home vs %s away must occur exactly once", home, away)
+				}
+			}
+		})
+	}
+}
+
+func TestRoundRobin_DoubleNoConsecutiveRematch(t *testing.T) {
+	t.Parallel()
+	// n=2 has only one possible matchup and one match per round, so the
+	// leg boundary is unavoidably a rematch — start at n=3, where there's
+	// another pair the rotation could interleave with instead.
+	for n := 3; n <= 16; n++ {
+		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
+			ids := genPairIDs(n)
+			rounds := RoundRobin(ids, true)
+			require.NotEmpty(t, rounds)
+
+			for i := 1; i < len(rounds); i++ {
+				prevPairs := map[string]bool{}
+				for _, m := range rounds[i-1].Matches {
+					prevPairs[unorderedKey(m)] = true
+				}
+				for _, m := range rounds[i].Matches {
+					assert.Falsef(t, prevPairs[unorderedKey(m)],
+						"round %d repeats round %d's matchup %s vs %s (n=%d)",
+						rounds[i].Number, rounds[i-1].Number, m.Home, m.Away, n)
+				}
+			}
+		})
+	}
+}
+
+func unorderedKey(m RoundMatch) string {
+	if m.Home > m.Away {
+		return m.Away + ":" + m.Home
+	}
+	return m.Home + ":" + m.Away
+}

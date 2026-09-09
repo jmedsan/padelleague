@@ -180,6 +180,14 @@ type homeCompetitionParts struct {
 }
 
 func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[string]struct{}, needNext bool) homeCompetitionParts {
+	// The competition card itself always shows (a player must be able to see
+	// they're registered), but every match-derived section — next match,
+	// pending actions, recent results, standing — waits for the calendar to
+	// be published.
+	if c.GetString("calendar_status") != "published" {
+		return homeCompetitionParts{Comp: NewHomeCompetitionView(h.leagueSvc, c, 0, nil)}
+	}
+
 	pending := 0
 	var nextMatch *NextMatch
 	var upcoming []NextMatch
@@ -613,10 +621,16 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		return err
 	}
 
-	matches := findRecordsLogged(h.app, "Competition: find matches", RecordQuery{
-		Collection: "matches", Filter: "competition = {:cid}",
-		Sort: "round_number,created", Params: map[string]any{"cid": id},
-	})
+	isAdmin := isEffectiveAdmin(e)
+	published := comp.GetString("calendar_status") == "published"
+
+	var matches []*core.Record
+	if published || isAdmin {
+		matches = findRecordsLogged(h.app, "Competition: find matches", RecordQuery{
+			Collection: "matches", Filter: "competition = {:cid}",
+			Sort: "round_number,created", Params: map[string]any{"cid": id},
+		})
+	}
 
 	pairNames := collectPairNames(h.app, matches)
 
@@ -631,11 +645,12 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	}
 	autoExpandRound := firstIncompleteRound(rounds)
 
-	data := h.buildCompetitionData(comp, rounds, autoExpandRound)
+	data := h.buildCompetitionData(comp, rounds, autoExpandRound, published || isAdmin)
 	data["PageTitle"] = comp.GetString("name")
 	data["PlayerPairIDs"] = playerPairIDs
 	data["ShowAll"] = showAll
 	data["Mode"] = PlayerSummary
+	data["CalendarDraft"] = comp.GetString("calendar_status") == "draft"
 	data["OGImage"] = league.CompetitionLogoURL(comp.Id, comp.GetString("logo"))
 	data["FooterCompetitionID"] = comp.Id
 	h.addCompetitionDocViews(data, comp, userID, fileTokenFor(e))
@@ -718,28 +733,36 @@ func (h *PublicHandler) AcceptDocs(e *core.RequestEvent) error {
 	return redirectHX(e, "/competition/"+comp.Id)
 }
 
-func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundView, autoExpandRound int) map[string]any {
-	id := comp.Id
-	var standings []league.StandingRowFull
-	hasPenalties := false
-	if comp.GetString("type") == "league" {
-		rows, _ := h.leagueSvc.ComputeStandings(id)
-		hasPlayed := false
-		for _, s := range rows {
-			if s.Played > 0 {
-				hasPlayed = true
-			}
-			if s.Penalty > 0 {
-				hasPenalties = true
-			}
+// competitionStandings computes a league competition's standings, or
+// returns nil when the competition isn't a league, showFixtures is false
+// (the calendar isn't published for this viewer), fewer than 2 pairs have
+// standings, or no match has been played yet.
+func (h *PublicHandler) competitionStandings(comp *core.Record, showFixtures bool) ([]league.StandingRowFull, bool) {
+	if comp.GetString("type") != "league" || !showFixtures {
+		return nil, false
+	}
+	rows, _ := h.leagueSvc.ComputeStandings(comp.Id)
+	hasPlayed, hasPenalties := false, false
+	for _, s := range rows {
+		if s.Played > 0 {
+			hasPlayed = true
 		}
-		if len(rows) >= 2 && hasPlayed {
-			standings = rows
+		if s.Penalty > 0 {
+			hasPenalties = true
 		}
 	}
+	if len(rows) < 2 || !hasPlayed {
+		return nil, hasPenalties
+	}
+	return rows, hasPenalties
+}
+
+func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundView, autoExpandRound int, showFixtures bool) map[string]any {
+	id := comp.Id
+	standings, hasPenalties := h.competitionStandings(comp, showFixtures)
 
 	var awards []league.Award
-	if !comp.GetBool("active") {
+	if !comp.GetBool("active") && showFixtures {
 		awards = h.leagueSvc.Awards(id)
 	}
 

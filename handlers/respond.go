@@ -143,6 +143,10 @@ func checkCompModifiable(app core.App, e *core.RequestEvent, match *core.Record)
 		_ = alertError(e, "Competición no encontrada")
 		return errHandled
 	}
+	if comp.GetString("calendar_status") != "published" {
+		_ = e.String(http.StatusNotFound, "Partido no encontrado")
+		return errHandled
+	}
 	if !league.PlayerCanModify(comp, time.Now()) {
 		_ = alertError(e, "La competición está finalizada o archivada; no puedes modificar este partido.")
 		return errHandled

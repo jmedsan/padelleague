@@ -380,6 +380,7 @@ func makeLeagueComp(t *testing.T, app core.App, pairs []*core.Record, start, end
 	r.Set("name", "Sched Test League")
 	r.Set("type", "league")
 	r.Set("active", true)
+	r.Set("calendar_status", "published")
 	r.Set("rounds", rounds)
 	r.Set("arrange_grace_days", 3)
 	ids := make([]string, len(pairs))
@@ -467,6 +468,38 @@ func TestSchedulingReminder_SendsAndEscalates(t *testing.T) {
 		"type = 'scheduling'", "", 0, 0, nil)
 	require.NoError(t, err)
 	assert.Equal(t, firstCount, len(notifs2), "second run must not send duplicate reminders")
+}
+
+func TestSchedulingReminder_SkipsDraftCalendar(t *testing.T) {
+	app := newTestApp(t)
+	notifier := notify.NewNotifier(app, "", "")
+
+	p1 := makePair(t, app, "DraftA")
+	p2 := makePair(t, app, "DraftB")
+
+	start := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	comp := makeLeagueComp(t, app, []*core.Record{p1, p2}, start, end, 1)
+	comp.Set("calendar_status", "draft")
+	require.NoError(t, app.Save(comp))
+
+	pastEnd := time.Now().AddDate(0, 0, -20)
+	pastStart := pastEnd.AddDate(0, -1, 0)
+	sd, _ := types.ParseDateTime(pastStart)
+	comp.Set("start_date", sd)
+	ed, _ := types.ParseDateTime(pastEnd)
+	comp.Set("end_date", ed)
+	comp.Set("round_arrange_dates", league.StoreRoundSchedule(pastStart, pastEnd, 1))
+	comp.Set("recovery_days", 60)
+	require.NoError(t, app.Save(comp))
+
+	makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+
+	checkSchedulingReminders(app, notifier)
+
+	notifs, err := app.FindRecordsByFilter("notifications", "type = 'scheduling'", "", 0, 0, nil)
+	require.NoError(t, err)
+	assert.Empty(t, notifs, "a draft calendar's matches are invisible to players, so no reminder should fire")
 }
 
 func TestSchedulingReminder_SkipsNoDateComp(t *testing.T) {
@@ -662,6 +695,36 @@ func TestMatchDayReminder_SendsForTomorrowsMatch(t *testing.T) {
 
 	updated := freshMatch(t, app, m.Id)
 	assert.True(t, updated.GetBool("reminder_sent"))
+}
+
+func TestMatchDayReminder_SkipsDraftCalendar(t *testing.T) {
+	app := newTestApp(t)
+	notifier := notify.NewNotifier(app, "", "")
+
+	p1 := makePair(t, app, "MdDraftA")
+	p2 := makePair(t, app, "MdDraftB")
+
+	comp := makeLeagueComp(t, app, []*core.Record{p1, p2},
+		time.Now().AddDate(0, 0, -10), time.Now().AddDate(0, 0, 10), 1)
+	comp.Set("calendar_status", "draft")
+	require.NoError(t, app.Save(comp))
+
+	now := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
+	tomorrow := now.AddDate(0, 0, 1)
+
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+	m.Set("status", league.StatusScheduled)
+	d, _ := types.ParseDateTime(tomorrow)
+	m.Set("date", d)
+	m.Set("time", "18:00")
+	m.Set("club", "Padel 360")
+	require.NoError(t, app.Save(m))
+
+	checkMatchDayReminders(app, notifier, now)
+
+	notifs, err := app.FindRecordsByFilter("notifications", "type = 'scheduling'", "", 0, 0, nil)
+	require.NoError(t, err)
+	assert.Empty(t, notifs, "a draft calendar's matches are invisible to players, so no match-day reminder should fire")
 }
 
 func TestMatchDayReminder_MadridTimezoneNearMidnight(t *testing.T) {

@@ -104,7 +104,8 @@ func buildMatchEntry(app core.App, m *core.Record) Entry {
 	p2 := pairNames[m.GetString("pair2")]
 	round := int(m.GetFloat("round_number"))
 	label := fmt.Sprintf("%s vs %s (J%d)", p1, p2, round)
-	secondary := league.CompetitionName(app, m.GetString("competition"))
+	compID := m.GetString("competition")
+	secondary := league.CompetitionName(app, compID)
 	if score := m.GetString("scores"); score != "" {
 		secondary += " · " + score
 	}
@@ -114,9 +115,21 @@ func buildMatchEntry(app core.App, m *core.Record) Entry {
 		Type:      "partido",
 		URL:       league.EntityURL("match", m.Id),
 		Keywords:  []string{"partido", fmt.Sprintf("jornada %d", round), p1, p2},
-		Scope:     Scope{Public: true},
+		Scope:     matchScope(app, compID),
 		RecordID:  m.Id,
 	})
+}
+
+// matchScope returns Scope{Public: true} (findable by anyone, matching the
+// existing behavior) once a competition's calendar is published, and an
+// admin-only scope beforehand — a draft calendar's matches must not surface
+// in search for players, even the competition's own participants.
+func matchScope(app core.App, compID string) Scope {
+	comp, err := app.FindRecordById("competitions", compID)
+	if err != nil || comp.GetString("calendar_status") != "published" {
+		return Scope{Admin: true}
+	}
+	return Scope{Public: true}
 }
 
 func buildMessages(app core.App) []Entry {
@@ -146,11 +159,15 @@ func buildMessages(app core.App) []Entry {
 		}
 		matchID := msg.GetString("match")
 		compID := matchCompMap[matchID]
+		scope := Scope{CompID: compID}
+		if comp, err := app.FindRecordById("competitions", compID); err != nil || comp.GetString("calendar_status") != "published" {
+			scope = Scope{Admin: true}
+		}
 		entries = append(entries, NewEntry(Entry{
 			Label:    content,
 			Type:     "mensaje",
 			URL:      league.EntityURL("match", matchID),
-			Scope:    Scope{CompID: compID},
+			Scope:    scope,
 			RecordID: msg.Id,
 		}))
 	}
