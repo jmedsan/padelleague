@@ -15,29 +15,30 @@
         {{if .Players}}
         <div class="sm:hidden">
             <ul class="divide-y divide-base-300" id="players-cards">
-                {{range .Players}}
+                {{$total := len .Players}}
+                {{range $i, $p := .Players}}
                 <li class="flex items-center gap-4 px-4 py-2 min-h-[72px]">
-                    {{template "avatarCircle" (dict "Mode" (dict "Full" true) "Name" (.GetString "display_name") "AvatarURL" (avatarURL .Id (.GetString "avatar")))}}
+                    {{template "avatarCircle" (dict "Mode" (dict "Full" true) "Name" ($p.GetString "display_name") "AvatarURL" (avatarURL $p.Id ($p.GetString "avatar")))}}
                     <div class="flex-1 min-w-0">
-                        <p class="font-medium break-words">{{.GetString "display_name"}}{{if contains (.GetStringSlice "roles") "admin"}} <span class="badge badge-secondary badge-sm">Admin</span>{{end}}</p>
-                        <p class="text-sm opacity-60 truncate">{{.GetString "email"}}{{if .GetString "phone"}} · {{fmtPhone (.GetString "phone")}}{{end}}</p>
+                        <p class="font-medium break-words">{{$p.GetString "display_name"}}{{if contains ($p.GetStringSlice "roles") "admin"}} <span class="badge badge-secondary badge-sm">Admin</span>{{end}}</p>
+                        <p class="text-sm opacity-60 truncate">{{$p.GetString "email"}}{{if $p.GetString "phone"}} · {{fmtPhone ($p.GetString "phone")}}{{end}}</p>
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
-                        <div class="dropdown dropdown-end">
+                        <div class="dropdown dropdown-end{{if le (sub $total $i) 2}} dropdown-top{{end}}">
                             <button tabindex="0" class="btn btn-ghost btn-sm btn-circle" aria-label="Más acciones">
                                 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" /></svg>
                             </button>
                             <ul tabindex="0" class="dropdown-content menu bg-base-300 rounded-box shadow-lg z-30 w-48 p-2 text-sm">
-                                <li><label for="edit-player-{{.Id}}">
+                                <li><label for="edit-player-{{$p.Id}}">
                                     <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" /></svg>
                                     Editar
                                 </label></li>
-                                <li><button hx-post="/admin/players/{{.Id}}/regenerate-link" hx-target="#regen-result" hx-swap="innerHTML" hx-confirm="¿Regenerar el enlace de contraseña? El enlace anterior dejará de funcionar." data-confirm-ok="Regenerar" hx-disabled-elt="this">
+                                <li><button hx-post="/admin/players/{{$p.Id}}/regenerate-link" hx-target="#regen-result" hx-swap="innerHTML" hx-confirm="¿Regenerar el enlace de contraseña? El enlace anterior dejará de funcionar." data-confirm-ok="Regenerar" hx-disabled-elt="this">
                                     <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" /></svg>
                                     Regenerar contraseña
                                 </button></li>
-                                {{if .GetString "phone"}}
-                                <li><a target="_blank" rel="noopener" href="{{whatsappURL (.GetString "phone")}}">
+                                {{if $p.GetString "phone"}}
+                                <li><a target="_blank" rel="noopener" href="{{whatsappURL ($p.GetString "phone")}}">
                                     <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" viewBox="0 0 24 24" class="w-5 h-5 fill-success"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.075-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12.05 0C5.495 0 .16 5.335.16 11.89c0 2.096.547 4.142 1.588 5.945L0 24l6.31-1.658a11.86 11.86 0 005.74 1.462h.005c6.554 0 11.89-5.335 11.89-11.89C23.945 5.335 18.61 0 12.05 0zm0 21.657h-.004a9.786 9.786 0 01-4.987-1.365l-.358-.213-3.744.982.999-3.65-.233-.375a9.756 9.756 0 01-1.494-5.146c0-5.394 4.39-9.784 9.79-9.784 2.615 0 5.075 1.018 6.923 2.868 1.849 1.85 2.868 4.31 2.868 6.923 0 5.395-4.39 9.76-9.76 9.76z"/></svg>
                                     WhatsApp
                                 </a></li>
