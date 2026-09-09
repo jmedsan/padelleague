@@ -17,8 +17,8 @@
                 <tr>
                     <th>Destinatario</th>
                     <th>Nota</th>
-                    <th>Estado</th>
-                    <th>Usos</th>
+                    <th class="text-center">Estado</th>
+                    <th class="text-center">Usos</th>
                     <th class="hidden xl:table-cell">Creada</th>
                     <th></th>
                 </tr>
@@ -30,7 +30,7 @@
                         {{if .GetString "email"}}{{.GetString "email"}}{{else}}<span class="badge badge-info badge-sm">Enlace genérico</span>{{end}}
                     </td>
                     <td class="text-sm opacity-70 max-w-[16rem] truncate" title="{{.GetString "admin_note"}}">{{.GetString "admin_note"}}</td>
-                    <td>
+                    <td class="text-center">
                         {{if eq (.GetString "status") "pending"}}
                         <span class="badge badge-ghost badge-sm">Pendiente</span>
                         {{else if eq (.GetString "status") "used"}}
@@ -39,7 +39,7 @@
                         <span class="badge badge-soft-error badge-sm">Expirada</span>
                         {{end}}
                     </td>
-                    <td class="text-sm">
+                    <td class="text-sm text-center">
                         {{.GetString "use_count"}}/{{if and (.GetString "max_uses") (ne (.GetString "max_uses") "0")}}{{.GetString "max_uses"}}{{else}}1{{end}}
                     </td>
                     <td class="hidden xl:table-cell text-sm opacity-60">{{fmtDate (.GetString "created")}}</td>

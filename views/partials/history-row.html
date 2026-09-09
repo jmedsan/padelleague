@@ -14,7 +14,7 @@
     <td>{{template "pairLink" (elink .Pair2ID .PairName2)}}</td>
     <td>{{template "resultBox" (dict "Score" .Score "Pair1Name" .PairName1 "Pair2Name" .PairName2 "Mode" (dict "Row" true))}}</td>
     <td>{{template "competitionIdentity" (dict "ID" .CompetitionID "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true))}}</td>
-    <td>{{template "wonBadge" .}}</td>
+    <td class="text-center">{{template "wonBadge" .}}</td>
 </tr>
 {{end}}
 
