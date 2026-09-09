@@ -101,21 +101,21 @@ test.describe('competition lifecycle', () => {
     await page.waitForLoadState('domcontentloaded');
     await expect(page.getByText(compName).first()).toBeVisible();
     await page.locator('input[aria-label="Clasificación"]').click();
-    const standingsTable = page.locator('table.table-zebra');
+    // standingsTable.html renders two <table>s (a desktop table.table-zebra
+    // and a mobile table.table-sm), each hidden at the other breakpoint via
+    // CSS — assert on whichever one is actually visible for this viewport.
+    const standingsTable = isMobile(page)
+      ? page.locator('table.table-sm')
+      : page.locator('table.table-zebra');
     await expect(standingsTable).toBeVisible({ timeout: 5000 });
     await expect(standingsTable.locator('td', { hasText: pairAlpha.name })).toBeVisible();
     await expect(standingsTable.locator('td', { hasText: pairBeta.name })).toBeVisible();
 
-    // Forma column: hidden on phones (hidden sm:table-cell), visible on
-    // desktop. This competition has exactly one played match, so the
-    // winning pair's row shows one green dot and the loser's shows one red.
-    if (!isMobile(page)) {
-      await expect(standingsTable.locator('th', { hasText: 'Forma' })).toBeVisible();
-      const alphaRow = standingsTable.locator('tr', { has: page.locator('td', { hasText: pairAlpha.name }) });
-      await expect(alphaRow.locator('span.bg-success')).toHaveCount(1);
-      const betaRow = standingsTable.locator('tr', { has: page.locator('td', { hasText: pairBeta.name }) });
-      await expect(betaRow.locator('span.bg-error')).toHaveCount(1);
-    }
+    // Pts column: bold and rightmost on desktop, bold and third (after #,
+    // Pareja) on mobile so it's visible without horizontal scrolling. This
+    // competition has exactly one played match, so the winner has 3 points.
+    const alphaRow = standingsTable.locator('tr', { has: page.locator('td', { hasText: pairAlpha.name }) });
+    await expect(alphaRow.locator('td.font-bold', { hasText: '3' })).toBeVisible();
   });
 
   test('competition page shows match fixtures with mine-only default', async ({ page }) => {
@@ -146,5 +146,85 @@ test.describe('competition lifecycle', () => {
     await expect(page.getByText('Liga E2E Test').first()).toBeVisible();
     const body = await page.textContent('body');
     expect(body).toContain('Pareja Alpha');
+  });
+
+  test('draft calendar is hidden from players until published', async ({ page }, testInfo) => {
+    const suffix = `${testInfo.project.name.charAt(0)}${Date.now() % 100000}`;
+    const compName = `Liga Publish ${suffix}`;
+    const makePlayer = async (label: string) => suPost('/api/collections/users/records', {
+      email: `publish-${label}-${suffix}@test.local`,
+      display_name: `Publish ${label} ${suffix}`,
+      gender: 'male', roles: ['player'],
+      password: 'TestPass123456', passwordConfirm: 'TestPass123456',
+      verified: true,
+    });
+    const [p1, p2, p3, p4] = await Promise.all(['1', '2', '3', '4'].map(makePlayer));
+    const comp = await suPost('/api/collections/competitions/records', {
+      name: compName, type: 'league', active: true,
+    });
+    const pairAlpha = await suPost('/api/collections/pairs/records', {
+      name: `Pareja Publish A ${suffix}`, player1: p1.id, player2: p2.id,
+    });
+    const pairBeta = await suPost('/api/collections/pairs/records', {
+      name: `Pareja Publish B ${suffix}`, player1: p3.id, player2: p4.id,
+    });
+    await suPatch(`/api/collections/competitions/records/${comp.id}`, {
+      pairs: [pairAlpha.id, pairBeta.id],
+    });
+
+    // Admin generates the calendar — it starts as a draft, invisible to players.
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/admin/competitions/${comp.id}`);
+    await page.waitForLoadState('domcontentloaded');
+    await Promise.all([
+      page.waitForResponse(resp => resp.url().includes('/generate') && resp.status() === 204),
+      page.locator('button:has-text("Generar calendario")').click(),
+    ]);
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('.badge', { hasText: 'Borrador' })).toBeVisible();
+    const publishButton = page.locator('button:has-text("Publicar calendario")');
+    await expect(publishButton).toBeVisible();
+
+    // Player sees the draft-calendar empty state, not the rounds.
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/competition/${comp.id}`);
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.getByText('El calendario aún no está publicado')).toBeVisible();
+
+    // Admin publishes.
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/admin/competitions/${comp.id}`);
+    await page.waitForLoadState('domcontentloaded');
+    await Promise.all([
+      page.waitForResponse(resp => resp.url().includes('/publish') && resp.status() === 204),
+      page.locator('button:has-text("Publicar calendario")').click(),
+    ]);
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('.badge', { hasText: 'Publicado' })).toBeVisible();
+
+    // Player clicks the bell notification and lands on the competition with
+    // the Jornadas tab showing the now-visible rounds.
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+
+    const mobile = isMobile(page);
+    const bellButton = mobile
+      ? page.locator('.lg\\:hidden .dropdown button[aria-label="notificaciones"]')
+      : page.locator('.dropdown:has(#notif-dropdown) button[aria-label="notificaciones"]');
+    await bellButton.click();
+
+    const dropdown = mobile
+      ? page.locator('.lg\\:hidden .dropdown')
+      : page.locator('#notif-dropdown');
+    const notifRow = dropdown.locator('a', { hasText: 'Calendario publicado' });
+    await expect(notifRow).toBeVisible({ timeout: 5000 });
+    await notifRow.click();
+
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page).toHaveURL(new RegExp(`/competition/${comp.id}$`));
+    await expect(page.locator('input[aria-label="Jornadas"]')).toBeVisible();
+    await page.locator('input[aria-label="Jornadas"]').click();
+    await expect(page.getByText(/Jornada \d/).first()).toBeVisible();
   });
 });

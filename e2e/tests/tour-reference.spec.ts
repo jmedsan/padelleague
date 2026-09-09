@@ -395,9 +395,14 @@ test.describe('reference navigation tour', () => {
     await page.goto(`/competition/${competitionId}`);
     await page.waitForLoadState('domcontentloaded');
 
-    // Switch to Clasificación tab, then click pair link in standings
+    // Switch to Clasificación tab, then click pair link in standings.
+    // standingsTable.html renders a desktop table.table-zebra and a mobile
+    // table.table-sm, each hidden at the other breakpoint via CSS — scope
+    // to whichever one is visible so `.first()` doesn't resolve to the
+    // hidden table's copy of the same link.
     await page.locator('input[aria-label="Clasificación"]').click();
-    const pairLink = page.locator(`a[href="/pair/${pairIds[0]}"]`).first();
+    const standingsTableClass = isMobile(page) ? 'table.table-sm' : 'table.table-zebra';
+    const pairLink = page.locator(`${standingsTableClass} a[href="/pair/${pairIds[0]}"]`).first();
     await expect(pairLink).toBeVisible();
     await pairLink.click();
     await page.waitForLoadState('domcontentloaded');

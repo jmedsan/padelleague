@@ -1912,3 +1912,149 @@ func TestUpdateLogsSettingsChangedEvent(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// Group 15: PublishCalendar
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestPublishCalendarDraftToPublished(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/publish publishes a draft calendar",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, adminID, player1ID, player2ID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		adminID = admin.Id
+		p1 := makePairTB(tb, app, "PubA")
+		p2 := makePairTB(tb, app, "PubB")
+		player1ID = p1.GetString("player1")
+		player2ID = p1.GetString("player2")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("calendar_status", "draft")
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		s.URL = "/admin/competitions/" + comp.Id + "/publish"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "published", c.GetString("calendar_status"))
+
+		events, err := app.FindRecordsByFilter("competition_events",
+			"competition = {:c} && kind = 'calendar_published'", "", 0, 0, map[string]any{"c": compID})
+		require.NoError(tb, err)
+		require.Len(tb, events, 1)
+		assert.Equal(tb, adminID, events[0].GetString("actor"))
+
+		notifs, err := app.FindRecordsByFilter("notifications",
+			"type = 'calendar_published'", "", 0, 0, nil)
+		require.NoError(tb, err)
+		require.Len(tb, notifs, 2, "every distinct player in the competition's pairs is notified")
+		notifiedUsers := []string{notifs[0].GetString("user"), notifs[1].GetString("user")}
+		assert.ElementsMatch(tb, []string{player1ID, player2ID}, notifiedUsers)
+		assert.Equal(tb, "Test Competition", notifs[0].GetString("comp_name"))
+		assert.Equal(tb, "/competition/"+compID, notifs[0].GetString("link"))
+		assert.Equal(tb, "Calendario publicado", notifs[0].GetString("title"))
+	}
+	s.Test(t)
+}
+
+func TestPublishCalendarNonAdminDenied(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/publish denies a non-admin player",
+		Method:         http.MethodPost,
+		ExpectedStatus: 302,
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "DenyA")
+		p2 := makePairTB(tb, app, "DenyB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("calendar_status", "draft")
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		player := makeUserTB(tb, app, "NonAdmin", "")
+		s.URL = "/admin/competitions/" + comp.Id + "/publish"
+		s.Headers = authHeaders(tb, player)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "draft", c.GetString("calendar_status"), "a non-admin must not be able to publish")
+	}
+	s.Test(t)
+}
+
+func TestPublishCalendarWhenNoneErrors(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/competitions/{id}/publish errors when no calendar exists",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"No hay un calendario en borrador"},
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/publish"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "", c.GetString("calendar_status"), "status must stay unset when there is nothing to publish")
+	}
+	s.Test(t)
+}
+
+func TestPublishCalendarAlreadyPublishedErrors(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/competitions/{id}/publish errors when already published",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"No hay un calendario en borrador"},
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "AlreadyPubA")
+		p2 := makePairTB(tb, app, "AlreadyPubB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("calendar_status", "published")
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		s.URL = "/admin/competitions/" + comp.Id + "/publish"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "published", c.GetString("calendar_status"))
+		notifs, err := app.FindRecordsByFilter("notifications", "type = 'calendar_published'", "", 0, 0, nil)
+		require.NoError(tb, err)
+		assert.Empty(tb, notifs, "publishing an already-published calendar must not re-notify players")
+	}
+	s.Test(t)
+}

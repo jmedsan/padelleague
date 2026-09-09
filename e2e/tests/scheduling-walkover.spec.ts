@@ -1,5 +1,5 @@
 import { test, expect, Page, APIRequestContext } from '@playwright/test';
-import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, loadTestData } from '../helpers';
+import { loginAs, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, loadTestData } from '../helpers';
 
 let suToken = '';
 
@@ -144,8 +144,11 @@ test.describe('scheduling, walkover & bracket', () => {
     await page.goto(`/competition/${compId}`);
     const standingsTab = page.locator('input[aria-label="Clasificación"]');
     await standingsTab.click();
-    await page.waitForSelector('table.table-zebra tbody tr', { timeout: 5000 });
-    await expect(page.locator('table.table-zebra .text-error').filter({ hasText: '-5' })).toBeVisible();
+    // standingsTable.html renders a desktop table.table-zebra and a mobile
+    // table.table-sm, each hidden at the other breakpoint via CSS.
+    const standingsTableClass = isMobile(page) ? 'table.table-sm' : 'table.table-zebra';
+    await page.waitForSelector(`${standingsTableClass} tbody tr`, { timeout: 5000 });
+    await expect(page.locator(`${standingsTableClass} .text-error`).filter({ hasText: '-5' })).toBeVisible();
 
     await page.screenshot({ path: '/tmp/claude-1000/-mnt-data-Dev-PadelLeague/1bb535f8-6b3f-49b6-85d1-278927d6a279/scratchpad/walkover-standings.png', fullPage: true });
 

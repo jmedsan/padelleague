@@ -431,6 +431,48 @@ func (h *CompetitionHandler) FinalizeCompetition(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions/"+id)
 }
 
+// PublishCalendar makes a draft calendar visible to players and notifies
+// every player in the competition.
+func (h *CompetitionHandler) PublishCalendar(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	comp, err := h.app.FindRecordById("competitions", id)
+	if err != nil {
+		return alertError(e, "Competición no encontrada")
+	}
+
+	if comp.GetString("calendar_status") != "draft" {
+		return alertError(e, "No hay un calendario en borrador para publicar")
+	}
+
+	matches, err := h.app.FindRecordsByFilter("matches", "competition = {:id}", "", 1, 0, map[string]any{"id": id})
+	if err != nil || len(matches) == 0 {
+		return alertError(e, "No hay partidos que publicar")
+	}
+
+	comp.Set("calendar_status", "published")
+	if err := h.app.Save(comp); err != nil {
+		slog.Error("publish calendar failed", "competition", id, "err", err)
+		return alertError(e, "Error al publicar el calendario")
+	}
+	league.LogCompetitionEvent(h.app, league.CompetitionEvent{CompetitionID: id, ActorID: e.Auth.Id, Kind: "calendar_published", Detail: "publicó el calendario"})
+
+	compName := league.CompetitionName(h.app, id)
+	seen := make(map[string]struct{})
+	var players []string
+	for _, pid := range comp.GetStringSlice("pairs") {
+		for _, uid := range league.PlayersForPair(h.app, pid) {
+			if _, ok := seen[uid]; !ok {
+				seen[uid] = struct{}{}
+				players = append(players, uid)
+			}
+		}
+	}
+	h.notifier.NotifyPlayers(players, league.NotifCalendarPublished(id, compName))
+
+	flash(e, "Calendario publicado")
+	return redirectHX(e, "/admin/competitions/"+id)
+}
+
 // ApplyPenalty creates a new penalty row or voids an existing one.
 func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")

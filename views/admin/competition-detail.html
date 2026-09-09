@@ -121,12 +121,20 @@
             <h2 class="card-title text-lg">
                 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                 Calendario
+                {{if eq (.Competition.GetString "calendar_status") "draft"}}<span class="badge badge-warning badge-sm">Borrador</span>
+                {{else if eq (.Competition.GetString "calendar_status") "published"}}<span class="badge badge-success badge-sm">Publicado</span>
+                {{end}}
             </h2>
-            {{if .HasFixtures}}
+            <div class="flex gap-2">
+                {{if eq (.Competition.GetString "calendar_status") "draft"}}
+                <button hx-post="/admin/competitions/{{.Competition.Id}}/publish" hx-target="#generate-result" hx-disabled-elt="this" class="btn btn-primary btn-sm">Publicar calendario</button>
                 <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" hx-confirm="¿Regenerar el calendario? Se perderán todos los partidos y resultados existentes." data-confirm-title="Regenerar calendario" data-confirm-danger data-confirm-ok="Regenerar" hx-disabled-elt="this" class="btn btn-warning btn-sm">Regenerar</button>
-            {{else if .Entries}}
+                {{else if eq (.Competition.GetString "calendar_status") "published"}}
+                <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" hx-confirm="¿Regenerar el calendario? Los jugadores dejarán de verlo hasta que lo publiques de nuevo. Se perderán todos los partidos y resultados existentes." data-confirm-title="Regenerar calendario" data-confirm-danger data-confirm-ok="Regenerar" hx-disabled-elt="this" class="btn btn-warning btn-sm">Regenerar</button>
+                {{else if .Entries}}
                 <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" hx-disabled-elt="this" class="btn btn-primary btn-sm">Generar calendario</button>
-            {{end}}
+                {{end}}
+            </div>
         </div>
 
         <div id="generate-result" class="mb-2" aria-live="polite"></div>

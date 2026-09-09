@@ -50,6 +50,12 @@
                 </div>
                 <div class="form-control">
                     <label class="label cursor-pointer">
+                        <span class="label-text">Publicación de calendario</span>
+                        <input type="checkbox" name="calendar_published" class="toggle toggle-primary" {{if index .Prefs "calendar_published"}}checked{{end}}>
+                    </label>
+                </div>
+                <div class="form-control">
+                    <label class="label cursor-pointer">
                         <span class="label-text">General</span>
                         <input type="checkbox" name="general" class="toggle toggle-primary" {{if index .Prefs "general"}}checked{{end}}>
                     </label>

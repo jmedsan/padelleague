@@ -1,5 +1,5 @@
 import { test, expect, Page, APIRequestContext } from '@playwright/test';
-import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { enterScore } from '../tour-helpers';
 import {
   setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,
@@ -514,9 +514,31 @@ async function assertStandings(
   await page.goto(`/competition/${competitionId}`);
   // Click the Clasificación tab
   await page.locator('input[aria-label="Clasificación"]').click();
-  await page.waitForSelector('table.table-zebra tbody tr', { timeout: 5000 });
+  // standingsTable.html renders a desktop table.table-zebra and a mobile
+  // table.table-sm, each hidden at the other breakpoint via CSS — the two
+  // tables also order columns differently (mobile puts Pts third so it's
+  // visible without scrolling), so cells are looked up by header text
+  // rather than a fixed index.
+  const table = isMobile(page) ? page.locator('table.table-sm') : page.locator('table.table-zebra');
+  await table.locator('tbody tr').first().waitFor({ timeout: 5000 });
 
-  const rows = page.locator('table.table-zebra tbody tr');
+  const headers = await table.locator('thead th').allTextContents();
+  const colIndex = (label: string) => {
+    const i = headers.findIndex(h => h.trim() === label);
+    if (i === -1) throw new Error(`standings header "${label}" not found among [${headers.join(', ')}]`);
+    return i;
+  };
+  const idxPosition = colIndex('#');
+  const idxPareja = colIndex('Pareja');
+  const idxPJ = colIndex('PJ');
+  const idxPG = colIndex('PG');
+  const idxPP = colIndex('PP');
+  const idxDS = colIndex('DS');
+  const idxDJ = colIndex('DJ');
+  const idxPts = colIndex('Pts');
+  const idxPen = hasPenalties ? colIndex('Pen') : -1;
+
+  const rows = table.locator('tbody tr');
   const count = await rows.count();
   if (count !== 4) throw new Error(`Expected 4 standings rows, got ${count}`);
 
@@ -529,19 +551,17 @@ async function assertStandings(
     const setDiff = exp.setsWon - exp.setsLost;
     const gameDiff = exp.gamesWon - exp.gamesLost;
 
-    await expect(cells.nth(0)).toContainText(String(exp.position));
-    await expect(cells.nth(1)).toContainText(pairName);
-    await expect(cells.nth(2)).toContainText(String(exp.played));
-    await expect(cells.nth(3)).toContainText(String(exp.wins));
-    await expect(cells.nth(4)).toContainText(String(exp.losses));
-    await expect(cells.nth(5)).toContainText(setDiff >= 0 ? `+${setDiff}` : String(setDiff));
-    await expect(cells.nth(6)).toContainText(gameDiff >= 0 ? `+${gameDiff}` : String(gameDiff));
-    await expect(cells.nth(7)).toContainText(String(exp.points));
+    await expect(cells.nth(idxPosition)).toContainText(String(exp.position));
+    await expect(cells.nth(idxPareja)).toContainText(pairName);
+    await expect(cells.nth(idxPJ)).toContainText(String(exp.played));
+    await expect(cells.nth(idxPG)).toContainText(String(exp.wins));
+    await expect(cells.nth(idxPP)).toContainText(String(exp.losses));
+    await expect(cells.nth(idxDS)).toContainText(setDiff >= 0 ? `+${setDiff}` : String(setDiff));
+    await expect(cells.nth(idxDJ)).toContainText(gameDiff >= 0 ? `+${gameDiff}` : String(gameDiff));
+    await expect(cells.nth(idxPts)).toContainText(String(exp.points));
 
-    if (hasPenalties) {
-      if (exp.penalty > 0) {
-        await expect(cells.nth(8)).toContainText(`-${exp.penalty}`);
-      }
+    if (hasPenalties && exp.penalty > 0) {
+      await expect(cells.nth(idxPen)).toContainText(`-${exp.penalty}`);
     }
   }
 }

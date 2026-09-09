@@ -79,7 +79,11 @@
         {{end}}
         </div>
         {{else}}
+        {{if .CalendarDraft}}
+        {{template "emptyState" "El calendario aún no está publicado"}}
+        {{else}}
         {{template "emptyState" "No hay jornadas generadas — el administrador aún no ha generado el calendario"}}
+        {{end}}
         {{end}}
     </div>
 
