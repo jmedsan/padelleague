@@ -189,20 +189,20 @@
 
         {{if .Entries}}
         <div class="overflow-x-auto">
-            <table class="table table-zebra table-sm [&_th]:text-sm">
+            <table class="table table-zebra table-xs sm:table-sm [&_th]:text-sm">
                 <thead>
                     <tr>
-                        <th class="min-w-[120px]">Pareja</th>
+                        <th>Pareja</th>
                         {{if not .IsLeague}}<th class="hidden sm:table-cell">Cabeza de serie</th>{{end}}
                         <th>Pagado</th>
-                        <th>Penalización</th>
+                        <th>Pen.</th>
                         <th class="text-right">Acción</th>
                     </tr>
                 </thead>
                 <tbody>
                     {{range .Entries}}
                     <tr>
-                        <td class="font-medium min-w-[120px]">{{template "pairLink" (elink .PairID .PairName)}}{{if and (not $.IsLeague) (gt .Seed 0)}}<span class="badge badge-outline badge-xs ml-1 sm:hidden">{{.Seed}}</span>{{end}}</td>
+                        <td class="font-medium">{{template "pairLink" (elink .PairID .PairName)}}{{if and (not $.IsLeague) (gt .Seed 0)}}<span class="badge badge-outline badge-xs ml-1 sm:hidden">{{.Seed}}</span>{{end}}</td>
                         {{if not $.IsLeague}}<td class="hidden sm:table-cell">{{if gt .Seed 0}}<span class="badge badge-outline badge-sm">{{.Seed}}</span>{{else}}<span class="text-base-content/60">—</span>{{end}}</td>{{end}}
                         <td>
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/payment" class="flex items-center"
