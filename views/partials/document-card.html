@@ -1,26 +1,26 @@
+{{define "documentTypeIcon"}}
+{{if .IsFile}}
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+{{else}}
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" /></svg>
+{{end}}
+{{end}}
+
 {{define "documentCard"}}
 {{if .Mode.Row}}
 <tr data-testid="document-attach-row">
-    <td class="font-medium">{{.Title}}</td>
+    <td><a href="{{.OpenURL}}" target="_blank" rel="noopener" class="link link-hover font-medium">{{.Title}}</a></td>
     <td>
-        {{if .OpenURL}}
-        {{if .IsFile}}
-        <a href="{{.OpenURL}}" target="_blank" rel="noopener" class="link link-primary text-sm">Archivo</a>
-        {{else}}
-        <a href="{{.OpenURL}}" target="_blank" rel="noopener" class="link link-primary text-sm">Enlace</a>
-        {{end}}
-        {{else}}
-        <span class="text-sm opacity-60">—</span>
-        {{end}}
+        <span class="inline-flex items-center gap-1">{{template "documentTypeIcon" .}}{{if .IsFile}}Archivo{{else}}Enlace{{end}}</span>
     </td>
     <td class="text-center">
-        {{if .IsMandatory}}<span class="badge badge-soft-error badge-sm">Obligatorio</span>{{else}}<span class="text-base-content/60">—</span>{{end}}
+        {{if .IsMandatory}}<span class="badge badge-soft-error badge-sm">Obligatorio</span>{{else}}<span class="opacity-40">—</span>{{end}}
     </td>
     <td class="text-right">
         {{if and .Mode.Admin .Mode.Editable}}
         <form hx-post="/admin/competitions/{{.CompetitionID}}/detach-doc/{{.Document.Id}}" hx-confirm="¿Quitar este documento de la competición?" data-confirm-danger data-confirm-ok="Quitar" class="inline">
-            <span class="tooltip tooltip-left" data-tip="Quitar">
-                <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm btn-square text-error" aria-label="Quitar">
+            <span class="tooltip tooltip-left" data-tip="Quitar de la competición">
+                <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm btn-circle text-error" aria-label="Quitar de la competición">
                     <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                 </button>
             </span>
@@ -82,29 +82,22 @@
      from documentCard's non-row card (Editar/Eliminar a document in the
      library, not attach/detach on a competition). */}}
 {{define "documentAttachCard"}}
-<div class="flex items-center justify-between gap-3 p-3 bg-base-200/50 rounded-lg" data-testid="document-attach-card">
-    <div class="flex-1 min-w-0">
-        <p class="font-medium text-sm">{{.Title}}</p>
-        <div class="flex items-center gap-2 mt-1 flex-wrap">
-            {{if .OpenURL}}
-            {{if .IsFile}}
-            <a href="{{.OpenURL}}" target="_blank" rel="noopener" class="link link-primary text-sm">Archivo</a>
-            {{else}}
-            <a href="{{.OpenURL}}" target="_blank" rel="noopener" class="link link-primary text-sm">Enlace</a>
-            {{end}}
-            {{end}}
-            {{if .IsMandatory}}<span class="badge badge-soft-error badge-sm">Obligatorio</span>{{end}}
-        </div>
-    </div>
+<li class="flex items-center gap-4 px-4 py-2 min-h-[72px]" data-testid="document-attach-card">
+    <span class="opacity-60">{{template "documentTypeIcon" .}}</span>
+    <a href="{{.OpenURL}}" target="_blank" rel="noopener" class="flex-1 min-w-0">
+        <p class="font-medium break-words">{{.Title}}</p>
+        <p class="text-sm opacity-60 truncate">{{if .IsFile}}Archivo{{else}}Enlace{{end}}{{if .IsMandatory}} · Obligatorio{{end}}</p>
+    </a>
     {{if and .Mode.Admin .Mode.Editable}}
-    <form hx-post="/admin/competitions/{{.CompetitionID}}/detach-doc/{{.Document.Id}}" hx-confirm="¿Quitar este documento de la competición?" data-confirm-danger data-confirm-ok="Quitar" class="flex-none">
-        <span class="tooltip tooltip-left" data-tip="Quitar">
-            <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm gap-1 px-2 text-error" aria-label="Quitar">
-                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-                <span class="hidden [@media(hover:none)]:inline">Quitar</span>
-            </button>
+    <div class="flex items-center gap-1 shrink-0">
+        <span class="tooltip tooltip-left" data-tip="Quitar de la competición">
+            <form hx-post="/admin/competitions/{{.CompetitionID}}/detach-doc/{{.Document.Id}}" hx-confirm="¿Quitar este documento de la competición?" data-confirm-danger data-confirm-ok="Quitar">
+                <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm btn-circle text-error" aria-label="Quitar de la competición">
+                    <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                </button>
+            </form>
         </span>
-    </form>
+    </div>
     {{end}}
-</div>
+</li>
 {{end}}

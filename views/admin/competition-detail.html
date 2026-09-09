@@ -188,15 +188,15 @@
         {{end}}
 
         {{if .Entries}}
-        <div class="overflow-x-auto">
-            <table class="table table-zebra table-xs sm:table-sm [&_th]:text-sm">
+        <div class="hidden sm:block overflow-x-auto min-w-0">
+            <table class="table table-zebra">
                 <thead>
                     <tr>
                         <th>Pareja</th>
                         {{if not .IsLeague}}<th class="hidden sm:table-cell">Cabeza de serie</th>{{end}}
                         <th class="w-24 text-center">Pagado</th>
-                        <th>Penalización</th>
-                        <th class="w-16 text-right whitespace-nowrap">Quitar</th>
+                        <th class="w-32 text-center">Penalización</th>
+                        <th class="w-28"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -208,34 +208,33 @@
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/payment" class="flex items-center justify-center"
                                   hx-confirm="{{if .Paid}}¿Marcar como no pagado?{{else}}¿Marcar como pagado?{{end}}">
                                 <input type="hidden" name="pair_id" value="{{.PairID}}">
-                                <input type="checkbox" class="checkbox checkbox-sm checkbox-success cursor-pointer"
+                                <input type="checkbox" class="checkbox checkbox-success cursor-pointer" aria-label="Pagado"
                                        onchange="this.form.requestSubmit()"
                                        {{if .Paid}}checked{{end}}>
                             </form>
-                            {{if and .Paid .PaidAt}}
-                            <div class="text-sm text-base-content/60 mt-1">{{.PaidAt}}{{if .PaidByName}} · {{.PaidByName}}{{end}}</div>
-                            {{end}}
                         </td>
-                        <td>
+                        <td class="text-center">
                             {{$rows := index $.PenaltyRows .PairID}}
-                            {{if $rows}}<div class="space-y-1 mb-2">
+                            {{if $rows}}
+                            <div class="inline-flex flex-col items-center gap-1">
                                 {{range $rows}}
                                 {{template "penaltyEntry" (dict "Penalty" . "CompetitionID" $.Competition.Id)}}
                                 {{end}}
-                            </div>{{end}}
-                            <div>
-                                <span class="tooltip tooltip-left" data-tip="Penalizar">
-                                    <label for="penalty-modal-{{.PairID}}" class="btn btn-ghost btn-sm gap-1 px-2 text-warning" aria-label="Penalizar">
-                                        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
-                                    </label>
-                                </span>
                             </div>
+                            {{else}}
+                            <span class="opacity-40">—</span>
+                            {{end}}
                         </td>
                         <td class="text-right">
+                            <span class="tooltip tooltip-left" data-tip="Penalizar">
+                                <label for="penalty-modal-{{.PairID}}" class="btn btn-ghost btn-sm btn-circle text-warning" aria-label="Penalizar">
+                                    <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+                                </label>
+                            </span>
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja de la competición?" data-confirm-danger data-confirm-ok="Quitar" class="inline">
                                 <input type="hidden" name="pair_id" value="{{.PairID}}">
-                                <span class="tooltip tooltip-left" data-tip="Quitar">
-                                    <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm gap-1 px-2 text-error" aria-label="Quitar">
+                                <span class="tooltip tooltip-left" data-tip="Quitar de la competición">
+                                    <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm btn-circle text-error" aria-label="Quitar de la competición">
                                         <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                                     </button>
                                 </span>
@@ -245,6 +244,60 @@
                     {{end}}
                 </tbody>
             </table>
+        </div>
+        <div class="sm:hidden">
+            <ul class="divide-y divide-base-300">
+                {{range .Entries}}
+                <li class="flex items-center gap-4 px-4 py-2 min-h-[72px]">
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium break-words">{{.PairName}}{{if and (not $.IsLeague) (gt .Seed 0)}} <span class="badge badge-outline badge-xs">{{.Seed}}</span>{{end}}</p>
+                        {{$rows := index $.PenaltyRows .PairID}}
+                        {{if $active := index $.ActivePenalty .PairID}}
+                        <p class="text-sm opacity-60 truncate">Penalización −{{$active.Amount}} · {{$active.Reason}}</p>
+                        {{else}}
+                        <p class="text-sm opacity-60 truncate">Sin penalizaciones</p>
+                        {{end}}
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <form hx-post="/admin/competitions/{{$.Competition.Id}}/payment"
+                              hx-confirm="{{if .Paid}}¿Marcar como no pagado?{{else}}¿Marcar como pagado?{{end}}">
+                            <input type="hidden" name="pair_id" value="{{.PairID}}">
+                            <input type="checkbox" class="checkbox checkbox-success" aria-label="Pagado"
+                                   onchange="this.form.requestSubmit()"
+                                   {{if .Paid}}checked{{end}}>
+                        </form>
+                        <div class="dropdown dropdown-end">
+                            <button tabindex="0" class="btn btn-ghost btn-sm btn-circle" aria-label="Más acciones">
+                                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" /></svg>
+                            </button>
+                            <ul tabindex="0" class="dropdown-content menu bg-base-300 rounded-box shadow-lg z-30 w-56 p-2 text-sm">
+                                <li><label for="penalty-modal-{{.PairID}}" class="text-warning">
+                                    <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+                                    Penalizar
+                                </label></li>
+                                {{range $rows}}{{if not .Voided}}
+                                <li><form hx-post="/admin/competitions/{{$.Competition.Id}}/penalty" hx-confirm="¿Anular esta penalización?" data-confirm-danger data-confirm-ok="Anular">
+                                    <input type="hidden" name="action" value="remove">
+                                    <input type="hidden" name="penalty_id" value="{{.ID}}">
+                                    <button type="submit" hx-disabled-elt="this">
+                                        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                                        Anular penalización
+                                    </button>
+                                </form></li>
+                                {{end}}{{end}}
+                                <li><form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja de la competición?" data-confirm-danger data-confirm-ok="Quitar">
+                                    <input type="hidden" name="pair_id" value="{{.PairID}}">
+                                    <button type="submit" hx-disabled-elt="this" class="text-error">
+                                        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                                        Quitar de la competición
+                                    </button>
+                                </form></li>
+                            </ul>
+                        </div>
+                    </div>
+                </li>
+                {{end}}
+            </ul>
         </div>
         {{else}}
         <div class="text-center py-8 text-base-content/60">
@@ -379,22 +432,31 @@
 
 <!-- Documentos -->
 <div class="card bg-base-100 shadow mb-6">
-    <div class="card-body">
-        <h2 class="card-title text-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            Documentos
-            {{if .AttachedDocs}}<span class="badge badge-neutral badge-sm">{{len .AttachedDocs}}</span>{{end}}
-        </h2>
+    <div class="card-body p-0">
+        <div class="flex items-center justify-between px-4 pt-4 pb-2">
+            <h2 class="card-title text-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" class="h-5 w-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Documentos
+                {{if .AttachedDocs}}<span class="badge badge-neutral badge-sm">{{len .AttachedDocs}}</span>{{end}}
+            </h2>
+        </div>
 
         {{if .AttachedDocViews}}
-        <div class="hidden sm:block overflow-x-auto">
+        <div class="sm:hidden">
+            <ul class="divide-y divide-base-300">
+                {{range .AttachedDocViews}}
+                {{template "documentAttachCard" .}}
+                {{end}}
+            </ul>
+        </div>
+        <div class="hidden sm:block overflow-x-auto min-w-0">
             <table class="table table-zebra">
                 <thead>
                     <tr>
                         <th>Título</th>
                         <th>Tipo</th>
-                        <th class="text-center">Obligatorio</th>
-                        <th class="w-16 text-right whitespace-nowrap">Quitar</th>
+                        <th class="w-32 text-center">Obligatorio</th>
+                        <th class="w-16"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -404,17 +466,15 @@
                 </tbody>
             </table>
         </div>
-        <div class="sm:hidden space-y-3">
-            {{range .AttachedDocViews}}
-            {{template "documentAttachCard" .}}
-            {{end}}
-        </div>
         {{else}}
-        {{template "emptyState" "No hay documentos adjuntos"}}
-        <p class="text-center -mt-4 mb-2"><a href="/admin/documents" class="text-sm link">Ir a documentos</a></p>
+        <div class="px-4 pb-4">
+            {{template "emptyState" "No hay documentos adjuntos"}}
+            <p class="text-center -mt-4 mb-2"><a href="/admin/documents" class="text-sm link">Ir a documentos</a></p>
+        </div>
         {{end}}
 
         {{if .UnattachedDocs}}
+        <div class="px-4 pb-4">
         <div class="divider text-sm uppercase tracking-wider">Adjuntar documento</div>
         <form hx-post="/admin/competitions/{{.Competition.Id}}/attach-doc" class="flex items-end gap-2">
             <div class="form-control flex-1 min-w-0">
@@ -427,6 +487,7 @@
             </div>
             <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm">Adjuntar</button>
         </form>
+        </div>
         {{end}}
     </div>
 </div>
