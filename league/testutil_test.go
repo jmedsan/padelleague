@@ -84,6 +84,7 @@ func makeCompetition(t *testing.T, app core.App, pairs []*core.Record) *core.Rec
 	record.Set("name", "Test Competition")
 	record.Set("type", "league")
 	record.Set("active", true)
+	record.Set("calendar_status", "published")
 	pairIDs := make([]string, len(pairs))
 	for i, p := range pairs {
 		pairIDs[i] = p.Id
