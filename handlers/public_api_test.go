@@ -147,11 +147,11 @@ func TestCompetitionPage_DraftCalendarHidesRoundsAndStandings(t *testing.T) {
 	s.Test(t)
 }
 
-func TestCompetitionMineOnly(t *testing.T) {
+func TestCompetitionDefaultShowsAllPairs(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "GET /competition/{id} default hides non-own matches",
+		Name:            "GET /competition/{id} with no pair filter shows every pair's matches",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"MineA", "MineB"},
@@ -172,39 +172,109 @@ func TestCompetitionMineOnly(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		matchLinks := strings.Count(body, "href=\"/match/")
-		assert.Equal(tb, 1, matchLinks, "only own match link in rounds")
-		assert.Contains(tb, body, "Mis partidos")
-		assert.Contains(tb, body, "Todos")
+		assert.Equal(tb, 2, matchLinks, "both matches shown by default")
+		assert.Contains(tb, body, "Todas las parejas")
 	}
 	s.Test(t)
 }
 
-func TestCompetitionShowAll(t *testing.T) {
+func TestCompetitionPairFilterShowsOnlyThatPair(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "GET /competition/{id}?all=1 shows all matches",
+		Name:            "GET /competition/{id}?pair=<id> shows only that pair's matches",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Liga Dale Fuerte"},
 	}
+	var wantMatchID, otherMatchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "AllA")
-		p2 := makePairTB(tb, app, "AllB")
-		p3 := makePairTB(tb, app, "AllC")
-		p4 := makePairTB(tb, app, "AllD")
+		p1 := makePairTB(tb, app, "FilterA")
+		p2 := makePairTB(tb, app, "FilterB")
+		p3 := makePairTB(tb, app, "FilterC")
+		p4 := makePairTB(tb, app, "FilterD")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3, p4})
-		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		makeMatchTB(tb, app, comp.Id, p3.Id, p4.Id, "pending")
-		s.URL = "/competition/" + comp.Id + "?all=1"
+		wantMatchID = makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending").Id
+		otherMatchID = makeMatchTB(tb, app, comp.Id, p3.Id, p4.Id, "pending").Id
+		s.URL = "/competition/" + comp.Id + "?pair=" + p1.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		s.Headers = authHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		matchLinks := strings.Count(body, "href=\"/match/")
-		assert.Equal(tb, 2, matchLinks, "all=1 shows both matches")
+		assert.Equal(tb, 1, matchLinks, "only the filtered pair's match")
+		assert.Contains(tb, body, "/match/"+wantMatchID)
+		assert.NotContains(tb, body, "/match/"+otherMatchID)
+	}
+	s.Test(t)
+}
+
+func TestCompetitionPairFilterInvalidIDIgnored(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /competition/{id}?pair=<invalid> falls back to showing all pairs",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Liga Dale Fuerte"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "InvA")
+		p2 := makePairTB(tb, app, "InvB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/competition/" + comp.Id + "?pair=nonexistent-pair-id"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		matchLinks := strings.Count(body, "href=\"/match/")
+		assert.Equal(tb, 1, matchLinks, "invalid pair id ignored, falls back to showing all (only one match exists)")
+		assert.Contains(tb, body, "Todas las parejas")
+	}
+	s.Test(t)
+}
+
+func TestCompetitionPairOptionsOrder(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /competition/{id} lists own pair(s) first, others alphabetically",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Todas las parejas", "Otras parejas"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		own := makePairTB(tb, app, "Zeta Own Pair")
+		zebra := makePairTB(tb, app, "Zebra Pair")
+		alpha := makePairTB(tb, app, "Ábaco Pair")
+		mid := makePairTB(tb, app, "Medio Pair")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{own, zebra, alpha, mid})
+		makeMatchTB(tb, app, comp.Id, own.Id, zebra.Id, "pending")
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", own.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		optAll := strings.Index(body, "Todas las parejas")
+		optOwn := strings.Index(body, "★ Zeta Own Pair")
+		optAbaco := strings.Index(body, ">Ábaco Pair<")
+		optMedio := strings.Index(body, ">Medio Pair<")
+		optZebra := strings.Index(body, ">Zebra Pair<")
+		require.Greater(tb, optOwn, -1, "own pair option with star must be present")
+		require.Greater(tb, optAbaco, -1)
+		require.Greater(tb, optMedio, -1)
+		require.Greater(tb, optZebra, -1)
+		assert.True(tb, optAll < optOwn, "Todas las parejas comes before the own pair")
+		assert.True(tb, optOwn < optAbaco, "own pair comes before others")
+		assert.True(tb, optAbaco < optMedio, "others sorted alphabetically (accent-folded)")
+		assert.True(tb, optMedio < optZebra, "others sorted alphabetically")
 	}
 	s.Test(t)
 }

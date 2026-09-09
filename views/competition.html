@@ -44,20 +44,23 @@
 {{end}}
 
 <div role="tablist" class="tabs tabs-boxed bg-base-100 shadow-sm mb-6 p-1 !flex flex-wrap">
-    <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="{{if .IsPlayoff}}Rondas{{else}}Jornadas{{end}}"{{if not .Standings}} checked{{end}}>
+    <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" id="tab-jornadas" aria-label="{{if .IsPlayoff}}Rondas{{else}}Jornadas{{end}}"{{if or (not .Standings) (eq .ActiveTab "jornadas")}} checked{{end}}>
     <div role="tabpanel" class="tab-content pt-6 basis-full min-w-0">
         {{if not .IsPlayoff}}
-        <div class="flex flex-wrap justify-end gap-1 mb-3" data-testid="mine-only-toggle">
-            {{if .ShowAll}}
-            <a href="/competition/{{.Competition.Id}}" hx-boost="true" class="btn btn-sm btn-ghost gap-1">Mis partidos</a>
-            <span class="btn btn-sm btn-primary gap-1">Todos</span>
-            {{else}}
-            <span class="btn btn-sm btn-primary gap-1">Mis partidos</span>
-            <a href="/competition/{{.Competition.Id}}?all=1" hx-boost="true" class="btn btn-sm btn-ghost gap-1">Todos</a>
-            {{end}}
-        </div>
+        <form method="get" hx-boost="true" hx-trigger="change" class="mb-3">
+            <input type="hidden" name="tab" value="jornadas">
+            <select name="pair" class="select select-bordered select-sm w-full sm:w-64">
+                <option value="">Todas las parejas</option>
+                {{range .PairOptions}}{{if .IsOwn}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>★ {{.Name}}</option>{{end}}{{end}}
+                <optgroup label="Otras parejas">
+                    {{range .PairOptions}}{{if not .IsOwn}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>{{end}}{{end}}
+                </optgroup>
+            </select>
+        </form>
         {{end}}
-        {{if .Rounds}}
+        {{if .FilterEmptyState}}
+        {{template "emptyState" .FilterEmptyState}}
+        {{else if .Rounds}}
         <div class="space-y-3">
         {{range .Rounds}}
         {{if .Matches}}
@@ -110,7 +113,7 @@
     {{end}}
 
     {{if .Standings}}
-    <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Clasificación" checked>
+    <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Clasificación"{{if ne .ActiveTab "jornadas"}} checked{{end}}>
     <div role="tabpanel" class="tab-content pt-6 basis-full min-w-0">
         <div class="card bg-base-100 shadow-sm rounded-xl">
             {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "PlayerPairIDs" .PlayerPairIDs "Mode" .Mode)}}
@@ -134,6 +137,9 @@
     } else if (hash === '#anuncios') {
         var tab = document.getElementById('tab-anuncios');
         if (tab) tab.checked = true;
+    } else if (hash === '#jornadas') {
+        var jTab = document.getElementById('tab-jornadas');
+        if (jTab) jTab.checked = true;
     }
 })();
 </script>
