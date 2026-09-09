@@ -38,7 +38,10 @@ test.describe('player profile and stats', () => {
     await page.locator('a[href^="/competition/"]', { hasText: 'Liga E2E Test' }).first().click();
     await page.waitForLoadState('domcontentloaded');
     await page.locator('input[aria-label="Clasificación"]').click();
-    const pairLink = page.locator('table.table-zebra a[href^="/pair/"]').first();
+    // standingsTable.html renders a desktop table.table-zebra and a mobile
+    // table.table-sm, each hidden at the other breakpoint via CSS.
+    const standingsTableClass = isMobile(page) ? 'table.table-sm' : 'table.table-zebra';
+    const pairLink = page.locator(`${standingsTableClass} a[href^="/pair/"]`).first();
     await expect(pairLink).toBeVisible({ timeout: 5000 });
     await pairLink.click();
     await page.waitForLoadState('domcontentloaded');

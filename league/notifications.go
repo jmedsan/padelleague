@@ -207,6 +207,18 @@ func NotifMatchAssigned(compID, compName string) Notification {
 	}
 }
 
+// NotifCalendarPublished notifies a player that a competition's calendar was
+// published and its matches are now visible to them.
+func NotifCalendarPublished(compID, compName string) Notification {
+	return Notification{
+		Type:     "calendar_published",
+		Title:    "Calendario publicado",
+		Body:     "El calendario ha sido publicado.",
+		Link:     "/competition/" + compID,
+		CompName: compName,
+	}
+}
+
 // NotifyFixturesGenerated sends a match_assigned notification to every player
 // in the given pairs, once fixtures have been generated for a competition.
 func (svc *Service) NotifyFixturesGenerated(compID string, pairIDs []string) {

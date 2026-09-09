@@ -266,7 +266,7 @@ func channelEnabled(user *core.Record, channel string) bool {
 var EventTypes = []string{
 	"quorum_request", "dispute", "match_assigned", "general", "message",
 	"scheduling", "match_progress", "admin_message", "user_joined",
-	"announcement", "penalty", "payment",
+	"announcement", "penalty", "payment", "calendar_published",
 }
 
 // NotificationPrefs returns the user's notification preferences with defaults applied.

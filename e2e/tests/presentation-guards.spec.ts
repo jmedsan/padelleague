@@ -171,7 +171,11 @@ test.describe('R-178: presentation quality guards', () => {
       if (await standingsTab.count() > 0) {
         await standingsTab.click();
         await page.waitForTimeout(300);
-        const standingsRows = page.locator('table tbody tr');
+        // standingsTable.html renders a desktop table.table-zebra and a
+        // mobile table.table-sm, each hidden at the other breakpoint via
+        // CSS — scope to whichever one is visible for this viewport.
+        const standingsTableClass = isMobile(page) ? 'table.table-sm' : 'table.table-zebra';
+        const standingsRows = page.locator(`${standingsTableClass} tbody tr`);
         expect(await standingsRows.count(), 'standings table should have rows').toBeGreaterThan(0);
         await expect(standingsRows.first()).toBeVisible();
       }

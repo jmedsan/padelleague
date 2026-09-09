@@ -231,6 +231,7 @@ func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], d
 	g.POST("/competitions/{id}/payment-reminder", payments.SendPaymentReminder)
 	g.POST("/competitions/{id}/penalty", comp.ApplyPenalty)
 	g.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
+	g.POST("/competitions/{id}/publish", comp.PublishCalendar)
 	g.POST("/competitions/{id}/round-dates", comp.UpdateRoundDates)
 	g.POST("/competitions/{id}/round-dates/regenerate", comp.RegenerateRoundDates)
 	g.POST("/competitions/{id}/broadcast", comp.AdminBroadcast)
@@ -341,8 +342,9 @@ func registerProfileRoutes(se *core.ServeEvent, auth *handlers.AuthHandler, noti
 	se.Router.POST("/profile/notifications", notif.PrefsSave).BindFunc(middleware.RequireAuth)
 }
 
-// blockPBDashboard blocks access to PocketBase's admin dashboard and
-// sensitive API routes in production via a high-priority middleware.
+// blockPBDashboard blocks access to PocketBase's admin dashboard (/_/) and
+// sensitive API routes when APP_DEV_TOOLS is false (production default).
+// Set APP_DEV_TOOLS=true to enable /_/ access (e.g. for remote admin).
 func blockPBDashboard(se *core.ServeEvent) {
 	blockedPrefixes := []string{"/_/", "/api/settings", "/api/backups", "/api/logs"}
 	blockedExact := []string{"/api/collections/_superusers/auth-with-password"}
