@@ -15,7 +15,7 @@
                         <img src="{{.}}" alt="{{$.Competition.GetString "name"}}" loading="lazy">
                     </div>
                 </div>
-                <button type="button" hx-post="/admin/competitions/{{$.Competition.Id}}/logo/delete" hx-confirm="¿Eliminar el logo?" data-confirm-danger data-confirm-ok="Eliminar" hx-target="body" hx-disabled-elt="this" class="btn btn-ghost btn-xs text-error" aria-label="Eliminar logo">Eliminar</button>
+                <button type="button" hx-post="/admin/competitions/{{$.Competition.Id}}/logo/delete" hx-confirm="¿Eliminar el logo?" data-confirm-danger data-confirm-ok="Eliminar" hx-target="body" hx-disabled-elt="this" class="btn btn-ghost btn-sm text-error" aria-label="Eliminar logo">Eliminar</button>
                 {{end}}
                 <input type="file" id="comp-logo-input" name="logo" accept="image/jpeg,image/png,image/webp"
                        class="file-input file-input-bordered file-input-sm flex-1"
@@ -213,7 +213,7 @@
                                        {{if .Paid}}checked{{end}}>
                             </form>
                             {{if and .Paid .PaidAt}}
-                            <div class="text-xs text-base-content/60 mt-1">{{.PaidAt}}{{if .PaidByName}} · {{.PaidByName}}{{end}}</div>
+                            <div class="text-sm text-base-content/60 mt-1">{{.PaidAt}}{{if .PaidByName}} · {{.PaidByName}}{{end}}</div>
                             {{end}}
                         </td>
                         <td>
@@ -413,11 +413,11 @@
         </div>
         {{else}}
         {{template "emptyState" "No hay documentos adjuntos"}}
-        <p class="text-center -mt-4 mb-2"><a href="/admin/documents" class="text-xs link">Ir a documentos</a></p>
+        <p class="text-center -mt-4 mb-2"><a href="/admin/documents" class="text-sm link">Ir a documentos</a></p>
         {{end}}
 
         {{if .UnattachedDocs}}
-        <div class="divider text-xs uppercase tracking-wider">Adjuntar documento</div>
+        <div class="divider text-sm uppercase tracking-wider">Adjuntar documento</div>
         <form hx-post="/admin/competitions/{{.Competition.Id}}/attach-doc" class="flex items-end gap-2">
             <div class="form-control flex-1 min-w-0">
                 <select name="document" class="select select-bordered select-sm w-full" required>
@@ -465,11 +465,11 @@
         </div>
         {{else}}
         {{template "emptyState" "No hay patrocinadores adjuntos"}}
-        <p class="text-center -mt-4 mb-2"><a href="/admin/sponsors" class="text-xs link">Ir a patrocinadores</a></p>
+        <p class="text-center -mt-4 mb-2"><a href="/admin/sponsors" class="text-sm link">Ir a patrocinadores</a></p>
         {{end}}
 
         {{if .UnattachedSponsors}}
-        <div class="divider text-xs uppercase tracking-wider">Adjuntar patrocinador</div>
+        <div class="divider text-sm uppercase tracking-wider">Adjuntar patrocinador</div>
         <form hx-post="/admin/competitions/{{.Competition.Id}}/attach-sponsor" class="flex items-end gap-2">
             <div class="form-control flex-1 min-w-0">
                 <select name="sponsor" class="select select-bordered select-sm w-full" required>

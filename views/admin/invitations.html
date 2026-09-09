@@ -77,7 +77,7 @@
                             </span>
                         </form>
                         {{else}}
-                        <span class="text-xs opacity-60">-</span>
+                        <span class="text-sm opacity-60">-</span>
                         {{end}}
                         </div>
                     </td>
@@ -143,7 +143,7 @@
     </div>
     {{else}}
     {{template "emptyState" "No hay invitaciones"}}
-    <p class="text-center -mt-4 mb-4 text-xs opacity-60">Crea una invitación arriba</p>
+    <p class="text-center -mt-4 mb-4 text-sm opacity-60">Crea una invitación arriba</p>
     {{end}}
 </div>
 
@@ -195,7 +195,7 @@ function copyInviteLink(token, btn) {
     var url = window.location.origin + '/register?token=' + token;
     navigator.clipboard.writeText(url).then(function() {
         var orig = btn.innerHTML;
-        btn.innerHTML = '<span class="text-success text-xs">¡Copiado!</span>';
+        btn.innerHTML = '<span class="text-success text-sm">¡Copiado!</span>';
         setTimeout(function() { btn.innerHTML = orig; }, 2000);
     });
 }

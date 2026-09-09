@@ -17,7 +17,7 @@
                         <img src="{{.Branding.LogoURL}}" alt="{{.Branding.Name}}" loading="lazy">
                     </div>
                 </div>
-                <button type="button" hx-post="/admin/settings/logo/delete" hx-confirm="¿Eliminar el logo?" data-confirm-danger data-confirm-ok="Eliminar" hx-target="body" hx-disabled-elt="this" class="btn btn-ghost btn-xs text-error" aria-label="Eliminar logo">Eliminar</button>
+                <button type="button" hx-post="/admin/settings/logo/delete" hx-confirm="¿Eliminar el logo?" data-confirm-danger data-confirm-ok="Eliminar" hx-target="body" hx-disabled-elt="this" class="btn btn-ghost btn-sm text-error" aria-label="Eliminar logo">Eliminar</button>
                 {{end}}
                 <input type="file" id="league-logo-input" name="logo" accept="image/jpeg,image/png,image/webp"
                        class="file-input file-input-bordered file-input-sm flex-1"

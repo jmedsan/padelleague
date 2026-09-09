@@ -173,7 +173,7 @@
                 <form method="POST" action="/resend-verification" class="shrink-0" hx-post="/resend-verification" hx-target="#flash" hx-swap="innerHTML">
                     <button type="submit" class="link font-semibold">Reenviar</button>
                 </form>
-                <button type="button" onclick="sessionStorage.setItem('verify-dismissed','1');this.parentElement.remove()" aria-label="Descartar aviso" class="btn btn-ghost btn-xs btn-circle shrink-0">✕</button>
+                <button type="button" onclick="sessionStorage.setItem('verify-dismissed','1');this.parentElement.remove()" aria-label="Descartar aviso" class="btn btn-ghost btn-sm btn-circle shrink-0">✕</button>
             </div>
             <script>if(sessionStorage.getItem('verify-dismissed'))document.getElementById('verify-banner')?.remove();</script>
             {{end}}
@@ -218,7 +218,7 @@
                     <li><a href="/competition/{{.Footer.Competition.ID}}" class="rounded-lg font-medium{{if hasPrefix .RequestPath (print "/competition/" .Footer.Competition.ID)}} active{{end}}">{{.Footer.Competition.Name}}</a></li>
                     {{end}}
                     {{if .AdminView}}
-                    <li class="menu-title mt-4 text-xs uppercase tracking-wider opacity-60">Gestión</li>
+                    <li class="menu-title mt-4 text-sm uppercase tracking-wider opacity-60">Gestión</li>
                     <li><a href="/admin/competitions" class="rounded-lg{{if hasPrefix .RequestPath "/admin/competitions"}} active{{end}}">Competiciones</a></li>
                     <li><a href="/admin/health" class="rounded-lg{{if hasPrefix .RequestPath "/admin/health"}} active{{end}}">Salud</a></li>
                     <li><a href="/admin/players" class="rounded-lg{{if hasPrefix .RequestPath "/admin/players"}} active{{end}}">Usuarios</a></li>

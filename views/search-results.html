@@ -7,12 +7,12 @@
         {{else}}
         {{range .Grouped}}
         <div class="mb-3">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/60 mb-1 px-1">{{.Type}}</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-base-content/60 mb-1 px-1">{{.Type}}</h3>
             {{range .Results}}
             <a href="{{.URL}}" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors">
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-medium truncate">{{.Label}}</p>
-                    {{if .Secondary}}<p class="text-xs text-base-content/60 truncate">{{.Secondary}}</p>{{end}}
+                    {{if .Secondary}}<p class="text-sm text-base-content/60 truncate">{{.Secondary}}</p>{{end}}
                 </div>
             </a>
             {{end}}
@@ -22,7 +22,7 @@
     {{else}}
         {{if .Obligations}}
         <div class="mb-3">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/60 mb-1 px-1">Tu próxima acción</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-base-content/60 mb-1 px-1">Tu próxima acción</h3>
             {{range .Obligations}}
             {{template "simpleLinkRow" .}}
             {{end}}
@@ -30,7 +30,7 @@
         {{end}}
         {{if .Competitions}}
         <div class="mb-3">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/60 mb-1 px-1">Tus competiciones</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-base-content/60 mb-1 px-1">Tus competiciones</h3>
             {{range .Competitions}}
             {{template "simpleLinkRow" .}}
             {{end}}
@@ -38,7 +38,7 @@
         {{end}}
         {{if .Recent}}
         <div class="mb-3">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/60 mb-1 px-1">Búsquedas recientes</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-base-content/60 mb-1 px-1">Búsquedas recientes</h3>
             {{range .Recent}}
             <button type="button" hx-get="/search?q={{.}}" hx-target="closest [id^='search-results-']"
                     onclick="this.closest('[id^=search-results-]').focus()"
@@ -48,7 +48,7 @@
         {{end}}
         {{if .QuickNav}}
         <div class="mb-3">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/60 mb-1 px-1">Ir a</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-base-content/60 mb-1 px-1">Ir a</h3>
             {{range .QuickNav}}
             {{template "simpleLinkRow" .}}
             {{end}}

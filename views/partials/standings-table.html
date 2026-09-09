@@ -1,6 +1,6 @@
 {{define "standingsTable"}}
 <div class="overflow-x-auto">
-    <table class="table table-zebra table-sm w-max min-w-full {{if .Mode.Admin}}sm:table-sm{{else}}sm:table-md{{end}}">
+    <table class="table table-zebra table-sm w-max min-w-full [&_th]:text-sm {{if .Mode.Admin}}sm:table-sm{{else}}sm:table-md{{end}}">
         <thead>
             <tr {{if not .Mode.Admin}}class="bg-base-200"{{end}}>
                 <th class="{{if .Mode.Admin}}w-10{{else}}w-12 text-center{{end}}">#</th>

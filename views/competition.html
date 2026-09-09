@@ -65,7 +65,7 @@
             <input type="checkbox" {{if and $.AutoExpandRound (eq $.AutoExpandRound .RoundNumber)}}checked{{end}}>
             <div class="collapse-title font-bold text-sm py-2 min-h-0">
                 Jornada {{.RoundNumber}}
-                <span class="badge badge-soft-ghost badge-xs ml-1">{{len .Matches}}</span>
+                <span class="badge badge-soft-ghost badge-sm ml-1">{{len .Matches}}</span>
             </div>
             <div class="collapse-content">
                 <div class="divide-y divide-base-200 pt-2">
