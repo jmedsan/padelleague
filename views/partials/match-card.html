@@ -168,25 +168,24 @@
 {{end}}
 
 {{define "matchRow"}}
-<a href="/match/{{.Match.Id}}" class="block rounded-lg py-2 px-2 sm:px-3 transition-all duration-150 hover:shadow-md overflow-hidden {{if .IsMyMatch}}bg-neutral/5 border-l-4 border-l-neutral hover:bg-neutral/10{{else}}bg-base-200/50 hover:bg-base-200{{end}}">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2 min-w-0">
-        <div class="flex items-center gap-1 min-w-0 sm:flex-1">
-            <span class="font-medium text-sm sm:text-base truncate min-w-0 flex-1">{{if .Pair1Name}}{{.Pair1Name}}{{else}}Por definir{{end}}</span>
-            <span class="text-xs opacity-60 flex-none sm:hidden">vs</span>
-            <span class="font-medium text-sm sm:text-base truncate min-w-0 flex-1">{{if .Pair2Name}}{{.Pair2Name}}{{else}}Por definir{{end}}</span>
-        </div>
-        <div class="flex items-center gap-1 sm:gap-2 flex-none">
-            <div class="hidden sm:block px-1 sm:px-3">
-                {{if .Score}}
-                {{template "resultBox" (dict "Score" .Score "Mode" (dict "Row" true))}}
-                {{else}}
-                <span class="text-xs sm:text-sm opacity-60">vs</span>
-                {{end}}
-            </div>
-            {{if .Score}}<span class="text-xs font-bold sm:hidden">{{.Score}}</span>{{end}}
-            {{if .CompetitionName}}<span class="text-xs opacity-50 truncate">{{template "competitionIdentity" (dict "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true) "NoLink" true "Small" true)}}</span>{{end}}
-            <span class="badge {{.StatusClass}} badge-xs sm:badge-sm whitespace-nowrap">{{.StatusLabel}}</span>
-        </div>
+<a href="/match/{{.Match.Id}}" class="flex items-center gap-3 py-2 px-3 min-h-[56px] rounded-lg transition-all duration-150 hover:shadow-md {{if .IsMyMatch}}bg-neutral/5 border-l-4 border-l-neutral hover:bg-neutral/10{{else}}bg-base-200/50 hover:bg-base-200{{end}}">
+    <div class="flex-1 min-w-0 sm:hidden">
+        <p class="font-medium text-sm break-words">{{if .Pair1Name}}{{.Pair1Name}}{{else}}Por definir{{end}}</p>
+        <p class="font-medium text-sm break-words"><span class="opacity-60">vs</span> {{if .Pair2Name}}{{.Pair2Name}}{{else}}Por definir{{end}}</p>
+    </div>
+    <div class="hidden sm:flex flex-1 min-w-0 items-center gap-2">
+        <span class="font-medium text-base break-words min-w-0 flex-1">{{if .Pair1Name}}{{.Pair1Name}}{{else}}Por definir{{end}}</span>
+        {{if .Score}}
+        {{template "resultBox" (dict "Score" .Score "Mode" (dict "Row" true))}}
+        {{else}}
+        <span class="text-sm opacity-60 flex-none">vs</span>
+        {{end}}
+        <span class="font-medium text-base break-words min-w-0 flex-1">{{if .Pair2Name}}{{.Pair2Name}}{{else}}Por definir{{end}}</span>
+        {{if .CompetitionName}}<span class="text-sm opacity-50 truncate">{{template "competitionIdentity" (dict "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true) "NoLink" true "Small" true)}}</span>{{end}}
+    </div>
+    <div class="flex flex-col items-end gap-1 shrink-0">
+        {{if .Score}}<span class="text-sm font-bold sm:hidden">{{.Score}}</span>{{end}}
+        <span class="badge {{.StatusClass}} badge-sm whitespace-nowrap">{{.StatusLabel}}</span>
     </div>
 </a>
 {{end}}

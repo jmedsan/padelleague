@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"sort"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 
 	"padelleague/league"
 	"padelleague/render"
+	"padelleague/search"
 )
 
 // HomeAction is a unified to-do entry on the player dashboard.
@@ -634,33 +636,68 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 
 	pairNames := collectPairNames(h.app, matches)
 
-	showAll := e.Request.URL.Query().Get("all") == "1"
 	isPlayoff := league.IsPlayoff(comp)
-	if isPlayoff {
-		showAll = true
+	pairFilter := e.Request.URL.Query().Get("pair")
+	compPairIDs := comp.GetStringSlice("pairs")
+	if pairFilter != "" && !isPlayoff && !slices.Contains(compPairIDs, pairFilter) {
+		pairFilter = ""
 	}
-	rounds := buildRounds(matches, pairNames, playerPairIDs, showAll)
+	if isPlayoff {
+		pairFilter = ""
+	}
+	rounds := buildRounds(matches, pairNames, playerPairIDs, pairFilter)
 	for i := range rounds {
 		enrichWithPendingResults(h.app, rounds[i].Matches)
 	}
 	autoExpandRound := firstIncompleteRound(rounds)
 
 	data := h.buildCompetitionData(comp, rounds, autoExpandRound, published || isAdmin)
+	h.populateCompetitionData(data, competitionDataParams{
+		e: e, comp: comp, isPlayoff: isPlayoff, compPairIDs: compPairIDs,
+		playerPairIDs: playerPairIDs, pairFilter: pairFilter, rounds: rounds, userID: userID,
+	})
+	return h.render.Page(e, "competition.html", data)
+}
+
+// competitionDataParams bundles the inputs populateCompetitionData needs
+// beyond the data map itself.
+type competitionDataParams struct {
+	e             *core.RequestEvent
+	comp          *core.Record
+	isPlayoff     bool
+	compPairIDs   []string
+	playerPairIDs map[string]struct{}
+	pairFilter    string
+	rounds        []RoundView
+	userID        string
+}
+
+// populateCompetitionData fills in the remaining page-data fields for
+// Competition that don't depend on match/round computation.
+func (h *PublicHandler) populateCompetitionData(data map[string]any, p competitionDataParams) {
+	comp := p.comp
 	data["PageTitle"] = comp.GetString("name")
-	data["PlayerPairIDs"] = playerPairIDs
-	data["ShowAll"] = showAll
+	data["PlayerPairIDs"] = p.playerPairIDs
 	data["Mode"] = PlayerSummary
 	data["CalendarDraft"] = comp.GetString("calendar_status") == "draft"
 	data["OGImage"] = league.CompetitionLogoURL(comp.Id, comp.GetString("logo"))
 	data["FooterCompetitionID"] = comp.Id
-	h.addCompetitionDocViews(data, comp, userID, fileTokenFor(e))
+	if !p.isPlayoff {
+		data["PairOptions"] = buildPairOptions(h.app, p.compPairIDs, p.playerPairIDs, p.pairFilter)
+	}
+	if p.pairFilter != "" {
+		data["ActiveTab"] = "jornadas"
+	}
+	if p.pairFilter != "" && len(p.rounds) == 0 {
+		data["FilterEmptyState"] = "Sin partidos para esta pareja"
+	}
+	h.addCompetitionDocViews(data, comp, p.userID, fileTokenFor(p.e))
 	data["Announcements"] = findRecordsLogged(h.app, "Competition: find announcements", RecordQuery{
 		Collection: "announcements",
 		Filter:     "competition = {:cid}",
 		Sort:       "-created",
-		Params:     map[string]any{"cid": id},
+		Params:     map[string]any{"cid": comp.Id},
 	})
-	return h.render.Page(e, "competition.html", data)
 }
 
 // docsGate renders the mandatory-documents gate page and reports gated=true
@@ -786,6 +823,38 @@ func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundVi
 	}
 }
 
+// PairOption is one entry in the Jornadas team filter <select>.
+type PairOption struct {
+	ID       string
+	Name     string
+	IsOwn    bool
+	Selected bool
+}
+
+// buildPairOptions returns the competition's pairs for the team filter:
+// the viewer's own pair(s) first (name prefixed with a star), then every
+// other pair sorted alphabetically (accent-folded) for "Otras parejas".
+func buildPairOptions(app core.App, compPairIDs []string, playerPairIDs map[string]struct{}, selected string) []PairOption {
+	names := league.PairNames(app, compPairIDs)
+	options := make([]PairOption, 0, len(compPairIDs))
+	for _, pid := range compPairIDs {
+		_, isOwn := playerPairIDs[pid]
+		options = append(options, PairOption{
+			ID:       pid,
+			Name:     names[pid],
+			IsOwn:    isOwn,
+			Selected: pid == selected,
+		})
+	}
+	sort.SliceStable(options, func(i, j int) bool {
+		if options[i].IsOwn != options[j].IsOwn {
+			return options[i].IsOwn
+		}
+		return search.Fold(options[i].Name) < search.Fold(options[j].Name)
+	})
+	return options
+}
+
 func collectPairNames(app core.App, matches []*core.Record) map[string]string {
 	ids := make(map[string]struct{})
 	for _, m := range matches {
@@ -799,13 +868,13 @@ func collectPairNames(app core.App, matches []*core.Record) map[string]string {
 	return league.PairNames(app, slice)
 }
 
-func buildRounds(matches []*core.Record, pairNames map[string]string, playerPairIDs map[string]struct{}, showAll bool) []RoundView {
+func buildRounds(matches []*core.Record, pairNames map[string]string, playerPairIDs map[string]struct{}, pairFilter string) []RoundView {
 	roundMap := map[int][]MatchCard{}
 	for _, m := range matches {
-		mc := NewMatchRow(m, pairNames, playerPairIDs)
-		if !showAll && !mc.IsMyMatch {
+		if pairFilter != "" && m.GetString("pair1") != pairFilter && m.GetString("pair2") != pairFilter {
 			continue
 		}
+		mc := NewMatchRow(m, pairNames, playerPairIDs)
 		rn := int(m.GetFloat("round_number"))
 		roundMap[rn] = append(roundMap[rn], mc)
 	}

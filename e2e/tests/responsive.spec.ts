@@ -117,7 +117,7 @@ test.describe('responsive - no horizontal overflow', () => {
     await expect(standingsCard.getByText('Pareja Alpha').first()).toBeVisible();
   });
 
-  test('W13: long pair names in a jornada match row stay within the card at 390px', async ({ page }) => {
+  test('W13: long pair names in a jornada match row wrap instead of overflowing at 390px', async ({ page }) => {
     await getSuperuserToken(page);
     const suffix = `w13-${Date.now()}`;
     const p1a = await apiCreateRecord(page.request, 'users', {
@@ -155,19 +155,21 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.waitForLoadState('domcontentloaded');
     await checkNoOverflow(page);
 
-    // At least one pair-name span must actually be truncating (ellipsis
-    // engaged) — without flex-1, a span sizes to its content instead of
-    // sharing the row's width with its sibling, so neither ever truncates
-    // and the row overflows instead.
-    const pairSpans = page.locator('a[href^="/match/"] span.truncate');
-    const spanCount = await pairSpans.count();
-    expect(spanCount, 'both pair-name spans must be present').toBeGreaterThanOrEqual(2);
-    let anyTruncating = false;
-    for (let i = 0; i < 2; i++) {
-      const isTruncating = await pairSpans.nth(i).evaluate(el => el.scrollWidth > el.clientWidth);
-      if (isTruncating) anyTruncating = true;
+    // Names must never truncate — they wrap onto their own line instead, so
+    // the full pair name stays readable (see matchRow's stacked mobile
+    // layout, `p.break-words`, distinct from the hidden-on-mobile desktop
+    // `span.break-words`). Scope to the match row itself (not the Parejas
+    // section or penalty modal, which repeat the same pair names elsewhere).
+    const matchRow = page.locator('a[href^="/match/"]').first();
+    const pairLines = matchRow.locator('p.break-words');
+    const lineCount = await pairLines.count();
+    expect(lineCount, 'both pair-name lines must be present').toBe(2);
+    await expect(pairLines.nth(0)).toContainText('Alejandro Fernandez / Bartolome Gutierrez');
+    await expect(pairLines.nth(1)).toContainText('Cristobal Rodriguez / Domingo Hernandez');
+    for (let i = 0; i < lineCount; i++) {
+      const isTruncating = await pairLines.nth(i).evaluate(el => el.scrollWidth > el.clientWidth);
+      expect(isTruncating, `pair-name line ${i} must wrap in full, never truncate`).toBe(false);
     }
-    expect(anyTruncating, 'at least one pair-name span must be truncating (ellipsis engaged)').toBe(true);
 
     await apiDeleteRecord(page.request, 'competitions', compId);
     await apiDeleteRecord(page.request, 'pairs', pairA);
