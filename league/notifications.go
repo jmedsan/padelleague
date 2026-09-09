@@ -196,17 +196,6 @@ func NotifAdminSupersedeFailed(matchID, pair1Name, pair2Name, compName string) N
 	}
 }
 
-// NotifMatchAssigned notifies a player that fixtures were generated for a
-// competition they're playing in.
-func NotifMatchAssigned(compID, compName string) Notification {
-	return Notification{
-		Type:  "match_assigned",
-		Title: "Calendario disponible",
-		Body:  fmt.Sprintf("Ya tienes calendario en %s.", compName),
-		Link:  "/competition/" + compID,
-	}
-}
-
 // NotifCalendarPublished notifies a player that a competition's calendar was
 // published and its matches are now visible to them.
 func NotifCalendarPublished(compID, compName string) Notification {
@@ -217,24 +206,6 @@ func NotifCalendarPublished(compID, compName string) Notification {
 		Link:     "/competition/" + compID,
 		CompName: compName,
 	}
-}
-
-// NotifyFixturesGenerated sends a match_assigned notification to every player
-// in the given pairs, once fixtures have been generated for a competition.
-func (svc *Service) NotifyFixturesGenerated(compID string, pairIDs []string) {
-	compName := CompetitionName(svc.app, compID)
-	seen := make(map[string]struct{}, len(pairIDs)*2)
-	var players []string
-	for _, pid := range pairIDs {
-		for _, uid := range PlayersForPair(svc.app, pid) {
-			if _, ok := seen[uid]; ok {
-				continue
-			}
-			seen[uid] = struct{}{}
-			players = append(players, uid)
-		}
-	}
-	svc.notifier.NotifyPlayers(players, NotifMatchAssigned(compID, compName))
 }
 
 // NotifMatchReminder reminds players that their match is scheduled for the
