@@ -1,6 +1,6 @@
 {{define "standingsTable"}}
 <div class="overflow-x-auto">
-    <table class="table table-zebra table-sm {{if .Mode.Admin}}sm:table-sm{{else}}sm:table-md{{end}}">
+    <table class="table table-zebra table-sm w-max min-w-full {{if .Mode.Admin}}sm:table-sm{{else}}sm:table-md{{end}}">
         <thead>
             <tr {{if not .Mode.Admin}}class="bg-base-200"{{end}}>
                 <th class="{{if .Mode.Admin}}w-10{{else}}w-12 text-center{{end}}">#</th>
@@ -30,7 +30,7 @@
                         </div>
                     {{end}}
                 </td>
-                <td {{if not $.Mode.Admin}}class="font-medium"{{end}}>{{template "pairLink" (elink .PairID .PairName)}}</td>
+                <td class="whitespace-nowrap {{if not $.Mode.Admin}}font-medium{{end}}">{{template "pairLink" (elink .PairID .PairName)}}</td>
                 <td class="text-center">{{.Played}}</td>
                 <td class="text-center {{if not $.Mode.Admin}}text-success{{end}}">{{.Wins}}</td>
                 <td class="text-center {{if not $.Mode.Admin}}text-error{{end}}">{{.Losses}}</td>
