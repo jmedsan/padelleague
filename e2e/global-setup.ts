@@ -115,8 +115,9 @@ async function seedTestData() {
   await addPairToCompetition(compId, pair1Id, adminToken);
   await addPairToCompetition(compId, pair2Id, adminToken);
 
-  // Generate fixtures
+  // Generate fixtures and publish so every test's player-facing view sees them
   await generateFixtures(compId, adminToken);
+  await publishCalendar(compId);
 
   // Get match IDs
   const matchesResp = await fetch(`${BASE_URL}/api/collections/matches/records?filter=competition='${compId}'`, {
@@ -246,6 +247,18 @@ async function addPairToCompetition(compId: string, pairId: string, token: strin
 
 async function generateFixtures(compId: string, token: string) {
   // Use the admin HTML endpoint with cookie-based auth
+  const cookieStr = await adminCookie();
+
+  await fetch(`${BASE_URL}/admin/competitions/${compId}/generate`, {
+    method: 'POST',
+    headers: {
+      'Cookie': cookieStr,
+      'HX-Request': 'true',
+    },
+  });
+}
+
+async function adminCookie(): Promise<string> {
   const loginResp = await fetch(`${BASE_URL}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -253,9 +266,15 @@ async function generateFixtures(compId: string, token: string) {
     redirect: 'manual',
   });
   const cookies = loginResp.headers.getSetCookie?.() || [];
-  const cookieStr = cookies.join('; ');
+  return cookies.join('; ');
+}
 
-  await fetch(`${BASE_URL}/admin/competitions/${compId}/generate`, {
+// publishCalendar makes a just-generated draft calendar visible to players —
+// generateFixtures alone leaves it in draft (calendar_status), which hides
+// matches/standings from every non-admin test fixture relies on.
+async function publishCalendar(compId: string) {
+  const cookieStr = await adminCookie();
+  await fetch(`${BASE_URL}/admin/competitions/${compId}/publish`, {
     method: 'POST',
     headers: {
       'Cookie': cookieStr,
