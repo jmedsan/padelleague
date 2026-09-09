@@ -189,7 +189,7 @@
 
         {{if .Entries}}
         <div class="overflow-x-auto">
-            <table class="table table-zebra table-xs sm:table-md">
+            <table class="table table-zebra table-sm">
                 <thead>
                     <tr>
                         <th class="min-w-[120px]">Pareja</th>
@@ -208,8 +208,8 @@
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/payment" class="inline"
                                   hx-confirm="{{if .Paid}}¿Marcar como no pagado?{{else}}¿Marcar como pagado?{{end}}">
                                 <input type="hidden" name="pair_id" value="{{.PairID}}">
-                                <label class="inline-flex items-center p-2 cursor-pointer">
-                                    <input type="checkbox" class="checkbox checkbox-lg checkbox-success"
+                                <label class="inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" class="checkbox checkbox-success"
                                            onchange="this.form.requestSubmit()"
                                            {{if .Paid}}checked{{end}}>
                                 </label>
