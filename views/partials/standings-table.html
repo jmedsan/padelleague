@@ -1,53 +1,74 @@
 {{define "standingsTable"}}
-<div class="overflow-x-auto">
-    <table class="table table-zebra table-sm w-max min-w-full [&_th]:text-sm {{if .Mode.Admin}}sm:table-sm{{else}}sm:table-md{{end}}">
-        <thead>
-            <tr {{if not .Mode.Admin}}class="bg-base-200"{{end}}>
-                <th class="{{if .Mode.Admin}}w-10{{else}}w-12 text-center{{end}}">#</th>
-                <th>Pareja</th>
-                <th class="text-center">PJ</th>
-                <th class="text-center">PG</th>
-                <th class="text-center">PP</th>
-                <th class="text-center hidden sm:table-cell">DS</th>
-                <th class="text-center hidden sm:table-cell">DJ</th>
-                <th class="text-center {{if not .Mode.Admin}}font-bold {{end}}">Pts</th>
-                {{if .HasPenalties}}<th class="text-center">Pen</th>{{end}}
-                <th class="text-center hidden sm:table-cell">Forma</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Standings}}
-            <tr {{if $.Mode.Admin}}{{if le .Position 3}}class="font-medium"{{end}}{{else}}class="hover {{if and $.PlayerPairIDs (hasKey $.PlayerPairIDs .PairID)}}bg-neutral/10 font-bold{{end}}"{{end}}>
-                <td {{if not $.Mode.Admin}}class="text-center"{{end}}>
-                    {{if $.Mode.Admin}}
-                        {{if eq .Position 1}}<span class="text-warning">🥇</span>
-                        {{else if eq .Position 2}}<span class="text-base-content/60">🥈</span>
-                        {{else if eq .Position 3}}<span class="text-accent">🥉</span>
-                        {{else}}{{.Position}}{{end}}
-                    {{else}}
-                        <div class="w-7 h-7 rounded-full {{if eq .Position 1}}bg-warning text-warning-content{{else if eq .Position 2}}bg-base-300{{else if eq .Position 3}}bg-orange-700/20{{else}}bg-base-200{{end}} flex items-center justify-center text-sm font-bold mx-auto">
-                            {{.Position}}
-                        </div>
-                    {{end}}
-                </td>
-                <td class="whitespace-nowrap {{if not $.Mode.Admin}}font-medium{{end}}">{{template "pairLink" (elink .PairID .PairName)}}</td>
-                <td class="text-center">{{.Played}}</td>
-                <td class="text-center {{if not $.Mode.Admin}}text-success{{end}}">{{.Wins}}</td>
-                <td class="text-center {{if not $.Mode.Admin}}text-error{{end}}">{{.Losses}}</td>
-                <td class="text-center text-sm hidden sm:table-cell">{{printf "%+d" (sub .SetsWon .SetsLost)}}</td>
-                <td class="text-center text-sm hidden sm:table-cell">{{printf "%+d" (sub .GamesWon .GamesLost)}}</td>
-                <td class="text-center {{if not $.Mode.Admin}}text-lg {{end}}font-bold">{{.Points}}</td>
-                {{if $.HasPenalties}}<td class="text-center">
-                    {{if gt .Penalty 0}}<span class="text-error font-medium">-{{.Penalty}}</span>{{else}}<span class="opacity-60">—</span>{{end}}
-                </td>{{end}}
-                <td class="text-center hidden sm:table-cell">
-                    <div class="flex gap-1 justify-center">
-                        {{range .Form}}<span class="inline-block w-2 h-2 rounded-full {{if .}}bg-success{{else}}bg-error{{end}}" title="{{if .}}Victoria{{else}}Derrota{{end}}" aria-label="{{if .}}Victoria{{else}}Derrota{{end}}"></span>{{end}}
-                    </div>
-                </td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
+<div class="hidden sm:block">
+    <div class="overflow-x-auto min-w-0">
+        <table class="table table-zebra">
+            <thead>
+                <tr {{if not .Mode.Admin}}class="bg-base-200"{{end}}>
+                    <th class="{{if .Mode.Admin}}w-12{{end}} text-center">#</th>
+                    <th>Pareja</th>
+                    <th class="text-right">PJ</th>
+                    <th class="text-right">PG</th>
+                    <th class="text-right">PP</th>
+                    <th class="text-right">DS</th>
+                    <th class="text-right">DJ</th>
+                    {{if .HasPenalties}}<th class="text-right">Pen</th>{{end}}
+                    <th class="text-right font-bold">Pts</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Standings}}
+                <tr {{if not $.Mode.Admin}}class="{{if and $.PlayerPairIDs (hasKey $.PlayerPairIDs .PairID)}}bg-neutral/10 font-bold{{end}}"{{end}}>
+                    <td class="text-center">
+                        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold {{if eq .Position 1}}bg-warning text-warning-content{{else if eq .Position 2}}bg-base-300{{else if eq .Position 3}}bg-orange-700/20{{else}}bg-base-200{{end}}">{{.Position}}</span>
+                    </td>
+                    <td class="font-medium whitespace-nowrap">{{template "pairLink" (elink .PairID .PairName)}}</td>
+                    <td class="text-right">{{.Played}}</td>
+                    <td class="text-right text-success">{{.Wins}}</td>
+                    <td class="text-right text-error">{{.Losses}}</td>
+                    <td class="text-right">{{printf "%+d" (sub .SetsWon .SetsLost)}}</td>
+                    <td class="text-right">{{printf "%+d" (sub .GamesWon .GamesLost)}}</td>
+                    {{if $.HasPenalties}}<td class="text-right text-error">{{if gt .Penalty 0}}-{{.Penalty}}{{else}}<span class="opacity-40">—</span>{{end}}</td>{{end}}
+                    <td class="text-right text-lg font-bold">{{.Points}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="sm:hidden">
+    <div class="overflow-x-auto min-w-0">
+        <table class="table table-sm">
+            <thead>
+                <tr {{if not .Mode.Admin}}class="bg-base-200"{{end}}>
+                    <th class="w-10 text-center">#</th>
+                    <th>Pareja</th>
+                    <th class="text-right font-bold">Pts</th>
+                    <th class="text-right">PJ</th>
+                    <th class="text-right">PG</th>
+                    <th class="text-right">PP</th>
+                    <th class="text-right">DS</th>
+                    <th class="text-right">DJ</th>
+                    {{if .HasPenalties}}<th class="text-right">Pen</th>{{end}}
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Standings}}
+                <tr {{if not $.Mode.Admin}}class="{{if and $.PlayerPairIDs (hasKey $.PlayerPairIDs .PairID)}}bg-neutral/10 font-bold{{end}}"{{end}}>
+                    <td class="text-center">
+                        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold {{if eq .Position 1}}bg-warning text-warning-content{{else if eq .Position 2}}bg-base-300{{else if eq .Position 3}}bg-orange-700/20{{else}}bg-base-200{{end}}">{{.Position}}</span>
+                    </td>
+                    <td class="font-medium whitespace-nowrap truncate" title="{{.PairName}}">{{template "pairLink" (elink .PairID .PairName)}}</td>
+                    <td class="text-right text-lg font-bold">{{.Points}}</td>
+                    <td class="text-right">{{.Played}}</td>
+                    <td class="text-right text-success">{{.Wins}}</td>
+                    <td class="text-right text-error">{{.Losses}}</td>
+                    <td class="text-right">{{printf "%+d" (sub .SetsWon .SetsLost)}}</td>
+                    <td class="text-right">{{printf "%+d" (sub .GamesWon .GamesLost)}}</td>
+                    {{if $.HasPenalties}}<td class="text-right text-error">{{if gt .Penalty 0}}-{{.Penalty}}{{else}}<span class="opacity-40">—</span>{{end}}</td>{{end}}
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
 </div>
 {{end}}

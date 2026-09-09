@@ -1,44 +1,50 @@
 {{define "content"}}
 <div class="mb-6">
-    <a href="/admin/competitions" class="link link-hover text-sm opacity-60">← Competiciones</a>
-    <h1 class="text-2xl font-bold mt-1">Partidos pendientes</h1>
+    <a href="/" class="link link-hover text-sm opacity-60 py-2 inline-block">← Inicio</a>
 </div>
 
-{{if .Matches}}
-<div data-testid="outstanding-list">
-    <!-- Desktop table -->
-    <div class="hidden md:block overflow-x-auto">
-        <table class="table table-zebra">
-            <thead>
-                <tr>
-                    <th>Competición</th>
-                    <th>Jornada</th>
-                    <th>Pareja 1</th>
-                    <th>Pareja 2</th>
-                    <th class="text-center">Estado</th>
-                    <th>Fecha límite</th>
-                    <th class="text-center">Urgencia</th>
-                    <th class="text-center">Ver</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{range .Matches}}
-                {{template "outstandingMatchDesktopRow" .}}
-                {{end}}
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Phone cards -->
-    <div class="md:hidden space-y-3">
-        {{range .Matches}}
-        {{template "outstandingMatchCard" .}}
+<div class="card bg-base-100 shadow mb-6">
+    <div class="card-body p-0">
+        <div class="flex items-center justify-between px-4 pt-4 pb-2">
+            <h2 class="card-title text-lg">Partidos pendientes <span class="badge badge-neutral badge-sm">{{len .Matches}}</span></h2>
+        </div>
+        {{if .Matches}}
+        <div data-testid="outstanding-list">
+            <div class="sm:hidden">
+                <ul class="divide-y divide-base-300">
+                    {{range .Matches}}
+                    {{template "outstandingMatchRow" .}}
+                    {{end}}
+                </ul>
+            </div>
+            <div class="hidden sm:block">
+                <div class="overflow-x-auto min-w-0">
+                    <table class="table table-zebra">
+                        <thead>
+                            <tr>
+                                <th>Competición</th>
+                                <th>Jornada</th>
+                                <th>Partido</th>
+                                <th>Estado</th>
+                                <th class="text-right">Fecha límite</th>
+                                <th>Urgencia</th>
+                                <th class="w-16"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .Matches}}
+                            {{template "outstandingMatchDesktopRow" .}}
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {{else}}
+        <div data-testid="outstanding-list">
+            {{template "emptyState" "No hay partidos pendientes"}}
+        </div>
         {{end}}
     </div>
 </div>
-{{else}}
-<div data-testid="outstanding-list">
-    {{template "emptyState" "No hay partidos pendientes"}}
-</div>
-{{end}}
 {{end}}
