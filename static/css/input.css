@@ -14,6 +14,14 @@
   [data-theme="padel"] .link-primary {
     color: #4D7A0F;
   }
+  @media (hover: none) {
+    .btn-sm, .input-sm, .select-sm, .tab {
+      min-height: 2.75rem;
+    }
+    .btn-circle.btn-sm {
+      min-width: 2.75rem;
+    }
+  }
 }
 
 @layer components {
