@@ -1,6 +1,6 @@
 {{define "content"}}
 <div class="max-w-lg mx-auto">
-    <a href="/" class="link link-hover text-sm opacity-60">← Inicio</a>
+    <a href="/" class="link link-hover text-sm opacity-60 py-2 inline-block">← Inicio</a>
     <h1 class="text-2xl font-bold mb-6 mt-1">Preferencias de notificaciones</h1>
 
     <form method="POST" action="/profile/notifications">
@@ -113,7 +113,7 @@
         </div>
     </form>
     <div class="mt-4">
-        <a href="/notifications/history" class="link text-sm">Ver historial de notificaciones</a>
+        <a href="/notifications/history" class="link text-sm py-2 inline-block">Ver historial de notificaciones</a>
     </div>
 </div>
 {{if .VAPIDPublicKey}}
