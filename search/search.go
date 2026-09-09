@@ -59,16 +59,16 @@ type Result struct {
 
 // NewEntry computes the folded label and searchable text for matching.
 func NewEntry(e Entry) Entry {
-	e.folded = fold(e.Label)
+	e.folded = Fold(e.Label)
 	parts := []string{e.folded}
 	if e.Secondary != "" {
-		parts = append(parts, fold(e.Secondary))
+		parts = append(parts, Fold(e.Secondary))
 	}
 	if e.Type != "" {
-		parts = append(parts, fold(e.Type))
+		parts = append(parts, Fold(e.Type))
 	}
 	for _, kw := range e.Keywords {
-		parts = append(parts, fold(kw))
+		parts = append(parts, Fold(kw))
 	}
 	e.searchText = strings.Join(parts, " ")
 	return e
@@ -106,7 +106,7 @@ func (ix *Index) Search(query string, v Viewer, limit int) []Result {
 		return nil
 	}
 
-	fq := fold(query)
+	fq := Fold(query)
 
 	ix.mu.RLock()
 	visible := make([]Entry, 0, len(ix.entries))
@@ -231,7 +231,9 @@ func (e Entry) visibleTo(v Viewer) bool {
 	return true
 }
 
-func fold(s string) string {
+// Fold lowercases s and strips diacritics, for accent-insensitive matching
+// and sorting.
+func Fold(s string) string {
 	s = strings.ToLower(s)
 	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	result, _, _ := transform.String(t, s)

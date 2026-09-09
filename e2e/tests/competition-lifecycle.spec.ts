@@ -90,6 +90,7 @@ test.describe('competition lifecycle', () => {
     });
     await suPatch(`/api/collections/competitions/records/${comp.id}`, {
       pairs: [pairAlpha.id, pairBeta.id],
+      calendar_status: 'published',
     });
     await suPost('/api/collections/matches/records', {
       competition: comp.id, pair1: pairAlpha.id, pair2: pairBeta.id,
@@ -118,23 +119,24 @@ test.describe('competition lifecycle', () => {
     await expect(alphaRow.locator('td.font-bold', { hasText: '3' })).toBeVisible();
   });
 
-  test('competition page shows match fixtures with mine-only default', async ({ page }) => {
+  test('competition page shows match fixtures with the team filter defaulting to all pairs', async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.locator('a[href^="/competition/"]', { hasText: 'Liga E2E Test' }).first().click();
     await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('input[aria-label="Jornadas"]')).toBeVisible();
     await page.locator('input[aria-label="Jornadas"]').click();
     await expect(page.getByText(/Jornada \d/).first()).toBeVisible();
-    // Mine-only: player's own matches visible
+    // Default: every pair's matches are visible, including the player's own.
     const matchLinks = page.locator('a[href^="/match/"]');
     const count = await matchLinks.count();
     expect(count).toBeGreaterThan(0);
-    await expect(matchLinks.first()).toContainText('Pareja Alpha');
-    // Toggle shows mine-only/all selector
-    const toggle = page.locator('[data-testid="mine-only-toggle"]');
-    await expect(toggle).toBeVisible();
-    await expect(toggle.getByText('Mis partidos')).toBeVisible();
-    await expect(toggle.getByText('Todos')).toBeVisible();
+    const allText = await matchLinks.allTextContents();
+    expect(allText.some(t => t.includes('Pareja Alpha'))).toBe(true);
+    // Team filter select, defaulting to "Todas las parejas".
+    const filter = page.locator('select[name="pair"]');
+    await expect(filter).toBeVisible();
+    await expect(filter).toHaveValue('');
+    await expect(filter.locator('option', { hasText: 'Todas las parejas' })).toHaveCount(1);
   });
 
   test('admin can view competition detail', async ({ page }) => {
@@ -146,6 +148,65 @@ test.describe('competition lifecycle', () => {
     await expect(page.getByText('Liga E2E Test').first()).toBeVisible();
     const body = await page.textContent('body');
     expect(body).toContain('Pareja Alpha');
+  });
+
+  test('team filter select shows only the chosen pair and checks the Jornadas tab', async ({ page }, testInfo) => {
+    const suffix = `${testInfo.project.name.charAt(0)}${Date.now() % 100000}`;
+    const compName = `Liga Filter ${suffix}`;
+    const makePlayer = async (label: string) => suPost('/api/collections/users/records', {
+      email: `filter-${label}-${suffix}@test.local`,
+      display_name: `Filter ${label} ${suffix}`,
+      gender: 'male', roles: ['player'],
+      password: 'TestPass123456', passwordConfirm: 'TestPass123456',
+      verified: true,
+    });
+    const [p1, p2, p3, p4, p5, p6] = await Promise.all(['1', '2', '3', '4', '5', '6'].map(makePlayer));
+    const comp = await suPost('/api/collections/competitions/records', {
+      name: compName, type: 'league', active: true,
+    });
+    const pairMine = await suPost('/api/collections/pairs/records', {
+      name: `Pareja Mine ${suffix}`, player1: p1.id, player2: p2.id,
+    });
+    const pairOther = await suPost('/api/collections/pairs/records', {
+      name: `Pareja Other ${suffix}`, player1: p3.id, player2: p4.id,
+    });
+    const pairThird = await suPost('/api/collections/pairs/records', {
+      name: `Pareja Third ${suffix}`, player1: p5.id, player2: p6.id,
+    });
+    await suPatch(`/api/collections/competitions/records/${comp.id}`, {
+      pairs: [pairMine.id, pairOther.id, pairThird.id],
+      calendar_status: 'published',
+    });
+    const matchMine = await suPost('/api/collections/matches/records', {
+      competition: comp.id, pair1: pairMine.id, pair2: pairThird.id,
+      status: 'pending', round_number: 1,
+    });
+    const matchOther = await suPost('/api/collections/matches/records', {
+      competition: comp.id, pair1: pairOther.id, pair2: pairThird.id,
+      status: 'pending', round_number: 2,
+    });
+
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    // PLAYER1_EMAIL is not on any of these pairs, so all three show as
+    // "other" — filtering by pairOther should show only matchOther's link,
+    // since matchMine involves pairMine and pairThird, not pairOther.
+    await page.goto(`/competition/${comp.id}`);
+    await page.waitForLoadState('domcontentloaded');
+    await page.locator('input[aria-label="Jornadas"]').click();
+
+    const filter = page.locator('select[name="pair"]');
+    await expect(filter).toBeVisible();
+    console.log('OPTIONS BEFORE SELECT:', await filter.innerHTML());
+    await Promise.all([
+      page.waitForURL(new RegExp(`pair=${pairOther.id}`)),
+      filter.selectOption(pairOther.id),
+    ]);
+    await page.waitForLoadState('domcontentloaded');
+
+    await expect(page.locator(`a[href="/match/${matchOther.id}"]`)).toBeVisible();
+    await expect(page.locator(`a[href="/match/${matchMine.id}"]`)).toHaveCount(0);
+    await expect(page.locator('input[aria-label="Jornadas"]')).toBeChecked();
+    await expect(page.locator('select[name="pair"]')).toHaveValue(pairOther.id);
   });
 
   test('draft calendar is hidden from players until published', async ({ page }, testInfo) => {

@@ -17,7 +17,7 @@ func TestFold(t *testing.T) {
 		{"PADEL 360", "padel 360"},
 	}
 	for _, tc := range cases {
-		assert.Equal(t, tc.want, fold(tc.in), "fold(%q)", tc.in)
+		assert.Equal(t, tc.want, Fold(tc.in), "Fold(%q)", tc.in)
 	}
 }
 
