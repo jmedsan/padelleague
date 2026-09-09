@@ -196,7 +196,7 @@
                         {{if not .IsLeague}}<th class="hidden sm:table-cell">Cabeza de serie</th>{{end}}
                         <th>Pagado</th>
                         <th>Penalización</th>
-                        <th class="w-12"></th>
+                        <th class="w-12">Quitar</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -227,6 +227,7 @@
                                 <span class="tooltip tooltip-left" data-tip="Penalizar">
                                     <label for="penalty-modal-{{.PairID}}" class="btn btn-ghost btn-sm gap-1 px-2 text-warning" aria-label="Penalizar">
                                         <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+                                        <span class="hidden [@media(hover:none)]:inline">Penalizar</span>
                                     </label>
                                 </span>
                             </div>
@@ -237,7 +238,6 @@
                                 <span class="tooltip tooltip-left" data-tip="Quitar">
                                     <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm gap-1 px-2 text-error" aria-label="Quitar">
                                         <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-                                        <span class="hidden [@media(hover:none)]:inline">Quitar</span>
                                     </button>
                                 </span>
                             </form>
@@ -395,7 +395,7 @@
                         <th>Título</th>
                         <th>Tipo</th>
                         <th>Obligatorio</th>
-                        <th class="w-12"></th>
+                        <th class="w-12">Quitar</th>
                     </tr>
                 </thead>
                 <tbody>
