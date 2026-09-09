@@ -588,12 +588,16 @@ func (h *CompetitionHandler) getPenaltyRows(compID string) map[string][]PenaltyR
 		if aid := r.GetString("applied_by"); aid != "" {
 			adminName = league.PlayerName(h.app, aid)
 		}
+		var date string
+		if created := r.GetDateTime("created"); !created.IsZero() {
+			date = render.FmtTime(created.Time())
+		}
 		row := PenaltyRow{
 			ID:        r.Id,
 			Amount:    r.GetFloat("amount"),
 			Reason:    r.GetString("reason"),
 			AdminName: adminName,
-			Date:      render.FmtTime(r.GetDateTime("created").Time()),
+			Date:      date,
 			Voided:    r.GetBool("voided"),
 		}
 		if row.Voided {
