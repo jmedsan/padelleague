@@ -576,12 +576,12 @@ type PenaltyRow struct {
 }
 
 func (h *CompetitionHandler) getPenaltyRows(compID string) map[string][]PenaltyRow {
-	rows, err := h.app.FindRecordsByFilter("penalties",
-		"competition = {:c}", "-created", 0, 0,
-		map[string]any{"c": compID})
-	if err != nil {
-		return map[string][]PenaltyRow{}
-	}
+	rows := findRecordsLogged(h.app, "getPenaltyRows", RecordQuery{
+		Collection: "penalties",
+		Filter:     "competition = {:c}",
+		Sort:       "-created",
+		Params:     map[string]any{"c": compID},
+	})
 	out := make(map[string][]PenaltyRow, len(rows))
 	for _, r := range rows {
 		adminName := "Sistema"

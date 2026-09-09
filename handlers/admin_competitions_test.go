@@ -962,6 +962,36 @@ func TestPenaltyRemove(t *testing.T) {
 	s.Test(t)
 }
 
+func TestDetailPageShowsPenaltyReason(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET competition detail page renders penalty reason",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Retraso reiterado"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "PN A")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1})
+		col, err := app.FindCollectionByNameOrId("penalties")
+		require.NoError(tb, err)
+		pen := core.NewRecord(col)
+		pen.Set("competition", comp.Id)
+		pen.Set("pair", p1.Id)
+		pen.Set("amount", 3)
+		pen.Set("reason", "Retraso reiterado")
+		pen.Set("applied_by", admin.Id)
+		pen.Set("voided", false)
+		require.NoError(tb, app.Save(pen))
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Group 13b: Penalty validation + trace + void-retains-history
 // ═══════════════════════════════════════════════════════════════════════
