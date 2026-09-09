@@ -175,6 +175,75 @@ test.describe('responsive - no horizontal overflow', () => {
     for (const uid of [p1a, p1b, p2a, p2b]) await apiDeleteRecord(page.request, 'users', uid);
   });
 
+  test('H1: competition tab strip wraps instead of overflowing at 360px', async ({ page }) => {
+    await getSuperuserToken(page);
+    const suffix = `h1-${Date.now()}`;
+    const p1 = await apiCreateRecord(page.request, 'users', {
+      email: `${suffix}-a1@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: 'Elena Torres', roles: ['player'], verified: true, gender: 'female',
+    });
+    const p2 = await apiCreateRecord(page.request, 'users', {
+      email: `${suffix}-a2@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: 'Fatima Ruiz', roles: ['player'], verified: true, gender: 'female',
+    });
+    const p3 = await apiCreateRecord(page.request, 'users', {
+      email: `${suffix}-b1@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: 'Gema Ortiz', roles: ['player'], verified: true, gender: 'female',
+    });
+    const p4 = await apiCreateRecord(page.request, 'users', {
+      email: `${suffix}-b2@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: 'Hortensia Vega', roles: ['player'], verified: true, gender: 'female',
+    });
+    const pairA = await apiCreateRecord(page.request, 'pairs', {
+      name: 'Pareja H1 A', player1: p1, player2: p2,
+    });
+    const pairB = await apiCreateRecord(page.request, 'pairs', {
+      name: 'Pareja H1 B', player1: p3, player2: p4,
+    });
+    const compId = await apiCreateRecord(page.request, 'competitions', {
+      name: `H1 Tabs Overflow ${suffix}`, type: 'league', active: true, pairs: [pairA, pairB],
+    });
+    // A finalized match is required for Standings to populate (Clasificación tab).
+    await apiCreateRecord(page.request, 'matches', {
+      competition: compId, pair1: pairA, pair2: pairB, status: 'final',
+      round_number: 1, scores: '6-3 6-4', winner: pairA,
+    });
+    const docId = await apiCreateRecord(page.request, 'documents', {
+      title: `Reglamento ${suffix}`, url: 'https://example.com/reglamento',
+    });
+    await page.request.patch(`/api/collections/competitions/records/${compId}`, {
+      headers: { Authorization: suToken, 'Content-Type': 'application/json' },
+      data: { documents: [docId] },
+    });
+    const adminID = (await apiListRecords(page.request, 'users', `email = "${ADMIN_EMAIL}"`))[0]?.id;
+    await apiCreateRecord(page.request, 'announcements', {
+      competition: compId, title: `Aviso ${suffix}`, body: 'Aviso de prueba', created_by: adminID,
+    });
+
+    await page.setViewportSize({ width: 360, height: 740 });
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/competition/${compId}`);
+    await page.waitForLoadState('domcontentloaded');
+    // Not checkNoOverflow here: the standings table has its own separate,
+    // pre-existing overflow at 360px (tracked independently) that would
+    // fail this test for a reason unrelated to the tab strip under test.
+
+    const tablist = page.locator('div[role="tablist"]').first();
+    await expect(tablist).toBeVisible();
+    const box = await tablist.boundingBox();
+    expect(box?.width, 'tablist must not exceed the 360px viewport').toBeLessThanOrEqual(360);
+
+    for (const label of ['Jornadas', 'Anuncios', 'Documentos', 'Clasificación']) {
+      await expect(page.locator(`input[aria-label="${label}"]`)).toBeVisible();
+    }
+
+    await apiDeleteRecord(page.request, 'competitions', compId);
+    await apiDeleteRecord(page.request, 'pairs', pairA);
+    await apiDeleteRecord(page.request, 'pairs', pairB);
+    await apiDeleteRecord(page.request, 'documents', docId);
+    for (const uid of [p1, p2, p3, p4]) await apiDeleteRecord(page.request, 'users', uid);
+  });
+
   test('admin pairs', async ({ page }) => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);

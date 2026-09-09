@@ -3,6 +3,14 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    font-size: 17px;
+  }
+  @media (min-width: 1024px) {
+    html {
+      font-size: 18px;
+    }
+  }
   [data-theme="padel"] .link-primary {
     color: #4D7A0F;
   }
