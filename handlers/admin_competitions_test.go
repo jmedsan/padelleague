@@ -1303,6 +1303,12 @@ func TestDetailPageNoFixturesShowsGenerateButton(t *testing.T) {
 		p1 := makePairTB(tb, app, "NF A")
 		p2 := makePairTB(tb, app, "NF B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		// makeCompetitionTB defaults calendar_status to "published" (most
+		// tests want a competition with an immediately player-visible
+		// calendar); this test is specifically about the "no calendar yet"
+		// state, so it needs the true default back.
+		comp.Set("calendar_status", "none")
+		require.NoError(tb, app.Save(comp))
 		s.URL = "/admin/competitions/" + comp.Id
 		s.Headers = authHeaders(tb, admin)
 	}
@@ -1925,15 +1931,18 @@ func TestPublishCalendarDraftToPublished(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var compID, adminID, player1ID, player2ID string
+	var compID, adminID string
+	var expectedPlayers []string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		admin := makeAdminUserTB(tb, app)
 		adminID = admin.Id
 		p1 := makePairTB(tb, app, "PubA")
 		p2 := makePairTB(tb, app, "PubB")
-		player1ID = p1.GetString("player1")
-		player2ID = p1.GetString("player2")
+		expectedPlayers = []string{
+			p1.GetString("player1"), p1.GetString("player2"),
+			p2.GetString("player1"), p2.GetString("player2"),
+		}
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("calendar_status", "draft")
 		require.NoError(tb, app.Save(comp))
@@ -1957,9 +1966,12 @@ func TestPublishCalendarDraftToPublished(t *testing.T) {
 		notifs, err := app.FindRecordsByFilter("notifications",
 			"type = 'calendar_published'", "", 0, 0, nil)
 		require.NoError(tb, err)
-		require.Len(tb, notifs, 2, "every distinct player in the competition's pairs is notified")
-		notifiedUsers := []string{notifs[0].GetString("user"), notifs[1].GetString("user")}
-		assert.ElementsMatch(tb, []string{player1ID, player2ID}, notifiedUsers)
+		require.Len(tb, notifs, 4, "every distinct player across both pairs is notified")
+		notifiedUsers := make([]string, len(notifs))
+		for i, n := range notifs {
+			notifiedUsers[i] = n.GetString("user")
+		}
+		assert.ElementsMatch(tb, expectedPlayers, notifiedUsers)
 		assert.Equal(tb, "Test Competition", notifs[0].GetString("comp_name"))
 		assert.Equal(tb, "/competition/"+compID, notifs[0].GetString("link"))
 		assert.Equal(tb, "Calendario publicado", notifs[0].GetString("title"))
@@ -2012,6 +2024,8 @@ func TestPublishCalendarWhenNoneErrors(t *testing.T) {
 		setupAllRoutes(tb, app, e)
 		admin := makeAdminUserTB(tb, app)
 		comp := makeCompetitionTB(tb, app, "league", nil)
+		comp.Set("calendar_status", "none")
+		require.NoError(tb, app.Save(comp))
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/publish"
 		s.Headers = authHeaders(tb, admin)
@@ -2019,7 +2033,7 @@ func TestPublishCalendarWhenNoneErrors(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		c, err := app.FindRecordById("competitions", compID)
 		require.NoError(tb, err)
-		assert.Equal(tb, "", c.GetString("calendar_status"), "status must stay unset when there is nothing to publish")
+		assert.Equal(tb, "none", c.GetString("calendar_status"), "status must stay unset when there is nothing to publish")
 	}
 	s.Test(t)
 }
