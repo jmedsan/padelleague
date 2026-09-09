@@ -61,6 +61,9 @@ func remindCompetitionMatches(app core.App, notifier *notify.Notifier, comp *cor
 	if league.CompetitionPhase(comp, now) == league.PhaseFinished {
 		return
 	}
+	if comp.GetString("calendar_status") != "published" {
+		return
+	}
 
 	graceDays := comp.GetInt("arrange_grace_days")
 
@@ -133,8 +136,12 @@ func checkMatchDayReminders(app core.App, notifier *notify.Notifier, now time.Ti
 		if d.IsZero() || !sameDay(d.In(madrid), tomorrow) {
 			continue
 		}
+		comp, err := app.FindRecordById("competitions", m.GetString("competition"))
+		if err != nil || comp.GetString("calendar_status") != "published" {
+			continue
+		}
 
-		compName := league.CompetitionName(app, m.GetString("competition"))
+		compName := comp.GetString("name")
 		notif := league.NotifMatchReminder(m.Id, m.GetString("time"), m.GetString("club"), compName)
 		notifier.NotifyPlayers(league.PlayersForPair(app, m.GetString("pair1")), notif)
 		notifier.NotifyPlayers(league.PlayersForPair(app, m.GetString("pair2")), notif)

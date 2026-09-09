@@ -246,6 +246,64 @@ func TestSearch_PlayerExcludesForeignCompEntry(t *testing.T) {
 	s.Test(t)
 }
 
+func TestSearch_DraftCalendarMatchExcludedForPlayer(t *testing.T) {
+	t.Parallel()
+	ix := &search.Index{}
+	s := &tests.ApiScenario{
+		TestAppFactory:     testAppFactory,
+		Name:               "player search excludes matches from a draft (unpublished) calendar",
+		Method:             http.MethodGet,
+		ExpectedStatus:     200,
+		NotExpectedContent: []string{"DraftSearch A vs DraftSearch B"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSearchRoutes(tb, app, e, ix)
+		p1 := makePairTB(tb, app, "DraftSearch A")
+		p2 := makePairTB(tb, app, "DraftSearch B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("calendar_status", "draft")
+		require.NoError(tb, app.Save(comp))
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		ix.Replace(search.Build(app))
+
+		playerUser, err := app.FindRecordById("users", p1.GetString("player1"))
+		require.NoError(tb, err)
+		s.URL = "/search?q=partido"
+		s.Headers = authHeaders(tb, playerUser)
+	}
+	s.Test(t)
+}
+
+func TestSearch_PublishedCalendarMatchVisibleForParticipant(t *testing.T) {
+	t.Parallel()
+	ix := &search.Index{}
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player search includes matches from a published calendar",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"PubSearch A vs PubSearch B"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSearchRoutes(tb, app, e, ix)
+		p1 := makePairTB(tb, app, "PubSearch A")
+		p2 := makePairTB(tb, app, "PubSearch B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("calendar_status", "published")
+		require.NoError(tb, app.Save(comp))
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		ix.Replace(search.Build(app))
+
+		user, err := app.FindRecordById("users", p1.GetString("player1"))
+		require.NoError(tb, err)
+		s.URL = "/search?q=partido"
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
 func TestSearch_NoResults(t *testing.T) {
 	t.Parallel()
 	ix := &search.Index{}

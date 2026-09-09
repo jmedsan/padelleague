@@ -184,6 +184,9 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 	if err != nil {
 		return e.String(http.StatusNotFound, "Competición no encontrada")
 	}
+	if comp.GetString("calendar_status") != "published" {
+		return e.String(http.StatusOK, "El calendario aún no está publicado")
+	}
 
 	compPairIDs := h.playerCompPairIDs(e.Auth.Id, comp)
 	if len(compPairIDs) == 0 {

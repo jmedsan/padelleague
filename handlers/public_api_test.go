@@ -67,6 +67,33 @@ func TestHomeWithAuth(t *testing.T) {
 	s.Test(t)
 }
 
+func TestHome_DraftCalendarSuppressesMatchDerivedData(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:     testAppFactory,
+		Name:               "GET / shows the competition card but no upcoming matches while the calendar is draft",
+		Method:             http.MethodGet,
+		URL:                "/",
+		ExpectedStatus:     200,
+		ExpectedContent:    []string{"Draft Home League", "0 partidos pendientes"},
+		NotExpectedContent: []string{"Próximos partidos"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "DraftHomeA")
+		p2 := makePairTB(tb, app, "DraftHomeB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("name", "Draft Home League")
+		comp.Set("calendar_status", "draft")
+		require.NoError(tb, app.Save(comp))
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
 func TestCompetitionPage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
@@ -81,6 +108,34 @@ func TestCompetitionPage(t *testing.T) {
 		p1 := makePairTB(tb, app, "CompA")
 		p2 := makePairTB(tb, app, "CompB")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+		m.Set("scores", "6-3 6-3")
+		m.Set("winner", p1.Id)
+		require.NoError(tb, app.Save(m))
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestCompetitionPage_DraftCalendarHidesRoundsAndStandings(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:     testAppFactory,
+		Name:               "GET /competition/{id} shows no rounds/standings while the calendar is draft",
+		Method:             http.MethodGet,
+		ExpectedStatus:     200,
+		ExpectedContent:    []string{"aún no está publicado"},
+		NotExpectedContent: []string{"J1", "6-3"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "DraftCompA")
+		p2 := makePairTB(tb, app, "DraftCompB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("calendar_status", "draft")
+		require.NoError(tb, app.Save(comp))
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
 		m.Set("scores", "6-3 6-3")
 		m.Set("winner", p1.Id)

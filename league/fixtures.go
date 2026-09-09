@@ -14,49 +14,93 @@ type RoundMatch struct {
 	Away string
 }
 
-// RoundRobin generates a round-robin schedule for the given pair IDs.
+// RoundRobin generates a round-robin schedule for the given pair IDs using
+// the canonical Berger table: within a leg, each team's home/away streak is
+// at most 2 (1 with an odd pair count needing a bye) and each team's
+// home−away imbalance is at most 1. A double round robin's second leg
+// mirrors the first leg's sides with the round order rotated by one, so no
+// pair meets again for at least n−2 rounds and the streak/imbalance bounds
+// still hold across the leg boundary.
 func RoundRobin(pairIDs []string, double bool) []Round {
-	n := len(pairIDs)
-	if n < 2 {
+	if len(pairIDs) < 2 {
 		return nil
 	}
 
-	pairs := make([]string, len(pairIDs))
-	copy(pairs, pairIDs)
+	firstLeg := bergerLeg(pairIDs)
+	rounds := numberRounds(firstLeg, 0)
+	if !double {
+		return rounds
+	}
 
-	if n%2 == 1 {
+	secondLeg := mirrorLegSides(firstLeg)
+	secondLeg = append(secondLeg[1:], secondLeg[0])
+	return append(rounds, numberRounds(secondLeg, len(rounds))...)
+}
+
+// bergerLeg builds one round-robin leg via the canonical Berger table,
+// grouped by round (byes still included as empty-string matches). A fixed
+// pair rotates through the others while every remaining pair swaps
+// positions each round; round r (0-based) has the fixed pair at index m
+// play p[r], home when r is odd. Each other matchup p[(r+k)%m] vs
+// p[(r-k+m)%m] puts the (r+k) side home when k is odd — this is what bounds
+// the streak/imbalance to the theoretical minimum.
+func bergerLeg(pairIDs []string) [][]RoundMatch {
+	pairs := append([]string{}, pairIDs...)
+	if len(pairs)%2 == 1 {
 		pairs = append(pairs, "")
-		n++
 	}
+	m := len(pairs) - 1
 
-	rounds := make([]Round, 0, n-1)
-	for r := range n - 1 {
-		var matches []RoundMatch
-		for i := range n / 2 {
-			home := pairs[i]
-			away := pairs[n-1-i]
-			if home != "" && away != "" {
-				matches = append(matches, RoundMatch{Home: home, Away: away})
+	rounds := make([][]RoundMatch, m)
+	for r := range m {
+		var round []RoundMatch
+		fixed, opponent := pairs[m], pairs[r]
+		if r%2 == 1 {
+			round = append(round, RoundMatch{Home: fixed, Away: opponent})
+		} else {
+			round = append(round, RoundMatch{Home: opponent, Away: fixed})
+		}
+
+		for k := 1; k <= (m-1)/2; k++ {
+			a, b := pairs[(r+k)%m], pairs[(r-k+m)%m]
+			if k%2 == 1 {
+				round = append(round, RoundMatch{Home: a, Away: b})
+			} else {
+				round = append(round, RoundMatch{Home: b, Away: a})
 			}
 		}
-		rounds = append(rounds, Round{Number: r + 1, Matches: matches})
-		last := pairs[n-1]
-		copy(pairs[2:], pairs[1:n-1])
-		pairs[1] = last
+		rounds[r] = round
 	}
-
-	if double {
-		half := len(rounds)
-		for i := range half {
-			var swapped []RoundMatch
-			for _, m := range rounds[i].Matches {
-				swapped = append(swapped, RoundMatch{Home: m.Away, Away: m.Home})
-			}
-			rounds = append(rounds, Round{Number: half + i + 1, Matches: swapped})
-		}
-	}
-
 	return rounds
+}
+
+// numberRounds drops bye matches and assigns sequential Round numbers
+// starting at numberOffset+1.
+func numberRounds(leg [][]RoundMatch, numberOffset int) []Round {
+	rounds := make([]Round, len(leg))
+	for i, roundMatches := range leg {
+		var matches []RoundMatch
+		for _, rm := range roundMatches {
+			if rm.Home != "" && rm.Away != "" {
+				matches = append(matches, rm)
+			}
+		}
+		rounds[i] = Round{Number: numberOffset + i + 1, Matches: matches}
+	}
+	return rounds
+}
+
+// mirrorLegSides swaps Home/Away on every match, preserving round grouping.
+func mirrorLegSides(leg [][]RoundMatch) [][]RoundMatch {
+	mirrored := make([][]RoundMatch, len(leg))
+	for i, roundMatches := range leg {
+		swapped := make([]RoundMatch, len(roundMatches))
+		for j, rm := range roundMatches {
+			swapped[j] = RoundMatch{Home: rm.Away, Away: rm.Home}
+		}
+		mirrored[i] = swapped
+	}
+	return mirrored
 }
 
 // AdvancePlayoff seeds winners of the current round into the next playoff round.

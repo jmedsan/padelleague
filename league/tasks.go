@@ -68,6 +68,9 @@ func PlayerTasks(app core.App, userID string, now time.Time) ([]PlayerTask, erro
 		if !inComp {
 			continue
 		}
+		if c.GetString("calendar_status") != "published" {
+			continue
+		}
 
 		compTasks := competitionTasks(app, c, playerPairIDs, now)
 		tasks = append(tasks, compTasks...)

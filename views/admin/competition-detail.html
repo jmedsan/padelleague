@@ -216,9 +216,11 @@
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/payment" class="flex items-center justify-center"
                                   hx-confirm="{{if .Paid}}¿Marcar como no pagado?{{else}}¿Marcar como pagado?{{end}}">
                                 <input type="hidden" name="pair_id" value="{{.PairID}}">
+                                {{if and .Paid .PaidAt}}<span class="tooltip" data-tip="{{.PaidAt}}{{if .PaidByName}} · {{.PaidByName}}{{end}}">{{end}}
                                 <input type="checkbox" class="checkbox checkbox-success cursor-pointer" aria-label="Pagado"
                                        onchange="this.form.requestSubmit()"
                                        {{if .Paid}}checked{{end}}>
+                                {{if and .Paid .PaidAt}}</span>{{end}}
                             </form>
                         </td>
                         <td class="text-center">

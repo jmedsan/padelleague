@@ -39,11 +39,7 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 		map[string]any{"id": compID})
 
 	if len(existingMatches) > 0 && !confirm {
-		return e.HTML(http.StatusOK, fmt.Sprintf(`
-			<div class="alert alert-warning">
-				<span>Ya existen %d partidos. ¿Desea regenerar? Esto eliminará los partidos existentes.</span>
-				<button hx-post="/admin/competitions/%s/generate?confirm=true" hx-target="#generate-result" class="btn btn-sm btn-warning">Confirmar</button>
-			</div>`, len(existingMatches), compID))
+		return regenerateConfirmPrompt(e, compID, len(existingMatches))
 	}
 
 	pairIDs := comp.GetStringSlice("pairs")
@@ -79,10 +75,24 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 		h.persistRoundSchedule(comp, roundCount)
 	}
 
-	h.leagueSvc.NotifyFixturesGenerated(compID, pairIDs)
+	comp.Set("calendar_status", "draft")
+	if err := h.app.Save(comp); err != nil {
+		slog.Error("set calendar_status draft failed", "competition", compID, "err", err)
+	}
+	league.LogCompetitionEvent(h.app, league.CompetitionEvent{
+		CompetitionID: compID, ActorID: e.Auth.Id, Kind: "fixtures_generated", Detail: "generó el calendario",
+	})
 
 	flash(e, "Calendario generado")
 	return redirectHX(e, "/admin/competitions/"+compID)
+}
+
+func regenerateConfirmPrompt(e *core.RequestEvent, compID string, matchCount int) error {
+	return e.HTML(http.StatusOK, fmt.Sprintf(`
+		<div class="alert alert-warning">
+			<span>Ya existen %d partidos. ¿Desea regenerar? Esto eliminará los partidos existentes.</span>
+			<button hx-post="/admin/competitions/%s/generate?confirm=true" hx-target="#generate-result" class="btn btn-sm btn-warning">Confirmar</button>
+		</div>`, matchCount, compID))
 }
 
 func (h *FixtureHandler) persistRoundSchedule(comp *core.Record, roundCount int) {
