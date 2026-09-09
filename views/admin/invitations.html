@@ -11,24 +11,25 @@
         {{if .Invitations}}
         <div class="sm:hidden">
             <ul class="divide-y divide-base-300">
-                {{range .Invitations}}
+                {{$total := len .Invitations}}
+                {{range $i, $inv := .Invitations}}
                 <li class="flex items-center gap-4 px-4 py-2 min-h-[72px]">
                     <div class="flex-1 min-w-0">
-                        <p class="font-medium break-words">{{if .GetString "email"}}{{.GetString "email"}}{{else}}Enlace genérico{{end}}</p>
+                        <p class="font-medium break-words">{{if $inv.GetString "email"}}{{$inv.GetString "email"}}{{else}}Enlace genérico{{end}}</p>
                         <p class="text-sm opacity-60 truncate">
-                            {{if .GetString "admin_note"}}{{.GetString "admin_note"}} · {{end}}{{.GetString "use_count"}}/{{if and (.GetString "max_uses") (ne (.GetString "max_uses") "0")}}{{.GetString "max_uses"}}{{else}}1{{end}} usos{{with .GetString "created"}} · {{fmtDate .}}{{end}}
+                            {{if $inv.GetString "admin_note"}}{{$inv.GetString "admin_note"}} · {{end}}{{$inv.GetString "use_count"}}/{{if and ($inv.GetString "max_uses") (ne ($inv.GetString "max_uses") "0")}}{{$inv.GetString "max_uses"}}{{else}}1{{end}} usos{{with $inv.GetString "created"}} · {{fmtDate .}}{{end}}
                         </p>
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
-                        {{if eq (.GetString "status") "pending"}}
+                        {{if eq ($inv.GetString "status") "pending"}}
                         <span class="badge badge-warning badge-sm">Pendiente</span>
-                        {{else if eq (.GetString "status") "used"}}
+                        {{else if eq ($inv.GetString "status") "used"}}
                         <span class="badge badge-success badge-sm">Usada</span>
                         {{else}}
                         <span class="badge badge-ghost badge-sm">Caducada</span>
                         {{end}}
-                        {{if eq (.GetString "status") "pending"}}
-                        <div class="dropdown dropdown-end">
+                        {{if eq ($inv.GetString "status") "pending"}}
+                        <div class="dropdown dropdown-end {{if le (sub $total $i) 2}}dropdown-top{{end}}">
                             <button tabindex="0" class="btn btn-ghost btn-sm btn-circle" aria-label="Más acciones">
                                 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z"/></svg>
                             </button>
