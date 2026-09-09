@@ -192,7 +192,7 @@
             <table class="table table-zebra table-xs sm:table-md">
                 <thead>
                     <tr>
-                        <th>Pareja</th>
+                        <th class="min-w-[120px]">Pareja</th>
                         {{if not .IsLeague}}<th class="hidden sm:table-cell">Cabeza de serie</th>{{end}}
                         <th>Pagado</th>
                         <th>Penalización</th>
@@ -202,15 +202,17 @@
                 <tbody>
                     {{range .Entries}}
                     <tr>
-                        <td class="font-medium">{{template "pairLink" (elink .PairID .PairName)}}{{if and (not $.IsLeague) (gt .Seed 0)}}<span class="badge badge-outline badge-xs ml-1 sm:hidden">{{.Seed}}</span>{{end}}</td>
+                        <td class="font-medium min-w-[120px]">{{template "pairLink" (elink .PairID .PairName)}}{{if and (not $.IsLeague) (gt .Seed 0)}}<span class="badge badge-outline badge-xs ml-1 sm:hidden">{{.Seed}}</span>{{end}}</td>
                         {{if not $.IsLeague}}<td class="hidden sm:table-cell">{{if gt .Seed 0}}<span class="badge badge-outline badge-sm">{{.Seed}}</span>{{else}}<span class="text-base-content/60">—</span>{{end}}</td>{{end}}
                         <td>
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/payment" class="inline"
                                   hx-confirm="{{if .Paid}}¿Marcar como no pagado?{{else}}¿Marcar como pagado?{{end}}">
                                 <input type="hidden" name="pair_id" value="{{.PairID}}">
-                                <input type="checkbox" class="checkbox checkbox-sm checkbox-success"
-                                       onchange="this.form.requestSubmit()"
-                                       {{if .Paid}}checked{{end}}>
+                                <label class="inline-flex items-center p-2 cursor-pointer">
+                                    <input type="checkbox" class="checkbox checkbox-lg checkbox-success"
+                                           onchange="this.form.requestSubmit()"
+                                           {{if .Paid}}checked{{end}}>
+                                </label>
                             </form>
                             {{if and .Paid .PaidAt}}
                             <div class="text-xs text-base-content/60 mt-1">{{.PaidAt}}{{if .PaidByName}} · {{.PaidByName}}{{end}}</div>
