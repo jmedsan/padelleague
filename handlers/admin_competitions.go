@@ -41,6 +41,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 	seeding := getSeeding(comp)
 	payment := paymentInfo{app: h.app, status: getPaymentStatus(comp), paidAt: getPaymentDates(comp), paidBy: getPaymentActors(comp)}
 	penaltyRows := h.getPenaltyRows(id)
+	activePenalty := firstActivePenalty(penaltyRows)
 
 	pairEntries := buildPairEntries(pairIDs, seeding, payment)
 	allPairs := availablePairs(h.app, pairIDs)
@@ -72,6 +73,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"AutoExpandRound":     firstIncompleteRoundGroup(rounds),
 		"Disputes":            disputes,
 		"PenaltyRows":         penaltyRows,
+		"ActivePenalty":       activePenalty,
 		"IsLeague":            isLeague,
 		"HasFixtures":         len(matches) > 0,
 		"HasUnpaid":           anyUnpaid(pairEntries),
@@ -609,6 +611,21 @@ func (h *CompetitionHandler) getPenaltyRows(compID string) map[string][]PenaltyR
 			}
 		}
 		out[r.GetString("pair")] = append(out[r.GetString("pair")], row)
+	}
+	return out
+}
+
+// firstActivePenalty returns, per pair, the first non-voided penalty row —
+// used for the mobile list's one-line penalty summary.
+func firstActivePenalty(rows map[string][]PenaltyRow) map[string]*PenaltyRow {
+	out := make(map[string]*PenaltyRow, len(rows))
+	for pairID, pairRows := range rows {
+		for i := range pairRows {
+			if !pairRows[i].Voided {
+				out[pairID] = &pairRows[i]
+				break
+			}
+		}
 	}
 	return out
 }

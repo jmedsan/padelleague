@@ -267,8 +267,9 @@ test.describe('responsive - no horizontal overflow', () => {
     const cards = page.locator('#players-cards');
     await expect(cards.getByText('Test Player', { exact: true })).toBeVisible();
     await expect(cards.getByText('Test Player 2', { exact: true })).toBeVisible();
-    const firstCard = cards.locator('> div').first();
+    const firstCard = cards.locator('> li').first();
     await expect(firstCard).toBeVisible();
+    await firstCard.getByLabel('Más acciones').click();
     await expect(firstCard.getByText('Editar')).toBeVisible();
     await expect(firstCard.getByText('Regenerar contraseña')).toBeVisible();
   });

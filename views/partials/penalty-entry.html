@@ -1,26 +1,13 @@
 {{define "penaltyEntry"}}
-<div{{if .Penalty.Voided}} class="opacity-50"{{end}}>
-<div class="flex flex-wrap items-center gap-1 text-xs{{if .Penalty.Voided}} line-through{{end}}">
-    <span class="badge badge-error badge-sm">-{{.Penalty.Amount}}</span>
-    <span>{{.Penalty.Reason}}</span>
-    <span class="text-base-content/60">{{.Penalty.AdminName}}{{with .Penalty.Date}}, {{.}}{{end}}</span>
-    {{if .Penalty.Voided}}
-    <span class="badge badge-ghost badge-sm">Anulado</span>
-    {{else}}
-    <form hx-post="/admin/competitions/{{.CompetitionID}}/penalty" hx-confirm="¿Quitar esta penalización?" data-confirm-danger data-confirm-ok="Quitar" class="inline flex items-center gap-1">
+{{if .Penalty.Voided}}
+<span class="badge badge-ghost badge-sm line-through opacity-60" title="Anulado por {{.Penalty.VoidedBy}}{{if .Penalty.VoidReason}} — {{.Penalty.VoidReason}}{{end}}">-{{.Penalty.Amount}}</span>
+{{else}}
+<span class="inline-flex items-center gap-1 badge badge-error badge-sm pr-0.5" title="{{.Penalty.Reason}}{{with .Penalty.AdminName}} · {{.}}{{end}}{{with .Penalty.Date}}, {{.}}{{end}}">-{{.Penalty.Amount}}<form hx-post="/admin/competitions/{{.CompetitionID}}/penalty" hx-confirm="¿Anular esta penalización?" data-confirm-danger data-confirm-ok="Anular" class="inline-flex">
         <input type="hidden" name="action" value="remove">
         <input type="hidden" name="penalty_id" value="{{.Penalty.ID}}">
-        <input type="text" name="void_reason" placeholder="Motivo (opcional)" class="input input-bordered input-xs w-32">
-        <span class="tooltip tooltip-left" data-tip="Quitar">
-            <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm btn-circle min-h-11 min-w-11 opacity-50 text-error" aria-label="Quitar">
-                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-            </button>
-        </span>
-    </form>
-    {{end}}
-</div>
-{{if .Penalty.Voided}}
-<p class="text-sm text-base-content/50">Anulado por {{.Penalty.VoidedBy}}{{if .Penalty.VoidReason}} — {{.Penalty.VoidReason}}{{end}}</p>
+        <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs btn-circle min-h-0 h-5 w-5" aria-label="Anular penalización">
+            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3.5 h-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+        </button>
+    </form></span>
 {{end}}
-</div>
 {{end}}
