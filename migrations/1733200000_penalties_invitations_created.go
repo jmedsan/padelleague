@@ -1,10 +1,10 @@
 package migrations
 
 import (
-	"time"
-
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	m "github.com/pocketbase/pocketbase/migrations"
+	"github.com/pocketbase/pocketbase/tools/types"
 )
 
 // Adds created/updated to penalties and invitations, both missing since
@@ -37,19 +37,13 @@ func addCreatedUpdated(app core.App, collectionName string) error {
 		return err
 	}
 
-	records, err := app.FindRecordsByFilter(collectionName, "id != ''", "", 0, 0, nil)
-	if err != nil {
-		return err
-	}
-	now := time.Now()
-	for _, r := range records {
-		r.SetRaw("created", now)
-		r.SetRaw("updated", now)
-		if err := app.SaveNoValidate(r); err != nil {
-			return err
-		}
-	}
-	return nil
+	// Record.Save skips the update for AutodateField values that already
+	// equal the record's last-known value, so a plain SetRaw+Save backfill
+	// silently no-ops. A direct SQL update bypasses that entirely.
+	now := types.NowDateTime()
+	query := "UPDATE " + collectionName + " SET created = {:now}, updated = {:now} WHERE created = '' OR created IS NULL"
+	_, err = app.DB().NewQuery(query).Bind(dbx.Params{"now": now}).Execute()
+	return err
 }
 
 func removeCreatedUpdated(app core.App, collectionName string) error {

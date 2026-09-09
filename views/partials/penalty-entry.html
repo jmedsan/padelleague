@@ -3,7 +3,7 @@
 <div class="flex flex-wrap items-center gap-1 text-xs{{if .Penalty.Voided}} line-through{{end}}">
     <span class="badge badge-error badge-sm">-{{.Penalty.Amount}}</span>
     <span>{{.Penalty.Reason}}</span>
-    <span class="text-base-content/60">{{.Penalty.AdminName}}, {{.Penalty.Date}}</span>
+    <span class="text-base-content/60">{{.Penalty.AdminName}}{{with .Penalty.Date}}, {{.}}{{end}}</span>
     {{if .Penalty.Voided}}
     <span class="badge badge-ghost badge-sm">Anulado</span>
     {{else}}

@@ -20,7 +20,7 @@
                     <th class="text-center">Estado</th>
                     <th class="text-center">Usos</th>
                     <th class="hidden xl:table-cell">Creada</th>
-                    <th></th>
+                    <th class="text-right"></th>
                 </tr>
             </thead>
             <tbody>
@@ -42,7 +42,7 @@
                     <td class="text-sm text-center">
                         {{.GetString "use_count"}}/{{if and (.GetString "max_uses") (ne (.GetString "max_uses") "0")}}{{.GetString "max_uses"}}{{else}}1{{end}}
                     </td>
-                    <td class="hidden xl:table-cell text-sm opacity-60">{{fmtDate (.GetString "created")}}</td>
+                    <td class="hidden xl:table-cell text-sm opacity-60">{{with .GetString "created"}}{{fmtDate .}}{{end}}</td>
                     <td class="text-right">
                         <div class="flex flex-wrap gap-1 justify-end">
                         {{if eq (.GetString "status") "pending"}}
