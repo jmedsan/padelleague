@@ -247,12 +247,13 @@
         </div>
         <div class="sm:hidden">
             <ul class="divide-y divide-base-300">
-                {{range .Entries}}
+                {{$total := len .Entries}}
+                {{range $i, $e := .Entries}}
                 <li class="flex items-center gap-4 px-4 py-2 min-h-[72px]">
                     <div class="flex-1 min-w-0">
-                        <p class="font-medium break-words">{{.PairName}}{{if and (not $.IsLeague) (gt .Seed 0)}} <span class="badge badge-outline badge-xs">{{.Seed}}</span>{{end}}</p>
-                        {{$rows := index $.PenaltyRows .PairID}}
-                        {{if $active := index $.ActivePenalty .PairID}}
+                        <p class="font-medium break-words">{{$e.PairName}}{{if and (not $.IsLeague) (gt $e.Seed 0)}} <span class="badge badge-outline badge-xs">{{$e.Seed}}</span>{{end}}</p>
+                        {{$rows := index $.PenaltyRows $e.PairID}}
+                        {{if $active := index $.ActivePenalty $e.PairID}}
                         <p class="text-sm opacity-60 truncate">Penalización −{{$active.Amount}} · {{$active.Reason}}</p>
                         {{else}}
                         <p class="text-sm opacity-60 truncate">Sin penalizaciones</p>
@@ -260,18 +261,18 @@
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
                         <form hx-post="/admin/competitions/{{$.Competition.Id}}/payment"
-                              hx-confirm="{{if .Paid}}¿Marcar como no pagado?{{else}}¿Marcar como pagado?{{end}}">
-                            <input type="hidden" name="pair_id" value="{{.PairID}}">
+                              hx-confirm="{{if $e.Paid}}¿Marcar como no pagado?{{else}}¿Marcar como pagado?{{end}}">
+                            <input type="hidden" name="pair_id" value="{{$e.PairID}}">
                             <input type="checkbox" class="checkbox checkbox-success" aria-label="Pagado"
                                    onchange="this.form.requestSubmit()"
-                                   {{if .Paid}}checked{{end}}>
+                                   {{if $e.Paid}}checked{{end}}>
                         </form>
-                        <div class="dropdown dropdown-end">
+                        <div class="dropdown dropdown-end{{if le (sub $total $i) 2}} dropdown-top{{end}}">
                             <button tabindex="0" class="btn btn-ghost btn-sm btn-circle" aria-label="Más acciones">
                                 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" /></svg>
                             </button>
                             <ul tabindex="0" class="dropdown-content menu bg-base-300 rounded-box shadow-lg z-30 w-56 p-2 text-sm">
-                                <li><label for="penalty-modal-{{.PairID}}" class="text-warning">
+                                <li><label for="penalty-modal-{{$e.PairID}}" class="text-warning">
                                     <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
                                     Penalizar
                                 </label></li>
@@ -286,7 +287,7 @@
                                 </form></li>
                                 {{end}}{{end}}
                                 <li><form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja de la competición?" data-confirm-danger data-confirm-ok="Quitar">
-                                    <input type="hidden" name="pair_id" value="{{.PairID}}">
+                                    <input type="hidden" name="pair_id" value="{{$e.PairID}}">
                                     <button type="submit" hx-disabled-elt="this" class="text-error">
                                         <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                                         Quitar de la competición
