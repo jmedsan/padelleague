@@ -39,7 +39,7 @@
             <div class="form-control mt-3">
                 <label class="label"><span class="label-text font-medium">Archivo</span></label>
                 <input type="file" name="file" class="file-input file-input-bordered w-full">
-                {{if .GetString "file"}}<p class="text-xs opacity-50 mt-1">Archivo actual: <a href="/api/files/documents/{{.Id}}/{{.GetString "file"}}" target="_blank" rel="noopener" class="link link-primary">{{.GetString "file"}}</a></p>{{end}}
+                {{if .GetString "file"}}<p class="text-sm opacity-50 mt-1">Archivo actual: <a href="/api/files/documents/{{.Id}}/{{.GetString "file"}}" target="_blank" rel="noopener" class="link link-primary">{{.GetString "file"}}</a></p>{{end}}
             </div>
             <div class="form-control mt-3">
                 <label class="label cursor-pointer justify-start gap-3">
@@ -84,7 +84,7 @@
                 <label class="label"><span class="label-text font-medium">Archivo</span></label>
                 <input type="file" name="file" class="file-input file-input-bordered w-full">
             </div>
-            <p class="text-xs opacity-50 mt-1">Añade un archivo o un enlace (uno de los dos).</p>
+            <p class="text-sm opacity-50 mt-1">Añade un archivo o un enlace (uno de los dos).</p>
             <div class="form-control mt-3">
                 <label class="label cursor-pointer justify-start gap-3">
                     <input type="checkbox" name="is_default" class="checkbox checkbox-sm" />

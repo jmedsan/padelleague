@@ -37,13 +37,13 @@
                 <input type="hidden" name="token" value="{{.Token}}">
                 <div class="form-control">
                     <label class="label" for="display_name">
-                        <span class="label-text text-xs font-medium">Nombre</span>
+                        <span class="label-text text-sm font-medium">Nombre</span>
                     </label>
                     <input type="text" id="display_name" name="display_name" class="input input-bordered w-full" placeholder="Tu nombre" required>
                 </div>
                 <div class="form-control mt-3">
                     <label class="label" for="email">
-                        <span class="label-text text-xs font-medium">Email</span>
+                        <span class="label-text text-sm font-medium">Email</span>
                     </label>
                     {{if .InviteEmail}}
                     <input type="email" id="email" name="email" class="input input-bordered w-full" value="{{.InviteEmail}}" readonly>
@@ -53,7 +53,7 @@
                 </div>
                 <div class="form-control mt-3">
                     <label class="label" for="gender">
-                        <span class="label-text text-xs font-medium">Género</span>
+                        <span class="label-text text-sm font-medium">Género</span>
                     </label>
                     <select id="gender" name="gender" class="select select-bordered w-full" required>
                         <option value="" disabled selected>Selecciona</option>
@@ -63,7 +63,7 @@
                 </div>
                 <div class="form-control mt-3">
                     <label class="label" for="phone">
-                        <span class="label-text text-xs font-medium">Teléfono</span>
+                        <span class="label-text text-sm font-medium">Teléfono</span>
                     </label>
                     <input type="tel" id="phone" name="phone" inputmode="tel" autocomplete="tel" class="input input-bordered w-full" placeholder="+34 612 345 678" required>
                     <label class="label">
@@ -73,7 +73,7 @@
                 {{template "passwordSetFields" (dict "Suffix" "-register" "ConfirmName" "password_confirm" "TopMargin" true)}}
                 <div class="form-control mt-3">
                     <label class="label" for="note">
-                        <span class="label-text text-xs font-medium">Nota para el admin <span class="opacity-50">(opcional)</span></span>
+                        <span class="label-text text-sm font-medium">Nota para el admin <span class="opacity-50">(opcional)</span></span>
                     </label>
                     <textarea id="note" name="note" class="textarea textarea-bordered w-full" rows="2" maxlength="500" placeholder="Ej: Mi pareja es Juan García, jugamos en Pádel 360"></textarea>
                 </div>
@@ -81,7 +81,7 @@
                     <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-lg w-full text-lg font-bold shadow-lg">Registrarse</button>
                 </div>
             </form>
-            <div class="divider text-xs opacity-60 my-3">O</div>
+            <div class="divider text-sm opacity-60 my-3">O</div>
             <p class="text-center text-sm">
                 ¿Ya tienes cuenta? <a href="/login" class="link link-primary font-medium">Inicia sesión</a>
             </p>

@@ -34,7 +34,7 @@
         {{end}}
 
         {{if .Mode.Admin}}
-        <a href="/match/{{.Match.Id}}" class="link link-primary text-xs">Ver partido completo →</a>
+        <a href="/match/{{.Match.Id}}" class="link link-primary text-sm">Ver partido completo →</a>
         {{if .Mode.Editable}}{{template "matchAdminControls" .}}{{end}}
         {{end}}
         {{end}}
@@ -91,28 +91,28 @@
         <div class="collapse-content">
             <form hx-post="/match/{{.Match.Id}}/admin-override" hx-target="body" hx-confirm="¿Aplicar esta corrección de administrador?" data-confirm-ok="Aplicar">
                 <div class="mb-3">
-                    <label class="label py-1"><span class="label-text text-xs">Resultado</span></label>
+                    <label class="label py-1"><span class="label-text text-sm">Resultado</span></label>
                     {{template "scoreInput" .ScoreOverride}}
                 </div>
                 <div class="grid grid-cols-2 gap-3 mb-3">
                     <div class="form-control">
-                        <label class="label py-1" for="override-date-{{.Match.Id}}"><span class="label-text text-xs">Fecha</span></label>
+                        <label class="label py-1" for="override-date-{{.Match.Id}}"><span class="label-text text-sm">Fecha</span></label>
                         <input type="date" id="override-date-{{.Match.Id}}" name="date" class="input input-bordered input-sm" value="{{printf "%.10s" (.Match.GetString "date")}}">
                     </div>
                     <div class="form-control">
-                        <label class="label py-1" for="override-time-{{.Match.Id}}"><span class="label-text text-xs">Hora</span></label>
+                        <label class="label py-1" for="override-time-{{.Match.Id}}"><span class="label-text text-sm">Hora</span></label>
                         <input type="time" id="override-time-{{.Match.Id}}" name="time" class="input input-bordered input-sm" value="{{.Match.GetString "time"}}">
                     </div>
                 </div>
                 <div class="form-control mb-3">
-                    <label class="label py-1" for="override-venue-{{.Match.Id}}"><span class="label-text text-xs">Club</span></label>
+                    <label class="label py-1" for="override-venue-{{.Match.Id}}"><span class="label-text text-sm">Club</span></label>
                     <select id="override-venue-{{.Match.Id}}" name="venue_id" class="select select-bordered select-sm w-full">
                         <option value="">Sin cambios</option>
                         {{range .Venues}}<option value="{{.Id}}">{{.GetString "name"}}</option>{{end}}
                     </select>
                 </div>
                 <div class="form-control mb-3">
-                    <label class="label py-1" for="override-court-{{.Match.Id}}"><span class="label-text text-xs">Pista</span></label>
+                    <label class="label py-1" for="override-court-{{.Match.Id}}"><span class="label-text text-sm">Pista</span></label>
                     <input type="text" id="override-court-{{.Match.Id}}" name="court_number" class="input input-bordered input-sm" placeholder="Ej: 3" value="{{.Match.GetString "court_number"}}">
                 </div>
                 <button type="submit" hx-disabled-elt="this" class="btn btn-warning btn-sm w-full">Aplicar cambios</button>
@@ -130,7 +130,7 @@
         <p class="text-sm opacity-70 mb-4">Pasará a revisión del administrador. Si se aprueba, se registrará el resultado por defecto y podría aplicarse una penalización de puntos al equipo responsable.</p>
         <form hx-post="/match/{{.Match.Id}}/report-unplayed" hx-target="body">
             <div class="form-control">
-                <label class="label py-1" for="walkover-reason-{{.Match.Id}}"><span class="label-text text-xs">Motivo</span></label>
+                <label class="label py-1" for="walkover-reason-{{.Match.Id}}"><span class="label-text text-sm">Motivo</span></label>
                 <textarea id="walkover-reason-{{.Match.Id}}" name="reason" class="textarea textarea-bordered w-full" placeholder="¿Por qué no se jugó? (p. ej. el rival no se presentó)" required></textarea>
             </div>
             <div class="modal-action">
@@ -199,11 +199,11 @@
 {{define "upcomingMatchRow"}}
 <a href="/match/{{.MatchID}}" class="flex items-center gap-3 p-3 rounded-xl bg-base-200/50 hover:bg-base-200 transition-colors" data-testid="upcoming-match">
     <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-none">
-        <span class="text-xs font-bold text-primary">J{{.RoundNumber}}</span>
+        <span class="text-sm font-bold text-primary">J{{.RoundNumber}}</span>
     </div>
     <div class="flex-1 min-w-0">
         <p class="font-medium text-sm truncate">vs <span data-testid="upcoming-opponent">{{.Opponent}}</span></p>
-        <p class="text-xs opacity-60">{{template "competitionIdentity" (dict "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true) "NoLink" true "Small" true)}}{{if .DisplayDate}} · <span class="whitespace-nowrap" title="{{fmtDate .DisplayDate}}">{{relDate .DisplayDate}}</span>{{end}}{{if .ProposedVenue}} · {{.ProposedVenue}}{{end}}</p>
+        <p class="text-sm opacity-60">{{template "competitionIdentity" (dict "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true) "NoLink" true "Small" true)}}{{if .DisplayDate}} · <span class="whitespace-nowrap" title="{{fmtDate .DisplayDate}}">{{relDate .DisplayDate}}</span>{{end}}{{if .ProposedVenue}} · {{.ProposedVenue}}{{end}}</p>
     </div>
     {{template "scheduleStatusBadge" .ScheduleStatus}}
 </a>
@@ -218,9 +218,9 @@
         <div class="card-body p-3">
             <div class="flex items-center gap-2">
                 <span class="text-sm font-bold">{{.AuthorLabel}}</span>
-                <span class="text-xs opacity-50" title="{{.CreatedAt}}">{{relDate .CreatedRel}}</span>
-                {{if .IsAccepted}}<span class="badge badge-soft-success badge-xs">Confirmada</span>{{end}}
-                {{if eq .Status "superseded"}}<span class="badge badge-ghost badge-xs">Sustituida</span>{{end}}
+                <span class="text-sm opacity-50" title="{{.CreatedAt}}">{{relDate .CreatedRel}}</span>
+                {{if .IsAccepted}}<span class="badge badge-soft-success badge-sm">Confirmada</span>{{end}}
+                {{if eq .Status "superseded"}}<span class="badge badge-ghost badge-sm">Sustituida</span>{{end}}
             </div>
             {{if .Data}}
             <div class="mt-2">
@@ -230,7 +230,7 @@
             {{if .CanChangeDecision}}
             <div class="mt-2">
                 <form hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/change-decision" hx-target="body">
-                    <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-xs">Cambiar decisión</button>
+                    <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm">Cambiar decisión</button>
                 </form>
             </div>
             {{end}}
@@ -301,7 +301,7 @@
     {{if and $c.Mode.Admin $c.Mode.Editable}}{{template "matchWalkoverApprove" $c}}{{end}}
     {{else}}
     {{$canResolve := and $c.Mode.Admin $c.Mode.Editable}}
-    <h4 class="font-bold text-xs uppercase tracking-wider opacity-50 mb-2">Propuestas</h4>
+    <h4 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-2">Propuestas</h4>
     <div class="dispute-resolve space-y-2">
         {{template "resultBox" (dict "PairLabel" (or $c.SubmitterPairName "Propuesta") "Score" $c.SubmittedScore "FillScore" (ternary $canResolve $c.SubmittedScore "") "Pair1Name" $c.Pair1Name "Pair2Name" $c.Pair2Name)}}
         {{if $c.DisputedScore}}{{template "resultBox" (dict "PairLabel" (or $c.DisputerPairName "Contrapropuesta") "Score" $c.DisputedScore "Note" $c.DisputeNotes "FillScore" (ternary $canResolve $c.DisputedScore "") "Pair1Name" $c.Pair1Name "Pair2Name" $c.Pair2Name)}}{{end}}
@@ -330,7 +330,7 @@
         </div>
         <form class="counter-form hidden mt-3" hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/respond" hx-target="body">
             <input type="hidden" name="action" value="reject">
-            <label class="label py-1"><span class="label-text text-xs">Tu marcador * <span class="tooltip tooltip-top" data-tip="Mejor de 3 sets. El tercer set solo se muestra si hay empate 1-1"><span class="text-info cursor-help">ⓘ</span></span></span></label>
+            <label class="label py-1"><span class="label-text text-sm">Tu marcador * <span class="tooltip tooltip-top" data-tip="Mejor de 3 sets. El tercer set solo se muestra si hay empate 1-1"><span class="text-info cursor-help">ⓘ</span></span></span></label>
             {{template "scoreInput" .ScoreCounter}}
             <button type="submit" hx-disabled-elt="this" class="btn btn-error btn-sm w-full mt-2">Enviar contrapropuesta</button>
         </form>
@@ -432,7 +432,7 @@
     <span class="{{if .Mode.Row}}text-base{{else}}text-xl{{end}} font-black tracking-wide">{{.Score}}</span>
     {{if $winner}}<span class="text-sm font-medium text-success">Gana {{$winner}}</span>{{end}}
 </div>
-{{if .Note}}<p class="text-xs opacity-60">{{.Note}}</p>{{end}}
+{{if .Note}}<p class="text-sm opacity-60">{{.Note}}</p>{{end}}
 {{end}}
 
 {{/* dateBox — one reusable date/time/place row, with an accepted marker.

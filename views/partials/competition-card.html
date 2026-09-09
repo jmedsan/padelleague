@@ -27,9 +27,9 @@
         {{if gt .TotalMatches 0}}
         <progress class="progress progress-success w-full" value="{{.PlayedMatches}}" max="{{.TotalMatches}}"></progress>
         {{else if lt .PairsCount 2}}
-        <p class="text-xs text-warning">Necesita al menos 2 parejas para generar el calendario</p>
+        <p class="text-sm text-warning">Necesita al menos 2 parejas para generar el calendario</p>
         {{else}}
-        <p class="text-xs text-warning">Calendario aún no generado</p>
+        <p class="text-sm text-warning">Calendario aún no generado</p>
         {{end}}
     </div>
 </a>

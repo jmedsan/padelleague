@@ -10,7 +10,7 @@
                 <span class="font-bold">{{.AuthorName}}</span>
                 <span>{{.Content}}</span>
             </div>
-            <span class="text-xs opacity-50 whitespace-nowrap" title="{{.CreatedAt}}">{{relDate .CreatedRel}}</span>
+            <span class="text-sm opacity-50 whitespace-nowrap" title="{{.CreatedAt}}">{{relDate .CreatedRel}}</span>
         </div>
         {{if .Date}}
         {{/* scheduling proposal/response — reuse the shared dateBox */}}
@@ -25,7 +25,7 @@
             {{if .StatusLabel}}<span class="badge badge-sm {{.StatusClass}}">{{.StatusLabel}}</span>{{end}}
         </div>
         {{end}}
-        {{if .Note}}<p class="text-xs opacity-60">{{.Note}}</p>{{end}}
+        {{if .Note}}<p class="text-sm opacity-60">{{.Note}}</p>{{end}}
     </div>
 </div>
 {{end}}

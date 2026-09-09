@@ -22,24 +22,24 @@
         <form hx-post="/match/{{.MatchID}}/admin-override" hx-target="body" class="space-y-3">
             <div class="grid grid-cols-2 gap-3">
                 <div class="form-control">
-                    <label class="label py-1" for="playoff-date"><span class="label-text text-xs">Fecha</span></label>
+                    <label class="label py-1" for="playoff-date"><span class="label-text text-sm">Fecha</span></label>
                     <input type="date" id="playoff-date" name="date" class="input input-bordered input-sm" required>
                 </div>
                 <div class="form-control">
-                    <label class="label py-1" for="playoff-time"><span class="label-text text-xs">Hora</span></label>
+                    <label class="label py-1" for="playoff-time"><span class="label-text text-sm">Hora</span></label>
                     <input type="time" id="playoff-time" name="time" class="input input-bordered input-sm">
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div class="form-control">
-                    <label class="label py-1" for="playoff-venue"><span class="label-text text-xs">Club</span></label>
+                    <label class="label py-1" for="playoff-venue"><span class="label-text text-sm">Club</span></label>
                     <select id="playoff-venue" name="venue_id" class="select select-bordered select-sm w-full">
                         <option value="">—</option>
                         {{range .Venues}}<option value="{{.Id}}">{{.GetString "name"}}</option>{{end}}
                     </select>
                 </div>
                 <div class="form-control">
-                    <label class="label py-1" for="playoff-court"><span class="label-text text-xs">Pista</span></label>
+                    <label class="label py-1" for="playoff-court"><span class="label-text text-sm">Pista</span></label>
                     <input type="text" id="playoff-court" name="court_number" class="input input-bordered input-sm" placeholder="Ej: 3">
                 </div>
             </div>
@@ -67,7 +67,7 @@
         <div class="card bg-primary/10 border-2 border-primary/30 rounded-xl mt-3">
             <div class="card-body p-4">
                 <h3 class="font-bold text-sm">Proponer fecha y lugar</h3>
-                <p class="text-xs opacity-70 mb-2">Aún no hay fecha ni lugar confirmados para este partido.</p>
+                <p class="text-sm opacity-70 mb-2">Aún no hay fecha ni lugar confirmados para este partido.</p>
                 {{template "proposalForm" .}}
             </div>
         </div>
@@ -218,7 +218,7 @@
         {{if .CanPost}}
         <div class="border-t border-base-300 pt-4 mt-4">
             {{if and .IsAdmin (not .IsParticipant)}}
-            <div class="text-center text-xs opacity-60 mb-2">Escribiendo como administrador</div>
+            <div class="text-center text-sm opacity-60 mb-2">Escribiendo como administrador</div>
             {{end}}
             <form hx-post="/match/{{.MatchID}}/thread/message" hx-target="body" class="flex gap-2">
                 <input type="hidden" name="type" value="chat">
@@ -234,16 +234,16 @@
 <form id="proposal-form" hx-post="/match/{{.MatchID}}/thread/proposal" hx-target="body">
     <div class="grid grid-cols-2 gap-3">
         <div class="form-control">
-            <label class="label py-1" for="proposal-date"><span class="label-text text-xs">Fecha</span></label>
+            <label class="label py-1" for="proposal-date"><span class="label-text text-sm">Fecha</span></label>
             <input type="date" id="proposal-date" name="date" class="input input-bordered input-sm" required>
         </div>
         <div class="form-control">
-            <label class="label py-1" for="proposal-time"><span class="label-text text-xs">Hora</span></label>
+            <label class="label py-1" for="proposal-time"><span class="label-text text-sm">Hora</span></label>
             <input type="time" id="proposal-time" name="time" class="input input-bordered input-sm" value="{{.ProposalDefaultTime}}" required>
         </div>
     </div>
     <div class="form-control mt-3">
-        <label class="label py-1" for="proposal-venue"><span class="label-text text-xs">Club</span></label>
+        <label class="label py-1" for="proposal-venue"><span class="label-text text-sm">Club</span></label>
         <select id="proposal-venue" name="venue_id" class="select select-bordered select-sm w-full" required onchange="document.getElementById('venue-text-wrap').classList.toggle('hidden', this.value !== 'otro')">
             <option value="">Seleccionar...</option>
             {{range .Venues}}
@@ -253,7 +253,7 @@
         </select>
     </div>
     <div id="venue-text-wrap" class="form-control mt-2 hidden">
-        <label class="label py-1" for="proposal-venue-text"><span class="label-text text-xs">Nombre del club</span></label>
+        <label class="label py-1" for="proposal-venue-text"><span class="label-text text-sm">Nombre del club</span></label>
         <input type="text" id="proposal-venue-text" name="venue_text" class="input input-bordered input-sm" placeholder="Nombre del club">
     </div>
     <div id="proposal-form-error" class="alert alert-error text-sm py-2 mt-3 hidden"></div>

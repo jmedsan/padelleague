@@ -6,7 +6,7 @@
     </div>
     <div class="flex gap-3">
         <div class="stat bg-base-100 shadow-sm rounded-box p-3 border border-base-300">
-            <div class="stat-title text-xs">Registrados</div>
+            <div class="stat-title text-sm">Registrados</div>
             <div class="stat-value text-lg">{{len .Players}}</div>
         </div>
         <label for="precreate-modal" class="btn btn-primary btn-sm self-center">+ Crear jugador</label>
@@ -42,7 +42,7 @@
                         <a href="{{whatsappURL (.GetString "phone")}}" target="_blank" rel="noopener" class="link link-hover ml-1" title="WhatsApp" aria-label="Contactar por WhatsApp">
                             <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" viewBox="0 0 24 24" class="h-4 w-4 inline fill-success"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.075-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12.05 0C5.495 0 .16 5.335.16 11.89c0 2.096.547 4.142 1.588 5.945L0 24l6.31-1.658a11.86 11.86 0 005.74 1.462h.005c6.554 0 11.89-5.335 11.89-11.89C23.945 5.335 18.61 0 12.05 0zm0 21.657h-.004a9.786 9.786 0 01-4.987-1.365l-.358-.213-3.744.982.999-3.65-.233-.375a9.756 9.756 0 01-1.494-5.146c0-5.394 4.39-9.784 9.79-9.784 2.615 0 5.075 1.018 6.923 2.868 1.849 1.85 2.868 4.31 2.868 6.923 0 5.395-4.39 9.76-9.76 9.76z"/></svg>
                         </a>
-                        {{else}}<span class="opacity-50 italic text-xs">Sin teléfono</span>{{end}}
+                        {{else}}<span class="opacity-50 italic text-sm">Sin teléfono</span>{{end}}
                     </td>
                     <td class="hidden lg:table-cell text-sm">
                         {{if eq (.GetString "gender") "male"}}Hombre
@@ -82,7 +82,7 @@
                 <a href="{{whatsappURL (.GetString "phone")}}" target="_blank" rel="noopener" class="link link-hover ml-1" title="WhatsApp" aria-label="Contactar por WhatsApp">
                     <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" viewBox="0 0 24 24" class="h-4 w-4 inline fill-success"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.075-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12.05 0C5.495 0 .16 5.335.16 11.89c0 2.096.547 4.142 1.588 5.945L0 24l6.31-1.658a11.86 11.86 0 005.74 1.462h.005c6.554 0 11.89-5.335 11.89-11.89C23.945 5.335 18.61 0 12.05 0zm0 21.657h-.004a9.786 9.786 0 01-4.987-1.365l-.358-.213-3.744.982.999-3.65-.233-.375a9.756 9.756 0 01-1.494-5.146c0-5.394 4.39-9.784 9.79-9.784 2.615 0 5.075 1.018 6.923 2.868 1.849 1.85 2.868 4.31 2.868 6.923 0 5.395-4.39 9.76-9.76 9.76z"/></svg>
                 </a>
-                {{else}}<span class="opacity-50 italic text-xs">Sin teléfono</span>{{end}}
+                {{else}}<span class="opacity-50 italic text-sm">Sin teléfono</span>{{end}}
             </p>
             <p class="text-sm">
                 {{if eq (.GetString "gender") "male"}}Hombre
@@ -122,13 +122,13 @@
         <form hx-post="/admin/players/{{.Id}}" hx-target="body">
             <div class="form-control">
                 <label class="label" for="edit-player-name-{{.Id}}">
-                    <span class="label-text text-xs font-medium">Nombre</span>
+                    <span class="label-text text-sm font-medium">Nombre</span>
                 </label>
                 <input type="text" id="edit-player-name-{{.Id}}" name="display_name" class="input input-bordered w-full" value="{{.GetString "display_name"}}" required>
             </div>
             <div class="form-control mt-3">
                 <label class="label" for="edit-player-gender-{{.Id}}">
-                    <span class="label-text text-xs font-medium">Género</span>
+                    <span class="label-text text-sm font-medium">Género</span>
                 </label>
                 <select id="edit-player-gender-{{.Id}}" name="gender" class="select select-bordered w-full" required>
                     <option value="male" {{if eq (.GetString "gender") "male"}}selected{{end}}>Hombre</option>
@@ -137,7 +137,7 @@
             </div>
             <div class="form-control mt-3">
                 <label class="label">
-                    <span class="label-text text-xs font-medium">Roles</span>
+                    <span class="label-text text-sm font-medium">Roles</span>
                 </label>
                 <label class="label cursor-pointer justify-start gap-2">
                     <input type="checkbox" name="roles" value="admin" class="checkbox checkbox-sm"
@@ -152,19 +152,19 @@
             </div>
             <div class="form-control mt-3">
                 <label class="label" for="edit-player-email-{{.Id}}">
-                    <span class="label-text text-xs font-medium">Email</span>
+                    <span class="label-text text-sm font-medium">Email</span>
                 </label>
                 <input type="email" id="edit-player-email-{{.Id}}" name="email" class="input input-bordered w-full opacity-60" value="{{.GetString "email"}}" disabled>
             </div>
             <div class="form-control mt-3">
                 <label class="label" for="edit-player-phone-{{.Id}}">
-                    <span class="label-text text-xs font-medium">Teléfono</span>
+                    <span class="label-text text-sm font-medium">Teléfono</span>
                 </label>
                 <input type="tel" id="edit-player-phone-{{.Id}}" name="phone" inputmode="tel" class="input input-bordered w-full" value="{{fmtPhone (.GetString "phone")}}" placeholder="+34 612 345 678">
             </div>
             <div class="form-control mt-3">
                 <label class="label" for="edit-player-note-{{.Id}}">
-                    <span class="label-text text-xs font-medium">Nota admin</span>
+                    <span class="label-text text-sm font-medium">Nota admin</span>
                 </label>
                 <textarea id="edit-player-note-{{.Id}}" name="admin_note" class="textarea textarea-bordered w-full" rows="2">{{.GetString "admin_note"}}</textarea>
             </div>
@@ -192,19 +192,19 @@
         <form hx-post="/admin/players/pre-create" hx-target="#regen-result" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful){document.getElementById('precreate-modal').checked=false}">
             <div class="form-control">
                 <label class="label" for="precreate-email">
-                    <span class="label-text text-xs font-medium">Email</span>
+                    <span class="label-text text-sm font-medium">Email</span>
                 </label>
                 <input type="email" id="precreate-email" name="email" class="input input-bordered w-full" placeholder="jugador@email.com" required>
             </div>
             <div class="form-control mt-3">
                 <label class="label" for="precreate-name">
-                    <span class="label-text text-xs font-medium">Nombre (opcional)</span>
+                    <span class="label-text text-sm font-medium">Nombre (opcional)</span>
                 </label>
                 <input type="text" id="precreate-name" name="display_name" class="input input-bordered w-full" placeholder="Nombre del jugador">
             </div>
             <div class="form-control mt-3">
                 <label class="label" for="precreate-gender">
-                    <span class="label-text text-xs font-medium">Género</span>
+                    <span class="label-text text-sm font-medium">Género</span>
                 </label>
                 <select id="precreate-gender" name="gender" class="select select-bordered w-full" required>
                     <option value="" disabled selected>Selecciona</option>
