@@ -291,7 +291,7 @@ func TestNotificationPrefs_MalformedFallsBackToDefaults(t *testing.T) {
 			assert.Equal(t, true, prefs["match_progress"])
 			assert.Equal(t, true, prefs["email"])
 			assert.Equal(t, true, prefs["push"])
-			assert.Len(t, prefs, 14)
+			assert.Len(t, prefs, 15)
 		})
 	}
 }
