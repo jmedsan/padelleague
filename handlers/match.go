@@ -70,6 +70,9 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	if err != nil {
 		return h.renderErrorPage(e, http.StatusNotFound, "Record no encontrado")
 	}
+	if !matchVisibleTo(h.app, e, match) {
+		return h.renderErrorPage(e, http.StatusNotFound, "Record no encontrado")
+	}
 
 	userID := e.Auth.Id
 	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
@@ -86,9 +89,6 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 
 	compID := match.GetString("competition")
 	comp, _ := h.app.FindRecordById("competitions", compID)
-	if comp != nil && !isAdmin && comp.GetString("calendar_status") != "published" {
-		return h.renderErrorPage(e, http.StatusNotFound, "Record no encontrado")
-	}
 	compName := ""
 	roundLabel := fmt.Sprintf("Jornada %d", mc.RoundNum)
 	if comp != nil {

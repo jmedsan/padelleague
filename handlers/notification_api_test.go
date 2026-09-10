@@ -162,7 +162,6 @@ func TestNotificationPrefsPage(t *testing.T) {
 			`name="general"`,
 			`name="quorum_request"`,
 			`name="dispute"`,
-			`name="match_assigned"`,
 			`name="scheduling"`,
 		},
 	}
@@ -202,7 +201,6 @@ func TestNotificationPrefsSave(t *testing.T) {
 		assert.Equal(tb, true, prefs["quorum_request"])
 		assert.Equal(tb, true, prefs["dispute"])
 		assert.Equal(tb, false, prefs["general"])
-		assert.Equal(tb, false, prefs["match_assigned"])
 		assert.Equal(tb, false, prefs["scheduling"])
 	}
 	s.Test(t)
@@ -268,7 +266,6 @@ func TestNotificationPrefsPageReflectsSavedPrefs(t *testing.T) {
 		user.Set("notification_prefs", map[string]any{
 			"quorum_request": true,
 			"dispute":        true,
-			"match_assigned": true,
 			"general":        false,
 			"scheduling":     true,
 		})
