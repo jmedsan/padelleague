@@ -34,6 +34,78 @@ func TestThreadMessages(t *testing.T) {
 	s.Test(t)
 }
 
+func TestThreadMessages_DraftCalendarReturns404ForPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /match/{id}/thread-messages 404s for a player while the calendar is draft",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Partido no encontrado"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "DraftTMsg A")
+		p2 := makePairTB(tb, app, "DraftTMsg B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("calendar_status", "draft")
+		require.NoError(tb, app.Save(comp))
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + match.Id + "/thread-messages"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestThread_DraftCalendarReturns404ForPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /match/{id}/thread 404s for a player while the calendar is draft",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Partido no encontrado"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "DraftThread A")
+		p2 := makePairTB(tb, app, "DraftThread B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("calendar_status", "draft")
+		require.NoError(tb, app.Save(comp))
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + match.Id + "/thread"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestThreadMessages_DraftCalendarStillVisibleToAdmin(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /match/{id}/thread-messages stays visible to an admin while the calendar is draft",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"hilo"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "DraftAdminTMsg A")
+		p2 := makePairTB(tb, app, "DraftAdminTMsg B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("calendar_status", "draft")
+		require.NoError(tb, app.Save(comp))
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + match.Id + "/thread-messages"
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
 func TestThreadPostProposal(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

@@ -48,22 +48,8 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 		return alertError(e, "Se necesitan al menos 2 parejas")
 	}
 
-	compType := comp.GetString("type")
-
-	var roundCount int
 	err = h.app.RunInTransaction(func(txApp core.App) error {
-		for _, m := range existingMatches {
-			if err := txApp.Delete(m); err != nil {
-				return err
-			}
-		}
-
-		if compType == "league" {
-			n, genErr := h.generateLeague(txApp, compID, pairIDs, comp.GetBool("play_twice"))
-			roundCount = n
-			return genErr
-		}
-		return h.generatePlayoff(txApp, compID, pairIDs, comp)
+		return h.regenerateFixturesTx(txApp, comp, pairIDs, existingMatches)
 	})
 
 	if err != nil {
@@ -71,20 +57,42 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 		return alertError(e, "Error al generar partidos")
 	}
 
-	if compType == "league" && roundCount > 0 {
-		h.persistRoundSchedule(comp, roundCount)
-	}
-
-	comp.Set("calendar_status", "draft")
-	if err := h.app.Save(comp); err != nil {
-		slog.Error("set calendar_status draft failed", "competition", compID, "err", err)
-	}
 	league.LogCompetitionEvent(h.app, league.CompetitionEvent{
 		CompetitionID: compID, ActorID: e.Auth.Id, Kind: "fixtures_generated", Detail: "generó el calendario",
 	})
 
 	flash(e, "Calendario generado")
 	return redirectHX(e, "/admin/competitions/"+compID)
+}
+
+// regenerateFixturesTx deletes existing matches, generates new ones, and
+// sets the competition back to draft — all inside the caller's transaction,
+// so a failure anywhere leaves neither stale matches nor a stale
+// calendar_status.
+func (h *FixtureHandler) regenerateFixturesTx(txApp core.App, comp *core.Record, pairIDs []string, existingMatches []*core.Record) error {
+	compID, compType := comp.Id, comp.GetString("type")
+	for _, m := range existingMatches {
+		if err := txApp.Delete(m); err != nil {
+			return err
+		}
+	}
+
+	var roundCount int
+	if compType == "league" {
+		n, err := h.generateLeague(txApp, compID, pairIDs, comp.GetBool("play_twice"))
+		if err != nil {
+			return err
+		}
+		roundCount = n
+	} else if err := h.generatePlayoff(txApp, compID, pairIDs, comp); err != nil {
+		return err
+	}
+
+	if compType == "league" && roundCount > 0 {
+		h.persistRoundSchedule(comp, roundCount)
+	}
+	comp.Set("calendar_status", "draft")
+	return txApp.Save(comp)
 }
 
 func regenerateConfirmPrompt(e *core.RequestEvent, compID string, matchCount int) error {
@@ -95,14 +103,13 @@ func regenerateConfirmPrompt(e *core.RequestEvent, compID string, matchCount int
 		</div>`, matchCount, compID))
 }
 
+// persistRoundSchedule sets the round-schedule fields on comp; the caller
+// saves comp (inside the fixtures-generation transaction).
 func (h *FixtureHandler) persistRoundSchedule(comp *core.Record, roundCount int) {
 	comp.Set("rounds", roundCount)
 	start := comp.GetDateTime("start_date").Time()
 	end := comp.GetDateTime("end_date").Time()
 	comp.Set("round_arrange_dates", league.StoreRoundSchedule(start, end, roundCount))
-	if err := h.app.Save(comp); err != nil {
-		slog.Error("save round schedule failed", "competition", comp.Id, "err", err)
-	}
 }
 
 func (h *FixtureHandler) generateLeague(txApp core.App, compID string, pairIDs []string, double bool) (int, error) {

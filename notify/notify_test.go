@@ -269,7 +269,6 @@ func TestNotificationPrefs_SurvivesRoundTrip(t *testing.T) {
 	assert.Equal(t, false, prefs["general"])
 	assert.Equal(t, false, prefs["dispute"])
 	assert.Equal(t, true, prefs["quorum_request"])
-	assert.Equal(t, true, prefs["match_assigned"])
 	assert.Equal(t, true, prefs["scheduling"])
 }
 
@@ -291,7 +290,7 @@ func TestNotificationPrefs_MalformedFallsBackToDefaults(t *testing.T) {
 			assert.Equal(t, true, prefs["match_progress"])
 			assert.Equal(t, true, prefs["email"])
 			assert.Equal(t, true, prefs["push"])
-			assert.Len(t, prefs, 15)
+			assert.Len(t, prefs, 14)
 		})
 	}
 }

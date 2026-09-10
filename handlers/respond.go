@@ -27,7 +27,20 @@ func findMatchOr404(app core.App, e *core.RequestEvent, id string) (*core.Record
 	if err != nil {
 		return nil, alertError(e, "Partido no encontrado")
 	}
+	if !matchVisibleTo(app, e, match) {
+		return nil, alertError(e, "Partido no encontrado")
+	}
 	return match, nil
+}
+
+// matchVisibleTo reports whether the requesting user may see match: admins
+// see every match, players only matches in a published calendar.
+func matchVisibleTo(app core.App, e *core.RequestEvent, match *core.Record) bool {
+	if isEffectiveAdmin(e) {
+		return true
+	}
+	comp, err := app.FindRecordById("competitions", match.GetString("competition"))
+	return err == nil && comp.GetString("calendar_status") == "published"
 }
 
 // RecordQuery bundles a FindRecordsByFilter call's arguments.

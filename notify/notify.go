@@ -264,7 +264,7 @@ func channelEnabled(user *core.Record, channel string) bool {
 // handlers.PrefsSave both iterate this list so a new type only needs adding
 // here.
 var EventTypes = []string{
-	"quorum_request", "dispute", "match_assigned", "general", "message",
+	"quorum_request", "dispute", "general", "message",
 	"scheduling", "match_progress", "admin_message", "user_joined",
 	"announcement", "penalty", "payment", "calendar_published",
 }
