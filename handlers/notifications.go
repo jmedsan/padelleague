@@ -243,7 +243,7 @@ func (h *NotificationHandler) handleReminderAction(e *core.RequestEvent, current
 	case "add":
 		val, err := strconv.Atoi(e.Request.FormValue("add_hours"))
 		if err == nil && val >= 1 && val <= 168 {
-			hours := currentReminderHoursList(e.Auth, prefs)
+			hours := currentReminderHoursList(h.app, e.Auth, prefs)
 			if !slices.Contains(hours, val) {
 				hours = append(hours, val)
 			}
@@ -252,7 +252,7 @@ func (h *NotificationHandler) handleReminderAction(e *core.RequestEvent, current
 	case "remove":
 		val, err := strconv.Atoi(e.Request.FormValue("remove_hours"))
 		if err == nil {
-			hours := currentReminderHoursList(e.Auth, prefs)
+			hours := currentReminderHoursList(h.app, e.Auth, prefs)
 			hours = slices.DeleteFunc(hours, func(v int) bool { return v == val })
 			prefs["match_reminder_hours"] = hours
 		}
@@ -323,7 +323,7 @@ func userReminderHoursRaw(user *core.Record) ([]int, bool) {
 	return result, true
 }
 
-func currentReminderHoursList(user *core.Record, prefs map[string]any) []int {
+func currentReminderHoursList(app core.App, user *core.Record, prefs map[string]any) []int {
 	if raw, ok := prefs["match_reminder_hours"]; ok {
 		if hours, ok := raw.([]int); ok {
 			return hours
@@ -332,5 +332,6 @@ func currentReminderHoursList(user *core.Record, prefs map[string]any) []int {
 	if hours, ok := userReminderHoursRaw(user); ok {
 		return hours
 	}
-	return nil
+	settings := league.LoadSettings(app)
+	return league.ReminderHours(user, nil, settings)
 }
