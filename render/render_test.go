@@ -416,7 +416,7 @@ func TestScoreWinner(t *testing.T) {
 
 func TestRelDate(t *testing.T) {
 	t.Parallel()
-	now := time.Now().In(madrid)
+	now := time.Now().In(league.Madrid)
 	dayStr := func(offset int) string {
 		return now.AddDate(0, 0, offset).Format("2006-01-02")
 	}
@@ -444,10 +444,10 @@ func TestRelDate(t *testing.T) {
 
 func TestRelDate_TodayYesterdayIncludeTime(t *testing.T) {
 	t.Parallel()
-	now := time.Now().In(madrid)
+	now := time.Now().In(league.Madrid)
 	dayTimeStr := func(offset int) string {
 		d := now.AddDate(0, 0, offset)
-		return time.Date(d.Year(), d.Month(), d.Day(), 14, 39, 0, 0, madrid).Format("2006-01-02 15:04")
+		return time.Date(d.Year(), d.Month(), d.Day(), 14, 39, 0, 0, league.Madrid).Format("2006-01-02 15:04")
 	}
 	tests := []struct {
 		name, input, want string
@@ -464,15 +464,15 @@ func TestRelDate_TodayYesterdayIncludeTime(t *testing.T) {
 
 func TestRelDate_TomorrowNeverIncludesTime(t *testing.T) {
 	t.Parallel()
-	now := time.Now().In(madrid)
+	now := time.Now().In(league.Madrid)
 	tomorrow := now.AddDate(0, 0, 1)
-	input := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 14, 39, 0, 0, madrid).Format("2006-01-02 15:04")
+	input := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 14, 39, 0, 0, league.Madrid).Format("2006-01-02 15:04")
 	assert.Equal(t, "mañana", RelDate(input))
 }
 
 func TestRelDate_MidnightTodayHasNoTime(t *testing.T) {
 	t.Parallel()
-	now := time.Now().In(madrid)
+	now := time.Now().In(league.Madrid)
 	assert.Equal(t, "hoy", RelDate(now.Format("2006-01-02")))
 }
 
