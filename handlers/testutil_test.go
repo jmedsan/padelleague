@@ -403,6 +403,17 @@ func makeMatchTB(t testing.TB, app core.App, compID, p1ID, p2ID, status string) 
 	return record
 }
 
+func insertMatchReminder(t testing.TB, app core.App, matchID, userID string, hoursBefore int) {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("match_reminders")
+	require.NoError(t, err)
+	rec := core.NewRecord(col)
+	rec.Set("match", matchID)
+	rec.Set("user", userID)
+	rec.Set("hours_before", hoursBefore)
+	require.NoError(t, app.Save(rec))
+}
+
 func makeAdminUserTB(t testing.TB, app core.App) *core.Record {
 	t.Helper()
 	n := userSeq.Add(1)

@@ -744,9 +744,9 @@ func TestProposalChangeDecision(t *testing.T) {
 		p2 := makePairTB(tb, app, "ChgDec B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		match.Set("reminder_sent", true)
 		require.NoError(tb, app.Save(match))
 		matchID = match.Id
+		insertMatchReminder(tb, app, match.Id, p1.GetString("player1"), 26)
 
 		col, _ := app.FindCollectionByNameOrId("match_messages")
 		msg := core.NewRecord(col)
@@ -769,19 +769,18 @@ func TestProposalChangeDecision(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "rejected", m.GetString("proposal_status"))
 
-		match, err := app.FindRecordById("matches", matchID)
-		require.NoError(tb, err)
-		assert.False(tb, match.GetBool("reminder_sent"), "revoking acceptance must clear the stale reminder flag")
+		rows, _ := app.FindRecordsByFilter("match_reminders", "match = {:mid}", "", 0, 0, map[string]any{"mid": matchID})
+		assert.Empty(tb, rows, "revoking acceptance must clear match reminders")
 	}
 	s.Test(t)
 }
 
-func TestProposalChangeDecision_ToAccepted_ResetsReminderSent(t *testing.T) {
+func TestProposalChangeDecision_ToAccepted_ClearsReminders(t *testing.T) {
 	t.Parallel()
 	var msgID, matchID string
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "POST change-decision from rejected to accepted resets a stale reminder_sent flag",
+		Name:           "POST change-decision from rejected to accepted clears match reminders",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
@@ -791,9 +790,9 @@ func TestProposalChangeDecision_ToAccepted_ResetsReminderSent(t *testing.T) {
 		p2 := makePairTB(tb, app, "ChgDecAcc B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		match.Set("reminder_sent", true)
 		require.NoError(tb, app.Save(match))
 		matchID = match.Id
+		insertMatchReminder(tb, app, match.Id, p1.GetString("player1"), 26)
 
 		col, _ := app.FindCollectionByNameOrId("match_messages")
 		msg := core.NewRecord(col)
@@ -816,9 +815,8 @@ func TestProposalChangeDecision_ToAccepted_ResetsReminderSent(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "accepted", m.GetString("proposal_status"))
 
-		match, err := app.FindRecordById("matches", matchID)
-		require.NoError(tb, err)
-		assert.False(tb, match.GetBool("reminder_sent"), "the newly-accepted date must get its own day-before reminder")
+		rows, _ := app.FindRecordsByFilter("match_reminders", "match = {:mid}", "", 0, 0, map[string]any{"mid": matchID})
+		assert.Empty(tb, rows, "accepting a new date must clear stale match reminders")
 	}
 	s.Test(t)
 }
@@ -953,12 +951,12 @@ func TestAcceptProposal_SetsStatusScheduled(t *testing.T) {
 	s.Test(t)
 }
 
-func TestAcceptProposal_ResetsReminderSent(t *testing.T) {
+func TestAcceptProposal_ClearsMatchReminders(t *testing.T) {
 	t.Parallel()
 	var matchID string
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "accepting a proposal resets a stale reminder_sent flag",
+		Name:           "accepting a proposal clears match reminders",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
@@ -968,9 +966,9 @@ func TestAcceptProposal_ResetsReminderSent(t *testing.T) {
 		p2 := makePairTB(tb, app, "RemB")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		match.Set("reminder_sent", true)
 		require.NoError(tb, app.Save(match))
 		matchID = match.Id
+		insertMatchReminder(tb, app, match.Id, p1.GetString("player1"), 26)
 
 		prop := makeProposal(tb, app, match.Id, p1.GetString("player1"))
 		respondent, _ := app.FindRecordById("users", p2.GetString("player1"))
@@ -981,9 +979,8 @@ func TestAcceptProposal_ResetsReminderSent(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		match, err := app.FindRecordById("matches", matchID)
-		require.NoError(tb, err)
-		assert.False(tb, match.GetBool("reminder_sent"), "a new confirmed date must get its own day-before reminder")
+		rows, _ := app.FindRecordsByFilter("match_reminders", "match = {:mid}", "", 0, 0, map[string]any{"mid": matchID})
+		assert.Empty(tb, rows, "accepting a new date must clear stale match reminders")
 	}
 	s.Test(t)
 }
