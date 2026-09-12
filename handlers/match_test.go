@@ -149,8 +149,8 @@ func TestAdminOverrideNewVenue(t *testing.T) {
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		matchID = m.Id
-		m.Set("reminder_sent", true)
 		require.NoError(tb, app.Save(m))
+		insertMatchReminder(tb, app, m.Id, p1.GetString("player1"), 26)
 		venue := makeVenueTB(tb, app, "Padel Test")
 		s.URL = "/match/" + m.Id + "/admin-override"
 		s.Body = strings.NewReader("venue_id=" + venue.Id)
@@ -162,7 +162,8 @@ func TestAdminOverrideNewVenue(t *testing.T) {
 		m, err := app.FindRecordById("matches", matchID)
 		require.NoError(tb, err)
 		assert.Equal(tb, "Padel Test", m.GetString("club"))
-		assert.True(tb, m.GetBool("reminder_sent"), "a venue-only change must not clear the reminder flag — the date didn't change")
+		rows, _ := app.FindRecordsByFilter("match_reminders", "match = {:mid}", "", 0, 0, map[string]any{"mid": matchID})
+		assert.Len(tb, rows, 1, "a venue-only change must not clear match reminders — the date didn't change")
 
 		msgs, _ := app.FindRecordsByFilter("match_messages",
 			"match = {:id} && type = 'admin_action'", "", 0, 0,
@@ -782,8 +783,8 @@ func TestAdminOverrideWithDateChange(t *testing.T) {
 		m.Set("date", "2026-09-01")
 		m.Set("time", "18:00")
 		m.Set("club", "Old Club")
-		m.Set("reminder_sent", true)
 		require.NoError(tb, app.Save(m))
+		insertMatchReminder(tb, app, m.Id, p1.GetString("player1"), 26)
 
 		venue := makeVenueTB(tb, app, "New Club")
 
@@ -799,7 +800,8 @@ func TestAdminOverrideWithDateChange(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "20:00", m.GetString("time"))
 		assert.Equal(tb, "New Club", m.GetString("club"))
-		assert.False(tb, m.GetBool("reminder_sent"), "changing the date must clear the stale reminder flag")
+		rows, _ := app.FindRecordsByFilter("match_reminders", "match = {:mid}", "", 0, 0, map[string]any{"mid": matchID})
+		assert.Empty(tb, rows, "changing the date must clear match reminders")
 	}
 	s.Test(t)
 }
