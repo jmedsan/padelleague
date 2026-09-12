@@ -38,6 +38,45 @@ func AddSystemResultAccepted(app core.App, matchID, parentID, scores string) {
 	}
 }
 
+// AddResultAccepted writes an actor-attributed timeline entry recording that
+// a player accepted a result proposal.
+func AddResultAccepted(app core.App, matchID, parentID, actorID, scores string) {
+	col, err := app.FindCollectionByNameOrId("match_messages")
+	if err != nil {
+		slog.Error("timeline: find match_messages collection", "err", err)
+		return
+	}
+	rec := core.NewRecord(col)
+	rec.Set("match", matchID)
+	rec.Set("author", actorID)
+	rec.Set("type", "result_response")
+	rec.Set("content", "Resultado aceptado: "+scores)
+	if parentID != "" {
+		rec.Set("parent", parentID)
+	}
+	pdJSON, _ := json.Marshal(systemProposalData{Action: "accept", Scores: scores})
+	rec.Set("proposal_data", string(pdJSON))
+	if err := app.Save(rec); err != nil {
+		slog.Error("timeline: save result-accepted entry", "match", matchID, "err", err)
+	}
+}
+
+// AddSystemResultEvent writes a system-authored result_event entry (no author).
+func AddSystemResultEvent(app core.App, matchID, text string) {
+	col, err := app.FindCollectionByNameOrId("match_messages")
+	if err != nil {
+		slog.Error("timeline: find match_messages collection", "err", err)
+		return
+	}
+	rec := core.NewRecord(col)
+	rec.Set("match", matchID)
+	rec.Set("type", "result_event")
+	rec.Set("content", text)
+	if err := app.Save(rec); err != nil {
+		slog.Error("timeline: save result-event entry", "match", matchID, "err", err)
+	}
+}
+
 // CompetitionEvent is one entry recorded on a competition's admin activity timeline.
 type CompetitionEvent struct {
 	CompetitionID string
