@@ -904,7 +904,7 @@ func TestPairsUpdateRejectsOverlappingPlayer(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		pair2, err := app.FindRecordById("pairs", pair2ID)
 		require.NoError(tb, err)
 		assert.Equal(tb, playerCID, pair2.GetString("player1"))
