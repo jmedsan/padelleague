@@ -30,7 +30,7 @@
                 </div>
                 <div class="form-control">
                     <label class="label py-1" for="playoff-time"><span class="label-text text-sm">Hora</span></label>
-                    <input type="time" id="playoff-time" name="time" class="input input-bordered input-sm">
+                    {{template "timePicker" (dict "ID" "playoff-time" "Name" "time")}}
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
@@ -242,7 +242,7 @@
         </div>
         <div class="form-control">
             <label class="label py-1" for="proposal-time"><span class="label-text text-sm">Hora</span></label>
-            <input type="time" id="proposal-time" name="time" class="input input-bordered input-sm" value="{{.ProposalDefaultTime}}" required>
+            {{template "timePicker" (dict "ID" "proposal-time" "Name" "time" "Value" .ProposalDefaultTime "Required" true)}}
         </div>
     </div>
     <div class="form-control mt-3">
