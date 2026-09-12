@@ -94,6 +94,10 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 		RequestedBy:       playerNameIfSet(app, match.GetString("walkover_requested_by")),
 		CarriedSets:       match.GetString("carried_sets"),
 	}
+	if viewerID != "" && !mode.Admin {
+		team, _ := league.PlayerTeam(app, viewerID, match)
+		c.MyTeam = team
+	}
 	if mode.Editable && !mode.Admin {
 		c.fillPlayerActions(app, match, viewerID)
 	}

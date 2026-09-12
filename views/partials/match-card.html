@@ -2,7 +2,7 @@
 <div class="card {{if and .Mode.Full (not .Mode.Editable)}}bg-neutral text-neutral-content{{else}}bg-base-100{{end}} shadow-lg rounded-2xl overflow-hidden">
     <div class="card-body">
         <div class="flex items-center justify-between">
-            {{if .Mode.Full}}<h1 class="card-title flex-wrap {{if not .Mode.Editable}}text-2xl font-bold{{else}}text-lg{{end}}">{{else}}<h2 class="card-title flex-wrap text-lg">{{end}}<span class="min-w-0 break-words">{{if .Pair1Name}}{{template "pairLabel" (dict "ID" (.Match.GetString "pair1") "Name" .Pair1Name "IsMine" (eq .MyTeam 1))}}{{else}}Por definir{{end}}</span> <span class="text-sm opacity-60 flex-none">vs</span> <span class="min-w-0 break-words">{{if .Pair2Name}}{{template "pairLabel" (dict "ID" (.Match.GetString "pair2") "Name" .Pair2Name "IsMine" (eq .MyTeam 2))}}{{else}}Por definir{{end}}</span>{{if .Mode.Full}}</h1>{{else}}</h2>{{end}}
+            {{if .Mode.Full}}<h1 class="card-title flex-wrap {{if not .Mode.Editable}}text-2xl font-bold{{else}}text-lg{{end}}">{{else}}<h2 class="card-title flex-wrap text-lg">{{end}}<span class="min-w-0 break-words">{{if .Pair1Name}}{{template "pairLink" (dict "ID" (.Match.GetString "pair1") "Name" .Pair1Name "IsMine" (eq .MyTeam 1))}}{{else}}Por definir{{end}}</span> <span class="text-sm opacity-60 flex-none">vs</span> <span class="min-w-0 break-words">{{if .Pair2Name}}{{template "pairLink" (dict "ID" (.Match.GetString "pair2") "Name" .Pair2Name "IsMine" (eq .MyTeam 2))}}{{else}}Por definir{{end}}</span>{{if .Mode.Full}}</h1>{{else}}</h2>{{end}}
             {{if not (and .Mode.Full (not .Mode.Editable))}}<span class="badge {{.StatusClass}}">{{.StatusLabel}}</span>{{end}}
         </div>
 
@@ -171,17 +171,17 @@
 {{define "matchRow"}}
 <a href="/match/{{.Match.Id}}" class="flex items-center gap-3 py-2 px-3 min-h-[56px] rounded-lg transition-all duration-150 hover:shadow-md {{if .IsMyMatch}}bg-neutral/5 border-l-4 border-l-neutral hover:bg-neutral/10{{else}}bg-base-200/50 hover:bg-base-200{{end}}">
     <div class="flex-1 min-w-0 sm:hidden">
-        <p class="font-medium text-sm break-words">{{if .Pair1Name}}{{template "pairLabelText" (dict "Name" .Pair1Name "IsMine" (eq .MyTeam 1))}}{{else}}Por definir{{end}}</p>
-        <p class="font-medium text-sm break-words"><span class="opacity-60">vs</span> {{if .Pair2Name}}{{template "pairLabelText" (dict "Name" .Pair2Name "IsMine" (eq .MyTeam 2))}}{{else}}Por definir{{end}}</p>
+        <p class="font-medium text-sm break-words">{{if .Pair1Name}}{{template "pairLinkText" (dict "Name" .Pair1Name "IsMine" (eq .MyTeam 1))}}{{else}}Por definir{{end}}</p>
+        <p class="font-medium text-sm break-words"><span class="opacity-60">vs</span> {{if .Pair2Name}}{{template "pairLinkText" (dict "Name" .Pair2Name "IsMine" (eq .MyTeam 2))}}{{else}}Por definir{{end}}</p>
     </div>
     <div class="hidden sm:flex flex-1 min-w-0 items-center gap-2">
-        <span class="font-medium text-base break-words min-w-0 flex-1">{{if .Pair1Name}}{{template "pairLabelText" (dict "Name" .Pair1Name "IsMine" (eq .MyTeam 1))}}{{else}}Por definir{{end}}</span>
+        <span class="font-medium text-base break-words min-w-0 flex-1">{{if .Pair1Name}}{{template "pairLinkText" (dict "Name" .Pair1Name "IsMine" (eq .MyTeam 1))}}{{else}}Por definir{{end}}</span>
         {{if .Score}}
         {{template "resultBox" (dict "Score" .Score "Mode" (dict "Row" true))}}
         {{else}}
         <span class="text-sm opacity-60 flex-none">vs</span>
         {{end}}
-        <span class="font-medium text-base break-words min-w-0 flex-1">{{if .Pair2Name}}{{template "pairLabelText" (dict "Name" .Pair2Name "IsMine" (eq .MyTeam 2))}}{{else}}Por definir{{end}}</span>
+        <span class="font-medium text-base break-words min-w-0 flex-1">{{if .Pair2Name}}{{template "pairLinkText" (dict "Name" .Pair2Name "IsMine" (eq .MyTeam 2))}}{{else}}Por definir{{end}}</span>
         {{if .CompetitionName}}<span class="text-sm opacity-50 truncate">{{template "competitionIdentity" (dict "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true) "NoLink" true "Small" true)}}</span>{{end}}
     </div>
     <div class="flex flex-col items-end gap-1 shrink-0">
@@ -356,7 +356,7 @@
     </div>
     {{else}}
     <div class="alert alert-info">
-        <span>Primero propón una fecha y lugar a continuación.</span>
+        <span>Primero propón una fecha y lugar.</span>
     </div>
     {{end}}
     {{end}}

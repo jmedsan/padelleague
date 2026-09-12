@@ -42,8 +42,8 @@ func New(viewsFS fs.FS, vapidPublicKey string, appDevTools bool) *Renderer {
 		},
 		"fmtDate": FmtDate,
 		"relDate": RelDate,
-		"elink": func(id, name string) map[string]string {
-			return map[string]string{"ID": id, "Name": name}
+		"elink": func(id, name string) map[string]any {
+			return map[string]any{"ID": id, "Name": name, "IsMine": false}
 		},
 		"hasKey": func(m map[string]struct{}, key string) bool {
 			_, ok := m[key]
