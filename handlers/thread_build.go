@@ -47,6 +47,7 @@ type SchedProposalVM struct {
 	IsAccepted        bool
 	CanRespond        bool
 	CanChangeDecision bool
+	CanWithdraw       bool
 	CreatedAt         string
 	CreatedRel        string // RFC3339, for {{relDate}}
 }
@@ -220,6 +221,7 @@ func (bc *threadBuildCtx) schedProposal(mc msgCtx, sameTeam bool) SchedProposalV
 		IsAccepted:        status == "accepted",
 		CanRespond:        canRespond && bc.compModifiable,
 		CanChangeDecision: canChange && bc.compModifiable,
+		CanWithdraw:       sameTeam && status == "pending" && bc.compModifiable,
 		CreatedAt:         mc.created,
 		CreatedRel:        mc.createdRaw,
 	}
@@ -301,6 +303,9 @@ func timelineEntryText(msgType, action, content string) (verb, statusLabel, stat
 	case "scheduling_response":
 		if action == "accept" {
 			return "confirmó fecha y lugar", "Confirmada", "badge-soft-success"
+		}
+		if action == "withdraw" {
+			return "retiró su propuesta de fecha", "Retirada", "badge-ghost"
 		}
 		return "rechazó fecha y lugar", "Rechazada", "badge-soft-error"
 	case "result_response":

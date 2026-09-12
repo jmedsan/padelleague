@@ -296,6 +296,19 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 	}
 	pdJSON, _ := json.Marshal(pd)
 
+	recent := findRecordsLogged(h.app, "PostProposal: dedup check", RecordQuery{
+		Collection: "match_messages",
+		Filter:     "match = {:mid} && author = {:uid} && type = 'scheduling_proposal' && created > {:since}",
+		Sort:       "-created", Limit: 1,
+		Params: map[string]any{
+			"mid": matchID, "uid": e.Auth.Id,
+			"since": time.Now().Add(-10 * time.Second).UTC().Format("2006-01-02 15:04:05.000Z"),
+		},
+	})
+	if len(recent) > 0 {
+		return redirectHX(e, "/match/"+matchID)
+	}
+
 	col, err := h.app.FindCollectionByNameOrId("match_messages")
 	if err != nil {
 		return alertError(e, "Error interno")
@@ -721,6 +734,54 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 	allPlayers := league.MatchPlayersExcluding(h.app, match, e.Auth.Id)
 	h.notifier.NotifyPlayers(allPlayers, notif)
 	return nil
+}
+
+// WithdrawProposal lets the author withdraw their own pending scheduling proposal.
+func (h *ThreadHandler) WithdrawProposal(e *core.RequestEvent) error {
+	matchID := e.Request.PathValue("id")
+	msgID := e.Request.PathValue("msgId")
+
+	match, err := findMatchOr404(h.app, e, matchID)
+	if err != nil {
+		return err
+	}
+
+	if err := checkCompModifiable(h.app, e, match); err != nil {
+		return err
+	}
+
+	msg, err := h.app.FindRecordById("match_messages", msgID)
+	if err != nil {
+		return alertError(e, "Propuesta no encontrada")
+	}
+	if msg.GetString("match") != matchID {
+		return alertError(e, "Propuesta no pertenece a este partido")
+	}
+	if msg.GetString("type") != "scheduling_proposal" {
+		return alertError(e, "Solo se pueden retirar propuestas de fecha")
+	}
+	if msg.GetString("proposal_status") != "pending" {
+		return alertError(e, "Solo se pueden retirar propuestas pendientes")
+	}
+	if msg.GetString("author") != e.Auth.Id {
+		return alertError(e, "Solo puedes retirar tus propias propuestas")
+	}
+
+	msg.Set("proposal_status", "withdrawn")
+	if err := h.app.Save(msg); err != nil {
+		return alertError(e, "Error al retirar la propuesta")
+	}
+
+	addTimelineEntry(h.app, timelineEntry{
+		MatchID:  match.Id, ActorID: e.Auth.Id,
+		Kind:     "scheduling_response",
+		Detail:   "retiró su propuesta de fecha",
+		ParentID: msg.Id,
+		Action:   "withdraw",
+		Data:     ParseProposalData(msg.Get("proposal_data")),
+	})
+
+	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
 }
 
 // ProposalChangeDecision lets a player revoke or change their proposal response.

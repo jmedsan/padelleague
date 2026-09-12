@@ -234,6 +234,11 @@
                 </form>
             </div>
             {{end}}
+            {{if .CanWithdraw}}
+            <div class="mt-2">
+                <button hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/withdraw" hx-target="body" hx-confirm="¿Retirar esta propuesta?" class="btn btn-ghost btn-xs">Retirar</button>
+            </div>
+            {{end}}
             {{if .CanRespond}}
             <div class="flex gap-2 mt-3">
                 <form hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/respond" hx-target="body" class="flex-1">
