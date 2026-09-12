@@ -565,6 +565,122 @@ func TestRejectProposalCreatesSchedulingResponse(t *testing.T) {
 	s.Test(t)
 }
 
+func TestWithdrawProposal_AuthorWithdraws(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "author withdraws own pending proposal",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var propID, matchID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "Wd A")
+		p2 := makePairTB(tb, app, "Wd B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
+
+		authorID := p1.GetString("player1")
+		prop := makeProposal(tb, app, match.Id, authorID)
+		propID = prop.Id
+
+		author, _ := app.FindRecordById("users", authorID)
+		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/withdraw", match.Id, prop.Id)
+		hdrs := authHeaders(tb, author)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		msg, err := app.FindRecordById("match_messages", propID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "withdrawn", msg.GetString("proposal_status"))
+
+		responses, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'scheduling_response'", "", 0, 0,
+			map[string]any{"mid": matchID})
+		require.Len(tb, responses, 1, "withdraw must create a timeline entry")
+		assert.Contains(tb, responses[0].GetString("content"), "retiró su propuesta")
+	}
+	s.Test(t)
+}
+
+func TestWithdrawProposal_NonAuthorFails(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "non-author cannot withdraw proposal",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Solo puedes retirar tus propias propuestas"},
+	}
+	var propID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "WdNA A")
+		p2 := makePairTB(tb, app, "WdNA B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		authorID := p1.GetString("player1")
+		prop := makeProposal(tb, app, match.Id, authorID)
+		propID = prop.Id
+
+		nonAuthorID := p2.GetString("player1")
+		nonAuthor, _ := app.FindRecordById("users", nonAuthorID)
+		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/withdraw", match.Id, prop.Id)
+		hdrs := authHeaders(tb, nonAuthor)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		msg, err := app.FindRecordById("match_messages", propID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "pending", msg.GetString("proposal_status"),
+			"proposal must remain pending when non-author tries to withdraw")
+	}
+	s.Test(t)
+}
+
+func TestWithdrawProposal_AcceptedFails(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "cannot withdraw already-accepted proposal",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Solo se pueden retirar propuestas pendientes"},
+	}
+	var propID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "WdAcc A")
+		p2 := makePairTB(tb, app, "WdAcc B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		authorID := p1.GetString("player1")
+		prop := makeProposal(tb, app, match.Id, authorID)
+		prop.Set("proposal_status", "accepted")
+		require.NoError(tb, app.Save(prop))
+		propID = prop.Id
+
+		author, _ := app.FindRecordById("users", authorID)
+		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/withdraw", match.Id, prop.Id)
+		hdrs := authHeaders(tb, author)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		msg, err := app.FindRecordById("match_messages", propID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "accepted", msg.GetString("proposal_status"),
+			"proposal must remain accepted when withdraw is attempted")
+	}
+	s.Test(t)
+}
+
 func TestThreadWithMessages(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
