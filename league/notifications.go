@@ -70,10 +70,17 @@ type ProposalParams struct {
 func NotifProposal(p ProposalParams) Notification {
 	return Notification{
 		Type: "scheduling", Title: "Propuesta de fecha",
-		Body:     fmt.Sprintf("%s propone jugar %s en %s", p.AuthorName, fmtNotifDate(p.Date, p.Time), p.VenueName),
+		Body:     proposalBody(p.AuthorName, fmtNotifDate(p.Date, p.Time), p.VenueName),
 		MatchID:  p.MatchID,
 		CompName: p.CompName,
 	}
+}
+
+func proposalBody(author, dateTime, venue string) string {
+	if venue == "" {
+		return fmt.Sprintf("%s propone jugar %s", author, dateTime)
+	}
+	return fmt.Sprintf("%s propone jugar %s en %s", author, dateTime, venue)
 }
 
 // ProposalAcceptedParams holds the dynamic parts for a proposal-accepted notification.
