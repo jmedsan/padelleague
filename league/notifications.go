@@ -240,13 +240,20 @@ func NotifMatchUpcoming(p MatchUpcomingParams) Notification {
 }
 
 func formatRemaining(d time.Duration) string {
-	hours := int(d.Hours())
-	mins := int(d.Minutes()) % 60
+	totalMin := int(d.Minutes())
+	hours := totalMin / 60
+	mins := totalMin % 60
 	if hours >= 2 {
 		return fmt.Sprintf("en %d horas", hours)
 	}
+	if hours == 1 && mins > 0 {
+		return fmt.Sprintf("en 1 hora y %d minutos", mins)
+	}
 	if hours == 1 {
 		return "en 1 hora"
+	}
+	if mins == 0 {
+		return "en menos de 1 minuto"
 	}
 	return fmt.Sprintf("en %d minutos", mins)
 }
