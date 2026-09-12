@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -97,15 +96,9 @@ func (h *MatchHandler) validateCorrectionInput(e *core.RequestEvent, match *core
 	if err := h.validateCorrectionWindow(e, match); err != nil {
 		return "", err
 	}
-	scores := e.Request.FormValue("scores")
-	if scores == "" {
-		return "", alertError(e, "Debes indicar el marcador corregido")
-	}
-	if strings.EqualFold(strings.TrimSpace(scores), "WO") {
-		return "", alertError(e, `Usa el botón de "partido no jugado" para reportarlo`)
-	}
-	if _, err := league.ParseScore(scores); err != nil {
-		return "", alertError(e, "Marcador no válido")
+	scores, err := readScoreForm(e, match.GetString("carried_sets"), "scores")
+	if err != nil {
+		return "", err
 	}
 	return scores, nil
 }

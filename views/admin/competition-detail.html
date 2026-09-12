@@ -85,6 +85,10 @@
                         <label class="label" for="edit-comp-recovery"><span class="label-text">Período extra <span class="tooltip tooltip-right" data-tip="Días adicionales tras la fecha fin de la competición para completar partidos atrasados"><span class="text-info cursor-help">ⓘ</span></span></span></label>
                         <input type="number" id="edit-comp-recovery" name="recovery_days" value="{{or (.Competition.GetFloat "recovery_days") 14}}" min="0" class="input input-bordered input-sm">
                     </div>
+                    <div class="form-control mt-3">
+                        <label class="label" for="edit-comp-reminder"><span class="label-text">Recordatorios de partido (horas antes) <span class="tooltip tooltip-right" data-tip="Cuántas horas antes del partido enviar recordatorios. Vacío = usar valor global"><span class="text-info cursor-help">ⓘ</span></span></span></label>
+                        <input type="text" id="edit-comp-reminder" name="match_reminder_hours" value="{{.CompReminderHoursDisplay}}" class="input input-bordered input-sm" placeholder="Vacío = valor global">
+                    </div>
                 </div>
             </div>
             <div class="modal-action">

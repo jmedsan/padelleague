@@ -1,13 +1,16 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"slices"
+	"strconv"
 
 	"github.com/pocketbase/pocketbase/core"
 
+	"padelleague/league"
 	"padelleague/notify"
 )
 
@@ -139,11 +142,17 @@ func (h *NotificationHandler) History(e *core.RequestEvent) error {
 
 // Prefs renders the notification preferences page.
 func (h *NotificationHandler) Prefs(e *core.RequestEvent) error {
+	settings := league.LoadSettings(h.app)
+	comp := playerActiveComp(h.app, e.Auth.Id)
+	hours := league.ReminderHours(e.Auth, comp, settings)
+	_, isCustom := userReminderHoursRaw(e.Auth)
 	return h.renderPage(e, "notification-prefs.html", map[string]any{
-		"PageTitle":     "Preferencias",
-		"Prefs":         notify.NotificationPrefs(e.Auth),
-		"EmailVerified": e.Auth.Verified(),
-		"HasPushSub":    h.hasActivePushSubscription(e.Auth.Id),
+		"PageTitle":      "Preferencias",
+		"Prefs":          notify.NotificationPrefs(e.Auth),
+		"EmailVerified":  e.Auth.Verified(),
+		"HasPushSub":     h.hasActivePushSubscription(e.Auth.Id),
+		"ReminderHours":  hours,
+		"ReminderCustom": isCustom,
 	})
 }
 
@@ -153,6 +162,12 @@ func (h *NotificationHandler) Prefs(e *core.RequestEvent) error {
 // the existing stored value is kept rather than forced to false.
 func (h *NotificationHandler) PrefsSave(e *core.RequestEvent) error {
 	current := notify.NotificationPrefs(e.Auth)
+
+	action := e.Request.FormValue("reminder_action")
+	if action != "" {
+		return h.handleReminderAction(e, current, action)
+	}
+
 	emailVerified := e.Auth.Verified()
 	hasPushSub := h.hasActivePushSubscription(e.Auth.Id)
 	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
@@ -169,6 +184,10 @@ func (h *NotificationHandler) PrefsSave(e *core.RequestEvent) error {
 			prereqMet = isAdmin
 		}
 		prefs[t] = formToggle(e, t, prereqMet, current)
+	}
+
+	if hours, ok := current["match_reminder_hours"]; ok {
+		prefs["match_reminder_hours"] = hours
 	}
 
 	e.Auth.Set("notification_prefs", prefs)
@@ -210,4 +229,108 @@ func notificationLink(r *core.Record) string {
 		return "/match/" + related
 	}
 	return "/"
+}
+
+func (h *NotificationHandler) handleReminderAction(e *core.RequestEvent, current map[string]any, action string) error {
+	prefs := make(map[string]any, len(current))
+	for k, v := range current {
+		prefs[k] = v
+	}
+
+	switch action {
+	case "reset":
+		delete(prefs, "match_reminder_hours")
+	case "add":
+		val, err := strconv.Atoi(e.Request.FormValue("add_hours"))
+		if err == nil && val >= 1 && val <= 168 {
+			hours := currentReminderHoursList(e.Auth, prefs)
+			if !slices.Contains(hours, val) {
+				hours = append(hours, val)
+			}
+			prefs["match_reminder_hours"] = hours
+		}
+	case "remove":
+		val, err := strconv.Atoi(e.Request.FormValue("remove_hours"))
+		if err == nil {
+			hours := currentReminderHoursList(e.Auth, prefs)
+			hours = slices.DeleteFunc(hours, func(v int) bool { return v == val })
+			prefs["match_reminder_hours"] = hours
+		}
+	}
+
+	e.Auth.Set("notification_prefs", prefs)
+	if err := h.app.Save(e.Auth); err != nil {
+		return alertError(e, "Error al guardar preferencias")
+	}
+
+	flash(e, "Preferencias guardadas")
+	return redirectHX(e, "/profile/notifications")
+}
+
+func playerActiveComp(app core.App, userID string) *core.Record {
+	pairs, err := app.FindRecordsByFilter("pairs",
+		"player1 = {:uid} || player2 = {:uid}", "", 0, 0,
+		map[string]any{"uid": userID})
+	if err != nil || len(pairs) == 0 {
+		return nil
+	}
+	pairIDs := make([]string, len(pairs))
+	for i, p := range pairs {
+		pairIDs[i] = p.Id
+	}
+	comps, err := app.FindRecordsByFilter("competitions",
+		"active = true", "", 0, 0, nil)
+	if err != nil {
+		return nil
+	}
+	var match *core.Record
+	for _, c := range comps {
+		cPairs := c.GetStringSlice("pairs")
+		for _, pid := range pairIDs {
+			if slices.Contains(cPairs, pid) {
+				if match != nil {
+					return nil
+				}
+				match = c
+				break
+			}
+		}
+	}
+	return match
+}
+
+func userReminderHoursRaw(user *core.Record) ([]int, bool) {
+	raw := user.GetString("notification_prefs")
+	if raw == "" {
+		return nil, false
+	}
+	var prefs map[string]json.RawMessage
+	if json.Unmarshal([]byte(raw), &prefs) != nil {
+		return nil, false
+	}
+	val, exists := prefs["match_reminder_hours"]
+	if !exists {
+		return nil, false
+	}
+	var hours []float64
+	if json.Unmarshal(val, &hours) != nil {
+		return nil, false
+	}
+	result := make([]int, len(hours))
+	for i, h := range hours {
+		result[i] = int(h)
+	}
+	return result, true
+}
+
+func currentReminderHoursList(user *core.Record, prefs map[string]any) []int {
+	if raw, ok := prefs["match_reminder_hours"]; ok {
+		if hours, ok := raw.([]int); ok {
+			return hours
+		}
+	}
+	if hours, ok := userReminderHoursRaw(user); ok {
+		return hours
+	}
+	return nil
 }
