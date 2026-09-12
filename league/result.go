@@ -171,6 +171,14 @@ func (svc *Service) applyWon(c resultCtx) error {
 	}
 
 	err := svc.app.RunInTransaction(func(txApp core.App) error {
+		freshProp, err := txApp.FindRecordById("match_messages", c.in.Proposal.Id)
+		if err != nil {
+			return fmt.Errorf("reload proposal: %w", err)
+		}
+		if freshProp.GetString("proposal_status") != "pending" {
+			return fmt.Errorf("proposal already processed")
+		}
+
 		c.fresh.Set("scores", c.scores)
 		c.fresh.Set("winner", winnerID)
 		c.fresh.Set("status", StatusFinal)
@@ -182,8 +190,8 @@ func (svc *Service) applyWon(c resultCtx) error {
 			return fmt.Errorf("save match: %w", err)
 		}
 
-		c.in.Proposal.Set("proposal_status", "accepted")
-		if err := txApp.Save(c.in.Proposal); err != nil {
+		freshProp.Set("proposal_status", "accepted")
+		if err := txApp.Save(freshProp); err != nil {
 			return fmt.Errorf("update proposal: %w", err)
 		}
 
@@ -200,6 +208,14 @@ func (svc *Service) applyWon(c resultCtx) error {
 
 func (svc *Service) applyNotWon(c resultCtx, sc Score) error {
 	err := svc.app.RunInTransaction(func(txApp core.App) error {
+		freshProp, err := txApp.FindRecordById("match_messages", c.in.Proposal.Id)
+		if err != nil {
+			return fmt.Errorf("reload proposal: %w", err)
+		}
+		if freshProp.GetString("proposal_status") != "pending" {
+			return fmt.Errorf("proposal already processed")
+		}
+
 		c.fresh.Set("carried_sets", c.out.Carried)
 		c.fresh.Set("date", "")
 		c.fresh.Set("time", "")
@@ -214,8 +230,8 @@ func (svc *Service) applyNotWon(c resultCtx, sc Score) error {
 			return fmt.Errorf("save match: %w", err)
 		}
 
-		c.in.Proposal.Set("proposal_status", "accepted")
-		if err := txApp.Save(c.in.Proposal); err != nil {
+		freshProp.Set("proposal_status", "accepted")
+		if err := txApp.Save(freshProp); err != nil {
 			return fmt.Errorf("update proposal: %w", err)
 		}
 
