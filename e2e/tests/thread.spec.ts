@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loginAs, scratchMatchId, loadTestData, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { enterScore, clickAndWaitForHxRedirect } from '../tour-helpers';
 
 const BASE = `http://localhost:${process.env.E2E_PORT || 8099}`;
 
@@ -302,4 +303,120 @@ test.describe('match thread', () => {
   // navigating to the pre-fix URL shape ourselves and confirming the card
   // does NOT show the fresh state, proving the assertions above are
   // load-bearing rather than trivially always-green.
+
+  test('unfinished match: submit partial → accept → resume with carried sets → finish', async ({ page }) => {
+    test.setTimeout(60000);
+    const data = loadTestData();
+
+    const freshMatch = await suPost('/api/collections/matches/records', {
+      competition: data.competitionId,
+      pair1: data.pair1Id,
+      pair2: data.pair2Id,
+      status: 'scheduled',
+      round_number: 60,
+      date: '2025-07-01',
+      club: 'Padel 360',
+    });
+    const matchId = freshMatch.id;
+
+    // Player1 submits a partial score with "unfinished" checked
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.waitForSelector('#thread-details', { timeout: 10000 });
+
+    await enterScore(page, '6-3 2-1');
+    const scoreInput = page.locator('.score-input').first();
+    await scoreInput.locator('.score-unfinished').check();
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
+
+    await page.waitForSelector('#thread-details', { timeout: 10000 });
+    await expect(page.locator('#thread-details').getByText('6-3 2-1')).toBeVisible({ timeout: 5000 });
+
+    // Admin (pair2 member) accepts the partial score
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.waitForSelector('#thread-details', { timeout: 10000 });
+    const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
+    await acceptBtn.waitFor({ timeout: 10000 });
+    await clickAndWaitForHxRedirect(page, acceptBtn);
+
+    // Match goes back to pending with carried_sets — "Reanudación" badge appears
+    await page.goto(`/match/${matchId}`);
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('.badge', { hasText: 'Reanudación' })).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.badge', { hasText: 'desde 6-3' })).toBeVisible({ timeout: 5000 });
+
+    // Schedule the resumed match via API
+    await suPatch(`/api/collections/matches/records/${matchId}`, {
+      status: 'scheduled', date: '2025-07-15', club: 'Wurko',
+    });
+
+    // Player1 submits the finishing score (carried set 1 is locked)
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.waitForSelector('#thread-details', { timeout: 10000 });
+
+    const lockedSets = page.locator('.score-set-group[data-locked]');
+    await expect(lockedSets).toHaveCount(1, { timeout: 5000 });
+
+    // fillCells uses positional indexing — pass full score; locked set 1 is skipped
+    await enterScore(page, '6-3 3-6 6-4');
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
+
+    // Admin (pair2) accepts the final score
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.waitForSelector('#thread-details', { timeout: 10000 });
+    const finalAccept = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
+    await finalAccept.waitFor({ timeout: 10000 });
+    await clickAndWaitForHxRedirect(page, finalAccept);
+
+    // Match finalized with the full score
+    await page.goto(`/match/${matchId}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#thread-details').getByText('Confirmado')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('6-3 3-6 6-4').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.badge', { hasText: 'Reanudación' })).not.toBeVisible();
+  });
+
+  test('rule win: 3-game lead with one completed set finalizes the match', async ({ page }) => {
+    test.setTimeout(60000);
+    const data = loadTestData();
+
+    const freshMatch = await suPost('/api/collections/matches/records', {
+      competition: data.competitionId,
+      pair1: data.pair1Id,
+      pair2: data.pair2Id,
+      status: 'scheduled',
+      round_number: 61,
+      date: '2025-07-05',
+      club: 'Padel 360',
+    });
+    const matchId = freshMatch.id;
+
+    // Player1 submits 6-3 4-1 with unfinished checked (rule win: 1 set + 3-game lead)
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.waitForSelector('#thread-details', { timeout: 10000 });
+
+    await enterScore(page, '6-3 4-1');
+    await page.locator('.score-input').first().locator('.score-unfinished').check();
+    await expect(page.locator('.score-winner').first()).toContainText('gana', { timeout: 3000 });
+
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
+
+    // Admin (pair2) accepts
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.waitForSelector('#thread-details', { timeout: 10000 });
+    const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
+    await acceptBtn.waitFor({ timeout: 10000 });
+    await clickAndWaitForHxRedirect(page, acceptBtn);
+
+    // Match finalized (rule win = won, not "no terminado")
+    await page.goto(`/match/${matchId}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#thread-details').getByText('Confirmado')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('6-3 4-1').first()).toBeVisible({ timeout: 5000 });
+  });
 });

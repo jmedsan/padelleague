@@ -204,4 +204,52 @@ test.describe('player profile and stats', () => {
     }
     expect(authResp!.ok()).toBe(true);
   });
+
+  test('player can toggle match reminder preference and see custom hours', async ({ page }) => {
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto('/profile/notifications');
+    await page.waitForLoadState('domcontentloaded');
+
+    // match_reminder toggle exists and is checked by default
+    const reminderToggle = page.locator('input[name="match_reminder"]');
+    await expect(reminderToggle).toBeVisible();
+    await expect(reminderToggle).toBeChecked();
+
+    // "Recordatorios de partido" section heading is visible
+    await expect(page.getByText('Recordatorios de partido', { exact: false }).first()).toBeVisible();
+
+    // Default hours are shown (from global settings)
+    await expect(page.getByText('Por defecto de la liga')).toBeVisible();
+
+    // Set custom hours via API, then verify UI reflects them
+    const userResp = await page.request.post('/api/collections/users/auth-with-password', {
+      data: { identity: PLAYER1_EMAIL, password: PLAYER1_PASSWORD },
+    });
+    const userBody = await userResp.json();
+    const userId = userBody.record.id;
+    const currentPrefs = userBody.record.notification_prefs || {};
+
+    await page.request.patch(`/api/collections/users/records/${userId}`, {
+      headers: { Authorization: loadTestData().adminToken },
+      data: { notification_prefs: { ...currentPrefs, match_reminder_hours: [12, 2] } },
+    });
+
+    await page.goto('/profile/notifications');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('.badge', { hasText: '12h' })).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.badge', { hasText: '2h' })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Personalizado')).toBeVisible();
+
+    // Restore defaults
+    const restored = { ...currentPrefs };
+    delete (restored as any).match_reminder_hours;
+    await page.request.patch(`/api/collections/users/records/${userId}`, {
+      headers: { Authorization: loadTestData().adminToken },
+      data: { notification_prefs: restored },
+    });
+
+    await page.goto('/profile/notifications');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.getByText('Por defecto de la liga')).toBeVisible({ timeout: 5000 });
+  });
 });
