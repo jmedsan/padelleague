@@ -543,12 +543,9 @@ func (h *ThreadHandler) acceptResultProposal(e *core.RequestEvent, match, msg *c
 }
 
 func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
-	counterScores := e.Request.FormValue("counter_scores")
-	if counterScores == "" {
-		return alertError(e, "Debes proponer un marcador alternativo")
-	}
-	if _, err := league.ParseScore(counterScores); err != nil {
-		return alertError(e, "Marcador no válido")
+	counterScores, err := readScoreForm(e, match.GetString("carried_sets"), "counter_scores")
+	if err != nil {
+		return err
 	}
 
 	msg.Set("proposal_status", "superseded")

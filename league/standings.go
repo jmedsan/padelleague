@@ -103,8 +103,8 @@ func tallyMatch(stats map[string]*pairStats, m *core.Record) {
 	if strings.EqualFold(strings.TrimSpace(score), "WO") {
 		return
 	}
-	sc, err := ParseScore(score)
-	if err != nil {
+	sc, ok := TallyScore(score)
+	if !ok {
 		return
 	}
 	s1.setsWon += sc.Sets1

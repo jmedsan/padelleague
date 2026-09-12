@@ -210,17 +210,9 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 		return alertError(e, "Primero acuerda una fecha y lugar para el partido")
 	}
 
-	scores := e.Request.FormValue("scores")
-	if scores == "" {
-		return alertError(e, "Debes indicar el marcador")
-	}
-
-	if strings.EqualFold(strings.TrimSpace(scores), "WO") {
-		return alertError(e, `Usa el botón de "partido no jugado" para reportarlo`)
-	}
-
-	if _, err := league.ParseScore(scores); err != nil {
-		return alertError(e, "Marcador no válido")
+	scores, err := readScoreForm(e, match.GetString("carried_sets"), "scores")
+	if err != nil {
+		return err
 	}
 
 	if h.rivalHasPendingResult(match, userID) {
@@ -385,16 +377,17 @@ func (h *MatchHandler) detectChanges(e *core.RequestEvent, match *core.Record) (
 }
 
 func (h *MatchHandler) detectScoreChange(e *core.RequestEvent, match *core.Record) ([]string, error) {
-	scores := e.Request.FormValue("scores")
-	if scores == "" {
+	raw := e.Request.FormValue("scores")
+	if raw == "" {
 		return nil, nil
 	}
 	oldScores := match.GetString("scores")
-	if scores == oldScores {
+	if raw == oldScores {
 		return nil, nil
 	}
-	if _, err := league.ParseScore(scores); err != nil {
-		return nil, alertError(e, "Marcador no válido")
+	scores, err := readScoreForm(e, "", "scores")
+	if err != nil {
+		return nil, err
 	}
 	winner, err := league.DetermineWinner(match, scores)
 	if err != nil {
@@ -402,6 +395,7 @@ func (h *MatchHandler) detectScoreChange(e *core.RequestEvent, match *core.Recor
 	}
 	match.Set("scores", scores)
 	match.Set("winner", winner)
+	match.Set("carried_sets", "")
 	if match.GetString("status") != league.StatusFinal {
 		match.Set("status", league.StatusFinal)
 	}

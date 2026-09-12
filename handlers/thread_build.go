@@ -246,6 +246,7 @@ func (bc *threadBuildCtx) resultProposal(msg *core.Record, authorName string, au
 			IDSuffix:  bc.matchID + "-counter-" + msg.Id,
 			Pair1Name: bc.pairNames[bc.match.GetString("pair1")],
 			Pair2Name: bc.pairNames[bc.match.GetString("pair2")],
+			Carried:   bc.match.GetString("carried_sets"),
 		}
 	}
 	return rp

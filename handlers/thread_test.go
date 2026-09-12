@@ -1603,7 +1603,7 @@ func TestRejectResultProposalEmptyCounterRejected(t *testing.T) {
 		Name:            "rejecting result proposal without counter_scores returns error",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Debes proponer un marcador alternativo"},
+		ExpectedContent: []string{"Debes indicar el marcador"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)

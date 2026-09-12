@@ -70,6 +70,7 @@ func New(viewsFS fs.FS, vapidPublicKey string, appDevTools bool) *Renderer {
 			return ifFalse
 		},
 		"scoreWinner": scoreWinner,
+		"scoreNote":   league.ScoreNote,
 		"initials":    Initials,
 		"truncate":    league.Truncate,
 		"hasPrefix":   strings.HasPrefix,
@@ -338,11 +339,15 @@ func startOfDay(t time.Time) time.Time {
 // scoreWinner returns the winning pair's name for a complete, valid padel
 // score, or "" when the score is empty, incomplete, or invalid.
 func scoreWinner(score, pair1Name, pair2Name string) string {
-	s, err := league.ParseScore(score)
+	sc, err := league.ParseScoreMode(score, league.AllowOpenSet)
 	if err != nil {
 		return ""
 	}
-	if s.Sets1 > s.Sets2 {
+	out := league.EvaluateScore(sc)
+	if !out.Won {
+		return ""
+	}
+	if out.WinnerSide == 1 {
 		return pair1Name
 	}
 	return pair2Name
