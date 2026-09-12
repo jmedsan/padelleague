@@ -117,12 +117,12 @@ func TestNotificationConstructors(t *testing.T) {
 		},
 		{
 			name: "MatchUpcoming_FarAhead",
-			got:  NotifMatchUpcoming("m1", time.Date(2026, 6, 15, 18, 0, 0, 0, Madrid), 26*time.Hour, "Padel 360", "Liga Primavera", "Pareja B"),
+			got:  NotifMatchUpcoming(MatchUpcomingParams{MatchID: "m1", Start: time.Date(2026, 6, 15, 18, 0, 0, 0, Madrid), Until: 26 * time.Hour, Venue: "Padel 360", CompName: "Liga Primavera", Opponent: "Pareja B"}),
 			want: Notification{Type: "match_reminder", Title: "Próximo partido", Body: "Tu partido vs Pareja B es el 15/06 a las 18:00 en Padel 360.", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "MatchUpcoming_Soon",
-			got:  NotifMatchUpcoming("m1", time.Date(2026, 6, 15, 18, 0, 0, 0, Madrid), 45*time.Minute, "Padel 360", "Liga Primavera", "Pareja B"),
+			got:  NotifMatchUpcoming(MatchUpcomingParams{MatchID: "m1", Start: time.Date(2026, 6, 15, 18, 0, 0, 0, Madrid), Until: 45 * time.Minute, Venue: "Padel 360", CompName: "Liga Primavera", Opponent: "Pareja B"}),
 			want: Notification{Type: "match_reminder", Title: "Tu partido empieza pronto", Body: "Tu partido vs Pareja B empieza en 45 minutos · 18:00 en Padel 360.", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 	}

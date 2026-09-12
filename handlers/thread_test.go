@@ -746,7 +746,7 @@ func TestProposalChangeDecision(t *testing.T) {
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		require.NoError(tb, app.Save(match))
 		matchID = match.Id
-		insertMatchReminder(tb, app, match.Id, p1.GetString("player1"), 26)
+		insertMatchReminder(tb, app, match.Id, p1.GetString("player1"))
 
 		col, _ := app.FindCollectionByNameOrId("match_messages")
 		msg := core.NewRecord(col)
@@ -792,7 +792,7 @@ func TestProposalChangeDecision_ToAccepted_ClearsReminders(t *testing.T) {
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		require.NoError(tb, app.Save(match))
 		matchID = match.Id
-		insertMatchReminder(tb, app, match.Id, p1.GetString("player1"), 26)
+		insertMatchReminder(tb, app, match.Id, p1.GetString("player1"))
 
 		col, _ := app.FindCollectionByNameOrId("match_messages")
 		msg := core.NewRecord(col)
@@ -968,7 +968,7 @@ func TestAcceptProposal_ClearsMatchReminders(t *testing.T) {
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		require.NoError(tb, app.Save(match))
 		matchID = match.Id
-		insertMatchReminder(tb, app, match.Id, p1.GetString("player1"), 26)
+		insertMatchReminder(tb, app, match.Id, p1.GetString("player1"))
 
 		prop := makeProposal(tb, app, match.Id, p1.GetString("player1"))
 		respondent, _ := app.FindRecordById("users", p2.GetString("player1"))

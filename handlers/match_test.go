@@ -150,7 +150,7 @@ func TestAdminOverrideNewVenue(t *testing.T) {
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		matchID = m.Id
 		require.NoError(tb, app.Save(m))
-		insertMatchReminder(tb, app, m.Id, p1.GetString("player1"), 26)
+		insertMatchReminder(tb, app, m.Id, p1.GetString("player1"))
 		venue := makeVenueTB(tb, app, "Padel Test")
 		s.URL = "/match/" + m.Id + "/admin-override"
 		s.Body = strings.NewReader("venue_id=" + venue.Id)
@@ -784,7 +784,7 @@ func TestAdminOverrideWithDateChange(t *testing.T) {
 		m.Set("time", "18:00")
 		m.Set("club", "Old Club")
 		require.NoError(tb, app.Save(m))
-		insertMatchReminder(tb, app, m.Id, p1.GetString("player1"), 26)
+		insertMatchReminder(tb, app, m.Id, p1.GetString("player1"))
 
 		venue := makeVenueTB(tb, app, "New Club")
 

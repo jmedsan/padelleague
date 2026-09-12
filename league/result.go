@@ -130,99 +130,115 @@ func (svc *Service) ApplyAcceptedResult(match *core.Record, in AcceptedResult) (
 
 	compName := CompetitionName(svc.app, fresh.GetString("competition"))
 
+	c := resultCtx{fresh: fresh, in: in, out: out, scores: scores, compName: compName}
 	if out.Won {
-		svc.applyWon(fresh, in, out, scores, compName)
+		if err := svc.applyWon(c); err != nil {
+			return Outcome{}, err
+		}
 	} else {
-		svc.applyNotWon(fresh, in, out, scores, compName, sc)
+		if err := svc.applyNotWon(c, sc); err != nil {
+			return Outcome{}, err
+		}
 	}
 
 	return out, nil
 }
 
-func (svc *Service) applyWon(fresh *core.Record, in AcceptedResult, out Outcome, scores, compName string) {
-	winnerID := fresh.GetString("pair1")
-	if out.WinnerSide == 2 {
-		winnerID = fresh.GetString("pair2")
-	}
-
-	err := svc.app.RunInTransaction(func(txApp core.App) error {
-		fresh.Set("scores", scores)
-		fresh.Set("winner", winnerID)
-		fresh.Set("status", StatusFinal)
-		fresh.Set("carried_sets", "")
-		if in.ActorID == "" {
-			fresh.Set("dispute_notes", "Auto-confirmado por tiempo de espera")
-		}
-		if err := txApp.Save(fresh); err != nil {
-			return fmt.Errorf("save match: %w", err)
-		}
-
-		in.Proposal.Set("proposal_status", "accepted")
-		if err := txApp.Save(in.Proposal); err != nil {
-			return fmt.Errorf("update proposal: %w", err)
-		}
-
-		return supersedeResults(txApp, fresh.Id, in.Proposal.Id)
-	})
-	if err != nil {
-		slog.Error("apply result: transaction", "match", fresh.Id, "err", err)
-		return
-	}
-
-	if in.ActorID != "" {
-		AddResultAccepted(svc.app, fresh.Id, in.Proposal.Id, in.ActorID, scores)
-	} else {
-		AddSystemResultAccepted(svc.app, fresh.Id, in.Proposal.Id, scores)
-	}
-
-	svc.notifyAccepted(fresh, in, compName)
+type resultCtx struct {
+	fresh            *core.Record
+	in               AcceptedResult
+	out              Outcome
+	scores, compName string
 }
 
-func (svc *Service) applyNotWon(fresh *core.Record, in AcceptedResult, out Outcome, scores, compName string, sc Score) {
+func (svc *Service) logResultAccepted(c resultCtx) {
+	if c.in.ActorID == "" {
+		AddSystemResultAccepted(svc.app, c.fresh.Id, c.in.Proposal.Id, c.scores)
+	} else {
+		AddResultAccepted(svc.app, ResultAcceptedEntry{
+			MatchID:  c.fresh.Id,
+			ParentID: c.in.Proposal.Id,
+			ActorID:  c.in.ActorID,
+			Scores:   c.scores,
+		})
+	}
+}
+
+func (svc *Service) applyWon(c resultCtx) error {
+	winnerID := c.fresh.GetString("pair1")
+	if c.out.WinnerSide == 2 {
+		winnerID = c.fresh.GetString("pair2")
+	}
+
 	err := svc.app.RunInTransaction(func(txApp core.App) error {
-		fresh.Set("carried_sets", out.Carried)
-		fresh.Set("date", "")
-		fresh.Set("time", "")
-		fresh.Set("status", StatusPending)
-		fresh.Set("last_warn_level", 0)
-		fresh.Set("submitted_by", "")
-		fresh.Set("submitted_at", "")
-		if in.ActorID == "" {
-			fresh.Set("dispute_notes", "Auto-confirmado por tiempo de espera")
+		c.fresh.Set("scores", c.scores)
+		c.fresh.Set("winner", winnerID)
+		c.fresh.Set("status", StatusFinal)
+		c.fresh.Set("carried_sets", "")
+		if c.in.ActorID == "" {
+			c.fresh.Set("dispute_notes", "Auto-confirmado por tiempo de espera")
 		}
-		if err := txApp.Save(fresh); err != nil {
+		if err := txApp.Save(c.fresh); err != nil {
 			return fmt.Errorf("save match: %w", err)
 		}
 
-		in.Proposal.Set("proposal_status", "accepted")
-		if err := txApp.Save(in.Proposal); err != nil {
+		c.in.Proposal.Set("proposal_status", "accepted")
+		if err := txApp.Save(c.in.Proposal); err != nil {
 			return fmt.Errorf("update proposal: %w", err)
 		}
 
-		if err := supersedeResults(txApp, fresh.Id, in.Proposal.Id); err != nil {
+		return supersedeResults(txApp, c.fresh.Id, c.in.Proposal.Id)
+	})
+	if err != nil {
+		return fmt.Errorf("apply result: %w", err)
+	}
+
+	svc.logResultAccepted(c)
+	svc.notifyAccepted(c.fresh, c.in, c.compName)
+	return nil
+}
+
+func (svc *Service) applyNotWon(c resultCtx, sc Score) error {
+	err := svc.app.RunInTransaction(func(txApp core.App) error {
+		c.fresh.Set("carried_sets", c.out.Carried)
+		c.fresh.Set("date", "")
+		c.fresh.Set("time", "")
+		c.fresh.Set("status", StatusPending)
+		c.fresh.Set("last_warn_level", 0)
+		c.fresh.Set("submitted_by", "")
+		c.fresh.Set("submitted_at", "")
+		if c.in.ActorID == "" {
+			c.fresh.Set("dispute_notes", "Auto-confirmado por tiempo de espera")
+		}
+		if err := txApp.Save(c.fresh); err != nil {
+			return fmt.Errorf("save match: %w", err)
+		}
+
+		c.in.Proposal.Set("proposal_status", "accepted")
+		if err := txApp.Save(c.in.Proposal); err != nil {
+			return fmt.Errorf("update proposal: %w", err)
+		}
+
+		if err := supersedeResults(txApp, c.fresh.Id, c.in.Proposal.Id); err != nil {
 			return err
 		}
 
-		return supersedeSchedulingProposals(txApp, fresh.Id)
+		return supersedeSchedulingProposals(txApp, c.fresh.Id)
 	})
 	if err != nil {
-		slog.Error("apply result: transaction (not won)", "match", fresh.Id, "err", err)
-		return
+		return fmt.Errorf("apply result: %w", err)
 	}
 
-	ClearMatchReminders(svc.app, fresh.Id)
+	ClearMatchReminders(svc.app, c.fresh.Id)
 
-	if in.ActorID != "" {
-		AddResultAccepted(svc.app, fresh.Id, in.Proposal.Id, in.ActorID, scores)
-	} else {
-		AddSystemResultAccepted(svc.app, fresh.Id, in.Proposal.Id, scores)
-	}
+	svc.logResultAccepted(c)
 
 	setNum := len(sc.CompletedSets) + 1
-	systemText := fmt.Sprintf("Partido no terminado: %s · se reanuda desde %s, %d.º set desde 0-0", scores, out.Carried, setNum)
-	AddSystemResultEvent(svc.app, fresh.Id, systemText)
+	systemText := fmt.Sprintf("Partido no terminado: %s · se reanuda desde %s, %d.º set desde 0-0", c.scores, c.out.Carried, setNum)
+	AddSystemResultEvent(svc.app, c.fresh.Id, systemText)
 
-	svc.notifyNotWon(fresh, out, compName, sc)
+	svc.notifyNotWon(c.fresh, c.out, c.compName, sc)
+	return nil
 }
 
 func supersedeResults(app core.App, matchID, acceptedID string) error {

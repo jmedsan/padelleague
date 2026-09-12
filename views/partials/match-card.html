@@ -432,7 +432,7 @@
     <span class="{{if .Mode.Row}}text-base{{else}}text-xl{{end}} font-black tracking-wide">{{.Score}}</span>
     {{if $winner}}<span class="text-sm font-medium text-success">Gana {{$winner}}</span>{{end}}
 </div>
-{{if .Note}}<p class="text-sm opacity-60">{{.Note}}</p>{{end}}
+{{with or .Note (scoreNote .Score)}}<p class="text-sm opacity-60">{{.}}</p>{{end}}
 {{end}}
 
 {{/* dateBox — one reusable date/time/place row, with an accepted marker.

@@ -311,7 +311,10 @@ func registerMatchRoutes(se *core.ServeEvent, deps Deps) {
 	se.Router.POST("/match/{id}/admin-override", match.AdminOverride).BindFunc(middleware.RequireAuth).BindFunc(middleware.RequireAppAdmin)
 	se.Router.POST("/match/{id}/report-unplayed", match.ReportUnplayed).BindFunc(middleware.RequireAuth)
 
-	thread := handlers.NewThreadHandler(deps.App, deps.Notifier, deps.LeagueSvc, deps.Renderer.Page, deps.Renderer.Partial)
+	thread := handlers.NewThreadHandler(handlers.ThreadDeps{
+		App: deps.App, Notifier: deps.Notifier, Svc: deps.LeagueSvc,
+		RenderPage: deps.Renderer.Page, RenderPartial: deps.Renderer.Partial,
+	})
 	se.Router.GET("/match/{id}/thread", thread.Thread).BindFunc(middleware.RequireAuth)
 	se.Router.GET("/match/{id}/thread-messages", thread.ThreadMessages).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/match/{id}/thread/message", thread.PostMessage).BindFunc(middleware.RequireAuth)
