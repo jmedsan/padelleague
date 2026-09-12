@@ -98,7 +98,7 @@
                 <div class="grid grid-cols-2 gap-3 mb-3">
                     <div class="form-control">
                         <label class="label py-1" for="override-date-{{.Match.Id}}"><span class="label-text text-sm">Fecha</span></label>
-                        <input type="date" id="override-date-{{.Match.Id}}" name="date" class="input input-bordered input-sm" value="{{printf "%.10s" (.Match.GetString "date")}}">
+                        {{template "datePicker" (dict "ID" (printf "override-date-%s" .Match.Id) "Name" "date" "Value" (printf "%.10s" (.Match.GetString "date")))}}
                     </div>
                     <div class="form-control">
                         <label class="label py-1" for="override-time-{{.Match.Id}}"><span class="label-text text-sm">Hora</span></label>

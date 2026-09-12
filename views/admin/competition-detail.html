@@ -51,11 +51,11 @@
             <div class="grid grid-cols-2 gap-3 mb-3">
                 <div class="form-control">
                     <label class="label" for="edit-comp-start"><span class="label-text">Fecha inicio</span></label>
-                    <input type="date" id="edit-comp-start" name="start_date" value="{{printf "%.10s" (.Competition.GetString "start_date")}}" class="input input-bordered">
+                    {{template "datePicker" (dict "ID" "edit-comp-start" "Name" "start_date" "Value" (printf "%.10s" (.Competition.GetString "start_date")))}}
                 </div>
                 <div class="form-control">
                     <label class="label" for="edit-comp-end"><span class="label-text">Fecha fin</span></label>
-                    <input type="date" id="edit-comp-end" name="end_date" value="{{printf "%.10s" (.Competition.GetString "end_date")}}" class="input input-bordered">
+                    {{template "datePicker" (dict "ID" "edit-comp-end" "Name" "end_date" "Value" (printf "%.10s" (.Competition.GetString "end_date")))}}
                 </div>
             </div>
             <div class="form-control">
@@ -434,8 +434,7 @@
             {{range .RoundDates}}
             <div class="flex items-center gap-3">
                 <label class="text-sm font-medium w-24" for="round_date_{{.Number}}">Jornada {{.Number}}</label>
-                <input type="date" id="round_date_{{.Number}}" name="round_date_{{.Number}}" value="{{.Date}}"
-                       class="input input-bordered input-sm flex-1 max-w-xs">
+                {{template "datePicker" (dict "ID" (printf "round_date_%d" .Number) "Name" (printf "round_date_%d" .Number) "Value" .Date "ExtraClass" "flex-1 max-w-xs")}}
             </div>
             {{end}}
             <div class="mt-3">

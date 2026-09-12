@@ -118,11 +118,11 @@
             <div class="grid grid-cols-2 gap-3 mt-3">
                 <div class="form-control">
                     <label class="label" for="create-comp-start"><span class="label-text font-medium">Fecha inicio</span></label>
-                    <input type="date" id="create-comp-start" name="start_date" class="input input-bordered w-full">
+                    {{template "datePicker" (dict "ID" "create-comp-start" "Name" "start_date" "ExtraClass" "w-full")}}
                 </div>
                 <div class="form-control">
                     <label class="label" for="create-comp-end"><span class="label-text font-medium">Fecha fin</span></label>
-                    <input type="date" id="create-comp-end" name="end_date" class="input input-bordered w-full">
+                    {{template "datePicker" (dict "ID" "create-comp-end" "Name" "end_date" "ExtraClass" "w-full")}}
                 </div>
             </div>
             <div class="divider my-3"></div>
