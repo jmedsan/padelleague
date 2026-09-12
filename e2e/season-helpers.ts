@@ -79,6 +79,14 @@ interface ParsedScore {
   games2: number;
 }
 
+function isValidSet(a: number, b: number): boolean {
+  if (a === b) return false;
+  const hi = Math.max(a, b), lo = Math.min(a, b);
+  if (hi === 6 && lo <= 4) return true;
+  if (hi === 7 && (lo === 5 || lo === 6)) return true;
+  return false;
+}
+
 function parseScore(score: string): ParsedScore {
   const sets = score.trim().split(/\s+/);
   let sets1 = 0, sets2 = 0, games1 = 0, games2 = 0;
@@ -86,8 +94,14 @@ function parseScore(score: string): ParsedScore {
     const [g1, g2] = s.split('-').map(Number);
     games1 += g1;
     games2 += g2;
-    if (g1 > g2) sets1++;
-    else sets2++;
+    if (isValidSet(g1, g2)) {
+      if (g1 > g2) sets1++;
+      else sets2++;
+    } else {
+      // Open set: award to leader (same as TallyScore)
+      if (g1 > g2) sets1++;
+      else if (g2 > g1) sets2++;
+    }
   }
   return { sets1, sets2, games1, games2 };
 }

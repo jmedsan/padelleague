@@ -10,6 +10,9 @@
             {{end}}
         </div>
 
+        {{if .Match.GetString "carried_sets"}}
+        <span class="badge badge-info badge-sm mb-1">Reanudación · desde {{.Match.GetString "carried_sets"}}</span>
+        {{end}}
         {{if .Match.GetString "date"}}
         <div class="flex items-center justify-between gap-2">
             {{template "dateBox" (dict "Date" (.Match.GetString "date") "Time" (.Match.GetString "time") "Place" (.Match.GetString "club"))}}

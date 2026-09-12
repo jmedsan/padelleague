@@ -17,6 +17,7 @@ type ScoreInputVM struct {
 	IDSuffix  string // unique per instance on a page (usually the match ID)
 	Pair1Name string
 	Pair2Name string
+	Carried   string // locked carried sets from a previous session (e.g. "6-3")
 }
 
 // MatchCard is the neutral view-model for a match, rendered by
@@ -40,6 +41,8 @@ type MatchCard struct {
 	DisputerPairName  string
 	ReviewType        string
 	RequestedBy       string
+
+	CarriedSets string
 
 	IsMyMatch bool
 	Opponent  string
@@ -88,6 +91,7 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 		SubmitterPairName: userPairName(app, match.GetString("submitted_by"), match, pairNames),
 		DisputerPairName:  userPairName(app, match.GetString("disputed_by"), match, pairNames),
 		RequestedBy:       playerNameIfSet(app, match.GetString("walkover_requested_by")),
+		CarriedSets:       match.GetString("carried_sets"),
 	}
 	if mode.Editable && !mode.Admin {
 		c.fillPlayerActions(app, match, viewerID)
@@ -166,8 +170,9 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 	}
 
 	mid := match.Id
-	c.ScoreSubmit = ScoreInputVM{FieldName: "scores", IDSuffix: mid, Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
-	c.ScoreCorrect = ScoreInputVM{FieldName: "scores", Value: match.GetString("scores"), IDSuffix: mid + "-correct", Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
+	carried := match.GetString("carried_sets")
+	c.ScoreSubmit = ScoreInputVM{FieldName: "scores", IDSuffix: mid, Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name, Carried: carried}
+	c.ScoreCorrect = ScoreInputVM{FieldName: "scores", Value: match.GetString("scores"), IDSuffix: mid + "-correct", Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name, Carried: carried}
 
 }
 

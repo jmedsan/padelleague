@@ -363,8 +363,8 @@ func tallyScore(t *playerTotals, score string, isPair1 bool) {
 	if strings.EqualFold(strings.TrimSpace(score), "WO") {
 		return
 	}
-	sc, err := ParseScore(score)
-	if err != nil {
+	sc, ok := TallyScore(score)
+	if !ok {
 		return
 	}
 	if isPair1 {

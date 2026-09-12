@@ -14,6 +14,7 @@
         {{if .Match.GetString "date"}}
         {{template "dateBox" (dict "Date" (.Match.GetString "date") "Time" (.Match.GetString "time") "Place" (.Match.GetString "club") "Court" (.Match.GetString "court_number") "Accepted" (or (eq (.Match.GetString "status") "scheduled") (eq (.Match.GetString "status") "final")) "Mode" (dict "Row" true))}}
         {{end}}
+        {{if .CarriedSets}}<span class="badge badge-info badge-sm">Reanudación · desde {{.CarriedSets}}</span>{{end}}
 
         {{if eq (.Match.GetString "status") "final"}}
         {{if .Score}}

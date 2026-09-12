@@ -81,6 +81,7 @@ func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 	match.Set("scores", woScore)
 	match.Set("winner", winnerID)
 	match.Set("status", league.StatusFinal)
+	match.Set("carried_sets", "")
 
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al aprobar la incomparecencia")
@@ -132,9 +133,9 @@ func (h *DisputeHandler) DisputesResolve(e *core.RequestEvent) error {
 		return alertError(e, "Este partido no está en disputa")
 	}
 
-	score := e.Request.FormValue("score")
-	if score == "" {
-		return alertError(e, "Debes ingresar un marcador")
+	score, err := readScoreForm(e, "", "score")
+	if err != nil {
+		return err
 	}
 
 	winnerID, err := league.DetermineWinner(match, score)
