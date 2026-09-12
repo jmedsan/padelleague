@@ -46,7 +46,9 @@ func TestParseScore(t *testing.T) {
 		{"invalid: 1 set", "6-3", 0, 0, 0, 0, true},
 		{"invalid: 4 sets", "6-3 3-6 6-4 6-2", 0, 0, 0, 0, true},
 
-		{"invalid: winner has 3 sets", "6-3 6-4 6-2", 0, 0, 0, 0, true},
+		{"already decided: winner has 3 sets", "6-3 6-4 6-2", 0, 0, 0, 0, true},
+		{"already decided: extra loss set", "6-3 6-4 3-6", 0, 0, 0, 0, true},
+		{"already decided: side-2 variant", "3-6 4-6 2-1", 0, 0, 0, 0, true},
 
 		{"invalid set: 6-5", "6-5 6-3", 0, 0, 0, 0, true},
 		{"tied 7-7", "7-7 6-3", 0, 0, 0, 0, true},
@@ -94,6 +96,11 @@ func TestParseScoreMode_AllowOpenSet(t *testing.T) {
 		{"third set open", "6-3 3-6 5-2", 1, 1, 14, 11, 5, 2, true, false},
 		{"third set open close", "6-3 3-6 4-2", 1, 1, 13, 11, 4, 2, true, false},
 		{"side 2 open lead", "4-6 3-0", 0, 1, 7, 6, 3, 0, true, false},
+		{"tiebreak stripped carried", "7-6(5) 3-3", 1, 0, 10, 9, 3, 3, true, false},
+		{"0-0 alone error", "0-0", 0, 0, 0, 0, 0, 0, false, true},
+		{"4 tokens error", "6-3 3-6 6-4 6-1", 0, 0, 0, 0, 0, 0, false, true},
+		{"7-7 error", "6-3 7-7", 0, 0, 0, 0, 0, 0, false, true},
+		{"already decided open side-2", "3-6 4-6 2-1", 0, 0, 0, 0, 0, 0, false, true},
 	}
 
 	for _, tt := range tests {
@@ -130,6 +137,21 @@ func TestParseScoreMode_StrictRejectsOpenSets(t *testing.T) {
 	}
 }
 
+func TestParseScoreMode_AlreadyDecidedBothModes(t *testing.T) {
+	t.Parallel()
+	cases := []string{"6-3 6-4 6-2", "6-3 6-4 3-6", "3-6 4-6 2-1"}
+	for _, score := range cases {
+		t.Run("strict/"+score, func(t *testing.T) {
+			_, err := ParseScore(score)
+			assert.Error(t, err)
+		})
+		t.Run("lenient/"+score, func(t *testing.T) {
+			_, err := ParseScoreMode(score, AllowOpenSet)
+			assert.Error(t, err)
+		})
+	}
+}
+
 func TestEvaluateScore(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -140,8 +162,8 @@ func TestEvaluateScore(t *testing.T) {
 		carried string
 	}{
 		{"complete 2-0", "6-3 6-4", true, 1, ""},
-		{"rule win 3-game lead", "6-3 4-1", true, 1, "6-3"},
-		{"third set rule win", "6-3 3-6 5-2", true, 1, "6-3 3-6"},
+		{"rule win 3-game lead", "6-3 4-1", true, 1, ""},
+		{"third set rule win", "6-3 3-6 5-2", true, 1, ""},
 		{"third set close no win", "6-3 3-6 4-2", false, 0, "6-3 3-6"},
 		{"side 2 no sets no win", "4-6 3-0", false, 0, "4-6"},
 		{"small lead no win", "6-3 2-1", false, 0, "6-3"},
@@ -149,6 +171,10 @@ func TestEvaluateScore(t *testing.T) {
 		{"1-1 no open no win", "6-3 3-6", false, 0, "6-3 3-6"},
 		{"one set only no win", "6-3", false, 0, "6-3"},
 		{"side 2 wins complete", "3-6 0-6", true, 2, ""},
+		{"side 2 rule win", "3-6 1-4", true, 2, ""},
+		{"side 2 lead but no set", "6-3 1-4", false, 0, "6-3"},
+		{"diff 2 not enough", "6-3 4-2", false, 0, "6-3"},
+		{"tiebreak stripped carried", "7-6(5) 3-3", false, 0, "7-6"},
 	}
 
 	for _, tt := range tests {
@@ -185,6 +211,7 @@ func TestTallyScore(t *testing.T) {
 		{"complete score", "6-3 6-4", 2, 0, 12, 7, true},
 		{"tied open no award", "6-3 3-3", 1, 0, 9, 6, true},
 		{"walkover", "WO", 0, 0, 0, 0, false},
+		{"side 2 rule win", "3-6 1-4", 0, 2, 4, 10, true},
 	}
 
 	for _, tt := range tests {
@@ -205,7 +232,7 @@ func TestTallyScore(t *testing.T) {
 func TestScoreNote(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name string
+		name  string
 		score string
 		want  string
 	}{
@@ -213,6 +240,8 @@ func TestScoreNote(t *testing.T) {
 		{"rule win", "6-3 4-1", "No terminado · finalizado por la regla de los 3 juegos"},
 		{"no winner", "6-3 2-1", "No terminado · se reanudará otro día"},
 		{"no winner 1-1", "6-3 3-6", "No terminado · se reanudará otro día"},
+		{"walkover", "WO", ""},
+		{"garbage", "garbage", ""},
 	}
 
 	for _, tt := range tests {

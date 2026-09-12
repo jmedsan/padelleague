@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// ErrNoWinner indicates the score is valid but no side has won yet.
 var ErrNoWinner = errors.New("league: no winner")
 
 // Outcome is what an accepted score means for the match.
@@ -19,10 +20,10 @@ type Outcome struct {
 // wins; an open-set leader wins only when ahead by 3+ games AND already holding
 // one completed set. Anything else is "no terminado".
 func EvaluateScore(sc Score) Outcome {
-	if sc.Sets1 == 2 && sc.Open == nil {
+	if sc.Sets1 == 2 {
 		return Outcome{Won: true, WinnerSide: 1}
 	}
-	if sc.Sets2 == 2 && sc.Open == nil {
+	if sc.Sets2 == 2 {
 		return Outcome{Won: true, WinnerSide: 2}
 	}
 
@@ -31,10 +32,10 @@ func EvaluateScore(sc Score) Outcome {
 	if sc.Open != nil {
 		diff := sc.Open.G1 - sc.Open.G2
 		if diff >= 3 && sc.Sets1 >= 1 {
-			return Outcome{Won: true, WinnerSide: 1, Carried: carried}
+			return Outcome{Won: true, WinnerSide: 1}
 		}
 		if diff <= -3 && sc.Sets2 >= 1 {
-			return Outcome{Won: true, WinnerSide: 2, Carried: carried}
+			return Outcome{Won: true, WinnerSide: 2}
 		}
 	}
 
@@ -49,16 +50,13 @@ func ScoreNote(score string) string {
 		return ""
 	}
 	out := EvaluateScore(sc)
-	if sc.Open == nil && out.Won {
+	if out.Won && sc.Open == nil {
 		return ""
 	}
 	if out.Won {
 		return "No terminado · finalizado por la regla de los 3 juegos"
 	}
-	if !out.Won && sc.Open == nil && (sc.Sets1+sc.Sets2) > 0 {
-		return "No terminado · se reanudará otro día"
-	}
-	if !out.Won && sc.Open != nil {
+	if sc.Sets1+sc.Sets2 > 0 || sc.Open != nil {
 		return "No terminado · se reanudará otro día"
 	}
 	return ""

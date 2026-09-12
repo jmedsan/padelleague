@@ -13,7 +13,11 @@ import (
 type ParseMode int
 
 const (
-	Complete     ParseMode = iota + 1
+	// Complete requires 2-3 legal sets and a 2-set winner.
+	Complete ParseMode = iota + 1
+	// AllowOpenSet accepts 1-3 sets where every set but the last is legal and
+	// the last may be unfinished (any a-b with 0 ≤ a,b ≤ 6 that is not a
+	// legal finished set, ties included). A trailing 0-0 is dropped.
 	AllowOpenSet
 )
 
@@ -53,30 +57,30 @@ func ParseScoreMode(score string, mode ParseMode) (Score, error) {
 		return Score{}, fmt.Errorf("invalid number of sets: %d", len(parts))
 	}
 
+	s, err := parseSets(parts, mode)
+	if err != nil {
+		return Score{}, err
+	}
+
+	return s, validateParsedScore(s, mode)
+}
+
+func parseSets(parts []string, mode ParseMode) (Score, error) {
 	var s Score
 	for i, part := range parts {
-		isLast := i == len(parts)-1
-
-		g1, g2, err := parseSet(part)
-		if err != nil {
-			if !isLast || mode != AllowOpenSet {
-				return Score{}, err
-			}
-			g1, g2, err = parseOpenSet(part)
-			if err != nil {
-				return Score{}, err
-			}
-			if g1 == 0 && g2 == 0 {
-				continue // trailing 0-0 dropped
-			}
-			if s.Sets1 == 2 || s.Sets2 == 2 {
-				return Score{}, fmt.Errorf("match already won, open set not allowed: %q", part)
-			}
-			s.Open = &OpenSet{G1: g1, G2: g2}
-			s.Games1 += g1
-			s.Games2 += g2
-			continue
+		if s.Sets1 == 2 || s.Sets2 == 2 {
+			return Score{}, fmt.Errorf("match already decided, extra set: %q", part)
 		}
+		if err := parseToken(&s, part, i == len(parts)-1, mode); err != nil {
+			return Score{}, err
+		}
+	}
+	return s, nil
+}
+
+func parseToken(s *Score, part string, isLast bool, mode ParseMode) error {
+	g1, g2, setErr := parseSet(part)
+	if setErr == nil {
 		s.Games1 += g1
 		s.Games2 += g2
 		s.CompletedSets = append(s.CompletedSets, [2]int{g1, g2})
@@ -85,26 +89,42 @@ func ParseScoreMode(score string, mode ParseMode) (Score, error) {
 		} else {
 			s.Sets2++
 		}
+		return nil
 	}
+	if !isLast || mode != AllowOpenSet {
+		return setErr
+	}
+	g1, g2, err := parseOpenSet(part)
+	if err != nil {
+		return err
+	}
+	if g1 == 0 && g2 == 0 {
+		return nil
+	}
+	s.Open = &OpenSet{G1: g1, G2: g2}
+	s.Games1 += g1
+	s.Games2 += g2
+	return nil
+}
 
+func validateParsedScore(s Score, mode ParseMode) error {
 	if mode == Complete {
 		if s.Sets1+s.Sets2 < 2 {
-			return Score{}, fmt.Errorf("invalid number of sets: %d", s.Sets1+s.Sets2)
+			return fmt.Errorf("invalid number of sets: %d", s.Sets1+s.Sets2)
 		}
 		if s.Sets1 != 2 && s.Sets2 != 2 {
-			return Score{}, fmt.Errorf("winner must have exactly 2 sets")
+			return fmt.Errorf("winner must have exactly 2 sets")
 		}
-	} else {
-		total := s.Sets1 + s.Sets2
-		if s.Open != nil {
-			total++
-		}
-		if total == 0 {
-			return Score{}, fmt.Errorf("empty score")
-		}
+		return nil
 	}
-
-	return s, nil
+	total := s.Sets1 + s.Sets2
+	if s.Open != nil {
+		total++
+	}
+	if total == 0 {
+		return fmt.Errorf("empty score")
+	}
+	return nil
 }
 
 func parseOpenSet(part string) (int, int, error) {
