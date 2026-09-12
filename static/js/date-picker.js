@@ -1,48 +1,52 @@
 (function() {
-    var isDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-    if (!isDesktop) return;
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
 
-    document.querySelectorAll('.date-calendar-dropdown').forEach(function(dd) {
-        dd.classList.remove('hidden');
-    });
+    function initWrap(wrap) {
+        if (wrap.dataset.dpInit) return;
+        wrap.dataset.dpInit = '1';
 
-    function syncCalendarFromInput(wrap) {
+        var dd = wrap.querySelector('.date-calendar-dropdown');
+        if (dd) dd.classList.remove('hidden');
+
         var input = wrap.querySelector('input[type="date"]');
         var cal = wrap.querySelector('calendar-date');
         if (!input || !cal) return;
-        if (input.value) {
-            cal.setAttribute('value', input.value);
-        }
+
+        if (input.value) cal.setAttribute('value', input.value);
         if (input.min) cal.setAttribute('min', input.min);
         if (input.max) cal.setAttribute('max', input.max);
+
+        input.addEventListener('change', function() {
+            cal.setAttribute('value', input.value);
+        });
+
+        cal.addEventListener('change', function() {
+            input.value = cal.value;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            var label = wrap.querySelector('label[tabindex]');
+            if (label) label.blur();
+        });
     }
 
-    function init() {
-        document.querySelectorAll('.date-picker-wrap').forEach(syncCalendarFromInput);
+    function initAll() {
+        document.querySelectorAll('.date-picker-wrap').forEach(initWrap);
     }
 
-    document.addEventListener('change', function(e) {
-        if (!e.target.matches('.date-picker-wrap input[type="date"]')) return;
-        var wrap = e.target.closest('.date-picker-wrap');
-        if (wrap) syncCalendarFromInput(wrap);
+    var observer = new MutationObserver(function(mutations) {
+        for (var i = 0; i < mutations.length; i++) {
+            for (var j = 0; j < mutations[i].addedNodes.length; j++) {
+                var node = mutations[i].addedNodes[j];
+                if (node.nodeType !== 1) continue;
+                if (node.classList && node.classList.contains('date-picker-wrap')) {
+                    initWrap(node);
+                } else if (node.querySelectorAll) {
+                    node.querySelectorAll('.date-picker-wrap').forEach(initWrap);
+                }
+            }
+        }
     });
 
-    document.addEventListener('change', function(e) {
-        if (!e.target.matches('calendar-date')) return;
-        var wrap = e.target.closest('.date-picker-wrap');
-        if (!wrap) return;
-        var input = wrap.querySelector('input[type="date"]');
-        if (!input) return;
-        input.value = e.target.value;
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-
-        var dd = wrap.querySelector('.dropdown-content');
-        if (dd) dd.blur();
-        var label = wrap.querySelector('label[tabindex]');
-        if (label) label.blur();
-    });
-
-    init();
-    document.body.addEventListener('htmx:afterSettle', init);
+    observer.observe(document.body, { childList: true, subtree: true });
+    initAll();
 })();
