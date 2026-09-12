@@ -51,6 +51,9 @@ func setupCompRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
 	g.POST("/disputes/{id}/resolve", dispute.DisputesResolve)
 	g.POST("/disputes/{id}/walkover-approve", dispute.WalkoverApprove)
+
+	pairs := NewPairHandler(app, r.Page)
+	g.POST("/pairs/{id}", pairs.PairsUpdate)
 }
 
 func TestCompUpdate(t *testing.T) {
@@ -851,6 +854,104 @@ func TestDisputeResolve(t *testing.T) {
 		assert.Equal(tb, "final", m.GetString("status"))
 		assert.Equal(tb, "6-3 6-4", m.GetString("scores"))
 		assert.Equal(tb, p1ID, m.GetString("winner"))
+	}
+	s.Test(t)
+}
+
+func TestPairsUpdateRejectsOverlappingPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/pairs/{id} rejects overlapping player",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"ya participa en otra pareja"},
+	}
+	var pair2ID, playerCID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+
+		playerA := makeUserTB(tb, app, "PlayerA", "")
+		playerB := makeUserTB(tb, app, "PlayerB", "")
+		playerC := makeUserTB(tb, app, "PlayerC", "")
+		playerD := makeUserTB(tb, app, "PlayerD", "")
+
+		col, err := app.FindCollectionByNameOrId("pairs")
+		require.NoError(tb, err)
+
+		pair1 := core.NewRecord(col)
+		pair1.Set("name", "Pair1")
+		pair1.Set("player1", playerA.Id)
+		pair1.Set("player2", playerB.Id)
+		require.NoError(tb, app.Save(pair1))
+
+		pair2 := core.NewRecord(col)
+		pair2.Set("name", "Pair2")
+		pair2.Set("player1", playerC.Id)
+		pair2.Set("player2", playerD.Id)
+		require.NoError(tb, app.Save(pair2))
+
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair1, pair2})
+		_ = comp
+
+		pair2ID = pair2.Id
+		playerCID = playerC.Id
+
+		s.URL = "/admin/pairs/" + pair2.Id
+		s.Body = strings.NewReader("player1=" + playerA.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		pair2, err := app.FindRecordById("pairs", pair2ID)
+		require.NoError(tb, err)
+		assert.Equal(tb, playerCID, pair2.GetString("player1"))
+	}
+	s.Test(t)
+}
+
+func TestPairsUpdateAllowsNonOverlapping(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/pairs/{id} allows non-overlapping update",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+
+		playerA := makeUserTB(tb, app, "PlayerA", "")
+		playerB := makeUserTB(tb, app, "PlayerB", "")
+		playerC := makeUserTB(tb, app, "PlayerC", "")
+		playerD := makeUserTB(tb, app, "PlayerD", "")
+
+		col, err := app.FindCollectionByNameOrId("pairs")
+		require.NoError(tb, err)
+
+		pair1 := core.NewRecord(col)
+		pair1.Set("name", "Pair1")
+		pair1.Set("player1", playerA.Id)
+		pair1.Set("player2", playerB.Id)
+		require.NoError(tb, app.Save(pair1))
+
+		pair2 := core.NewRecord(col)
+		pair2.Set("name", "Pair2")
+		pair2.Set("player1", playerC.Id)
+		pair2.Set("player2", playerD.Id)
+		require.NoError(tb, app.Save(pair2))
+
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair1, pair2})
+		_ = comp
+
+		s.URL = "/admin/pairs/" + pair2.Id
+		s.Body = strings.NewReader("name=RenamedPair")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
 	}
 	s.Test(t)
 }
