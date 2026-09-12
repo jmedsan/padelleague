@@ -29,8 +29,8 @@ func TestMatchStart(t *testing.T) {
 		{"empty date", "", "18:00", false, 0, 0},
 		{"empty time", "2026-09-14", "", false, 0, 0},
 		{"bad time format", "2026-09-14", "18h", false, 0, 0},
-		{"bad time accepts partial", "2026-09-14", "18:0x", false, 0, 0},
-		{"DST spring forward", "2026-03-29", "02:30", true, 3, 30},
+		{"bad time rejects partial", "2026-09-14", "18:0x", false, 0, 0},
+		{"DST spring forward normalized", "2026-03-29", "02:30", true, 3, 30},
 	}
 
 	for _, tt := range tests {
@@ -56,24 +56,25 @@ func TestParseReminderHours(t *testing.T) {
 		name    string
 		raw     string
 		want    []int
-		wantErr bool
+		wantErr error
 	}{
-		{"empty", "", nil, false},
-		{"spaces only", "   ", nil, false},
-		{"single", "26", []int{26}, false},
-		{"two values", "26, 1", []int{26, 1}, false},
-		{"dedup", "26, 1, 26", []int{26, 1}, false},
-		{"unsorted input", "1, 26, 12", []int{26, 12, 1}, false},
-		{"over max hours", "200", nil, true},
-		{"over max count", "1, 2, 3, 4, 5, 6", nil, true},
-		{"non-number", "abc", nil, true},
-		{"zero", "0", nil, true},
+		{"empty", "", nil, nil},
+		{"spaces only", "   ", nil, nil},
+		{"single", "26", []int{26}, nil},
+		{"two values", "26, 1", []int{26, 1}, nil},
+		{"dedup", "26, 1, 26", []int{26, 1}, nil},
+		{"unsorted input", "1, 26, 12", []int{26, 12, 1}, nil},
+		{"over max hours", "200", nil, ErrReminderHoursRange},
+		{"zero", "0", nil, ErrReminderHoursRange},
+		{"over max count", "1, 2, 3, 4, 5, 6", nil, ErrReminderHoursCount},
+		{"non-number", "abc", nil, ErrReminderHoursFormat},
+		{"empty commas", "1,,2,,,,", []int{2, 1}, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ParseReminderHours(tt.raw)
-			if tt.wantErr {
-				assert.Error(t, err)
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
 			} else {
 				require.NoError(t, err)
 				assert.Equal(t, tt.want, got)
@@ -84,8 +85,7 @@ func TestParseReminderHours(t *testing.T) {
 
 func TestReminderHours_Precedence(t *testing.T) {
 	app := newTestApp(t)
-
-	settings := LoadSettings(app)
+	t.Cleanup(InvalidateSettingsCache)
 
 	makeUserWithPrefs := func(t *testing.T, prefs map[string]any) *core.Record {
 		t.Helper()
@@ -119,8 +119,7 @@ func TestReminderHours_Precedence(t *testing.T) {
 
 	t.Run("global settings", func(t *testing.T) {
 		u := makeUserWithPrefs(t, nil)
-		s := settings
-		s.MatchReminderHours = []int{48, 2}
+		s := AppSettings{MatchReminderHours: []int{48, 2}}
 		got := ReminderHours(u, nil, s)
 		assert.Equal(t, []int{48, 2}, got)
 	})
@@ -128,8 +127,7 @@ func TestReminderHours_Precedence(t *testing.T) {
 	t.Run("competition overrides global", func(t *testing.T) {
 		u := makeUserWithPrefs(t, nil)
 		comp := compWithHours(t, []int{12, 3})
-		s := settings
-		s.MatchReminderHours = []int{48, 2}
+		s := AppSettings{MatchReminderHours: []int{48, 2}}
 		got := ReminderHours(u, comp, s)
 		assert.Equal(t, []int{12, 3}, got)
 	})
@@ -137,15 +135,45 @@ func TestReminderHours_Precedence(t *testing.T) {
 	t.Run("user overrides competition", func(t *testing.T) {
 		u := makeUserWithPrefs(t, map[string]any{"match_reminder_hours": []int{4}})
 		comp := compWithHours(t, []int{12, 3})
-		got := ReminderHours(u, comp, settings)
+		got := ReminderHours(u, comp, AppSettings{MatchReminderHours: []int{26, 1}})
 		assert.Equal(t, []int{4}, got)
 	})
 
 	t.Run("user empty list means no reminders", func(t *testing.T) {
 		u := makeUserWithPrefs(t, map[string]any{"match_reminder_hours": []int{}})
 		comp := compWithHours(t, []int{12, 3})
-		got := ReminderHours(u, comp, settings)
+		got := ReminderHours(u, comp, AppSettings{MatchReminderHours: []int{26, 1}})
 		assert.Equal(t, []int{}, got)
+	})
+}
+
+func TestUserReminderHours_EdgeCases(t *testing.T) {
+	app := newTestApp(t)
+
+	t.Run("truncates float", func(t *testing.T) {
+		u := makeUser(t, app, "Test", "")
+		u.Set("notification_prefs", `{"match_reminder_hours":[2.5, 26.9]}`)
+		require.NoError(t, app.Save(u))
+		hours, ok := userReminderHours(u)
+		require.True(t, ok)
+		assert.Equal(t, []int{26, 2}, hours)
+	})
+
+	t.Run("null value", func(t *testing.T) {
+		u := makeUser(t, app, "Test", "")
+		u.Set("notification_prefs", `{"match_reminder_hours":null}`)
+		require.NoError(t, app.Save(u))
+		_, ok := userReminderHours(u)
+		assert.False(t, ok)
+	})
+
+	t.Run("filters out of range", func(t *testing.T) {
+		u := makeUser(t, app, "Test", "")
+		u.Set("notification_prefs", `{"match_reminder_hours":[0, 200, 26]}`)
+		require.NoError(t, app.Save(u))
+		hours, ok := userReminderHours(u)
+		require.True(t, ok)
+		assert.Equal(t, []int{26}, hours)
 	})
 }
 
@@ -153,39 +181,24 @@ func TestDueReminderHours(t *testing.T) {
 	tests := []struct {
 		name       string
 		hours      []int
-		untilHours float64
+		untilStart time.Duration
 		want       []int
 	}{
-		{"exactly 26h", []int{26, 1}, 26, []int{26}},
-		{"just over 26h", []int{26, 1}, 26.001, nil},
-		{"at 1h", []int{26, 1}, 1, []int{26, 1}},
+		{"exactly 26h", []int{26, 1}, 26 * time.Hour, []int{26}},
+		{"just over 26h", []int{26, 1}, 26*time.Hour + time.Second, nil},
+		{"at 1h", []int{26, 1}, 1 * time.Hour, []int{26, 1}},
 		{"past start", []int{26, 1}, 0, nil},
-		{"negative", []int{26, 1}, -1, nil},
-		{"between tiers", []int{26, 1}, 2, []int{26}},
-		{"far out", []int{26, 1}, 100, nil},
+		{"negative", []int{26, 1}, -1 * time.Hour, nil},
+		{"between tiers", []int{26, 1}, 2 * time.Hour, []int{26}},
+		{"far out", []int{26, 1}, 100 * time.Hour, nil},
+		{"just under 1h", []int{26, 1}, 59 * time.Minute, []int{26, 1}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := DueReminderHours(tt.hours, tt.untilHours)
+			got := DueReminderHours(tt.hours, tt.untilStart)
 			assert.Equal(t, tt.want, got)
 		})
 	}
-}
-
-func TestDueReminderHours_Boundary(t *testing.T) {
-	hours := []int{26, 1}
-
-	got := DueReminderHours(hours, 26.0)
-	assert.Contains(t, got, 26)
-
-	got = DueReminderHours(hours, 26.001)
-	assert.NotContains(t, got, 26)
-
-	got = DueReminderHours(hours, 1.0)
-	assert.Contains(t, got, 1)
-
-	got = DueReminderHours(hours, 1.001)
-	assert.NotContains(t, got, 1)
 }
 
 func TestClearMatchReminders(t *testing.T) {
@@ -226,9 +239,6 @@ func TestMatchStart_DST(t *testing.T) {
 
 	got, ok := MatchStart(m)
 	require.True(t, ok)
-
-	_, offset := got.Zone()
-	_ = offset
 	assert.Equal(t, "Europe/Madrid", got.Location().String())
 	expected := time.Date(2026, 3, 29, 2, 30, 0, 0, Madrid)
 	assert.True(t, got.Equal(expected), "got %v, want %v", got, expected)

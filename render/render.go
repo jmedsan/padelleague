@@ -243,7 +243,6 @@ var dateLayouts = []string{
 	"2006-01-02",
 }
 
-
 // FmtDate parses a date string and returns it in Spanish DD/MM/YYYY format.
 // Timestamps with an explicit UTC marker (Z or +00:00) are converted to
 // Europe/Madrid; wall-clock values from datetime-local inputs are rendered
