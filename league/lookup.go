@@ -130,7 +130,6 @@ func SettingsLogoURL(_, filename string) string {
 	return "/logo/league"
 }
 
-// PlayersForPair returns the user IDs of both players in a pair.
 // MatchPlayersExcluding returns all player user IDs from both pairs of a match,
 // excluding the given user ID.
 func MatchPlayersExcluding(app core.App, match *core.Record, excludeID string) []string {
@@ -145,6 +144,7 @@ func MatchPlayersExcluding(app core.App, match *core.Record, excludeID string) [
 	return out
 }
 
+// PlayersForPair returns the user IDs of both players in a pair.
 func PlayersForPair(app core.App, pairID string) []string {
 	pair, err := app.FindRecordById("pairs", pairID)
 	if err != nil {
