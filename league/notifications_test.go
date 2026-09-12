@@ -16,7 +16,7 @@ func TestNotificationConstructors(t *testing.T) {
 		{
 			name: "ResultSubmitted",
 			got:  NotifResultSubmitted("m1", "Pareja A", "Liga Primavera", "6-2 6-2"),
-			want: Notification{Type: "quorum_request", Title: "Resultado enviado", Body: "Pareja A ha enviado 6-2 6-2 · Liga Primavera. Confirma o contrapropón.", MatchID: "m1"},
+			want: Notification{Type: "quorum_request", Title: "Resultado enviado", Body: "Pareja A ha enviado 6-2 6-2. Confirma o contrapropón.", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "MatchReportedUnplayed",
@@ -26,17 +26,17 @@ func TestNotificationConstructors(t *testing.T) {
 		{
 			name: "ResultConfirmed",
 			got:  NotifResultConfirmed("m1", "Pareja A", "Liga Primavera"),
-			want: Notification{Type: "general", Title: "Resultado confirmado", Body: "Pareja A ha confirmado el resultado · Liga Primavera.", MatchID: "m1"},
+			want: Notification{Type: "general", Title: "Resultado confirmado", Body: "Pareja A ha confirmado el resultado", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "ResultCorrected",
 			got:  NotifResultCorrected("m1", "Pareja A", "Liga Primavera"),
-			want: Notification{Type: "quorum_request", Title: "Resultado corregido", Body: "Pareja A ha corregido el resultado · Liga Primavera.", MatchID: "m1"},
+			want: Notification{Type: "quorum_request", Title: "Resultado corregido", Body: "Pareja A ha corregido el resultado", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "ResultCountered",
 			got:  NotifResultCountered("m1", "Pareja A", "Liga Primavera"),
-			want: Notification{Type: "quorum_request", Title: "Contrapropuesta recibida", Body: "Pareja A ha propuesto un resultado alternativo · Liga Primavera.", MatchID: "m1"},
+			want: Notification{Type: "quorum_request", Title: "Contrapropuesta recibida", Body: "Pareja A ha propuesto un resultado alternativo", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "NewMessage",
@@ -63,7 +63,7 @@ func TestNotificationConstructors(t *testing.T) {
 		{
 			name: "ProposalRejected",
 			got:  NotifProposalRejected("m1", "María", "No puedo ese día", "Liga Primavera"),
-			want: Notification{Type: "scheduling", Title: "Propuesta rechazada", Body: "María rechazó tu propuesta: No puedo ese día", MatchID: "m1", CompName: "Liga Primavera"},
+			want: Notification{Type: "scheduling", Title: "Propuesta rechazada", Body: "María ha rechazado tu propuesta: No puedo ese día", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "DecisionChangedToRejected",
@@ -88,12 +88,12 @@ func TestNotificationConstructors(t *testing.T) {
 		{
 			name: "WalkoverApproved",
 			got:  NotifWalkoverApproved("m1", "Liga Primavera"),
-			want: Notification{Type: "general", Title: "Incomparecencia aprobada", Body: "Incomparecencia aprobada · Liga Primavera.", MatchID: "m1"},
+			want: Notification{Type: "general", Title: "Incomparecencia aprobada", Body: "El administrador ha aprobado la incomparecencia", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "DisputeResolved",
 			got:  NotifDisputeResolved("m1", "Liga Primavera"),
-			want: Notification{Type: "dispute", Title: "Disputa resuelta", Body: "Disputa resuelta · Liga Primavera.", MatchID: "m1"},
+			want: Notification{Type: "dispute", Title: "Disputa resuelta", Body: "El administrador ha resuelto la disputa", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "AdminMatchUnplayed",
