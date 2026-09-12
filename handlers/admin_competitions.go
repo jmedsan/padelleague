@@ -87,6 +87,46 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 	return h.renderPage(e, "admin/competition-detail.html", data)
 }
 
+func applyCompFormFields(record *core.Record, e *core.RequestEvent, clearReminderIfEmpty bool) error {
+	if v := e.Request.FormValue("quorum_timeout_hours"); v != "" {
+		hours, err := strconv.Atoi(v)
+		if err != nil {
+			return alertError(e, "Tiempo de espera debe ser un número")
+		}
+		record.Set("quorum_timeout_hours", hours)
+	}
+	if raw := e.Request.FormValue("match_reminder_hours"); raw != "" {
+		rh, err := league.ParseReminderHours(raw)
+		if err != nil {
+			return alertError(e, "Recordatorios: usa horas separadas por comas (p. ej. 26, 1)")
+		}
+		record.Set("match_reminder_hours", rh)
+	} else if clearReminderIfEmpty {
+		record.Set("match_reminder_hours", nil)
+	}
+	if msg := setSchedulingFields(record, e); msg != "" {
+		return alertError(e, msg)
+	}
+	return nil
+}
+
+func applyCompIdentity(record *core.Record, e *core.RequestEvent) string {
+	name := strings.TrimSpace(e.Request.FormValue("name"))
+	if name == "" {
+		return "El nombre es obligatorio"
+	}
+	record.Set("name", name)
+	record.Set("type", e.Request.FormValue("type"))
+	record.Set("active", e.Request.FormValue("active") == "on")
+	record.Set("play_twice", e.Request.FormValue("play_twice") == "on")
+	gt := e.Request.FormValue("gender_type")
+	if gt == "" {
+		gt = "free"
+	}
+	record.Set("gender_type", gt)
+	return ""
+}
+
 // Create handles POST to create a new competition.
 func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 	col, err := h.app.FindCollectionByNameOrId("competitions")
@@ -95,38 +135,11 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 	}
 
 	record := core.NewRecord(col)
-	name := strings.TrimSpace(e.Request.FormValue("name"))
-	if name == "" {
-		return alertError(e, "El nombre es obligatorio")
-	}
-	record.Set("name", name)
-	record.Set("type", e.Request.FormValue("type"))
-	record.Set("active", e.Request.FormValue("active") == "on")
-	record.Set("play_twice", e.Request.FormValue("play_twice") == "on")
-	if gt := e.Request.FormValue("gender_type"); gt != "" {
-		record.Set("gender_type", gt)
-	} else {
-		record.Set("gender_type", "free")
-	}
-
-	if v := e.Request.FormValue("quorum_timeout_hours"); v != "" {
-		hours, err := strconv.Atoi(v)
-		if err != nil {
-			return alertError(e, "Tiempo de espera debe ser un número")
-		}
-		record.Set("quorum_timeout_hours", hours)
-	}
-
-	if raw := e.Request.FormValue("match_reminder_hours"); raw != "" {
-		rh, err := league.ParseReminderHours(raw)
-		if err != nil {
-			return alertError(e, "Recordatorios: usa horas separadas por comas (p. ej. 26, 1)")
-		}
-		record.Set("match_reminder_hours", rh)
-	}
-
-	if msg := setSchedulingFields(record, e); msg != "" {
+	if msg := applyCompIdentity(record, e); msg != "" {
 		return alertError(e, msg)
+	}
+	if err := applyCompFormFields(record, e, false); err != nil {
+		return err
 	}
 
 	if err := h.app.Save(record); err != nil {
@@ -175,26 +188,8 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 		record.Set("gender_type", gt)
 	}
 
-	if v := e.Request.FormValue("quorum_timeout_hours"); v != "" {
-		hours, err := strconv.Atoi(v)
-		if err != nil {
-			return alertError(e, "Tiempo de espera debe ser un número")
-		}
-		record.Set("quorum_timeout_hours", hours)
-	}
-
-	if raw := e.Request.FormValue("match_reminder_hours"); raw != "" {
-		rh, err := league.ParseReminderHours(raw)
-		if err != nil {
-			return alertError(e, "Recordatorios: usa horas separadas por comas (p. ej. 26, 1)")
-		}
-		record.Set("match_reminder_hours", rh)
-	} else {
-		record.Set("match_reminder_hours", nil)
-	}
-
-	if msg := setSchedulingFields(record, e); msg != "" {
-		return alertError(e, msg)
+	if err := applyCompFormFields(record, e, true); err != nil {
+		return err
 	}
 
 	if err := h.app.Save(record); err != nil {

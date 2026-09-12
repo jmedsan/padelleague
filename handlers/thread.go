@@ -24,9 +24,18 @@ type ThreadHandler struct {
 	renderPartial RenderFunc
 }
 
+// ThreadDeps holds the dependencies for a ThreadHandler.
+type ThreadDeps struct {
+	App           core.App
+	Notifier      *notify.Notifier
+	Svc           *league.Service
+	RenderPage    RenderFunc
+	RenderPartial RenderFunc
+}
+
 // NewThreadHandler creates a ThreadHandler with the given dependencies.
-func NewThreadHandler(app core.App, notifier *notify.Notifier, svc *league.Service, renderPage RenderFunc, renderPartial RenderFunc) *ThreadHandler {
-	return &ThreadHandler{app: app, notifier: notifier, svc: svc, renderPage: renderPage, renderPartial: renderPartial}
+func NewThreadHandler(d ThreadDeps) *ThreadHandler {
+	return &ThreadHandler{app: d.App, notifier: d.Notifier, svc: d.Svc, renderPage: d.RenderPage, renderPartial: d.RenderPartial}
 }
 
 // ProposalData holds parsed scheduling proposal details from a thread message.
@@ -528,7 +537,7 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 	return nil
 }
 
-func (h *ThreadHandler) acceptResultProposal(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
+func (h *ThreadHandler) acceptResultProposal(e *core.RequestEvent, match, msg *core.Record, _ string) error {
 	_, err := h.svc.ApplyAcceptedResult(match, league.AcceptedResult{
 		Proposal: msg,
 		ActorID:  e.Auth.Id,

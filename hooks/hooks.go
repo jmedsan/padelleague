@@ -117,13 +117,34 @@ func checkMatchReminders(app core.App, notifier *notify.Notifier, now time.Time)
 		return
 	}
 
+	rc := reminderCtx{app: app, notifier: notifier, settings: settings}
 	compCache := map[string]*core.Record{}
 	for _, m := range matches {
-		remindMatch(app, notifier, m, compCache, settings, now)
+		rc.remindMatch(m, compCache, now)
 	}
 }
 
-func remindMatch(app core.App, notifier *notify.Notifier, m *core.Record, compCache map[string]*core.Record, settings league.AppSettings, now time.Time) {
+func resolveComp(app core.App, compID string, cache map[string]*core.Record) (*core.Record, bool) {
+	comp, cached := cache[compID]
+	if cached {
+		return comp, comp.GetString("calendar_status") == "published"
+	}
+	var err error
+	comp, err = app.FindRecordById("competitions", compID)
+	if err != nil {
+		return nil, false
+	}
+	cache[compID] = comp
+	return comp, comp.GetString("calendar_status") == "published"
+}
+
+type reminderCtx struct {
+	app      core.App
+	notifier *notify.Notifier
+	settings league.AppSettings
+}
+
+func (rc reminderCtx) remindMatch(m *core.Record, compCache map[string]*core.Record, now time.Time) {
 	start, ok := league.MatchStart(m)
 	if !ok {
 		slog.Warn("match reminders: unparsable start", "match", m.Id)
@@ -134,52 +155,62 @@ func remindMatch(app core.App, notifier *notify.Notifier, m *core.Record, compCa
 		return
 	}
 
-	compID := m.GetString("competition")
-	comp, cached := compCache[compID]
-	if !cached {
-		var err error
-		comp, err = app.FindRecordById("competitions", compID)
-		if err != nil {
-			return
-		}
-		compCache[compID] = comp
-	}
-	if comp.GetString("calendar_status") != "published" {
+	comp, ok := resolveComp(rc.app, m.GetString("competition"), compCache)
+	if !ok {
 		return
 	}
 
-	compName := comp.GetString("name")
-	venue := m.GetString("club")
 	pair1ID := m.GetString("pair1")
 	pair2ID := m.GetString("pair2")
-	pairNames := league.PairNames(app, []string{pair1ID, pair2ID})
+	pairNames := league.PairNames(rc.app, []string{pair1ID, pair2ID})
 
 	type side struct {
 		players  []string
 		opponent string
 	}
 	sides := []side{
-		{league.PlayersForPair(app, pair1ID), pairNames[pair2ID]},
-		{league.PlayersForPair(app, pair2ID), pairNames[pair1ID]},
+		{league.PlayersForPair(rc.app, pair1ID), pairNames[pair2ID]},
+		{league.PlayersForPair(rc.app, pair2ID), pairNames[pair1ID]},
 	}
 
+	venue := m.GetString("club")
+	compName := comp.GetString("name")
 	for _, s := range sides {
-		for _, uid := range s.players {
-			user, err := app.FindRecordById("users", uid)
-			if err != nil {
-				continue
-			}
-			hours := league.ReminderHours(user, comp, settings)
-			due := league.DueReminderHours(hours, until)
-			if len(due) == 0 {
-				continue
-			}
-			if !claimReminders(app, m.Id, uid, due) {
-				continue
-			}
-			notifier.NotifyPlayers([]string{uid},
-				league.NotifMatchUpcoming(m.Id, start, until, venue, compName, s.opponent))
+		rc.remindSide(remindSideArgs{
+			match: m, comp: comp, venue: venue, compName: compName,
+			start: start, until: until, players: s.players, opponent: s.opponent,
+		})
+	}
+}
+
+type remindSideArgs struct {
+	match, comp     *core.Record
+	venue, compName string
+	start           time.Time
+	until           time.Duration
+	players         []string
+	opponent        string
+}
+
+func (rc reminderCtx) remindSide(a remindSideArgs) {
+	for _, uid := range a.players {
+		user, err := rc.app.FindRecordById("users", uid)
+		if err != nil {
+			continue
 		}
+		hours := league.ReminderHours(user, a.comp, rc.settings)
+		due := league.DueReminderHours(hours, a.until)
+		if len(due) == 0 {
+			continue
+		}
+		if !claimReminders(rc.app, a.match.Id, uid, due) {
+			continue
+		}
+		rc.notifier.NotifyPlayers([]string{uid},
+			league.NotifMatchUpcoming(league.MatchUpcomingParams{
+				MatchID: a.match.Id, Start: a.start, Until: a.until,
+				Venue: a.venue, CompName: a.compName, Opponent: a.opponent,
+			}))
 	}
 }
 

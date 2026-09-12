@@ -38,9 +38,15 @@ func AddSystemResultAccepted(app core.App, matchID, parentID, scores string) {
 	}
 }
 
+// ResultAcceptedEntry holds the fields for a result-accepted timeline entry.
+type ResultAcceptedEntry struct {
+	MatchID, ParentID, ActorID, Scores string
+}
+
 // AddResultAccepted writes an actor-attributed timeline entry recording that
 // a player accepted a result proposal.
-func AddResultAccepted(app core.App, matchID, parentID, actorID, scores string) {
+func AddResultAccepted(app core.App, e ResultAcceptedEntry) {
+	matchID, parentID, actorID, scores := e.MatchID, e.ParentID, e.ActorID, e.Scores
 	col, err := app.FindCollectionByNameOrId("match_messages")
 	if err != nil {
 		slog.Error("timeline: find match_messages collection", "err", err)

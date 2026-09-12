@@ -46,25 +46,25 @@ func TestReadScoreForm(t *testing.T) {
 
 	t.Run("partial score rejected without checkbox", func(t *testing.T) {
 		e, w := makeScoreReq(url.Values{"scores": {"2-1"}})
-		readScoreForm(e, "6-3", "scores")
+		_, _ = readScoreForm(e, "6-3", "scores")
 		assert.Contains(t, w.Body.String(), "Marcador no válido")
 	})
 
 	t.Run("empty score rejected", func(t *testing.T) {
 		e, w := makeScoreReq(url.Values{"scores": {""}})
-		readScoreForm(e, "", "scores")
+		_, _ = readScoreForm(e, "", "scores")
 		assert.Contains(t, w.Body.String(), "Debes indicar el marcador")
 	})
 
 	t.Run("WO rejected", func(t *testing.T) {
 		e, w := makeScoreReq(url.Values{"scores": {"WO"}})
-		readScoreForm(e, "", "scores")
+		_, _ = readScoreForm(e, "", "scores")
 		assert.Contains(t, w.Body.String(), "partido no jugado")
 	})
 
 	t.Run("admin partial no-winner rejected without checkbox", func(t *testing.T) {
 		e, w := makeScoreReq(url.Values{"scores": {"6-3 2-1"}})
-		readScoreForm(e, "", "scores")
+		_, _ = readScoreForm(e, "", "scores")
 		assert.Contains(t, w.Body.String(), "Marcador no válido")
 	})
 

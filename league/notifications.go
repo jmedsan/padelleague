@@ -208,27 +208,34 @@ func NotifCalendarPublished(compID, compName string) Notification {
 	}
 }
 
+// MatchUpcomingParams holds the dynamic parts for an upcoming-match reminder.
+type MatchUpcomingParams struct {
+	MatchID, Venue, CompName, Opponent string
+	Start                              time.Time
+	Until                              time.Duration
+}
+
 // NotifMatchUpcoming is the time-relative upcoming-match reminder.
-func NotifMatchUpcoming(matchID string, start time.Time, until time.Duration, venue, compName, opponent string) Notification {
-	dateStr := start.In(Madrid).Format("02/01")
-	timeStr := start.In(Madrid).Format("15:04")
+func NotifMatchUpcoming(p MatchUpcomingParams) Notification {
+	dateStr := p.Start.In(Madrid).Format("02/01")
+	timeStr := p.Start.In(Madrid).Format("15:04")
 
 	var title, body string
-	if until > 2*time.Hour {
+	if p.Until > 2*time.Hour {
 		title = "Próximo partido"
-		body = fmt.Sprintf("Tu partido vs %s es el %s a las %s en %s.", opponent, dateStr, timeStr, venue)
+		body = fmt.Sprintf("Tu partido vs %s es el %s a las %s en %s.", p.Opponent, dateStr, timeStr, p.Venue)
 	} else {
 		title = "Tu partido empieza pronto"
-		remaining := formatRemaining(until)
-		body = fmt.Sprintf("Tu partido vs %s empieza %s · %s en %s.", opponent, remaining, timeStr, venue)
+		remaining := formatRemaining(p.Until)
+		body = fmt.Sprintf("Tu partido vs %s empieza %s · %s en %s.", p.Opponent, remaining, timeStr, p.Venue)
 	}
 
 	return Notification{
 		Type:     "match_reminder",
 		Title:    title,
 		Body:     body,
-		MatchID:  matchID,
-		CompName: compName,
+		MatchID:  p.MatchID,
+		CompName: p.CompName,
 	}
 }
 

@@ -106,19 +106,6 @@ func (svc *Service) acceptProposalIfExpired(proposal, m, comp *core.Record) {
 	}
 }
 
-func (svc *Service) supersedeSiblingResults(matchID, acceptedID string) {
-	siblings, _ := svc.app.FindRecordsByFilter("match_messages",
-		"match = {:mid} && type = 'result_submission' && proposal_status = 'pending' && id != {:eid}",
-		"", 0, 0,
-		map[string]any{"mid": matchID, "eid": acceptedID})
-	for _, s := range siblings {
-		s.Set("proposal_status", "superseded")
-		if err := svc.app.Save(s); err != nil {
-			slog.Error("auto-accept: supersede sibling result", "id", s.Id, "err", err)
-		}
-	}
-}
-
 func parseProposalScores(pdJSON string) string {
 	if pdJSON == "" {
 		return ""

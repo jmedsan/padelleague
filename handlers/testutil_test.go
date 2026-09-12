@@ -272,7 +272,10 @@ func setupAllRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	e.Router.POST("/match/{id}/admin-override", match.AdminOverride).BindFunc(requireAuthTest)
 	e.Router.POST("/match/{id}/report-unplayed", match.ReportUnplayed).BindFunc(requireAuthTest)
 
-	thread := NewThreadHandler(app, notifier, svc, r.Page, r.Partial)
+	thread := NewThreadHandler(ThreadDeps{
+		App: app, Notifier: notifier, Svc: svc,
+		RenderPage: r.Page, RenderPartial: r.Partial,
+	})
 	e.Router.GET("/match/{id}/thread", thread.Thread).BindFunc(requireAuthTest)
 	e.Router.GET("/match/{id}/thread-messages", thread.ThreadMessages).BindFunc(requireAuthTest)
 	e.Router.POST("/match/{id}/thread/message", thread.PostMessage).BindFunc(requireAuthTest)
@@ -403,14 +406,14 @@ func makeMatchTB(t testing.TB, app core.App, compID, p1ID, p2ID, status string) 
 	return record
 }
 
-func insertMatchReminder(t testing.TB, app core.App, matchID, userID string, hoursBefore int) {
+func insertMatchReminder(t testing.TB, app core.App, matchID, userID string) {
 	t.Helper()
 	col, err := app.FindCollectionByNameOrId("match_reminders")
 	require.NoError(t, err)
 	rec := core.NewRecord(col)
 	rec.Set("match", matchID)
 	rec.Set("user", userID)
-	rec.Set("hours_before", hoursBefore)
+	rec.Set("hours_before", 26)
 	require.NoError(t, app.Save(rec))
 }
 
