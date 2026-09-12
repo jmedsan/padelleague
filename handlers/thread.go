@@ -447,7 +447,7 @@ func (h *ThreadHandler) dispatchProposalAction(e *core.RequestEvent, match, msg 
 	}
 }
 
-func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
+func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Record, _ string) error {
 	existing := findRecordsLogged(h.app, "acceptProposal: find accepted proposals", RecordQuery{
 		Collection: "match_messages", Filter: "match = {:mid} && proposal_status = 'accepted'",
 		Params: map[string]any{"mid": match.Id},
@@ -675,7 +675,7 @@ func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.
 	return nil
 }
 
-func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
+func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.Record, _ string) error {
 	existing := findRecordsLogged(h.app, "changeToAccepted: find accepted proposals", RecordQuery{
 		Collection: "match_messages", Filter: "match = {:mid} && proposal_status = 'accepted'",
 		Limit: 1, Params: map[string]any{"mid": match.Id},
