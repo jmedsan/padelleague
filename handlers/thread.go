@@ -532,7 +532,13 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
-	notif := league.NotifProposalRejected(match.Id, league.PlayerName(h.app, e.Auth.Id), reason, compName)
+	notifReason := reason
+	if reason == "Otro" && text != "" {
+		notifReason = text
+	} else if reason == "Otro" {
+		notifReason = ""
+	}
+	notif := league.NotifProposalRejected(match.Id, league.PlayerName(h.app, e.Auth.Id), notifReason, compName)
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
 	return nil
 }

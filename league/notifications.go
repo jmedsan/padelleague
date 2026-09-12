@@ -8,9 +8,11 @@ import (
 // NotifResultSubmitted notifies the rival that a score was submitted.
 func NotifResultSubmitted(matchID, opponent, compName, score string) Notification {
 	return Notification{
-		Type: "quorum_request", Title: "Resultado enviado",
-		Body:    fmt.Sprintf("%s ha enviado %s · %s. Confirma o contrapropón.", opponent, score, compName),
-		MatchID: matchID,
+		Type:     "quorum_request",
+		Title:    "Resultado enviado",
+		Body:     fmt.Sprintf("%s ha enviado %s. Confirma o contrapropón.", opponent, score),
+		MatchID:  matchID,
+		CompName: compName,
 	}
 }
 
@@ -27,27 +29,33 @@ func NotifMatchReportedUnplayed(matchID, compName string) Notification {
 // NotifResultConfirmed notifies the submitter that the rival confirmed the score.
 func NotifResultConfirmed(matchID, opponent, compName string) Notification {
 	return Notification{
-		Type: "general", Title: "Resultado confirmado",
-		Body:    fmt.Sprintf("%s ha confirmado el resultado · %s.", opponent, compName),
-		MatchID: matchID,
+		Type:     "general",
+		Title:    "Resultado confirmado",
+		Body:     fmt.Sprintf("%s ha confirmado el resultado", opponent),
+		MatchID:  matchID,
+		CompName: compName,
 	}
 }
 
 // NotifResultCorrected notifies the rival that the score was corrected.
 func NotifResultCorrected(matchID, opponent, compName string) Notification {
 	return Notification{
-		Type: "quorum_request", Title: "Resultado corregido",
-		Body:    fmt.Sprintf("%s ha corregido el resultado · %s.", opponent, compName),
-		MatchID: matchID,
+		Type:     "quorum_request",
+		Title:    "Resultado corregido",
+		Body:     fmt.Sprintf("%s ha corregido el resultado", opponent),
+		MatchID:  matchID,
+		CompName: compName,
 	}
 }
 
 // NotifResultCountered notifies the original proposer that their result was countered.
 func NotifResultCountered(matchID, opponent, compName string) Notification {
 	return Notification{
-		Type: "quorum_request", Title: "Contrapropuesta recibida",
-		Body:    fmt.Sprintf("%s ha propuesto un resultado alternativo · %s.", opponent, compName),
-		MatchID: matchID,
+		Type:     "quorum_request",
+		Title:    "Contrapropuesta recibida",
+		Body:     fmt.Sprintf("%s ha propuesto un resultado alternativo", opponent),
+		MatchID:  matchID,
+		CompName: compName,
 	}
 }
 
@@ -100,9 +108,13 @@ func NotifProposalAccepted(p ProposalAcceptedParams) Notification {
 
 // NotifProposalRejected notifies the proposer that their proposal was rejected.
 func NotifProposalRejected(matchID, responderName, reason, compName string) Notification {
+	body := responderName + " ha rechazado tu propuesta"
+	if reason != "" {
+		body += ": " + reason
+	}
 	return Notification{
 		Type: "scheduling", Title: "Propuesta rechazada",
-		Body:     fmt.Sprintf("%s rechazó tu propuesta: %s", responderName, reason),
+		Body:     body,
 		MatchID:  matchID,
 		CompName: compName,
 	}
@@ -160,18 +172,22 @@ func NotifSchedulingReminder(p SchedulingReminderParams) Notification {
 // NotifWalkoverApproved notifies players that an admin approved a walkover.
 func NotifWalkoverApproved(matchID, compName string) Notification {
 	return Notification{
-		Type: "general", Title: "Incomparecencia aprobada",
-		Body:    fmt.Sprintf("Incomparecencia aprobada · %s.", compName),
-		MatchID: matchID,
+		Type:     "general",
+		Title:    "Incomparecencia aprobada",
+		Body:     "El administrador ha aprobado la incomparecencia",
+		MatchID:  matchID,
+		CompName: compName,
 	}
 }
 
 // NotifDisputeResolved notifies players that an admin resolved the dispute.
 func NotifDisputeResolved(matchID, compName string) Notification {
 	return Notification{
-		Type: "dispute", Title: "Disputa resuelta",
-		Body:    fmt.Sprintf("Disputa resuelta · %s.", compName),
-		MatchID: matchID,
+		Type:     "dispute",
+		Title:    "Disputa resuelta",
+		Body:     "El administrador ha resuelto la disputa",
+		MatchID:  matchID,
+		CompName: compName,
 	}
 }
 

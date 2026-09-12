@@ -345,6 +345,16 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 		Kind: "admin_action", Detail: strings.Join(changes, "; "),
 	})
 
+	compName := league.CompetitionName(h.app, match.GetString("competition"))
+	allPlayers := league.MatchPlayersExcluding(h.app, match, "")
+	h.notifier.NotifyPlayers(allPlayers, league.Notification{
+		Type:     "general",
+		Title:    "Corrección de administrador",
+		Body:     strings.Join(changes, ". "),
+		MatchID:  id,
+		CompName: compName,
+	})
+
 	return redirectHX(e, "/match/"+id)
 }
 
