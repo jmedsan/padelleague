@@ -38,7 +38,7 @@ export const SCORE_MATRIX: PlannedMatch[] = [
   { home: 'B', away: 'C', score: '6-2 6-2' },       // 1:  B wins 2-0
   { home: 'A', away: 'C', score: '6-3 6-3' },       // 2:  A wins 2-0
   { home: 'D', away: 'B', score: '6-4 6-4' },       // 3:  D wins 2-0
-  { home: 'A', away: 'B', score: '6-3 6-3' },       // 4:  A wins 2-0
+  { home: 'A', away: 'B', score: '6-3 4-1' },       // 4:  A wins via rule (1 set + 3-game lead)
   { home: 'C', away: 'D', score: '6-3 6-4' },       // 5:  C wins 2-0
   { home: 'D', away: 'A', score: '4-6 6-3 6-4' },   // 6:  D wins 2-1
   { home: 'C', away: 'B', score: '4-6 4-6' },       // 7:  B wins 2-0

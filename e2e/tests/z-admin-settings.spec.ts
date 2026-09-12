@@ -113,4 +113,23 @@ test.describe('admin settings', () => {
     const readRow = dropdown.locator('a:not(.font-medium)').first();
     await expect(readRow).toBeVisible();
   });
+
+  test('admin can configure match reminder hours', async ({ page }) => {
+    await expect(page.locator('#settings-reminder-hours')).toBeVisible();
+    const original = await page.locator('#settings-reminder-hours').inputValue();
+
+    // Set custom reminder hours
+    await page.locator('#settings-reminder-hours').fill('24, 2');
+    await page.click('button:has-text("Guardar")');
+    await page.waitForLoadState('domcontentloaded');
+
+    // Verify the value persisted
+    await expect(page.locator('#settings-reminder-hours')).toHaveValue('24, 2');
+
+    // Restore original value
+    await page.locator('#settings-reminder-hours').fill(original);
+    await page.click('button:has-text("Guardar")');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('#settings-reminder-hours')).toHaveValue(original);
+  });
 });
