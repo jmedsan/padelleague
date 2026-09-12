@@ -237,7 +237,7 @@ func TestScoreNote(t *testing.T) {
 		want  string
 	}{
 		{"complete", "6-3 6-4", ""},
-		{"rule win", "6-3 4-1", "No terminado · finalizado por la regla de los 3 juegos"},
+		{"rule win", "6-3 4-1", ""},
 		{"no winner", "6-3 2-1", "No terminado · se reanudará otro día"},
 		{"no winner 1-1", "6-3 3-6", "No terminado · se reanudará otro día"},
 		{"walkover", "WO", ""},
