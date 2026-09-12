@@ -496,12 +496,12 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 		Data:     pd,
 	})
 
-	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	notif := league.NotifProposalAccepted(league.ProposalAcceptedParams{
 		MatchID: match.Id, ResponderName: league.PlayerName(h.app, e.Auth.Id), Date: pd.Date, Time: pd.Time, CompName: compName,
 	})
-	h.notifier.NotifyPlayers(proposerPlayers, notif)
+	allPlayers := league.MatchPlayersExcluding(h.app, match, e.Auth.Id)
+	h.notifier.NotifyPlayers(allPlayers, notif)
 	return nil
 }
 
@@ -708,12 +708,12 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 		Data:     pd,
 	})
 
-	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	notif := league.NotifDecisionChangedToAccepted(league.DecisionChangedToAcceptedParams{
 		MatchID: match.Id, ResponderName: league.PlayerName(h.app, e.Auth.Id), Date: pd.Date, Time: pd.Time, CompName: compName,
 	})
-	h.notifier.NotifyPlayers(proposerPlayers, notif)
+	allPlayers := league.MatchPlayersExcluding(h.app, match, e.Auth.Id)
+	h.notifier.NotifyPlayers(allPlayers, notif)
 	return nil
 }
 
