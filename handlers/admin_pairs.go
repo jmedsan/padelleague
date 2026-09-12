@@ -123,6 +123,14 @@ func (h *PairHandler) PairsUpdate(e *core.RequestEvent) error {
 		return alertError(e, "Los dos jugadores deben ser diferentes")
 	}
 
+	comps, _ := h.app.FindRecordsByFilter("competitions",
+		"pairs ~ {:pid}", "", 0, 0, map[string]any{"pid": id})
+	for _, comp := range comps {
+		if err := validatePlayerUniqueness(h.app, comp.GetStringSlice("pairs"), pair, id); err != nil {
+			return alertError(e, "Un jugador de esta pareja ya participa en otra pareja de "+comp.GetString("name"))
+		}
+	}
+
 	if err := h.app.Save(pair); err != nil {
 		return alertError(e, "Error al actualizar la pareja")
 	}
