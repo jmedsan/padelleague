@@ -17,8 +17,8 @@ type AppSettings struct {
 	PlayTwice            bool
 	GenderType           string
 	InviteMaxUses        int
-	InviteExpirationDays   int
-	MatchReminderHours     []int
+	InviteExpirationDays int
+	MatchReminderHours   []int
 }
 
 var (

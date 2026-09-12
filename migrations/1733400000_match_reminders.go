@@ -47,7 +47,7 @@ func init() {
 		col.Fields.Add(
 			&core.RelationField{Name: "match", CollectionId: matches.Id, Required: true, MaxSelect: 1, CascadeDelete: true},
 			&core.RelationField{Name: "user", CollectionId: users.Id, Required: true, MaxSelect: 1, CascadeDelete: true},
-			&core.NumberField{Name: "hours_before", Required: true, Min: matchReminderMinHours(1)},
+			&core.NumberField{Name: "hours_before", Required: true, Min: floatPtr(1)},
 			&core.AutodateField{Name: "created", OnCreate: true},
 		)
 		col.Indexes = types.JSONArray[string]{
@@ -68,16 +68,18 @@ func init() {
 
 		if comps, err := app.FindCollectionByNameOrId("competitions"); err == nil {
 			comps.Fields.RemoveByName("match_reminder_hours")
-			_ = app.Save(comps)
+			if err := app.Save(comps); err != nil {
+				return err
+			}
 		}
 
 		if settings, err := app.FindCollectionByNameOrId("app_settings"); err == nil {
 			settings.Fields.RemoveByName("match_reminder_hours")
-			_ = app.Save(settings)
+			if err := app.Save(settings); err != nil {
+				return err
+			}
 		}
 
 		return nil
 	})
 }
-
-func matchReminderMinHours(v float64) *float64 { return &v }

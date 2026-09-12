@@ -106,7 +106,6 @@ func remindCompetitionMatches(app core.App, notifier *notify.Notifier, comp *cor
 	}
 }
 
-
 // checkMatchDayReminders sends a "your match is tomorrow" notification to
 // both pairs of every match with a confirmed date (status = scheduled)
 // falling on the next calendar day, at most once per match.

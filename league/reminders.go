@@ -2,11 +2,12 @@ package league
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
+	"log/slog"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -16,6 +17,15 @@ const (
 	defaultReminderHoursSecond = 1
 	maxReminderHours           = 168
 	maxReminderCount           = 5
+)
+
+var (
+	// ErrReminderHoursRange is returned when a reminder hour is outside 1..168.
+	ErrReminderHoursRange = errors.New("reminder hours must be between 1 and 168")
+	// ErrReminderHoursCount is returned when more than 5 reminder tiers are given.
+	ErrReminderHoursCount = errors.New("at most 5 reminder tiers allowed")
+	// ErrReminderHoursFormat is returned when the input is not comma-separated integers.
+	ErrReminderHoursFormat = errors.New("reminder hours must be comma-separated integers")
 )
 
 // ReminderHours returns the hours-before list for a user in a competition:
@@ -54,7 +64,7 @@ func userReminderHours(user *core.Record) ([]int, bool) {
 		return nil, false
 	}
 	var floats []float64
-	if json.Unmarshal(val, &floats) != nil {
+	if json.Unmarshal(val, &floats) != nil || floats == nil {
 		return nil, false
 	}
 	hours := make([]int, 0, len(floats))
@@ -75,9 +85,6 @@ func ParseReminderHours(raw string) ([]int, error) {
 		return nil, nil
 	}
 	parts := strings.Split(raw, ",")
-	if len(parts) > maxReminderCount {
-		return nil, fmt.Errorf("máximo %d recordatorios", maxReminderCount)
-	}
 	var hours []int
 	for _, p := range parts {
 		p = strings.TrimSpace(p)
@@ -86,14 +93,18 @@ func ParseReminderHours(raw string) ([]int, error) {
 		}
 		n, err := strconv.Atoi(p)
 		if err != nil {
-			return nil, fmt.Errorf("%q no es un número válido", p)
+			return nil, ErrReminderHoursFormat
 		}
 		if n < 1 || n > maxReminderHours {
-			return nil, fmt.Errorf("las horas deben estar entre 1 y %d", maxReminderHours)
+			return nil, ErrReminderHoursRange
 		}
 		hours = append(hours, n)
 	}
-	return dedupSortDesc(hours), nil
+	result := dedupSortDesc(hours)
+	if len(result) > maxReminderCount {
+		return nil, ErrReminderHoursCount
+	}
+	return result, nil
 }
 
 // FormatReminderHours renders a list as "26, 1" for form prefill.
@@ -106,14 +117,14 @@ func FormatReminderHours(hours []int) string {
 }
 
 // DueReminderHours returns the tiers due now: every h in hours where
-// untilStart <= h*hour and untilStart > 0.
-func DueReminderHours(hours []int, untilStart float64) []int {
+// untilStart <= h*time.Hour and untilStart > 0.
+func DueReminderHours(hours []int, untilStart time.Duration) []int {
 	if untilStart <= 0 {
 		return nil
 	}
 	var due []int
 	for _, h := range hours {
-		if untilStart <= float64(h) {
+		if untilStart <= time.Duration(h)*time.Hour {
 			due = append(due, h)
 		}
 	}
@@ -125,10 +136,13 @@ func ClearMatchReminders(app core.App, matchID string) {
 	rows, err := app.FindRecordsByFilter("match_reminders",
 		"match = {:mid}", "", 0, 0, map[string]any{"mid": matchID})
 	if err != nil {
+		slog.Error("clear match reminders: query", "match", matchID, "err", err)
 		return
 	}
 	for _, r := range rows {
-		_ = app.Delete(r)
+		if err := app.Delete(r); err != nil {
+			slog.Error("clear match reminders: delete", "match", matchID, "reminder", r.Id, "err", err)
+		}
 	}
 }
 
@@ -141,6 +155,6 @@ func dedupSortDesc(hours []int) []int {
 			result = append(result, h)
 		}
 	}
-	sort.Sort(sort.Reverse(sort.IntSlice(result)))
+	slices.SortFunc(result, func(a, b int) int { return b - a })
 	return slices.Clip(result)
 }
