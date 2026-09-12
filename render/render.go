@@ -243,14 +243,6 @@ var dateLayouts = []string{
 	"2006-01-02",
 }
 
-var madrid = func() *time.Location {
-	loc, err := time.LoadLocation("Europe/Madrid")
-	if err != nil {
-		slog.Error("render: failed to load Europe/Madrid timezone, falling back to UTC", "err", err)
-		return time.UTC
-	}
-	return loc
-}()
 
 // FmtDate parses a date string and returns it in Spanish DD/MM/YYYY format.
 // Timestamps with an explicit UTC marker (Z or +00:00) are converted to
@@ -269,7 +261,7 @@ func FmtDate(raw string) string {
 			return t.Format("02/01/2006")
 		}
 		if hasExplicitUTC(raw) {
-			t = t.In(madrid)
+			t = t.In(league.Madrid)
 		}
 		return t.Format("02/01/2006 15:04")
 	}
@@ -305,12 +297,12 @@ func RelDate(raw string) string {
 		return raw
 	}
 	if hasExplicitUTC(raw) {
-		parsed = parsed.In(madrid)
+		parsed = parsed.In(league.Madrid)
 	}
 
-	today := startOfDay(time.Now().In(madrid))
+	today := startOfDay(time.Now().In(league.Madrid))
 	y, m, d := parsed.Date()
-	target := time.Date(y, m, d, 0, 0, 0, 0, madrid)
+	target := time.Date(y, m, d, 0, 0, 0, 0, league.Madrid)
 	days := int(target.Sub(today).Hours() / 24)
 
 	hasTime := parsed.Hour() != 0 || parsed.Minute() != 0 || parsed.Second() != 0
@@ -319,7 +311,7 @@ func RelDate(raw string) string {
 			return label
 		}
 		if hasExplicitUTC(raw) {
-			parsed = parsed.In(madrid)
+			parsed = parsed.In(league.Madrid)
 		}
 		return label + " " + parsed.Format("15:04")
 	}
@@ -360,7 +352,7 @@ func scoreWinner(score, pair1Name, pair2Name string) string {
 // FmtTime formats a time.Time in Europe/Madrid as DD/MM/YYYY, appending
 // HH:MM when the local time is not midnight.
 func FmtTime(t time.Time) string {
-	t = t.In(madrid)
+	t = t.In(league.Madrid)
 	if t.Hour() == 0 && t.Minute() == 0 {
 		return t.Format("02/01/2006")
 	}
@@ -369,7 +361,7 @@ func FmtTime(t time.Time) string {
 
 // FmtShortTime formats a time.Time in Europe/Madrid as DD/MM HH:MM.
 func FmtShortTime(t time.Time) string {
-	return t.In(madrid).Format("02/01 15:04")
+	return t.In(league.Madrid).Format("02/01 15:04")
 }
 
 // Partial renders an HTML fragment without the site layout.

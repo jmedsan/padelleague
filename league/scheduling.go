@@ -275,7 +275,8 @@ func RoundArrangeDate(comp *core.Record, roundNumber int) (time.Time, bool) {
 	return RecommendedArrangeBy(start, end, rounds, roundNumber)
 }
 
-var madrid = func() *time.Location {
+// Madrid is the league's display timezone.
+var Madrid = func() *time.Location {
 	loc, err := time.LoadLocation("Europe/Madrid")
 	if err != nil {
 		return time.UTC
@@ -283,6 +284,31 @@ var madrid = func() *time.Location {
 	return loc
 }()
 
+// MatchStart combines the match's date and time fields into an instant in
+// Europe/Madrid. ok is false when either field is missing or malformed.
+func MatchStart(m *core.Record) (time.Time, bool) {
+	dateStr := m.GetString("date")
+	if dateStr == "" {
+		return time.Time{}, false
+	}
+	if len(dateStr) > 10 {
+		dateStr = dateStr[:10]
+	}
+	d, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		return time.Time{}, false
+	}
+	timeStr := m.GetString("time")
+	if timeStr == "" {
+		return time.Time{}, false
+	}
+	t, err := time.Parse("15:04", timeStr)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return time.Date(d.Year(), d.Month(), d.Day(), t.Hour(), t.Minute(), 0, 0, Madrid), true
+}
+
 func fmtShortDate(t time.Time) string {
-	return t.In(madrid).Format("02/01")
+	return t.In(Madrid).Format("02/01")
 }

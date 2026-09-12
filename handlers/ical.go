@@ -21,33 +21,23 @@ func NewICalHandler(app core.App) *ICalHandler {
 	return &ICalHandler{app: app}
 }
 
-// madrid is the league's fixed timezone for event times. Northflank's system
-// clock runs UTC, so time.Local cannot be used to mean "Spain time."
-var madrid = func() *time.Location {
-	loc, err := time.LoadLocation("Europe/Madrid")
-	if err != nil {
-		return time.UTC
+func formatICalDate(m *core.Record) (string, string) {
+	start, ok := league.MatchStart(m)
+	if !ok {
+		dateStr := m.GetString("date")
+		if dateStr == "" {
+			return "", ""
+		}
+		if len(dateStr) > 10 {
+			dateStr = dateStr[:10]
+		}
+		d, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			return "", ""
+		}
+		start = time.Date(d.Year(), d.Month(), d.Day(), 19, 0, 0, 0, league.Madrid)
 	}
-	return loc
-}()
-
-func formatICalDate(dateStr, timeStr string) (string, string) {
-	if len(dateStr) > 10 {
-		dateStr = dateStr[:10]
-	}
-	t, err := time.Parse("2006-01-02", dateStr)
-	if err != nil {
-		return "", ""
-	}
-
-	hour, min := 19, 0
-	if timeStr != "" {
-		_, _ = fmt.Sscanf(timeStr, "%d:%d", &hour, &min)
-	}
-
-	start := time.Date(t.Year(), t.Month(), t.Day(), hour, min, 0, 0, madrid)
 	end := start.Add(2 * time.Hour)
-
 	const icalFmt = "20060102T150405"
 	return start.Format(icalFmt), end.Format(icalFmt)
 }
@@ -119,7 +109,7 @@ func (h *ICalHandler) Match(e *core.RequestEvent) error {
 		match.GetString("pair2"),
 	})
 
-	dtStart, dtEnd := formatICalDate(dateStr, match.GetString("time"))
+	dtStart, dtEnd := formatICalDate(match)
 	if dtStart == "" {
 		return e.String(http.StatusBadRequest, "Formato de fecha inválido")
 	}
@@ -202,7 +192,7 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 
 	var events strings.Builder
 	for _, m := range datedMatches {
-		dtStart, dtEnd := formatICalDate(m.GetString("date"), m.GetString("time"))
+		dtStart, dtEnd := formatICalDate(m)
 		if dtStart == "" {
 			continue
 		}

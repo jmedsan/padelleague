@@ -1,6 +1,7 @@
 package league
 
 import (
+	"encoding/json"
 	"sync"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -16,7 +17,8 @@ type AppSettings struct {
 	PlayTwice            bool
 	GenderType           string
 	InviteMaxUses        int
-	InviteExpirationDays int
+	InviteExpirationDays   int
+	MatchReminderHours     []int
 }
 
 var (
@@ -35,6 +37,7 @@ func DefaultSettings() AppSettings {
 		GenderType:           "free",
 		InviteMaxUses:        10,
 		InviteExpirationDays: 7,
+		MatchReminderHours:   []int{defaultReminderHoursFirst, defaultReminderHoursSecond},
 	}
 }
 
@@ -65,6 +68,15 @@ func LoadSettings(app core.App) AppSettings {
 		GenderType:           r.GetString("gender_type"),
 		InviteMaxUses:        int(r.GetFloat("invite_max_uses")),
 		InviteExpirationDays: int(r.GetFloat("invite_expiration_days")),
+	}
+	if raw := r.GetString("match_reminder_hours"); raw != "" {
+		var hours []int
+		if json.Unmarshal([]byte(raw), &hours) == nil && len(hours) > 0 {
+			s.MatchReminderHours = hours
+		}
+	}
+	if len(s.MatchReminderHours) == 0 {
+		s.MatchReminderHours = []int{defaultReminderHoursFirst, defaultReminderHoursSecond}
 	}
 	if s.WalkoverScore == "" {
 		s.WalkoverScore = "6-0 6-0"
