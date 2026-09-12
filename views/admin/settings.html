@@ -72,6 +72,11 @@
                 <label class="label" for="settings-recovery"><span class="label-text font-medium">Período extra (días)</span></label>
                 <input type="number" id="settings-recovery" name="recovery_days" value="{{.Settings.RecoveryDays}}" min="0" class="input input-bordered w-full">
             </div>
+            <div class="form-control w-full mt-3">
+                <label class="label" for="settings-reminder-hours"><span class="label-text font-medium">Recordatorios de partido (horas antes)</span></label>
+                <input type="text" id="settings-reminder-hours" name="match_reminder_hours" value="{{.ReminderHoursDisplay}}" class="input input-bordered w-full" placeholder="26, 1">
+                <label class="label"><span class="label-text-alt opacity-50">Separar con comas. Ej: 26, 1 = aviso 26h y 1h antes</span></label>
+            </div>
             <div class="form-control mt-3">
                 <label class="label cursor-pointer justify-start gap-3">
                     <input type="checkbox" name="play_twice" class="checkbox checkbox-sm" {{if .Settings.PlayTwice}}checked{{end}}>

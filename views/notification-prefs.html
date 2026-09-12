@@ -84,6 +84,43 @@
                         <input type="checkbox" name="scheduling" class="toggle toggle-primary" {{if index .Prefs "scheduling"}}checked{{end}}>
                     </label>
                 </div>
+                <div class="form-control">
+                    <label class="label cursor-pointer">
+                        <span class="label-text">Recordatorios de partido</span>
+                        <input type="checkbox" name="match_reminder" class="toggle toggle-primary" {{if index .Prefs "match_reminder"}}checked{{end}}>
+                    </label>
+                </div>
+                <div class="divider my-1"></div>
+                <h2 class="font-semibold text-sm uppercase tracking-wide text-base-content/60">Recordatorios de partido</h2>
+                <p class="text-sm opacity-70">
+                    {{if .ReminderCustom}}Personalizado{{else}}Por defecto de la liga{{end}}
+                </p>
+                <div class="flex flex-wrap gap-2 mt-1">
+                    {{range .ReminderHours}}
+                    <form method="POST" action="/profile/notifications" class="inline">
+                        <input type="hidden" name="reminder_action" value="remove">
+                        <input type="hidden" name="remove_hours" value="{{.}}">
+                        <span class="badge badge-lg gap-1">
+                            {{.}}h
+                            <button type="submit" class="btn btn-xs btn-circle btn-ghost min-h-[44px] min-w-[44px]" aria-label="Quitar {{.}}h">&times;</button>
+                        </span>
+                    </form>
+                    {{end}}
+                </div>
+                <div class="flex items-center gap-2 mt-2">
+                    <form method="POST" action="/profile/notifications" class="flex items-center gap-2">
+                        <input type="hidden" name="reminder_action" value="add">
+                        <input type="number" name="add_hours" min="1" max="168" class="input input-sm input-bordered w-20" placeholder="Horas">
+                        <span class="text-sm opacity-60">horas</span>
+                        <button type="submit" class="btn btn-sm btn-outline min-h-[44px]">Añadir</button>
+                    </form>
+                </div>
+                {{if .ReminderCustom}}
+                <form method="POST" action="/profile/notifications" class="mt-2">
+                    <input type="hidden" name="reminder_action" value="reset">
+                    <button type="submit" class="btn btn-sm btn-ghost">Restablecer a valores por defecto</button>
+                </form>
+                {{end}}
                 {{if .AdminView}}
                 <div class="divider my-1"></div>
                 <h2 class="font-semibold text-sm uppercase tracking-wide text-base-content/60">Administrador</h2>

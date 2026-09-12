@@ -83,6 +83,7 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"FooterCompetitionID": id,
 	}
 	h.addDetailExtras(data, comp, matches, fileTokenFor(e))
+	data["CompReminderHoursDisplay"] = compReminderHoursDisplay(comp)
 	return h.renderPage(e, "admin/competition-detail.html", data)
 }
 
@@ -114,6 +115,14 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 			return alertError(e, "Tiempo de espera debe ser un número")
 		}
 		record.Set("quorum_timeout_hours", hours)
+	}
+
+	if raw := e.Request.FormValue("match_reminder_hours"); raw != "" {
+		rh, err := league.ParseReminderHours(raw)
+		if err != nil {
+			return alertError(e, "Recordatorios: usa horas separadas por comas (p. ej. 26, 1)")
+		}
+		record.Set("match_reminder_hours", rh)
 	}
 
 	if msg := setSchedulingFields(record, e); msg != "" {
@@ -172,6 +181,16 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 			return alertError(e, "Tiempo de espera debe ser un número")
 		}
 		record.Set("quorum_timeout_hours", hours)
+	}
+
+	if raw := e.Request.FormValue("match_reminder_hours"); raw != "" {
+		rh, err := league.ParseReminderHours(raw)
+		if err != nil {
+			return alertError(e, "Recordatorios: usa horas separadas por comas (p. ej. 26, 1)")
+		}
+		record.Set("match_reminder_hours", rh)
+	} else {
+		record.Set("match_reminder_hours", nil)
 	}
 
 	if msg := setSchedulingFields(record, e); msg != "" {
@@ -812,4 +831,16 @@ func (h *CompetitionHandler) AdminDeleteAnnouncement(e *core.RequestEvent) error
 	}
 	flash(e, "Anuncio eliminado")
 	return redirectHX(e, "/admin/competitions/"+comp.Id)
+}
+
+func compReminderHoursDisplay(comp *core.Record) string {
+	raw := comp.GetString("match_reminder_hours")
+	if raw == "" {
+		return ""
+	}
+	var hours []int
+	if json.Unmarshal([]byte(raw), &hours) != nil || len(hours) == 0 {
+		return ""
+	}
+	return league.FormatReminderHours(hours)
 }

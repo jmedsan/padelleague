@@ -24,10 +24,12 @@ func NewAdminSettingsHandler(app core.App, renderPage RenderFunc) *AdminSettings
 
 // Settings renders the admin settings page.
 func (h *AdminSettingsHandler) Settings(e *core.RequestEvent) error {
+	settings := league.LoadSettings(h.app)
 	return h.renderPage(e, "admin/settings.html", map[string]any{
-		"PageTitle": "Configuración",
-		"Settings":  league.LoadSettings(h.app),
-		"Branding":  league.Branding(h.app, ""),
+		"PageTitle":            "Configuración",
+		"Settings":             settings,
+		"Branding":             league.Branding(h.app, ""),
+		"ReminderHoursDisplay": league.FormatReminderHours(settings.MatchReminderHours),
 	})
 }
 
@@ -54,6 +56,7 @@ func (h *AdminSettingsHandler) SaveDefaults(e *core.RequestEvent) error {
 	rec.Set("gender_type", e.Request.FormValue("gender_type"))
 	rec.Set("invite_max_uses", fields.maxUses)
 	rec.Set("invite_expiration_days", fields.expDays)
+	rec.Set("match_reminder_hours", fields.reminderHours)
 
 	if err := h.app.Save(rec); err != nil {
 		slog.Error("save app settings", "error", err)
@@ -148,6 +151,7 @@ func (h *AdminSettingsHandler) SettingsLogoDelete(e *core.RequestEvent) error {
 type settingsFormFields struct {
 	quorum, grace, penalty, recovery, maxUses, expDays int
 	walkover                                           string
+	reminderHours                                      []int
 }
 
 // parseSettingsForm parses and validates every numeric field on the defaults
@@ -179,6 +183,11 @@ func parseSettingsForm(e *core.RequestEvent) (settingsFormFields, string) {
 	f.walkover = e.Request.FormValue("walkover_score")
 	if _, err := league.ParseScore(f.walkover); err != nil {
 		return f, "Marcador de incomparecencia no válido"
+	}
+
+	f.reminderHours, err = league.ParseReminderHours(e.Request.FormValue("match_reminder_hours"))
+	if err != nil {
+		return f, "Recordatorios: usa horas separadas por comas (p. ej. 26, 1)"
 	}
 
 	return f, ""

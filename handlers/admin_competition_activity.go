@@ -34,6 +34,7 @@ var competitionUpdateLabels = []struct {
 	{"walkover_score", "Marcador de incomparecencia", fmtActivityString, ""},
 	{"default_penalty", "Penalización por defecto", fmtActivityString, "0"},
 	{"recovery_days", "Período extra", fmtActivityString, "0"},
+	{"match_reminder_hours", "Recordatorios de partido", fmtActivityString, ""},
 }
 
 // competitionUpdateDetail builds a "Field: old → new" summary of every
