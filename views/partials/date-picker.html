@@ -1,5 +1,6 @@
 {{define "datePicker"}}
-<input type="date" id="{{.ID}}" name="{{.Name}}" value="{{.Value}}"
-       class="input input-bordered input-sm {{.ExtraClass}}" {{if .Required}}required{{end}}
-       {{if .Min}}min="{{.Min}}"{{end}} {{if .Max}}max="{{.Max}}"{{end}}>
+<input type="text" id="{{.ID}}" name="{{.Name}}" value="{{.Value}}"
+       class="input input-bordered input-sm flatpickr-date {{.ExtraClass}}" {{if .Required}}required{{end}}
+       placeholder="Selecciona fecha" readonly
+       {{if .Min}}data-min="{{.Min}}"{{end}} {{if .Max}}data-max="{{.Max}}"{{end}}>
 {{end}}

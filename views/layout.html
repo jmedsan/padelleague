@@ -10,6 +10,7 @@
     <meta property="og:image" content="{{.BaseURL}}{{if .OGImage}}{{.OGImage}}{{else}}/logo/league{{end}}">
     <meta property="og:url" content="{{.BaseURL}}{{.RequestPath}}">
     <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/flatpickr.min.css">
     <link rel="manifest" href="/manifest.json">
     <link rel="icon" href="/logo/league" type="image/jpeg">
     <meta name="theme-color" content="#0B0B0B">
@@ -17,6 +18,31 @@
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/confirm.js" defer></script>
     <script src="/static/js/score-input.js"></script>
+    <script src="/static/js/flatpickr.min.js"></script>
+    <script src="/static/js/flatpickr-es.js"></script>
+    <script>
+        var fpTimer;
+        function initFlatpickr() {
+            clearTimeout(fpTimer);
+            fpTimer = setTimeout(function() {
+                document.querySelectorAll('.flatpickr-date:not([data-fp-init])').forEach(function(el) {
+                    el.dataset.fpInit = '1';
+                    flatpickr(el, {
+                        locale: 'es',
+                        dateFormat: 'Y-m-d',
+                        altInput: true,
+                        altFormat: 'd/m/Y',
+                        allowInput: true,
+                        minDate: el.dataset.min || undefined,
+                        maxDate: el.dataset.max || undefined
+                    });
+                });
+            }, 100);
+        }
+        document.addEventListener('DOMContentLoaded', initFlatpickr);
+        document.body.addEventListener('htmx:afterSettle', initFlatpickr);
+        document.body.addEventListener('htmx:afterSwap', initFlatpickr);
+    </script>
     <script>
         (function() {
             var t = localStorage.getItem('theme') || 'dark';
