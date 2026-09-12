@@ -77,12 +77,64 @@
   }
 }
 
-/* Flatpickr — accent color from DaisyUI */
-.flatpickr-day.selected,
-.flatpickr-day.selected:hover {
-  background: oklch(var(--p));
-  border-color: oklch(var(--p));
+/* Flatpickr — themed via DaisyUI variables (adapts to dark/light) */
+.flatpickr-calendar {
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.15);
+  border-radius: var(--rounded-box, 1rem);
+  box-shadow: 0 8px 24px oklch(0 0 0 / 0.25);
+  font-family: inherit;
+  color: oklch(var(--bc));
+}
+.flatpickr-months,
+.flatpickr-weekdays,
+.flatpickr-weekdaycontainer,
+.flatpickr-current-month .flatpickr-monthDropdown-months {
+  background: oklch(var(--b1));
+}
+.flatpickr-months .flatpickr-month,
+.flatpickr-months .flatpickr-prev-month,
+.flatpickr-months .flatpickr-next-month,
+.flatpickr-current-month input.cur-year,
+.flatpickr-current-month .flatpickr-monthDropdown-months {
+  color: oklch(var(--bc));
+  fill: oklch(var(--bc));
+}
+.flatpickr-months .flatpickr-prev-month:hover,
+.flatpickr-months .flatpickr-next-month:hover {
+  color: oklch(var(--p));
+  fill: oklch(var(--p));
+}
+span.flatpickr-weekday {
+  color: oklch(var(--bc) / 0.5);
+  font-weight: 600;
+}
+.flatpickr-day {
+  color: oklch(var(--bc));
+  border-radius: var(--rounded-btn, 0.5rem);
+}
+.flatpickr-day:hover {
+  background: oklch(var(--p) / 0.12);
+  border-color: oklch(var(--p) / 0.25);
 }
 .flatpickr-day.today {
   border-color: oklch(var(--p));
+}
+.flatpickr-day.selected,
+.flatpickr-day.selected:hover {
+  background: oklch(var(--p));
+  color: oklch(var(--pc));
+  border-color: oklch(var(--p));
+}
+.flatpickr-day.flatpickr-disabled,
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay {
+  color: oklch(var(--bc) / 0.25);
+}
+.numInputWrapper:hover {
+  background: transparent;
+}
+.flatpickr-current-month .flatpickr-monthDropdown-months option {
+  background: oklch(var(--b1));
+  color: oklch(var(--bc));
 }
