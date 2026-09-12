@@ -76,3 +76,20 @@
     .bracket .round { min-width: 180px; scroll-snap-align: start; }
   }
 }
+
+calendar-date::part(button) {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  border-radius: var(--rounded-btn, 0.5rem);
+  cursor: pointer;
+}
+calendar-date::part(selected) {
+  background: oklch(var(--p));
+  color: oklch(var(--pc));
+}
+calendar-date::part(today) {
+  border: 2px solid oklch(var(--p));
+}
+calendar-date::part(outside) {
+  opacity: 0.4;
+}

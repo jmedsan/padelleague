@@ -26,7 +26,7 @@
             <div class="grid grid-cols-2 gap-3">
                 <div class="form-control">
                     <label class="label py-1" for="playoff-date"><span class="label-text text-sm">Fecha</span></label>
-                    <input type="date" id="playoff-date" name="date" class="input input-bordered input-sm" required>
+                    {{template "datePicker" (dict "ID" "playoff-date" "Name" "date" "Required" true)}}
                 </div>
                 <div class="form-control">
                     <label class="label py-1" for="playoff-time"><span class="label-text text-sm">Hora</span></label>
@@ -238,7 +238,7 @@
     <div class="grid grid-cols-2 gap-3">
         <div class="form-control">
             <label class="label py-1" for="proposal-date"><span class="label-text text-sm">Fecha</span></label>
-            <input type="date" id="proposal-date" name="date" class="input input-bordered input-sm" required>
+            {{template "datePicker" (dict "ID" "proposal-date" "Name" "date" "Required" true)}}
         </div>
         <div class="form-control">
             <label class="label py-1" for="proposal-time"><span class="label-text text-sm">Hora</span></label>
