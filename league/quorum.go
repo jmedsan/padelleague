@@ -100,48 +100,9 @@ func (svc *Service) acceptProposalIfExpired(proposal, m, comp *core.Record) {
 		return
 	}
 
-	pd := parseProposalScores(proposal.GetString("proposal_data"))
-	if pd == "" {
-		return
-	}
-
-	fresh, err := svc.app.FindRecordById("matches", m.Id)
-	if err != nil || !IsPreScore(fresh.GetString("status")) {
-		return
-	}
-
-	winnerID, err := DetermineWinner(fresh, pd)
+	_, err = svc.ApplyAcceptedResult(m, AcceptedResult{Proposal: proposal})
 	if err != nil {
-		slog.Error("auto-accept proposal: determine winner", "match", m.Id, "err", err)
-		return
-	}
-
-	fresh.Set("status", "final")
-	fresh.Set("scores", pd)
-	fresh.Set("winner", winnerID)
-	fresh.Set("dispute_notes", "Auto-confirmado por tiempo de espera")
-	if err := svc.app.Save(fresh); err != nil {
-		slog.Error("auto-accept proposal: save match", "match", m.Id, "err", err)
-		return
-	}
-
-	proposal.Set("proposal_status", "accepted")
-	if err := svc.app.Save(proposal); err != nil {
-		slog.Error("auto-accept proposal: update proposal", "match", m.Id, "err", err)
-	}
-
-	svc.supersedeSiblingResults(m.Id, proposal.Id)
-	AddSystemResultAccepted(svc.app, fresh.Id, proposal.Id, pd)
-
-	compName := comp.GetString("name")
-	for _, pid := range []string{fresh.GetString("pair1"), fresh.GetString("pair2")} {
-		players := PlayersForPair(svc.app, pid)
-		svc.notifier.NotifyPlayers(players, Notification{
-			Type:    "general",
-			Title:   "Resultado confirmado automáticamente",
-			Body:    fmt.Sprintf("El resultado ha sido confirmado por tiempo de espera · %s.", compName),
-			MatchID: fresh.Id,
-		})
+		slog.Error("auto-accept proposal: apply result", "match", m.Id, "err", err)
 	}
 }
 

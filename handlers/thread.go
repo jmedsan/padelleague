@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -18,13 +19,14 @@ import (
 type ThreadHandler struct {
 	app           core.App
 	notifier      *notify.Notifier
+	svc           *league.Service
 	renderPage    RenderFunc
 	renderPartial RenderFunc
 }
 
 // NewThreadHandler creates a ThreadHandler with the given dependencies.
-func NewThreadHandler(app core.App, notifier *notify.Notifier, renderPage RenderFunc, renderPartial RenderFunc) *ThreadHandler {
-	return &ThreadHandler{app: app, notifier: notifier, renderPage: renderPage, renderPartial: renderPartial}
+func NewThreadHandler(app core.App, notifier *notify.Notifier, svc *league.Service, renderPage RenderFunc, renderPartial RenderFunc) *ThreadHandler {
+	return &ThreadHandler{app: app, notifier: notifier, svc: svc, renderPage: renderPage, renderPartial: renderPartial}
 }
 
 // ProposalData holds parsed scheduling proposal details from a thread message.
@@ -463,7 +465,7 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 	match.Set("time", pd.Time)
 	match.Set("club", pd.VenueName)
 	match.Set("status", league.StatusScheduled)
-	match.Set("reminder_sent", false)
+	league.ClearMatchReminders(h.app, match.Id)
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al actualizar el partido")
 	}
@@ -527,60 +529,17 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 }
 
 func (h *ThreadHandler) acceptResultProposal(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
-	pd := ParseProposalData(msg.Get("proposal_data"))
-	if pd == nil || pd.Scores == "" {
-		return alertError(e, "Error al leer los datos de la propuesta")
+	_, err := h.svc.ApplyAcceptedResult(match, league.AcceptedResult{
+		Proposal: msg,
+		ActorID:  e.Auth.Id,
+	})
+	if errors.Is(err, league.ErrMatchNotPreScore) {
+		return alertError(e, "Este partido ya tiene un resultado registrado")
 	}
-
-	winner, err := league.DetermineWinner(match, pd.Scores)
 	if err != nil {
-		return alertError(e, "Error al determinar el ganador")
-	}
-
-	match.Set("scores", pd.Scores)
-	match.Set("winner", winner)
-	match.Set("status", league.StatusFinal)
-	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al finalizar el partido")
 	}
-
-	msg.Set("proposal_status", "accepted")
-	if err := h.app.Save(msg); err != nil {
-		return alertError(e, "Error al marcar la propuesta como aceptada")
-	}
-
-	addTimelineEntry(h.app, timelineEntry{
-		MatchID: match.Id, ActorID: e.Auth.Id,
-		Kind: "result_response", Detail: "Resultado aceptado: " + pd.Scores,
-		ParentID: msg.Id, Action: "accept", Scores: pd.Scores,
-	})
-
-	h.supersedePendingResults(match.Id, msg.Id)
-
-	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
-	responderPairID := match.GetString("pair1")
-	if responderPairID == proposerPairID {
-		responderPairID = match.GetString("pair2")
-	}
-	responderPairName := league.PairNames(h.app, []string{responderPairID})[responderPairID]
-	compName := league.CompetitionName(h.app, match.GetString("competition"))
-	n := league.NotifResultConfirmed(match.Id, responderPairName, compName)
-	h.notifier.NotifyPlayers(proposerPlayers, n)
 	return nil
-}
-
-func (h *ThreadHandler) supersedePendingResults(matchID, excludeMsgID string) {
-	pending := findRecordsLogged(h.app, "supersedePendingResults: find pending results", RecordQuery{
-		Collection: "match_messages",
-		Filter:     "match = {:mid} && type = 'result_submission' && proposal_status = 'pending' && id != {:eid}",
-		Params:     map[string]any{"mid": matchID, "eid": excludeMsgID},
-	})
-	for _, p := range pending {
-		p.Set("proposal_status", "superseded")
-		if err := h.app.Save(p); err != nil {
-			slog.Error("supersede result proposal", "id", p.Id, "err", err)
-		}
-	}
 }
 
 func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
@@ -683,7 +642,7 @@ func (h *ThreadHandler) revokeAcceptance(e *core.RequestEvent, match, msg *core.
 	match.Set("time", "")
 	match.Set("club", "")
 	match.Set("status", league.StatusPending)
-	match.Set("reminder_sent", false)
+	league.ClearMatchReminders(h.app, match.Id)
 	if err := h.app.Save(match); err != nil {
 		slog.Error("save match after rejection", "match", match.Id, "err", err)
 		return alertError(e, "Error al actualizar el partido")
@@ -726,7 +685,7 @@ func (h *ThreadHandler) changeToAccepted(e *core.RequestEvent, match, msg *core.
 	match.Set("time", pd.Time)
 	match.Set("club", pd.VenueName)
 	match.Set("status", league.StatusScheduled)
-	match.Set("reminder_sent", false)
+	league.ClearMatchReminders(h.app, match.Id)
 	if err := h.app.Save(match); err != nil {
 		slog.Error("save match after acceptance", "match", match.Id, "err", err)
 		return alertError(e, "Error al actualizar el partido")
