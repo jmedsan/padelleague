@@ -119,6 +119,7 @@ func NewMatchRow(match *core.Record, pairNames map[string]string, playerPairIDs 
 		StatusClass: statusClass(status),
 		Score:       match.GetString("scores"),
 		IsMyMatch:   myP1 || myP2,
+		CarriedSets: match.GetString("carried_sets"),
 	}
 }
 
