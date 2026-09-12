@@ -527,7 +527,7 @@ func nextMatchAction(next *NextMatch) HomeAction {
 		URL:     "/match/" + next.MatchID,
 		Kind:    "organize",
 		Title:   "Propón una fecha",
-		Detail:  fmt.Sprintf("vs %s · %s", next.Opponent, next.CompetitionName),
+		Detail:  fmt.Sprintf("vs %s · J%d · %s", next.Opponent, next.RoundNumber, next.CompetitionName),
 		Accent:  "info",
 		SortKey: "2-0",
 	}

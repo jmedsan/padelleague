@@ -45,6 +45,7 @@ type MatchCard struct {
 	CarriedSets string
 
 	IsMyMatch bool
+	MyTeam    int // 1 or 2; 0 if viewer is not a participant
 	Opponent  string
 	Won       bool
 
@@ -109,6 +110,12 @@ func NewMatchRow(match *core.Record, pairNames map[string]string, playerPairIDs 
 	status := match.GetString("status")
 	_, myP1 := playerPairIDs[p1]
 	_, myP2 := playerPairIDs[p2]
+	var myTeam int
+	if myP1 {
+		myTeam = 1
+	} else if myP2 {
+		myTeam = 2
+	}
 	return MatchCard{
 		Mode:        PlayerRow,
 		Match:       match,
@@ -119,6 +126,7 @@ func NewMatchRow(match *core.Record, pairNames map[string]string, playerPairIDs 
 		StatusClass: statusClass(status),
 		Score:       match.GetString("scores"),
 		IsMyMatch:   myP1 || myP2,
+		MyTeam:      myTeam,
 		CarriedSets: match.GetString("carried_sets"),
 	}
 }
@@ -157,6 +165,7 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 	team, _ := league.PlayerTeam(app, viewerID, match)
 	isSubmitter := viewerIsSubmitter(app, match, team)
 
+	c.MyTeam = team
 	c.HasDateAndPlace = match.GetString("date") != "" && match.GetString("club") != ""
 	c.HasPendingSchedulingProposal = hasPendingSchedulingProposal(app, match.Id)
 	c.CanSubmit = league.IsPreScore(status) && team > 0

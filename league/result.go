@@ -57,11 +57,8 @@ func ScoreNote(score string) string {
 		return ""
 	}
 	out := EvaluateScore(sc)
-	if out.Won && sc.Open == nil {
-		return ""
-	}
 	if out.Won {
-		return "No terminado · finalizado por la regla de los 3 juegos"
+		return ""
 	}
 	if sc.Sets1+sc.Sets2 > 0 || sc.Open != nil {
 		return "No terminado · se reanudará otro día"
