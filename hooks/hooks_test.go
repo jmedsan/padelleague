@@ -661,174 +661,244 @@ func TestSchedulingReminder_FinishedByDate_NoReminder(t *testing.T) {
 	assert.Empty(t, notifs, "a competition finished by date must not remind")
 }
 
-func TestMatchDayReminder_SendsForTomorrowsMatch(t *testing.T) {
+// setupMatchReminder creates a scheduled match 'untilStart' from 'now' with
+// the given time string, and returns (app, notifier, match, now).
+func setupMatchReminder(t *testing.T, untilStart time.Duration, matchTime string) (*tests.TestApp, *notify.Notifier, *core.Record, time.Time) {
+	t.Helper()
 	app := newTestApp(t)
 	notifier := notify.NewNotifier(app, "", "")
 
-	p1 := makePair(t, app, "MdA")
-	p2 := makePair(t, app, "MdB")
-
+	p1 := makePair(t, app, t.Name()+"A")
+	p2 := makePair(t, app, t.Name()+"B")
 	comp := makeLeagueComp(t, app, []*core.Record{p1, p2},
-		time.Now().AddDate(0, 0, -10), time.Now().AddDate(0, 0, 10), 1)
+		time.Now().AddDate(0, 0, -30), time.Now().AddDate(0, 0, 30), 1)
 
-	now := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
-	tomorrow := now.AddDate(0, 0, 1)
+	start := time.Date(2026, 6, 15, 18, 0, 0, 0, league.Madrid)
+	now := start.Add(-untilStart)
 
 	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
 	m.Set("status", league.StatusScheduled)
-	d, _ := types.ParseDateTime(tomorrow)
+	d, _ := types.ParseDateTime(start)
 	m.Set("date", d)
-	m.Set("time", "18:00")
+	m.Set("time", matchTime)
 	m.Set("club", "Padel 360")
 	require.NoError(t, app.Save(m))
 
-	checkMatchDayReminders(app, notifier, now)
-
-	notifs, err := app.FindRecordsByFilter("notifications", "type = 'scheduling'", "", 0, 0, nil)
-	require.NoError(t, err)
-	require.Len(t, notifs, 4, "one reminder per player (2 pairs x 2)")
-	for _, n := range notifs {
-		assert.Equal(t, "Partido mañana", n.GetString("title"))
-		assert.Contains(t, n.GetString("body"), "18:00")
-		assert.Contains(t, n.GetString("body"), "Padel 360")
-	}
-
-	updated := freshMatch(t, app, m.Id)
-	assert.True(t, updated.GetBool("reminder_sent"))
+	return app, notifier, m, now
 }
 
-func TestMatchDayReminder_SkipsDraftCalendar(t *testing.T) {
-	app := newTestApp(t)
-	notifier := notify.NewNotifier(app, "", "")
+func matchReminderNotifs(t *testing.T, app core.App) []*core.Record {
+	t.Helper()
+	notifs, err := app.FindRecordsByFilter("notifications", "type = 'match_reminder'", "", 0, 0, nil)
+	require.NoError(t, err)
+	return notifs
+}
 
-	p1 := makePair(t, app, "MdDraftA")
-	p2 := makePair(t, app, "MdDraftB")
+func TestMatchReminders_Fires26h(t *testing.T) {
+	app, notifier, _, now := setupMatchReminder(t, 26*time.Hour, "18:00")
+	checkMatchReminders(app, notifier, now)
 
-	comp := makeLeagueComp(t, app, []*core.Record{p1, p2},
-		time.Now().AddDate(0, 0, -10), time.Now().AddDate(0, 0, 10), 1)
+	notifs := matchReminderNotifs(t, app)
+	require.Len(t, notifs, 4, "4 players (2 pairs × 2) get the 26h reminder")
+	for _, n := range notifs {
+		assert.Equal(t, "Próximo partido", n.GetString("title"))
+		assert.Contains(t, n.GetString("body"), "18:00")
+		assert.Contains(t, n.GetString("body"), "Padel 360")
+		assert.Contains(t, n.GetString("body"), "vs")
+	}
+}
+
+func TestMatchReminders_Fires1h(t *testing.T) {
+	app, notifier, _, now := setupMatchReminder(t, 1*time.Hour, "18:00")
+	checkMatchReminders(app, notifier, now)
+
+	notifs := matchReminderNotifs(t, app)
+	require.Len(t, notifs, 4)
+	for _, n := range notifs {
+		assert.Equal(t, "Tu partido empieza pronto", n.GetString("title"))
+		assert.Contains(t, n.GetString("body"), "en 1 hora")
+	}
+}
+
+func TestMatchReminders_BothDue(t *testing.T) {
+	app, notifier, _, now := setupMatchReminder(t, 50*time.Minute, "18:00")
+	checkMatchReminders(app, notifier, now)
+
+	notifs := matchReminderNotifs(t, app)
+	require.Len(t, notifs, 4, "both 26h and 1h tiers are due, but only the smallest triggers a notification")
+
+	reminders, err := app.FindRecordsByFilter("match_reminders", "1=1", "", 0, 0, nil)
+	require.NoError(t, err)
+	assert.Equal(t, 8, len(reminders), "2 tiers × 4 players = 8 claim rows")
+}
+
+func TestMatchReminders_SecondRunNoResend(t *testing.T) {
+	app, notifier, _, now := setupMatchReminder(t, 26*time.Hour, "18:00")
+	checkMatchReminders(app, notifier, now)
+	require.Len(t, matchReminderNotifs(t, app), 4)
+
+	checkMatchReminders(app, notifier, now)
+	assert.Len(t, matchReminderNotifs(t, app), 4, "second run must not duplicate notifications")
+}
+
+func TestMatchReminders_DraftCalendarSkipped(t *testing.T) {
+	app, notifier, m, now := setupMatchReminder(t, 26*time.Hour, "18:00")
+
+	comp, err := app.FindRecordById("competitions", m.GetString("competition"))
+	require.NoError(t, err)
 	comp.Set("calendar_status", "draft")
 	require.NoError(t, app.Save(comp))
 
-	now := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
-	tomorrow := now.AddDate(0, 0, 1)
+	checkMatchReminders(app, notifier, now)
+	assert.Empty(t, matchReminderNotifs(t, app))
+}
+
+func TestMatchReminders_UnparsableTimeSkipped(t *testing.T) {
+	app, notifier, m, now := setupMatchReminder(t, 26*time.Hour, "")
+	m.Set("time", "")
+	require.NoError(t, app.Save(m))
+
+	checkMatchReminders(app, notifier, now)
+	assert.Empty(t, matchReminderNotifs(t, app))
+}
+
+func TestMatchReminders_UserCustomPrefs(t *testing.T) {
+	app := newTestApp(t)
+	notifier := notify.NewNotifier(app, "", "")
+
+	p1 := makePair(t, app, "CustA")
+	p2 := makePair(t, app, "CustB")
+	comp := makeLeagueComp(t, app, []*core.Record{p1, p2},
+		time.Now().AddDate(0, 0, -30), time.Now().AddDate(0, 0, 30), 1)
+
+	// Set custom reminder hours on pair1's player1: only 2h
+	pair1, err := app.FindRecordById("pairs", p1.Id)
+	require.NoError(t, err)
+	u1, err := app.FindRecordById("users", pair1.GetString("player1"))
+	require.NoError(t, err)
+	u1.Set("notification_prefs", `{"match_reminder_hours":[2]}`)
+	require.NoError(t, app.Save(u1))
+
+	start := time.Date(2026, 6, 15, 18, 0, 0, 0, league.Madrid)
+	now := start.Add(-26 * time.Hour)
 
 	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
 	m.Set("status", league.StatusScheduled)
-	d, _ := types.ParseDateTime(tomorrow)
+	d, _ := types.ParseDateTime(start)
 	m.Set("date", d)
 	m.Set("time", "18:00")
 	m.Set("club", "Padel 360")
 	require.NoError(t, app.Save(m))
 
-	checkMatchDayReminders(app, notifier, now)
+	checkMatchReminders(app, notifier, now)
 
-	notifs, err := app.FindRecordsByFilter("notifications", "type = 'scheduling'", "", 0, 0, nil)
-	require.NoError(t, err)
-	assert.Empty(t, notifs, "a draft calendar's matches are invisible to players, so no match-day reminder should fire")
+	notifs := matchReminderNotifs(t, app)
+	// u1 has custom [2], so 26h is not due for them. 3 other players get default [26,1] → 26 fires.
+	assert.Len(t, notifs, 3, "user with custom 2h pref should not fire at 26h")
 }
 
-func TestMatchDayReminder_MadridTimezoneNearMidnight(t *testing.T) {
+func TestMatchReminders_UserEmptyPrefs(t *testing.T) {
 	app := newTestApp(t)
 	notifier := notify.NewNotifier(app, "", "")
 
-	p1 := makePair(t, app, "MdTzA")
-	p2 := makePair(t, app, "MdTzB")
+	p1 := makePair(t, app, "EmptyA")
+	p2 := makePair(t, app, "EmptyB")
 	comp := makeLeagueComp(t, app, []*core.Record{p1, p2},
-		time.Now().AddDate(0, 0, -10), time.Now().AddDate(0, 0, 10), 1)
+		time.Now().AddDate(0, 0, -30), time.Now().AddDate(0, 0, 30), 1)
 
-	// 23:30 UTC in June is already 01:30 the next day in Madrid (CEST,
-	// UTC+2), so "tomorrow" in Madrid is two calendar days ahead of now's
-	// UTC date. A naive UTC-only comparison would miss this match.
-	now := time.Date(2026, 6, 15, 23, 30, 0, 0, time.UTC)
-	madridTomorrow := time.Date(2026, 6, 17, 0, 0, 0, 0, time.UTC)
+	pair1, err := app.FindRecordById("pairs", p1.Id)
+	require.NoError(t, err)
+	u1, err := app.FindRecordById("users", pair1.GetString("player1"))
+	require.NoError(t, err)
+	u1.Set("match_reminder_hours", "")
+	require.NoError(t, app.Save(u1))
+
+	start := time.Date(2026, 6, 15, 18, 0, 0, 0, league.Madrid)
+	now := start.Add(-26 * time.Hour)
 
 	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
 	m.Set("status", league.StatusScheduled)
-	d, _ := types.ParseDateTime(madridTomorrow)
+	d, _ := types.ParseDateTime(start)
 	m.Set("date", d)
+	m.Set("time", "18:00")
+	m.Set("club", "Padel 360")
 	require.NoError(t, app.Save(m))
 
-	checkMatchDayReminders(app, notifier, now)
+	checkMatchReminders(app, notifier, now)
 
-	notifs, err := app.FindRecordsByFilter("notifications", "type = 'scheduling'", "", 0, 0, nil)
-	require.NoError(t, err)
-	assert.Len(t, notifs, 4, "the match falling on Madrid's tomorrow must get reminded even near a UTC day boundary")
+	notifs := matchReminderNotifs(t, app)
+	assert.Len(t, notifs, 4, "empty user pref falls through to global defaults")
 }
 
-func TestMatchDayReminder_DoesNotResend(t *testing.T) {
+func TestMatchReminders_CompOverride(t *testing.T) {
 	app := newTestApp(t)
 	notifier := notify.NewNotifier(app, "", "")
 
-	p1 := makePair(t, app, "MdrA")
-	p2 := makePair(t, app, "MdrB")
+	p1 := makePair(t, app, "CompOvrA")
+	p2 := makePair(t, app, "CompOvrB")
 	comp := makeLeagueComp(t, app, []*core.Record{p1, p2},
-		time.Now().AddDate(0, 0, -10), time.Now().AddDate(0, 0, 10), 1)
+		time.Now().AddDate(0, 0, -30), time.Now().AddDate(0, 0, 30), 1)
+	comp.Set("match_reminder_hours", []int{2})
+	require.NoError(t, app.Save(comp))
 
-	now := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
-	tomorrow := now.AddDate(0, 0, 1)
+	start := time.Date(2026, 6, 15, 18, 0, 0, 0, league.Madrid)
+	now := start.Add(-26 * time.Hour)
 
 	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
 	m.Set("status", league.StatusScheduled)
-	d, _ := types.ParseDateTime(tomorrow)
+	d, _ := types.ParseDateTime(start)
 	m.Set("date", d)
-	m.Set("reminder_sent", true)
+	m.Set("time", "18:00")
+	m.Set("club", "Padel 360")
 	require.NoError(t, app.Save(m))
 
-	checkMatchDayReminders(app, notifier, now)
+	checkMatchReminders(app, notifier, now)
 
-	notifs, err := app.FindRecordsByFilter("notifications", "type = 'scheduling'", "", 0, 0, nil)
-	require.NoError(t, err)
-	assert.Empty(t, notifs, "must not resend once reminder_sent is true")
+	notifs := matchReminderNotifs(t, app)
+	assert.Empty(t, notifs, "comp override [2] means nothing fires at 26h — 2h tier not yet due")
 }
 
-func TestMatchDayReminder_SkipsMatchNotTomorrow(t *testing.T) {
+func TestMatchReminders_ClearThenResend(t *testing.T) {
+	app, notifier, m, now := setupMatchReminder(t, 26*time.Hour, "18:00")
+	checkMatchReminders(app, notifier, now)
+	require.Len(t, matchReminderNotifs(t, app), 4)
+
+	league.ClearMatchReminders(app, m.Id)
+
+	checkMatchReminders(app, notifier, now)
+	assert.Len(t, matchReminderNotifs(t, app), 8, "after clearing, reminders fire again")
+}
+
+func TestMatchReminders_MadridNearMidnight(t *testing.T) {
 	app := newTestApp(t)
 	notifier := notify.NewNotifier(app, "", "")
 
-	p1 := makePair(t, app, "MdsA")
-	p2 := makePair(t, app, "MdsB")
+	p1 := makePair(t, app, "MdnA")
+	p2 := makePair(t, app, "MdnB")
 	comp := makeLeagueComp(t, app, []*core.Record{p1, p2},
-		time.Now().AddDate(0, 0, -10), time.Now().AddDate(0, 0, 10), 1)
+		time.Now().AddDate(0, 0, -30), time.Now().AddDate(0, 0, 30), 1)
 
-	now := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
-	inThreeDays := now.AddDate(0, 0, 3)
+	// Match at 20:00 Madrid on June 16. "now" is 23:00 UTC June 15 = 01:00 Madrid June 16.
+	// Until start: ~19h. The default 26h tier should NOT fire, but 1h won't either.
+	// With untilStart=19h, only hours ≥19 are due from [26,1] → 26 fires.
+	start := time.Date(2026, 6, 16, 20, 0, 0, 0, league.Madrid)
+	now := time.Date(2026, 6, 15, 23, 0, 0, 0, time.UTC) // 01:00 Madrid June 16
 
 	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
 	m.Set("status", league.StatusScheduled)
-	d, _ := types.ParseDateTime(inThreeDays)
+	d, _ := types.ParseDateTime(start)
 	m.Set("date", d)
+	m.Set("time", "20:00")
+	m.Set("club", "Padel 360")
 	require.NoError(t, app.Save(m))
 
-	checkMatchDayReminders(app, notifier, now)
+	checkMatchReminders(app, notifier, now)
 
-	notifs, err := app.FindRecordsByFilter("notifications", "type = 'scheduling'", "", 0, 0, nil)
-	require.NoError(t, err)
-	assert.Empty(t, notifs, "a match dated 3 days out must not get the day-before reminder")
-}
-
-func TestMatchDayReminder_SkipsUnconfirmedMatch(t *testing.T) {
-	app := newTestApp(t)
-	notifier := notify.NewNotifier(app, "", "")
-
-	p1 := makePair(t, app, "MduA")
-	p2 := makePair(t, app, "MduB")
-	comp := makeLeagueComp(t, app, []*core.Record{p1, p2},
-		time.Now().AddDate(0, 0, -10), time.Now().AddDate(0, 0, 10), 1)
-
-	now := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
-	tomorrow := now.AddDate(0, 0, 1)
-
-	// status stays "pending" (no confirmed date) even though a stray date value is set.
-	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
-	d, _ := types.ParseDateTime(tomorrow)
-	m.Set("date", d)
-	require.NoError(t, app.Save(m))
-
-	checkMatchDayReminders(app, notifier, now)
-
-	notifs, err := app.FindRecordsByFilter("notifications", "type = 'scheduling'", "", 0, 0, nil)
-	require.NoError(t, err)
-	assert.Empty(t, notifs, "only confirmed (status=scheduled) matches get the day-before reminder")
+	notifs := matchReminderNotifs(t, app)
+	require.Len(t, notifs, 4, "26h tier fires when untilStart ≈ 19h (26h ≥ 19h)")
+	for _, n := range notifs {
+		assert.Equal(t, "Próximo partido", n.GetString("title"))
+	}
 }
 
 func TestCronRegistration_SchedulingReminders(t *testing.T) {
@@ -845,6 +915,22 @@ func TestCronRegistration_SchedulingReminders(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "scheduling-reminders cron job must be registered")
+}
+
+func TestCronRegistration_MatchReminders(t *testing.T) {
+	app := newTestApp(t)
+	registerHooksWithNotifier(t, app)
+
+	jobs := app.Cron().Jobs()
+	var found bool
+	for _, j := range jobs {
+		if j.Id() == "match-reminders" {
+			found = true
+			assert.Equal(t, "*/5 * * * *", j.Expression())
+			break
+		}
+	}
+	assert.True(t, found, "match-reminders cron job must be registered")
 }
 
 // Search index real-time upsert tests (W10): a record created/updated on a

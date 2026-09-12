@@ -8,6 +8,16 @@ import (
 
 func init() {
 	m.Register(func(app core.App) error {
+		notifs, err := app.FindCollectionByNameOrId("notifications")
+		if err != nil {
+			return err
+		}
+		notifType := notifs.Fields.GetByName("type").(*core.SelectField)
+		notifType.Values = append(notifType.Values, "match_reminder")
+		if err := app.Save(notifs); err != nil {
+			return err
+		}
+
 		comps, err := app.FindCollectionByNameOrId("competitions")
 		if err != nil {
 			return err
@@ -60,6 +70,20 @@ func init() {
 		col.DeleteRule = nil
 		return app.Save(col)
 	}, func(app core.App) error {
+		if notifs, err := app.FindCollectionByNameOrId("notifications"); err == nil {
+			notifType := notifs.Fields.GetByName("type").(*core.SelectField)
+			filtered := make([]string, 0, len(notifType.Values))
+			for _, v := range notifType.Values {
+				if v != "match_reminder" {
+					filtered = append(filtered, v)
+				}
+			}
+			notifType.Values = filtered
+			if err := app.Save(notifs); err != nil {
+				return err
+			}
+		}
+
 		if c, err := app.FindCollectionByNameOrId("match_reminders"); err == nil {
 			if err := app.Delete(c); err != nil {
 				return err

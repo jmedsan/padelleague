@@ -106,45 +106,105 @@ func remindCompetitionMatches(app core.App, notifier *notify.Notifier, comp *cor
 	}
 }
 
-// checkMatchDayReminders sends a "your match is tomorrow" notification to
-// both pairs of every match with a confirmed date (status = scheduled)
-// falling on the next calendar day, at most once per match.
-func checkMatchDayReminders(app core.App, notifier *notify.Notifier, now time.Time) {
-	tomorrow := now.In(league.Madrid).AddDate(0, 0, 1)
+func checkMatchReminders(app core.App, notifier *notify.Notifier, now time.Time) {
+	settings := league.LoadSettings(app)
+	cutoff := now.Add(-48 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
 	matches, err := app.FindRecordsByFilter("matches",
-		"status = {:status} && reminder_sent != true",
-		"", 0, 0, map[string]any{"status": league.StatusScheduled})
+		"status = {:status} && date >= {:cutoff}",
+		"", 0, 0, map[string]any{"status": league.StatusScheduled, "cutoff": cutoff})
 	if err != nil {
-		slog.Error("match day reminders: list matches", "err", err)
+		slog.Error("match reminders: list matches", "err", err)
 		return
 	}
 
+	compCache := map[string]*core.Record{}
 	for _, m := range matches {
-		d := m.GetDateTime("date").Time()
-		if d.IsZero() || !sameDay(d.In(league.Madrid), tomorrow) {
-			continue
-		}
-		comp, err := app.FindRecordById("competitions", m.GetString("competition"))
-		if err != nil || comp.GetString("calendar_status") != "published" {
-			continue
-		}
+		remindMatch(app, notifier, m, compCache, settings, now)
+	}
+}
 
-		compName := comp.GetString("name")
-		notif := league.NotifMatchReminder(m.Id, m.GetString("time"), m.GetString("club"), compName)
-		notifier.NotifyPlayers(league.PlayersForPair(app, m.GetString("pair1")), notif)
-		notifier.NotifyPlayers(league.PlayersForPair(app, m.GetString("pair2")), notif)
+func remindMatch(app core.App, notifier *notify.Notifier, m *core.Record, compCache map[string]*core.Record, settings league.AppSettings, now time.Time) {
+	start, ok := league.MatchStart(m)
+	if !ok {
+		slog.Warn("match reminders: unparsable start", "match", m.Id)
+		return
+	}
+	until := start.Sub(now)
+	if until <= 0 {
+		return
+	}
 
-		m.Set("reminder_sent", true)
-		if err := app.Save(m); err != nil {
-			slog.Error("match day reminder save reminder_sent", "match", m.Id, "err", err)
+	compID := m.GetString("competition")
+	comp, cached := compCache[compID]
+	if !cached {
+		var err error
+		comp, err = app.FindRecordById("competitions", compID)
+		if err != nil {
+			return
+		}
+		compCache[compID] = comp
+	}
+	if comp.GetString("calendar_status") != "published" {
+		return
+	}
+
+	compName := comp.GetString("name")
+	venue := m.GetString("club")
+	pair1ID := m.GetString("pair1")
+	pair2ID := m.GetString("pair2")
+	pairNames := league.PairNames(app, []string{pair1ID, pair2ID})
+
+	type side struct {
+		players  []string
+		opponent string
+	}
+	sides := []side{
+		{league.PlayersForPair(app, pair1ID), pairNames[pair2ID]},
+		{league.PlayersForPair(app, pair2ID), pairNames[pair1ID]},
+	}
+
+	for _, s := range sides {
+		for _, uid := range s.players {
+			user, err := app.FindRecordById("users", uid)
+			if err != nil {
+				continue
+			}
+			hours := league.ReminderHours(user, comp, settings)
+			due := league.DueReminderHours(hours, until)
+			if len(due) == 0 {
+				continue
+			}
+			if !claimReminders(app, m.Id, uid, due) {
+				continue
+			}
+			notifier.NotifyPlayers([]string{uid},
+				league.NotifMatchUpcoming(m.Id, start, until, venue, compName, s.opponent))
 		}
 	}
 }
 
-func sameDay(a, b time.Time) bool {
-	ay, am, ad := a.Date()
-	by, bm, bd := b.Date()
-	return ay == by && am == bm && ad == bd
+func claimReminders(app core.App, matchID, userID string, due []int) bool {
+	col, err := app.FindCollectionByNameOrId("match_reminders")
+	if err != nil {
+		slog.Error("match reminders: find collection", "err", err)
+		return false
+	}
+
+	smallestClaimed := false
+	smallest := due[len(due)-1]
+	for _, h := range due {
+		rec := core.NewRecord(col)
+		rec.Set("match", matchID)
+		rec.Set("user", userID)
+		rec.Set("hours_before", h)
+		if err := app.Save(rec); err != nil {
+			continue
+		}
+		if h == smallest {
+			smallestClaimed = true
+		}
+	}
+	return smallestClaimed
 }
 
 // Deps holds the shared dependencies Register wires onto the app.
@@ -185,7 +245,10 @@ func Register(app core.App, deps Deps) {
 
 	app.Cron().MustAdd("scheduling-reminders", "0 9 * * *", func() {
 		checkSchedulingReminders(app, notifier)
-		checkMatchDayReminders(app, notifier, time.Now())
+	})
+
+	app.Cron().MustAdd("match-reminders", "*/5 * * * *", func() {
+		checkMatchReminders(app, notifier, time.Now())
 	})
 
 	app.Cron().MustAdd("confirmation-reminders", "0 */6 * * *", func() {

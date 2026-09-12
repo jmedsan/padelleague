@@ -208,16 +208,40 @@ func NotifCalendarPublished(compID, compName string) Notification {
 	}
 }
 
-// NotifMatchReminder reminds players that their match is scheduled for the
-// next day.
-func NotifMatchReminder(matchID, timeStr, venueName, compName string) Notification {
+// NotifMatchUpcoming is the time-relative upcoming-match reminder.
+func NotifMatchUpcoming(matchID string, start time.Time, until time.Duration, venue, compName, opponent string) Notification {
+	dateStr := start.In(Madrid).Format("02/01")
+	timeStr := start.In(Madrid).Format("15:04")
+
+	var title, body string
+	if until > 2*time.Hour {
+		title = "Próximo partido"
+		body = fmt.Sprintf("Tu partido vs %s es el %s a las %s en %s.", opponent, dateStr, timeStr, venue)
+	} else {
+		title = "Tu partido empieza pronto"
+		remaining := formatRemaining(until)
+		body = fmt.Sprintf("Tu partido vs %s empieza %s · %s en %s.", opponent, remaining, timeStr, venue)
+	}
+
 	return Notification{
-		Type:     "scheduling",
-		Title:    "Partido mañana",
-		Body:     fmt.Sprintf("Tu partido es mañana a las %s en %s.", timeStr, venueName),
+		Type:     "match_reminder",
+		Title:    title,
+		Body:     body,
 		MatchID:  matchID,
 		CompName: compName,
 	}
+}
+
+func formatRemaining(d time.Duration) string {
+	hours := int(d.Hours())
+	mins := int(d.Minutes()) % 60
+	if hours >= 2 {
+		return fmt.Sprintf("en %d horas", hours)
+	}
+	if hours == 1 {
+		return "en 1 hora"
+	}
+	return fmt.Sprintf("en %d minutos", mins)
 }
 
 // NotifAdminUserJoined alerts admins that a new user registered.

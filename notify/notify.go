@@ -267,6 +267,7 @@ var EventTypes = []string{
 	"quorum_request", "dispute", "general", "message",
 	"scheduling", "match_progress", "admin_message", "user_joined",
 	"announcement", "penalty", "payment", "calendar_published",
+	"match_reminder",
 }
 
 // NotificationPrefs returns the user's notification preferences with defaults applied.
