@@ -22,7 +22,7 @@
     <script src="/static/js/flatpickr-es.js"></script>
     <script>
         function initFlatpickr() {
-            document.querySelectorAll('.flatpickr-date:not([data-fp])').forEach(function(el) {
+            document.querySelectorAll('[data-datepicker]:not([data-fp])').forEach(function(el) {
                 el.dataset.fp = '1';
                 flatpickr(el, {
                     locale: 'es',
@@ -33,7 +33,11 @@
                     disableMobile: true,
                     monthSelectorType: 'static',
                     minDate: el.dataset.min || undefined,
-                    maxDate: el.dataset.max || undefined
+                    maxDate: el.dataset.max || undefined,
+                    parseDate: function(dateStr) {
+                        var p = dateStr.split('-');
+                        return new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
+                    }
                 });
             });
         }
