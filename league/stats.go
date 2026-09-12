@@ -36,6 +36,7 @@ type RecentMatch struct {
 	Won             bool
 	Date            string
 	CompetitionID   string
+	RoundNum        int
 	CompetitionName string
 	CompetitionLogo string
 }
@@ -66,6 +67,7 @@ type matchResult struct {
 	won      bool
 	isPair1  bool
 	date     string
+	roundNum int
 	p1id     string
 	p2id     string
 	p1       string
@@ -408,6 +410,7 @@ func pairMatchResults(app core.App, pairID string) []matchResult {
 			won:      won,
 			isPair1:  m.GetString("pair1") == pairID,
 			date:     m.GetString("date"),
+			roundNum: m.GetInt("round_number"),
 			p1id:     m.GetString("pair1"),
 			p2id:     m.GetString("pair2"),
 			p1:       pairNames[m.GetString("pair1")],
@@ -471,6 +474,7 @@ func buildRecentMatches(allResults []matchResult, limit int) []RecentMatch {
 			Score:           r.score,
 			Won:             r.won,
 			Date:            r.date,
+			RoundNum:        r.roundNum,
 			CompetitionID:   r.compID,
 			CompetitionName: r.compName,
 		})
