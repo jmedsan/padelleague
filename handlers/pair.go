@@ -29,11 +29,12 @@ type pairPlayerLink struct {
 
 // PairPageData bundles a pair's identity and shared stats for the pair page.
 type PairPageData struct {
-	Pair     *core.Record
-	PairName string
-	Player1  pairPlayerLink
-	Player2  pairPlayerLink
-	Stats    league.StatsSummary
+	Pair      *core.Record
+	PairName  string
+	Player1   pairPlayerLink
+	Player2   pairPlayerLink
+	CaptainID string
+	Stats     league.StatsSummary
 }
 
 // PairPage renders the canonical pair page with players, competitions, and matches.
@@ -48,11 +49,12 @@ func (h *PairPageHandler) PairPage(e *core.RequestEvent) error {
 	p2ID := pair.GetString("player2")
 
 	data := PairPageData{
-		Pair:     pair,
-		PairName: pair.GetString("name"),
-		Player1:  pairPlayerLink{ID: p1ID, Name: league.PlayerName(h.app, p1ID), AvatarURL: league.PlayerAvatarURL(h.app, p1ID)},
-		Player2:  pairPlayerLink{ID: p2ID, Name: league.PlayerName(h.app, p2ID), AvatarURL: league.PlayerAvatarURL(h.app, p2ID)},
-		Stats:    h.leagueSvc.Summarize([]string{id}),
+		Pair:      pair,
+		PairName:  pair.GetString("name"),
+		Player1:   pairPlayerLink{ID: p1ID, Name: league.PlayerName(h.app, p1ID), AvatarURL: league.PlayerAvatarURL(h.app, p1ID)},
+		Player2:   pairPlayerLink{ID: p2ID, Name: league.PlayerName(h.app, p2ID), AvatarURL: league.PlayerAvatarURL(h.app, p2ID)},
+		CaptainID: pair.GetString("captain"),
+		Stats:     h.leagueSvc.Summarize([]string{id}),
 	}
 
 	return h.renderPage(e, "pair.html", map[string]any{
