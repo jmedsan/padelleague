@@ -84,20 +84,28 @@ func (h *PairHandler) PairsCreate(e *core.RequestEvent) error {
 		record.Set("captain", captain)
 	}
 
-	if err := h.app.Save(record); err != nil {
+	compID := e.Request.FormValue("competition_id")
+	if err := h.app.RunInTransaction(func(txApp core.App) error {
+		if err := txApp.Save(record); err != nil {
+			return err
+		}
+		if compID == "" {
+			return nil
+		}
+		comp, err := txApp.FindRecordById("competitions", compID)
+		if err != nil {
+			return err
+		}
+		pairs := comp.GetStringSlice("pairs")
+		pairs = append(pairs, record.Id)
+		comp.Set("pairs", pairs)
+		return txApp.Save(comp)
+	}); err != nil {
+		slog.Error("create pair", "err", err)
 		return alertError(e, "Error al crear la pareja")
 	}
 
-	if compID := e.Request.FormValue("competition_id"); compID != "" {
-		comp, err := h.app.FindRecordById("competitions", compID)
-		if err == nil {
-			pairs := comp.GetStringSlice("pairs")
-			pairs = append(pairs, record.Id)
-			comp.Set("pairs", pairs)
-			if err := h.app.Save(comp); err != nil {
-				slog.Error("add new pair to competition", "pair", record.Id, "comp", compID, "err", err)
-			}
-		}
+	if compID != "" {
 		flash(e, "Pareja creada y añadida")
 		return redirectHX(e, "/admin/competitions/"+compID)
 	}
