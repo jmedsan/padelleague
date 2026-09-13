@@ -268,10 +268,10 @@
     if (!f) return;
     var errBox = document.getElementById('proposal-form-error');
     f.addEventListener('htmx:confirm', function(ev) {
+        ev.preventDefault();
         var missingVenueName = f.querySelector('[name=venue_id]').value === 'otro'
             && !f.querySelector('[name=venue_text]').value;
         if (missingVenueName) {
-            ev.preventDefault();
             errBox.textContent = 'Indica el nombre del club';
             errBox.classList.remove('hidden');
             return;
