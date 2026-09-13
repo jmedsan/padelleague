@@ -298,6 +298,16 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 		return alertError(e, "No eres participante de este partido")
 	}
 
+	var myPairID string
+	if myTeam == 1 {
+		myPairID = pair1ID
+	} else {
+		myPairID = pair2ID
+	}
+	if league.IsWithdrawn(h.app, myPairID, match.GetString("competition")) {
+		return alertError(e, "Tu pareja se ha retirado de esta competición")
+	}
+
 	pd, err := h.parseProposalForm(e)
 	if err != nil {
 		return err
