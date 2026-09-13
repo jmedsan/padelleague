@@ -323,6 +323,7 @@ func registerMatchRoutes(se *core.ServeEvent, deps Deps) {
 	se.Router.POST("/match/{id}/thread/proposal", thread.PostProposal).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/match/{id}/thread/proposal/{msgId}/respond", thread.RespondProposal).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/match/{id}/thread/proposal/{msgId}/withdraw", thread.WithdrawProposal).BindFunc(middleware.RequireAuth)
+	se.Router.POST("/match/{id}/thread/proposal/{msgId}/reject-and-counter", thread.RejectAndCounterPropose).BindFunc(middleware.RequireAuth)
 }
 
 func registerNotificationRoutes(se *core.ServeEvent, deps Deps, notif *handlers.NotificationHandler) {

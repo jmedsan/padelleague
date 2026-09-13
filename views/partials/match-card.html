@@ -236,7 +236,8 @@
                     <input type="hidden" name="action" value="accept">
                     <button type="submit" hx-disabled-elt="this" class="btn btn-success btn-sm w-full">Aceptar</button>
                 </form>
-                <button type="button" class="btn btn-error btn-outline btn-sm flex-1" onclick="this.closest('.card-body').querySelector('.reject-form').classList.toggle('hidden')">Rechazar</button>
+                <button type="button" class="btn btn-error btn-outline btn-sm flex-1" onclick="this.closest('.card-body').querySelector('.reject-form').classList.toggle('hidden'); this.closest('.card-body').querySelector('.counter-form').classList.add('hidden')">Rechazar</button>
+                <button type="button" class="btn btn-warning btn-outline btn-sm flex-1" onclick="this.closest('.card-body').querySelector('.counter-form').classList.toggle('hidden'); this.closest('.card-body').querySelector('.reject-form').classList.add('hidden')">Rechazar y proponer otra</button>
             </div>
             <form class="reject-form hidden mt-3" hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/respond" hx-target="body">
                 <input type="hidden" name="action" value="reject">
@@ -253,6 +254,44 @@
                     <textarea name="rejection_text" class="textarea textarea-bordered textarea-sm w-full" placeholder="Explica el motivo..."></textarea>
                 </div>
                 <button type="submit" hx-disabled-elt="this" class="btn btn-error btn-sm w-full mt-2">Enviar rechazo</button>
+            </form>
+            <form class="counter-form hidden mt-3" hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/reject-and-counter" hx-target="body">
+                <p class="text-sm opacity-70 mb-2">Rechaza esta propuesta y propón otra fecha:</p>
+                <div class="form-control">
+                    <select name="rejection_reason" class="select select-bordered select-sm w-full" required onchange="this.closest('form').querySelector('.rejection-text-wrap').classList.toggle('hidden', this.value !== 'Otro')">
+                        <option value="">Motivo del rechazo...</option>
+                        <option value="No puedo ese día">No puedo ese día</option>
+                        <option value="Prefiero otro horario">Prefiero otro horario</option>
+                        <option value="Prefiero otra pista">Prefiero otra pista</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+                <div class="form-control mt-2 rejection-text-wrap hidden">
+                    <textarea name="rejection_text" class="textarea textarea-bordered textarea-sm w-full" placeholder="Explica el motivo..."></textarea>
+                </div>
+                <div class="divider text-xs my-2">Nueva propuesta</div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="form-control">
+                        <label class="label py-1"><span class="label-text text-sm">Fecha</span></label>
+                        {{template "datePicker" (dict "ID" (printf "counter-date-%s" .RecordID) "Name" "date" "Required" true "Min" "today")}}
+                    </div>
+                    <div class="form-control">
+                        <label class="label py-1"><span class="label-text text-sm">Hora</span></label>
+                        {{template "timePicker" (dict "ID" (printf "counter-time-%s" .RecordID) "Name" "time" "Value" "" "Required" true)}}
+                    </div>
+                </div>
+                <div class="form-control mt-3">
+                    <label class="label py-1"><span class="label-text text-sm">Club</span></label>
+                    <select name="venue_id" class="select select-bordered select-sm w-full" required onchange="this.closest('form').querySelector('.counter-venue-text').classList.toggle('hidden', this.value !== 'otro')">
+                        <option value="">Selecciona...</option>
+                        {{range .Venues}}<option value="{{.Id}}">{{.GetString "name"}}</option>{{end}}
+                        <option value="otro">Otro</option>
+                    </select>
+                </div>
+                <div class="form-control mt-2 counter-venue-text hidden">
+                    <input type="text" name="venue_text" class="input input-bordered input-sm w-full" placeholder="Nombre del club...">
+                </div>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-warning btn-sm w-full mt-3">Rechazar y enviar nueva propuesta</button>
             </form>
             {{end}}
         </div>
