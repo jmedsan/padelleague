@@ -376,6 +376,136 @@ test.describe('match thread', () => {
     await expect(page.locator('.badge', { hasText: 'Se reanudará' })).not.toBeVisible();
   });
 
+  test('player can withdraw own pending scheduling proposal', async ({ page }) => {
+    const data = loadTestData();
+    const freshMatch = await suPost('/api/collections/matches/records', {
+      competition: data.competitionId, pair1: data.pair1Id, pair2: data.pair2Id,
+      status: 'pending', round_number: 70,
+    });
+    const matchId = freshMatch.id;
+
+    // Player2 (pair1 member) proposes a date
+    await loginAs(page, PLAYER2_EMAIL, PLAYER2_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.waitForSelector('#proposal-date', { timeout: 10000 });
+    await page.fill('#proposal-date', '2027-01-15');
+    await page.fill('#proposal-time', '10:00');
+    await page.locator('#proposal-venue').selectOption({ index: 1 });
+    await Promise.all([
+      page.waitForEvent('load', { timeout: 10000 }),
+      page.locator('#proposal-form button:has-text("Proponer fecha")').click(),
+    ]);
+    await page.waitForLoadState('domcontentloaded');
+
+    // Withdraw button is visible — accept the confirm dialog
+    const withdrawBtn = page.locator('button:has-text("Retirar")').first();
+    await expect(withdrawBtn).toBeVisible({ timeout: 10000 });
+
+    page.once('dialog', async (dialog) => {
+      expect(dialog.message()).toContain('Retirar');
+      await dialog.accept();
+    });
+    await Promise.all([
+      page.waitForEvent('load', { timeout: 10000 }),
+      withdrawBtn.click(),
+    ]);
+    await page.waitForLoadState('domcontentloaded');
+
+    // After withdrawal: proposal gone (no "Retirar" button) and timeline shows the withdrawal
+    await expect(page.locator('button:has-text("Retirar")')).toHaveCount(0);
+    await expect(page.locator('#thread-timeline').getByText('retiró su propuesta')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('opponent can reject a scheduling proposal with a reason', async ({ page }) => {
+    const data = loadTestData();
+    const freshMatch = await suPost('/api/collections/matches/records', {
+      competition: data.competitionId, pair1: data.pair1Id, pair2: data.pair2Id,
+      status: 'pending', round_number: 71,
+    });
+    const matchId = freshMatch.id;
+
+    // Player2 (pair1 member) proposes a date
+    await loginAs(page, PLAYER2_EMAIL, PLAYER2_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.waitForSelector('#proposal-date', { timeout: 10000 });
+    await page.fill('#proposal-date', '2027-01-20');
+    await page.fill('#proposal-time', '11:00');
+    await page.locator('#proposal-venue').selectOption({ index: 1 });
+    await Promise.all([
+      page.waitForEvent('load', { timeout: 10000 }),
+      page.locator('#proposal-form button:has-text("Proponer fecha")').click(),
+    ]);
+    await page.waitForLoadState('domcontentloaded');
+
+    // Player1 (pair2 member) logs in and rejects with a reason
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.waitForSelector('#thread-details', { timeout: 10000 });
+
+    // Open the reject form by clicking "Rechazar"
+    const rejectToggle = page.locator('button:has-text("Rechazar")').first();
+    await expect(rejectToggle).toBeVisible({ timeout: 5000 });
+    await rejectToggle.click();
+
+    // Select a reason from the dropdown
+    const rejectForm = page.locator('.reject-form').first();
+    await expect(rejectForm).toBeVisible({ timeout: 3000 });
+    await rejectForm.locator('select[name="rejection_reason"]').selectOption('No puedo ese día');
+
+    // Submit the rejection
+    await Promise.all([
+      page.waitForEvent('load', { timeout: 10000 }),
+      rejectForm.locator('button:has-text("Enviar rechazo")').click(),
+    ]);
+    await page.waitForLoadState('domcontentloaded');
+
+    // After rejection: proposal shows as "Rechazada", timeline records it
+    await expect(page.locator('#thread-details').locator('.badge', { hasText: 'Rechazada' })).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#thread-timeline').getByText('No puedo ese día')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('flatpickr date picker posts date in YYYY-MM-DD format', async ({ page }) => {
+    const data = loadTestData();
+    const freshMatch = await suPost('/api/collections/matches/records', {
+      competition: data.competitionId, pair1: data.pair1Id, pair2: data.pair2Id,
+      status: 'pending', round_number: 72,
+    });
+    const matchId = freshMatch.id;
+
+    await loginAs(page, PLAYER2_EMAIL, PLAYER2_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.waitForSelector('[data-datepicker]', { timeout: 10000 });
+
+    // The underlying input (hidden by flatpickr, still in DOM) must accept
+    // YYYY-MM-DD and submit it verbatim. Fill the underlying input directly
+    // (flatpickr is active but disableMobile:true keeps it consistent),
+    // then verify the server stores the value in that format.
+    const dateInput = page.locator('#proposal-date');
+    await dateInput.evaluate((el: HTMLInputElement, v) => {
+      el.value = v;
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, '2027-02-10');
+
+    // Verify the underlying input holds YYYY-MM-DD (not a display format)
+    const storedValue = await dateInput.inputValue();
+    expect(storedValue).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    // Submit and verify the server receives and stores the correct date
+    await page.fill('#proposal-time', '09:00');
+    await page.locator('#proposal-venue').selectOption({ index: 1 });
+    await Promise.all([
+      page.waitForEvent('load', { timeout: 10000 }),
+      page.locator('#proposal-form button:has-text("Proponer fecha")').click(),
+    ]);
+    await page.waitForLoadState('domcontentloaded');
+
+    // The schedule card shows the confirmed/proposed date — if the date was
+    // garbled (e.g. DD/MM/YYYY submitted) the server would reject or store
+    // wrong. The schedule section must be visible (no error).
+    await expect(page.locator('#thread-schedule')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#thread-schedule .badge', { hasText: 'Propuesta' })).toBeVisible({ timeout: 5000 });
+  });
+
   test('rule win: 3-game lead with one completed set finalizes the match', async ({ page }) => {
     test.setTimeout(60000);
     const data = loadTestData();

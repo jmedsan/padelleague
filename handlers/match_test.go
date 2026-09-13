@@ -806,6 +806,53 @@ func TestAdminOverrideWithDateChange(t *testing.T) {
 	s.Test(t)
 }
 
+// AdminOverride: posting a prefilled date equal to the stored value must not
+// produce a spurious "Fecha cambiada" entry — only actual changes appear.
+// This pins the B9 detectFieldChange normalization fix.
+func TestAdminOverridePrefillDateNoSpuriousChange(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /match/{id}/admin-override with same date produces exactly one change entry",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "PF A")
+		p2 := makePairTB(tb, app, "PF B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = m.Id
+		// Store an existing date and club
+		m.Set("date", "2026-11-01")
+		m.Set("club", "Padel 360")
+		require.NoError(tb, app.Save(m))
+
+		// Post with the same date (as a prefill would) but a different club
+		venue := makeVenueTB(tb, app, "Wurko")
+		s.URL = "/match/" + m.Id + "/admin-override"
+		s.Body = strings.NewReader("date=2026-11-01&venue_id=" + venue.Id)
+		admin := makeAdminUserTB(tb, app)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		msgs, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:id} && type = 'admin_action'", "", 0, 0,
+			map[string]any{"id": matchID})
+		require.Len(tb, msgs, 1, "exactly one admin_action entry expected")
+		content := msgs[0].GetString("content")
+		// The venue changed — that entry must be present
+		assert.Contains(tb, content, "Club")
+		// The date did NOT change — must not appear as a change
+		assert.NotContains(tb, content, "Fecha", "same date must not produce a Fecha change entry")
+	}
+	s.Test(t)
+}
+
 func TestAdminOverrideNoChanges(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
