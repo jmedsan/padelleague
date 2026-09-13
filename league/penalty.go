@@ -127,31 +127,43 @@ func ApplyPendingMatchPenalties(app core.App, comp *core.Record) ([]*core.Record
 
 	var applied []*core.Record
 	for _, pairID := range pairIDs {
-		target := targetPenaltyCount(counts[pairID], threshold, phase)
-		toCreate := target - autoTotal[pairID]
-		if toCreate <= 0 {
-			continue
+		recs, err := applyPairPenalties(app, comp.Id, pairID, counts[pairID], autoTotal[pairID], threshold, phase)
+		if err != nil {
+			return applied, err
 		}
-		reason := fmt.Sprintf("Partidos pendientes por encima del límite (%d pendientes, máximo %d)",
-			counts[pairID], threshold)
-		if phase == PhaseFinished {
-			reason = fmt.Sprintf("Partido pendiente al cierre de la competición (%d pendientes)",
-				counts[pairID])
-		}
-		for range toCreate {
-			rec, err := ApplyPenalty(app, PenaltyInput{
-				CompetitionID: comp.Id,
-				PairID:        pairID,
-				Amount:        1,
-				Reason:        reason,
-			})
-			if err != nil {
-				return applied, fmt.Errorf("pending match penalties: pair %s: %w", pairID, err)
-			}
-			applied = append(applied, rec)
-		}
+		applied = append(applied, recs...)
 	}
 	return applied, nil
+}
+
+// applyPairPenalties creates the delta between target and already-applied
+// auto-penalties for one pair. Returns the newly created records.
+func applyPairPenalties(app core.App, compID, pairID string, pendingCount, alreadyApplied, threshold int, phase Phase) ([]*core.Record, error) {
+	target := targetPenaltyCount(pendingCount, threshold, phase)
+	toCreate := target - alreadyApplied
+	if toCreate <= 0 {
+		return nil, nil
+	}
+	reason := fmt.Sprintf("Partidos pendientes por encima del límite (%d pendientes, máximo %d)",
+		pendingCount, threshold)
+	if phase == PhaseFinished {
+		reason = fmt.Sprintf("Partido pendiente al cierre de la competición (%d pendientes)",
+			pendingCount)
+	}
+	recs := make([]*core.Record, 0, toCreate)
+	for range toCreate {
+		rec, err := ApplyPenalty(app, PenaltyInput{
+			CompetitionID: compID,
+			PairID:        pairID,
+			Amount:        1,
+			Reason:        reason,
+		})
+		if err != nil {
+			return recs, fmt.Errorf("pending match penalties: pair %s: %w", pairID, err)
+		}
+		recs = append(recs, rec)
+	}
+	return recs, nil
 }
 
 // targetPenaltyCount returns how many auto-penalties a pair should have

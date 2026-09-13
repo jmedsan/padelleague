@@ -84,7 +84,7 @@ func (h *MatchHandler) validateCorrectionAccess(e *core.RequestEvent, match *cor
 	submittedByID := pending[0].GetString("author")
 	var myTeam int
 	if !isAdmin {
-		team, _, err := playerActionGate(h.app, e.Auth.Id, match)
+		team, err := playerActionGate(h.app, e.Auth.Id, match)
 		if err != nil {
 			return 0, mapActionGateError(e, err)
 		}

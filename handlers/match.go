@@ -196,7 +196,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	userID := e.Auth.Id
 	isAdmin := isEffectiveAdmin(e)
 	if !isAdmin {
-		if _, _, err := playerActionGate(h.app, userID, match); err != nil {
+		if _, err := playerActionGate(h.app, userID, match); err != nil {
 			return mapActionGateError(e, err)
 		}
 	}
@@ -234,6 +234,8 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 
 func (h *MatchHandler) submitResultProposal(e *core.RequestEvent, match *core.Record, userID, scores string) error {
 	if err := h.app.RunInTransaction(func(txApp core.App) error {
+		// Supersede before creating the new proposal so the new one is not caught.
+		h.supersedeMyPendingResultsTx(txApp, match.Id, userID)
 		col, err := txApp.FindCollectionByNameOrId("match_messages")
 		if err != nil {
 			return err
@@ -249,7 +251,6 @@ func (h *MatchHandler) submitResultProposal(e *core.RequestEvent, match *core.Re
 		if err := txApp.Save(proposal); err != nil {
 			return err
 		}
-		h.supersedeMyPendingResultsTx(txApp, match.Id, userID)
 		match.Set("submitted_by", userID)
 		match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
 		match.Set("confirm_reminded", false)
@@ -702,14 +703,14 @@ func (h *MatchHandler) supersedeAcceptedProposals(matchID string) {
 
 // playerActionGate validates that userID can perform a score action on match:
 // they must be a participant, their pair's captain if one is set, and not withdrawn.
-// Returns (team, pairID, nil) on success, or a sentinel error for the caller to map.
-func playerActionGate(app core.App, userID string, match *core.Record) (int, string, error) {
+// Returns (team, nil) on success, or a sentinel error for the caller to map.
+func playerActionGate(app core.App, userID string, match *core.Record) (int, error) {
 	team, err := league.PlayerTeam(app, userID, match)
 	if err != nil {
-		return 0, "", errNotParticipant
+		return 0, errNotParticipant
 	}
 	if err := league.IsCaptainGuarded(app, userID, match); err != nil {
-		return 0, "", err
+		return 0, err
 	}
 	pairID := match.GetString("pair1")
 	if team == 2 {
@@ -717,12 +718,12 @@ func playerActionGate(app core.App, userID string, match *core.Record) (int, str
 	}
 	withdrawn, err := league.IsWithdrawn(app, pairID, match.GetString("competition"))
 	if err != nil {
-		return 0, "", err
+		return 0, err
 	}
 	if withdrawn {
-		return 0, "", errWithdrawn
+		return 0, errWithdrawn
 	}
-	return team, pairID, nil
+	return team, nil
 }
 
 // mapActionGateError translates playerActionGate errors to UI alert responses.

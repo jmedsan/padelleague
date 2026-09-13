@@ -181,7 +181,7 @@ func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
 
 	compName := comp.GetString("name")
 	if err := h.app.RunInTransaction(func(txApp core.App) error {
-		if err := finalizeMatchesAsWalkovers(txApp, e, preScoreMatches, pairID, woScore, pairName, compName); err != nil {
+		if err := finalizeMatchesAsWalkovers(txApp, e, preScoreMatches, pairID, woScore, pairName); err != nil {
 			return err
 		}
 		withdrawn := comp.GetStringSlice("withdrawn_pairs")
@@ -213,7 +213,7 @@ func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
-func finalizeMatchesAsWalkovers(app core.App, e *core.RequestEvent, matches []*core.Record, pairID, woScore, pairName, compName string) error {
+func finalizeMatchesAsWalkovers(app core.App, e *core.RequestEvent, matches []*core.Record, pairID, woScore, pairName string) error {
 	detail := fmt.Sprintf("Incomparecencia — %s se ha retirado de la competición", pairName)
 	for _, match := range matches {
 		opponentID := match.GetString("pair2")
