@@ -18,6 +18,11 @@ import (
 	"padelleague/render"
 )
 
+var (
+	errNotParticipant = errors.New("not participant")
+	errWithdrawn      = errors.New("withdrawn")
+)
+
 // MatchHandler handles match detail, score submission, and correction flows.
 type MatchHandler struct {
 	app             core.App
@@ -190,27 +195,9 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 
 	userID := e.Auth.Id
 	isAdmin := isEffectiveAdmin(e)
-	_, teamErr := league.PlayerTeam(h.app, userID, match)
-	if teamErr != nil && !isAdmin {
-		return alertError(e, "No eres participante de este partido")
-	}
 	if !isAdmin {
-		if err := league.IsCaptainGuarded(h.app, userID, match); err != nil {
-			if errors.Is(err, league.ErrNotCaptain) {
-				return alertError(e, "Solo el capitán puede registrar resultados")
-			}
-			return alertError(e, "Error interno")
-		}
-		// Check withdrawal — determine which pair this user belongs to.
-		team, _ := league.PlayerTeam(h.app, userID, match)
-		var userPairID string
-		if team == 1 {
-			userPairID = match.GetString("pair1")
-		} else if team == 2 {
-			userPairID = match.GetString("pair2")
-		}
-		if userPairID != "" && league.IsWithdrawn(h.app, userPairID, match.GetString("competition")) {
-			return alertError(e, "Tu pareja se ha retirado de esta competición")
+		if _, _, err := playerActionGate(h.app, userID, match); err != nil {
+			return mapActionGateError(e, err)
 		}
 	}
 
@@ -693,6 +680,41 @@ func (h *MatchHandler) supersedeAcceptedProposals(matchID string) {
 		if err := h.app.Save(sp); err != nil {
 			slog.Error("supersede scheduling proposal on cancel", "match", matchID, "err", err)
 		}
+	}
+}
+
+// playerActionGate validates that userID can perform a score action on match:
+// they must be a participant, their pair's captain if one is set, and not withdrawn.
+// Returns (team, pairID, nil) on success, or a sentinel error for the caller to map.
+func playerActionGate(app core.App, userID string, match *core.Record) (int, string, error) {
+	team, err := league.PlayerTeam(app, userID, match)
+	if err != nil {
+		return 0, "", errNotParticipant
+	}
+	if err := league.IsCaptainGuarded(app, userID, match); err != nil {
+		return 0, "", err
+	}
+	pairID := match.GetString("pair1")
+	if team == 2 {
+		pairID = match.GetString("pair2")
+	}
+	if league.IsWithdrawn(app, pairID, match.GetString("competition")) {
+		return 0, "", errWithdrawn
+	}
+	return team, pairID, nil
+}
+
+// mapActionGateError translates playerActionGate errors to UI alert responses.
+func mapActionGateError(e *core.RequestEvent, err error) error {
+	switch {
+	case errors.Is(err, errNotParticipant):
+		return alertError(e, "No eres participante de este partido")
+	case errors.Is(err, league.ErrNotCaptain):
+		return alertError(e, "Solo el capitán puede registrar resultados")
+	case errors.Is(err, errWithdrawn):
+		return alertError(e, "Tu pareja se ha retirado de esta competición")
+	default:
+		return alertError(e, "Error interno")
 	}
 }
 

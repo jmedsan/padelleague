@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"errors"
 	"log/slog"
 	"time"
 
@@ -83,26 +82,13 @@ func (h *MatchHandler) validateCorrectionAccess(e *core.RequestEvent, match *cor
 
 	isAdmin := isEffectiveAdmin(e)
 	submittedByID := pending[0].GetString("author")
-	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
-	if err != nil && !isAdmin {
-		return 0, alertError(e, "No eres participante de este partido")
-	}
+	var myTeam int
 	if !isAdmin {
-		if err := league.IsCaptainGuarded(h.app, e.Auth.Id, match); err != nil {
-			if errors.Is(err, league.ErrNotCaptain) {
-				return 0, alertError(e, "Solo el capitán puede registrar resultados")
-			}
-			return 0, alertError(e, "Error interno")
+		team, _, err := playerActionGate(h.app, e.Auth.Id, match)
+		if err != nil {
+			return 0, mapActionGateError(e, err)
 		}
-		var userPairID string
-		if myTeam == 1 {
-			userPairID = match.GetString("pair1")
-		} else if myTeam == 2 {
-			userPairID = match.GetString("pair2")
-		}
-		if userPairID != "" && league.IsWithdrawn(h.app, userPairID, match.GetString("competition")) {
-			return 0, alertError(e, "Tu pareja se ha retirado de esta competición")
-		}
+		myTeam = team
 	}
 	if msg := h.validateCorrectionPermission(isAdmin, myTeam, submittedByID, match); msg != "" {
 		return 0, alertError(e, msg)
