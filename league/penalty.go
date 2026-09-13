@@ -127,7 +127,11 @@ func ApplyPendingMatchPenalties(app core.App, comp *core.Record) ([]*core.Record
 
 	var applied []*core.Record
 	for _, pairID := range pairIDs {
-		recs, err := applyPairPenalties(app, comp.Id, pairID, counts[pairID], autoTotal[pairID], threshold, phase)
+		recs, err := applyPairPenalties(app, pairPenaltyParams{
+			compID: comp.Id, pairID: pairID,
+			pendingCount: counts[pairID], alreadyApplied: autoTotal[pairID],
+			threshold: threshold, phase: phase,
+		})
 		if err != nil {
 			return applied, err
 		}
@@ -136,30 +140,37 @@ func ApplyPendingMatchPenalties(app core.App, comp *core.Record) ([]*core.Record
 	return applied, nil
 }
 
-// applyPairPenalties creates the delta between target and already-applied
-// auto-penalties for one pair. Returns the newly created records.
-func applyPairPenalties(app core.App, compID, pairID string, pendingCount, alreadyApplied, threshold int, phase Phase) ([]*core.Record, error) {
-	target := targetPenaltyCount(pendingCount, threshold, phase)
-	toCreate := target - alreadyApplied
+type pairPenaltyParams struct {
+	compID         string
+	pairID         string
+	pendingCount   int
+	alreadyApplied int
+	threshold      int
+	phase          Phase
+}
+
+func applyPairPenalties(app core.App, p pairPenaltyParams) ([]*core.Record, error) {
+	target := targetPenaltyCount(p.pendingCount, p.threshold, p.phase)
+	toCreate := target - p.alreadyApplied
 	if toCreate <= 0 {
 		return nil, nil
 	}
 	reason := fmt.Sprintf("Partidos pendientes por encima del límite (%d pendientes, máximo %d)",
-		pendingCount, threshold)
-	if phase == PhaseFinished {
+		p.pendingCount, p.threshold)
+	if p.phase == PhaseFinished {
 		reason = fmt.Sprintf("Partido pendiente al cierre de la competición (%d pendientes)",
-			pendingCount)
+			p.pendingCount)
 	}
 	recs := make([]*core.Record, 0, toCreate)
 	for range toCreate {
 		rec, err := ApplyPenalty(app, PenaltyInput{
-			CompetitionID: compID,
-			PairID:        pairID,
+			CompetitionID: p.compID,
+			PairID:        p.pairID,
 			Amount:        1,
 			Reason:        reason,
 		})
 		if err != nil {
-			return recs, fmt.Errorf("pending match penalties: pair %s: %w", pairID, err)
+			return recs, fmt.Errorf("pending match penalties: pair %s: %w", p.pairID, err)
 		}
 		recs = append(recs, rec)
 	}

@@ -13,28 +13,7 @@ import (
 
 func (h *CompetitionHandler) addDetailExtras(data map[string]any, comp *core.Record, matches []*core.Record, fileToken string) {
 	if comp.GetString("type") == "league" {
-		rows, _ := h.leagueSvc.ComputeStandings(comp.Id)
-		hasPlayed := false
-		for _, s := range rows {
-			if s.Played > 0 {
-				hasPlayed = true
-			}
-			if s.Penalty > 0 {
-				data["HasPenalties"] = true
-			}
-		}
-		if len(rows) >= 2 && hasPlayed {
-			data["Standings"] = rows
-		}
-		if len(matches) > 0 {
-			data["RoundDates"] = h.buildRoundDates(comp)
-		}
-		withdrawnIDs := comp.GetStringSlice("withdrawn_pairs")
-		wp := make(map[string]bool, len(withdrawnIDs))
-		for _, id := range withdrawnIDs {
-			wp[id] = true
-		}
-		data["WithdrawnPairs"] = wp
+		h.addLeagueExtras(data, comp, matches)
 	}
 	attachedViews, unattachedDocs := h.buildDetailDocs(comp, fileToken)
 	data["AttachedDocViews"] = attachedViews
@@ -49,6 +28,31 @@ func (h *CompetitionHandler) addDetailExtras(data map[string]any, comp *core.Rec
 	})
 
 	data["Activity"] = h.buildActivityTimeline(comp.Id)
+}
+
+func (h *CompetitionHandler) addLeagueExtras(data map[string]any, comp *core.Record, matches []*core.Record) {
+	rows, _ := h.leagueSvc.ComputeStandings(comp.Id)
+	hasPlayed := false
+	for _, s := range rows {
+		if s.Played > 0 {
+			hasPlayed = true
+		}
+		if s.Penalty > 0 {
+			data["HasPenalties"] = true
+		}
+	}
+	if len(rows) >= 2 && hasPlayed {
+		data["Standings"] = rows
+	}
+	if len(matches) > 0 {
+		data["RoundDates"] = h.buildRoundDates(comp)
+	}
+	withdrawnIDs := comp.GetStringSlice("withdrawn_pairs")
+	wp := make(map[string]bool, len(withdrawnIDs))
+	for _, id := range withdrawnIDs {
+		wp[id] = true
+	}
+	data["WithdrawnPairs"] = wp
 }
 
 // buildActivityTimeline maps the competition's activity log (competition_events)
@@ -163,25 +167,17 @@ func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
 		woScore = "6-0 6-0"
 	}
 
-	params := map[string]any{"cid": compID, "pid": pairID}
-	preScoreMatches, err := h.app.FindRecordsByFilter("matches",
-		"competition = {:cid} && (status = 'pending' || status = 'scheduled') && (pair1 = {:pid} || pair2 = {:pid})",
-		"", 0, 0, params,
-	)
-	if err != nil {
-		return alertError(e, "Error al buscar partidos")
-	}
-	manualMatches, err := h.app.FindRecordsByFilter("matches",
-		"competition = {:cid} && (status = 'confirmed' || status = 'disputed') && (pair1 = {:pid} || pair2 = {:pid})",
-		"", 0, 0, params,
-	)
+	preScoreMatches, manualMatches, err := h.findWithdrawalMatches(compID, pairID)
 	if err != nil {
 		return alertError(e, "Error al buscar partidos")
 	}
 
 	compName := comp.GetString("name")
 	if err := h.app.RunInTransaction(func(txApp core.App) error {
-		if err := finalizeMatchesAsWalkovers(txApp, e, preScoreMatches, pairID, woScore, pairName); err != nil {
+		if err := finalizeMatchesAsWalkovers(walkoverParams{
+			app: txApp, e: e, matches: preScoreMatches,
+			pairID: pairID, woScore: woScore, pairName: pairName,
+		}); err != nil {
 			return err
 		}
 		withdrawn := comp.GetStringSlice("withdrawn_pairs")
@@ -192,48 +188,91 @@ func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
 		return alertError(e, "Error al procesar el retiro")
 	}
 
-	// Notify after transaction commits.
-	for _, match := range preScoreMatches {
-		opponentID := match.GetString("pair2")
-		if opponentID == pairID {
-			opponentID = match.GetString("pair1")
-		}
-		opponentPlayers := league.PlayersForPair(h.app, opponentID)
-		h.notifier.NotifyPlayers(opponentPlayers, league.NotifOpponentWithdrawn(match.Id, pairName, compName, woScore))
-	}
-	withdrawnPlayers := league.PlayersForPair(h.app, pairID)
-	h.notifier.NotifyPlayers(withdrawnPlayers, league.NotifPairWithdrawn(compName))
-
-	msg := fmt.Sprintf("%s retirada (%d partidos finalizados por incomparecencia", pairName, len(preScoreMatches))
-	if len(manualMatches) > 0 {
-		msg += fmt.Sprintf(". %d partidos en estado confirmado/disputa requieren atención manual", len(manualMatches))
-	}
-	msg += ")"
-	flash(e, msg)
+	h.notifyWithdrawal(withdrawalNotice{
+		matches: preScoreMatches, pairID: pairID,
+		pairName: pairName, compName: compName, woScore: woScore,
+	})
+	flashWithdrawal(e, pairName, len(preScoreMatches), len(manualMatches))
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
-func finalizeMatchesAsWalkovers(app core.App, e *core.RequestEvent, matches []*core.Record, pairID, woScore, pairName string) error {
-	detail := fmt.Sprintf("Incomparecencia — %s se ha retirado de la competición", pairName)
-	for _, match := range matches {
+type walkoverParams struct {
+	app      core.App
+	e        *core.RequestEvent
+	matches  []*core.Record
+	pairID   string
+	woScore  string
+	pairName string
+}
+
+func finalizeMatchesAsWalkovers(p walkoverParams) error {
+	detail := fmt.Sprintf("Incomparecencia — %s se ha retirado de la competición", p.pairName)
+	for _, match := range p.matches {
 		opponentID := match.GetString("pair2")
-		if opponentID == pairID {
+		if opponentID == p.pairID {
 			opponentID = match.GetString("pair1")
 		}
-		match.Set("scores", woScore)
+		match.Set("scores", p.woScore)
 		match.Set("winner", opponentID)
 		match.Set("status", league.StatusFinal)
 		match.Set("review_type", "walkover")
 		match.Set("carried_sets", "")
-		if err := app.Save(match); err != nil {
-			return alertError(e, "Error al finalizar partido")
+		if err := p.app.Save(match); err != nil {
+			return alertError(p.e, "Error al finalizar partido")
 		}
-		addTimelineEntry(app, timelineEntry{
-			MatchID: match.Id, ActorID: e.Auth.Id, Kind: "result_event",
+		addTimelineEntry(p.app, timelineEntry{
+			MatchID: match.Id, ActorID: p.e.Auth.Id, Kind: "result_event",
 			Detail: detail,
 		})
 	}
 	return nil
+}
+
+func (h *CompetitionHandler) findWithdrawalMatches(compID, pairID string) (preScore, manual []*core.Record, err error) {
+	params := map[string]any{"cid": compID, "pid": pairID}
+	preScore, err = h.app.FindRecordsByFilter("matches",
+		"competition = {:cid} && (status = 'pending' || status = 'scheduled') && (pair1 = {:pid} || pair2 = {:pid})",
+		"", 0, 0, params)
+	if err != nil {
+		return nil, nil, err
+	}
+	manual, err = h.app.FindRecordsByFilter("matches",
+		"competition = {:cid} && (status = 'confirmed' || status = 'disputed') && (pair1 = {:pid} || pair2 = {:pid})",
+		"", 0, 0, params)
+	if err != nil {
+		return nil, nil, err
+	}
+	return preScore, manual, nil
+}
+
+type withdrawalNotice struct {
+	matches  []*core.Record
+	pairID   string
+	pairName string
+	compName string
+	woScore  string
+}
+
+func (h *CompetitionHandler) notifyWithdrawal(n withdrawalNotice) {
+	for _, match := range n.matches {
+		opponentID := match.GetString("pair2")
+		if opponentID == n.pairID {
+			opponentID = match.GetString("pair1")
+		}
+		opponentPlayers := league.PlayersForPair(h.app, opponentID)
+		h.notifier.NotifyPlayers(opponentPlayers, league.NotifOpponentWithdrawn(match.Id, n.pairName, n.compName, n.woScore))
+	}
+	withdrawnPlayers := league.PlayersForPair(h.app, n.pairID)
+	h.notifier.NotifyPlayers(withdrawnPlayers, league.NotifPairWithdrawn(n.compName))
+}
+
+func flashWithdrawal(e *core.RequestEvent, pairName string, finalized, manual int) {
+	msg := fmt.Sprintf("%s retirada (%d partidos finalizados por incomparecencia", pairName, finalized)
+	if manual > 0 {
+		msg += fmt.Sprintf(". %d partidos en estado confirmado/disputa requieren atención manual", manual)
+	}
+	msg += ")"
+	flash(e, msg)
 }
 
 func anyUnpaid(entries []pairEntry) bool {
