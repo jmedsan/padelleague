@@ -1357,3 +1357,153 @@ func TestMatchSubmitNoDeadlockNoAdminNotif(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestCancelDateAsParticipant(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /match/{id}/cancel-date reverts scheduled match to pending",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID, rivalPlayerID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "CD A")
+		p2 := makePairTB(tb, app, "CD B")
+		rivalPlayerID = p2.GetString("player1")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+		m.Set("date", "2026-12-01")
+		m.Set("time", "18:00")
+		m.Set("club", "Padel 360")
+		require.NoError(tb, app.Save(m))
+		matchID = m.Id
+
+		canceller, err := app.FindRecordById("users", p1.GetString("player1"))
+		require.NoError(tb, err)
+		s.URL = "/match/" + m.Id + "/cancel-date"
+		s.Body = strings.NewReader("reason=Viaje+de+trabajo")
+		hdrs := authHeaders(tb, canceller)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "pending", m.GetString("status"))
+		assert.Empty(tb, m.GetString("date"))
+		assert.Empty(tb, m.GetString("time"))
+		assert.Empty(tb, m.GetString("club"))
+		assert.Equal(tb, 0, m.GetInt("last_warn_level"))
+
+		msgs, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:id} && type = 'scheduling_response'", "", 0, 0,
+			map[string]any{"id": matchID})
+		require.GreaterOrEqual(tb, len(msgs), 1)
+		assert.Contains(tb, msgs[0].GetString("content"), "canceló la fecha")
+
+		notifs, _ := app.FindRecordsByFilter("notifications",
+			"user = {:uid}", "", 0, 0,
+			map[string]any{"uid": rivalPlayerID})
+		assert.GreaterOrEqual(tb, len(notifs), 1, "rival must be notified")
+	}
+	s.Test(t)
+}
+
+func TestCancelDateNonParticipant(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:            "POST /match/{id}/cancel-date rejects non-participant",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"No eres participante"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "CDN A")
+		p2 := makePairTB(tb, app, "CDN B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+		m.Set("date", "2026-12-01")
+		m.Set("time", "18:00")
+		m.Set("club", "Padel 360")
+		require.NoError(tb, app.Save(m))
+
+		outsider := makeUserTB(tb, app, "Outsider", "outsider-cd@test.local")
+		s.URL = "/match/" + m.Id + "/cancel-date"
+		s.Body = strings.NewReader("reason=Test")
+		hdrs := authHeaders(tb, outsider)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestCancelDateOnPendingMatch(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:            "POST /match/{id}/cancel-date rejects non-scheduled match",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"no tiene fecha confirmada"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "CDP A")
+		p2 := makePairTB(tb, app, "CDP B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		player, err := app.FindRecordById("users", p1.GetString("player1"))
+		require.NoError(tb, err)
+		s.URL = "/match/" + m.Id + "/cancel-date"
+		s.Body = strings.NewReader("reason=Test")
+		hdrs := authHeaders(tb, player)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestCancelDateWithin24h(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /match/{id}/cancel-date within 24h mentions it in timeline",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "CD24 A")
+		p2 := makePairTB(tb, app, "CD24 B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+		tomorrow := time.Now().Add(6 * time.Hour)
+		m.Set("date", tomorrow.Format("2006-01-02"))
+		m.Set("time", tomorrow.Format("15:04"))
+		m.Set("club", "Padel 360")
+		require.NoError(tb, app.Save(m))
+		matchID = m.Id
+
+		canceller, err := app.FindRecordById("users", p1.GetString("player1"))
+		require.NoError(tb, err)
+		s.URL = "/match/" + m.Id + "/cancel-date"
+		s.Body = strings.NewReader("reason=Urgencia")
+		hdrs := authHeaders(tb, canceller)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		msgs, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:id} && type = 'scheduling_response'", "", 0, 0,
+			map[string]any{"id": matchID})
+		require.GreaterOrEqual(tb, len(msgs), 1)
+		assert.Contains(tb, msgs[0].GetString("content"), "menos de 24h")
+	}
+	s.Test(t)
+}

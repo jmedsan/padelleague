@@ -271,6 +271,7 @@ func setupAllRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	e.Router.POST("/match/{id}/correct", match.MatchCorrect).BindFunc(requireAuthTest)
 	e.Router.POST("/match/{id}/admin-override", match.AdminOverride).BindFunc(requireAuthTest)
 	e.Router.POST("/match/{id}/report-unplayed", match.ReportUnplayed).BindFunc(requireAuthTest)
+	e.Router.POST("/match/{id}/cancel-date", match.CancelDate).BindFunc(requireAuthTest)
 
 	thread := NewThreadHandler(ThreadDeps{
 		App: app, Notifier: notifier, Svc: svc,
