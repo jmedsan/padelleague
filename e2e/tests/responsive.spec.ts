@@ -281,7 +281,7 @@ test.describe('responsive - no horizontal overflow', () => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await navViaDrawer(page, '/admin/venues');
     await checkNoOverflow(page);
-    await expect(page.getByText('Pista Central')).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Pista Central' })).toBeVisible();
   });
 
   test('admin invitations', async ({ page }) => {

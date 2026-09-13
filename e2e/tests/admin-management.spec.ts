@@ -43,7 +43,7 @@ test.describe('admin management', () => {
   test('admin can view venues page', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await navToAdmin(page, '/admin/venues');
-    await expect(page.getByText('Pista Central')).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Pista Central' })).toBeVisible();
   });
 
   test('admin can view invitations inline on competition detail', async ({ page }) => {

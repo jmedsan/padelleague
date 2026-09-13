@@ -60,7 +60,7 @@ test.describe('match thread', () => {
     const scheduleHeading = page.getByText('Proponer fecha y lugar');
     await expect(scheduleHeading).toBeVisible({ timeout: 10000 });
     await expect(page.locator('input[type="date"]')).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('input[type="time"]')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('select[name="time"]')).toBeVisible({ timeout: 3000 });
   });
 
   test('W2: after proposing a date, the form collapses into "Proponer otra fecha"', async ({ page }) => {
@@ -76,7 +76,7 @@ test.describe('match thread', () => {
     await expect(page.getByText('Proponer fecha y lugar')).toBeVisible();
 
     await page.fill('#proposal-date', '2026-12-01');
-    await page.fill('#proposal-time', '10:00');
+    await page.locator('#proposal-time').selectOption('10:00');
     await page.locator('#proposal-venue').selectOption({ index: 1 });
     await Promise.all([
       page.waitForEvent('load', { timeout: 10000 }),
@@ -109,7 +109,7 @@ test.describe('match thread', () => {
     page.on('dialog', () => { dialogFired = true; });
 
     await page.fill('#proposal-date', '2026-12-01');
-    await page.fill('#proposal-time', '10:00');
+    await page.locator('#proposal-time').selectOption('10:00');
     await page.locator('#proposal-venue').selectOption('otro');
     await expect(page.locator('#venue-text-wrap')).toBeVisible();
     await page.locator('#proposal-form button:has-text("Proponer fecha")').click();
@@ -276,7 +276,7 @@ test.describe('match thread', () => {
     const proposalForm = page.locator('#proposal-form');
     const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
     await proposalForm.locator('input[name="date"]').fill(tomorrow);
-    await proposalForm.locator('input[name="time"]').fill('18:00');
+    await proposalForm.locator('select[name="time"]').selectOption('18:00');
     await proposalForm.locator('select[name="venue_id"]').selectOption(data.venueId);
     await proposalForm.locator('button[type="submit"]').click();
 
@@ -389,7 +389,7 @@ test.describe('match thread', () => {
     await page.goto(`/match/${matchId}`);
     await page.waitForSelector('#proposal-date', { timeout: 10000 });
     await page.fill('#proposal-date', '2027-01-15');
-    await page.fill('#proposal-time', '10:00');
+    await page.locator('#proposal-time').selectOption('10:00');
     await page.locator('#proposal-venue').selectOption({ index: 1 });
     await Promise.all([
       page.waitForEvent('load', { timeout: 10000 }),
@@ -429,7 +429,7 @@ test.describe('match thread', () => {
     await page.goto(`/match/${matchId}`);
     await page.waitForSelector('#proposal-date', { timeout: 10000 });
     await page.fill('#proposal-date', '2027-01-20');
-    await page.fill('#proposal-time', '11:00');
+    await page.locator('#proposal-time').selectOption('11:00');
     await page.locator('#proposal-venue').selectOption({ index: 1 });
     await Promise.all([
       page.waitForEvent('load', { timeout: 10000 }),
@@ -491,7 +491,7 @@ test.describe('match thread', () => {
     expect(storedValue).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
     // Submit and verify the server receives and stores the correct date
-    await page.fill('#proposal-time', '09:00');
+    await page.locator('#proposal-time').selectOption('09:00');
     await page.locator('#proposal-venue').selectOption({ index: 1 });
     await Promise.all([
       page.waitForEvent('load', { timeout: 10000 }),
