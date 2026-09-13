@@ -2,17 +2,10 @@ package league
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 )
-
-// pendingMatchPenaltyPrefix is the reason prefix used by auto-applied pending
-// match penalties. It is also used for idempotency: if any non-voided penalty
-// with this prefix already exists for a pair in a competition, no new
-// auto-penalty is created.
-const pendingMatchPenaltyPrefix = "Partidos pendientes"
 
 // PenaltyInput is the data recorded for one penalty.
 type PenaltyInput struct {
@@ -81,66 +74,99 @@ func VoidPenalty(app core.App, input VoidPenaltyInput) (*core.Record, error) {
 	return rec, nil
 }
 
-// ApplyPendingMatchPenalties auto-applies -1 point per unplayed match above
-// the competition's max_pending_matches threshold. Unplayed = status in
-// (pending, scheduled, confirmed). Idempotent: pairs that already have a
-// non-voided auto-penalty (reason prefix "Partidos pendientes") are skipped.
+// ApplyPendingMatchPenalties reconciles auto-penalties for unplayed matches.
+//
+// Target per pair is derived from the competition phase:
+//   - Recovery: max(0, pendingCount - threshold)
+//   - Finished: pendingCount (every unplayed match)
+//
+// Auto-penalties are identified by applied_by = "" (cron has no author).
+// Existing auto-penalties (active + voided) are counted per pair; new ones
+// are created only when target exceeds that total. Voided auto-penalties are
+// never re-created, so an admin void permanently forgives that slot.
+//
 // A threshold of 0 disables auto-penalties for this competition.
-// Returns the number of penalty records created.
-func ApplyPendingMatchPenalties(app core.App, comp *core.Record) (int, error) {
+// Returns the newly created penalty records.
+func ApplyPendingMatchPenalties(app core.App, comp *core.Record) ([]*core.Record, error) {
 	threshold := comp.GetInt("max_pending_matches")
 	if threshold == 0 {
-		return 0, nil // disabled
+		return nil, nil // disabled
 	}
+
+	phase := CompetitionPhase(comp, time.Now())
 
 	pairIDs := comp.GetStringSlice("pairs")
 
-	// Count unplayed matches per pair.
+	// Count unplayed matches per pair (status != 'final' = pending/scheduled/confirmed/disputed).
 	unplayed, err := app.FindRecordsByFilter("matches",
 		"competition = {:c} && status != 'final'",
 		"", 0, 0, map[string]any{"c": comp.Id})
 	if err != nil {
-		return 0, fmt.Errorf("pending match penalties: list matches: %w", err)
+		return nil, fmt.Errorf("pending match penalties: list matches: %w", err)
 	}
-
 	counts := make(map[string]int, len(pairIDs))
 	for _, m := range unplayed {
-		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
-		counts[p1]++
-		counts[p2]++
+		counts[m.GetString("pair1")]++
+		counts[m.GetString("pair2")]++
 	}
 
-	// Find existing auto-penalties to enforce idempotency.
-	existing, err := app.FindRecordsByFilter("penalties",
-		"competition = {:c} && voided = false",
+	// Count total auto-penalties (active + voided) per pair.
+	// Cron-created penalties have applied_by = "" (no user author).
+	allPenalties, err := app.FindRecordsByFilter("penalties",
+		"competition = {:c}",
 		"", 0, 0, map[string]any{"c": comp.Id})
 	if err != nil {
-		return 0, fmt.Errorf("pending match penalties: list existing: %w", err)
+		return nil, fmt.Errorf("pending match penalties: list existing: %w", err)
 	}
-	alreadyPenalized := make(map[string]bool, len(pairIDs))
-	for _, p := range existing {
-		if strings.HasPrefix(p.GetString("reason"), pendingMatchPenaltyPrefix) {
-			alreadyPenalized[p.GetString("pair")] = true
+	autoTotal := make(map[string]int, len(pairIDs))
+	for _, p := range allPenalties {
+		if p.GetString("applied_by") == "" {
+			autoTotal[p.GetString("pair")]++
 		}
 	}
 
-	applied := 0
+	var applied []*core.Record
 	for _, pairID := range pairIDs {
-		excess := counts[pairID] - threshold
-		if excess <= 0 || alreadyPenalized[pairID] {
+		target := targetPenaltyCount(counts[pairID], threshold, phase)
+		toCreate := target - autoTotal[pairID]
+		if toCreate <= 0 {
 			continue
 		}
-		reason := fmt.Sprintf("%s por encima del límite (%d pendientes, máximo %d)",
-			pendingMatchPenaltyPrefix, counts[pairID], threshold)
-		if _, err := ApplyPenalty(app, PenaltyInput{
-			CompetitionID: comp.Id,
-			PairID:        pairID,
-			Amount:        float64(excess),
-			Reason:        reason,
-		}); err != nil {
-			return applied, fmt.Errorf("pending match penalties: pair %s: %w", pairID, err)
+		reason := fmt.Sprintf("Partidos pendientes por encima del límite (%d pendientes, máximo %d)",
+			counts[pairID], threshold)
+		if phase == PhaseFinished {
+			reason = fmt.Sprintf("Partido pendiente al cierre de la competición (%d pendientes)",
+				counts[pairID])
 		}
-		applied++
+		for range toCreate {
+			rec, err := ApplyPenalty(app, PenaltyInput{
+				CompetitionID: comp.Id,
+				PairID:        pairID,
+				Amount:        1,
+				Reason:        reason,
+			})
+			if err != nil {
+				return applied, fmt.Errorf("pending match penalties: pair %s: %w", pairID, err)
+			}
+			applied = append(applied, rec)
+		}
 	}
 	return applied, nil
+}
+
+// targetPenaltyCount returns how many auto-penalties a pair should have
+// given their unplayed count, threshold, and competition phase.
+func targetPenaltyCount(pendingCount, threshold int, phase Phase) int {
+	switch phase {
+	case PhaseFinished:
+		return pendingCount
+	case PhaseRecovery:
+		excess := pendingCount - threshold
+		if excess < 0 {
+			return 0
+		}
+		return excess
+	default:
+		return 0
+	}
 }
