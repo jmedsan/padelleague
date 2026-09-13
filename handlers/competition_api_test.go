@@ -48,6 +48,7 @@ func setupCompRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.POST("/competitions/{id}/remove-pair", cpairs.RemovePair)
 	g.POST("/competitions/{id}/payment", cpayments.TogglePayment)
 	g.POST("/competitions/{id}/penalty", comp.ApplyPenalty)
+	g.POST("/competitions/{id}/withdraw-pair", comp.WithdrawPair)
 	g.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
 	g.POST("/disputes/{id}/resolve", dispute.DisputesResolve)
 	g.POST("/disputes/{id}/walkover-approve", dispute.WalkoverApprove)
@@ -952,6 +953,58 @@ func TestPairsUpdateAllowsNonOverlapping(t *testing.T) {
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+// TestWithdrawPairPreScoreOnly verifies that WithdrawPair finalizes only
+// pending/scheduled matches, leaving confirmed and disputed matches untouched,
+// and that the pair is marked withdrawn.
+func TestWithdrawPairPreScoreOnly(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/withdraw-pair respects pre-score filter",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, pairID, pendingID, confirmedID, disputedID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "WdrawA")
+		p2 := makePairTB(tb, app, "WdrawB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		compID = comp.Id
+		pairID = p1.Id
+
+		pendingID = makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending").Id
+		confirmedID = makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed").Id
+		disputedID = makeMatchTB(tb, app, comp.Id, p2.Id, p1.Id, "disputed").Id
+
+		s.URL = "/admin/competitions/" + comp.Id + "/withdraw-pair"
+		s.Body = strings.NewReader("pair_id=" + p1.Id)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		pending, err := app.FindRecordById("matches", pendingID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "final", pending.GetString("status"), "pending match must be finalized")
+		assert.Equal(tb, "walkover", pending.GetString("review_type"))
+
+		confirmed, err := app.FindRecordById("matches", confirmedID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "confirmed", confirmed.GetString("status"), "confirmed match must not be touched")
+
+		disputed, err := app.FindRecordById("matches", disputedID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "disputed", disputed.GetString("status"), "disputed match must not be touched")
+
+		comp, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Contains(tb, comp.GetStringSlice("withdrawn_pairs"), pairID)
 	}
 	s.Test(t)
 }
