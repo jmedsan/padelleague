@@ -314,6 +314,7 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 	}
 
 	h.notifyProposal(match, myTeam, proposalNotice{AuthorID: e.Auth.Id, Date: pd.Date, Time: pd.Time, VenueName: pd.VenueName})
+	flash(e, "Propuesta enviada")
 	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
 }
 
@@ -429,6 +430,14 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 
 	if err := h.dispatchProposalAction(e, match, msg, authorTeam); err != nil {
 		return err
+	}
+	if msg.GetString("type") == "scheduling_proposal" {
+		switch e.Request.FormValue("action") {
+		case "accept":
+			flash(e, "Fecha confirmada")
+		case "reject":
+			flash(e, "Propuesta rechazada")
+		}
 	}
 	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
 }
@@ -748,8 +757,16 @@ func (h *ThreadHandler) WithdrawProposal(e *core.RequestEvent) error {
 		return err
 	}
 
+	if err := checkDocGate(h.app, e, match); err != nil {
+		return err
+	}
+
 	if err := checkCompModifiable(h.app, e, match); err != nil {
 		return err
+	}
+
+	if !league.IsPreScore(match.GetString("status")) {
+		return alertError(e, "Este partido ya no acepta propuestas")
 	}
 
 	msg, err := h.app.FindRecordById("match_messages", msgID)
@@ -783,7 +800,20 @@ func (h *ThreadHandler) WithdrawProposal(e *core.RequestEvent) error {
 		Data:     ParseProposalData(msg.Get("proposal_data")),
 	})
 
+	myTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
+	h.notifyWithdrawal(match, myTeam, e.Auth.Id)
 	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
+}
+
+func (h *ThreadHandler) notifyWithdrawal(match *core.Record, myTeam int, authorID string) {
+	rivalPairID := match.GetString("pair1")
+	if myTeam == 1 {
+		rivalPairID = match.GetString("pair2")
+	}
+	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
+	authorName := league.PlayerName(h.app, authorID)
+	compName := league.CompetitionName(h.app, match.GetString("competition"))
+	h.notifier.NotifyPlayers(rivalPlayers, league.NotifProposalWithdrawn(match.Id, authorName, compName))
 }
 
 // ProposalChangeDecision lets a player revoke or change their proposal response.

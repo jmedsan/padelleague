@@ -246,7 +246,7 @@ func (h *PublicHandler) buildNextMatch(m *core.Record, c *core.Record, playerPai
 	}
 	proposals := findRecordsLogged(h.app, "buildNextMatch: find scheduling proposal", RecordQuery{
 		Collection: "match_messages",
-		Filter:     "match = {:mid} && type = 'scheduling_proposal' && proposal_status != 'rejected' && proposal_status != 'superseded'",
+		Filter:     "match = {:mid} && type = 'scheduling_proposal' && (proposal_status = 'pending' || proposal_status = 'accepted')",
 		Sort:       "-created", Limit: 1, Params: map[string]any{"mid": m.Id},
 	})
 	if len(proposals) > 0 {
