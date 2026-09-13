@@ -42,6 +42,10 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 		return regenerateConfirmPrompt(e, compID, len(existingMatches))
 	}
 
+	if withdrawn := comp.GetStringSlice("withdrawn_pairs"); len(withdrawn) > 0 {
+		return alertError(e, "Hay parejas retiradas en esta competición. Reincorpóralas o elimínalas antes de regenerar el calendario.")
+	}
+
 	pairIDs := comp.GetStringSlice("pairs")
 
 	if len(pairIDs) < 2 {
