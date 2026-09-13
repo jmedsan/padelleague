@@ -33,6 +33,7 @@ let playerIds: string[] = [];
 let pairIds: string[] = [];
 let competitionId = '';
 let suToken = '';
+let fixtures: MatchFixture[] = [];
 
 const LABEL_TO_INDEX: Record<PairId, number> = { A: 0, B: 1, C: 2, D: 3 };
 
@@ -53,25 +54,43 @@ test.describe('season simulation', () => {
 
   test.describe.configure({ retries: 0 });
 
-  test('league standings are exact after a full ida y vuelta', async ({ page }) => {
-    test.setTimeout(240000);
+  // Split into serial quarters so a failure is diagnosable and each test is
+  // lighter. State (competitionId, pairIds, suToken, fixtures) is shared via
+  // module-level variables — set by Q1, consumed by Q2-Q4.
+  test.describe.serial('league standings — ida y vuelta in quarters', () => {
+    test('Q1: build season and play matches 0-2 (scheduling proposal flow)', async ({ page }) => {
+      test.setTimeout(180000);
+      await buildSeason(page);
+      fixtures = await mapFixturesToScores(page.request);
+      await playMatchRange(page, fixtures, 0, 2);
+    });
 
-    await buildSeason(page);
+    test('Q2: play matches 3-5 (API-set date + submit/confirm flow)', async ({ page }) => {
+      test.setTimeout(120000);
+      await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      await playMatchRange(page, fixtures, 3, 5);
+    });
 
-    // Step A: map fixtures to scores
-    const fixtures = await mapFixturesToScores(page.request);
+    test('Q3: play matches 6-8', async ({ page }) => {
+      test.setTimeout(120000);
+      await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      await playMatchRange(page, fixtures, 6, 8);
+    });
 
-    // Step B: play all 12 matches with varied interactions
-    await playAllMatches(page, fixtures);
+    test('Q4: play matches 9-11, assert standings, apply penalty', async ({ page }) => {
+      test.setTimeout(180000);
+      await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      await playMatchRange(page, fixtures, 9, 11);
 
-    // Step C: Phase A assertion — no penalty yet
-    await assertStandings(page, computeExpected(SCORE_MATRIX, {}), false);
+      // Phase A: assert standings without penalty
+      await assertStandings(page, computeExpected(SCORE_MATRIX, {}), false);
 
-    // Step D: Phase B — apply penalty to Pair A, mark one pair paid
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await applyPenalty(page, competitionId, pairIds[0]);
-    await togglePayment(page, competitionId, pairIds[1]);
-    await assertStandings(page, computeExpected(SCORE_MATRIX, PENALTIES), true);
+      // Phase B: apply penalty to Pair A, mark one pair paid, re-assert
+      await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      await applyPenalty(page, competitionId, pairIds[0]);
+      await togglePayment(page, competitionId, pairIds[1]);
+      await assertStandings(page, computeExpected(SCORE_MATRIX, PENALTIES), true);
+    });
   });
 
   test('unfinished match: partial score creates carried-sets state, resumed match finalizes correctly', async ({ page }) => {
@@ -524,9 +543,13 @@ async function rejectProposal(page: Page, matchId: string) {
   await clickAndWaitForHxRedirect(page, page.locator('form.reject-form button[type="submit"]'));
 }
 
-async function playAllMatches(page: Page, fixtures: MatchFixture[]) {
-  for (let i = 0; i < fixtures.length; i++) {
-    const f = fixtures[i];
+// playMatchRange plays fixtures[start..end] (inclusive) using the same varied
+// interaction patterns as the original single-test flow — matches 0-3 use the
+// scheduling proposal UI, match 10 exercises reject+re-propose, the rest use
+// the API date-set shortcut.
+async function playMatchRange(page: Page, allFixtures: MatchFixture[], start: number, end: number) {
+  for (let i = start; i <= end; i++) {
+    const f = allFixtures[i];
     const submitterEmail = playerEmailForPair(f.pair1Label, 0);
     const confirmerEmail = playerEmailForPair(f.pair2Label, 0);
 
@@ -536,20 +559,6 @@ async function playAllMatches(page: Page, fixtures: MatchFixture[]) {
       await postProposal(page, f.id);
       await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
       await acceptProposal(page, f.id);
-      await loginAs(page, submitterEmail, PLAYER_PASSWORD);
-      await submitScore(page, f.id, f.orientedScore);
-      await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
-      await confirmScore(page, f.id);
-    } else if (i >= 4 && i <= 7) {
-      // Matches 4-7: set date+club via API, then submit + accept
-      await setDateAndClub(page.request, f.id);
-      await loginAs(page, submitterEmail, PLAYER_PASSWORD);
-      await submitScore(page, f.id, f.orientedScore);
-      await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
-      await confirmScore(page, f.id);
-    } else if (i === 8 || i === 9) {
-      // Matches 8-9: set date+club, submit + accept
-      await setDateAndClub(page.request, f.id);
       await loginAs(page, submitterEmail, PLAYER_PASSWORD);
       await submitScore(page, f.id, f.orientedScore);
       await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
@@ -569,7 +578,7 @@ async function playAllMatches(page: Page, fixtures: MatchFixture[]) {
       await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
       await confirmScore(page, f.id);
     } else {
-      // Match 11: set date+club, submit + accept
+      // All other matches: set date+club via API, then submit + confirm
       await setDateAndClub(page.request, f.id);
       await loginAs(page, submitterEmail, PLAYER_PASSWORD);
       await submitScore(page, f.id, f.orientedScore);
