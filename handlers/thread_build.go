@@ -93,15 +93,21 @@ type threadBuildCtx struct {
 	pair2Players   []string
 }
 
-func (h *ThreadHandler) buildThreadData(match *core.Record, matchID string, viewerID string, myTeam int, compModifiable bool) ThreadData {
+type threadViewerCtx struct {
+	viewerID       string
+	myTeam         int
+	compModifiable bool
+}
+
+func (h *ThreadHandler) buildThreadData(match *core.Record, matchID string, vc threadViewerCtx) ThreadData {
 	bc := threadBuildCtx{
 		app:            h.app,
 		match:          match,
 		matchID:        matchID,
 		matchStatus:    match.GetString("status"),
-		myTeam:         myTeam,
-		compModifiable: compModifiable,
-		captainBlocked: viewerID != "" && myTeam > 0 && league.IsCaptainGuarded(h.app, viewerID, match) != nil,
+		myTeam:         vc.myTeam,
+		compModifiable: vc.compModifiable,
+		captainBlocked: vc.viewerID != "" && vc.myTeam > 0 && league.IsCaptainGuarded(h.app, vc.viewerID, match) != nil,
 		pairNames:      league.PairNames(h.app, []string{match.GetString("pair1"), match.GetString("pair2")}),
 		pair1Players:   league.PlayersForPair(h.app, match.GetString("pair1")),
 		pair2Players:   league.PlayersForPair(h.app, match.GetString("pair2")),
