@@ -2072,3 +2072,58 @@ func TestPublishCalendarAlreadyPublishedErrors(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// WithdrawPair: correct notifications (R-13)
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestWithdrawPairNotifications(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST withdraw-pair notifies opponents with withdrawal text, notifies withdrawn pair",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var withdrawnPair, opponentPair *core.Record
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		withdrawnPair = makePairTB(tb, app, "Withdrawn Pair")
+		opponentPair = makePairTB(tb, app, "Opponent Pair")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{withdrawnPair, opponentPair})
+		match := makeMatchTB(tb, app, comp.Id, withdrawnPair.Id, opponentPair.Id, "pending")
+		match.Set("date", "2026-01-15")
+		match.Set("club", "Club Test")
+		require.NoError(tb, app.Save(match))
+		s.URL = "/admin/competitions/" + comp.Id + "/withdraw-pair"
+		body := strings.NewReader("pair_id=" + withdrawnPair.Id)
+		s.Body = body
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		// Opponents receive the "pareja retirada" notification with correct text.
+		opponentPlayer1 := opponentPair.GetString("player1")
+		opponentPlayer2 := opponentPair.GetString("player2")
+		opponentNotifs, err := app.FindRecordsByFilter("notifications",
+			"title = 'Pareja retirada'", "", 0, 0, nil)
+		require.NoError(tb, err)
+		require.Len(tb, opponentNotifs, 2, "both opponent players must receive Pareja retirada notification")
+		opponentNotifiedUsers := []string{opponentNotifs[0].GetString("user"), opponentNotifs[1].GetString("user")}
+		assert.ElementsMatch(tb, []string{opponentPlayer1, opponentPlayer2}, opponentNotifiedUsers)
+		assert.Contains(tb, opponentNotifs[0].GetString("body"), "Withdrawn Pair", "body must name the withdrawn pair")
+
+		// Withdrawn pair's players receive "retirada de la competición" notification.
+		withdrawnPlayer1 := withdrawnPair.GetString("player1")
+		withdrawnPlayer2 := withdrawnPair.GetString("player2")
+		withdrawnNotifs, err := app.FindRecordsByFilter("notifications",
+			"title = 'Retirada de la competición'", "", 0, 0, nil)
+		require.NoError(tb, err)
+		require.Len(tb, withdrawnNotifs, 2, "both withdrawn pair players must be notified")
+		withdrawnNotifiedUsers := []string{withdrawnNotifs[0].GetString("user"), withdrawnNotifs[1].GetString("user")}
+		assert.ElementsMatch(tb, []string{withdrawnPlayer1, withdrawnPlayer2}, withdrawnNotifiedUsers)
+	}
+	s.Test(t)
+}

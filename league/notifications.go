@@ -265,6 +265,27 @@ func formatRemaining(d time.Duration) string {
 	return fmt.Sprintf("en %d minutos", mins)
 }
 
+// NotifOpponentWithdrawn notifies the opponents of a withdrawn pair per match.
+func NotifOpponentWithdrawn(matchID, pairName, compName, woScore string) Notification {
+	return Notification{
+		Type:     "general",
+		Title:    "Pareja retirada",
+		Body:     fmt.Sprintf("La pareja %s se ha retirado. El partido se registra como %s a tu favor.", pairName, woScore),
+		MatchID:  matchID,
+		CompName: compName,
+	}
+}
+
+// NotifPairWithdrawn notifies the players of the pair that was withdrawn.
+func NotifPairWithdrawn(compName string) Notification {
+	return Notification{
+		Type:     "general",
+		Title:    "Retirada de la competición",
+		Body:     fmt.Sprintf("Tu pareja ha sido retirada de %s.", compName),
+		CompName: compName,
+	}
+}
+
 // NotifAdminUserJoined alerts admins that a new user registered.
 func NotifAdminUserJoined(displayName string) Notification {
 	return Notification{
