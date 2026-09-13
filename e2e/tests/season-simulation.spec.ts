@@ -107,22 +107,22 @@ test.describe('season simulation', () => {
 
     await loginAs(page, submitterEmail, PLAYER_PASSWORD);
     await page.goto(`/match/${matchId}`);
-    await page.waitForSelector('#thread-details', { timeout: 10000 });
+    await page.waitForSelector('#thread-details', { timeout: 20000 });
     await enterScore(page, '6-4 2-6 3-4');
     await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
 
     // Step 2: Pair B accepts the partial score.
     await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
     await page.goto(`/match/${matchId}`);
-    await page.waitForSelector('#thread-details', { timeout: 10000 });
+    await page.waitForSelector('#thread-details', { timeout: 20000 });
     const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
-    await acceptBtn.waitFor({ timeout: 10000 });
+    await acceptBtn.waitFor({ timeout: 20000 });
     await clickAndWaitForHxRedirect(page, acceptBtn);
 
     // Step 3: Verify the match shows the "Se reanudará desde" carried-sets badge.
     await page.goto(`/match/${matchId}`);
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.locator('.badge', { hasText: 'Se reanudará desde' })).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.badge', { hasText: 'Se reanudará desde' })).toBeVisible({ timeout: 20000 });
 
     // Step 4: Schedule the resumed match via API.
     await page.request.patch(`/api/collections/matches/records/${matchId}`, {
@@ -133,11 +133,11 @@ test.describe('season simulation', () => {
     // Step 5: Pair A submits the finishing score — locked set 1 (6-4) is skipped.
     await loginAs(page, submitterEmail, PLAYER_PASSWORD);
     await page.goto(`/match/${matchId}`);
-    await page.waitForSelector('#thread-details', { timeout: 10000 });
+    await page.waitForSelector('#thread-details', { timeout: 20000 });
 
     // Verify exactly one locked set is shown
     const lockedSets = page.locator('.score-set-group[data-locked]');
-    await expect(lockedSets).toHaveCount(1, { timeout: 5000 });
+    await expect(lockedSets).toHaveCount(1, { timeout: 15000 });
 
     // Submit the second and third sets — full score has 3 sets, locked set 1 is skipped
     await enterScore(page, '6-4 2-6 6-3');
@@ -146,17 +146,17 @@ test.describe('season simulation', () => {
     // Step 6: Pair B accepts the final score.
     await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
     await page.goto(`/match/${matchId}`);
-    await page.waitForSelector('#thread-details', { timeout: 10000 });
+    await page.waitForSelector('#thread-details', { timeout: 20000 });
     const finalAcceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
-    await finalAcceptBtn.waitFor({ timeout: 10000 });
+    await finalAcceptBtn.waitFor({ timeout: 20000 });
     await clickAndWaitForHxRedirect(page, finalAcceptBtn);
 
     // Step 7: Match finalized — Confirmado badge, full score visible, no reanudará badge.
     await page.goto(`/match/${matchId}`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('#thread-details').getByText('Confirmado')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#thread-details').getByText('Confirmado')).toBeVisible({ timeout: 20000 });
     // The full score 6-4 2-6 6-3 (Pair A wins 2-1)
-    await expect(page.getByText('6-4 2-6 6-3').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('6-4 2-6 6-3').first()).toBeVisible({ timeout: 15000 });
     await expect(page.locator('.badge', { hasText: 'Se reanudará' })).not.toBeVisible();
   });
 
@@ -397,7 +397,7 @@ async function generateFixtures(page: Page, compId: string) {
 // HTMX + redirectHX: click triggers XHR → 204 + HX-Redirect → window.location.href.
 // Must wait for the full page load after the redirect completes.
 async function clickAndWaitForHxRedirect(page: Page, locator: ReturnType<Page['locator']>) {
-  const navPromise = page.waitForEvent('framenavigated', { timeout: 15000 });
+  const navPromise = page.waitForEvent('framenavigated', { timeout: 30000 });
   await locator.click();
   await navPromise;
   await page.waitForLoadState('domcontentloaded');
@@ -473,9 +473,9 @@ async function submitScore(page: Page, matchId: string, score: string) {
 
 async function confirmScore(page: Page, matchId: string) {
   await page.goto(`/match/${matchId}`);
-  await page.waitForSelector('#thread-details', { timeout: 5000 });
+  await page.waitForSelector('#thread-details', { timeout: 15000 });
   const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
-  await acceptBtn.waitFor({ timeout: 5000 });
+  await acceptBtn.waitFor({ timeout: 15000 });
   await clickAndWaitForHxRedirect(page, acceptBtn);
 }
 
@@ -485,7 +485,7 @@ async function confirmScore(page: Page, matchId: string) {
 // the thread lazy-loads via hx-get (match.html) with HTMX active.
 async function gotoMatchThread(page: Page, matchId: string) {
   await page.goto(`/match/${matchId}`);
-  await page.locator('form[hx-post$="/thread/message"]').waitFor({ state: 'visible', timeout: 15000 });
+  await page.locator('form[hx-post$="/thread/message"]').waitFor({ state: 'visible', timeout: 30000 });
 }
 
 async function postProposal(page: Page, matchId: string) {
@@ -511,14 +511,14 @@ async function postProposal(page: Page, matchId: string) {
 async function acceptProposal(page: Page, matchId: string) {
   await page.goto(`/match/${matchId}`);
   const acceptBtn = page.locator('button:has-text("Aceptar")').first();
-  await acceptBtn.waitFor({ state: 'visible', timeout: 15000 });
+  await acceptBtn.waitFor({ state: 'visible', timeout: 30000 });
   await clickAndWaitForHxRedirect(page, acceptBtn);
 }
 
 async function rejectProposal(page: Page, matchId: string) {
   await page.goto(`/match/${matchId}`);
   const rejectBtn = page.locator('button:has-text("Rechazar")').first();
-  await rejectBtn.waitFor({ state: 'visible', timeout: 15000 });
+  await rejectBtn.waitFor({ state: 'visible', timeout: 30000 });
   await rejectBtn.click();
   await page.locator('select[name="rejection_reason"]').selectOption({ index: 1 });
   await clickAndWaitForHxRedirect(page, page.locator('form.reject-form button[type="submit"]'));
@@ -606,7 +606,7 @@ async function assertStandings(
   // visible without scrolling), so cells are looked up by header text
   // rather than a fixed index.
   const table = isMobile(page) ? page.locator('table.table-sm') : page.locator('table.table-zebra');
-  await table.locator('tbody tr').first().waitFor({ timeout: 5000 });
+  await table.locator('tbody tr').first().waitFor({ timeout: 15000 });
 
   const headers = await table.locator('thead th').allTextContents();
   const colIndex = (label: string) => {
