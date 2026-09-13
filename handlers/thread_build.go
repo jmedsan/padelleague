@@ -15,6 +15,16 @@ type ThreadData struct {
 	Timeline       []TimelineEntryVM // read-only history lines, oldest→newest
 	SchedProposals []SchedProposalVM // non-rejected scheduling proposals, newest first
 	ResultPanel    ResultPanelVM     // live result proposal(s) or the final result
+	LastRejection  *RejectedProposalVM
+}
+
+// RejectedProposalVM carries the most-recent rejected scheduling proposal,
+// shown above the proposal form so the proposer can see what was rejected and why.
+type RejectedProposalVM struct {
+	Date   string
+	Time   string
+	Place  string
+	Reason string
 }
 
 // TimelineEntryVM is one read-only history line in the timeline.
@@ -203,6 +213,18 @@ func (bc *threadBuildCtx) appendToPanel(mc msgCtx, td *ThreadData) {
 	sameTeam := mc.authorTeam == bc.myTeam || bc.myTeam == 0
 	if mc.msgType == "scheduling_proposal" && status == "pending" {
 		td.SchedProposals = append(td.SchedProposals, bc.schedProposal(mc, sameTeam))
+	}
+	if mc.msgType == "scheduling_proposal" && status == "rejected" && mc.authorTeam == bc.myTeam {
+		pd := ParseProposalData(mc.msg.GetString("proposal_data"))
+		reason := mc.msg.GetString("rejection_text")
+		if reason == "" {
+			reason = mc.msg.GetString("rejection_reason")
+		}
+		vm := &RejectedProposalVM{Reason: reason}
+		if pd != nil {
+			vm.Date, vm.Time, vm.Place = pd.Date, pd.Time, pd.VenueName
+		}
+		td.LastRejection = vm
 	}
 	if mc.msgType == "result_submission" && status == "pending" && !td.ResultPanel.HasFinal {
 		td.ResultPanel.Live = append(td.ResultPanel.Live, bc.resultProposal(mc.msg, mc.authorName, mc.authorTeam, sameTeam))
