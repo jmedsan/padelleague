@@ -436,15 +436,20 @@ func (h *MatchHandler) validatePlayoffDates(match *core.Record) error {
 }
 
 func detectFieldChange(match *core.Record, field, newVal, label string) []string {
-	if newVal == "" || newVal == match.GetString(field) {
+	if newVal == "" {
 		return nil
 	}
 	old := match.GetString(field)
+	normalizedOld := strings.Split(strings.TrimSpace(old), " ")[0]
+	normalizedNew := strings.Split(strings.TrimSpace(newVal), " ")[0]
+	if normalizedNew == normalizedOld {
+		return nil
+	}
 	match.Set(field, newVal)
 	if old == "" {
 		return []string{label + " establecida: " + newVal}
 	}
-	return []string{label + " cambiada: " + old + " → " + newVal}
+	return []string{label + " cambiada: " + normalizedOld + " → " + normalizedNew}
 }
 
 func (h *MatchHandler) detectVenueChange(match *core.Record, venueID string) []string {
