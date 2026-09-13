@@ -136,9 +136,16 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		"HasDateAndPlace":      match.GetString("date") != "" && match.GetString("club") != "",
 		"Match":                match,
 		"UnpaidWarning":        unpaidWarning,
-		"ProposalDefaultVenue": "",
-		"ProposalDefaultTime":  "20:00",
+		"ProposalDefaultVenue": match.GetString("club"),
+		"ProposalDefaultTime":  defaultProposalTime(match),
 	})
+}
+
+func defaultProposalTime(match *core.Record) string {
+	if t := match.GetString("time"); t != "" {
+		return t
+	}
+	return "20:00"
 }
 
 // buildResultCard builds the viewer's match card for the single result panel, so
@@ -638,7 +645,16 @@ func (h *ThreadHandler) supersedePending(matchID, excludeMsgID string) error {
 		if err := h.app.Save(other); err != nil {
 			slog.Error("supersede proposal", "id", other.Id, "err", err)
 			failedIDs = append(failedIDs, other.Id)
+			continue
 		}
+		addTimelineEntry(h.app, timelineEntry{
+			MatchID:  matchID,
+			Kind:     "scheduling_response",
+			Detail:   "propuesta sustituida por la aceptada",
+			ParentID: other.Id,
+			Action:   "supersede",
+			Data:     ParseProposalData(other.Get("proposal_data")),
+		})
 	}
 	if len(failedIDs) > 0 {
 		return fmt.Errorf("failed to supersede proposals: %v", failedIDs)

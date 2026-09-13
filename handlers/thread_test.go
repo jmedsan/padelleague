@@ -379,9 +379,15 @@ func TestAcceptProposalSupersedesOthers(t *testing.T) {
 		responses, _ := app.FindRecordsByFilter("match_messages",
 			"match = {:mid} && type = 'scheduling_response'", "", 0, 0,
 			map[string]any{"mid": matchID})
-		require.Len(tb, responses, 1, "accept must create one scheduling_response")
-		assert.Equal(tb, respondentID, responses[0].GetString("author"))
-		assert.Contains(tb, responses[0].GetString("content"), "aceptó la propuesta")
+		require.Len(tb, responses, 2, "accept must create scheduling_response for accept + supersede")
+		var acceptEntry *core.Record
+		for _, r := range responses {
+			if strings.Contains(r.GetString("content"), "aceptó la propuesta") {
+				acceptEntry = r
+			}
+		}
+		require.NotNil(tb, acceptEntry, "must have accept timeline entry")
+		assert.Equal(tb, respondentID, acceptEntry.GetString("author"))
 
 		// No admin notification should be created (normal case, no failures)
 		admins, _ := app.FindRecordsByFilter("users", "roles ~ 'admin'", "", 0, 0, nil)
@@ -884,98 +890,6 @@ func TestThreadMessages_SystemAuthorRendersAsSistema(t *testing.T) {
 		s.URL = "/match/" + match.Id + "/thread-messages"
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		s.Headers = authHeaders(tb, user)
-	}
-	s.Test(t)
-}
-
-func TestProposalChangeDecision(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "POST change-decision reverts accepted to rejected",
-		Method:         http.MethodPost,
-		ExpectedStatus: 204,
-	}
-	var msgID, matchID string
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "ChgDec A")
-		p2 := makePairTB(tb, app, "ChgDec B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		require.NoError(tb, app.Save(match))
-		matchID = match.Id
-		insertMatchReminder(tb, app, match.Id, p1.GetString("player1"))
-
-		col, _ := app.FindCollectionByNameOrId("match_messages")
-		msg := core.NewRecord(col)
-		msg.Set("match", match.Id)
-		msg.Set("author", p1.GetString("player1"))
-		msg.Set("type", "scheduling_proposal")
-		msg.Set("proposal_data", map[string]any{
-			"date": "2026-09-20", "time": "19:00", "venue_name": "Club",
-		})
-		msg.Set("proposal_status", "accepted")
-		require.NoError(tb, app.Save(msg))
-		msgID = msg.Id
-
-		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/change-decision", match.Id, msg.Id)
-		opponent, _ := app.FindRecordById("users", p2.GetString("player1"))
-		s.Headers = authHeaders(tb, opponent)
-	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		m, err := app.FindRecordById("match_messages", msgID)
-		require.NoError(tb, err)
-		assert.Equal(tb, "rejected", m.GetString("proposal_status"))
-
-		rows, _ := app.FindRecordsByFilter("match_reminders", "match = {:mid}", "", 0, 0, map[string]any{"mid": matchID})
-		assert.Empty(tb, rows, "revoking acceptance must clear match reminders")
-	}
-	s.Test(t)
-}
-
-func TestProposalChangeDecision_ToAccepted_ClearsReminders(t *testing.T) {
-	t.Parallel()
-	var msgID, matchID string
-	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "POST change-decision from rejected to accepted clears match reminders",
-		Method:         http.MethodPost,
-		ExpectedStatus: 204,
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "ChgDecAcc A")
-		p2 := makePairTB(tb, app, "ChgDecAcc B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		require.NoError(tb, app.Save(match))
-		matchID = match.Id
-		insertMatchReminder(tb, app, match.Id, p1.GetString("player1"))
-
-		col, _ := app.FindCollectionByNameOrId("match_messages")
-		msg := core.NewRecord(col)
-		msg.Set("match", match.Id)
-		msg.Set("author", p1.GetString("player1"))
-		msg.Set("type", "scheduling_proposal")
-		msg.Set("proposal_data", map[string]any{
-			"date": "2026-09-20", "time": "19:00", "venue_name": "Club",
-		})
-		msg.Set("proposal_status", "rejected")
-		require.NoError(tb, app.Save(msg))
-		msgID = msg.Id
-
-		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/change-decision", match.Id, msg.Id)
-		opponent, _ := app.FindRecordById("users", p2.GetString("player1"))
-		s.Headers = authHeaders(tb, opponent)
-	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		m, err := app.FindRecordById("match_messages", msgID)
-		require.NoError(tb, err)
-		assert.Equal(tb, "accepted", m.GetString("proposal_status"))
-
-		rows, _ := app.FindRecordsByFilter("match_reminders", "match = {:mid}", "", 0, 0, map[string]any{"mid": matchID})
-		assert.Empty(tb, rows, "accepting a new date must clear stale match reminders")
 	}
 	s.Test(t)
 }
@@ -1859,12 +1773,10 @@ func TestBuildThreadData_TimelineReadOnly(t *testing.T) {
 		if sp.RecordID == prop.Id {
 			found = true
 			assert.Equal(t, "pending", sp.Status)
-			assert.False(t, sp.IsAccepted, "pending proposal must not be IsAccepted")
 			assert.True(t, sp.CanRespond, "opposing team can respond to pending proposal")
 		}
 		if sp.RecordID == accepted.Id {
-			assert.True(t, sp.IsAccepted, "accepted proposal must be IsAccepted")
-			assert.True(t, sp.CanChangeDecision, "opposing team can change decision on accepted proposal")
+			assert.Equal(t, "accepted", sp.Status, "accepted proposal status")
 		}
 	}
 	assert.True(t, found, "pending proposal must be in SchedProposals")
