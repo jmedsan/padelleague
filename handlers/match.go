@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -195,7 +196,10 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	}
 	if !isAdmin {
 		if err := league.IsCaptainGuarded(h.app, userID, match); err != nil {
-			return alertError(e, err.Error())
+			if errors.Is(err, league.ErrNotCaptain) {
+				return alertError(e, "Solo el capitán puede registrar resultados")
+			}
+			return alertError(e, "Error interno")
 		}
 		// Check withdrawal — determine which pair this user belongs to.
 		team, _ := league.PlayerTeam(h.app, userID, match)

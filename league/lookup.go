@@ -1,12 +1,17 @@
 package league
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
 )
+
+// ErrNotCaptain is returned by IsCaptainGuarded when the user's pair has a
+// captain set and the user is not that captain.
+var ErrNotCaptain = errors.New("not captain")
 
 // PlayerTeam returns 1 or 2 indicating which pair the user belongs to in the match.
 func PlayerTeam(app core.App, userID string, match *core.Record) (int, error) {
@@ -56,7 +61,7 @@ func IsCaptainGuarded(app core.App, userID string, match *core.Record) error {
 	if captain == userID {
 		return nil // user is the captain
 	}
-	return fmt.Errorf("Solo el capitán puede registrar resultados")
+	return ErrNotCaptain
 }
 
 // IsWithdrawn reports whether pairID is in the competition's withdrawn_pairs list.
