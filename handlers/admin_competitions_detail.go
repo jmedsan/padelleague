@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -125,6 +126,95 @@ func (h *CompetitionHandler) buildDetailDocs(comp *core.Record, fileToken string
 		}
 	}
 	return views, unattached
+}
+
+// WithdrawPair bulk-finalizes all unplayed matches for a pair and marks it as withdrawn.
+func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
+	compID := e.Request.PathValue("id")
+	pairID := e.Request.FormValue("pair_id")
+
+	comp, err := h.app.FindRecordById("competitions", compID)
+	if err != nil {
+		return alertError(e, "Competición no encontrada")
+	}
+
+	// Verify pair is enrolled in this competition.
+	enrolled := false
+	for _, pid := range comp.GetStringSlice("pairs") {
+		if pid == pairID {
+			enrolled = true
+			break
+		}
+	}
+	if !enrolled {
+		return alertError(e, "La pareja no pertenece a esta competición")
+	}
+
+	// Idempotency: reject if already withdrawn.
+	for _, pid := range comp.GetStringSlice("withdrawn_pairs") {
+		if pid == pairID {
+			return alertError(e, "La pareja ya está retirada")
+		}
+	}
+
+	pair, err := h.app.FindRecordById("pairs", pairID)
+	if err != nil {
+		return alertError(e, "Pareja no encontrada")
+	}
+	pairName := pair.GetString("name")
+
+	woScore := comp.GetString("walkover_score")
+	if woScore == "" {
+		woScore = "6-0 6-0"
+	}
+
+	// Find all non-final matches for this pair in this competition.
+	matches, err := h.app.FindRecordsByFilter("matches",
+		"competition = {:cid} && status != 'final' && (pair1 = {:pid} || pair2 = {:pid})",
+		"", 0, 0,
+		map[string]any{"cid": compID, "pid": pairID},
+	)
+	if err != nil {
+		return alertError(e, "Error al buscar partidos")
+	}
+
+	detail := fmt.Sprintf("Incomparecencia — %s se ha retirado de la competición", pairName)
+
+	for _, match := range matches {
+		opponentID := match.GetString("pair2")
+		if opponentID == pairID {
+			opponentID = match.GetString("pair1")
+		}
+		match.Set("scores", woScore)
+		match.Set("winner", opponentID)
+		match.Set("status", league.StatusFinal)
+		match.Set("review_type", "walkover")
+		match.Set("carried_sets", "")
+		if err := h.app.Save(match); err != nil {
+			return alertError(e, "Error al finalizar partido")
+		}
+		addTimelineEntry(h.app, timelineEntry{
+			MatchID: match.Id, ActorID: e.Auth.Id, Kind: "result_event",
+			Detail: detail,
+		})
+		// Notify opponent players.
+		n := league.NotifWalkoverApproved(match.Id, comp.GetString("name"))
+		opponentPlayers := league.PlayersForPair(h.app, opponentID)
+		h.notifier.NotifyPlayers(opponentPlayers, league.Notification{
+			Type: n.Type, Title: n.Title, Body: n.Body, MatchID: match.Id,
+		})
+	}
+
+	// Mark pair as withdrawn.
+	withdrawn := comp.GetStringSlice("withdrawn_pairs")
+	withdrawn = append(withdrawn, pairID)
+	comp.Set("withdrawn_pairs", withdrawn)
+	if err := h.app.Save(comp); err != nil {
+		return alertError(e, "Error al guardar el retiro")
+	}
+
+	flash(e, fmt.Sprintf("%s retirada (%d partidos finalizados)", pairName, len(matches)))
+	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
 func anyUnpaid(entries []pairEntry) bool {
