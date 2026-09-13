@@ -21,11 +21,10 @@
     <script src="/static/js/flatpickr.min.js"></script>
     <script src="/static/js/flatpickr-es.js"></script>
     <script>
-        var _fpInstances = [];
         function initFlatpickr() {
             document.querySelectorAll('[data-datepicker]:not([data-fp])').forEach(function(el) {
                 el.dataset.fp = '1';
-                var instance = flatpickr(el, {
+                el._flatpickr = flatpickr(el, {
                     locale: 'es',
                     dateFormat: 'Y-m-d',
                     altInput: true,
@@ -40,16 +39,16 @@
                         return new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
                     }
                 });
-                _fpInstances.push(instance);
             });
-        }
-        function destroyFlatpickr() {
-            _fpInstances.forEach(function(fp) { fp.destroy(); });
-            _fpInstances = [];
         }
         document.addEventListener('DOMContentLoaded', function() {
             initFlatpickr();
-            document.body.addEventListener('htmx:beforeSwap', destroyFlatpickr);
+            document.body.addEventListener('htmx:beforeSwap', function(e) {
+                e.detail.target.querySelectorAll('[data-fp]').forEach(function(el) {
+                    if (el._flatpickr) { el._flatpickr.destroy(); }
+                    delete el.dataset.fp;
+                });
+            });
             document.body.addEventListener('htmx:afterSettle', initFlatpickr);
             document.body.addEventListener('htmx:afterSwap', initFlatpickr);
         });
