@@ -384,6 +384,51 @@ func TestGenerateLeagueFixtures(t *testing.T) {
 	s.Test(t)
 }
 
+func TestGenerateFixtures_WithdrawnPairs_Blocked(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST generate blocked when withdrawn pairs exist",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Hay parejas retiradas"},
+	}
+	var compID string
+	var matchCountBefore int
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "WD A")
+		p2 := makePairTB(tb, app, "WD B")
+		p3 := makePairTB(tb, app, "WD C")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3})
+		compID = comp.Id
+		// Generate initial fixtures
+		h := NewFixtureHandler(app, nil, nil)
+		txErr := app.RunInTransaction(func(txApp core.App) error {
+			return h.regenerateFixturesTx(txApp, comp, []string{p1.Id, p2.Id, p3.Id}, nil)
+		})
+		require.NoError(tb, txErr)
+		matches, err := app.FindRecordsByFilter("matches",
+			"competition = {:id}", "", 0, 0, map[string]any{"id": compID})
+		require.NoError(tb, err)
+		matchCountBefore = len(matches)
+		require.Greater(tb, matchCountBefore, 0)
+		// Withdraw p3
+		comp.Set("withdrawn_pairs", []string{p3.Id})
+		require.NoError(tb, app.Save(comp))
+		s.URL = "/admin/competitions/" + compID + "/generate?confirm=true"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		matches, err := app.FindRecordsByFilter("matches",
+			"competition = {:id}", "", 0, 0, map[string]any{"id": compID})
+		require.NoError(tb, err)
+		assert.Equal(tb, matchCountBefore, len(matches), "matches must not be deleted when blocked")
+	}
+	s.Test(t)
+}
+
 func TestGenerateFixturesRegenerate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
