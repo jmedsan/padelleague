@@ -543,6 +543,121 @@ func playerNameIfSet(app core.App, userID string) string {
 	return league.PlayerName(app, userID)
 }
 
+// CancelDate lets a participant cancel a scheduled match date, reverting status
+// to pending and notifying the rival pair and admins.
+func (h *MatchHandler) CancelDate(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	match, err := findMatchOr404(h.app, e, id)
+	if err != nil {
+		return err
+	}
+
+	if match.GetString("status") != league.StatusScheduled {
+		return alertError(e, "Este partido no tiene fecha confirmada")
+	}
+
+	userID := e.Auth.Id
+	myTeam, err := league.PlayerTeam(h.app, userID, match)
+	if err != nil {
+		return alertError(e, "No eres participante de este partido")
+	}
+
+	if err := checkDocGate(h.app, e, match); err != nil {
+		return err
+	}
+	if err := checkCompModifiable(h.app, e, match); err != nil {
+		return err
+	}
+	if comp, cErr := h.app.FindRecordById("competitions", match.GetString("competition")); cErr == nil && league.IsPlayoff(comp) {
+		return alertError(e, "No se puede cancelar la fecha de un partido de playoff")
+	}
+
+	reason := strings.TrimSpace(e.Request.FormValue("reason"))
+	if reason == "" {
+		return alertError(e, "Debes indicar un motivo")
+	}
+
+	within24h := false
+	if start, ok := league.MatchStart(match); ok {
+		within24h = time.Until(start) < 24*time.Hour
+	}
+
+	h.supersedeAcceptedProposals(id)
+
+	match.Set("date", "")
+	match.Set("time", "")
+	match.Set("club", "")
+	match.Set("status", league.StatusPending)
+	match.Set("last_warn_level", 0)
+	if err := h.app.Save(match); err != nil {
+		return alertError(e, "Error al cancelar la fecha")
+	}
+
+	league.ClearMatchReminders(h.app, id)
+
+	detail := "canceló la fecha del partido: " + reason
+	if within24h {
+		detail = "canceló la fecha del partido (con menos de 24h): " + reason
+	}
+	addTimelineEntry(h.app, timelineEntry{
+		MatchID: id, ActorID: userID,
+		Kind: "scheduling_response", Detail: detail,
+	})
+
+	h.notifyCancelDate(match, myTeam, userID, reason, within24h)
+	return redirectHX(e, "/match/"+id)
+}
+
+func (h *MatchHandler) notifyCancelDate(match *core.Record, cancellerTeam int, cancellerID, reason string, within24h bool) {
+	id := match.Id
+	compName := league.CompetitionName(h.app, match.GetString("competition"))
+	playerName := league.PlayerName(h.app, cancellerID)
+
+	rivalPairID := match.GetString("pair2")
+	if cancellerTeam == 2 {
+		rivalPairID = match.GetString("pair1")
+	}
+	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
+	h.notifier.NotifyPlayers(rivalPlayers, league.Notification{
+		Type:     "scheduling",
+		Title:    "Partido cancelado",
+		Body:     fmt.Sprintf("%s ha cancelado la fecha: %s", playerName, reason),
+		MatchID:  id,
+		CompName: compName,
+	})
+
+	urgency := ""
+	if within24h {
+		urgency = " (MENOS DE 24H — revisar consecuencias)"
+	}
+	pairIDs := []string{match.GetString("pair1"), match.GetString("pair2")}
+	names := league.PairNames(h.app, pairIDs)
+	pair1Name := names[pairIDs[0]]
+	pair2Name := names[pairIDs[1]]
+	an := league.Notification{
+		Type:     "dispute",
+		Title:    "Cancelación de partido",
+		Body:     fmt.Sprintf("%s vs %s: %s ha cancelado la fecha. Motivo: %s%s", pair1Name, pair2Name, playerName, reason, urgency),
+		MatchID:  id,
+		CompName: compName,
+	}
+	if err := h.notifier.NotifyAdmins(an); err != nil {
+		slog.Error("notify admins cancel date", "match", id, "err", err)
+	}
+}
+
+func (h *MatchHandler) supersedeAcceptedProposals(matchID string) {
+	accepted, _ := h.app.FindRecordsByFilter("match_messages",
+		"match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'accepted'",
+		"", 0, 0, map[string]any{"mid": matchID})
+	for _, sp := range accepted {
+		sp.Set("proposal_status", "superseded")
+		if err := h.app.Save(sp); err != nil {
+			slog.Error("supersede scheduling proposal on cancel", "match", matchID, "err", err)
+		}
+	}
+}
+
 func buildShareText(app core.App, match *core.Record, baseURL, matchPath string) (text, shareURL string) {
 	if match.GetString("status") != league.StatusFinal {
 		return "", ""
