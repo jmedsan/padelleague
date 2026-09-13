@@ -69,11 +69,12 @@ func New(viewsFS fs.FS, vapidPublicKey string, appDevTools bool) *Renderer {
 			}
 			return ifFalse
 		},
-		"scoreWinner": scoreWinner,
-		"scoreNote":   league.ScoreNote,
-		"initials":    Initials,
-		"truncate":    league.Truncate,
-		"hasPrefix":   strings.HasPrefix,
+		"scoreWinner":    scoreWinner,
+		"scoreNote":      league.ScoreNote,
+		"initials":       Initials,
+		"truncate":       league.Truncate,
+		"hasPrefix":      strings.HasPrefix,
+		"carriedSetNum":  carriedSetNum,
 	})
 	return &Renderer{
 		registry:       reg,
@@ -351,6 +352,16 @@ func scoreWinner(score, pair1Name, pair2Name string) string {
 		return pair1Name
 	}
 	return pair2Name
+}
+
+// carriedSetNum returns the ordinal number of the next set to play given
+// a carried-sets string (e.g. "6-4" → 2, "6-4 3-6" → 3).
+func carriedSetNum(carried string) int {
+	carried = strings.TrimSpace(carried)
+	if carried == "" {
+		return 1
+	}
+	return len(strings.Fields(carried)) + 1
 }
 
 // FmtTime formats a time.Time in Europe/Madrid as DD/MM/YYYY, appending

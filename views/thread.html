@@ -11,7 +11,7 @@
         </div>
 
         {{if .Match.GetString "carried_sets"}}
-        <span class="badge badge-info badge-sm mb-1">Reanudación · desde {{.Match.GetString "carried_sets"}}</span>
+        <span class="badge badge-info badge-sm mb-1">Se reanudará desde {{.Match.GetString "carried_sets"}}, {{carriedSetNum (.Match.GetString "carried_sets")}}.º set desde 0-0</span>
         {{end}}
         {{if .Match.GetString "date"}}
         <div class="flex items-center justify-between gap-2">
