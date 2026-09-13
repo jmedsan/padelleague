@@ -101,7 +101,7 @@ func (h *ThreadHandler) buildThreadData(match *core.Record, matchID string, view
 		matchStatus:    match.GetString("status"),
 		myTeam:         myTeam,
 		compModifiable: compModifiable,
-		captainBlocked: myTeam > 0 && league.IsCaptainGuarded(h.app, viewerID, match) != nil,
+		captainBlocked: viewerID != "" && myTeam > 0 && league.IsCaptainGuarded(h.app, viewerID, match) != nil,
 		pairNames:      league.PairNames(h.app, []string{match.GetString("pair1"), match.GetString("pair2")}),
 		pair1Players:   league.PlayersForPair(h.app, match.GetString("pair1")),
 		pair2Players:   league.PlayersForPair(h.app, match.GetString("pair2")),
