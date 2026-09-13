@@ -1636,7 +1636,7 @@ func TestRejectResultProposalRequiresCounter(t *testing.T) {
 		// just a DB record — CLAUDE.md requires every result-changing action
 		// to render as a timeline line.
 		h := &ThreadHandler{app: app}
-		td := h.buildThreadData(m, matchID, "", 0, true)
+		td := h.buildThreadData(m, matchID, threadViewerCtx{myTeam: 0, compModifiable: true})
 		var found bool
 		for _, entry := range td.Timeline {
 			if entry.Kind == "proposal" && entry.Score == "6-4 6-3" {
@@ -1742,7 +1742,7 @@ func TestBuildThreadData_TimelineReadOnly(t *testing.T) {
 		responder+" aceptó la propuesta de "+proposer)
 
 	h := &ThreadHandler{app: app}
-	td := h.buildThreadData(match, match.Id, "", 2, true)
+	td := h.buildThreadData(match, match.Id, threadViewerCtx{myTeam: 2, compModifiable: true})
 
 	require.NotEmpty(t, td.Timeline, "timeline must have entries")
 
@@ -1797,7 +1797,7 @@ func TestBuildThreadData_HidesRejectedSched(t *testing.T) {
 	rejected := makeProposalWithStatus(t, app, match.Id, proposer, "rejected")
 
 	h := &ThreadHandler{app: app}
-	td := h.buildThreadData(match, match.Id, "", 2, true)
+	td := h.buildThreadData(match, match.Id, threadViewerCtx{myTeam: 2, compModifiable: true})
 
 	var ids []string
 	for _, sp := range td.SchedProposals {
@@ -1821,7 +1821,7 @@ func TestBuildThreadData_NoFinalUntilQuorum(t *testing.T) {
 
 	h := &ThreadHandler{app: app}
 
-	td := h.buildThreadData(match, match.Id, "", 2, true)
+	td := h.buildThreadData(match, match.Id, threadViewerCtx{myTeam: 2, compModifiable: true})
 	assert.False(t, td.ResultPanel.HasFinal, "must not show final before quorum (P4)")
 	require.Len(t, td.ResultPanel.Live, 1, "one live result proposal")
 	assert.Equal(t, "6-3 6-4", td.ResultPanel.Live[0].Score)
@@ -1832,7 +1832,7 @@ func TestBuildThreadData_NoFinalUntilQuorum(t *testing.T) {
 	match.Set("winner", winner)
 	require.NoError(t, app.Save(match))
 
-	td2 := h.buildThreadData(match, match.Id, "", 2, true)
+	td2 := h.buildThreadData(match, match.Id, threadViewerCtx{myTeam: 2, compModifiable: true})
 	assert.True(t, td2.ResultPanel.HasFinal, "must show final after quorum (P4)")
 	assert.Equal(t, "6-3 6-4", td2.ResultPanel.FinalScore)
 	assert.NotEmpty(t, td2.ResultPanel.WinnerName)
@@ -1856,7 +1856,7 @@ func TestBuildThreadData_BothLiveProposals(t *testing.T) {
 
 	h := &ThreadHandler{app: app}
 
-	td := h.buildThreadData(match, match.Id, "", 2, true)
+	td := h.buildThreadData(match, match.Id, threadViewerCtx{myTeam: 2, compModifiable: true})
 	require.Len(t, td.ResultPanel.Live, 2, "deadlock: both proposals live (P5)")
 
 	for _, lp := range td.ResultPanel.Live {
