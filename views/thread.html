@@ -20,6 +20,18 @@
                 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
             </a>
         </div>
+        {{if and .IsScheduled .IsParticipant (not .IsPlayoff) .CompModifiable}}
+        <div class="collapse collapse-arrow bg-base-200 rounded-lg mt-2">
+            <input type="checkbox" class="peer">
+            <div class="collapse-title text-sm text-error py-2 min-h-0">Cancelar fecha</div>
+            <div class="collapse-content">
+                <form hx-post="/match/{{.MatchID}}/cancel-date" hx-target="body">
+                    <textarea name="reason" required class="textarea textarea-bordered w-full text-sm" placeholder="Motivo de la cancelación" rows="2"></textarea>
+                    <button type="submit" hx-disabled-elt="this" hx-confirm="¿Cancelar la fecha de este partido?" data-confirm-danger data-confirm-ok="Cancelar" class="btn btn-error btn-sm mt-2">Cancelar fecha</button>
+                </form>
+            </div>
+        </div>
+        {{end}}
         {{else if .IsPlayoff}}
         {{if and .Card.Mode.Admin .Card.Mode.Editable}}
         <form hx-post="/match/{{.MatchID}}/admin-override" hx-target="body" class="space-y-3">
@@ -238,7 +250,7 @@
     <div class="grid grid-cols-2 gap-3">
         <div class="form-control">
             <label class="label py-1" for="proposal-date"><span class="label-text text-sm">Fecha</span></label>
-            {{template "datePicker" (dict "ID" "proposal-date" "Name" "date" "Required" true)}}
+            {{template "datePicker" (dict "ID" "proposal-date" "Name" "date" "Required" true "Min" "today")}}
         </div>
         <div class="form-control">
             <label class="label py-1" for="proposal-time"><span class="label-text text-sm">Hora</span></label>
