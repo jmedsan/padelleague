@@ -111,6 +111,16 @@ function determineWinner(m: PlannedMatch): PairId {
   return s.sets1 > s.sets2 ? m.home : m.away;
 }
 
+interface PairStats {
+  played: number;
+  wins: number;
+  losses: number;
+  setsWon: number;
+  setsLost: number;
+  gamesWon: number;
+  gamesLost: number;
+}
+
 export function computeExpected(
   matches: PlannedMatch[],
   penalties: Partial<Record<PairId, number>>,
@@ -118,7 +128,7 @@ export function computeExpected(
   const pairs: PairId[] = ['A', 'B', 'C', 'D'];
   const stats = Object.fromEntries(
     pairs.map(p => [p, { played: 0, wins: 0, losses: 0, setsWon: 0, setsLost: 0, gamesWon: 0, gamesLost: 0 }]),
-  ) as Record<PairId, { played: number; wins: number; losses: number; setsWon: number; setsLost: number; gamesWon: number; gamesLost: number }>;
+  ) as Record<PairId, PairStats>;
 
   for (const m of matches) {
     const s = parseScore(m.score);
@@ -158,29 +168,137 @@ export function computeExpected(
     };
   });
 
-  rows.sort((a, b) => {
-    if (a.points !== b.points) return b.points - a.points;
-    const setDiffA = a.setsWon - a.setsLost;
-    const setDiffB = b.setsWon - b.setsLost;
-    if (setDiffA !== setDiffB) return setDiffB - setDiffA;
-    const gameDiffA = a.gamesWon - a.gamesLost;
-    const gameDiffB = b.gamesWon - b.gamesLost;
-    if (gameDiffA !== gameDiffB) return gameDiffB - gameDiffA;
-    return headToHead(a.pair, b.pair, matches) ? -1 : 1;
-  });
+  // Sort mirrors sortStandings + resolveMiniLeague in league/standings.go.
+  // Points first; then tie groups resolved by the Liga Dale Fuerte chain.
+  rows.sort((a, b) => b.points - a.points);
 
-  rows.forEach((r, i) => { r.position = i + 1; });
+  // Find tie groups and resolve each.
+  let i = 0;
+  while (i < rows.length) {
+    let j = i + 1;
+    while (j < rows.length && rows[j].points === rows[i].points) j++;
+    const group = rows.slice(i, j);
+    if (group.length > 1) {
+      resolveGroup(group, group.map(r => r.pair), matches);
+      for (let k = 0; k < group.length; k++) rows[i + k] = group[k];
+    }
+    i = j;
+  }
+
+  rows.forEach((r, idx) => { r.position = idx + 1; });
   return rows;
 }
 
-function headToHead(pairA: PairId, pairB: PairId, matches: PlannedMatch[]): boolean {
-  let winsA = 0, winsB = 0;
-  for (const m of matches) {
-    if ((m.home === pairA && m.away === pairB) || (m.home === pairB && m.away === pairA)) {
-      const winner = determineWinner(m);
-      if (winner === pairA) winsA++;
-      else if (winner === pairB) winsB++;
-    }
+// resolveGroup orders a tie group in place using the Liga tiebreaker chain.
+// For 2 pairs: played → head-to-head → mutual set diff → mutual game diff → overall stats → name.
+// For 3+ pairs: recursive partition by played → mini wins → mini set diff → mini game diff,
+// with 2-way rule on size-2 sub-groups and overall stats as the final fallback.
+function resolveGroup(group: ExpectedRow[], pairIds: PairId[], matches: PlannedMatch[]): void {
+  if (group.length <= 1) return;
+  if (group.length === 2) {
+    resolveTwoWay(group, pairIds, matches);
+    return;
   }
-  return winsA > winsB;
+  resolveMiniLeague(group, pairIds, matches);
+}
+
+function resolveTwoWay(group: ExpectedRow[], pairIds: PairId[], matches: PlannedMatch[]): void {
+  const mutual = mutualStats(pairIds, matches);
+  group.sort((x, y) => {
+    if (x.played !== y.played) return y.played - x.played;
+    const sx = mutual[x.pair], sy = mutual[y.pair];
+    if (sx.wins !== sy.wins) return sy.wins - sx.wins;
+    const setDiffX = sx.setsWon - sx.setsLost, setDiffY = sy.setsWon - sy.setsLost;
+    if (setDiffX !== setDiffY) return setDiffY - setDiffX;
+    const gameDiffX = sx.gamesWon - sx.gamesLost, gameDiffY = sy.gamesWon - sy.gamesLost;
+    if (gameDiffX !== gameDiffY) return gameDiffY - gameDiffX;
+    return lessByOverallThenName(x, y) ? -1 : 1;
+  });
+}
+
+function resolveMiniLeague(group: ExpectedRow[], pairIds: PairId[], matches: PlannedMatch[]): void {
+  const mini = mutualStats(pairIds, matches);
+
+  const criteria: Array<(r: ExpectedRow) => number> = [
+    r => r.played,
+    r => mini[r.pair].wins * 3,
+    r => mini[r.pair].setsWon - mini[r.pair].setsLost,
+    r => mini[r.pair].gamesWon - mini[r.pair].gamesLost,
+  ];
+
+  partitionAndResolve(group, criteria, matches);
+}
+
+function partitionAndResolve(
+  group: ExpectedRow[],
+  criteria: Array<(r: ExpectedRow) => number>,
+  matches: PlannedMatch[],
+): void {
+  if (group.length <= 1) return;
+  if (criteria.length === 0) {
+    group.sort((a, b) => lessByOverallThenName(a, b) ? -1 : 1);
+    return;
+  }
+
+  const score = criteria[0];
+  const remaining = criteria.slice(1);
+
+  group.sort((a, b) => score(b) - score(a));
+
+  let start = 0;
+  while (start < group.length) {
+    let end = start + 1;
+    while (end < group.length && score(group[end]) === score(group[start])) end++;
+    const sub = group.slice(start, end);
+    if (sub.length >= 2) {
+      const subIds = sub.map(r => r.pair);
+      if (sub.length === 2) {
+        resolveTwoWay(sub, subIds, matches);
+      } else {
+        partitionAndResolve(sub, remaining, matches);
+      }
+      for (let k = 0; k < sub.length; k++) group[start + k] = sub[k];
+    }
+    start = end;
+  }
+}
+
+function lessByOverallThenName(a: ExpectedRow, b: ExpectedRow): boolean {
+  const setDiffA = a.setsWon - a.setsLost, setDiffB = b.setsWon - b.setsLost;
+  if (setDiffA !== setDiffB) return setDiffA > setDiffB;
+  const gameDiffA = a.gamesWon - a.gamesLost, gameDiffB = b.gamesWon - b.gamesLost;
+  if (gameDiffA !== gameDiffB) return gameDiffA > gameDiffB;
+  return a.pair < b.pair;
+}
+
+// mutualStats computes match stats for each pair restricted to matches where
+// both participants are in pairIds (mirrors matchesBetween + tallyMatchStats in Go).
+function mutualStats(pairIds: PairId[], matches: PlannedMatch[]): Record<PairId, PairStats> {
+  const inGroup = new Set<PairId>(pairIds);
+  const result = Object.fromEntries(
+    pairIds.map(p => [p, { played: 0, wins: 0, losses: 0, setsWon: 0, setsLost: 0, gamesWon: 0, gamesLost: 0 }]),
+  ) as Record<PairId, PairStats>;
+
+  for (const m of matches) {
+    if (!inGroup.has(m.home) || !inGroup.has(m.away)) continue;
+    const s = parseScore(m.score);
+    const winner = determineWinner(m);
+    const loser = winner === m.home ? m.away : m.home;
+
+    result[m.home].played++;
+    result[m.away].played++;
+    result[winner].wins++;
+    result[loser].losses++;
+
+    result[m.home].setsWon += s.sets1;
+    result[m.home].setsLost += s.sets2;
+    result[m.away].setsWon += s.sets2;
+    result[m.away].setsLost += s.sets1;
+
+    result[m.home].gamesWon += s.games1;
+    result[m.home].gamesLost += s.games2;
+    result[m.away].gamesWon += s.games2;
+    result[m.away].gamesLost += s.games1;
+  }
+  return result;
 }

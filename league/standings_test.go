@@ -489,8 +489,12 @@ func TestComputeStandings_HeadToHeadBreaksFullTie(t *testing.T) {
 	d := makePair(t, app, "H2H D")
 	comp := makeCompetition(t, app, []*core.Record{a, b, c, d})
 
-	// a and b end level: one win and one loss each, identical set and game
-	// difference. a's win is the head-to-head against b.
+	// Three pairs tied at 3 points (1W/1L each): a, b, d.
+	// a beats b; b beats c; d beats a.
+	// Overall matches played: a=2, b=2, d=1.
+	// Tiebreaker criterion 1 (partidos jugados): a and b have played 2, d only 1.
+	// d separates to last position among the three-way tie.
+	// For the remaining sub-group {a, b}: head-to-head → a beat b → a ranks above b.
 	finalMatch(t, app, comp.Id, a, b, a, "6-3 6-3", 1)
 	finalMatch(t, app, comp.Id, b, c, b, "6-3 6-3", 2)
 	finalMatch(t, app, comp.Id, d, a, d, "6-3 6-3", 3)
@@ -511,12 +515,13 @@ func TestComputeStandings_HeadToHeadBreaksFullTie(t *testing.T) {
 		"a beat b head-to-head, so a must rank above b")
 
 	// Positions are 1-based and dense.
+	// Order: a (most played + h2h over b), b, d (fewest played), c (0 pts).
 	var order []string
 	for i, r := range rows {
 		assert.Equal(t, i+1, r.Position)
 		order = append(order, r.PairName)
 	}
-	assert.Equal(t, []string{"H2H D", "H2H A", "H2H B", "H2H C"}, order)
+	assert.Equal(t, []string{"H2H A", "H2H B", "H2H D", "H2H C"}, order)
 }
 
 // Set difference outranks game difference, and is computed as won minus lost.
