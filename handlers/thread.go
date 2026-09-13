@@ -309,24 +309,26 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 		return redirectHX(e, "/match/"+matchID)
 	}
 
-	col, err := h.app.FindCollectionByNameOrId("match_messages")
-	if err != nil {
-		return alertError(e, "Error interno")
-	}
-
-	record := core.NewRecord(col)
-	record.Set("match", matchID)
-	record.Set("author", e.Auth.Id)
-	record.Set("type", "scheduling_proposal")
-	record.Set("proposal_data", string(pdJSON))
-	record.Set("proposal_status", "pending")
-
-	if err := h.app.Save(record); err != nil {
+	if err := h.saveProposalRecord(matchID, e.Auth.Id, pdJSON); err != nil {
 		return alertError(e, "Error al crear propuesta")
 	}
 
 	h.notifyProposal(match, myTeam, proposalNotice{AuthorID: e.Auth.Id, Date: pd.Date, Time: pd.Time, VenueName: pd.VenueName})
 	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
+}
+
+func (h *ThreadHandler) saveProposalRecord(matchID, authorID string, pdJSON []byte) error {
+	col, err := h.app.FindCollectionByNameOrId("match_messages")
+	if err != nil {
+		return err
+	}
+	record := core.NewRecord(col)
+	record.Set("match", matchID)
+	record.Set("author", authorID)
+	record.Set("type", "scheduling_proposal")
+	record.Set("proposal_data", string(pdJSON))
+	record.Set("proposal_status", "pending")
+	return h.app.Save(record)
 }
 
 type proposalNotice struct {
@@ -773,7 +775,7 @@ func (h *ThreadHandler) WithdrawProposal(e *core.RequestEvent) error {
 	}
 
 	addTimelineEntry(h.app, timelineEntry{
-		MatchID:  match.Id, ActorID: e.Auth.Id,
+		MatchID: match.Id, ActorID: e.Auth.Id,
 		Kind:     "scheduling_response",
 		Detail:   "retiró su propuesta de fecha",
 		ParentID: msg.Id,
