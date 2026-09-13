@@ -292,7 +292,7 @@ func TestRecoveryDays(t *testing.T) {
 	app := newTestApp(t)
 
 	unset := makeCompetition(t, app, nil)
-	assert.Equal(t, 14, RecoveryDays(unset))
+	assert.Equal(t, 7, RecoveryDays(unset))
 
 	set := makeCompetition(t, app, nil)
 	set.Set("recovery_days", 21)
@@ -319,7 +319,7 @@ func TestCompetitionPhase(t *testing.T) {
 		{"just after end date enters recovery", end, 14, false, end.Add(time.Second), PhaseRecovery},
 		{"exactly at end+recovery is still recovery", end, 14, false, end.AddDate(0, 0, 14), PhaseRecovery},
 		{"one second past end+recovery finishes", end, 14, false, end.AddDate(0, 0, 14).Add(time.Second), PhaseFinished},
-		{"unset recovery_days uses default 14", end, 0, false, end.AddDate(0, 0, 14), PhaseRecovery},
+		{"unset recovery_days uses default 7", end, 0, false, end.AddDate(0, 0, 7), PhaseRecovery},
 	}
 
 	for _, tt := range tests {
