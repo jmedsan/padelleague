@@ -502,9 +502,14 @@ func (h *ThreadHandler) RejectAndCounterPropose(e *core.RequestEvent) error {
 		return alertError(e, "Tu pareja se ha retirado de esta competición")
 	}
 
-	// Validate the counter-proposal form before any DB writes.
+	// Validate and parse the counter-proposal form before any DB writes.
+	date := e.Request.FormValue("date")
+	timeVal := e.Request.FormValue("time")
+	if date == "" || timeVal == "" {
+		return alertError(e, "Fecha y hora son obligatorias")
+	}
 	pd, err := h.parseProposalForm(e)
-	if err != nil {
+	if err != nil || pd.Date == "" {
 		return err
 	}
 	pdJSON, _ := json.Marshal(pd)

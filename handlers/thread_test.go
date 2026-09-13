@@ -1875,3 +1875,94 @@ func TestBuildThreadData_BothLiveProposals(t *testing.T) {
 	assert.True(t, td.ResultPanel.Live[0].AwaitingMe, "proposal from p1 (team 1) awaits team-2 viewer")
 	assert.False(t, td.ResultPanel.Live[1].AwaitingMe, "proposal from p2 (team 2) does not await same-team viewer")
 }
+
+func TestRejectAndCounterPropose_InvalidDateLeavesProposalPending(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "reject-and-counter with invalid date leaves original proposal pending",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Fecha y hora son obligatorias"},
+	}
+	var propID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "RC Inv A")
+		p2 := makePairTB(tb, app, "RC Inv B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		proposerID := p1.GetString("player1")
+		prop := makeProposal(tb, app, match.Id, proposerID)
+		propID = prop.Id
+
+		// p2 player responds with reject-and-counter but omits date/time
+		respondentID := p2.GetString("player1")
+		respondent, _ := app.FindRecordById("users", respondentID)
+		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/reject-and-counter", match.Id, prop.Id)
+		s.Body = strings.NewReader("rejection_reason=No+puedo&date=&time=")
+		hdrs := authHeaders(tb, respondent)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		// Original proposal must still be pending — no DB write happened
+		msg, err := app.FindRecordById("match_messages", propID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "pending", msg.GetString("proposal_status"), "proposal must remain pending after validation failure")
+
+		// No new proposal must have been created in this match
+		newProps, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'pending'", "", 0, 0,
+			map[string]any{"mid": msg.GetString("match")})
+		require.Len(tb, newProps, 1, "only the original proposal should exist")
+		assert.Equal(tb, propID, newProps[0].Id, "the surviving pending proposal must be the original")
+	}
+	s.Test(t)
+}
+
+func TestRejectAndCounterPropose_ValidDateRejectsAndCreatesNew(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "reject-and-counter with valid date rejects old and creates new proposal",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var propID, matchID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "RC Val A")
+		p2 := makePairTB(tb, app, "RC Val B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
+
+		proposerID := p1.GetString("player1")
+		prop := makeProposal(tb, app, match.Id, proposerID)
+		propID = prop.Id
+
+		respondentID := p2.GetString("player1")
+		respondent, _ := app.FindRecordById("users", respondentID)
+		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/reject-and-counter", match.Id, prop.Id)
+		s.Body = strings.NewReader("rejection_reason=No+puedo&date=2030-06-15&time=18:00")
+		hdrs := authHeaders(tb, respondent)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		// Original proposal must be rejected
+		orig, err := app.FindRecordById("match_messages", propID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "rejected", orig.GetString("proposal_status"), "original proposal must be rejected")
+
+		// A new pending proposal must exist
+		newProps, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'pending'", "", 0, 0,
+			map[string]any{"mid": matchID})
+		require.Len(tb, newProps, 1, "one new pending proposal must be created")
+		assert.NotEqual(tb, propID, newProps[0].Id, "new proposal must be a different record")
+	}
+	s.Test(t)
+}
