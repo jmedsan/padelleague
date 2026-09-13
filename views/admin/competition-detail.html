@@ -303,6 +303,9 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" /></svg>
                             </button>
                             <ul tabindex="0" class="dropdown-content menu bg-base-300 rounded-box shadow-lg z-30 w-56 p-2 text-sm">
+                                {{if $e.Withdrawn}}
+                                <li><span class="text-error opacity-70">Retirada de la competición</span></li>
+                                {{else}}
                                 <li><label for="penalty-modal-{{$e.PairID}}" class="text-warning">
                                     <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
                                     Penalizar
@@ -317,6 +320,13 @@
                                     </button>
                                 </form></li>
                                 {{end}}{{end}}
+                                <li><form hx-post="/admin/competitions/{{$.Competition.Id}}/withdraw-pair" hx-confirm="¿Retirar a {{$e.PairName}}? Se resolverán todos sus partidos pendientes como incomparecencia." data-confirm-danger data-confirm-ok="Retirar">
+                                    <input type="hidden" name="pair_id" value="{{$e.PairID}}">
+                                    <button type="submit" hx-disabled-elt="this" class="text-warning">
+                                        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" /></svg>
+                                        Retirar de la competición
+                                    </button>
+                                </form></li>
                                 <li><form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja de la competición?" data-confirm-danger data-confirm-ok="Quitar">
                                     <input type="hidden" name="pair_id" value="{{$e.PairID}}">
                                     <button type="submit" hx-disabled-elt="this" class="text-error">
@@ -324,6 +334,7 @@
                                         Quitar de la competición
                                     </button>
                                 </form></li>
+                                {{end}}
                             </ul>
                         </div>
                     </div>

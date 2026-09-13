@@ -90,6 +90,15 @@ func (h *MatchHandler) validateCorrectionAccess(e *core.RequestEvent, match *cor
 		if err := league.IsCaptainGuarded(h.app, e.Auth.Id, match); err != nil {
 			return 0, alertError(e, err.Error())
 		}
+		var userPairID string
+		if myTeam == 1 {
+			userPairID = match.GetString("pair1")
+		} else if myTeam == 2 {
+			userPairID = match.GetString("pair2")
+		}
+		if userPairID != "" && league.IsWithdrawn(h.app, userPairID, match.GetString("competition")) {
+			return 0, alertError(e, "Tu pareja se ha retirado de esta competición")
+		}
 	}
 	if msg := h.validateCorrectionPermission(isAdmin, myTeam, submittedByID, match); msg != "" {
 		return 0, alertError(e, msg)

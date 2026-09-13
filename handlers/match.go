@@ -197,6 +197,17 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 		if err := league.IsCaptainGuarded(h.app, userID, match); err != nil {
 			return alertError(e, err.Error())
 		}
+		// Check withdrawal — determine which pair this user belongs to.
+		team, _ := league.PlayerTeam(h.app, userID, match)
+		var userPairID string
+		if team == 1 {
+			userPairID = match.GetString("pair1")
+		} else if team == 2 {
+			userPairID = match.GetString("pair2")
+		}
+		if userPairID != "" && league.IsWithdrawn(h.app, userPairID, match.GetString("competition")) {
+			return alertError(e, "Tu pareja se ha retirado de esta competición")
+		}
 	}
 
 	if err := checkDocGate(h.app, e, match); err != nil {
