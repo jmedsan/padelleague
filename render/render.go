@@ -69,12 +69,12 @@ func New(viewsFS fs.FS, vapidPublicKey string, appDevTools bool) *Renderer {
 			}
 			return ifFalse
 		},
-		"scoreWinner":    scoreWinner,
-		"scoreNote":      league.ScoreNote,
-		"initials":       Initials,
-		"truncate":       league.Truncate,
-		"hasPrefix":      strings.HasPrefix,
-		"carriedSetNum":  carriedSetNum,
+		"scoreWinner":   scoreWinner,
+		"scoreNote":     league.ScoreNote,
+		"initials":      Initials,
+		"truncate":      league.Truncate,
+		"hasPrefix":     strings.HasPrefix,
+		"carriedSetNum": carriedSetNum,
 	})
 	return &Renderer{
 		registry:       reg,
