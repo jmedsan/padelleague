@@ -74,6 +74,92 @@ test.describe('season simulation', () => {
     await assertStandings(page, computeExpected(SCORE_MATRIX, PENALTIES), true);
   });
 
+  test('unfinished match: partial score creates carried-sets state, resumed match finalizes correctly', async ({ page }) => {
+    test.setTimeout(120000);
+    // Reuse the competition and pairs from the league test. Re-auth superuser
+    // in case the token from test 1 has aged.
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    const authResp = await page.request.post('/api/collections/_superusers/auth-with-password', {
+      data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+    });
+    suToken = (await authResp.json()).token;
+
+    // Create a fresh match — avoid round_number collision with the league fixtures (1-6).
+    const matchResp = await page.request.post('/api/collections/matches/records', {
+      headers: { Authorization: suToken },
+      data: {
+        competition: competitionId,
+        pair1: pairIds[0],  // Pair A
+        pair2: pairIds[1],  // Pair B
+        status: 'scheduled',
+        round_number: 99,
+        date: '2025-08-01',
+        club: 'Padel 360',
+      },
+    });
+    if (!matchResp.ok()) throw new Error(`Create match failed: ${matchResp.status()}`);
+    const match = await matchResp.json();
+    const matchId = match.id;
+
+    // Step 1: Pair A's player submits a partial score — 6-4 2-6 3-4 (open last set).
+    const submitterEmail = playerEmailForPair('A', 0);
+    const confirmerEmail = playerEmailForPair('B', 0);
+
+    await loginAs(page, submitterEmail, PLAYER_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.waitForSelector('#thread-details', { timeout: 10000 });
+    await enterScore(page, '6-4 2-6 3-4');
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
+
+    // Step 2: Pair B accepts the partial score.
+    await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.waitForSelector('#thread-details', { timeout: 10000 });
+    const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
+    await acceptBtn.waitFor({ timeout: 10000 });
+    await clickAndWaitForHxRedirect(page, acceptBtn);
+
+    // Step 3: Verify the match shows the "Se reanudará desde" carried-sets badge.
+    await page.goto(`/match/${matchId}`);
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('.badge', { hasText: 'Se reanudará desde' })).toBeVisible({ timeout: 10000 });
+
+    // Step 4: Schedule the resumed match via API.
+    await page.request.patch(`/api/collections/matches/records/${matchId}`, {
+      headers: { Authorization: suToken },
+      data: { status: 'scheduled', date: '2025-08-15', club: 'Wurko' },
+    });
+
+    // Step 5: Pair A submits the finishing score — locked set 1 (6-4) is skipped.
+    await loginAs(page, submitterEmail, PLAYER_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.waitForSelector('#thread-details', { timeout: 10000 });
+
+    // Verify exactly one locked set is shown
+    const lockedSets = page.locator('.score-set-group[data-locked]');
+    await expect(lockedSets).toHaveCount(1, { timeout: 5000 });
+
+    // Submit the second and third sets — full score has 3 sets, locked set 1 is skipped
+    await enterScore(page, '6-4 2-6 6-3');
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
+
+    // Step 6: Pair B accepts the final score.
+    await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.waitForSelector('#thread-details', { timeout: 10000 });
+    const finalAcceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
+    await finalAcceptBtn.waitFor({ timeout: 10000 });
+    await clickAndWaitForHxRedirect(page, finalAcceptBtn);
+
+    // Step 7: Match finalized — Confirmado badge, full score visible, no reanudará badge.
+    await page.goto(`/match/${matchId}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#thread-details').getByText('Confirmado')).toBeVisible({ timeout: 10000 });
+    // The full score 6-4 2-6 6-3 (Pair A wins 2-1)
+    await expect(page.getByText('6-4 2-6 6-3').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.badge', { hasText: 'Se reanudará' })).not.toBeVisible();
+  });
+
   test('playoff seeds from the league, advances, and crowns the expected champion', async ({ page }) => {
     test.setTimeout(240000);
     // Reuses the players/pairs created by test 1 (same worker + DB). Re-auth superuser
