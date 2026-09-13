@@ -705,7 +705,7 @@ func setSchedulingFields(record *core.Record, e *core.RequestEvent) string {
 	}
 	record.Set("default_penalty", penalty)
 
-	recovery, msg := formIntValidated(e, "recovery_days", 14)
+	recovery, msg := formIntValidated(e, "recovery_days", 7)
 	if msg != "" {
 		return "Período extra: " + msg
 	}

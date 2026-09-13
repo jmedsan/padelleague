@@ -130,32 +130,6 @@ func NotifProposalRejected(matchID, responderName, reason, compName string) Noti
 	}
 }
 
-// NotifDecisionChangedToRejected notifies the proposer of a revoked acceptance.
-func NotifDecisionChangedToRejected(matchID, responderName, compName string) Notification {
-	return Notification{
-		Type: "scheduling", Title: "Decisión cambiada",
-		Body:     fmt.Sprintf("%s cambió su decisión: propuesta ahora rechazada", responderName),
-		MatchID:  matchID,
-		CompName: compName,
-	}
-}
-
-// DecisionChangedToAcceptedParams holds the dynamic parts for a
-// changed-to-accepted decision notification.
-type DecisionChangedToAcceptedParams struct {
-	MatchID, ResponderName, Date, Time, CompName string
-}
-
-// NotifDecisionChangedToAccepted notifies the proposer of a changed-to-accepted decision.
-func NotifDecisionChangedToAccepted(p DecisionChangedToAcceptedParams) Notification {
-	return Notification{
-		Type: "scheduling", Title: "Decisión cambiada",
-		Body:     fmt.Sprintf("%s cambió su decisión: propuesta ahora aceptada para %s", p.ResponderName, fmtNotifDate(p.Date, p.Time)),
-		MatchID:  p.MatchID,
-		CompName: p.CompName,
-	}
-}
-
 // SchedulingReminderParams holds the dynamic parts for a scheduling reminder notification.
 type SchedulingReminderParams struct {
 	MatchID, Opponent, CompName string

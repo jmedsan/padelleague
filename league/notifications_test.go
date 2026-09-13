@@ -66,18 +66,6 @@ func TestNotificationConstructors(t *testing.T) {
 			want: Notification{Type: "scheduling", Title: "Propuesta rechazada", Body: "María ha rechazado tu propuesta: No puedo ese día", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
-			name: "DecisionChangedToRejected",
-			got:  NotifDecisionChangedToRejected("m1", "María", "Liga Primavera"),
-			want: Notification{Type: "scheduling", Title: "Decisión cambiada", Body: "María cambió su decisión: propuesta ahora rechazada", MatchID: "m1", CompName: "Liga Primavera"},
-		},
-		{
-			name: "DecisionChangedToAccepted",
-			got: NotifDecisionChangedToAccepted(DecisionChangedToAcceptedParams{
-				MatchID: "m1", ResponderName: "María", Date: "2026-03-15", Time: "18:00", CompName: "Liga Primavera",
-			}),
-			want: Notification{Type: "scheduling", Title: "Decisión cambiada", Body: "María cambió su decisión: propuesta ahora aceptada para el 15/03 a las 18:00", MatchID: "m1", CompName: "Liga Primavera"},
-		},
-		{
 			name: "SchedulingReminder",
 			got: NotifSchedulingReminder(SchedulingReminderParams{
 				MatchID: "m1", Opponent: "Pareja A", CompName: "Liga Primavera", Level: WarnUrgent,

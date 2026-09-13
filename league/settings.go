@@ -33,7 +33,7 @@ func DefaultSettings() AppSettings {
 		ArrangeGraceDays:     3,
 		WalkoverScore:        "6-0 6-0",
 		DefaultPenalty:       3,
-		RecoveryDays:         14,
+		RecoveryDays:         7,
 		GenderType:           "free",
 		InviteMaxUses:        10,
 		InviteExpirationDays: 7,
