@@ -354,7 +354,7 @@ func TestMatchDetail_DraftCalendarReturns404ForPlayer(t *testing.T) {
 		Name:            "GET /match/{id} returns 404 for a non-admin when the competition's calendar is draft",
 		Method:          http.MethodGet,
 		ExpectedStatus:  404,
-		ExpectedContent: []string{"Record no encontrado"},
+		ExpectedContent: []string{"Partido no encontrado"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)

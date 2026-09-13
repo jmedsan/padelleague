@@ -246,7 +246,7 @@
                         </td>
                         <td class="text-right">
                             {{if .Withdrawn}}
-                            <span class="badge badge-error badge-sm">Retirada</span>
+                            {{template "withdrawnBadge" .}}
                             {{else}}
                             <span class="tooltip tooltip-left" data-tip="Penalizar">
                                 <label for="penalty-modal-{{.PairID}}" class="btn btn-ghost btn-sm btn-circle text-warning" aria-label="Penalizar">
