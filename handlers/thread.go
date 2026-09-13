@@ -617,46 +617,46 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 	if len(existing) > 0 && match.GetString("status") != league.StatusScheduled {
 		return alertError(e, "Ya hay una propuesta aceptada para este partido")
 	}
-	for _, old := range existing {
-		old.Set("proposal_status", "superseded")
-		if err := h.app.Save(old); err != nil {
-			_ = h.notifier.NotifyAdmins(league.Notification{
-				Type: "admin_message", Title: "Error al reemplazar propuesta",
-				Body: "No se pudo marcar la propuesta anterior como reemplazada", MatchID: match.Id,
-			})
-		}
-	}
 
 	pd := ParseProposalData(msg.Get("proposal_data"))
 	if pd == nil {
 		return alertError(e, "Error al leer los datos de la propuesta")
 	}
 
-	match.Set("date", pd.Date)
-	match.Set("time", pd.Time)
-	match.Set("club", pd.VenueName)
-	match.Set("status", league.StatusScheduled)
-	league.ClearMatchReminders(h.app, match.Id)
-	if err := h.app.Save(match); err != nil {
-		return alertError(e, "Error al actualizar el partido")
-	}
-
-	msg.Set("proposal_status", "accepted")
-	if err := h.app.Save(msg); err != nil {
-		return alertError(e, "Error al marcar la propuesta como aceptada")
+	proposerName := league.PlayerName(h.app, msg.GetString("author"))
+	if err := h.app.RunInTransaction(func(txApp core.App) error {
+		for _, old := range existing {
+			old.Set("proposal_status", "superseded")
+			if err := txApp.Save(old); err != nil {
+				return err
+			}
+		}
+		match.Set("date", pd.Date)
+		match.Set("time", pd.Time)
+		match.Set("club", pd.VenueName)
+		match.Set("status", league.StatusScheduled)
+		league.ClearMatchReminders(txApp, match.Id)
+		if err := txApp.Save(match); err != nil {
+			return err
+		}
+		msg.Set("proposal_status", "accepted")
+		if err := txApp.Save(msg); err != nil {
+			return err
+		}
+		addTimelineEntry(txApp, timelineEntry{
+			MatchID: match.Id, ActorID: e.Auth.Id,
+			Kind:     "scheduling_response",
+			Detail:   "aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
+			ParentID: msg.Id,
+			Action:   "accept",
+			Data:     pd,
+		})
+		return nil
+	}); err != nil {
+		return alertError(e, "Error al aceptar la propuesta")
 	}
 
 	h.supersedePendingAndNotify(match, msg.Id)
-
-	proposerName := league.PlayerName(h.app, msg.GetString("author"))
-	addTimelineEntry(h.app, timelineEntry{
-		MatchID: match.Id, ActorID: e.Auth.Id,
-		Kind:     "scheduling_response",
-		Detail:   "aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
-		ParentID: msg.Id,
-		Action:   "accept",
-		Data:     pd,
-	})
 
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	notif := league.NotifProposalAccepted(league.ProposalAcceptedParams{
