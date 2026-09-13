@@ -88,7 +88,7 @@ func TestOutstandingMatches_OrderingAndFields(t *testing.T) {
 	require.NoError(t, app.Save(overdue))
 
 	// Round 2 deadline = end = 10 days from now -> WarnNone.
-	future := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusConfirmed)
+	future := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusScheduled)
 	future.Set("round_number", 2)
 	require.NoError(t, app.Save(future))
 
