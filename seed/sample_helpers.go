@@ -111,6 +111,14 @@ func createSampleVenues(txApp core.App) error {
 		{"Padel 360", "Calle del Deporte 12"},
 		{"Wurko", "Avda. de la Constitución 45"},
 		{"Tecnisur", "Camino Viejo de Málaga 8"},
+		{"Padelcan", ""},
+		{"Punta del Rey", ""},
+		{"Indoor SC", ""},
+		{"CD San Benito", ""},
+		{"Magma", ""},
+		{"GoFit", ""},
+		{"CD La Matanza", ""},
+		{"Las Palmeras", ""},
 	}
 	for _, v := range venues {
 		rec := core.NewRecord(col)
