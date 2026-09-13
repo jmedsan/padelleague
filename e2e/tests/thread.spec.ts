@@ -319,14 +319,12 @@ test.describe('match thread', () => {
     });
     const matchId = freshMatch.id;
 
-    // Player1 submits a partial score with "unfinished" checked
+    // Player1 submits a partial score — unfinished is auto-detected
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${matchId}`);
     await page.waitForSelector('#thread-details', { timeout: 10000 });
 
     await enterScore(page, '6-3 2-1');
-    const scoreInput = page.locator('.score-input').first();
-    await scoreInput.locator('.score-unfinished').check();
     await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
 
     await page.waitForSelector('#thread-details', { timeout: 10000 });
@@ -340,11 +338,10 @@ test.describe('match thread', () => {
     await acceptBtn.waitFor({ timeout: 10000 });
     await clickAndWaitForHxRedirect(page, acceptBtn);
 
-    // Match goes back to pending with carried_sets — "Reanudación" badge appears
+    // Match goes back to pending with carried_sets — resume badge appears
     await page.goto(`/match/${matchId}`);
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.locator('.badge', { hasText: 'Reanudación' })).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('.badge', { hasText: 'desde 6-3' })).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.badge', { hasText: 'Se reanudará desde 6-3' })).toBeVisible({ timeout: 10000 });
 
     // Schedule the resumed match via API
     await suPatch(`/api/collections/matches/records/${matchId}`, {
@@ -376,7 +373,7 @@ test.describe('match thread', () => {
     await page.waitForLoadState('networkidle');
     await expect(page.locator('#thread-details').getByText('Confirmado')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('6-3 3-6 6-4').first()).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.badge', { hasText: 'Reanudación' })).not.toBeVisible();
+    await expect(page.locator('.badge', { hasText: 'Se reanudará' })).not.toBeVisible();
   });
 
   test('rule win: 3-game lead with one completed set finalizes the match', async ({ page }) => {
@@ -394,13 +391,12 @@ test.describe('match thread', () => {
     });
     const matchId = freshMatch.id;
 
-    // Player1 submits 6-3 4-1 with unfinished checked (rule win: 1 set + 3-game lead)
+    // Player1 submits 6-3 4-1 — rule win auto-detected (1 set + 3-game lead)
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${matchId}`);
     await page.waitForSelector('#thread-details', { timeout: 10000 });
 
     await enterScore(page, '6-3 4-1');
-    await page.locator('.score-input').first().locator('.score-unfinished').check();
     await expect(page.locator('.score-winner').first()).toContainText('gana', { timeout: 3000 });
 
     await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));

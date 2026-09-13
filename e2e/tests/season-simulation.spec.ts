@@ -379,23 +379,9 @@ function playerEmailForPair(pairLabel: PairId, playerIndex: 0 | 1): string {
   return PLAYERS[playerGlobalIdx].email;
 }
 
-function hasOpenSet(score: string): boolean {
-  const sets = score.trim().split(/\s+/);
-  for (const s of sets) {
-    const [a, b] = s.split('-').map(Number);
-    const hi = Math.max(a, b), lo = Math.min(a, b);
-    const complete = (hi === 6 && lo <= 4) || (hi === 7 && (lo === 5 || lo === 6));
-    if (!complete) return true;
-  }
-  return false;
-}
-
 async function submitScore(page: Page, matchId: string, score: string) {
   await page.goto(`/match/${matchId}`);
   await enterScore(page, score);
-  if (hasOpenSet(score)) {
-    await page.locator('.score-input').first().locator('.score-unfinished').check();
-  }
   await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
 }
 
