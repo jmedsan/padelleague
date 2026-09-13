@@ -193,6 +193,11 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	if teamErr != nil && !isAdmin {
 		return alertError(e, "No eres participante de este partido")
 	}
+	if !isAdmin {
+		if err := league.IsCaptainGuarded(h.app, userID, match); err != nil {
+			return alertError(e, err.Error())
+		}
+	}
 
 	if err := checkDocGate(h.app, e, match); err != nil {
 		return err

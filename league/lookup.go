@@ -27,6 +27,38 @@ func PlayerTeam(app core.App, userID string, match *core.Record) (int, error) {
 	return 0, fmt.Errorf("user %s is not a participant", userID)
 }
 
+// IsCaptainGuarded returns an error if the user's pair has a captain set and
+// the user is not that captain. Returns nil when no captain is set (both
+// players have full authority) or when the user IS the captain.
+func IsCaptainGuarded(app core.App, userID string, match *core.Record) error {
+	pair1, err := app.FindRecordById("pairs", match.GetString("pair1"))
+	if err != nil {
+		return fmt.Errorf("pair1 not found: %w", err)
+	}
+	pair2, err := app.FindRecordById("pairs", match.GetString("pair2"))
+	if err != nil {
+		return fmt.Errorf("pair2 not found: %w", err)
+	}
+
+	var userPair *core.Record
+	if pair1.GetString("player1") == userID || pair1.GetString("player2") == userID {
+		userPair = pair1
+	} else if pair2.GetString("player1") == userID || pair2.GetString("player2") == userID {
+		userPair = pair2
+	} else {
+		return fmt.Errorf("user %s is not a participant", userID)
+	}
+
+	captain := userPair.GetString("captain")
+	if captain == "" {
+		return nil // no captain set — both players have full authority
+	}
+	if captain == userID {
+		return nil // user is the captain
+	}
+	return fmt.Errorf("Solo el capitán puede registrar resultados")
+}
+
 // PairNames resolves pair IDs to their display names.
 func PairNames(app core.App, pairIDs []string) map[string]string {
 	names := make(map[string]string, len(pairIDs))
