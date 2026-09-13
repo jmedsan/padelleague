@@ -217,6 +217,7 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 		return err
 	}
 
+	// Withdrawn pairs can still chat: no checkNotWithdrawn here by design.
 	myTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if err := checkParticipantOrAdmin(e, myTeam); err != nil {
 		return err
@@ -298,14 +299,8 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 		return alertError(e, "No eres participante de este partido")
 	}
 
-	var myPairID string
-	if myTeam == 1 {
-		myPairID = pair1ID
-	} else {
-		myPairID = pair2ID
-	}
-	if league.IsWithdrawn(h.app, myPairID, match.GetString("competition")) {
-		return alertError(e, "Tu pareja se ha retirado de esta competición")
+	if err := checkNotWithdrawn(h.app, e, match, myTeam); err != nil {
+		return err
 	}
 
 	pd, err := h.parseProposalForm(e)
@@ -410,6 +405,9 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 	if err != nil || myTeam == 0 {
 		return alertError(e, "No eres participante de este partido")
 	}
+	if err := checkNotWithdrawn(h.app, e, match, myTeam); err != nil {
+		return err
+	}
 
 	msg, err := h.app.FindRecordById("match_messages", msgID)
 	if err != nil {
@@ -436,15 +434,22 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 	if err := h.dispatchProposalAction(e, match, msg, authorTeam); err != nil {
 		return err
 	}
-	if msg.GetString("type") == "scheduling_proposal" {
-		switch e.Request.FormValue("action") {
-		case "accept":
-			flash(e, "Fecha confirmada")
-		case "reject":
-			flash(e, "Propuesta rechazada")
-		}
-	}
+	flashSchedulingResponse(e, msg)
 	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
+}
+
+// flashSchedulingResponse sets the success flash for an accepted or rejected
+// scheduling proposal; result proposals flash nothing.
+func flashSchedulingResponse(e *core.RequestEvent, msg *core.Record) {
+	if msg.GetString("type") != "scheduling_proposal" {
+		return
+	}
+	switch e.Request.FormValue("action") {
+	case "accept":
+		flash(e, "Fecha confirmada")
+	case "reject":
+		flash(e, "Propuesta rechazada")
+	}
 }
 
 // RejectAndCounterPropose rejects a pending scheduling proposal and immediately
@@ -492,14 +497,8 @@ func (h *ThreadHandler) RejectAndCounterPropose(e *core.RequestEvent) error {
 		return alertError(e, "No puedes responder a tu propia propuesta")
 	}
 
-	var myPairID string
-	if myTeam == 1 {
-		myPairID = match.GetString("pair1")
-	} else {
-		myPairID = match.GetString("pair2")
-	}
-	if league.IsWithdrawn(h.app, myPairID, match.GetString("competition")) {
-		return alertError(e, "Tu pareja se ha retirado de esta competición")
+	if err := checkNotWithdrawn(h.app, e, match, myTeam); err != nil {
+		return err
 	}
 
 	// Validate and parse the counter-proposal form before any DB writes.
@@ -698,6 +697,9 @@ func (h *ThreadHandler) WithdrawProposal(e *core.RequestEvent) error {
 	actorTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if actorTeam == 0 || authorTeam != actorTeam {
 		return alertError(e, "Solo tu pareja puede retirar esta propuesta")
+	}
+	if err := checkNotWithdrawn(h.app, e, match, actorTeam); err != nil {
+		return err
 	}
 
 	msg.Set("proposal_status", "withdrawn")

@@ -495,6 +495,9 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 	if err != nil {
 		return alertError(e, "No eres participante de este partido")
 	}
+	if err := checkNotWithdrawn(h.app, e, match, reporterTeam); err != nil {
+		return err
+	}
 
 	if err := checkDocGate(h.app, e, match); err != nil {
 		return err
@@ -567,24 +570,10 @@ func (h *MatchHandler) CancelDate(e *core.RequestEvent) error {
 		return err
 	}
 
-	if match.GetString("status") != league.StatusScheduled {
-		return alertError(e, "Este partido no tiene fecha confirmada")
-	}
-
 	userID := e.Auth.Id
-	myTeam, err := league.PlayerTeam(h.app, userID, match)
+	myTeam, err := h.cancelDateGate(e, match)
 	if err != nil {
-		return alertError(e, "No eres participante de este partido")
-	}
-
-	if err := checkDocGate(h.app, e, match); err != nil {
 		return err
-	}
-	if err := checkCompModifiable(h.app, e, match); err != nil {
-		return err
-	}
-	if comp, cErr := h.app.FindRecordById("competitions", match.GetString("competition")); cErr == nil && league.IsPlayoff(comp) {
-		return alertError(e, "No se puede cancelar la fecha de un partido de playoff")
 	}
 
 	reason := strings.TrimSpace(e.Request.FormValue("reason"))
@@ -621,6 +610,31 @@ func (h *MatchHandler) CancelDate(e *core.RequestEvent) error {
 
 	h.notifyCancelDate(cancelInfo{match: match, team: myTeam, cancellerID: userID, reason: reason, within24h: within24h})
 	return redirectHX(e, "/match/"+id)
+}
+
+// cancelDateGate validates that the caller may cancel the match's confirmed
+// date and returns their team; the error is already rendered to the client.
+func (h *MatchHandler) cancelDateGate(e *core.RequestEvent, match *core.Record) (int, error) {
+	if match.GetString("status") != league.StatusScheduled {
+		return 0, alertError(e, "Este partido no tiene fecha confirmada")
+	}
+	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
+	if err != nil {
+		return 0, alertError(e, "No eres participante de este partido")
+	}
+	if err := checkNotWithdrawn(h.app, e, match, myTeam); err != nil {
+		return 0, err
+	}
+	if err := checkDocGate(h.app, e, match); err != nil {
+		return 0, err
+	}
+	if err := checkCompModifiable(h.app, e, match); err != nil {
+		return 0, err
+	}
+	if comp, cErr := h.app.FindRecordById("competitions", match.GetString("competition")); cErr == nil && league.IsPlayoff(comp) {
+		return 0, alertError(e, "No se puede cancelar la fecha de un partido de playoff")
+	}
+	return myTeam, nil
 }
 
 type cancelInfo struct {
@@ -701,7 +715,11 @@ func playerActionGate(app core.App, userID string, match *core.Record) (int, str
 	if team == 2 {
 		pairID = match.GetString("pair2")
 	}
-	if league.IsWithdrawn(app, pairID, match.GetString("competition")) {
+	withdrawn, err := league.IsWithdrawn(app, pairID, match.GetString("competition"))
+	if err != nil {
+		return 0, "", err
+	}
+	if withdrawn {
 		return 0, "", errWithdrawn
 	}
 	return team, pairID, nil
