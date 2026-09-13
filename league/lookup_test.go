@@ -184,8 +184,7 @@ func TestIsCaptainGuarded_NotCaptain_Blocked(t *testing.T) {
 
 	// The non-captain on the same pair is blocked.
 	err := IsCaptainGuarded(app, nonCaptainID, m)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "capitán")
+	require.ErrorIs(t, err, ErrNotCaptain)
 }
 
 func TestIsWithdrawn_NotWithdrawn(t *testing.T) {
