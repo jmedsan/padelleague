@@ -233,43 +233,46 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 }
 
 func (h *MatchHandler) submitResultProposal(e *core.RequestEvent, match *core.Record, userID, scores string) error {
-	match.Set("submitted_by", userID)
-	match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
-	match.Set("confirm_reminded", false)
-	if err := h.app.Save(match); err != nil {
+	if err := h.app.RunInTransaction(func(txApp core.App) error {
+		col, err := txApp.FindCollectionByNameOrId("match_messages")
+		if err != nil {
+			return err
+		}
+		pdJSON, _ := json.Marshal(ProposalData{Scores: scores})
+		proposal := core.NewRecord(col)
+		proposal.Set("match", match.Id)
+		proposal.Set("author", userID)
+		proposal.Set("type", "result_submission")
+		proposal.Set("content", scores)
+		proposal.Set("proposal_status", "pending")
+		proposal.Set("proposal_data", string(pdJSON))
+		if err := txApp.Save(proposal); err != nil {
+			return err
+		}
+		h.supersedeMyPendingResultsTx(txApp, match.Id, userID)
+		match.Set("submitted_by", userID)
+		match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
+		match.Set("confirm_reminded", false)
+		return txApp.Save(match)
+	}); err != nil {
 		return alertError(e, "Error al guardar el resultado")
 	}
-
-	h.supersedeMyPendingResults(match.Id, userID)
-
-	col, err := h.app.FindCollectionByNameOrId("match_messages")
-	if err != nil {
-		return alertError(e, "Error interno")
-	}
-	pdJSON, _ := json.Marshal(ProposalData{Scores: scores})
-	proposal := core.NewRecord(col)
-	proposal.Set("match", match.Id)
-	proposal.Set("author", userID)
-	proposal.Set("type", "result_submission")
-	proposal.Set("content", scores)
-	proposal.Set("proposal_status", "pending")
-	proposal.Set("proposal_data", string(pdJSON))
-	if err := h.app.Save(proposal); err != nil {
-		return alertError(e, "Error al crear la propuesta de resultado")
-	}
-
 	h.notifyResultProposal(match, userID, scores)
 	return nil
 }
 
 func (h *MatchHandler) supersedeMyPendingResults(matchID, userID string) {
-	pending, _ := h.app.FindRecordsByFilter("match_messages",
+	h.supersedeMyPendingResultsTx(h.app, matchID, userID)
+}
+
+func (h *MatchHandler) supersedeMyPendingResultsTx(app core.App, matchID, userID string) {
+	pending, _ := app.FindRecordsByFilter("match_messages",
 		"match = {:mid} && type = 'result_submission' && author = {:uid} && proposal_status = 'pending'",
 		"", 0, 0,
 		map[string]any{"mid": matchID, "uid": userID})
 	for _, p := range pending {
 		p.Set("proposal_status", "superseded")
-		if err := h.app.Save(p); err != nil {
+		if err := app.Save(p); err != nil {
 			slog.Error("supersede result proposal", "msg", p.Id, "err", err)
 		}
 	}
