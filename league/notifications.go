@@ -106,6 +106,16 @@ func NotifProposalAccepted(p ProposalAcceptedParams) Notification {
 	}
 }
 
+// NotifProposalWithdrawn notifies the rival that a scheduling proposal was withdrawn.
+func NotifProposalWithdrawn(matchID, authorName, compName string) Notification {
+	return Notification{
+		Type: "scheduling", Title: "Propuesta retirada",
+		Body:     authorName + " ha retirado su propuesta de fecha",
+		MatchID:  matchID,
+		CompName: compName,
+	}
+}
+
 // NotifProposalRejected notifies the proposer that their proposal was rejected.
 func NotifProposalRejected(matchID, responderName, reason, compName string) Notification {
 	body := responderName + " ha rechazado tu propuesta"

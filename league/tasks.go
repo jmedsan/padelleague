@@ -171,7 +171,7 @@ func pendingMatchTasks(app core.App, comp *core.Record, playerPairIDs map[string
 
 func enrichPlaySchedule(app core.App, matchID string, task *PlayerTask) {
 	proposals, _ := app.FindRecordsByFilter("match_messages",
-		"match = {:mid} && type = 'scheduling_proposal' && proposal_status != 'rejected' && proposal_status != 'superseded'",
+		"match = {:mid} && type = 'scheduling_proposal' && (proposal_status = 'pending' || proposal_status = 'accepted')",
 		"-created", 1, 0, map[string]any{"mid": matchID})
 	if len(proposals) == 0 {
 		return
