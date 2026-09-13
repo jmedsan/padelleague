@@ -287,7 +287,7 @@ func Register(app core.App, deps Deps) {
 	})
 
 	app.Cron().MustAdd("pending-match-penalties", "0 1 * * *", func() {
-		applyPendingMatchPenalties(app)
+		applyPendingMatchPenalties(app, notifier)
 	})
 
 	registerSearch(app, searchIndex)
@@ -323,7 +323,7 @@ func registerSearch(app core.App, idx *search.Index) {
 	})
 }
 
-func applyPendingMatchPenalties(app core.App) {
+func applyPendingMatchPenalties(app core.App, notifier *notify.Notifier) {
 	now := time.Now()
 	comps, err := app.FindRecordsByFilter("competitions",
 		"active = true && finalized = false && end_date != ''",
@@ -337,13 +337,30 @@ func applyPendingMatchPenalties(app core.App) {
 		if phase != league.PhaseRecovery && phase != league.PhaseFinished {
 			continue
 		}
-		n, err := league.ApplyPendingMatchPenalties(app, comp)
+		applied, err := league.ApplyPendingMatchPenalties(app, comp)
 		if err != nil {
 			slog.Error("pending-match-penalties: apply", "competition", comp.Id, "err", err)
 			continue
 		}
-		if n > 0 {
-			slog.Info("pending-match-penalties: applied", "competition", comp.Id, "count", n)
+		if len(applied) == 0 {
+			continue
 		}
+		slog.Info("pending-match-penalties: applied", "competition", comp.Id, "count", len(applied))
+		compID := comp.Id
+		for _, pen := range applied {
+			players := league.PlayersForPair(app, pen.GetString("pair"))
+			notifier.NotifyPlayers(players, league.Notification{
+				Type:  "penalty",
+				Title: "Penalización aplicada",
+				Body:  fmt.Sprintf("%.0f puntos — %s", pen.GetFloat("amount"), pen.GetString("reason")),
+				Link:  "/competition/" + compID,
+			})
+		}
+		_ = notifier.NotifyAdmins(league.Notification{
+			Type:  "penalty",
+			Title: "Penalizaciones automáticas aplicadas",
+			Body:  fmt.Sprintf("%d penalizaciones aplicadas en %s", len(applied), comp.GetString("name")),
+			Link:  "/admin/competitions/" + compID,
+		})
 	}
 }
