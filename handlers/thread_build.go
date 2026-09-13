@@ -221,7 +221,7 @@ func (bc *threadBuildCtx) schedProposal(mc msgCtx, sameTeam bool) SchedProposalV
 		IsAccepted:        status == "accepted",
 		CanRespond:        canRespond && bc.compModifiable,
 		CanChangeDecision: canChange && bc.compModifiable,
-		CanWithdraw:       sameTeam && status == "pending" && bc.compModifiable,
+		CanWithdraw:       bc.myTeam != 0 && sameTeam && status == "pending" && bc.compModifiable,
 		CreatedAt:         mc.created,
 		CreatedRel:        mc.createdRaw,
 	}
