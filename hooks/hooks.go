@@ -286,6 +286,31 @@ func Register(app core.App, deps Deps) {
 		svc.RemindPendingConfirmations(time.Now())
 	})
 
+	app.Cron().MustAdd("pending-match-penalties", "0 1 * * *", func() {
+		now := time.Now()
+		comps, err := app.FindRecordsByFilter("competitions",
+			"active = true && finalized = false && end_date != ''",
+			"", 0, 0, nil)
+		if err != nil {
+			slog.Error("pending-match-penalties: list competitions", "err", err)
+			return
+		}
+		for _, comp := range comps {
+			phase := league.CompetitionPhase(comp, now)
+			if phase != league.PhaseRecovery && phase != league.PhaseFinished {
+				continue
+			}
+			n, err := league.ApplyPendingMatchPenalties(app, comp)
+			if err != nil {
+				slog.Error("pending-match-penalties: apply", "competition", comp.Id, "err", err)
+				continue
+			}
+			if n > 0 {
+				slog.Info("pending-match-penalties: applied", "competition", comp.Id, "count", n)
+			}
+		}
+	})
+
 	registerSearch(app, searchIndex)
 	registerBackup(app, deps.Backup)
 	registerSMTP(app, deps.SMTP)

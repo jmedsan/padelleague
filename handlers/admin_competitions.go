@@ -43,7 +43,12 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 	penaltyRows := h.getPenaltyRows(id)
 	activePenalty := firstActivePenalty(penaltyRows)
 
-	pairEntries := buildPairEntries(pairIDs, seeding, payment)
+	withdrawnIDs := comp.GetStringSlice("withdrawn_pairs")
+	withdrawnSet := make(map[string]bool, len(withdrawnIDs))
+	for _, id := range withdrawnIDs {
+		withdrawnSet[id] = true
+	}
+	pairEntries := buildPairEntries(pairIDs, seeding, payment, withdrawnSet)
 	allPairs := availablePairs(h.app, pairIDs)
 	allComps := findRecordsLogged(h.app, "Detail: find other competitions", RecordQuery{
 		Collection: "competitions", Filter: "id != {:cid}", Sort: "name", Params: map[string]any{"cid": id},
@@ -710,6 +715,12 @@ func setSchedulingFields(record *core.Record, e *core.RequestEvent) string {
 		return "Período extra: " + msg
 	}
 	record.Set("recovery_days", recovery)
+
+	maxPending, msg := formIntValidated(e, "max_pending_matches", 2)
+	if msg != "" {
+		return "Máx. partidos pendientes: " + msg
+	}
+	record.Set("max_pending_matches", maxPending)
 	return ""
 }
 
