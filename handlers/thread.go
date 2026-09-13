@@ -492,25 +492,80 @@ func (h *ThreadHandler) RejectAndCounterPropose(e *core.RequestEvent) error {
 		return alertError(e, "No puedes responder a tu propia propuesta")
 	}
 
-	proposerPairID := match.GetString("pair1")
-	if authorTeam == 2 {
-		proposerPairID = match.GetString("pair2")
+	var myPairID string
+	if myTeam == 1 {
+		myPairID = match.GetString("pair1")
+	} else {
+		myPairID = match.GetString("pair2")
+	}
+	if league.IsWithdrawn(h.app, myPairID, match.GetString("competition")) {
+		return alertError(e, "Tu pareja se ha retirado de esta competición")
 	}
 
-	// Step 1: reject the existing proposal.
-	if err := h.rejectProposal(e, msg, match, proposerPairID); err != nil {
-		return err
-	}
-
-	// Step 2: create a new counter-proposal.
+	// Validate the counter-proposal form before any DB writes.
 	pd, err := h.parseProposalForm(e)
 	if err != nil {
 		return err
 	}
 	pdJSON, _ := json.Marshal(pd)
-	if err := h.saveProposalRecord(matchID, e.Auth.Id, pdJSON); err != nil {
-		return alertError(e, "Error al crear la contrapropuesta")
+
+	proposerPairID := match.GetString("pair1")
+	if authorTeam == 2 {
+		proposerPairID = match.GetString("pair2")
 	}
+
+	reason := e.Request.FormValue("rejection_reason")
+	text := e.Request.FormValue("rejection_text")
+
+	// Reject old proposal + create counter-proposal atomically.
+	if err := h.app.RunInTransaction(func(txApp core.App) error {
+		msg.Set("proposal_status", "rejected")
+		msg.Set("rejection_reason", reason)
+		msg.Set("rejection_text", text)
+		if err := txApp.Save(msg); err != nil {
+			return err
+		}
+
+		proposerName := league.PlayerName(h.app, msg.GetString("author"))
+		detail := "rechazó la propuesta de " + proposerName
+		if text != "" {
+			detail += ": " + text
+		} else if reason != "" {
+			detail += ": " + reason
+		}
+		addTimelineEntry(txApp, timelineEntry{
+			MatchID: match.Id, ActorID: e.Auth.Id,
+			Kind: "scheduling_response", Detail: detail,
+			ParentID: msg.Id, Action: "reject",
+			Data: ParseProposalData(msg.Get("proposal_data")),
+		})
+
+		col, err := txApp.FindCollectionByNameOrId("match_messages")
+		if err != nil {
+			return err
+		}
+		newMsg := core.NewRecord(col)
+		newMsg.Set("match", matchID)
+		newMsg.Set("author", e.Auth.Id)
+		newMsg.Set("type", "scheduling_proposal")
+		newMsg.Set("proposal_data", string(pdJSON))
+		newMsg.Set("proposal_status", "pending")
+		return txApp.Save(newMsg)
+	}); err != nil {
+		return alertError(e, "Error al procesar la contrapropuesta")
+	}
+
+	// Notifications after successful commit.
+	notifReason := reason
+	if reason == "Otro" && text != "" {
+		notifReason = text
+	} else if reason == "Otro" {
+		notifReason = ""
+	}
+	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
+	compName := league.CompetitionName(h.app, match.GetString("competition"))
+	notif := league.NotifProposalRejected(match.Id, league.PlayerName(h.app, e.Auth.Id), notifReason, compName)
+	h.notifier.NotifyPlayers(proposerPlayers, notif)
 	h.notifyProposal(match, myTeam, proposalNotice{AuthorID: e.Auth.Id, Date: pd.Date, Time: pd.Time, VenueName: pd.VenueName})
 
 	flash(e, "Propuesta rechazada y nueva propuesta enviada")
@@ -526,10 +581,8 @@ func (h *ThreadHandler) dispatchProposalAction(e *core.RequestEvent, match, msg 
 
 	msgType := msg.GetString("type")
 	if msgType == "result_submission" {
-		if !isEffectiveAdmin(e) {
-			if err := league.IsCaptainGuarded(h.app, e.Auth.Id, match); err != nil {
-				return alertError(e, err.Error())
-			}
+		if err := h.checkCaptainGuard(e, match); err != nil {
+			return err
 		}
 		switch action {
 		case "accept":
@@ -815,6 +868,21 @@ func (h *ThreadHandler) WithdrawProposal(e *core.RequestEvent) error {
 	myTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
 	h.notifyWithdrawal(match, myTeam, e.Auth.Id)
 	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
+}
+
+// checkCaptainGuard returns an alertError if the request is not from an admin
+// and the user is not their pair's captain. Returns nil when the check passes.
+func (h *ThreadHandler) checkCaptainGuard(e *core.RequestEvent, match *core.Record) error {
+	if isEffectiveAdmin(e) {
+		return nil
+	}
+	if err := league.IsCaptainGuarded(h.app, e.Auth.Id, match); err != nil {
+		if errors.Is(err, league.ErrNotCaptain) {
+			return alertError(e, "Solo el capitán puede registrar resultados")
+		}
+		return alertError(e, "Error interno")
+	}
+	return nil
 }
 
 func (h *ThreadHandler) notifyWithdrawal(match *core.Record, myTeam int, authorID string) {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -88,7 +89,10 @@ func (h *MatchHandler) validateCorrectionAccess(e *core.RequestEvent, match *cor
 	}
 	if !isAdmin {
 		if err := league.IsCaptainGuarded(h.app, e.Auth.Id, match); err != nil {
-			return 0, alertError(e, err.Error())
+			if errors.Is(err, league.ErrNotCaptain) {
+				return 0, alertError(e, "Solo el capitán puede registrar resultados")
+			}
+			return 0, alertError(e, "Error interno")
 		}
 		var userPairID string
 		if myTeam == 1 {
