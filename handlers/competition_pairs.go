@@ -28,6 +28,7 @@ type pairEntry struct {
 	Paid       bool
 	PaidAt     string // render.FmtTime, empty if never recorded
 	PaidByName string
+	Withdrawn  bool
 }
 
 // AddPair enrolls a pair in a competition, validating player uniqueness.
@@ -208,7 +209,7 @@ type paymentInfo struct {
 	app    core.App
 }
 
-func buildPairEntries(pairIDs []string, seeding map[string]int, payment paymentInfo) []pairEntry {
+func buildPairEntries(pairIDs []string, seeding map[string]int, payment paymentInfo, withdrawnSet map[string]bool) []pairEntry {
 	var entries []pairEntry
 	for _, pid := range pairIDs {
 		pair, err := payment.app.FindRecordById("pairs", pid)
@@ -216,10 +217,11 @@ func buildPairEntries(pairIDs []string, seeding map[string]int, payment paymentI
 			continue
 		}
 		entry := pairEntry{
-			PairID:   pid,
-			PairName: pair.GetString("name"),
-			Seed:     seeding[pid],
-			Paid:     payment.status[pid],
+			PairID:    pid,
+			PairName:  pair.GetString("name"),
+			Seed:      seeding[pid],
+			Paid:      payment.status[pid],
+			Withdrawn: withdrawnSet[pid],
 		}
 		if raw, ok := payment.paidAt[pid]; ok {
 			if t, err := time.Parse(time.RFC3339, raw); err == nil {

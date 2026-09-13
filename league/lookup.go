@@ -59,6 +59,20 @@ func IsCaptainGuarded(app core.App, userID string, match *core.Record) error {
 	return fmt.Errorf("Solo el capitán puede registrar resultados")
 }
 
+// IsWithdrawn reports whether pairID is in the competition's withdrawn_pairs list.
+func IsWithdrawn(app core.App, pairID, competitionID string) bool {
+	comp, err := app.FindRecordById("competitions", competitionID)
+	if err != nil {
+		return false
+	}
+	for _, id := range comp.GetStringSlice("withdrawn_pairs") {
+		if id == pairID {
+			return true
+		}
+	}
+	return false
+}
+
 // PairNames resolves pair IDs to their display names.
 func PairNames(app core.App, pairIDs []string) map[string]string {
 	names := make(map[string]string, len(pairIDs))
