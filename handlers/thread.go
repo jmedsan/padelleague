@@ -122,6 +122,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		"MatchID":              matchID,
 		"Timeline":             td.Timeline,
 		"SchedProposals":       td.SchedProposals,
+		"LastRejection":        td.LastRejection,
 		"ResultPanel":          td.ResultPanel,
 		"Card":                 resultCard,
 		"Venues":               venues,
@@ -295,19 +296,6 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 		return err
 	}
 	pdJSON, _ := json.Marshal(pd)
-
-	recent := findRecordsLogged(h.app, "PostProposal: dedup check", RecordQuery{
-		Collection: "match_messages",
-		Filter:     "match = {:mid} && author = {:uid} && type = 'scheduling_proposal' && created > {:since}",
-		Sort:       "-created", Limit: 1,
-		Params: map[string]any{
-			"mid": matchID, "uid": e.Auth.Id,
-			"since": time.Now().Add(-10 * time.Second).UTC().Format("2006-01-02 15:04:05.000Z"),
-		},
-	})
-	if len(recent) > 0 {
-		return redirectHX(e, "/match/"+matchID)
-	}
 
 	if err := h.saveProposalRecord(matchID, e.Auth.Id, pdJSON); err != nil {
 		return alertError(e, "Error al crear propuesta")

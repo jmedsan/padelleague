@@ -4,8 +4,8 @@
     <div class="card-body p-4 sm:p-6">
         <div class="flex justify-between items-center mb-3">
             <h3 class="font-bold text-lg">Fecha y lugar</h3>
-            {{if .HasDateAndPlace}}<span class="badge badge-soft-success">Confirmada</span>
-            {{else if .SchedProposals}}<span class="badge badge-soft-warning">Propuesta</span>
+            {{if .SchedProposals}}<span class="badge badge-soft-warning">Propuesta</span>
+            {{else if .HasDateAndPlace}}<span class="badge badge-soft-success">Confirmada</span>
             {{else}}<span class="badge badge-ghost">Pendiente</span>
             {{end}}
         </div>
@@ -79,6 +79,13 @@
             </div>
         </div>
         {{else if not .HasDateAndPlace}}
+        {{if .LastRejection}}
+        <div class="rounded-xl bg-error/10 border border-error/30 px-4 py-3 mt-3 text-sm text-error">
+            <span class="font-semibold">Propuesta rechazada</span>
+            {{if .LastRejection.Date}} · {{template "dateBox" (dict "Date" .LastRejection.Date "Time" .LastRejection.Time "Place" .LastRejection.Place)}}{{end}}
+            {{if .LastRejection.Reason}}<p class="mt-1 opacity-80">{{.LastRejection.Reason}}</p>{{end}}
+        </div>
+        {{end}}
         <div class="card bg-primary/10 border-2 border-primary/30 rounded-xl mt-3">
             <div class="card-body p-4">
                 <h3 class="font-bold text-sm">Proponer fecha y lugar</h3>
