@@ -1414,7 +1414,7 @@ func TestCancelDateAsParticipant(t *testing.T) {
 func TestCancelDateNonParticipant(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory:  testAppFactory,
 		Name:            "POST /match/{id}/cancel-date rejects non-participant",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
@@ -1444,7 +1444,7 @@ func TestCancelDateNonParticipant(t *testing.T) {
 func TestCancelDateOnPendingMatch(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory:  testAppFactory,
 		Name:            "POST /match/{id}/cancel-date rejects non-scheduled match",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
