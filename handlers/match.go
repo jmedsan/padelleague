@@ -609,11 +609,24 @@ func (h *MatchHandler) CancelDate(e *core.RequestEvent) error {
 		Kind: "scheduling_response", Detail: detail,
 	})
 
-	h.notifyCancelDate(match, myTeam, userID, reason, within24h)
+	h.notifyCancelDate(cancelInfo{match: match, team: myTeam, cancellerID: userID, reason: reason, within24h: within24h})
 	return redirectHX(e, "/match/"+id)
 }
 
-func (h *MatchHandler) notifyCancelDate(match *core.Record, cancellerTeam int, cancellerID, reason string, within24h bool) {
+type cancelInfo struct {
+	match       *core.Record
+	cancellerID string
+	team        int
+	reason      string
+	within24h   bool
+}
+
+func (h *MatchHandler) notifyCancelDate(ci cancelInfo) {
+	match := ci.match
+	cancellerTeam := ci.team
+	cancellerID := ci.cancellerID
+	reason := ci.reason
+	within24h := ci.within24h
 	id := match.Id
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	playerName := league.PlayerName(h.app, cancellerID)
