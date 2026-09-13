@@ -543,18 +543,115 @@ func TestAPIPushSubscriptionViewBlockedForOtherUser(t *testing.T) {
 // authenticated user; ListRule ("@request.auth.id != ”") filters an
 // unauthenticated request's results to zero rather than 403ing the whole
 // request (PocketBase's ListRule is a row filter, not an access gate).
-func TestAPIDocumentListEmptyForAnon(t *testing.T) {
+// documents and competition_signups are read server-side only (R-7): the
+// player-facing UI renders them through app.Find*, so the record API is locked
+// to superusers like sponsors/venues/competitions.
+func TestAPIDocumentListBlockedForPlayer(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "unauthenticated client sees zero documents via the record API",
+		Name:            "player cannot list documents via the record API",
 		Method:          http.MethodGet,
 		URL:             "/api/collections/documents/records",
-		ExpectedStatus:  200,
-		ExpectedContent: []string{`"totalItems":0`},
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
 		makeDocumentTB(tb, app, "Reglamento", true, "https://example.com/rules.pdf")
+		player := makeUserTB(tb, app, "Player", "")
+		s.Headers = authHeaders(tb, player)
+	}
+	s.Test(t)
+}
+
+func TestAPIDocumentViewBlockedForPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot view a document via the record API",
+		Method:          http.MethodGet,
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		doc := makeDocumentTB(tb, app, "Reglamento", true, "https://example.com/rules.pdf")
+		s.URL = "/api/collections/documents/records/" + doc.Id
+		player := makeUserTB(tb, app, "Player", "")
+		s.Headers = authHeaders(tb, player)
+	}
+	s.Test(t)
+}
+
+func TestAPISignupListBlockedForPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot list competition_signups via the record API",
+		Method:          http.MethodGet,
+		URL:             "/api/collections/competition_signups/records",
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		player := makeUserTB(tb, app, "Player", "")
+		makeSignupTB(tb, app, player)
+		s.Headers = authHeaders(tb, player)
+	}
+	s.Test(t)
+}
+
+func TestAPISignupViewBlockedForPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player cannot view their own competition_signup via the record API",
+		Method:          http.MethodGet,
+		ExpectedStatus:  403,
+		ExpectedContent: []string{"superusers"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		player := makeUserTB(tb, app, "Player", "")
+		signup := makeSignupTB(tb, app, player)
+		s.URL = "/api/collections/competition_signups/records/" + signup.Id
+		s.Headers = authHeaders(tb, player)
+	}
+	s.Test(t)
+}
+
+// makeSignupTB enrolls user in a fresh competition as a pending self signup.
+func makeSignupTB(tb testing.TB, app core.App, user *core.Record) *core.Record {
+	tb.Helper()
+	comp := makeCompetitionTB(tb, app, "league", nil)
+	col, err := app.FindCollectionByNameOrId("competition_signups")
+	require.NoError(tb, err)
+	rec := core.NewRecord(col)
+	rec.Set("competition", comp.Id)
+	rec.Set("user", user.Id)
+	rec.Set("status", "pending")
+	rec.Set("source", "self")
+	require.NoError(tb, app.Save(rec))
+	return rec
+}
+
+// admin_note and registration_note are admin-only (R-3): hidden like roles,
+// so a player's own auth record never carries them.
+func TestAPIUserNotesHiddenFromPlayer(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:     testAppFactory,
+		Name:               "player's own user record omits admin_note and registration_note",
+		Method:             http.MethodGet,
+		ExpectedStatus:     200,
+		ExpectedContent:    []string{`"display_name"`},
+		NotExpectedContent: []string{"admin_note", "registration_note", "Nota interna", "Nota de registro"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+		player := makeUserTB(tb, app, "Player", "")
+		player.Set("admin_note", "Nota interna")
+		player.Set("registration_note", "Nota de registro")
+		require.NoError(tb, app.Save(player))
+		s.URL = "/api/collections/users/records/" + player.Id
+		s.Headers = authHeaders(tb, player)
 	}
 	s.Test(t)
 }
