@@ -28,6 +28,12 @@ func (h *CompetitionHandler) addDetailExtras(data map[string]any, comp *core.Rec
 		if len(matches) > 0 {
 			data["RoundDates"] = h.buildRoundDates(comp)
 		}
+		withdrawnIDs := comp.GetStringSlice("withdrawn_pairs")
+		wp := make(map[string]bool, len(withdrawnIDs))
+		for _, id := range withdrawnIDs {
+			wp[id] = true
+		}
+		data["WithdrawnPairs"] = wp
 	}
 	attachedViews, unattachedDocs := h.buildDetailDocs(comp, fileToken)
 	data["AttachedDocViews"] = attachedViews

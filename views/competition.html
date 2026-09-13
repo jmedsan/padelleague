@@ -116,7 +116,7 @@
     <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Clasificación"{{if eq .ActiveTab "clasificacion"}} checked{{end}}>
     <div role="tabpanel" class="tab-content pt-6 basis-full min-w-0">
         <div class="card bg-base-100 shadow-sm rounded-xl">
-            {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "PlayerPairIDs" .PlayerPairIDs "Mode" .Mode)}}
+            {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "PlayerPairIDs" .PlayerPairIDs "Mode" .Mode "WithdrawnPairs" .WithdrawnPairs)}}
         </div>
     </div>
     {{end}}
