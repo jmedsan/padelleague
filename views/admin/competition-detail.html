@@ -595,7 +595,7 @@
             Clasificación
         </h2>
         {{if .Standings}}
-        {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "Mode" .Mode)}}
+        {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "Mode" .Mode "WithdrawnPairs" .WithdrawnPairs)}}
         {{else}}
         {{template "emptyState" "No hay datos de clasificación todavía"}}
         {{end}}

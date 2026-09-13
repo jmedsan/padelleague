@@ -447,6 +447,76 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
 }
 
+// RejectAndCounterPropose rejects a pending scheduling proposal and immediately
+// creates a new one in one combined action.
+func (h *ThreadHandler) RejectAndCounterPropose(e *core.RequestEvent) error {
+	matchID := e.Request.PathValue("id")
+	msgID := e.Request.PathValue("msgId")
+
+	match, err := findMatchOr404(h.app, e, matchID)
+	if err != nil {
+		return err
+	}
+	if err := checkDocGate(h.app, e, match); err != nil {
+		return err
+	}
+	if err := checkCompModifiable(h.app, e, match); err != nil {
+		return err
+	}
+	if !league.IsPreScore(match.GetString("status")) {
+		return alertError(e, "Este partido ya no acepta propuestas")
+	}
+
+	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
+	if err != nil || myTeam == 0 {
+		return alertError(e, "No eres participante de este partido")
+	}
+
+	msg, err := h.app.FindRecordById("match_messages", msgID)
+	if err != nil {
+		return alertError(e, "Propuesta no encontrada")
+	}
+	if msg.GetString("match") != matchID {
+		return alertError(e, "Propuesta no pertenece a este partido")
+	}
+	if msg.GetString("type") != "scheduling_proposal" {
+		return alertError(e, "Solo se puede contraproponer en propuestas de fecha")
+	}
+	if status := msg.GetString("proposal_status"); status == "accepted" {
+		return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
+	} else if status != "pending" {
+		return alertError(e, "Esta propuesta ya fue respondida")
+	}
+	authorTeam, _ := league.PlayerTeam(h.app, msg.GetString("author"), match)
+	if authorTeam == myTeam {
+		return alertError(e, "No puedes responder a tu propia propuesta")
+	}
+
+	proposerPairID := match.GetString("pair1")
+	if authorTeam == 2 {
+		proposerPairID = match.GetString("pair2")
+	}
+
+	// Step 1: reject the existing proposal.
+	if err := h.rejectProposal(e, msg, match, proposerPairID); err != nil {
+		return err
+	}
+
+	// Step 2: create a new counter-proposal.
+	pd, err := h.parseProposalForm(e)
+	if err != nil {
+		return err
+	}
+	pdJSON, _ := json.Marshal(pd)
+	if err := h.saveProposalRecord(matchID, e.Auth.Id, pdJSON); err != nil {
+		return alertError(e, "Error al crear la contrapropuesta")
+	}
+	h.notifyProposal(match, myTeam, proposalNotice{AuthorID: e.Auth.Id, Date: pd.Date, Time: pd.Time, VenueName: pd.VenueName})
+
+	flash(e, "Propuesta rechazada y nueva propuesta enviada")
+	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
+}
+
 func (h *ThreadHandler) dispatchProposalAction(e *core.RequestEvent, match, msg *core.Record, authorTeam int) error {
 	proposerPairID := match.GetString("pair1")
 	if authorTeam == 2 {
@@ -575,67 +645,6 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 	notif := league.NotifProposalRejected(match.Id, league.PlayerName(h.app, e.Auth.Id), notifReason, compName)
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
 	return nil
-}
-
-// RejectAndCounterPropose rejects a scheduling proposal and creates a new one in a single action.
-func (h *ThreadHandler) RejectAndCounterPropose(e *core.RequestEvent) error {
-	matchID := e.Request.PathValue("id")
-	msgID := e.Request.PathValue("msgId")
-
-	match, err := findMatchOr404(h.app, e, matchID)
-	if err != nil {
-		return err
-	}
-	if err := checkDocGate(h.app, e, match); err != nil {
-		return err
-	}
-	if err := checkCompModifiable(h.app, e, match); err != nil {
-		return err
-	}
-	if !league.IsPreScore(match.GetString("status")) {
-		return alertError(e, "Este partido ya no acepta propuestas")
-	}
-
-	myTeam, err := league.PlayerTeam(h.app, e.Auth.Id, match)
-	if err != nil || myTeam == 0 {
-		return alertError(e, "No eres participante de este partido")
-	}
-
-	msg, err := h.app.FindRecordById("match_messages", msgID)
-	if err != nil {
-		return alertError(e, "Propuesta no encontrada")
-	}
-	if msg.GetString("match") != matchID {
-		return alertError(e, "Propuesta no pertenece a este partido")
-	}
-	if msg.GetString("proposal_status") != "pending" {
-		return alertError(e, "Esta propuesta ya fue respondida")
-	}
-	authorTeam, _ := league.PlayerTeam(h.app, msg.GetString("author"), match)
-	if authorTeam == myTeam {
-		return alertError(e, "No puedes responder a tu propia propuesta")
-	}
-
-	proposerPairID := match.GetString("pair1")
-	if authorTeam == 2 {
-		proposerPairID = match.GetString("pair2")
-	}
-	if err := h.rejectProposal(e, msg, match, proposerPairID); err != nil {
-		return err
-	}
-
-	pd, err := h.parseProposalForm(e)
-	if err != nil {
-		return err
-	}
-	pdJSON, _ := json.Marshal(pd)
-	if err := h.saveProposalRecord(matchID, e.Auth.Id, pdJSON); err != nil {
-		return alertError(e, "Error al crear contrapropuesta")
-	}
-	h.notifyProposal(match, myTeam, proposalNotice{AuthorID: e.Auth.Id, Date: pd.Date, Time: pd.Time, VenueName: pd.VenueName})
-
-	flash(e, "Propuesta rechazada y nueva propuesta enviada")
-	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
 }
 
 func (h *ThreadHandler) acceptResultProposal(e *core.RequestEvent, match, msg *core.Record, _ string) error {
