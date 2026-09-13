@@ -30,23 +30,30 @@ func TestReadScoreForm(t *testing.T) {
 		assert.Equal(t, 0, w.Body.Len())
 	})
 
-	t.Run("carried prepend produces full score", func(t *testing.T) {
-		e, _ := makeScoreReq(url.Values{"scores": {"6-4"}, "unfinished": {"on"}})
+	t.Run("carried prepend with complete second set", func(t *testing.T) {
+		e, _ := makeScoreReq(url.Values{"scores": {"6-4"}})
 		full, err := readScoreForm(e, "6-3", "scores")
 		require.NoError(t, err)
 		assert.Equal(t, "6-3 6-4", full)
 	})
 
-	t.Run("unfinished checkbox with partial score", func(t *testing.T) {
-		e, _ := makeScoreReq(url.Values{"scores": {"2-1"}, "unfinished": {"on"}})
+	t.Run("partial score auto-detected as unfinished", func(t *testing.T) {
+		e, _ := makeScoreReq(url.Values{"scores": {"2-1"}})
 		full, err := readScoreForm(e, "6-3", "scores")
 		require.NoError(t, err)
 		assert.Equal(t, "6-3 2-1", full)
 	})
 
-	t.Run("partial score rejected without checkbox", func(t *testing.T) {
-		e, w := makeScoreReq(url.Values{"scores": {"2-1"}})
-		_, _ = readScoreForm(e, "6-3", "scores")
+	t.Run("partial score without carried auto-detected as unfinished", func(t *testing.T) {
+		e, _ := makeScoreReq(url.Values{"scores": {"6-3 2-1"}})
+		full, err := readScoreForm(e, "", "scores")
+		require.NoError(t, err)
+		assert.Equal(t, "6-3 2-1", full)
+	})
+
+	t.Run("truly invalid score rejected", func(t *testing.T) {
+		e, w := makeScoreReq(url.Values{"scores": {"8-0"}})
+		_, _ = readScoreForm(e, "", "scores")
 		assert.Contains(t, w.Body.String(), "Marcador no válido")
 	})
 
@@ -62,35 +69,29 @@ func TestReadScoreForm(t *testing.T) {
 		assert.Contains(t, w.Body.String(), "partido no jugado")
 	})
 
-	t.Run("admin partial no-winner rejected without checkbox", func(t *testing.T) {
-		e, w := makeScoreReq(url.Values{"scores": {"6-3 2-1"}})
-		_, _ = readScoreForm(e, "", "scores")
-		assert.Contains(t, w.Body.String(), "Marcador no válido")
-	})
-
-	t.Run("checkbox with complete score is normal win", func(t *testing.T) {
-		e, _ := makeScoreReq(url.Values{"scores": {"6-4"}, "unfinished": {"on"}})
+	t.Run("complete score with carried", func(t *testing.T) {
+		e, _ := makeScoreReq(url.Values{"scores": {"6-4"}})
 		full, err := readScoreForm(e, "6-3", "scores")
 		require.NoError(t, err)
 		assert.Equal(t, "6-3 6-4", full)
 	})
 
-	t.Run("carried accumulation", func(t *testing.T) {
-		e, _ := makeScoreReq(url.Values{"scores": {"3-6 2-1"}, "unfinished": {"on"}})
+	t.Run("carried accumulation with open set", func(t *testing.T) {
+		e, _ := makeScoreReq(url.Values{"scores": {"3-6 2-1"}})
 		full, err := readScoreForm(e, "6-3", "scores")
 		require.NoError(t, err)
 		assert.Equal(t, "6-3 3-6 2-1", full)
 	})
 
 	t.Run("counter_scores field name", func(t *testing.T) {
-		e, _ := makeScoreReq(url.Values{"counter_scores": {"6-4"}, "unfinished": {"on"}})
+		e, _ := makeScoreReq(url.Values{"counter_scores": {"6-4"}})
 		full, err := readScoreForm(e, "6-3", "counter_scores")
 		require.NoError(t, err)
 		assert.Equal(t, "6-3 6-4", full)
 	})
 
 	t.Run("rule win via carried", func(t *testing.T) {
-		e, _ := makeScoreReq(url.Values{"scores": {"4-1"}, "unfinished": {"on"}})
+		e, _ := makeScoreReq(url.Values{"scores": {"4-1"}})
 		full, err := readScoreForm(e, "6-3", "scores")
 		require.NoError(t, err)
 		assert.Equal(t, "6-3 4-1", full)
