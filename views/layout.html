@@ -118,7 +118,7 @@
                             <span id="notif-badge-mobile" hx-get="/notifications/count" hx-trigger="load" hx-swap="innerHTML"></span>
                         </div>
                     </button>
-                    <div tabindex="0" class="dropdown-content z-30 mt-3 w-80 max-w-[calc(100vw-2rem)] text-base-content" hx-get="/notifications/list" hx-trigger="click from:previous button" hx-swap="innerHTML">
+                    <div tabindex="0" class="dropdown-content z-30 mt-3 w-80 max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto text-base-content" hx-get="/notifications/list" hx-trigger="click from:previous button" hx-swap="innerHTML">
                         <div class="card card-compact bg-base-100 shadow-xl">
                             <div class="card-body"><p class="text-sm opacity-50">Cargando...</p></div>
                         </div>
@@ -184,7 +184,7 @@
                                 <span id="notif-badge" hx-get="/notifications/count" hx-trigger="load" hx-swap="innerHTML"></span>
                             </div>
                         </button>
-                        <div tabindex="0" id="notif-dropdown" class="dropdown-content z-30 mt-3 w-80 text-base-content" hx-get="/notifications/list" hx-trigger="click from:previous button" hx-swap="innerHTML">
+                        <div tabindex="0" id="notif-dropdown" class="dropdown-content z-30 mt-3 w-80 max-h-[70vh] overflow-y-auto text-base-content" hx-get="/notifications/list" hx-trigger="click from:previous button" hx-swap="innerHTML">
                             <div class="card card-compact bg-base-100 shadow-xl">
                                 <div class="card-body"><p class="text-sm opacity-50">Cargando...</p></div>
                             </div>
