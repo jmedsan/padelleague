@@ -491,7 +491,7 @@ func (h *ThreadHandler) RejectAndCounterPropose(e *core.RequestEvent) error {
 	}
 
 	pd, pdJSON, err := h.validateCounterProposal(e)
-	if err != nil {
+	if err != nil || pdJSON == nil {
 		return err
 	}
 
