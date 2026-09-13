@@ -24,6 +24,15 @@
         return group && group.hasAttribute('data-locked');
     }
 
+    function isLastVisibleSet(si, i) {
+        for (var j = i + 1; j <= 3; j++) {
+            var group = si.querySelector('.score-set-group[data-set="'+j+'"]');
+            if (group && !group.classList.contains('hidden')) return false;
+        }
+        return true;
+    }
+
+    // checkSet returns: 1 (pair1 won), 2 (pair2 won), 0 (open/unfinished), null (invalid/empty)
     function checkSet(si, i) {
         var p = setPair(si, i);
         if (!p.a || !p.b) return null;
@@ -38,11 +47,9 @@
             return null;
         }
         var a = parseInt(p.a.value, 10), b = parseInt(p.b.value, 10);
-        var unfinished = si.querySelector('.score-unfinished');
-        var isUnfinishedChecked = unfinished && unfinished.checked;
 
-        // Last visible set may be open when unfinished is checked
-        if (isUnfinishedChecked && isLastVisibleSet(si, i)) {
+        // Last visible set may be an open (unfinished) set — always auto-detect
+        if (isLastVisibleSet(si, i)) {
             var ok = isValidSet(a, b) || isOpenSet(a, b);
             p.a.classList.toggle('select-error', !ok);
             p.b.classList.toggle('select-error', !ok);
@@ -54,14 +61,6 @@
         p.a.classList.toggle('select-error', !ok);
         p.b.classList.toggle('select-error', !ok);
         return ok ? (a > b ? 1 : 2) : null;
-    }
-
-    function isLastVisibleSet(si, i) {
-        for (var j = i + 1; j <= 3; j++) {
-            var group = si.querySelector('.score-set-group[data-set="'+j+'"]');
-            if (group && !group.classList.contains('hidden')) return false;
-        }
-        return true;
     }
 
     function checkThirdSet(si) {
@@ -147,8 +146,6 @@
     function updateWinner(si) {
         var el = si.querySelector('.score-winner');
         if (!el) return;
-        var unfinished = si.querySelector('.score-unfinished');
-        var isUnfinishedChecked = unfinished && unfinished.checked;
         var w = matchWinner(si);
 
         if (w === 1) {
@@ -162,12 +159,7 @@
             return;
         }
 
-        if (!isUnfinishedChecked) {
-            el.textContent = '';
-            return;
-        }
-
-        // Check for rule win (3-game lead with a completed set)
+        // Mirror EvaluateScore: check rule win (3-game lead + already won 1 set)
         var open = getOpenSetValues(si);
         var completed = countCompletedSets(si);
         if (open) {
@@ -182,33 +174,27 @@
                 el.className = 'text-sm font-medium text-success score-winner';
                 return;
             }
+
+            // No rule win — show "No terminado" with resume info
+            var carried = getCarriedString(si);
+            if (carried) {
+                var setNum = carried.split(/\s+/).length + 1;
+                el.textContent = 'No terminado · se reanudará desde ' + carried + ', ' + setNum + '.º set desde 0-0';
+            } else {
+                el.textContent = 'No terminado';
+            }
+            el.className = 'text-sm font-medium text-warning score-winner';
+            return;
         }
 
-        var carried = getCarriedString(si);
-        if (carried) {
-            var setNum = carried.split(/\s+/).length + 1;
-            el.textContent = 'No terminado. Se guarda el ' + carried + '. El ' + setNum + '.º set se repetirá desde 0-0 otro día.';
-            el.className = 'text-sm font-medium text-warning score-winner';
-        } else {
-            el.textContent = '';
-        }
+        el.textContent = '';
+        el.className = 'text-sm font-medium text-success score-winner';
     }
 
     function updateHint(si) {
         var hint = si.querySelector('.score-hint');
         if (!hint) return;
-        var unfinished = si.querySelector('.score-unfinished');
-        var isUnfinishedChecked = unfinished && unfinished.checked;
-        var anyFilled = Array.prototype.some.call(si.querySelectorAll('select.score-cell'), function(s) {
-            return !s.closest('.hidden') && !s.disabled && s.value !== '';
-        });
-        var complete = isComplete(si);
-        if (anyFilled && !complete && !isUnfinishedChecked) {
-            hint.textContent = '¿No acabasteis? Marca «No pudimos terminar el partido».';
-            hint.classList.remove('hidden');
-        } else {
-            hint.classList.add('hidden');
-        }
+        hint.classList.add('hidden');
     }
 
     function compose(si) {
@@ -225,42 +211,28 @@
     }
 
     function isComplete(si) {
-        var unfinished = si.querySelector('.score-unfinished');
-        var isUnfinishedChecked = unfinished && unfinished.checked;
+        // Check for a 2-set winner first (normal complete match)
+        if (matchWinner(si) !== 0) return true;
 
-        if (isUnfinishedChecked) {
-            // At least one non-locked set must be filled
-            var anyFilled = false;
-            for (var i = 1; i <= 3; i++) {
-                if (isLocked(si, i)) continue;
-                var group = si.querySelector('.score-set-group[data-set="'+i+'"]');
-                if (!group || group.classList.contains('hidden')) continue;
-                var p = setPair(si, i);
-                if (p.a && p.b && p.a.value !== '' && p.b.value !== '') {
-                    anyFilled = true;
-                    var a = parseInt(p.a.value, 10), b = parseInt(p.b.value, 10);
-                    // All but the last visible must be valid sets
-                    if (!isLastVisibleSet(si, i)) {
-                        if (!isValidSet(a, b)) return false;
-                    } else {
-                        if (!isValidSet(a, b) && !isOpenSet(a, b)) return false;
-                        if (a === 0 && b === 0) return false;
-                    }
-                }
+        // Auto-detect unfinished: at least one non-locked set filled,
+        // all non-last visible sets are valid, last visible set is an open set
+        var anyFilled = false;
+        for (var i = 1; i <= 3; i++) {
+            if (isLocked(si, i)) continue;
+            var group = si.querySelector('.score-set-group[data-set="'+i+'"]');
+            if (!group || group.classList.contains('hidden')) continue;
+            var p = setPair(si, i);
+            if (!p.a || !p.b || p.a.value === '' || p.b.value === '') continue;
+            anyFilled = true;
+            var a = parseInt(p.a.value, 10), b = parseInt(p.b.value, 10);
+            if (!isLastVisibleSet(si, i)) {
+                if (!isValidSet(a, b)) return false;
+            } else {
+                if (!isValidSet(a, b) && !isOpenSet(a, b)) return false;
+                if (a === 0 && b === 0) return false;
             }
-            return anyFilled;
         }
-
-        // Normal: requires a 2-set winner
-        var group3 = si.querySelector('.score-set-group[data-set="3"]');
-        var set3Visible = group3 && !group3.classList.contains('hidden');
-        var w1 = checkSet(si, 1), w2 = checkSet(si, 2);
-        if (w1 === null || w2 === null) return false;
-        if (set3Visible) {
-            var w3 = checkSet(si, 3);
-            if (w3 === null) return false;
-        }
-        return matchWinner(si) !== 0;
+        return anyFilled;
     }
 
     function updateSubmitState(si) {
@@ -311,7 +283,7 @@
     };
 
     document.addEventListener('change', function(e) {
-        if (e.target.classList.contains('score-cell') || e.target.classList.contains('score-unfinished')) {
+        if (e.target.classList.contains('score-cell')) {
             var si = root(e.target);
             if (!si) return;
             refresh(si);
