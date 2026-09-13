@@ -187,3 +187,28 @@ func TestIsCaptainGuarded_NotCaptain_Blocked(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "capitán")
 }
+
+func TestIsWithdrawn_NotWithdrawn(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "WD NotA")
+	p2 := makePair(t, app, "WD NotB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	assert.False(t, IsWithdrawn(app, p1.Id, comp.Id))
+	assert.False(t, IsWithdrawn(app, p2.Id, comp.Id))
+}
+
+func TestIsWithdrawn_Withdrawn(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "WD YesA")
+	p2 := makePair(t, app, "WD YesB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	comp.Set("withdrawn_pairs", []string{p1.Id})
+	require.NoError(t, app.Save(comp))
+
+	assert.True(t, IsWithdrawn(app, p1.Id, comp.Id))
+	assert.False(t, IsWithdrawn(app, p2.Id, comp.Id))
+}
