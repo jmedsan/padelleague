@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -144,23 +145,11 @@ func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
 		return alertError(e, "Competición no encontrada")
 	}
 
-	// Verify pair is enrolled in this competition.
-	enrolled := false
-	for _, pid := range comp.GetStringSlice("pairs") {
-		if pid == pairID {
-			enrolled = true
-			break
-		}
-	}
-	if !enrolled {
+	if !slices.Contains(comp.GetStringSlice("pairs"), pairID) {
 		return alertError(e, "La pareja no pertenece a esta competición")
 	}
-
-	// Idempotency: reject if already withdrawn.
-	for _, pid := range comp.GetStringSlice("withdrawn_pairs") {
-		if pid == pairID {
-			return alertError(e, "La pareja ya está retirada")
-		}
+	if slices.Contains(comp.GetStringSlice("withdrawn_pairs"), pairID) {
+		return alertError(e, "La pareja ya está retirada")
 	}
 
 	pair, err := h.app.FindRecordById("pairs", pairID)
@@ -184,8 +173,29 @@ func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
 		return alertError(e, "Error al buscar partidos")
 	}
 
-	detail := fmt.Sprintf("Incomparecencia — %s se ha retirado de la competición", pairName)
+	compName := comp.GetString("name")
+	if err := h.finalizeMatchesAsWalkovers(e, matches, pairID, woScore, pairName, compName); err != nil {
+		return err
+	}
 
+	// Mark pair as withdrawn.
+	withdrawn := comp.GetStringSlice("withdrawn_pairs")
+	withdrawn = append(withdrawn, pairID)
+	comp.Set("withdrawn_pairs", withdrawn)
+	if err := h.app.Save(comp); err != nil {
+		return alertError(e, "Error al guardar el retiro")
+	}
+
+	// Notify the withdrawn pair's players.
+	withdrawnPlayers := league.PlayersForPair(h.app, pairID)
+	h.notifier.NotifyPlayers(withdrawnPlayers, league.NotifPairWithdrawn(compName))
+
+	flash(e, fmt.Sprintf("%s retirada (%d partidos finalizados)", pairName, len(matches)))
+	return redirectHX(e, "/admin/competitions/"+compID)
+}
+
+func (h *CompetitionHandler) finalizeMatchesAsWalkovers(e *core.RequestEvent, matches []*core.Record, pairID, woScore, pairName, compName string) error {
+	detail := fmt.Sprintf("Incomparecencia — %s se ha retirado de la competición", pairName)
 	for _, match := range matches {
 		opponentID := match.GetString("pair2")
 		if opponentID == pairID {
@@ -203,24 +213,10 @@ func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
 			MatchID: match.Id, ActorID: e.Auth.Id, Kind: "result_event",
 			Detail: detail,
 		})
-		// Notify opponent players.
-		n := league.NotifWalkoverApproved(match.Id, comp.GetString("name"))
 		opponentPlayers := league.PlayersForPair(h.app, opponentID)
-		h.notifier.NotifyPlayers(opponentPlayers, league.Notification{
-			Type: n.Type, Title: n.Title, Body: n.Body, MatchID: match.Id,
-		})
+		h.notifier.NotifyPlayers(opponentPlayers, league.NotifOpponentWithdrawn(match.Id, pairName, compName, woScore))
 	}
-
-	// Mark pair as withdrawn.
-	withdrawn := comp.GetStringSlice("withdrawn_pairs")
-	withdrawn = append(withdrawn, pairID)
-	comp.Set("withdrawn_pairs", withdrawn)
-	if err := h.app.Save(comp); err != nil {
-		return alertError(e, "Error al guardar el retiro")
-	}
-
-	flash(e, fmt.Sprintf("%s retirada (%d partidos finalizados)", pairName, len(matches)))
-	return redirectHX(e, "/admin/competitions/"+compID)
+	return nil
 }
 
 func anyUnpaid(entries []pairEntry) bool {
