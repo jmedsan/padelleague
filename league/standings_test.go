@@ -730,3 +730,58 @@ func TestStandings_PenaltyDeductsPoints(t *testing.T) {
 	assert.Equal(t, 0, p1Row.Points, "3 points from win minus 3 penalty = 0")
 	assert.Equal(t, 3, p1Row.Penalty)
 }
+
+// TestComputeStandings_SubGroupFreshMiniStats verifies that mini-league stats
+// are recomputed fresh for each sub-group (FEP §3.3.10 P2). The bug: the old
+// code captured 4-way mini stats in closures and reused them when recursing
+// into the {B,C,D} sub-group, producing a wrong ordering.
+//
+// Setup: 4 pairs A, B, C, D all at 3 points. A gets 3 mini-wins (separates
+// to position 1). In the {B,C,D} sub-group:
+//   - Fresh game diff: D(+4) > B(+2) > C(-6)  →  correct order D, B, C
+//   - 4-way game diff: B(0) > D(-8) > C(-18)  →  bug order B, D, C
+//
+// Expected full order: [A, D, B, C].
+func TestComputeStandings_SubGroupFreshMiniStats(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	a := makePair(t, app, "SG A")
+	b := makePair(t, app, "SG B")
+	c := makePair(t, app, "SG C")
+	d := makePair(t, app, "SG D")
+	comp := makeCompetition(t, app, []*core.Record{a, b, c, d})
+
+	// A beats B barely (7-6 7-6): A gains +14 games, B gains +12 games from this match.
+	// Using a penalty of 6 on A to bring A's points to 3 (same as B/C/D with 1W each).
+	finalMatch(t, app, comp.Id, a, b, a, "7-6 7-6", 1)
+	// A crushes C and D: both gain 0 games from these losses.
+	finalMatch(t, app, comp.Id, a, c, a, "6-0 6-0", 2)
+	finalMatch(t, app, comp.Id, a, d, a, "6-0 6-0", 3)
+
+	// {B,C,D} ring: B→C→D→B with carefully chosen scores.
+	// Fresh {B,C,D} game diffs: B=+2, C=-6, D=+4  →  D > B > C.
+	// 4-way game diffs for {B,C,D} (adding A-match contribution):
+	//   B: +2 + (12-14) = 0;  C: -6 + (0-12) = -18;  D: +4 + (0-12) = -8  →  B > D > C.
+	finalMatch(t, app, comp.Id, b, c, b, "6-0 6-0", 4) // B beats C 6-0 6-0
+	finalMatch(t, app, comp.Id, c, d, c, "6-3 6-3", 5) // C beats D 6-3 6-3
+	finalMatch(t, app, comp.Id, d, b, d, "6-1 6-1", 6) // D beats B 6-1 6-1
+
+	// Penalty of 6 brings A from 9pts (3W) down to 3pts, equal to B/C/D.
+	makePenalty(t, app, comp.Id, a.Id, 6, false)
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	require.Len(t, rows, 4)
+
+	var order []string
+	for i, r := range rows {
+		assert.Equal(t, i+1, r.Position)
+		order = append(order, r.PairName)
+	}
+	// Correct (fresh sub-group stats): A separates first (3 mini-wins),
+	// then D > B > C by fresh {B,C,D} game diff.
+	// Bug (4-way stats for sub-group): would produce [A, B, D, C].
+	assert.Equal(t, []string{"SG A", "SG D", "SG B", "SG C"}, order)
+}

@@ -179,7 +179,7 @@ export function computeExpected(
     while (j < rows.length && rows[j].points === rows[i].points) j++;
     const group = rows.slice(i, j);
     if (group.length > 1) {
-      resolveGroup(group, group.map(r => r.pair), matches);
+      resolveGroup(group, matches);
       for (let k = 0; k < group.length; k++) rows[i + k] = group[k];
     }
     i = j;
@@ -191,18 +191,18 @@ export function computeExpected(
 
 // resolveGroup orders a tie group in place using the Liga tiebreaker chain.
 // For 2 pairs: played → head-to-head → mutual set diff → mutual game diff → overall stats → name.
-// For 3+ pairs: recursive partition by played → mini wins → mini set diff → mini game diff,
-// with 2-way rule on size-2 sub-groups and overall stats as the final fallback.
-function resolveGroup(group: ExpectedRow[], pairIds: PairId[], matches: PlannedMatch[]): void {
+// For 3+ pairs: pre-step by played, then recursive mini-league partition (§3.3.10 P2).
+function resolveGroup(group: ExpectedRow[], matches: PlannedMatch[]): void {
   if (group.length <= 1) return;
   if (group.length === 2) {
-    resolveTwoWay(group, pairIds, matches);
+    resolveTwoWay(group, matches);
     return;
   }
-  resolveMiniLeague(group, pairIds, matches);
+  resolveMiniLeaguePrestep(group, matches);
 }
 
-function resolveTwoWay(group: ExpectedRow[], pairIds: PairId[], matches: PlannedMatch[]): void {
+function resolveTwoWay(group: ExpectedRow[], matches: PlannedMatch[]): void {
+  const pairIds = group.map(r => r.pair);
   const mutual = mutualStats(pairIds, matches);
   group.sort((x, y) => {
     if (x.played !== y.played) return y.played - x.played;
@@ -216,34 +216,62 @@ function resolveTwoWay(group: ExpectedRow[], pairIds: PairId[], matches: Planned
   });
 }
 
-function resolveMiniLeague(group: ExpectedRow[], pairIds: PairId[], matches: PlannedMatch[]): void {
+// resolveMiniLeaguePrestep sorts by overall played, then calls miniLeaguePartition
+// on each sub-group still tied on played (mirrors resolveMiniLeague in Go).
+function resolveMiniLeaguePrestep(group: ExpectedRow[], matches: PlannedMatch[]): void {
+  group.sort((a, b) => b.played - a.played);
+  let start = 0;
+  while (start < group.length) {
+    let end = start + 1;
+    while (end < group.length && group[end].played === group[start].played) end++;
+    const sub = group.slice(start, end);
+    if (sub.length >= 2) {
+      miniLeaguePartition(sub, matches);
+      for (let k = 0; k < sub.length; k++) group[start + k] = sub[k];
+    }
+    start = end;
+  }
+}
+
+// miniLeaguePartition recomputes mutual stats fresh for the current group at
+// each call (§3.3.10 P2) and tries mini criteria in order. If a criterion
+// separates pairs, resolved sub-groups recurse from the top (fresh stats).
+// Groups unseparated after all three mini criteria fall to overall stats.
+function miniLeaguePartition(group: ExpectedRow[], matches: PlannedMatch[]): void {
+  if (group.length <= 1) return;
+  if (group.length === 2) {
+    resolveTwoWay(group, matches);
+    return;
+  }
+
+  const pairIds = group.map(r => r.pair);
   const mini = mutualStats(pairIds, matches);
 
-  const criteria: Array<(r: ExpectedRow) => number> = [
-    r => r.played,
+  const miniCriteria: Array<(r: ExpectedRow) => number> = [
     r => mini[r.pair].wins * 3,
     r => mini[r.pair].setsWon - mini[r.pair].setsLost,
     r => mini[r.pair].gamesWon - mini[r.pair].gamesLost,
   ];
 
-  partitionAndResolve(group, criteria, matches);
-}
-
-function partitionAndResolve(
-  group: ExpectedRow[],
-  criteria: Array<(r: ExpectedRow) => number>,
-  matches: PlannedMatch[],
-): void {
-  if (group.length <= 1) return;
-  if (criteria.length === 0) {
-    group.sort((a, b) => lessByOverallThenName(a, b) ? -1 : 1);
-    return;
+  for (const score of miniCriteria) {
+    if (partitionBy(group, score, sub => miniLeaguePartition(sub, matches))) return;
   }
 
-  const score = criteria[0];
-  const remaining = criteria.slice(1);
+  // All mini criteria exhausted with no separation — fall to overall.
+  group.sort((a, b) => lessByOverallThenName(a, b) ? -1 : 1);
+}
 
+// partitionBy sorts group descending by score. If the criterion separates at
+// least one pair (not all equal), calls resolve on each tied sub-group of
+// size ≥2 and returns true. Returns false without calling resolve when all
+// scores are equal (prevents infinite recursion; caller tries next criterion).
+function partitionBy(
+  group: ExpectedRow[],
+  score: (r: ExpectedRow) => number,
+  resolve: (sub: ExpectedRow[]) => void,
+): boolean {
   group.sort((a, b) => score(b) - score(a));
+  if (score(group[0]) === score(group[group.length - 1])) return false;
 
   let start = 0;
   while (start < group.length) {
@@ -251,16 +279,12 @@ function partitionAndResolve(
     while (end < group.length && score(group[end]) === score(group[start])) end++;
     const sub = group.slice(start, end);
     if (sub.length >= 2) {
-      const subIds = sub.map(r => r.pair);
-      if (sub.length === 2) {
-        resolveTwoWay(sub, subIds, matches);
-      } else {
-        partitionAndResolve(sub, remaining, matches);
-      }
+      resolve(sub);
       for (let k = 0; k < sub.length; k++) group[start + k] = sub[k];
     }
     start = end;
   }
+  return true;
 }
 
 function lessByOverallThenName(a: ExpectedRow, b: ExpectedRow): boolean {
