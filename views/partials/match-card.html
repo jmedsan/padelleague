@@ -214,24 +214,15 @@
 <div class="space-y-3">
     <h3 class="font-bold text-sm uppercase tracking-wider opacity-50">Propuestas de fecha</h3>
     {{range .SchedProposals}}
-    <div class="card {{if .IsAccepted}}bg-success/10 border border-success/20{{else}}bg-base-200/50 border border-base-300{{end}} rounded-xl">
+    <div class="card bg-base-200/50 border border-base-300 rounded-xl">
         <div class="card-body p-3">
             <div class="flex items-center gap-2">
                 <span class="text-sm font-bold">{{.AuthorLabel}}</span>
                 <span class="text-sm opacity-50" title="{{.CreatedAt}}">{{relDate .CreatedRel}}</span>
-                {{if .IsAccepted}}<span class="badge badge-soft-success badge-sm">Confirmada</span>{{end}}
-                {{if eq .Status "superseded"}}<span class="badge badge-ghost badge-sm">Sustituida</span>{{end}}
             </div>
             {{if .Data}}
             <div class="mt-2">
                 {{template "dateBox" (dict "Date" .Data.Date "Time" .Data.Time "Place" .Data.VenueName "Mode" (dict "Row" true))}}
-            </div>
-            {{end}}
-            {{if .CanChangeDecision}}
-            <div class="mt-2">
-                <form hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/change-decision" hx-target="body">
-                    <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm">Cambiar decisión</button>
-                </form>
             </div>
             {{end}}
             {{if .CanWithdraw}}
