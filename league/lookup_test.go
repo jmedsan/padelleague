@@ -195,8 +195,12 @@ func TestIsWithdrawn_NotWithdrawn(t *testing.T) {
 	p2 := makePair(t, app, "WD NotB")
 	comp := makeCompetition(t, app, []*core.Record{p1, p2})
 
-	assert.False(t, IsWithdrawn(app, p1.Id, comp.Id))
-	assert.False(t, IsWithdrawn(app, p2.Id, comp.Id))
+	w1, err := IsWithdrawn(app, p1.Id, comp.Id)
+	require.NoError(t, err)
+	assert.False(t, w1)
+	w2, err := IsWithdrawn(app, p2.Id, comp.Id)
+	require.NoError(t, err)
+	assert.False(t, w2)
 }
 
 func TestIsWithdrawn_Withdrawn(t *testing.T) {
@@ -209,6 +213,20 @@ func TestIsWithdrawn_Withdrawn(t *testing.T) {
 	comp.Set("withdrawn_pairs", []string{p1.Id})
 	require.NoError(t, app.Save(comp))
 
-	assert.True(t, IsWithdrawn(app, p1.Id, comp.Id))
-	assert.False(t, IsWithdrawn(app, p2.Id, comp.Id))
+	w1, err := IsWithdrawn(app, p1.Id, comp.Id)
+	require.NoError(t, err)
+	assert.True(t, w1)
+	w2, err := IsWithdrawn(app, p2.Id, comp.Id)
+	require.NoError(t, err)
+	assert.False(t, w2)
+}
+
+func TestIsWithdrawn_LookupFailureFailsClosed(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "WD Missing")
+
+	withdrawn, err := IsWithdrawn(app, p1.Id, "missing-competition")
+	require.Error(t, err)
+	assert.False(t, withdrawn)
 }

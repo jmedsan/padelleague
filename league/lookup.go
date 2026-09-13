@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -64,18 +65,14 @@ func IsCaptainGuarded(app core.App, userID string, match *core.Record) error {
 	return ErrNotCaptain
 }
 
-// IsWithdrawn reports whether pairID is in the competition's withdrawn_pairs list.
-func IsWithdrawn(app core.App, pairID, competitionID string) bool {
+// IsWithdrawn reports whether pairID is in the competition's withdrawn_pairs
+// list. A lookup failure is returned as an error so callers fail closed.
+func IsWithdrawn(app core.App, pairID, competitionID string) (bool, error) {
 	comp, err := app.FindRecordById("competitions", competitionID)
 	if err != nil {
-		return false
+		return false, fmt.Errorf("find competition %s: %w", competitionID, err)
 	}
-	for _, id := range comp.GetStringSlice("withdrawn_pairs") {
-		if id == pairID {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(comp.GetStringSlice("withdrawn_pairs"), pairID), nil
 }
 
 // PairNames resolves pair IDs to their display names.

@@ -176,6 +176,23 @@ func checkParticipantOrAdmin(e *core.RequestEvent, myTeam int) error {
 	return nil
 }
 
+// checkNotWithdrawn returns an alertError when the pair playing as team (1 or
+// 2) has withdrawn from the match's competition, or when the lookup fails.
+func checkNotWithdrawn(app core.App, e *core.RequestEvent, match *core.Record, team int) error {
+	pairID := match.GetString("pair1")
+	if team == 2 {
+		pairID = match.GetString("pair2")
+	}
+	withdrawn, err := league.IsWithdrawn(app, pairID, match.GetString("competition"))
+	if err != nil {
+		return alertError(e, "Error interno")
+	}
+	if withdrawn {
+		return alertError(e, "Tu pareja se ha retirado de esta competición")
+	}
+	return nil
+}
+
 func redirectHX(e *core.RequestEvent, url string) error {
 	e.Response.Header().Set("HX-Redirect", url)
 	return e.NoContent(http.StatusNoContent)
