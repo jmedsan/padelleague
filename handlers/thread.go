@@ -782,8 +782,10 @@ func (h *ThreadHandler) WithdrawProposal(e *core.RequestEvent) error {
 	if msg.GetString("proposal_status") != "pending" {
 		return alertError(e, "Solo se pueden retirar propuestas pendientes")
 	}
-	if msg.GetString("author") != e.Auth.Id {
-		return alertError(e, "Solo puedes retirar tus propias propuestas")
+	authorTeam, _ := league.PlayerTeam(h.app, msg.GetString("author"), match)
+	actorTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
+	if actorTeam == 0 || authorTeam != actorTeam {
+		return alertError(e, "Solo tu pareja puede retirar esta propuesta")
 	}
 
 	msg.Set("proposal_status", "withdrawn")

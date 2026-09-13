@@ -292,28 +292,29 @@ func applyProposalToNextMatch(nm *NextMatch, prop *core.Record) {
 }
 
 func (h *PublicHandler) checkPendingProposal(m *core.Record, playerPairIDs map[string]struct{}) *PendingAction {
-	proposals := findRecordsLogged(h.app, "checkPendingProposal: find scheduling proposal", RecordQuery{
+	proposals := findRecordsLogged(h.app, "checkPendingProposal: find scheduling proposals", RecordQuery{
 		Collection: "match_messages", Filter: "match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'pending'",
-		Sort: "-created", Limit: 1, Params: map[string]any{"mid": m.Id},
+		Sort: "-created", Params: map[string]any{"mid": m.Id},
 	})
 	if len(proposals) == 0 {
 		return nil
 	}
-	prop := proposals[0]
-	proposerTeam, _ := league.PlayerTeam(h.app, prop.GetString("author"), m)
 	playerTeam := 1
 	if _, ok := playerPairIDs[m.GetString("pair2")]; ok {
 		playerTeam = 2
 	}
-	if proposerTeam == playerTeam {
-		return nil
+	for _, prop := range proposals {
+		proposerTeam, _ := league.PlayerTeam(h.app, prop.GetString("author"), m)
+		if proposerTeam != playerTeam {
+			return &PendingAction{
+				MatchID:     m.Id,
+				Opponent:    h.opponentName(m, playerPairIDs),
+				ActionType:  "respond_proposal",
+				Description: "Propuesta de horario pendiente",
+			}
+		}
 	}
-	return &PendingAction{
-		MatchID:     m.Id,
-		Opponent:    h.opponentName(m, playerPairIDs),
-		ActionType:  "respond_proposal",
-		Description: "Propuesta de horario pendiente",
-	}
+	return nil
 }
 
 func (h *PublicHandler) findUnconfirmedScores(c *core.Record, playerPairIDs map[string]struct{}) []PendingAction {
