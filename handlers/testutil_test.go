@@ -314,6 +314,7 @@ func setupAllRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.POST("/competitions/{id}/payment", payments.TogglePayment)
 	g.POST("/competitions/{id}/payment-all", payments.TogglePaymentAll)
 	g.POST("/competitions/{id}/penalty", comp.ApplyPenalty)
+	g.POST("/competitions/{id}/withdraw-pair", comp.WithdrawPair)
 	g.POST("/competitions/{id}/broadcast", comp.AdminBroadcast)
 }
 
@@ -541,6 +542,7 @@ func setupFullAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) 
 	g.POST("/competitions/{id}/payment", cpayments.TogglePayment)
 	g.POST("/competitions/{id}/payment-all", cpayments.TogglePaymentAll)
 	g.POST("/competitions/{id}/penalty", comp.ApplyPenalty)
+	g.POST("/competitions/{id}/withdraw-pair", comp.WithdrawPair)
 	g.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
 	g.POST("/competitions/{id}/publish", comp.PublishCalendar)
 	g.POST("/competitions/{id}/round-dates", comp.UpdateRoundDates)

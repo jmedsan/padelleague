@@ -135,7 +135,7 @@ func (h *CompetitionHandler) buildDetailDocs(comp *core.Record, fileToken string
 	return views, unattached
 }
 
-// WithdrawPair bulk-finalizes all unplayed matches for a pair and marks it as withdrawn.
+// WithdrawPair bulk-finalizes all pre-score matches for a pair and marks it as withdrawn.
 func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
 	compID := e.Request.PathValue("id")
 	pairID := e.Request.FormValue("pair_id")
@@ -163,38 +163,57 @@ func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
 		woScore = "6-0 6-0"
 	}
 
-	// Find all non-final matches for this pair in this competition.
-	matches, err := h.app.FindRecordsByFilter("matches",
-		"competition = {:cid} && status != 'final' && (pair1 = {:pid} || pair2 = {:pid})",
-		"", 0, 0,
-		map[string]any{"cid": compID, "pid": pairID},
+	params := map[string]any{"cid": compID, "pid": pairID}
+	preScoreMatches, err := h.app.FindRecordsByFilter("matches",
+		"competition = {:cid} && (status = 'pending' || status = 'scheduled') && (pair1 = {:pid} || pair2 = {:pid})",
+		"", 0, 0, params,
+	)
+	if err != nil {
+		return alertError(e, "Error al buscar partidos")
+	}
+	manualMatches, err := h.app.FindRecordsByFilter("matches",
+		"competition = {:cid} && (status = 'confirmed' || status = 'disputed') && (pair1 = {:pid} || pair2 = {:pid})",
+		"", 0, 0, params,
 	)
 	if err != nil {
 		return alertError(e, "Error al buscar partidos")
 	}
 
 	compName := comp.GetString("name")
-	if err := h.finalizeMatchesAsWalkovers(e, matches, pairID, woScore, pairName, compName); err != nil {
-		return err
+	if err := h.app.RunInTransaction(func(txApp core.App) error {
+		if err := finalizeMatchesAsWalkovers(txApp, e, preScoreMatches, pairID, woScore, pairName, compName); err != nil {
+			return err
+		}
+		withdrawn := comp.GetStringSlice("withdrawn_pairs")
+		withdrawn = append(withdrawn, pairID)
+		comp.Set("withdrawn_pairs", withdrawn)
+		return txApp.Save(comp)
+	}); err != nil {
+		return alertError(e, "Error al procesar el retiro")
 	}
 
-	// Mark pair as withdrawn.
-	withdrawn := comp.GetStringSlice("withdrawn_pairs")
-	withdrawn = append(withdrawn, pairID)
-	comp.Set("withdrawn_pairs", withdrawn)
-	if err := h.app.Save(comp); err != nil {
-		return alertError(e, "Error al guardar el retiro")
+	// Notify after transaction commits.
+	for _, match := range preScoreMatches {
+		opponentID := match.GetString("pair2")
+		if opponentID == pairID {
+			opponentID = match.GetString("pair1")
+		}
+		opponentPlayers := league.PlayersForPair(h.app, opponentID)
+		h.notifier.NotifyPlayers(opponentPlayers, league.NotifOpponentWithdrawn(match.Id, pairName, compName, woScore))
 	}
-
-	// Notify the withdrawn pair's players.
 	withdrawnPlayers := league.PlayersForPair(h.app, pairID)
 	h.notifier.NotifyPlayers(withdrawnPlayers, league.NotifPairWithdrawn(compName))
 
-	flash(e, fmt.Sprintf("%s retirada (%d partidos finalizados)", pairName, len(matches)))
+	msg := fmt.Sprintf("%s retirada (%d partidos finalizados por incomparecencia", pairName, len(preScoreMatches))
+	if len(manualMatches) > 0 {
+		msg += fmt.Sprintf(". %d partidos en estado confirmado/disputa requieren atención manual", len(manualMatches))
+	}
+	msg += ")"
+	flash(e, msg)
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
-func (h *CompetitionHandler) finalizeMatchesAsWalkovers(e *core.RequestEvent, matches []*core.Record, pairID, woScore, pairName, compName string) error {
+func finalizeMatchesAsWalkovers(app core.App, e *core.RequestEvent, matches []*core.Record, pairID, woScore, pairName, compName string) error {
 	detail := fmt.Sprintf("Incomparecencia — %s se ha retirado de la competición", pairName)
 	for _, match := range matches {
 		opponentID := match.GetString("pair2")
@@ -206,15 +225,13 @@ func (h *CompetitionHandler) finalizeMatchesAsWalkovers(e *core.RequestEvent, ma
 		match.Set("status", league.StatusFinal)
 		match.Set("review_type", "walkover")
 		match.Set("carried_sets", "")
-		if err := h.app.Save(match); err != nil {
+		if err := app.Save(match); err != nil {
 			return alertError(e, "Error al finalizar partido")
 		}
-		addTimelineEntry(h.app, timelineEntry{
+		addTimelineEntry(app, timelineEntry{
 			MatchID: match.Id, ActorID: e.Auth.Id, Kind: "result_event",
 			Detail: detail,
 		})
-		opponentPlayers := league.PlayersForPair(h.app, opponentID)
-		h.notifier.NotifyPlayers(opponentPlayers, league.NotifOpponentWithdrawn(match.Id, pairName, compName, woScore))
 	}
 	return nil
 }
