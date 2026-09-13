@@ -74,10 +74,10 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
-		return h.renderErrorPage(e, http.StatusNotFound, "Record no encontrado")
+		return h.renderErrorPage(e, http.StatusNotFound, "Partido no encontrado")
 	}
 	if !matchVisibleTo(h.app, e, match) {
-		return h.renderErrorPage(e, http.StatusNotFound, "Record no encontrado")
+		return h.renderErrorPage(e, http.StatusNotFound, "Partido no encontrado")
 	}
 
 	userID := e.Auth.Id
@@ -186,7 +186,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
-		return alertError(e, "Record no encontrado")
+		return alertError(e, "Partido no encontrado")
 	}
 
 	if match.GetString("pair1") == "" || match.GetString("pair2") == "" {
@@ -321,7 +321,7 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
 	if err != nil {
-		return alertError(e, "Record no encontrado")
+		return alertError(e, "Partido no encontrado")
 	}
 
 	if !slices.Contains(e.Auth.GetStringSlice("roles"), "admin") {
