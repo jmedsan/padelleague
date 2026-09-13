@@ -54,6 +54,7 @@
             p.a.classList.toggle('select-error', !ok);
             p.b.classList.toggle('select-error', !ok);
             if (!ok) return null;
+            if (isOpenSet(a, b)) return 0; // in progress — no winner yet
             return a > b ? 1 : (b > a ? 2 : 0);
         }
 
