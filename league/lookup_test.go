@@ -137,3 +137,53 @@ func TestEntityURL(t *testing.T) {
 		}
 	}
 }
+
+func TestIsCaptainGuarded_NoCaptain_BothAllowed(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "CapNone A")
+	p2 := makePair(t, app, "CapNone B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
+
+	// When no captain is set, both players on both pairs are unrestricted.
+	assert.NoError(t, IsCaptainGuarded(app, p1.GetString("player1"), m))
+	assert.NoError(t, IsCaptainGuarded(app, p1.GetString("player2"), m))
+	assert.NoError(t, IsCaptainGuarded(app, p2.GetString("player1"), m))
+	assert.NoError(t, IsCaptainGuarded(app, p2.GetString("player2"), m))
+}
+
+func TestIsCaptainGuarded_IsCaptain_Allowed(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "Cap Is A")
+	p2 := makePair(t, app, "Cap Is B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
+
+	captainID := p1.GetString("player1")
+	p1.Set("captain", captainID)
+	require.NoError(t, app.Save(p1))
+
+	// The captain is allowed.
+	assert.NoError(t, IsCaptainGuarded(app, captainID, m))
+}
+
+func TestIsCaptainGuarded_NotCaptain_Blocked(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "Cap Not A")
+	p2 := makePair(t, app, "Cap Not B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
+
+	captainID := p1.GetString("player1")
+	nonCaptainID := p1.GetString("player2")
+	p1.Set("captain", captainID)
+	require.NoError(t, app.Save(p1))
+
+	// The non-captain on the same pair is blocked.
+	err := IsCaptainGuarded(app, nonCaptainID, m)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "capitán")
+}

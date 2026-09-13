@@ -104,7 +104,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		isPlayoff = league.IsPlayoff(comp)
 		compModifiable = isAdmin || league.PlayerCanModify(comp, time.Now())
 	}
-	td := h.buildThreadData(match, matchID, myTeam, compModifiable)
+	td := h.buildThreadData(match, matchID, e.Auth.Id, myTeam, compModifiable)
 	venues := findRecordsLogged(h.app, "Thread: find venues", RecordQuery{
 		Collection: "venues", Filter: "id != ''", Sort: "name",
 	})
@@ -194,7 +194,7 @@ func (h *ThreadHandler) ThreadMessages(e *core.RequestEvent) error {
 		compModifiable = isAdmin || league.PlayerCanModify(comp, time.Now())
 	}
 
-	td := h.buildThreadData(match, matchID, myTeam, compModifiable)
+	td := h.buildThreadData(match, matchID, e.Auth.Id, myTeam, compModifiable)
 
 	return h.renderPartial(e, "thread-messages.html", map[string]any{
 		"MatchID":  matchID,
@@ -446,6 +446,11 @@ func (h *ThreadHandler) dispatchProposalAction(e *core.RequestEvent, match, msg 
 
 	msgType := msg.GetString("type")
 	if msgType == "result_submission" {
+		if !isEffectiveAdmin(e) {
+			if err := league.IsCaptainGuarded(h.app, e.Auth.Id, match); err != nil {
+				return alertError(e, err.Error())
+			}
+		}
 		switch action {
 		case "accept":
 			return h.acceptResultProposal(e, match, msg, proposerPairID)

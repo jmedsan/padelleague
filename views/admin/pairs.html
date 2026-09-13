@@ -18,7 +18,7 @@
             {{template "pairPlayers" (dict "Mode" $.Mode "Player1ID" (.Record.GetString "player1") "Player1Name" .Player1 "Player1Avatar" .Player1Avatar "Player2ID" (.Record.GetString "player2") "Player2Name" .Player2 "Player2Avatar" .Player2Avatar)}}
             <div class="card-actions justify-end mt-3">
                 <span class="tooltip tooltip-left" data-tip="Editar">
-                    <button class="btn btn-ghost btn-sm gap-1 px-2" aria-label="Editar" onclick="openEditPair('{{.Record.Id}}', '{{.Record.GetString "name"}}', '{{.Record.GetString "player1"}}', '{{.Record.GetString "player2"}}')">
+                    <button class="btn btn-ghost btn-sm gap-1 px-2" aria-label="Editar" onclick="openEditPair('{{.Record.Id}}', '{{.Record.GetString "name"}}', '{{.Record.GetString "player1"}}', '{{.Record.GetString "player2"}}', '{{.CaptainID}}')">
                         <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" /></svg>
                         <span class="hidden [@media(hover:none)]:inline">Editar</span>
                     </button>
@@ -61,6 +61,12 @@
                     {{end}}
                 </select>
             </div>
+            <div class="form-control w-full mt-3">
+                <label class="label" for="edit-captain"><span class="label-text font-medium">Capitán</span></label>
+                <select name="captain" id="edit-captain" class="select select-bordered w-full">
+                    <option value="">Sin capitán</option>
+                </select>
+            </div>
             <div class="modal-action">
                 <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Guardar cambios</button>
             </div>
@@ -97,6 +103,12 @@
                     {{end}}
                 </select>
             </div>
+            <div class="form-control w-full mt-3">
+                <label class="label" for="create-pair-captain"><span class="label-text font-medium">Capitán</span></label>
+                <select id="create-pair-captain" name="captain" class="select select-bordered w-full">
+                    <option value="">Sin capitán</option>
+                </select>
+            </div>
             <div class="modal-action">
                 <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Crear pareja</button>
             </div>
@@ -118,28 +130,46 @@ function wireSelectPair(s1, s2) {
     s2.addEventListener('change', function() { syncSelects(s2, s1); });
 }
 
+function rebuildCaptainSelect(captainSel, p1Sel, p2Sel, currentCaptain) {
+    var p1Val = p1Sel.value, p2Val = p2Sel.value;
+    var p1Text = p1Sel.options[p1Sel.selectedIndex] ? p1Sel.options[p1Sel.selectedIndex].text : '';
+    var p2Text = p2Sel.options[p2Sel.selectedIndex] ? p2Sel.options[p2Sel.selectedIndex].text : '';
+    captainSel.innerHTML = '<option value="">Sin capitán</option>';
+    if (p1Val) captainSel.innerHTML += '<option value="' + p1Val + '">' + p1Text + '</option>';
+    if (p2Val) captainSel.innerHTML += '<option value="' + p2Val + '">' + p2Text + '</option>';
+    if (currentCaptain) captainSel.value = currentCaptain;
+}
+
 (function() {
     var ep1 = document.getElementById('edit-player1');
     var ep2 = document.getElementById('edit-player2');
+    var ec = document.getElementById('edit-captain');
     wireSelectPair(ep1, ep2);
+    ep1.addEventListener('change', function() { rebuildCaptainSelect(ec, ep1, ep2, ''); });
+    ep2.addEventListener('change', function() { rebuildCaptainSelect(ec, ep1, ep2, ''); });
 
     var createForm = document.querySelector('#modal-create form[hx-post]');
     var cp1 = createForm.querySelector('select[name="player1"]');
     var cp2 = createForm.querySelector('select[name="player2"]');
+    var cc = createForm.querySelector('select[name="captain"]');
     wireSelectPair(cp1, cp2);
+    cp1.addEventListener('change', function() { rebuildCaptainSelect(cc, cp1, cp2, ''); });
+    cp2.addEventListener('change', function() { rebuildCaptainSelect(cc, cp1, cp2, ''); });
 })();
 
-function openEditPair(id, name, p1, p2) {
+function openEditPair(id, name, p1, p2, captain) {
     var form = document.getElementById('edit-form');
     form.setAttribute('hx-post', '/admin/pairs/' + id);
     htmx.process(form);
     document.getElementById('edit-name').value = name;
     var ep1 = document.getElementById('edit-player1');
     var ep2 = document.getElementById('edit-player2');
+    var ec = document.getElementById('edit-captain');
     ep1.value = p1;
     ep2.value = p2;
     syncSelects(ep1, ep2);
     syncSelects(ep2, ep1);
+    rebuildCaptainSelect(ec, ep1, ep2, captain || '');
     document.getElementById('edit-error').innerHTML = '';
     document.getElementById('modal-edit').showModal();
 }

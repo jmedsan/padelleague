@@ -86,6 +86,11 @@ func (h *MatchHandler) validateCorrectionAccess(e *core.RequestEvent, match *cor
 	if err != nil && !isAdmin {
 		return 0, alertError(e, "No eres participante de este partido")
 	}
+	if !isAdmin {
+		if err := league.IsCaptainGuarded(h.app, e.Auth.Id, match); err != nil {
+			return 0, alertError(e, err.Error())
+		}
+	}
 	if msg := h.validateCorrectionPermission(isAdmin, myTeam, submittedByID, match); msg != "" {
 		return 0, alertError(e, msg)
 	}

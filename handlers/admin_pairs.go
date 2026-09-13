@@ -26,6 +26,7 @@ type PairView struct {
 	Player2       string
 	Player1Avatar string
 	Player2Avatar string
+	CaptainID     string
 }
 
 // Pairs renders the admin pairs management page.
@@ -40,6 +41,7 @@ func (h *PairHandler) Pairs(e *core.RequestEvent) error {
 			Player2:       league.PlayerName(h.app, p.GetString("player2")),
 			Player1Avatar: league.PlayerAvatarURL(h.app, p.GetString("player1")),
 			Player2Avatar: league.PlayerAvatarURL(h.app, p.GetString("player2")),
+			CaptainID:     p.GetString("captain"),
 		})
 	}
 
@@ -78,6 +80,9 @@ func (h *PairHandler) PairsCreate(e *core.RequestEvent) error {
 	record.Set("name", name)
 	record.Set("player1", player1)
 	record.Set("player2", player2)
+	if captain := e.Request.FormValue("captain"); captain == player1 || captain == player2 {
+		record.Set("captain", captain)
+	}
 
 	if err := h.app.Save(record); err != nil {
 		return alertError(e, "Error al crear la pareja")
@@ -121,6 +126,16 @@ func (h *PairHandler) PairsUpdate(e *core.RequestEvent) error {
 
 	if pair.GetString("player1") == pair.GetString("player2") {
 		return alertError(e, "Los dos jugadores deben ser diferentes")
+	}
+
+	// Update captain: must be one of the two players, or clear if empty/invalid.
+	captain := e.Request.FormValue("captain")
+	p1 := pair.GetString("player1")
+	p2 := pair.GetString("player2")
+	if captain == p1 || captain == p2 {
+		pair.Set("captain", captain)
+	} else {
+		pair.Set("captain", "")
 	}
 
 	comps, _ := h.app.FindRecordsByFilter("competitions",

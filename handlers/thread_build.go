@@ -87,12 +87,13 @@ type threadBuildCtx struct {
 	matchStatus    string
 	myTeam         int
 	compModifiable bool
+	captainBlocked bool // true when viewer's pair has a captain and viewer is not it
 	pairNames      map[string]string
 	pair1Players   []string
 	pair2Players   []string
 }
 
-func (h *ThreadHandler) buildThreadData(match *core.Record, matchID string, myTeam int, compModifiable bool) ThreadData {
+func (h *ThreadHandler) buildThreadData(match *core.Record, matchID string, viewerID string, myTeam int, compModifiable bool) ThreadData {
 	bc := threadBuildCtx{
 		app:            h.app,
 		match:          match,
@@ -100,6 +101,7 @@ func (h *ThreadHandler) buildThreadData(match *core.Record, matchID string, myTe
 		matchStatus:    match.GetString("status"),
 		myTeam:         myTeam,
 		compModifiable: compModifiable,
+		captainBlocked: myTeam > 0 && league.IsCaptainGuarded(h.app, viewerID, match) != nil,
 		pairNames:      league.PairNames(h.app, []string{match.GetString("pair1"), match.GetString("pair2")}),
 		pair1Players:   league.PlayersForPair(h.app, match.GetString("pair1")),
 		pair2Players:   league.PlayersForPair(h.app, match.GetString("pair2")),
@@ -247,7 +249,7 @@ func (bc *threadBuildCtx) schedProposal(mc msgCtx, sameTeam bool) SchedProposalV
 
 func (bc *threadBuildCtx) resultProposal(msg *core.Record, authorName string, authorTeam int, sameTeam bool) ResultProposalVM {
 	canRespond, _ := proposalActions("result_submission", bc.matchStatus, sameTeam, msg.GetString("proposal_status"))
-	canRespond = canRespond && bc.compModifiable
+	canRespond = canRespond && bc.compModifiable && !bc.captainBlocked
 	score := msg.GetString("content")
 	if pd := ParseProposalData(msg.Get("proposal_data")); pd != nil && pd.Scores != "" {
 		score = pd.Scores
