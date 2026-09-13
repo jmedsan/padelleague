@@ -171,20 +171,16 @@ func pairForm(pid string, matches []*core.Record) []bool {
 	return form
 }
 
-// sortStandings ranks pairs by FEP Reglamento Técnico General 2024 art.
-// 3.3.10. Rows are first sorted by points; consecutive rows level on points
-// form a tie group, resolved by size:
+// sortStandings ranks pairs by Liga Dale Fuerte tiebreaker rules (FEP RTG 2026
+// §3.3.10 supplemented by the league rulebook). Rows are first sorted by
+// points; consecutive rows level on points form a tie group resolved by size:
 //   - 1 pair: nothing to resolve.
-//   - 2 pairs: head-to-head result, then head-to-head set/game diff (their
-//     mutual matches only), then overall set diff → game diff.
-//   - 3+ pairs: a mini-league among just the tied pairs (points, then set
-//     diff, then game diff from their mutual matches only), then overall set
-//     diff → game diff.
+//   - 2 pairs: matches played → head-to-head result → mutual set/game diff →
+//     overall set diff → overall game diff → pair name.
+//   - 3+ pairs: recursive mini-league partition (matches played → mini-league
+//     wins → mini set diff → mini game diff); separated pairs recurse on the
+//     remaining sub-group; unseparated sub-groups fall to overall criteria.
 //
-// A pairwise head-to-head comparator is not transitive across 3+ pairs
-// (A beats B, B beats C, C beats A is a valid cycle), so it cannot be used
-// as a sort.Slice Less function for groups above size 2 — the mini-league
-// resolves the cycle by scoring standalone, not through pairwise diffs.
 // Pair name is the deterministic final tiebreaker, so output is stable
 // regardless of input order.
 func sortStandings(rows []StandingRowFull, matches []*core.Record) {
@@ -213,20 +209,25 @@ func resolveTieGroup(group []StandingRowFull, matches []*core.Record) {
 	}
 }
 
-// resolveTwoWayTie orders two pairs level on points by head-to-head result,
-// then by set/game diff computed from their mutual matches only, then by
-// overall set diff → game diff → pair name.
+// resolveTwoWayTie orders two pairs level on points.
+// Chain: matches played → head-to-head result → mutual set diff →
+// mutual game diff → overall set diff → overall game diff → pair name.
 func resolveTwoWayTie(group []StandingRowFull, matches []*core.Record) {
 	a, b := group[0], group[1]
 	mutual := matchesBetween(matches, []string{a.PairID, b.PairID})
 	h2hStats := tallyMatchStats([]string{a.PairID, b.PairID}, mutual)
 
 	sort.SliceStable(group, func(i, j int) bool {
-		return lessByH2HThenOverall(group[i], group[j], h2hStats)
+		return lessTwoWay(group[i], group[j], h2hStats)
 	})
 }
 
-func lessByH2HThenOverall(a, b StandingRowFull, h2hStats map[string]*pairStats) bool {
+func lessTwoWay(a, b StandingRowFull, h2hStats map[string]*pairStats) bool {
+	// 1. Matches played (more = ranks higher)
+	if a.Played != b.Played {
+		return a.Played > b.Played
+	}
+	// 2-4. Head-to-head: wins, set diff, game diff in mutual matches
 	sa, sb := h2hStats[a.PairID], h2hStats[b.PairID]
 	if sa.wins != sb.wins {
 		return sa.wins > sb.wins
@@ -237,36 +238,81 @@ func lessByH2HThenOverall(a, b StandingRowFull, h2hStats map[string]*pairStats) 
 	if gameDiff := sa.gamesWon - sa.gamesLost - (sb.gamesWon - sb.gamesLost); gameDiff != 0 {
 		return gameDiff > 0
 	}
+	// 5. Overall stats, then pair name
 	return lessByOverallThenName(a, b)
 }
 
-// resolveMiniLeague orders 3+ pairs level on points by a sub-standings table
-// computed from matches played among just the tied pairs (points, then set
-// diff, then game diff), then falls back to overall set diff → game diff →
-// pair name for anything the mini-league itself leaves tied.
+// resolveMiniLeague orders 3+ pairs tied on points using the FEP RTG 2026 §3.3.10
+// recursive partition algorithm, adapted for the Liga Dale Fuerte rulebook:
+//
+//  1. Matches played (more = ranks higher): separate, recurse on each sub-group.
+//  2. Mini-league wins among tied pairs: separate, recurse.
+//  3. Mini-league set diff among tied pairs: separate, recurse.
+//  4. Mini-league game diff among tied pairs: separate, recurse.
+//
+// When a sub-group reaches size 2, apply the two-way rule (head-to-head).
+// When still tied after all mini criteria, fall to overall set diff → game diff → name.
 func resolveMiniLeague(group []StandingRowFull, matches []*core.Record) {
-	pairIDs := make([]string, len(group))
-	for i, r := range group {
-		pairIDs[i] = r.PairID
-	}
+	pairIDs := pairIDsOf(group)
 	mutual := matchesBetween(matches, pairIDs)
 	miniStats := tallyMatchStats(pairIDs, mutual)
 
+	criteria := []func(StandingRowFull) int{
+		func(r StandingRowFull) int { return r.Played },
+		func(r StandingRowFull) int { return miniStats[r.PairID].wins * 3 },
+		func(r StandingRowFull) int {
+			s := miniStats[r.PairID]
+			return s.setsWon - s.setsLost
+		},
+		func(r StandingRowFull) int {
+			s := miniStats[r.PairID]
+			return s.gamesWon - s.gamesLost
+		},
+	}
+
+	partitionAndResolve(group, criteria, matches)
+}
+
+// partitionAndResolve sorts group by each criterion in order; after any
+// criterion that splits the group, it recurses on each sub-group of size ≥2
+// using the remaining criteria. Sub-groups still tied after all criteria fall
+// to overall stats via the fallback.
+func partitionAndResolve(group []StandingRowFull, criteria []func(StandingRowFull) int, matches []*core.Record) {
+	if len(group) <= 1 {
+		return
+	}
+	if len(criteria) == 0 {
+		// Exhausted mini criteria — fall to overall stats.
+		sort.SliceStable(group, func(i, j int) bool {
+			return lessByOverallThenName(group[i], group[j])
+		})
+		return
+	}
+
+	score := criteria[0]
+	remaining := criteria[1:]
+
+	// Sort by this criterion descending.
 	sort.SliceStable(group, func(i, j int) bool {
-		a, b := group[i], group[j]
-		ma, mb := miniStats[a.PairID], miniStats[b.PairID]
-		miniPointsA, miniPointsB := ma.wins*3, mb.wins*3
-		if miniPointsA != miniPointsB {
-			return miniPointsA > miniPointsB
-		}
-		if setDiff := ma.setsWon - ma.setsLost - (mb.setsWon - mb.setsLost); setDiff != 0 {
-			return setDiff > 0
-		}
-		if gameDiff := ma.gamesWon - ma.gamesLost - (mb.gamesWon - mb.gamesLost); gameDiff != 0 {
-			return gameDiff > 0
-		}
-		return lessByOverallThenName(a, b)
+		return score(group[i]) > score(group[j])
 	})
+
+	// Identify equal-score sub-groups and recurse on each.
+	for start := 0; start < len(group); {
+		end := start + 1
+		for end < len(group) && score(group[end]) == score(group[start]) {
+			end++
+		}
+		sub := group[start:end]
+		if len(sub) >= 2 {
+			if len(sub) == 2 {
+				resolveTwoWayTie(sub, matches)
+			} else {
+				partitionAndResolve(sub, remaining, matches)
+			}
+		}
+		start = end
+	}
 }
 
 // lessByOverallThenName is the last-resort comparator shared by both tie
@@ -298,4 +344,12 @@ func matchesBetween(matches []*core.Record, pairIDs []string) []*core.Record {
 		}
 	}
 	return out
+}
+
+func pairIDsOf(group []StandingRowFull) []string {
+	ids := make([]string, len(group))
+	for i, r := range group {
+		ids[i] = r.PairID
+	}
+	return ids
 }
