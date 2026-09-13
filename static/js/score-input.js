@@ -187,14 +187,21 @@
             return;
         }
 
+        // isComplete but no winner: e.g. set 1 = 6-4, set 2 untouched (open)
+        if (isComplete(si)) {
+            var carried = getCarriedString(si);
+            if (carried) {
+                var setNum = carried.split(/\s+/).length + 1;
+                el.textContent = 'No terminado · se reanudará desde ' + carried + ', ' + setNum + '.º set desde 0-0';
+            } else {
+                el.textContent = 'No terminado';
+            }
+            el.className = 'text-sm font-medium text-warning score-winner';
+            return;
+        }
+
         el.textContent = '';
         el.className = 'text-sm font-medium text-success score-winner';
-    }
-
-    function updateHint(si) {
-        var hint = si.querySelector('.score-hint');
-        if (!hint) return;
-        hint.classList.add('hidden');
     }
 
     function compose(si) {
@@ -252,7 +259,6 @@
         updateWinner(si);
         compose(si);
         updateSubmitState(si);
-        updateHint(si);
     }
 
     window.fillCells = function(scoreEl, scoreStr) {
