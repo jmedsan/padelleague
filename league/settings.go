@@ -9,16 +9,17 @@ import (
 
 // AppSettings holds the global default values for new competitions.
 type AppSettings struct {
-	QuorumTimeoutHours   int
-	ArrangeGraceDays     int
-	WalkoverScore        string
-	DefaultPenalty       int
-	RecoveryDays         int
-	PlayTwice            bool
-	GenderType           string
-	InviteMaxUses        int
-	InviteExpirationDays int
-	MatchReminderHours   []int
+	QuorumTimeoutHours      int
+	ArrangeGraceDays        int
+	WalkoverScore           string
+	DefaultPenalty          int
+	RecoveryDays            int
+	PlayTwice               bool
+	GenderType              string
+	InviteMaxUses           int
+	InviteExpirationDays    int
+	MatchReminderHours      []int
+	DefaultMaxPendingMatches int
 }
 
 var (
@@ -29,15 +30,16 @@ var (
 // DefaultSettings returns hardcoded fallback values.
 func DefaultSettings() AppSettings {
 	return AppSettings{
-		QuorumTimeoutHours:   48,
-		ArrangeGraceDays:     3,
-		WalkoverScore:        "6-0 6-0",
-		DefaultPenalty:       3,
-		RecoveryDays:         7,
-		GenderType:           "free",
-		InviteMaxUses:        10,
-		InviteExpirationDays: 7,
-		MatchReminderHours:   []int{defaultReminderHoursFirst, defaultReminderHoursSecond},
+		QuorumTimeoutHours:      48,
+		ArrangeGraceDays:        3,
+		WalkoverScore:           "6-0 6-0",
+		DefaultPenalty:          3,
+		RecoveryDays:            7,
+		GenderType:              "free",
+		InviteMaxUses:           10,
+		InviteExpirationDays:    7,
+		MatchReminderHours:      []int{defaultReminderHoursFirst, defaultReminderHoursSecond},
+		DefaultMaxPendingMatches: 2,
 	}
 }
 
@@ -59,15 +61,16 @@ func LoadSettings(app core.App) AppSettings {
 
 	r := records[0]
 	s := AppSettings{
-		QuorumTimeoutHours:   int(r.GetFloat("quorum_timeout_hours")),
-		ArrangeGraceDays:     int(r.GetFloat("arrange_grace_days")),
-		WalkoverScore:        r.GetString("walkover_score"),
-		DefaultPenalty:       int(r.GetFloat("default_penalty")),
-		RecoveryDays:         int(r.GetFloat("recovery_days")),
-		PlayTwice:            r.GetBool("play_twice"),
-		GenderType:           r.GetString("gender_type"),
-		InviteMaxUses:        int(r.GetFloat("invite_max_uses")),
-		InviteExpirationDays: int(r.GetFloat("invite_expiration_days")),
+		QuorumTimeoutHours:      int(r.GetFloat("quorum_timeout_hours")),
+		ArrangeGraceDays:        int(r.GetFloat("arrange_grace_days")),
+		WalkoverScore:           r.GetString("walkover_score"),
+		DefaultPenalty:          int(r.GetFloat("default_penalty")),
+		RecoveryDays:            int(r.GetFloat("recovery_days")),
+		PlayTwice:               r.GetBool("play_twice"),
+		GenderType:              r.GetString("gender_type"),
+		InviteMaxUses:           int(r.GetFloat("invite_max_uses")),
+		InviteExpirationDays:    int(r.GetFloat("invite_expiration_days")),
+		DefaultMaxPendingMatches: int(r.GetFloat("default_max_pending_matches")),
 	}
 	if raw := r.GetString("match_reminder_hours"); raw != "" {
 		var hours []int
@@ -83,6 +86,9 @@ func LoadSettings(app core.App) AppSettings {
 	}
 	if s.GenderType == "" {
 		s.GenderType = "free"
+	}
+	if s.DefaultMaxPendingMatches == 0 {
+		s.DefaultMaxPendingMatches = 2
 	}
 	settingsCache = &s
 	return s
