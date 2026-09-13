@@ -236,7 +236,7 @@
             {{end}}
             {{if .CanWithdraw}}
             <div class="mt-2">
-                <button hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/withdraw" hx-target="body" hx-confirm="¿Retirar esta propuesta?" class="btn btn-ghost btn-xs">Retirar</button>
+                <button hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/withdraw" hx-target="body" hx-confirm="¿Retirar esta propuesta?" class="btn btn-ghost btn-sm min-h-11">Retirar</button>
             </div>
             {{end}}
             {{if .CanRespond}}
