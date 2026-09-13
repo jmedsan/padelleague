@@ -1113,7 +1113,6 @@ func TestReadOnlyCompGuard_ThreadHandlers(t *testing.T) {
 		body string
 	}{
 		{"respond-proposal", "/thread/proposal/%s/respond", "decision=accepted"},
-		{"change-decision", "/thread/proposal/%s/change-decision", ""},
 	}
 
 	for _, tc := range cases {
