@@ -420,7 +420,7 @@ func outstandingForComp(app core.App, c *core.Record, now time.Time) []Outstandi
 	isPlayoff := IsPlayoff(c)
 
 	matches, _ := app.FindRecordsByFilter("matches",
-		"competition = {:cid} && status != 'final'", "", 0, 0,
+		"competition = {:cid} && (status = 'pending' || status = 'scheduled')", "", 0, 0,
 		map[string]any{"cid": c.Id})
 
 	out := make([]OutstandingMatch, 0, len(matches))
