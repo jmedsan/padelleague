@@ -53,11 +53,9 @@ type SchedProposalVM struct {
 	MatchID           string
 	AuthorLabel       string
 	Data              *ProposalData
-	Status            string // "pending" | "accepted" | "superseded"
-	IsAccepted        bool
-	CanRespond        bool
-	CanChangeDecision bool
-	CanWithdraw       bool
+	Status      string // "pending" | "accepted" | "superseded"
+	CanRespond  bool
+	CanWithdraw bool
 	CreatedAt         string
 	CreatedRel        string // RFC3339, for {{relDate}}
 }
@@ -233,19 +231,17 @@ func (bc *threadBuildCtx) appendToPanel(mc msgCtx, td *ThreadData) {
 
 func (bc *threadBuildCtx) schedProposal(mc msgCtx, sameTeam bool) SchedProposalVM {
 	status := mc.msg.GetString("proposal_status")
-	canRespond, canChange := proposalActions("scheduling_proposal", bc.matchStatus, sameTeam, status)
+	canRespond, _ := proposalActions("scheduling_proposal", bc.matchStatus, sameTeam, status)
 	return SchedProposalVM{
-		RecordID:          mc.msg.Id,
-		MatchID:           bc.matchID,
-		AuthorLabel:       mc.authorName,
-		Data:              ParseProposalData(mc.msg.GetString("proposal_data")),
-		Status:            status,
-		IsAccepted:        status == "accepted",
-		CanRespond:        canRespond && bc.compModifiable,
-		CanChangeDecision: canChange && bc.compModifiable,
-		CanWithdraw:       bc.myTeam != 0 && sameTeam && status == "pending" && bc.compModifiable,
-		CreatedAt:         mc.created,
-		CreatedRel:        mc.createdRaw,
+		RecordID:    mc.msg.Id,
+		MatchID:     bc.matchID,
+		AuthorLabel: mc.authorName,
+		Data:        ParseProposalData(mc.msg.GetString("proposal_data")),
+		Status:      status,
+		CanRespond:  canRespond && bc.compModifiable,
+		CanWithdraw: bc.myTeam != 0 && sameTeam && status == "pending" && bc.compModifiable,
+		CreatedAt:   mc.created,
+		CreatedRel:  mc.createdRaw,
 	}
 }
 
