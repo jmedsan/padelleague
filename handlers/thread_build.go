@@ -49,15 +49,15 @@ type TimelineEntryVM struct {
 
 // SchedProposalVM is one non-rejected scheduling proposal in the details panel.
 type SchedProposalVM struct {
-	RecordID          string
-	MatchID           string
-	AuthorLabel       string
-	Data              *ProposalData
+	RecordID    string
+	MatchID     string
+	AuthorLabel string
+	Data        *ProposalData
 	Status      string // "pending" | "accepted" | "superseded"
 	CanRespond  bool
 	CanWithdraw bool
-	CreatedAt         string
-	CreatedRel        string // RFC3339, for {{relDate}}
+	CreatedAt   string
+	CreatedRel  string // RFC3339, for {{relDate}}
 }
 
 // ResultPanelVM is the result box: the final result once quorum is reached,

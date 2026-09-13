@@ -33,7 +33,7 @@ func init() {
 		rec.Set("arrange_grace_days", 3)
 		rec.Set("walkover_score", "6-0 6-0")
 		rec.Set("default_penalty", 3)
-		rec.Set("recovery_days", 14)
+		rec.Set("recovery_days", 7)
 		rec.Set("play_twice", false)
 		rec.Set("gender_type", "free")
 		rec.Set("invite_max_uses", 10)

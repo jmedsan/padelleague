@@ -742,4 +742,3 @@ func (h *ThreadHandler) notifyWithdrawal(match *core.Record, myTeam int, authorI
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	h.notifier.NotifyPlayers(rivalPlayers, league.NotifProposalWithdrawn(match.Id, authorName, compName))
 }
-

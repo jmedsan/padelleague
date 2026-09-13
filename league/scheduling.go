@@ -104,7 +104,7 @@ const (
 	PhaseFinished
 )
 
-const defaultRecoveryDays = 14
+const defaultRecoveryDays = 7
 
 func (p Phase) String() string {
 	switch p {
