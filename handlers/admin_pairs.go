@@ -139,19 +139,8 @@ func (h *PairHandler) PairsUpdate(e *core.RequestEvent) error {
 		return alertError(e, "Los dos jugadores deben ser diferentes")
 	}
 
-	captain := e.Request.FormValue("captain")
-	p1 := pair.GetString("player1")
-	p2 := pair.GetString("player2")
-	if captain == "" {
-		// Preserve existing captain if still valid for the current players.
-		existing := pair.GetString("captain")
-		if existing != p1 && existing != p2 {
-			return alertError(e, "El capitán debe ser uno de los dos jugadores")
-		}
-	} else if captain != p1 && captain != p2 {
-		return alertError(e, "El capitán debe ser uno de los dos jugadores")
-	} else {
-		pair.Set("captain", captain)
+	if err := applyPairCaptain(e, pair); err != nil {
+		return err
 	}
 
 	comps, _ := h.app.FindRecordsByFilter("competitions",
@@ -168,4 +157,25 @@ func (h *PairHandler) PairsUpdate(e *core.RequestEvent) error {
 
 	flash(e, "Pareja actualizada")
 	return redirectHX(e, "/admin/pairs")
+}
+
+// applyPairCaptain reads the captain form value and either sets it on the pair
+// (when provided and valid) or preserves the existing captain (when form is
+// empty and existing is still valid). Returns an alertError when invalid.
+func applyPairCaptain(e *core.RequestEvent, pair *core.Record) error {
+	p1 := pair.GetString("player1")
+	p2 := pair.GetString("player2")
+	captain := e.Request.FormValue("captain")
+	if captain == "" {
+		existing := pair.GetString("captain")
+		if existing != p1 && existing != p2 {
+			return alertError(e, "El capitán debe ser uno de los dos jugadores")
+		}
+		return nil
+	}
+	if captain != p1 && captain != p2 {
+		return alertError(e, "El capitán debe ser uno de los dos jugadores")
+	}
+	pair.Set("captain", captain)
+	return nil
 }

@@ -317,7 +317,7 @@ func (svc *Service) notifyAccepted(fresh *core.Record, in AcceptedResult, compNa
 	}
 }
 
-func (svc *Service) notifyNotWon(fresh *core.Record, out Outcome, compName string, sc Score) {
+func (svc *Service) notifyNotWon(fresh *core.Record, out Outcome, compName string, _ Score) {
 	body := fmt.Sprintf("Se reanuda desde %s 0-0. Acordad una nueva fecha · %s.", out.Carried, compName)
 	for _, pid := range []string{fresh.GetString("pair1"), fresh.GetString("pair2")} {
 		players := PlayersForPair(svc.app, pid)

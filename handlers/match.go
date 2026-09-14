@@ -728,8 +728,6 @@ func mapActionGateError(e *core.RequestEvent, err error) error {
 	switch {
 	case errors.Is(err, errNotParticipant):
 		return alertError(e, "No eres participante de este partido")
-	case errors.Is(err, league.ErrNotCaptain):
-		return alertError(e, "Solo el capitán puede registrar resultados")
 	case errors.Is(err, errWithdrawn):
 		return alertError(e, "Tu pareja se ha retirado de esta competición")
 	default:

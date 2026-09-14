@@ -760,7 +760,6 @@ func (h *ThreadHandler) WithdrawProposal(e *core.RequestEvent) error {
 	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
 }
 
-
 func (h *ThreadHandler) notifyWithdrawal(match *core.Record, myTeam int, authorID string) {
 	rivalPairID := match.GetString("pair1")
 	if myTeam == 1 {
