@@ -168,15 +168,13 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 	status := match.GetString("status")
 	team, _ := league.PlayerTeam(app, viewerID, match)
 	isSubmitter := viewerIsSubmitter(app, match, team)
-	captainBlocked := team > 0 && league.IsCaptainGuarded(app, viewerID, match) != nil
-
 	c.MyTeam = team
 	c.HasDateAndPlace = match.GetString("date") != "" && match.GetString("club") != ""
 	c.HasPendingSchedulingProposal = hasPendingSchedulingProposal(app, match.Id)
-	c.CanSubmit = league.IsPreScore(status) && team > 0 && !captainBlocked
+	c.CanSubmit = league.IsPreScore(status) && team > 0
 	c.CanEdit = league.IsPreScore(status) && team > 0
-	c.CanWalkover = canReportUnplayed(status, team, match.GetString("date")) && !captainBlocked
-	c.CanCorrect = isSubmitter && canCorrectNow(match, status) && !captainBlocked
+	c.CanWalkover = canReportUnplayed(status, team, match.GetString("date"))
+	c.CanCorrect = isSubmitter && canCorrectNow(match, status)
 	switch team {
 	case 1:
 		c.Opponent = c.Pair2Name
