@@ -69,11 +69,11 @@ func New(viewsFS fs.FS, vapidPublicKey string, appDevTools bool) *Renderer {
 			}
 			return ifFalse
 		},
-		"scoreWinner":   scoreWinner,
-		"scoreNote":     league.ScoreNote,
-		"initials":      Initials,
-		"truncate":      league.Truncate,
-		"hasPrefix":     strings.HasPrefix,
+		"scoreWinner": scoreWinner,
+		"scoreNote":   league.ScoreNote,
+		"initials":    Initials,
+		"truncate":    league.Truncate,
+		"hasPrefix":   strings.HasPrefix,
 	})
 	return &Renderer{
 		registry:       reg,
@@ -352,7 +352,6 @@ func scoreWinner(score, pair1Name, pair2Name string) string {
 	}
 	return pair2Name
 }
-
 
 // FmtTime formats a time.Time in Europe/Madrid as DD/MM/YYYY, appending
 // HH:MM when the local time is not midnight.

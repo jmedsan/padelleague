@@ -1,7 +1,6 @@
 package league
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -9,10 +8,6 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 )
-
-// ErrNotCaptain is returned by IsCaptainGuarded when the user's pair has a
-// captain set and the user is not that captain.
-var ErrNotCaptain = errors.New("not captain")
 
 // PlayerTeam returns 1 or 2 indicating which pair the user belongs to in the match.
 func PlayerTeam(app core.App, userID string, match *core.Record) (int, error) {
@@ -31,38 +26,6 @@ func PlayerTeam(app core.App, userID string, match *core.Record) (int, error) {
 		return 2, nil
 	}
 	return 0, fmt.Errorf("user %s is not a participant", userID)
-}
-
-// IsCaptainGuarded returns an error if the user's pair has a captain set and
-// the user is not that captain. Returns nil when no captain is set (both
-// players have full authority) or when the user IS the captain.
-func IsCaptainGuarded(app core.App, userID string, match *core.Record) error {
-	pair1, err := app.FindRecordById("pairs", match.GetString("pair1"))
-	if err != nil {
-		return fmt.Errorf("pair1 not found: %w", err)
-	}
-	pair2, err := app.FindRecordById("pairs", match.GetString("pair2"))
-	if err != nil {
-		return fmt.Errorf("pair2 not found: %w", err)
-	}
-
-	var userPair *core.Record
-	if pair1.GetString("player1") == userID || pair1.GetString("player2") == userID {
-		userPair = pair1
-	} else if pair2.GetString("player1") == userID || pair2.GetString("player2") == userID {
-		userPair = pair2
-	} else {
-		return fmt.Errorf("user %s is not a participant", userID)
-	}
-
-	captain := userPair.GetString("captain")
-	if captain == "" {
-		return nil // no captain set — both players have full authority
-	}
-	if captain == userID {
-		return nil // user is the captain
-	}
-	return ErrNotCaptain
 }
 
 // IsWithdrawn reports whether pairID is in the competition's withdrawn_pairs
