@@ -24,12 +24,14 @@
 {{define "playerIdentityText"}}
 <div>
     {{if .Mode.Full}}<h1 class="text-2xl font-bold">{{end}}
+    <span class="inline-flex items-center gap-1">
     {{if not .Mode.Row}}
     <a href="{{entityURL "player" .ID}}" class="font-medium link link-hover">{{if .Name}}{{.Name}}{{else}}<span class="opacity-60 italic">Sin nombre</span>{{end}}</a>
     {{else}}
     <span>{{if .Name}}{{.Name}}{{else}}<span class="opacity-60 italic">Sin nombre</span>{{end}}</span>
     {{end}}
-    {{if .IsCaptain}} {{template "captainBadge" .}}{{end}}
+    {{if .IsCaptain}}{{template "captainBadge" .}}{{end}}
+    </span>
     {{if .Mode.Full}}</h1>{{end}}
     {{if not .Name}}<span class="badge badge-soft-warning badge-sm ml-1">Pendiente</span>{{end}}
     {{if .Roles}}
