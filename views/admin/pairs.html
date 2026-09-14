@@ -15,7 +15,7 @@
     <div class="card bg-base-100 shadow-sm border border-base-300">
         <div class="card-body p-5">
             <h2 class="card-title text-lg break-words min-w-0">{{.Record.GetString "name"}}</h2>
-            {{template "pairPlayers" (dict "Mode" $.Mode "Player1ID" (.Record.GetString "player1") "Player1Name" .Player1 "Player1Avatar" .Player1Avatar "Player2ID" (.Record.GetString "player2") "Player2Name" .Player2 "Player2Avatar" .Player2Avatar)}}
+            {{template "pairPlayers" (dict "Mode" $.Mode "Player1ID" (.Record.GetString "player1") "Player1Name" .Player1 "Player1Avatar" .Player1Avatar "Player2ID" (.Record.GetString "player2") "Player2Name" .Player2 "Player2Avatar" .Player2Avatar "CaptainID" .CaptainID)}}
             <div class="card-actions justify-end mt-3">
                 <span class="tooltip tooltip-left" data-tip="Editar">
                     <button class="btn btn-ghost btn-sm gap-1 px-2" aria-label="Editar" onclick="openEditPair('{{.Record.Id}}', '{{.Record.GetString "name"}}', '{{.Record.GetString "player1"}}', '{{.Record.GetString "player2"}}', '{{.CaptainID}}')">
