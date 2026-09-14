@@ -219,7 +219,7 @@
         <div class="card-body p-3">
             <div class="flex items-center gap-2">
                 <span class="text-sm font-bold">{{.AuthorLabel}}</span>
-                <span class="text-sm opacity-50" title="{{.CreatedAt}}">{{relDate .CreatedRel}}</span>
+                <span class="text-sm opacity-50">{{timeTag .CreatedRel}}</span>
             </div>
             {{if .Data}}
             <div class="mt-2">

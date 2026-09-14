@@ -3,6 +3,7 @@ package render
 
 import (
 	"fmt"
+	htmltpl "html/template"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -42,6 +43,7 @@ func New(viewsFS fs.FS, vapidPublicKey string, appDevTools bool) *Renderer {
 		},
 		"fmtDate": FmtDate,
 		"relDate": RelDate,
+		"timeTag": TimeTag,
 		"elink": func(id, name string) map[string]any {
 			return map[string]any{"ID": id, "Name": name, "IsMine": false}
 		},
@@ -329,6 +331,17 @@ func RelDate(raw string) string {
 		return fmt.Sprintf("hace %d días", -days)
 	}
 	return FmtDate(raw)
+}
+
+// TimeTag wraps an RFC3339 instant in a <time> element. The server renders
+// a fallback in UTC; the client-side localtime.js replaces it with the
+// browser's local timezone. Wall-clock dates (match date/time) must NOT
+// use this — only system-generated instants (created, submitted_at, etc.).
+func TimeTag(rfc3339 string) htmltpl.HTML {
+	fallback := RelDate(rfc3339)
+	return htmltpl.HTML(fmt.Sprintf(
+		`<time datetime="%s">%s</time>`,
+		htmltpl.HTMLEscapeString(rfc3339), htmltpl.HTMLEscapeString(fallback)))
 }
 
 func startOfDay(t time.Time) time.Time {
