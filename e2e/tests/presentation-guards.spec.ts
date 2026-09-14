@@ -519,6 +519,60 @@ test.describe('R-178: presentation quality guards', () => {
     await switchView(page, 'admin');
   });
 
+  test('R-35: captain badge appears next to captain player on pair detail page', async ({ page }) => {
+    // pair1 (Pareja Alpha) has player1 as captain per global-setup (captain: player1Id).
+    // Navigate to the pair page from standings — click affordance, not goto(url).
+    const data = loadTestData();
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    // Enter the seeded competition
+    const compLink = page.locator(`a[href="/competition/${data.competitionId}"]`).first();
+    await expect(compLink).toBeVisible({ timeout: 5000 });
+    await compLink.click();
+    await page.waitForLoadState('domcontentloaded');
+
+    // Handle mandatory docs gate if present
+    const docsGate = page.getByRole('heading', { name: 'Documentos obligatorios' });
+    if (await docsGate.isVisible().catch(() => false)) {
+      const acceptBtns = page.locator('button:has-text("He leído")');
+      for (let i = 0; i < await acceptBtns.count(); i++) {
+        await acceptBtns.nth(i).click();
+        await page.waitForTimeout(200);
+      }
+      const confirmBtn = page.locator('button:has-text("Confirmar")');
+      if (await confirmBtn.isVisible().catch(() => false)) {
+        await confirmBtn.click();
+        await page.waitForLoadState('networkidle');
+      }
+    }
+
+    // Click Clasificación tab to reveal pair links
+    const standingsTab = page.locator('input[aria-label="Clasificación"]');
+    await expect(standingsTab).toBeVisible({ timeout: 5000 });
+    await standingsTab.click();
+    await page.waitForTimeout(300);
+
+    // Click the pair1 link from standings
+    const pairLink = page.locator(`a[href="/pair/${data.pair1Id}"]`).first();
+    await expect(pairLink).toBeVisible({ timeout: 5000 });
+    await pairLink.click();
+    await page.waitForLoadState('domcontentloaded');
+
+    expect(page.url()).toContain(`/pair/${data.pair1Id}`);
+    // Captain badge must appear — reverting playerLinkCaptain wiring removes it
+    await expect(page.locator('.badge[title="Capitán"]')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('R-35: CSS grep-gate — HTMX loading spinner rule present in compiled stylesheet', async () => {
+    // Verifies the loading spinner CSS (form.htmx-request button[type="submit"]::after)
+    // is compiled into styles.css. Reverts to input.css removal would fail this.
+    const cssPath = join(__dirname, '../../static/css/styles.css');
+    const css = readFileSync(cssPath, 'utf-8');
+    expect(css, 'styles.css must contain htmx-request spinner rule').toContain('htmx-request');
+  });
+
   test('R-209: pairs create form disables selected player in sibling dropdown', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin/pairs');
