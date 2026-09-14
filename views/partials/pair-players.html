@@ -1,18 +1,18 @@
 {{define "pairPlayers"}}
 {{if .Mode.Admin}}
 <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 min-w-0">
-    {{template "playerCardIdentity" (dict "Mode" .Mode "ID" .Player1ID "Name" .Player1Name "AvatarURL" .Player1Avatar)}}
+    {{template "playerCardIdentity" (dict "Mode" .Mode "ID" .Player1ID "Name" .Player1Name "AvatarURL" .Player1Avatar "IsCaptain" (and .CaptainID (eq .CaptainID .Player1ID)))}}
     <span class="text-base-content/60 text-xs font-bold">&amp;</span>
-    {{template "playerCardIdentity" (dict "Mode" .Mode "ID" .Player2ID "Name" .Player2Name "AvatarURL" .Player2Avatar)}}
+    {{template "playerCardIdentity" (dict "Mode" .Mode "ID" .Player2ID "Name" .Player2Name "AvatarURL" .Player2Avatar "IsCaptain" (and .CaptainID (eq .CaptainID .Player2ID)))}}
 </div>
 {{else}}
 <table class="table table-sm">
     <tbody>
         <tr>
-            <td>{{template "playerLink" (elink .Player1ID .Player1Name)}}</td>
+            <td>{{template "playerLink" (elink .Player1ID .Player1Name)}}{{if and .CaptainID (eq .CaptainID .Player1ID)}} {{template "captainBadge" .}}{{end}}</td>
         </tr>
         <tr>
-            <td>{{template "playerLink" (elink .Player2ID .Player2Name)}}</td>
+            <td>{{template "playerLink" (elink .Player2ID .Player2Name)}}{{if and .CaptainID (eq .CaptainID .Player2ID)}} {{template "captainBadge" .}}{{end}}</td>
         </tr>
     </tbody>
 </table>

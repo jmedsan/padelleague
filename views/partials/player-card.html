@@ -29,6 +29,7 @@
     {{else}}
     <span>{{if .Name}}{{.Name}}{{else}}<span class="opacity-60 italic">Sin nombre</span>{{end}}</span>
     {{end}}
+    {{if .IsCaptain}} {{template "captainBadge" .}}{{end}}
     {{if .Mode.Full}}</h1>{{end}}
     {{if not .Name}}<span class="badge badge-soft-warning badge-sm ml-1">Pendiente</span>{{end}}
     {{if .Roles}}
