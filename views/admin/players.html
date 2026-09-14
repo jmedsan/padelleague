@@ -20,7 +20,7 @@
                 <li class="flex items-center gap-4 px-4 py-2 min-h-[72px]">
                     {{template "avatarCircle" (dict "Mode" (dict "Full" true) "Name" ($p.GetString "display_name") "AvatarURL" (avatarURL $p.Id ($p.GetString "avatar")))}}
                     <div class="flex-1 min-w-0">
-                        <p class="font-medium break-words">{{$p.GetString "display_name"}}{{if contains ($p.GetStringSlice "roles") "admin"}} <span class="badge badge-secondary badge-sm">Admin</span>{{end}}</p>
+                        <p class="font-medium break-words"><a href="/player/{{$p.Id}}" class="link link-hover">{{$p.GetString "display_name"}}</a>{{if contains ($p.GetStringSlice "roles") "admin"}} <span class="badge badge-secondary badge-sm">Admin</span>{{end}}</p>
                         <p class="text-sm opacity-60 truncate">{{$p.GetString "email"}}{{if $p.GetString "phone"}} · {{fmtPhone ($p.GetString "phone")}}{{end}}</p>
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
@@ -68,7 +68,7 @@
                         <td>
                             <div class="flex items-center gap-3">
                                 {{template "avatarCircle" (dict "Mode" (dict "Full" true) "Name" (.GetString "display_name") "AvatarURL" (avatarURL .Id (.GetString "avatar")))}}
-                                <label for="edit-player-{{.Id}}" class="link link-hover font-medium">{{.GetString "display_name"}}</label>
+                                <a href="/player/{{.Id}}" class="link link-hover font-medium">{{.GetString "display_name"}}</a>
                             </div>
                         </td>
                         <td class="max-w-[14rem] truncate" title="{{.GetString "email"}}">{{.GetString "email"}}</td>
