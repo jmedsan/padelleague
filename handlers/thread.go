@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -628,9 +627,6 @@ func (h *ThreadHandler) dispatchProposalAction(e *core.RequestEvent, match, msg 
 
 	msgType := msg.GetString("type")
 	if msgType == "result_submission" {
-		if err := h.checkCaptainGuard(e, match); err != nil {
-			return err
-		}
 		switch action {
 		case "accept":
 			return h.acceptResultProposal(e, match, msg, proposerPairID)
@@ -764,20 +760,6 @@ func (h *ThreadHandler) WithdrawProposal(e *core.RequestEvent) error {
 	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
 }
 
-// checkCaptainGuard returns an alertError if the request is not from an admin
-// and the user is not their pair's captain. Returns nil when the check passes.
-func (h *ThreadHandler) checkCaptainGuard(e *core.RequestEvent, match *core.Record) error {
-	if isEffectiveAdmin(e) {
-		return nil
-	}
-	if err := league.IsCaptainGuarded(h.app, e.Auth.Id, match); err != nil {
-		if errors.Is(err, league.ErrNotCaptain) {
-			return alertError(e, "Solo el capitán puede registrar resultados")
-		}
-		return alertError(e, "Error interno")
-	}
-	return nil
-}
 
 func (h *ThreadHandler) notifyWithdrawal(match *core.Record, myTeam int, authorID string) {
 	rivalPairID := match.GetString("pair1")

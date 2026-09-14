@@ -37,13 +37,13 @@ type playerRoute struct {
 func playerRoutes() []playerRoute {
 	return []playerRoute{
 		{
-			name: "match submit", captainGated: true, withdrawnBlocked: true,
+			name: "match submit", captainGated: false, withdrawnBlocked: true,
 			setup: func(_ testing.TB, _ core.App, f guardFixture) (string, string) {
 				return "/match/" + f.match.Id + "/submit", "scores=6-3+6-4"
 			},
 		},
 		{
-			name: "match correct", captainGated: true, withdrawnBlocked: true,
+			name: "match correct", captainGated: false, withdrawnBlocked: true,
 			setup: func(tb testing.TB, app core.App, f guardFixture) (string, string) {
 				f.match.Set("submitted_by", f.actor)
 				f.match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
@@ -53,7 +53,7 @@ func playerRoutes() []playerRoute {
 			},
 		},
 		{
-			name: "match report-unplayed", captainGated: true, withdrawnBlocked: true,
+			name: "match report-unplayed", captainGated: false, withdrawnBlocked: true,
 			setup: func(_ testing.TB, _ core.App, f guardFixture) (string, string) {
 				return "/match/" + f.match.Id + "/report-unplayed", "reason=no+vinieron"
 			},
@@ -86,7 +86,7 @@ func playerRoutes() []playerRoute {
 			},
 		},
 		{
-			name: "thread respond to result proposal", captainGated: true, withdrawnBlocked: true,
+			name: "thread respond to result proposal", captainGated: false, withdrawnBlocked: true,
 			setup: func(tb testing.TB, app core.App, f guardFixture) (string, string) {
 				msg := makeResultProposal(tb, app, f.match.Id, f.rival, "6-3 6-4")
 				return fmt.Sprintf("/match/%s/thread/proposal/%s/respond", f.match.Id, msg.Id), "action=accept"
