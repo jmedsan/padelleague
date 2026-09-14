@@ -496,6 +496,9 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 	if err != nil {
 		return alertError(e, "No eres participante de este partido")
 	}
+	if err := league.IsCaptainGuarded(h.app, userID, match); err != nil {
+		return mapActionGateError(e, err)
+	}
 	if err := checkNotWithdrawn(h.app, e, match, reporterTeam); err != nil {
 		return err
 	}

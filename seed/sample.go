@@ -143,6 +143,7 @@ func createSamplePairs(txApp core.App, playerIDs []string) ([]string, error) {
 		rec.Set("name", name)
 		rec.Set("player1", playerIDs[i*2])
 		rec.Set("player2", playerIDs[i*2+1])
+		rec.Set("captain", playerIDs[i*2])
 		if err := txApp.Save(rec); err != nil {
 			return nil, fmt.Errorf("create pair %s: %w", name, err)
 		}

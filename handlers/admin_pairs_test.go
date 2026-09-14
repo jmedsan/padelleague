@@ -77,7 +77,7 @@ func TestAdminPairsCreate(t *testing.T) {
 		u1 := makeUserTB(tb, app, "PairP1", "")
 		u2 := makeUserTB(tb, app, "PairP2", "")
 		u1ID, u2ID = u1.Id, u2.Id
-		s.Body = strings.NewReader("name=NuevaPair&player1=" + u1.Id + "&player2=" + u2.Id)
+		s.Body = strings.NewReader("name=NuevaPair&player1=" + u1.Id + "&player2=" + u2.Id + "&captain=" + u1.Id)
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -109,7 +109,7 @@ func TestAdminPairsCreate_WithCompetition(t *testing.T) {
 		u2 := makeUserTB(tb, app, "CompPairP2", "")
 		comp := makeCompetitionTB(tb, app, "league", nil)
 		compID = comp.Id
-		s.Body = strings.NewReader("name=CompPair&player1=" + u1.Id + "&player2=" + u2.Id + "&competition_id=" + comp.Id)
+		s.Body = strings.NewReader("name=CompPair&player1=" + u1.Id + "&player2=" + u2.Id + "&captain=" + u1.Id + "&competition_id=" + comp.Id)
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs

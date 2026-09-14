@@ -63,8 +63,7 @@
             </div>
             <div class="form-control w-full mt-3">
                 <label class="label" for="edit-captain"><span class="label-text font-medium">Capitán</span></label>
-                <select name="captain" id="edit-captain" class="select select-bordered w-full">
-                    <option value="">Sin capitán</option>
+                <select name="captain" id="edit-captain" class="select select-bordered w-full" required>
                 </select>
             </div>
             <div class="modal-action">
@@ -105,8 +104,7 @@
             </div>
             <div class="form-control w-full mt-3">
                 <label class="label" for="create-pair-captain"><span class="label-text font-medium">Capitán</span></label>
-                <select id="create-pair-captain" name="captain" class="select select-bordered w-full">
-                    <option value="">Sin capitán</option>
+                <select id="create-pair-captain" name="captain" class="select select-bordered w-full" required>
                 </select>
             </div>
             <div class="modal-action">
@@ -134,7 +132,7 @@ function rebuildCaptainSelect(captainSel, p1Sel, p2Sel, currentCaptain) {
     var p1Val = p1Sel.value, p2Val = p2Sel.value;
     var p1Text = p1Sel.options[p1Sel.selectedIndex] ? p1Sel.options[p1Sel.selectedIndex].text : '';
     var p2Text = p2Sel.options[p2Sel.selectedIndex] ? p2Sel.options[p2Sel.selectedIndex].text : '';
-    captainSel.innerHTML = '<option value="">Sin capitán</option>';
+    captainSel.innerHTML = '';
     if (p1Val) captainSel.innerHTML += '<option value="' + p1Val + '">' + p1Text + '</option>';
     if (p2Val) captainSel.innerHTML += '<option value="' + p2Val + '">' + p2Text + '</option>';
     if (currentCaptain) captainSel.value = currentCaptain;

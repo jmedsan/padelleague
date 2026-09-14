@@ -215,7 +215,7 @@ async function createPair(name: string, player1Id: string, player2Id: string, to
   const resp = await fetch(`${BASE_URL}/api/collections/pairs/records`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': token },
-    body: JSON.stringify({ name, player1: player1Id, player2: player2Id }),
+    body: JSON.stringify({ name, player1: player1Id, player2: player2Id, captain: player1Id }),
   });
   const data = await resp.json();
   return data.id;

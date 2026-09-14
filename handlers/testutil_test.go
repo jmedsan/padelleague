@@ -347,6 +347,7 @@ func makePairTB(t testing.TB, app core.App, name string) *core.Record {
 	record.Set("name", name)
 	record.Set("player1", u1.Id)
 	record.Set("player2", u2.Id)
+	record.Set("captain", u1.Id)
 	require.NoError(t, app.Save(record))
 	return record
 }
