@@ -554,8 +554,10 @@ test.describe('R-178: presentation quality guards', () => {
     await standingsTab.click();
     await page.waitForTimeout(300);
 
-    // Click the pair1 link from standings
-    const pairLink = page.locator(`a[href="/pair/${data.pair1Id}"]`).first();
+    // Click the pair1 link from the visible standings table (mobile and desktop
+    // each render a separate table, hidden via CSS at the other breakpoint).
+    const standingsTableClass = isMobile(page) ? 'table.table-sm' : 'table.table-zebra';
+    const pairLink = page.locator(`${standingsTableClass} a[href="/pair/${data.pair1Id}"]`).first();
     await expect(pairLink).toBeVisible({ timeout: 5000 });
     await pairLink.click();
     await page.waitForLoadState('domcontentloaded');
