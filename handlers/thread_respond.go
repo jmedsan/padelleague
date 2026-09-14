@@ -11,7 +11,7 @@ import (
 
 func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Record, _ string) error {
 	existing := findRecordsLogged(h.app, "acceptProposal: find accepted proposals", RecordQuery{
-		Collection: "match_messages", Filter: "match = {:mid} && proposal_status = 'accepted'",
+		Collection: "match_messages", Filter: "match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'accepted'",
 		Params: map[string]any{"mid": match.Id},
 	})
 	if len(existing) > 0 && match.GetString("status") != league.StatusScheduled {
