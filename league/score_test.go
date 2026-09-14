@@ -238,8 +238,8 @@ func TestScoreNote(t *testing.T) {
 	}{
 		{"complete", "6-3 6-4", ""},
 		{"rule win", "6-3 4-1", ""},
-		{"no winner", "6-3 2-1", "No terminado · se reanudará otro día"},
-		{"no winner 1-1", "6-3 3-6", "No terminado · se reanudará otro día"},
+		{"no winner", "6-3 2-1", "No terminado · se reanuda desde 6-3 0-0"},
+		{"no winner 1-1", "6-3 3-6", "No terminado · se reanuda desde 6-3 3-6 0-0"},
 		{"walkover", "WO", ""},
 		{"garbage", "garbage", ""},
 	}

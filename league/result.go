@@ -61,7 +61,11 @@ func ScoreNote(score string) string {
 		return ""
 	}
 	if sc.Sets1+sc.Sets2 > 0 || sc.Open != nil {
-		return "No terminado · se reanudará otro día"
+		carried := serializeCompletedSets(sc)
+		if carried != "" {
+			return fmt.Sprintf("No terminado · se reanuda desde %s 0-0", carried)
+		}
+		return "No terminado"
 	}
 	return ""
 }
@@ -246,8 +250,7 @@ func (svc *Service) applyNotWon(c resultCtx, sc Score) error {
 
 	svc.logResultAccepted(c)
 
-	setNum := len(sc.CompletedSets) + 1
-	systemText := fmt.Sprintf("Partido no terminado: %s · se reanuda desde %s, %d.º set desde 0-0", c.scores, c.out.Carried, setNum)
+	systemText := fmt.Sprintf("Partido no terminado: %s · se reanuda desde %s 0-0", c.scores, c.out.Carried)
 	AddSystemResultEvent(svc.app, c.fresh.Id, systemText)
 
 	svc.notifyNotWon(c.fresh, c.out, c.compName, sc)
@@ -315,8 +318,7 @@ func (svc *Service) notifyAccepted(fresh *core.Record, in AcceptedResult, compNa
 }
 
 func (svc *Service) notifyNotWon(fresh *core.Record, out Outcome, compName string, sc Score) {
-	setNum := len(sc.CompletedSets) + 1
-	body := fmt.Sprintf("Se reanuda desde %s (%d.º set desde 0-0). Acordad una nueva fecha · %s.", out.Carried, setNum, compName)
+	body := fmt.Sprintf("Se reanuda desde %s 0-0. Acordad una nueva fecha · %s.", out.Carried, compName)
 	for _, pid := range []string{fresh.GetString("pair1"), fresh.GetString("pair2")} {
 		players := PlayersForPair(svc.app, pid)
 		svc.notifier.NotifyPlayers(players, Notification{
