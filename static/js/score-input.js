@@ -179,8 +179,7 @@
             // No rule win — show "No terminado" with resume info
             var carried = getCarriedString(si);
             if (carried) {
-                var setNum = carried.split(/\s+/).length + 1;
-                el.textContent = 'No terminado · se reanudará desde ' + carried + ', ' + setNum + '.º set desde 0-0';
+                el.textContent = 'No terminado · se reanuda desde ' + carried + ' 0-0';
             } else {
                 el.textContent = 'No terminado';
             }
@@ -192,8 +191,7 @@
         if (isComplete(si)) {
             var carried = getCarriedString(si);
             if (carried) {
-                var setNum = carried.split(/\s+/).length + 1;
-                el.textContent = 'No terminado · se reanudará desde ' + carried + ', ' + setNum + '.º set desde 0-0';
+                el.textContent = 'No terminado · se reanuda desde ' + carried + ' 0-0';
             } else {
                 el.textContent = 'No terminado';
             }
