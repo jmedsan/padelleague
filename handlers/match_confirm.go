@@ -29,8 +29,7 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 		return err
 	}
 
-	myTeam, err := h.validateCorrectionAccess(e, match)
-	if err != nil {
+	if _, err := h.validateCorrectionAccess(e, match); err != nil {
 		return err
 	}
 
@@ -63,7 +62,7 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 		slog.Error("save match after correction", "match", match.Id, "err", err)
 	}
 
-	h.notifyCorrectionToRival(match, myTeam)
+	h.notifyCorrectionToRival(match, e.Auth.Id)
 	return redirectHX(e, "/match/"+id)
 }
 
@@ -107,17 +106,16 @@ func (h *MatchHandler) validateCorrectionInput(e *core.RequestEvent, match *core
 	return scores, nil
 }
 
-func (h *MatchHandler) notifyCorrectionToRival(match *core.Record, myTeam int) {
+func (h *MatchHandler) notifyCorrectionToRival(match *core.Record, correctorID string) {
+	team, _ := league.PlayerTeam(h.app, correctorID, match)
 	rivalPairID := match.GetString("pair2")
-	myPairID := match.GetString("pair1")
-	if myTeam == 2 {
+	if team == 2 {
 		rivalPairID = match.GetString("pair1")
-		myPairID = match.GetString("pair2")
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	myPairName := league.PairNames(h.app, []string{myPairID})[myPairID]
+	correctorLabel := pairPlayerLabel(h.app, correctorID, match)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
-	h.notifier.NotifyPlayers(rivalPlayers, league.NotifResultCorrected(match.Id, myPairName, compName))
+	h.notifier.NotifyPlayers(rivalPlayers, league.NotifResultCorrected(match.Id, correctorLabel, compName))
 }
 
 func (h *MatchHandler) validateCorrectionWindow(e *core.RequestEvent, match *core.Record) error {

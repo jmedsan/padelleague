@@ -402,7 +402,7 @@ func (sc *sampleCtx) createTimeline(match *core.Record, f sampleFixture) error {
 	proposer, _ := firstPlayerOfPair(sc.app, match.GetString("pair1"))
 	responder, _ := firstPlayerOfPair(sc.app, match.GetString("pair2"))
 
-	venues := []string{"Padel 360", "Wurko", "Tecnisur"}
+	venues := []string{"Padel 360", "Wurko Pádel", "Tecnisur"}
 	venue := venues[(f.round+f.idx)%len(venues)]
 	playDate := roundBase.Add(3 * 24 * time.Hour)
 

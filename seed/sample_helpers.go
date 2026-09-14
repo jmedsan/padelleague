@@ -109,7 +109,7 @@ func createSampleVenues(txApp core.App) error {
 	}
 	venues := []struct{ name, address string }{
 		{"Padel 360", "Calle del Deporte 12"},
-		{"Wurko", "Avda. de la Constitución 45"},
+		{"Wurko Pádel", "Avda. de la Constitución 45"},
 		{"Tecnisur", "Camino Viejo de Málaga 8"},
 		{"Padelcan", ""},
 		{"Punta del Rey", ""},
