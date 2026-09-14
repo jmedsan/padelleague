@@ -3,8 +3,10 @@ package league
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -275,17 +277,58 @@ func RoundArrangeDate(comp *core.Record, roundNumber int) (time.Time, bool) {
 	return RecommendedArrangeBy(start, end, rounds, roundNumber)
 }
 
-// Madrid is the league's display timezone.
-var Madrid = func() *time.Location {
-	loc, err := time.LoadLocation("Europe/Madrid")
+const defaultTimezone = "Atlantic/Canary"
+
+var (
+	tzOnce sync.Once
+	tzLoc  *time.Location
+)
+
+// Timezone returns the league's display timezone, read once from the
+// league_timezone field in app_settings. Falls back to Atlantic/Canary.
+func Timezone(app core.App) *time.Location {
+	tzOnce.Do(func() {
+		tzLoc = loadLeagueTimezone(app)
+	})
+	return tzLoc
+}
+
+func loadLeagueTimezone(app core.App) *time.Location {
+	fallback := mustLoadLocation(defaultTimezone)
+	if app == nil {
+		return fallback
+	}
+	recs, err := app.FindRecordsByFilter("app_settings", "", "", 1, 0, nil)
+	if err != nil || len(recs) == 0 {
+		return fallback
+	}
+	name := recs[0].GetString("league_timezone")
+	if name == "" {
+		return fallback
+	}
+	loc, err := time.LoadLocation(name)
+	if err != nil {
+		slog.Error("league: invalid league_timezone", "value", name, "err", err)
+		return fallback
+	}
+	return loc
+}
+
+func mustLoadLocation(name string) *time.Location {
+	loc, err := time.LoadLocation(name)
 	if err != nil {
 		return time.UTC
 	}
 	return loc
-}()
+}
+
+// Madrid is the league's display timezone (Atlantic/Canary).
+// Deprecated: call Timezone(app) to read from settings; this var
+// is kept for call sites not yet threaded with app.
+var Madrid = mustLoadLocation(defaultTimezone)
 
 // MatchStart combines the match's date and time fields into an instant in
-// Europe/Madrid. ok is false when either field is missing or malformed.
+// the league timezone. ok is false when either field is missing or malformed.
 func MatchStart(m *core.Record) (time.Time, bool) {
 	dateStr := m.GetString("date")
 	if dateStr == "" {
