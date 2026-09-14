@@ -252,7 +252,7 @@ func (h *PublicHandler) buildNextMatch(m *core.Record, c *core.Record, playerPai
 	}
 	nm.EffectiveDate = resolveMatchDate(m, c)
 	if !nm.EffectiveDate.IsZero() {
-		nm.DisplayDate = nm.EffectiveDate.Format(time.RFC3339)
+		nm.DisplayDate = nm.EffectiveDate.Format("2006-01-02 15:04")
 	}
 	return nm
 }
