@@ -260,7 +260,7 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 		}
 		recipients = league.PlayersForPair(h.app, rivalPairID)
 	}
-	authorName := league.PlayerName(h.app, e.Auth.Id)
+	authorName := pairPlayerLabel(h.app, e.Auth.Id, match)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	h.notifier.NotifyPlayers(recipients, league.NotifNewMessage(matchID, authorName, content, compName))
 
@@ -341,7 +341,7 @@ func (h *ThreadHandler) notifyProposal(match *core.Record, myTeam int, n proposa
 		rivalPairID = match.GetString("pair2")
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	authorName := league.PlayerName(h.app, n.AuthorID)
+	authorName := pairPlayerLabel(h.app, n.AuthorID, match)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	notif := league.NotifProposal(league.ProposalParams{
 		MatchID: match.Id, AuthorName: authorName, Date: n.Date, Time: n.Time, VenueName: n.VenueName, CompName: compName,
@@ -563,7 +563,7 @@ func (h *ThreadHandler) rejectAndCreateCounter(p counterProposalParams) error {
 		if err := txApp.Save(p.msg); err != nil {
 			return err
 		}
-		proposerName := league.PlayerName(h.app, p.msg.GetString("author"))
+		proposerName := pairPlayerLabel(h.app, p.msg.GetString("author"), p.match)
 		detail := "rechazó la propuesta de " + proposerName
 		if p.text != "" {
 			detail += ": " + p.text
@@ -613,7 +613,7 @@ func (h *ThreadHandler) notifyRejectAndCounter(n counterNotice) {
 	}
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	compName := league.CompetitionName(h.app, n.match.GetString("competition"))
-	notif := league.NotifProposalRejected(n.match.Id, league.PlayerName(h.app, n.e.Auth.Id), notifReason, compName)
+	notif := league.NotifProposalRejected(n.match.Id, pairPlayerLabel(h.app, n.e.Auth.Id, n.match), notifReason, compName)
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
 	h.notifyProposal(n.match, n.myTeam, proposalNotice{AuthorID: n.e.Auth.Id, Date: n.pd.Date, Time: n.pd.Time, VenueName: n.pd.VenueName})
 }
@@ -767,7 +767,7 @@ func (h *ThreadHandler) notifyWithdrawal(match *core.Record, myTeam int, authorI
 		rivalPairID = match.GetString("pair2")
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	authorName := league.PlayerName(h.app, authorID)
+	authorName := pairPlayerLabel(h.app, authorID, match)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	h.notifier.NotifyPlayers(rivalPlayers, league.NotifProposalWithdrawn(match.Id, authorName, compName))
 }

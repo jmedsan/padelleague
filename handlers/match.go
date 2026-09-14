@@ -654,7 +654,7 @@ func (h *MatchHandler) notifyCancelDate(ci cancelInfo) {
 	within24h := ci.within24h
 	id := match.Id
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
-	playerName := league.PlayerName(h.app, cancellerID)
+	playerName := pairPlayerLabel(h.app, cancellerID, match)
 
 	rivalPairID := match.GetString("pair2")
 	if cancellerTeam == 2 {
