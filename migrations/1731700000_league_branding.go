@@ -29,7 +29,7 @@ func init() {
 		if len(records) > 0 {
 			rec := records[0]
 			rec.Set("league_name", "Liga Dale Fuerte")
-			rec.Set("league_tagline", "A La Pelota")
+			rec.Set("league_tagline", "A La Bola")
 			if err := app.Save(rec); err != nil {
 				return err
 			}

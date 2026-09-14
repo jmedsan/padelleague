@@ -140,7 +140,7 @@ func TestBranding_OutOfContext_UsesLeagueDefaultsAndGlobalSponsorsOnly(t *testin
 	bd := Branding(app, "")
 
 	assert.Equal(t, "Liga Dale Fuerte", bd.Name)
-	assert.Equal(t, "A La Pelota", bd.Tagline)
+	assert.Equal(t, "A La Bola", bd.Tagline)
 	assert.Nil(t, bd.Competition)
 	require.Len(t, bd.Sponsors, 1)
 	assert.Equal(t, "Decathlon", bd.Sponsors[0].Name)
