@@ -33,7 +33,7 @@ func TestRenderEmail_UsesLeagueNameAndTagline(t *testing.T) {
 	got := RenderEmail(app, "", "<p>body</p>")
 
 	assert.Contains(t, got, "Liga Dale Fuerte")
-	assert.Contains(t, got, "A La Pelota")
+	assert.Contains(t, got, "A La Bola")
 	assert.Contains(t, got, "<p>body</p>")
 	assert.Contains(t, got, testAppURL)
 }

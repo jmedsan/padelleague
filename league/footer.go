@@ -51,7 +51,7 @@ func Branding(app core.App, compID string) BrandingData {
 	settings := leagueSettingsRecord(app)
 	bd := BrandingData{
 		Name:    settingsString(settings, "league_name", "Liga Dale Fuerte"),
-		Tagline: settingsString(settings, "league_tagline", "A La Pelota"),
+		Tagline: settingsString(settings, "league_tagline", "A La Bola"),
 		LogoURL: leagueLogoURL(settings),
 	}
 
