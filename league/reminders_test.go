@@ -30,7 +30,9 @@ func TestMatchStart(t *testing.T) {
 		{"empty time", "2026-09-14", "", false, 0, 0},
 		{"bad time format", "2026-09-14", "18h", false, 0, 0},
 		{"bad time rejects partial", "2026-09-14", "18:0x", false, 0, 0},
-		{"DST spring forward normalized", "2026-03-29", "02:30", true, 3, 30},
+		// Atlantic/Canary springs forward at 01:00 → 02:00; 02:30 is after the
+		// gap so it is a valid wall-clock time (hour stays 2, not normalized to 3).
+		{"DST spring forward valid", "2026-03-29", "02:30", true, 2, 30},
 	}
 
 	for _, tt := range tests {
@@ -239,7 +241,7 @@ func TestMatchStart_DST(t *testing.T) {
 
 	got, ok := MatchStart(m)
 	require.True(t, ok)
-	assert.Equal(t, "Europe/Madrid", got.Location().String())
+	assert.Equal(t, "Atlantic/Canary", got.Location().String())
 	expected := time.Date(2026, 3, 29, 2, 30, 0, 0, Madrid)
 	assert.True(t, got.Equal(expected), "got %v, want %v", got, expected)
 }

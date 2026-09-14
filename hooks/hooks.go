@@ -302,6 +302,8 @@ func registerSearch(app core.App, idx *search.Index) {
 	}
 	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		idx.Rebuild(app)
+		tz := league.Timezone(app)
+		slog.Info("startup", "league_timezone", tz.String())
 		return e.Next()
 	})
 	app.Cron().MustAdd("search-index-rebuild", "*/10 * * * *", func() {
