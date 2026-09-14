@@ -138,10 +138,10 @@ test.describe('season simulation', () => {
     await acceptBtn.waitFor({ timeout: 20000 });
     await clickAndWaitForHxRedirect(page, acceptBtn);
 
-    // Step 3: Verify the match shows the "Se reanudará desde" carried-sets badge.
+    // Step 3: Verify the match shows the "Se reanuda desde" carried-sets badge.
     await page.goto(`/match/${matchId}`);
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.locator('.badge', { hasText: 'Se reanudará desde' })).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('.badge', { hasText: 'Se reanuda desde' })).toBeVisible({ timeout: 20000 });
 
     // Step 4: Schedule the resumed match via API.
     await page.request.patch(`/api/collections/matches/records/${matchId}`, {
@@ -170,13 +170,13 @@ test.describe('season simulation', () => {
     await finalAcceptBtn.waitFor({ timeout: 20000 });
     await clickAndWaitForHxRedirect(page, finalAcceptBtn);
 
-    // Step 7: Match finalized — Confirmado badge, full score visible, no reanudará badge.
+    // Step 7: Match finalized — Confirmado badge, full score visible, no reanuda badge.
     await page.goto(`/match/${matchId}`);
     await page.waitForLoadState('networkidle');
     await expect(page.locator('#thread-details').getByText('Confirmado')).toBeVisible({ timeout: 20000 });
     // The full score 6-4 2-6 6-3 (Pair A wins 2-1)
     await expect(page.getByText('6-4 2-6 6-3').first()).toBeVisible({ timeout: 15000 });
-    await expect(page.locator('.badge', { hasText: 'Se reanudará' })).not.toBeVisible();
+    await expect(page.locator('.badge', { hasText: 'Se reanuda' })).not.toBeVisible();
   });
 
   test('playoff seeds from the league, advances, and crowns the expected champion', async ({ page }) => {

@@ -341,7 +341,7 @@ test.describe('match thread', () => {
     // Match goes back to pending with carried_sets — resume badge appears
     await page.goto(`/match/${matchId}`);
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.locator('.badge', { hasText: 'Se reanudará desde 6-3' })).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.badge', { hasText: 'Se reanuda desde 6-3' })).toBeVisible({ timeout: 10000 });
 
     // Schedule the resumed match via API
     await suPatch(`/api/collections/matches/records/${matchId}`, {
@@ -373,7 +373,7 @@ test.describe('match thread', () => {
     await page.waitForLoadState('networkidle');
     await expect(page.locator('#thread-details').getByText('Confirmado')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('6-3 3-6 6-4').first()).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.badge', { hasText: 'Se reanudará' })).not.toBeVisible();
+    await expect(page.locator('.badge', { hasText: 'Se reanuda' })).not.toBeVisible();
   });
 
   test('player can withdraw own pending scheduling proposal', async ({ page }) => {
