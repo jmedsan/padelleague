@@ -211,6 +211,7 @@
 
 {{define "schedProposalPanel"}}
 {{if .SchedProposals}}
+{{$venues := .Venues}}
 <div class="space-y-3">
     <h3 class="font-bold text-sm uppercase tracking-wider opacity-50">Propuestas de fecha</h3>
     {{range .SchedProposals}}
@@ -284,7 +285,7 @@
                     <label class="label py-1"><span class="label-text text-sm">Club</span></label>
                     <select name="venue_id" class="select select-bordered select-sm w-full" required onchange="this.closest('form').querySelector('.counter-venue-text').classList.toggle('hidden', this.value !== 'otro')">
                         <option value="">Selecciona...</option>
-                        {{range .Venues}}<option value="{{.Id}}">{{.GetString "name"}}</option>{{end}}
+                        {{range $venues}}<option value="{{.Id}}">{{.GetString "name"}}</option>{{end}}
                         <option value="otro">Otro</option>
                     </select>
                 </div>
