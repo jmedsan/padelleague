@@ -86,8 +86,8 @@
         <tbody>
             {{range .Data.Pairs}}
             <tr>
-                <td><span class="inline-flex items-center gap-1">{{template "pairLink" (elink .Pair.Id (.Pair.GetString "name"))}}{{if and .CaptainID (eq .CaptainID ($.Data.User.Id))}}{{template "captainBadge" .}}{{end}}</span></td>
-                <td><span class="inline-flex items-center gap-1">{{template "playerLink" (elink .PartnerID .Partner)}}{{if and .CaptainID (eq .CaptainID .PartnerID)}}{{template "captainBadge" .}}{{end}}</span></td>
+                <td>{{template "pairLink" (dict "ID" .Pair.Id "Name" (.Pair.GetString "name") "IsMine" false "IsCaptain" (and .CaptainID (eq .CaptainID ($.Data.User.Id))))}}</td>
+                <td>{{template "playerLinkCaptain" (dict "ID" .PartnerID "Name" .Partner "IsCaptain" (and .CaptainID (eq .CaptainID .PartnerID)))}}</td>
             </tr>
             {{end}}
         </tbody>
