@@ -77,15 +77,13 @@ func (h *PairHandler) PairsCreate(e *core.RequestEvent) error {
 	}
 
 	record := core.NewRecord(col)
-	captain := e.Request.FormValue("captain")
-	if captain != player1 && captain != player2 {
-		return alertError(e, "El capitán debe ser uno de los dos jugadores")
-	}
-
 	record.Set("name", name)
 	record.Set("player1", player1)
 	record.Set("player2", player2)
-	record.Set("captain", captain)
+
+	if err := applyPairCaptain(e, record); err != nil {
+		return err
+	}
 
 	compID := e.Request.FormValue("competition_id")
 	if err := h.app.RunInTransaction(func(txApp core.App) error {

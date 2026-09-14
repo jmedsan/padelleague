@@ -242,20 +242,7 @@ func matchParticipantUserIDs(app core.App, match *core.Record) []string {
 }
 
 func pairPlayerLabel(app core.App, userID string, match *core.Record) string {
-	if userID == "" {
-		return ""
-	}
-	name := league.PlayerName(app, userID)
-	team, err := league.PlayerTeam(app, userID, match)
-	if err != nil || team == 0 {
-		return name
-	}
-	pairID := match.GetString("pair1")
-	if team == 2 {
-		pairID = match.GetString("pair2")
-	}
-	pairName := league.PairNames(app, []string{pairID})[pairID]
-	return fmt.Sprintf("%s (%s)", name, pairName)
+	return league.PairPlayerLabel(app, userID, match)
 }
 
 func userPairName(app core.App, userID string, match *core.Record, pairNames map[string]string) string {

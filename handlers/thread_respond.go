@@ -23,7 +23,7 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 		return alertError(e, "Error al leer los datos de la propuesta")
 	}
 
-	proposerName := league.PlayerName(h.app, msg.GetString("author"))
+	proposerName := pairPlayerLabel(h.app, msg.GetString("author"), match)
 	if err := h.app.RunInTransaction(func(txApp core.App) error {
 		for _, old := range existing {
 			old.Set("proposal_status", "superseded")
@@ -60,7 +60,7 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	notif := league.NotifProposalAccepted(league.ProposalAcceptedParams{
-		MatchID: match.Id, ResponderName: league.PlayerName(h.app, e.Auth.Id), Date: pd.Date, Time: pd.Time, CompName: compName,
+		MatchID: match.Id, ResponderName: pairPlayerLabel(h.app, e.Auth.Id, match), Date: pd.Date, Time: pd.Time, CompName: compName,
 	})
 	allPlayers := league.MatchPlayersExcluding(h.app, match, e.Auth.Id)
 	h.notifier.NotifyPlayers(allPlayers, notif)
@@ -78,7 +78,7 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 		return alertError(e, "Error al rechazar la propuesta")
 	}
 
-	proposerName := league.PlayerName(h.app, msg.GetString("author"))
+	proposerName := pairPlayerLabel(h.app, msg.GetString("author"), match)
 	detail := "rechazó la propuesta de " + proposerName
 	if text != "" {
 		detail += ": " + text
@@ -100,7 +100,7 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 	} else if reason == "Otro" {
 		notifReason = ""
 	}
-	notif := league.NotifProposalRejected(match.Id, league.PlayerName(h.app, e.Auth.Id), notifReason, compName)
+	notif := league.NotifProposalRejected(match.Id, pairPlayerLabel(h.app, e.Auth.Id, match), notifReason, compName)
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
 	return nil
 }
@@ -154,13 +154,9 @@ func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *c
 	}
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
-	counterPairID := match.GetString("pair1")
-	if counterPairID == proposerPairID {
-		counterPairID = match.GetString("pair2")
-	}
-	counterPairName := league.PairNames(h.app, []string{counterPairID})[counterPairID]
+	counterLabel := pairPlayerLabel(h.app, e.Auth.Id, match)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
-	notif := league.NotifResultCountered(match.Id, counterPairName, compName)
+	notif := league.NotifResultCountered(match.Id, counterLabel, compName)
 	h.notifier.NotifyPlayers(proposerPlayers, notif)
 	return nil
 }

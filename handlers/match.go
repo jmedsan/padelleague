@@ -304,13 +304,9 @@ func (h *MatchHandler) notifyResultProposal(match *core.Record, userID, scores s
 		rivalPairID = match.GetString("pair1")
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	myPairID := match.GetString("pair1")
-	if myTeam == 2 {
-		myPairID = match.GetString("pair2")
-	}
-	myPairName := league.PairNames(h.app, []string{myPairID})[myPairID]
+	submitterLabel := pairPlayerLabel(h.app, userID, match)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
-	n := league.NotifResultSubmitted(match.Id, myPairName, compName, scores)
+	n := league.NotifResultSubmitted(match.Id, submitterLabel, compName, scores)
 	h.notifier.NotifyPlayers(rivalPlayers, n)
 
 	participants := matchParticipantUserIDs(h.app, match)
@@ -702,7 +698,7 @@ func (h *MatchHandler) supersedeAcceptedProposals(matchID string) {
 }
 
 // playerActionGate validates that userID can perform a score action on match:
-// they must be a participant, their pair's captain if one is set, and not withdrawn.
+// they must be a participant and not withdrawn.
 // Returns (team, nil) on success, or a sentinel error for the caller to map.
 func playerActionGate(app core.App, userID string, match *core.Record) (int, error) {
 	team, err := league.PlayerTeam(app, userID, match)

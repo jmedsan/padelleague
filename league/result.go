@@ -137,7 +137,7 @@ func (svc *Service) ApplyAcceptedResult(match *core.Record, in AcceptedResult) (
 			return Outcome{}, err
 		}
 	} else {
-		if err := svc.applyNotWon(c, sc); err != nil {
+		if err := svc.applyNotWon(c); err != nil {
 			return Outcome{}, err
 		}
 	}
@@ -207,7 +207,7 @@ func (svc *Service) applyWon(c resultCtx) error {
 	return nil
 }
 
-func (svc *Service) applyNotWon(c resultCtx, sc Score) error {
+func (svc *Service) applyNotWon(c resultCtx) error {
 	err := svc.app.RunInTransaction(func(txApp core.App) error {
 		freshProp, err := txApp.FindRecordById("match_messages", c.in.Proposal.Id)
 		if err != nil {
@@ -253,7 +253,7 @@ func (svc *Service) applyNotWon(c resultCtx, sc Score) error {
 	systemText := fmt.Sprintf("Partido no terminado: %s · se reanuda desde %s 0-0", c.scores, c.out.Carried)
 	AddSystemResultEvent(svc.app, c.fresh.Id, systemText)
 
-	svc.notifyNotWon(c.fresh, c.out, c.compName, sc)
+	svc.notifyNotWon(c.fresh, c.out, c.compName)
 	return nil
 }
 
@@ -295,14 +295,12 @@ func (svc *Service) notifyAccepted(fresh *core.Record, in AcceptedResult, compNa
 			return
 		}
 		proposerPairID := pair1ID
-		responderPairID := pair2ID
 		if team == 1 {
 			proposerPairID = pair2ID
-			responderPairID = pair1ID
 		}
-		responderName := PairNames(svc.app, []string{responderPairID})[responderPairID]
+		responderLabel := PairPlayerLabel(svc.app, in.ActorID, fresh)
 		proposerPlayers := PlayersForPair(svc.app, proposerPairID)
-		svc.notifier.NotifyPlayers(proposerPlayers, NotifResultConfirmed(fresh.Id, responderName, compName))
+		svc.notifier.NotifyPlayers(proposerPlayers, NotifResultConfirmed(fresh.Id, responderLabel, compName))
 		return
 	}
 
@@ -317,7 +315,7 @@ func (svc *Service) notifyAccepted(fresh *core.Record, in AcceptedResult, compNa
 	}
 }
 
-func (svc *Service) notifyNotWon(fresh *core.Record, out Outcome, compName string, _ Score) {
+func (svc *Service) notifyNotWon(fresh *core.Record, out Outcome, compName string) {
 	body := fmt.Sprintf("Se reanuda desde %s 0-0. Acordad una nueva fecha · %s.", out.Carried, compName)
 	for _, pid := range []string{fresh.GetString("pair1"), fresh.GetString("pair2")} {
 		players := PlayersForPair(svc.app, pid)

@@ -93,6 +93,24 @@ func PlayerName(app core.App, userID string) string {
 	return user.GetString("display_name")
 }
 
+// PairPlayerLabel returns "PlayerName (PairName)" for a user in a match context.
+func PairPlayerLabel(app core.App, userID string, match *core.Record) string {
+	if userID == "" {
+		return ""
+	}
+	name := PlayerName(app, userID)
+	team, err := PlayerTeam(app, userID, match)
+	if err != nil || team == 0 {
+		return name
+	}
+	pairID := match.GetString("pair1")
+	if team == 2 {
+		pairID = match.GetString("pair2")
+	}
+	pairName := PairNames(app, []string{pairID})[pairID]
+	return fmt.Sprintf("%s (%s)", name, pairName)
+}
+
 // PlayerAvatarURL returns the served URL for a user's avatar, or "" if the
 // user has none set.
 func PlayerAvatarURL(app core.App, userID string) string {
