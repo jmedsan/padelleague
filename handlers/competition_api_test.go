@@ -885,12 +885,14 @@ func TestPairsUpdateRejectsOverlappingPlayer(t *testing.T) {
 		pair1.Set("name", "Pair1")
 		pair1.Set("player1", playerA.Id)
 		pair1.Set("player2", playerB.Id)
+		pair1.Set("captain", playerA.Id)
 		require.NoError(tb, app.Save(pair1))
 
 		pair2 := core.NewRecord(col)
 		pair2.Set("name", "Pair2")
 		pair2.Set("player1", playerC.Id)
 		pair2.Set("player2", playerD.Id)
+		pair2.Set("captain", playerC.Id)
 		require.NoError(tb, app.Save(pair2))
 
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair1, pair2})
@@ -900,7 +902,9 @@ func TestPairsUpdateRejectsOverlappingPlayer(t *testing.T) {
 		playerCID = playerC.Id
 
 		s.URL = "/admin/pairs/" + pair2.Id
-		s.Body = strings.NewReader("player1=" + playerA.Id)
+		// Send playerD as captain (valid after player1 swap), so captain check passes
+		// and overlap check fires.
+		s.Body = strings.NewReader("player1=" + playerA.Id + "&captain=" + playerD.Id)
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -937,12 +941,14 @@ func TestPairsUpdateAllowsNonOverlapping(t *testing.T) {
 		pair1.Set("name", "Pair1")
 		pair1.Set("player1", playerA.Id)
 		pair1.Set("player2", playerB.Id)
+		pair1.Set("captain", playerA.Id)
 		require.NoError(tb, app.Save(pair1))
 
 		pair2 := core.NewRecord(col)
 		pair2.Set("name", "Pair2")
 		pair2.Set("player1", playerC.Id)
 		pair2.Set("player2", playerD.Id)
+		pair2.Set("captain", playerC.Id)
 		require.NoError(tb, app.Save(pair2))
 
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair1, pair2})

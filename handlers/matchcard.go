@@ -175,7 +175,7 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 	c.HasPendingSchedulingProposal = hasPendingSchedulingProposal(app, match.Id)
 	c.CanSubmit = league.IsPreScore(status) && team > 0 && !captainBlocked
 	c.CanEdit = league.IsPreScore(status) && team > 0
-	c.CanWalkover = canReportUnplayed(status, team, match.GetString("date"))
+	c.CanWalkover = canReportUnplayed(status, team, match.GetString("date")) && !captainBlocked
 	c.CanCorrect = isSubmitter && canCorrectNow(match, status) && !captainBlocked
 	switch team {
 	case 1:

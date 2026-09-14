@@ -32,6 +32,7 @@ type PairInfo struct {
 	Pair      *core.Record
 	Partner   string
 	PartnerID string
+	CaptainID string
 }
 
 // PlayerData bundles a player's identity, pairs, and shared stats for the profile page.
@@ -64,6 +65,7 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 			Pair:      p,
 			Partner:   league.PlayerName(h.app, partnerID),
 			PartnerID: partnerID,
+			CaptainID: p.GetString("captain"),
 		})
 		pairIDs = append(pairIDs, p.Id)
 	}

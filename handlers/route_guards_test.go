@@ -53,7 +53,7 @@ func playerRoutes() []playerRoute {
 			},
 		},
 		{
-			name: "match report-unplayed", captainGated: false, withdrawnBlocked: true,
+			name: "match report-unplayed", captainGated: true, withdrawnBlocked: true,
 			setup: func(_ testing.TB, _ core.App, f guardFixture) (string, string) {
 				return "/match/" + f.match.Id + "/report-unplayed", "reason=no+vinieron"
 			},

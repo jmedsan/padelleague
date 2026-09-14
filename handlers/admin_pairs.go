@@ -77,12 +77,15 @@ func (h *PairHandler) PairsCreate(e *core.RequestEvent) error {
 	}
 
 	record := core.NewRecord(col)
+	captain := e.Request.FormValue("captain")
+	if captain != player1 && captain != player2 {
+		return alertError(e, "El capitán debe ser uno de los dos jugadores")
+	}
+
 	record.Set("name", name)
 	record.Set("player1", player1)
 	record.Set("player2", player2)
-	if captain := e.Request.FormValue("captain"); captain == player1 || captain == player2 {
-		record.Set("captain", captain)
-	}
+	record.Set("captain", captain)
 
 	compID := e.Request.FormValue("competition_id")
 	if err := h.app.RunInTransaction(func(txApp core.App) error {
@@ -136,14 +139,19 @@ func (h *PairHandler) PairsUpdate(e *core.RequestEvent) error {
 		return alertError(e, "Los dos jugadores deben ser diferentes")
 	}
 
-	// Update captain: must be one of the two players, or clear if empty/invalid.
 	captain := e.Request.FormValue("captain")
 	p1 := pair.GetString("player1")
 	p2 := pair.GetString("player2")
-	if captain == p1 || captain == p2 {
-		pair.Set("captain", captain)
+	if captain == "" {
+		// Preserve existing captain if still valid for the current players.
+		existing := pair.GetString("captain")
+		if existing != p1 && existing != p2 {
+			return alertError(e, "El capitán debe ser uno de los dos jugadores")
+		}
+	} else if captain != p1 && captain != p2 {
+		return alertError(e, "El capitán debe ser uno de los dos jugadores")
 	} else {
-		pair.Set("captain", "")
+		pair.Set("captain", captain)
 	}
 
 	comps, _ := h.app.FindRecordsByFilter("competitions",

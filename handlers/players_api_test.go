@@ -96,7 +96,7 @@ func TestPairsCreate(t *testing.T) {
 		admin := makeAdminUser(tb, app)
 		p1 := makeUserTB(tb, app, "Pair P1", "")
 		p2 := makeUserTB(tb, app, "Pair P2", "")
-		s.Body = strings.NewReader(fmt.Sprintf("name=Test+Pair&player1=%s&player2=%s", p1.Id, p2.Id))
+		s.Body = strings.NewReader(fmt.Sprintf("name=Test+Pair&player1=%s&player2=%s&captain=%s", p1.Id, p2.Id, p1.Id))
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
