@@ -9,10 +9,10 @@
 <table class="table table-sm">
     <tbody>
         <tr>
-            <td>{{template "playerLink" (elink .Player1ID .Player1Name)}}{{if and .CaptainID (eq .CaptainID .Player1ID)}} {{template "captainBadge" .}}{{end}}</td>
+            <td><span class="inline-flex items-center gap-1">{{template "playerLink" (elink .Player1ID .Player1Name)}}{{if and .CaptainID (eq .CaptainID .Player1ID)}}{{template "captainBadge" .}}{{end}}</span></td>
         </tr>
         <tr>
-            <td>{{template "playerLink" (elink .Player2ID .Player2Name)}}{{if and .CaptainID (eq .CaptainID .Player2ID)}} {{template "captainBadge" .}}{{end}}</td>
+            <td><span class="inline-flex items-center gap-1">{{template "playerLink" (elink .Player2ID .Player2Name)}}{{if and .CaptainID (eq .CaptainID .Player2ID)}}{{template "captainBadge" .}}{{end}}</span></td>
         </tr>
     </tbody>
 </table>

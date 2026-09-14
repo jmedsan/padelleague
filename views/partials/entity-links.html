@@ -1,4 +1,4 @@
 {{define "pairLink"}}<span class="inline-flex items-center gap-1"><a href="{{entityURL "pair" .ID}}" class="link link-hover">{{.Name}}</a>{{if .IsMine}} <span class="badge badge-sm badge-primary leading-none">Tú</span>{{end}}</span>{{end}}
 {{define "pairLinkText"}}<span class="inline-flex items-center gap-1">{{.Name}}{{if .IsMine}} <span class="badge badge-sm badge-primary leading-none">Tú</span>{{end}}</span>{{end}}
 {{define "playerLink"}}<a href="{{entityURL "player" .ID}}" class="link link-hover">{{.Name}}</a>{{end}}
-{{define "captainBadge"}}<span class="badge badge-outline badge-xs align-middle" title="Capitán">C</span>{{end}}
+{{define "captainBadge"}}<span class="badge badge-sm badge-primary leading-none" title="Capitán">C</span>{{end}}
