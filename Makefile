@@ -17,8 +17,8 @@ build: css version-file
 version-file:
 	@echo "$(VERSION)" > VERSION
 
-run: stop
-	go run . serve
+run: stop build
+	./padelleague serve
 
 migrate:
 	go run . migrate up
