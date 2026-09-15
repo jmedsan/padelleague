@@ -17,7 +17,7 @@ build: css version-file
 version-file:
 	@echo "$(VERSION)" > VERSION
 
-run:
+run: stop
 	go run . serve
 
 migrate:
