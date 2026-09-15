@@ -3,6 +3,16 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --footer-logo-h: 4rem;
+    --footer-sponsor-h: 4rem;
+  }
+  @media (min-width: 640px) {
+    :root {
+      --footer-logo-h: 5rem;
+      --footer-sponsor-h: 4.5rem;
+    }
+  }
   html {
     font-size: 18px;
   }
