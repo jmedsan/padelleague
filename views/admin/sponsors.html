@@ -24,7 +24,7 @@
         </div>
         <div class="flex items-center gap-1 flex-none">
             <span class="tooltip tooltip-left" data-tip="Editar">
-                <button class="btn btn-ghost btn-sm gap-1 px-2" aria-label="Editar" onclick="document.getElementById('modal-edit-sponsor-{{.Id}}').showModal()">
+                <button class="btn btn-ghost btn-sm gap-1 px-2" aria-label="Editar" hx-get="/admin/sponsors/{{.Id}}/edit" hx-target="#edit-sponsor-body" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful)document.getElementById('edit-sponsor-modal').showModal()">
                     <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" /></svg>
                     <span class="hidden [@media(hover:none)]:inline">Editar</span>
                 </button>
@@ -44,39 +44,11 @@
     {{end}}
 </div>
 
-{{range .Sponsors}}
-<dialog id="modal-edit-sponsor-{{.Id}}" class="modal modal-bottom sm:modal-middle">
-    <div class="modal-box">
-        <form method="dialog"><button class="btn btn-ghost btn-sm btn-circle absolute right-2 top-2" aria-label="cerrar">&times;</button></form>
-        <h3 class="text-lg font-bold mb-4">Editar patrocinador</h3>
-        <form hx-post="/admin/sponsors/{{.Id}}" hx-target="body" enctype="multipart/form-data">
-            <div class="form-control">
-                <label class="label" for="edit-sponsor-name-{{.Id}}"><span class="label-text font-medium">Nombre</span></label>
-                <input type="text" id="edit-sponsor-name-{{.Id}}" name="name" value="{{.GetString "name"}}" class="input input-bordered w-full" required>
-            </div>
-            <div class="form-control mt-3">
-                <label class="label"><span class="label-text font-medium">Logo</span></label>
-                <input type="file" name="logo" class="file-input file-input-bordered w-full" accept="image/*">
-                <p class="text-sm opacity-50 mt-1">Deja vacío para conservar el logo actual.</p>
-            </div>
-            <div class="form-control mt-3">
-                <label class="label" for="edit-sponsor-url-{{.Id}}"><span class="label-text font-medium">Enlace</span></label>
-                <input type="url" id="edit-sponsor-url-{{.Id}}" name="url" value="{{.GetString "url"}}" class="input input-bordered w-full" placeholder="https://...">
-            </div>
-            <div class="form-control mt-3">
-                <label class="label cursor-pointer justify-start gap-3">
-                    <input type="checkbox" name="is_global" class="checkbox checkbox-sm" {{if .GetBool "is_global"}}checked{{end}}>
-                    <span class="label-text">Global (visible en todas las competiciones)</span>
-                </label>
-            </div>
-            <div class="modal-action">
-                <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Guardar</button>
-            </div>
-        </form>
-    </div>
+
+<dialog id="edit-sponsor-modal" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box" id="edit-sponsor-body"></div>
     <form method="dialog" class="modal-backdrop"><button>cerrar</button></form>
 </dialog>
-{{end}}
 
 <dialog id="modal-create-sponsor" class="modal modal-bottom sm:modal-middle">
     <div class="modal-box">

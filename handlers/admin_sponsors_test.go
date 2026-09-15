@@ -26,11 +26,13 @@ import (
 func setupSponsorRoutes(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	setupFullAdminRoutes(tb, app, e)
 
-	sponsor := NewAdminSponsorHandler(app, render.New(os.DirFS(".."), "", true).Page)
+	r := render.New(os.DirFS(".."), "", true)
+	sponsor := NewAdminSponsorHandler(app, r.Page, r.Partial)
 	g := e.Router.Group("/admin")
 	g.BindFunc(requireAuthTest)
 	g.BindFunc(requireAdminTest)
 	g.GET("/sponsors", sponsor.Sponsors)
+	g.GET("/sponsors/{id}/edit", sponsor.SponsorEditForm)
 	g.POST("/sponsors", sponsor.SponsorsCreate)
 	g.POST("/sponsors/{id}", sponsor.SponsorsUpdate)
 	g.POST("/sponsors/{id}/delete", sponsor.SponsorsDelete)
@@ -455,6 +457,47 @@ func TestSponsorDetachKeepsOtherComps(t *testing.T) {
 		assert.NotContains(tb, c1.GetStringSlice("sponsors"), sponsorID)
 		c2, _ := app.FindRecordById("competitions", comp2ID)
 		assert.Contains(tb, c2.GetStringSlice("sponsors"), sponsorID)
+	}
+	s.Test(t)
+}
+
+func TestSponsorEditFormReturnsFragment(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/sponsors/{id}/edit returns edit form fragment",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Editar patrocinador", "name"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSponsorRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		sp := makeSponsorTB(tb, app, "TestSponsor", "https://test.com")
+		s.URL = "/admin/sponsors/" + sp.Id + "/edit"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "TestSponsor", "form contains sponsor name")
+	}
+	s.Test(t)
+}
+
+func TestSponsorEditFormUnknownID(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/sponsors/{id}/edit returns 404 for unknown sponsor",
+		Method:          http.MethodGet,
+		URL:             "/admin/sponsors/nonexistent123456/edit",
+		ExpectedStatus:  404,
+		ExpectedContent: []string{"resource"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSponsorRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
 	}
 	s.Test(t)
 }
