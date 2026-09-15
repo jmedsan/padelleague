@@ -274,3 +274,48 @@ func TestPreCreateSendsOnboardingEmail(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestPlayerEditFormReturnsFragment(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/players/{id}/edit returns edit form fragment",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Editar jugador", "display_name"},
+	}
+	var playerID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		player := makeUserTB(tb, app, "EditTarget", "edittarget@test.local")
+		playerID = player.Id
+		s.URL = "/admin/players/" + player.Id + "/edit"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "EditTarget", "form contains player name")
+		assert.Contains(tb, body, "edittarget@test.local", "form contains player email")
+		assert.Contains(tb, body, playerID, "form posts to the correct player")
+	}
+	s.Test(t)
+}
+
+func TestPlayerEditFormUnknownID(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/players/{id}/edit returns 404 for unknown player",
+		Method:          http.MethodGet,
+		URL:             "/admin/players/nonexistent123456/edit",
+		ExpectedStatus:  404,
+		ExpectedContent: []string{"resource"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAdminRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}

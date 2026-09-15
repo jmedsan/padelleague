@@ -29,10 +29,10 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" /></svg>
                             </button>
                             <ul tabindex="0" class="dropdown-content menu bg-base-300 rounded-box shadow-lg z-30 w-48 p-2 text-sm">
-                                <li><label for="edit-player-{{$p.Id}}">
+                                <li><button hx-get="/admin/players/{{$p.Id}}/edit" hx-target="#edit-player-body" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful)document.getElementById('edit-player-modal').showModal()">
                                     <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" /></svg>
                                     Editar
-                                </label></li>
+                                </button></li>
                                 <li><button hx-post="/admin/players/{{$p.Id}}/regenerate-link" hx-target="#regen-result" hx-swap="innerHTML" hx-confirm="¿Regenerar el enlace de contraseña? El enlace anterior dejará de funcionar." data-confirm-ok="Regenerar" hx-disabled-elt="this">
                                     <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" /></svg>
                                     Regenerar contraseña
@@ -85,9 +85,9 @@
                         </td>
                         <td class="text-right">
                             <span class="tooltip tooltip-left" data-tip="Editar">
-                                <label for="edit-player-{{.Id}}" class="btn btn-ghost btn-sm btn-circle" aria-label="Editar">
+                                <button class="btn btn-ghost btn-sm btn-circle" aria-label="Editar" hx-get="/admin/players/{{.Id}}/edit" hx-target="#edit-player-body" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful)document.getElementById('edit-player-modal').showModal()">
                                     <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" /></svg>
-                                </label>
+                                </button>
                             </span>
                             <span class="tooltip tooltip-left" data-tip="Regenerar contraseña">
                                 <button class="btn btn-ghost btn-sm btn-circle" aria-label="Regenerar contraseña" hx-post="/admin/players/{{.Id}}/regenerate-link" hx-target="#regen-result" hx-swap="innerHTML" hx-confirm="¿Regenerar el enlace de contraseña? El enlace anterior dejará de funcionar." data-confirm-ok="Regenerar" hx-disabled-elt="this">
@@ -108,75 +108,11 @@
 
 <div id="regen-result" class="mt-4" aria-live="polite"></div>
 
-{{range .Players}}
-<input type="checkbox" id="edit-player-{{.Id}}" class="modal-toggle">
-<div class="modal" role="dialog">
-    <div class="modal-box">
-        <h3 class="text-lg font-bold mb-4">Editar jugador</h3>
-        <form hx-post="/admin/players/{{.Id}}" hx-target="body">
-            <div class="form-control">
-                <label class="label" for="edit-player-name-{{.Id}}">
-                    <span class="label-text text-sm font-medium">Nombre</span>
-                </label>
-                <input type="text" id="edit-player-name-{{.Id}}" name="display_name" class="input input-bordered w-full" value="{{.GetString "display_name"}}" required>
-            </div>
-            <div class="form-control mt-3">
-                <label class="label" for="edit-player-gender-{{.Id}}">
-                    <span class="label-text text-sm font-medium">Género</span>
-                </label>
-                <select id="edit-player-gender-{{.Id}}" name="gender" class="select select-bordered w-full" required>
-                    <option value="male" {{if eq (.GetString "gender") "male"}}selected{{end}}>Hombre</option>
-                    <option value="female" {{if eq (.GetString "gender") "female"}}selected{{end}}>Mujer</option>
-                </select>
-            </div>
-            <div class="form-control mt-3">
-                <label class="label">
-                    <span class="label-text text-sm font-medium">Roles</span>
-                </label>
-                <label class="label cursor-pointer justify-start gap-2">
-                    <input type="checkbox" name="roles" value="admin" class="checkbox checkbox-sm"
-                        {{if contains (.GetStringSlice "roles") "admin"}}checked{{end}}>
-                    <span class="label-text">Admin</span>
-                </label>
-                <label class="label cursor-pointer justify-start gap-2">
-                    <input type="checkbox" name="roles" value="player" class="checkbox checkbox-sm"
-                        {{if contains (.GetStringSlice "roles") "player"}}checked{{end}}>
-                    <span class="label-text">Jugador</span>
-                </label>
-            </div>
-            <div class="form-control mt-3">
-                <label class="label" for="edit-player-email-{{.Id}}">
-                    <span class="label-text text-sm font-medium">Email</span>
-                </label>
-                <input type="email" id="edit-player-email-{{.Id}}" name="email" class="input input-bordered w-full opacity-60" value="{{.GetString "email"}}" disabled>
-            </div>
-            <div class="form-control mt-3">
-                <label class="label" for="edit-player-phone-{{.Id}}">
-                    <span class="label-text text-sm font-medium">Teléfono</span>
-                </label>
-                <input type="tel" id="edit-player-phone-{{.Id}}" name="phone" inputmode="tel" class="input input-bordered w-full" value="{{fmtPhone (.GetString "phone")}}" placeholder="+34 612 345 678">
-            </div>
-            <div class="form-control mt-3">
-                <label class="label" for="edit-player-note-{{.Id}}">
-                    <span class="label-text text-sm font-medium">Nota admin</span>
-                </label>
-                <textarea id="edit-player-note-{{.Id}}" name="admin_note" class="textarea textarea-bordered w-full" rows="2">{{.GetString "admin_note"}}</textarea>
-            </div>
-            {{with .GetString "registration_note"}}
-            <div class="form-control w-full mt-3">
-                <label class="label"><span class="label-text font-medium">Nota del jugador</span></label>
-                <p class="text-sm opacity-70 whitespace-pre-line bg-base-200 rounded-lg p-3">{{.}}</p>
-            </div>
-            {{end}}
-            <div class="modal-action">
-                <label for="edit-player-{{.Id}}" class="btn btn-ghost">Cancelar</label>
-                <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Guardar</button>
-            </div>
-        </form>
-    </div>
-    <label class="modal-backdrop" for="edit-player-{{.Id}}"></label>
-</div>
-{{end}}
+
+<dialog id="edit-player-modal" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box" id="edit-player-body"></div>
+    <form method="dialog" class="modal-backdrop"><button>Cerrar</button></form>
+</dialog>
 
 <input type="checkbox" id="precreate-modal" class="modal-toggle">
 <div class="modal" role="dialog">

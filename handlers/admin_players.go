@@ -19,14 +19,15 @@ import (
 
 // AdminPlayerHandler handles admin player management.
 type AdminPlayerHandler struct {
-	app        core.App
-	notifier   *notify.Notifier
-	renderPage RenderFunc
+	app           core.App
+	notifier      *notify.Notifier
+	renderPage    RenderFunc
+	renderPartial RenderFunc
 }
 
 // NewAdminPlayerHandler creates an AdminPlayerHandler with the given dependencies.
-func NewAdminPlayerHandler(app core.App, notifier *notify.Notifier, renderPage RenderFunc) *AdminPlayerHandler {
-	return &AdminPlayerHandler{app: app, notifier: notifier, renderPage: renderPage}
+func NewAdminPlayerHandler(app core.App, notifier *notify.Notifier, renderPage, renderPartial RenderFunc) *AdminPlayerHandler {
+	return &AdminPlayerHandler{app: app, notifier: notifier, renderPage: renderPage, renderPartial: renderPartial}
 }
 
 // Players renders the admin players management page.
@@ -42,6 +43,18 @@ func (h *AdminPlayerHandler) Players(e *core.RequestEvent) error {
 		"Players":        players,
 		"PendingInvites": len(pendingInvites),
 		"Mode":           AdminSummary,
+	})
+}
+
+// PlayerEditForm returns the edit form fragment for a single player.
+func (h *AdminPlayerHandler) PlayerEditForm(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	user, err := h.app.FindRecordById("users", id)
+	if err != nil {
+		return e.NotFoundError("", nil)
+	}
+	return h.renderPartial(e, "admin/player-edit-form.html", map[string]any{
+		"Player": user,
 	})
 }
 

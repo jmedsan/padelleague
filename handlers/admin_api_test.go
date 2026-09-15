@@ -32,7 +32,7 @@ func setupAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 
 	comp := NewCompetitionHandler(app, svc, notifier, r.Page)
 	dash := NewCompetitionDashboardHandler(app, r.Page)
-	player := NewAdminPlayerHandler(app, notifier, r.Page)
+	player := NewAdminPlayerHandler(app, notifier, r.Page, r.Partial)
 	pair := NewPairHandler(app, r.Page)
 	inv := NewInvitationHandler(app, r.Page)
 	venue := NewVenueHandler(app, r.Page)
@@ -46,6 +46,7 @@ func setupAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.GET("/competitions/{id}", comp.Detail)
 	g.POST("/competitions", comp.Create)
 	g.GET("/players", player.Players)
+	g.GET("/players/{id}/edit", player.PlayerEditForm)
 	g.POST("/players/pre-create", player.PlayerPreCreate)
 	g.POST("/players/{id}", player.PlayerUpdate)
 	g.POST("/players/{id}/regenerate-link", player.RegenerateLink)

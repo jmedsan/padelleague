@@ -1,0 +1,61 @@
+<h3 class="text-lg font-bold mb-4">Editar jugador</h3>
+<form hx-post="/admin/players/{{.Player.Id}}" hx-target="body">
+    <div class="form-control">
+        <label class="label" for="edit-player-name">
+            <span class="label-text text-sm font-medium">Nombre</span>
+        </label>
+        <input type="text" id="edit-player-name" name="display_name" class="input input-bordered w-full" value="{{.Player.GetString "display_name"}}" required>
+    </div>
+    <div class="form-control mt-3">
+        <label class="label" for="edit-player-gender">
+            <span class="label-text text-sm font-medium">Género</span>
+        </label>
+        <select id="edit-player-gender" name="gender" class="select select-bordered w-full" required>
+            <option value="male" {{if eq (.Player.GetString "gender") "male"}}selected{{end}}>Hombre</option>
+            <option value="female" {{if eq (.Player.GetString "gender") "female"}}selected{{end}}>Mujer</option>
+        </select>
+    </div>
+    <div class="form-control mt-3">
+        <label class="label">
+            <span class="label-text text-sm font-medium">Roles</span>
+        </label>
+        <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="roles" value="admin" class="checkbox checkbox-sm"
+                {{if contains (.Player.GetStringSlice "roles") "admin"}}checked{{end}}>
+            <span class="label-text">Admin</span>
+        </label>
+        <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="roles" value="player" class="checkbox checkbox-sm"
+                {{if contains (.Player.GetStringSlice "roles") "player"}}checked{{end}}>
+            <span class="label-text">Jugador</span>
+        </label>
+    </div>
+    <div class="form-control mt-3">
+        <label class="label" for="edit-player-email">
+            <span class="label-text text-sm font-medium">Email</span>
+        </label>
+        <input type="email" id="edit-player-email" name="email" class="input input-bordered w-full opacity-60" value="{{.Player.GetString "email"}}" disabled>
+    </div>
+    <div class="form-control mt-3">
+        <label class="label" for="edit-player-phone">
+            <span class="label-text text-sm font-medium">Teléfono</span>
+        </label>
+        <input type="tel" id="edit-player-phone" name="phone" inputmode="tel" class="input input-bordered w-full" value="{{fmtPhone (.Player.GetString "phone")}}" placeholder="+34 612 345 678">
+    </div>
+    <div class="form-control mt-3">
+        <label class="label" for="edit-player-note">
+            <span class="label-text text-sm font-medium">Nota admin</span>
+        </label>
+        <textarea id="edit-player-note" name="admin_note" class="textarea textarea-bordered w-full" rows="2">{{.Player.GetString "admin_note"}}</textarea>
+    </div>
+    {{with .Player.GetString "registration_note"}}
+    <div class="form-control w-full mt-3">
+        <label class="label"><span class="label-text font-medium">Nota del jugador</span></label>
+        <p class="text-sm opacity-70 whitespace-pre-line bg-base-200 rounded-lg p-3">{{.}}</p>
+    </div>
+    {{end}}
+    <div class="modal-action">
+        <form method="dialog"><button class="btn btn-ghost">Cancelar</button></form>
+        <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Guardar</button>
+    </div>
+</form>
