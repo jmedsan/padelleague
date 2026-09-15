@@ -418,6 +418,9 @@ func (ix *Index) Rebuild(app core.App) {
 		slog.Error("search: rebuild produced zero entries, keeping previous index")
 		return
 	}
+	prev := ix.Len()
 	ix.Replace(entries)
-	slog.Info("search: index rebuilt", "entries", len(entries))
+	if len(entries) != prev {
+		slog.Info("search: index rebuilt", "entries", len(entries), "prev", prev)
+	}
 }

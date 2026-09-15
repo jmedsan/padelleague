@@ -306,7 +306,7 @@ func registerSearch(app core.App, idx *search.Index) {
 		slog.Info("startup", "league_timezone", tz.String())
 		return e.Next()
 	})
-	app.Cron().MustAdd("search-index-rebuild", "*/10 * * * *", func() {
+	app.Cron().MustAdd("search-index-rebuild", "*/30 * * * *", func() {
 		idx.Rebuild(app)
 	})
 	for _, collection := range []string{"users", "pairs", "competitions", "matches", "venues", "announcements"} {

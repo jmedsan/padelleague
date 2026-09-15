@@ -74,6 +74,13 @@ func NewEntry(e Entry) Entry {
 	return e
 }
 
+// Len returns the current number of entries in the index.
+func (ix *Index) Len() int {
+	ix.mu.RLock()
+	defer ix.mu.RUnlock()
+	return len(ix.entries)
+}
+
 // Replace atomically swaps the index entries.
 func (ix *Index) Replace(entries []Entry) {
 	ix.mu.Lock()
