@@ -564,20 +564,24 @@ func TestAPIDocumentListBlockedForPlayer(t *testing.T) {
 	s.Test(t)
 }
 
-func TestAPIDocumentViewBlockedForPlayer(t *testing.T) {
+func TestAPIDocumentViewAllowedForPlayer(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "player cannot view a document via the record API",
+		Name:            "player can view document metadata but file field is hidden",
 		Method:          http.MethodGet,
-		ExpectedStatus:  403,
-		ExpectedContent: []string{"superusers"},
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Reglamento"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
 		doc := makeDocumentTB(tb, app, "Reglamento", true, "https://example.com/rules.pdf")
 		s.URL = "/api/collections/documents/records/" + doc.Id
 		player := makeUserTB(tb, app, "Player", "")
 		s.Headers = authHeaders(tb, player)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, `"file":""`, "protected file field hidden from API")
 	}
 	s.Test(t)
 }
