@@ -18,49 +18,11 @@
     {{end}}
 </div>
 
-{{range .Documents}}
-<dialog id="modal-edit-doc-{{.Id}}" class="modal modal-bottom sm:modal-middle">
-    <div class="modal-box">
-        <form method="dialog"><button class="btn btn-ghost btn-sm btn-circle absolute right-2 top-2" aria-label="cerrar">&times;</button></form>
-        <h3 class="text-lg font-bold mb-4">Editar documento</h3>
-        <form hx-post="/admin/documents/{{.Id}}" hx-target="body" enctype="multipart/form-data">
-            <div class="form-control">
-                <label class="label" for="edit-doc-title-{{.Id}}"><span class="label-text font-medium">Título</span></label>
-                <input type="text" id="edit-doc-title-{{.Id}}" name="title" value="{{.GetString "title"}}" class="input input-bordered w-full" required>
-            </div>
-            <div class="form-control mt-3">
-                <label class="label" for="edit-doc-description-{{.Id}}"><span class="label-text font-medium">Descripción</span></label>
-                <textarea id="edit-doc-description-{{.Id}}" name="description" class="textarea textarea-bordered w-full" rows="2">{{.GetString "description"}}</textarea>
-            </div>
-            <div class="form-control mt-3">
-                <label class="label" for="edit-doc-url-{{.Id}}"><span class="label-text font-medium">Enlace</span></label>
-                <input type="url" id="edit-doc-url-{{.Id}}" name="url" value="{{.GetString "url"}}" class="input input-bordered w-full" placeholder="https://...">
-            </div>
-            <div class="form-control mt-3">
-                <label class="label"><span class="label-text font-medium">Archivo</span></label>
-                <input type="file" name="file" class="file-input file-input-bordered w-full">
-                {{if .GetString "file"}}<p class="text-sm opacity-50 mt-1">Archivo actual: <a href="/api/files/documents/{{.Id}}/{{.GetString "file"}}" target="_blank" rel="noopener" class="link link-primary">{{.GetString "file"}}</a></p>{{end}}
-            </div>
-            <div class="form-control mt-3">
-                <label class="label cursor-pointer justify-start gap-3">
-                    <input type="checkbox" name="is_default" class="checkbox checkbox-sm" {{if .GetBool "is_default"}}checked{{end}} />
-                    <span class="label-text">Predeterminado (se adjunta a nuevas competiciones)</span>
-                </label>
-            </div>
-            <div class="form-control">
-                <label class="label cursor-pointer justify-start gap-3">
-                    <input type="checkbox" name="is_mandatory" class="checkbox checkbox-sm" {{if .GetBool "is_mandatory"}}checked{{end}} />
-                    <span class="label-text">Obligatorio (bloquea hasta que el jugador lo lea)</span>
-                </label>
-            </div>
-            <div class="modal-action">
-                <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Guardar</button>
-            </div>
-        </form>
-    </div>
+
+<dialog id="edit-doc-modal" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box" id="edit-doc-body"></div>
     <form method="dialog" class="modal-backdrop"><button>cerrar</button></form>
 </dialog>
-{{end}}
 
 <dialog id="modal-create-doc" class="modal modal-bottom sm:modal-middle">
     <div class="modal-box">

@@ -35,7 +35,7 @@ func setupAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	player := NewAdminPlayerHandler(app, notifier, r.Page, r.Partial)
 	pair := NewPairHandler(app, r.Page)
 	inv := NewInvitationHandler(app, r.Page)
-	venue := NewVenueHandler(app, r.Page)
+	venue := NewVenueHandler(app, r.Page, r.Partial)
 	payments := NewCompetitionPaymentsHandler(app, notifier)
 
 	g := e.Router.Group("/admin")
@@ -57,6 +57,7 @@ func setupAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.POST("/invitations", inv.InvitationsCreate)
 	g.POST("/invitations/{id}/revoke", inv.InvitationsRevoke)
 	g.GET("/venues", venue.Venues)
+	g.GET("/venues/{id}/edit", venue.VenueEditForm)
 	g.POST("/venues", venue.VenuesCreate)
 	g.POST("/venues/{id}", venue.VenuesUpdate)
 	g.POST("/venues/{id}/delete", venue.VenuesDelete)

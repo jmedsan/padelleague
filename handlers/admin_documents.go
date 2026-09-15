@@ -11,13 +11,26 @@ import (
 
 // DocumentHandler handles admin document library management.
 type DocumentHandler struct {
-	app        core.App
-	renderPage RenderFunc
+	app           core.App
+	renderPage    RenderFunc
+	renderPartial RenderFunc
 }
 
 // NewDocumentHandler creates a DocumentHandler with the given dependencies.
-func NewDocumentHandler(app core.App, renderPage RenderFunc) *DocumentHandler {
-	return &DocumentHandler{app: app, renderPage: renderPage}
+func NewDocumentHandler(app core.App, renderPage, renderPartial RenderFunc) *DocumentHandler {
+	return &DocumentHandler{app: app, renderPage: renderPage, renderPartial: renderPartial}
+}
+
+// DocumentEditForm returns the edit form fragment for a single document.
+func (h *DocumentHandler) DocumentEditForm(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	doc, err := h.app.FindRecordById("documents", id)
+	if err != nil {
+		return e.NotFoundError("", nil)
+	}
+	return h.renderPartial(e, "admin/document-edit-form.html", map[string]any{
+		"Document": doc,
+	})
 }
 
 // Documents renders the admin documents library page.

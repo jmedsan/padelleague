@@ -9,13 +9,14 @@ import (
 
 // VenueHandler handles admin venue management.
 type VenueHandler struct {
-	app        core.App
-	renderPage RenderFunc
+	app           core.App
+	renderPage    RenderFunc
+	renderPartial RenderFunc
 }
 
 // NewVenueHandler creates a VenueHandler with the given dependencies.
-func NewVenueHandler(app core.App, renderPage RenderFunc) *VenueHandler {
-	return &VenueHandler{app: app, renderPage: renderPage}
+func NewVenueHandler(app core.App, renderPage, renderPartial RenderFunc) *VenueHandler {
+	return &VenueHandler{app: app, renderPage: renderPage, renderPartial: renderPartial}
 }
 
 // Venues renders the admin venues management page.
@@ -26,6 +27,18 @@ func (h *VenueHandler) Venues(e *core.RequestEvent) error {
 	return h.renderPage(e, "admin/venues.html", map[string]any{
 		"PageTitle": "Clubes",
 		"Venues":    venues,
+	})
+}
+
+// VenueEditForm returns the edit form fragment for a single venue.
+func (h *VenueHandler) VenueEditForm(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	venue, err := h.app.FindRecordById("venues", id)
+	if err != nil {
+		return e.NotFoundError("", nil)
+	}
+	return h.renderPartial(e, "admin/venue-edit-form.html", map[string]any{
+		"Venue": venue,
 	})
 }
 

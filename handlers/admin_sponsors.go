@@ -12,13 +12,26 @@ import (
 // AdminSponsorHandler handles admin sponsor library management and
 // per-competition attach/detach.
 type AdminSponsorHandler struct {
-	app        core.App
-	renderPage RenderFunc
+	app           core.App
+	renderPage    RenderFunc
+	renderPartial RenderFunc
 }
 
 // NewAdminSponsorHandler creates an AdminSponsorHandler with the given dependencies.
-func NewAdminSponsorHandler(app core.App, renderPage RenderFunc) *AdminSponsorHandler {
-	return &AdminSponsorHandler{app: app, renderPage: renderPage}
+func NewAdminSponsorHandler(app core.App, renderPage, renderPartial RenderFunc) *AdminSponsorHandler {
+	return &AdminSponsorHandler{app: app, renderPage: renderPage, renderPartial: renderPartial}
+}
+
+// SponsorEditForm returns the edit form fragment for a single sponsor.
+func (h *AdminSponsorHandler) SponsorEditForm(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	record, err := h.app.FindRecordById("sponsors", id)
+	if err != nil {
+		return e.NotFoundError("", nil)
+	}
+	return h.renderPartial(e, "admin/sponsor-edit-form.html", map[string]any{
+		"Sponsor": record,
+	})
 }
 
 // Sponsors renders the admin sponsors library page.

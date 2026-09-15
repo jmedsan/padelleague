@@ -22,11 +22,13 @@ import (
 func setupDocRoutes(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	setupFullAdminRoutes(tb, app, e)
 
-	doc := NewDocumentHandler(app, render.New(os.DirFS(".."), "", true).Page)
+	r := render.New(os.DirFS(".."), "", true)
+	doc := NewDocumentHandler(app, r.Page, r.Partial)
 	g := e.Router.Group("/admin")
 	g.BindFunc(requireAuthTest)
 	g.BindFunc(requireAdminTest)
 	g.GET("/documents", doc.Documents)
+	g.GET("/documents/{id}/edit", doc.DocumentEditForm)
 	g.POST("/documents", doc.DocumentsCreate)
 	g.POST("/documents/{id}", doc.DocumentsUpdate)
 	g.POST("/documents/{id}/delete", doc.DocumentsDelete)
@@ -431,6 +433,47 @@ func TestCompetitionDetachKeepsOtherComps(t *testing.T) {
 		assert.NotContains(tb, c1.GetStringSlice("documents"), docID)
 		c2, _ := app.FindRecordById("competitions", comp2ID)
 		assert.Contains(tb, c2.GetStringSlice("documents"), docID)
+	}
+	s.Test(t)
+}
+
+func TestDocumentEditFormReturnsFragment(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/documents/{id}/edit returns edit form fragment",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Editar documento", "title"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupDocRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		doc := makeDocumentTB(tb, app, "TestDoc", false, "https://test.com/doc")
+		s.URL = "/admin/documents/" + doc.Id + "/edit"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "TestDoc", "form contains document title")
+	}
+	s.Test(t)
+}
+
+func TestDocumentEditFormUnknownID(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /admin/documents/{id}/edit returns 404 for unknown document",
+		Method:          http.MethodGet,
+		URL:             "/admin/documents/nonexistent123456/edit",
+		ExpectedStatus:  404,
+		ExpectedContent: []string{"resource"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupDocRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
 	}
 	s.Test(t)
 }

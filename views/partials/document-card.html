@@ -55,7 +55,7 @@
         {{end}}
         {{if and .Mode.Admin .Mode.Editable}}
         <span class="tooltip tooltip-left" data-tip="Editar">
-            <button class="btn btn-ghost btn-sm gap-1 px-2" aria-label="Editar" onclick="document.getElementById('modal-edit-doc-{{.Document.Id}}').showModal()">
+            <button class="btn btn-ghost btn-sm gap-1 px-2" aria-label="Editar" hx-get="/admin/documents/{{.Document.Id}}/edit" hx-target="#edit-doc-body" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful)document.getElementById('edit-doc-modal').showModal()">
                 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" /></svg>
                 <span class="hidden [@media(hover:none)]:inline">Editar</span>
             </button>

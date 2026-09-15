@@ -188,16 +188,18 @@ func registerAdminRoutes(se *core.ServeEvent, deps Deps) {
 }
 
 func registerAdminDocumentRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
-	doc := handlers.NewDocumentHandler(deps.App, deps.Renderer.Page)
+	doc := handlers.NewDocumentHandler(deps.App, deps.Renderer.Page, deps.Renderer.Partial)
 	g.GET("/documents", doc.Documents)
+	g.GET("/documents/{id}/edit", doc.DocumentEditForm)
 	g.POST("/documents", doc.DocumentsCreate)
 	g.POST("/documents/{id}", doc.DocumentsUpdate)
 	g.POST("/documents/{id}/delete", doc.DocumentsDelete)
 }
 
 func registerAdminSponsorRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
-	sponsor := handlers.NewAdminSponsorHandler(deps.App, deps.Renderer.Page)
+	sponsor := handlers.NewAdminSponsorHandler(deps.App, deps.Renderer.Page, deps.Renderer.Partial)
 	g.GET("/sponsors", sponsor.Sponsors)
+	g.GET("/sponsors/{id}/edit", sponsor.SponsorEditForm)
 	g.POST("/sponsors", sponsor.SponsorsCreate)
 	g.POST("/sponsors/{id}", sponsor.SponsorsUpdate)
 	g.POST("/sponsors/{id}/delete", sponsor.SponsorsDelete)
@@ -272,8 +274,9 @@ func registerAdminPlayerRoutes(g *router.RouterGroup[*core.RequestEvent], deps D
 }
 
 func registerAdminVenueRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
-	h := handlers.NewVenueHandler(deps.App, deps.Renderer.Page)
+	h := handlers.NewVenueHandler(deps.App, deps.Renderer.Page, deps.Renderer.Partial)
 	g.GET("/venues", h.Venues)
+	g.GET("/venues/{id}/edit", h.VenueEditForm)
 	g.POST("/venues", h.VenuesCreate)
 	g.POST("/venues/{id}", h.VenuesUpdate)
 	g.POST("/venues/{id}/delete", h.VenuesDelete)
