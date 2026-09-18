@@ -387,6 +387,42 @@ func TestSampleLeagueWithPlayoff(t *testing.T) {
 	assert.Greater(t, len(playoffMatches), 0, "playoff bracket must have matches")
 }
 
+func TestSampleLeveledLeague(t *testing.T) {
+	app := newTestApp(t)
+
+	notifier := notify.NewNotifier(app, "", "")
+	svc := league.New(app, notifier)
+	hooks.Register(app, hooks.Deps{Svc: svc, Notifier: notifier})
+
+	require.NoError(t, SampleLeaguePartial(app, SampleOptions{
+		Players: true, Pairs: true, Competitions: true,
+		StaticFS: os.DirFS(".."),
+		Svc:      svc,
+	}))
+
+	comps, err := app.FindRecordsByFilter("competitions", "name = 'Liga nivelada de ejemplo'", "", 0, 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(comps), "leveled competition must exist")
+
+	lev := comps[0]
+	assert.Equal(t, 4, lev.GetInt("target_matches"))
+	assert.Equal(t, 2, lev.GetInt("open_assignments"))
+	assert.Equal(t, "published", lev.GetString("calendar_status"))
+
+	pairs := lev.GetStringSlice("pairs")
+	assert.Equal(t, 8, len(pairs), "leveled competition needs 8 pairs")
+
+	seedPairs := lev.GetStringSlice("seed_pairs")
+	assert.Equal(t, 8, len(seedPairs), "all 8 pairs must appear in seed order")
+
+	pendingMatches, err := app.FindRecordsByFilter("matches",
+		"competition = {:cid} && status = 'pending' && round_number = 0",
+		"", 0, 0,
+		map[string]any{"cid": lev.Id})
+	require.NoError(t, err)
+	assert.Greater(t, len(pendingMatches), 0, "GenerateInitialAssignments must create pending round-0 matches")
+}
+
 func TestWipeSelective_PlayersOnly(t *testing.T) {
 	app := newTestApp(t)
 

@@ -83,8 +83,8 @@ func TestEligible(t *testing.T) {
 		{"self is not eligible", "A", "A", false},
 		{"already met is not eligible", "A", "B", false},
 		{"at target load is not eligible as candidate", "A", "D", false},
-		{"pending == open is eligible as candidate", "A", "C", true},  // C pending=2 == open-1 but ≤ open
-		{"pending == open (B pending=3 == open)", "A", "B", false},    // also met
+		{"pending == open is eligible as candidate", "A", "C", true}, // C pending=2 == open-1 but ≤ open
+		{"pending == open (B pending=3 == open)", "A", "B", false},   // also met
 	}
 
 	for _, tc := range cases {
@@ -95,11 +95,11 @@ func TestEligible(t *testing.T) {
 
 	// Extra case: pending == open+1 → not eligible
 	st2 := &leveledState{
-		target:  5,
-		open:    3,
-		met:     map[string]map[string]struct{}{},
-		played:  map[string]int{"A": 0, "B": 0},
-		pending: map[string]int{"A": 0, "B": 4}, // B has open+1 = 4 pending
+		target:   5,
+		open:     3,
+		met:      map[string]map[string]struct{}{},
+		played:   map[string]int{"A": 0, "B": 0},
+		pending:  map[string]int{"A": 0, "B": 4}, // B has open+1 = 4 pending
 		position: map[string]int{"A": 0, "B": 1},
 	}
 	t.Run("pending == open+1 is not eligible", func(t *testing.T) {
@@ -108,11 +108,11 @@ func TestEligible(t *testing.T) {
 
 	// pending == open is eligible
 	st3 := &leveledState{
-		target:  5,
-		open:    3,
-		met:     map[string]map[string]struct{}{},
-		played:  map[string]int{"A": 0, "B": 0},
-		pending: map[string]int{"A": 0, "B": 3}, // B has exactly open=3 pending
+		target:   5,
+		open:     3,
+		met:      map[string]map[string]struct{}{},
+		played:   map[string]int{"A": 0, "B": 0},
+		pending:  map[string]int{"A": 0, "B": 3}, // B has exactly open=3 pending
 		position: map[string]int{"A": 0, "B": 1},
 	}
 	t.Run("pending == open exactly is eligible", func(t *testing.T) {
@@ -127,13 +127,13 @@ func TestChooser_RandomInsideZone(t *testing.T) {
 	// comfort = ceil(4/2) = 2. Zone for pos 0: d <= 2 → positions 1,2.
 	// Position 3 is outside the zone.
 	st := &leveledState{
-		target:  4,
-		open:    2,
-		comfort: 2,
-		pairs:   []string{"A", "B", "C", "D"},
-		met:     map[string]map[string]struct{}{"A": {}, "B": {}, "C": {}, "D": {}},
-		played:  map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
-		pending: map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
+		target:   4,
+		open:     2,
+		comfort:  2,
+		pairs:    []string{"A", "B", "C", "D"},
+		met:      map[string]map[string]struct{}{"A": {}, "B": {}, "C": {}, "D": {}},
+		played:   map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
+		pending:  map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
 		position: map[string]int{"A": 0, "B": 1, "C": 2, "D": 3},
 	}
 
@@ -171,8 +171,8 @@ func TestChooser_NearestOutsideZone(t *testing.T) {
 		met: map[string]map[string]struct{}{
 			"A": {"B": {}},
 		},
-		played:  map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
-		pending: map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
+		played:   map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
+		pending:  map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
 		position: map[string]int{"A": 0, "B": 1, "C": 2, "D": 3},
 	}
 
@@ -295,13 +295,13 @@ func TestPlan_SteadyState(t *testing.T) {
 	// Nobody should exceed open+1 pending.
 	pairs := []string{"A", "B", "C", "D", "E", "F"}
 	st := &leveledState{
-		target:  4,
-		open:    2,
-		comfort: 2, // ceil(4/2)
-		pairs:   pairs,
-		met:     map[string]map[string]struct{}{"A": {}, "B": {}, "C": {}, "D": {}, "E": {}, "F": {}},
-		played:  map[string]int{"A": 0, "B": 0, "C": 0, "D": 0, "E": 0, "F": 0},
-		pending: map[string]int{"A": 0, "B": 0, "C": 0, "D": 0, "E": 0, "F": 0},
+		target:   4,
+		open:     2,
+		comfort:  2, // ceil(4/2)
+		pairs:    pairs,
+		met:      map[string]map[string]struct{}{"A": {}, "B": {}, "C": {}, "D": {}, "E": {}, "F": {}},
+		played:   map[string]int{"A": 0, "B": 0, "C": 0, "D": 0, "E": 0, "F": 0},
+		pending:  map[string]int{"A": 0, "B": 0, "C": 0, "D": 0, "E": 0, "F": 0},
 		position: map[string]int{"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5},
 	}
 
