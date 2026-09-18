@@ -261,8 +261,7 @@ func resolveMatchDate(m *core.Record, c *core.Record) time.Time {
 	if d := m.GetDateTime("date").Time(); !d.IsZero() {
 		return d
 	}
-	roundNum := int(m.GetFloat("round_number"))
-	if t, ok := league.RoundArrangeDate(c, roundNum); ok && !t.IsZero() {
+	if t, ok := league.MatchArrangeDate(c, m); ok && !t.IsZero() {
 		return t
 	}
 	if end := c.GetDateTime("end_date").Time(); !end.IsZero() {

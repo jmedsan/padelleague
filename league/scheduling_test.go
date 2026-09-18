@@ -386,3 +386,135 @@ func TestPhaseLabels(t *testing.T) {
 	assert.Equal(t, "finished", PhaseFinished.String())
 	assert.Equal(t, "Finalizada", PhaseFinished.Label())
 }
+
+func TestAssignmentDeadline(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC) // 90-day window
+	now := time.Date(2026, 1, 1, 6, 0, 0, 0, time.UTC)
+
+	t.Run("90-day window target=10 open=3 → start+27d at noon UTC", func(t *testing.T) {
+		app := newTestApp(t)
+		comp := makeCompetition(t, app, nil)
+		comp.Set("start_date", start.Format(time.RFC3339))
+		comp.Set("end_date", end.Format(time.RFC3339))
+		comp.Set("target_matches", 10)
+		comp.Set("open_assignments", 3)
+		require.NoError(t, app.Save(comp))
+
+		// slot = 90 days * 3/10 = 27 days
+		// arrange_by = min(end, max(now, start) + slot) = start + 27d at 12:00 UTC
+		want := time.Date(2026, 1, 28, 12, 0, 0, 0, time.UTC)
+		got, ok := assignmentDeadline(comp, now)
+		require.True(t, ok)
+		assert.Equal(t, want, got)
+	})
+
+	t.Run("no start_date → false", func(t *testing.T) {
+		app := newTestApp(t)
+		comp := makeCompetition(t, app, nil)
+		comp.Set("end_date", end.Format(time.RFC3339))
+		comp.Set("target_matches", 10)
+		comp.Set("open_assignments", 3)
+		require.NoError(t, app.Save(comp))
+
+		_, ok := assignmentDeadline(comp, now)
+		assert.False(t, ok)
+	})
+
+	t.Run("no end_date → false", func(t *testing.T) {
+		app := newTestApp(t)
+		comp := makeCompetition(t, app, nil)
+		comp.Set("start_date", start.Format(time.RFC3339))
+		comp.Set("target_matches", 10)
+		comp.Set("open_assignments", 3)
+		require.NoError(t, app.Save(comp))
+
+		_, ok := assignmentDeadline(comp, now)
+		assert.False(t, ok)
+	})
+
+	t.Run("target=0 → false", func(t *testing.T) {
+		app := newTestApp(t)
+		comp := makeCompetition(t, app, nil)
+		comp.Set("start_date", start.Format(time.RFC3339))
+		comp.Set("end_date", end.Format(time.RFC3339))
+		comp.Set("target_matches", 0)
+		comp.Set("open_assignments", 3)
+		require.NoError(t, app.Save(comp))
+
+		_, ok := assignmentDeadline(comp, now)
+		assert.False(t, ok)
+	})
+}
+
+func TestMatchArrangeDate(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+
+	t.Run("match has arrange_by → uses it capped at end_date", func(t *testing.T) {
+		app := newTestApp(t)
+		pa := makePair(t, app, "A")
+		pb := makePair(t, app, "B")
+		comp := makeCompetition(t, app, []*core.Record{pa, pb})
+		comp.Set("start_date", start.Format(time.RFC3339))
+		comp.Set("end_date", end.Format(time.RFC3339))
+		comp.Set("rounds", 4)
+		require.NoError(t, app.Save(comp))
+
+		arrangeBy := time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)
+		match := makeLeveledMatch(t, app, comp.Id, pa.Id, pb.Id, "", "", "pending", time.Time{})
+		match.Set("arrange_by", arrangeBy.Format(time.RFC3339))
+		require.NoError(t, app.Save(match))
+
+		got, ok := MatchArrangeDate(comp, match)
+		require.True(t, ok)
+		assert.Equal(t, arrangeBy, got)
+	})
+
+	t.Run("match arrange_by beyond end_date → capped at end_date", func(t *testing.T) {
+		app := newTestApp(t)
+		pa := makePair(t, app, "A")
+		pb := makePair(t, app, "B")
+		comp := makeCompetition(t, app, []*core.Record{pa, pb})
+		comp.Set("start_date", start.Format(time.RFC3339))
+		comp.Set("end_date", end.Format(time.RFC3339))
+		comp.Set("rounds", 4)
+		require.NoError(t, app.Save(comp))
+
+		beyondEnd := time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC)
+		match := makeLeveledMatch(t, app, comp.Id, pa.Id, pb.Id, "", "", "pending", time.Time{})
+		match.Set("arrange_by", beyondEnd.Format(time.RFC3339))
+		require.NoError(t, app.Save(match))
+
+		got, ok := MatchArrangeDate(comp, match)
+		require.True(t, ok)
+		// Capped at end_date at noon UTC
+		assert.Equal(t, truncateToNoonUTC(end), got)
+	})
+
+	t.Run("no arrange_by → falls through to RoundArrangeDate (round-robin regression guard)", func(t *testing.T) {
+		app := newTestApp(t)
+		pa := makePair(t, app, "A")
+		pb := makePair(t, app, "B")
+		comp := makeCompetition(t, app, []*core.Record{pa, pb})
+		comp.Set("start_date", start.Format(time.RFC3339))
+		comp.Set("end_date", end.Format(time.RFC3339))
+		comp.Set("rounds", 4)
+		require.NoError(t, app.Save(comp))
+
+		// Round 1 of 4 in a 90-day window: fraction 0.25 → 22.5 days → Jan 23 at noon
+		match := makeMatch(t, app, comp.Id, pa.Id, pb.Id, "pending")
+		// round_number is already set to 1 by makeMatch
+
+		wantRound, ok := RoundArrangeDate(comp, 1)
+		require.True(t, ok)
+
+		got, gotOK := MatchArrangeDate(comp, match)
+		require.True(t, gotOK)
+		assert.Equal(t, wantRound, got, "no arrange_by should fall through to RoundArrangeDate")
+	})
+}

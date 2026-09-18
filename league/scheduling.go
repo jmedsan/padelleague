@@ -355,3 +355,45 @@ func MatchStart(m *core.Record) (time.Time, bool) {
 func fmtShortDate(t time.Time) string {
 	return t.In(Madrid).Format("02/01")
 }
+
+// assignmentDeadline returns the arrange-by deadline for a newly created
+// leveled-league match. Returns ok=false when target_matches is 0 or either
+// date is missing.
+func assignmentDeadline(comp *core.Record, now time.Time) (time.Time, bool) {
+	target := comp.GetInt("target_matches")
+	if target <= 0 {
+		return time.Time{}, false
+	}
+	start := comp.GetDateTime("start_date").Time()
+	end := comp.GetDateTime("end_date").Time()
+	if start.IsZero() || end.IsZero() {
+		return time.Time{}, false
+	}
+	open := comp.GetInt("open_assignments")
+	slot := float64(end.Sub(start)) * float64(open) / float64(target)
+	base := start
+	if now.After(start) {
+		base = now
+	}
+	deadline := base.Add(time.Duration(slot))
+	if deadline.After(end) {
+		deadline = end
+	}
+	return truncateToNoonUTC(deadline), true
+}
+
+// MatchArrangeDate returns the arrange-by date for a match. When the match has
+// its own arrange_by field set, it is returned capped at the competition's
+// end_date. Otherwise falls through to RoundArrangeDate for the match's
+// round_number (round-robin and playoff path, unchanged behavior).
+func MatchArrangeDate(comp *core.Record, match *core.Record) (time.Time, bool) {
+	arrangeBy := match.GetDateTime("arrange_by").Time()
+	if !arrangeBy.IsZero() {
+		end := comp.GetDateTime("end_date").Time()
+		if !end.IsZero() && arrangeBy.After(end) {
+			return truncateToNoonUTC(end), true
+		}
+		return truncateToNoonUTC(arrangeBy), true
+	}
+	return RoundArrangeDate(comp, match.GetInt("round_number"))
+}

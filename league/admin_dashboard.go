@@ -224,7 +224,7 @@ func addPendingHealth(app core.App, m *core.Record, ctx compHealthCtx, categorie
 	if ctx.phase == PhaseFinished {
 		return
 	}
-	deadline, ok := RoundArrangeDate(ctx.comp, rn)
+	deadline, ok := MatchArrangeDate(ctx.comp, m)
 	if !ok {
 		return
 	}
@@ -443,7 +443,7 @@ func outstandingForComp(app core.App, c *core.Record, now time.Time) []Outstandi
 			StatusLabel:     StatusLabel(m.GetString("status")),
 		}
 		if !isPlayoff {
-			if deadline, ok := RoundArrangeDate(c, om.RoundNumber); ok {
+			if deadline, ok := MatchArrangeDate(c, m); ok {
 				om.deadline = deadline
 				om.ArrangeBy = fmtShortDate(deadline)
 				om.ArrangeByRel = deadline.Format(time.RFC3339)
