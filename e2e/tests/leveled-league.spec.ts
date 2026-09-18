@@ -341,8 +341,12 @@ test.describe('leveled league', () => {
       const releaseBtn = page.locator('button:has-text("Liberar partido")');
       await expect(releaseBtn).toBeVisible({ timeout: 5000 });
 
-      // AdminRelease uses HX-Redirect, not a full page redirect
-      await clickAndWaitForHxRedirect(page, releaseBtn);
+      // Release button uses hx-confirm — a custom DaisyUI modal (not window.confirm).
+      // Click release → wait for modal → click #confirm-ok → wait for HX-Redirect nav.
+      await releaseBtn.click();
+      const confirmOk = page.locator('#confirm-ok');
+      await confirmOk.waitFor({ timeout: 5000 });
+      await clickAndWaitForHxRedirect(page, confirmOk);
       await page.waitForLoadState('domcontentloaded');
 
       // The released match no longer exists
