@@ -212,11 +212,15 @@ func tryGreedy(origNeed map[string]int, origMet map[string]map[string]struct{}, 
 	return missed <= slack
 }
 
-// minSlack finds the minimum slack for which completable returns true,
-// trying 0, 1, 2, ... with baselineTries passes each.
+// minSlack finds the minimum slack for which completable returns true.
+// Recipe §3.4: try 0 (or 1 when total need is odd), then +2.
 func minSlack(need map[string]int, met map[string]map[string]struct{}) int {
 	max := totalNeed(need)
-	for s := 0; s <= max; s++ {
+	start := 0
+	if max%2 != 0 {
+		start = 1
+	}
+	for s := start; s <= max; s += 2 {
 		if completable(need, met, s, baselineTries) {
 			return s
 		}
