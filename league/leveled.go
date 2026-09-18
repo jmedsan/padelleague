@@ -71,21 +71,36 @@ func (st *leveledState) eligible(p, q string) bool {
 	return true
 }
 
+type candidate struct {
+	id       string
+	dist     int
+	load     int
+	position int
+}
+
 // chooseOpponent returns the best eligible opponent for p, or "" if none exists.
 // Candidates inside the comfort zone are shuffled (random order); candidates
 // outside are sorted nearest-first, then by lower load, then by better position.
 // The first candidate that passes the completion check wins.
 func (svc *Service) chooseOpponent(st *leveledState, p string) string {
-	posP := st.position[p]
+	inside, outside := svc.collectCandidates(st, p)
 
-	type candidate struct {
-		id       string
-		dist     int
-		load     int
-		position int
+	need := make(map[string]int, len(st.pairs))
+	for _, id := range st.pairs {
+		need[id] = st.target - st.load(id)
 	}
+	ctx := completionCtx{need: need, met: st.met, slack: minSlack(need, st.met)}
 
-	var inside, outside []candidate
+	if id := firstCompletable(p, inside, ctx); id != "" {
+		return id
+	}
+	return firstCompletable(p, outside, ctx)
+}
+
+// collectCandidates builds the inside-zone (shuffled) and outside-zone (sorted)
+// candidate lists for p.
+func (svc *Service) collectCandidates(st *leveledState, p string) (inside, outside []candidate) {
+	posP := st.position[p]
 	for _, q := range st.pairs {
 		if !st.eligible(p, q) {
 			continue
@@ -101,11 +116,7 @@ func (svc *Service) chooseOpponent(st *leveledState, p string) string {
 			outside = append(outside, c)
 		}
 	}
-
-	// Shuffle inside zone for randomness.
 	svc.shuffle(len(inside), func(i, j int) { inside[i], inside[j] = inside[j], inside[i] })
-
-	// Sort outside zone: nearest first, then lower load, then better (lower) position.
 	sort.Slice(outside, func(i, j int) bool {
 		a, b := outside[i], outside[j]
 		if a.dist != b.dist {
@@ -116,31 +127,30 @@ func (svc *Service) chooseOpponent(st *leveledState, p string) string {
 		}
 		return a.position < b.position
 	})
+	return inside, outside
+}
 
-	// Build need map for completion check (current state before adding p–q).
-	need := make(map[string]int, len(st.pairs))
-	for _, id := range st.pairs {
-		need[id] = st.target - st.load(id)
-	}
-	slack := minSlack(need, st.met)
+// completionCtx holds the per-candidate completion check inputs.
+type completionCtx struct {
+	need  map[string]int
+	met   map[string]map[string]struct{}
+	slack int
+}
 
-	// Try inside candidates first, then outside.
-	for _, group := range [][]candidate{inside, outside} {
-		for _, c := range group {
-			// Simulate adding p–q.
-			needAfter := make(map[string]int, len(need))
-			for k, v := range need {
-				needAfter[k] = v
-			}
-			needAfter[p]--
-			needAfter[c.id]--
-
-			metAfter := cloneMet(st.met)
-			addMet(metAfter, p, c.id)
-
-			if completable(needAfter, metAfter, slack, candidateTries) {
-				return c.id
-			}
+// firstCompletable returns the id of the first candidate that keeps the
+// schedule completable after adding the p–candidate pairing, or "" if none do.
+func firstCompletable(p string, candidates []candidate, ctx completionCtx) string {
+	for _, c := range candidates {
+		needAfter := make(map[string]int, len(ctx.need))
+		for k, v := range ctx.need {
+			needAfter[k] = v
+		}
+		needAfter[p]--
+		needAfter[c.id]--
+		metAfter := cloneMet(ctx.met)
+		addMet(metAfter, p, c.id)
+		if completable(needAfter, metAfter, ctx.slack, candidateTries) {
+			return c.id
 		}
 	}
 	return ""
@@ -328,8 +338,17 @@ func (svc *Service) TopUpAssignments(compID string, now time.Time, avoid ...Pair
 		return nil, nil
 	}
 
+	created, err := saveAssignments(svc.app, comp, pairings, now)
+	if err != nil {
+		return nil, err
+	}
+	notifyAssignments(svc, comp, created)
+	return created, nil
+}
+
+func saveAssignments(app core.App, comp *core.Record, pairings []Pairing, now time.Time) ([]*core.Record, error) {
 	var created []*core.Record
-	if err := svc.app.RunInTransaction(func(txApp core.App) error {
+	if err := app.RunInTransaction(func(txApp core.App) error {
 		col, err := txApp.FindCollectionByNameOrId("matches")
 		if err != nil {
 			return err
@@ -346,23 +365,21 @@ func (svc *Service) TopUpAssignments(compID string, now time.Time, avoid ...Pair
 	}); err != nil {
 		return nil, err
 	}
-
-	// Notify after the transaction commits.
-	if svc.notifier != nil {
-		compName := comp.GetString("name")
-		pairNames := PairNames(svc.app, comp.GetStringSlice("pairs"))
-		for _, m := range created {
-			p1ID := m.GetString("pair1")
-			p2ID := m.GetString("pair2")
-			p1Players := PlayersForPair(svc.app, p1ID)
-			p2Players := PlayersForPair(svc.app, p2ID)
-			allPlayers := append(p1Players, p2Players...)
-			notif := NotifMatchAssigned(m.Id, pairNames[p2ID], compName)
-			svc.notifier.NotifyPlayers(allPlayers, notif)
-		}
-	}
-
 	return created, nil
+}
+
+func notifyAssignments(svc *Service, comp *core.Record, created []*core.Record) {
+	if svc.notifier == nil || len(created) == 0 {
+		return
+	}
+	compName := comp.GetString("name")
+	pairNames := PairNames(svc.app, comp.GetStringSlice("pairs"))
+	for _, m := range created {
+		p1ID := m.GetString("pair1")
+		p2ID := m.GetString("pair2")
+		allPlayers := append(PlayersForPair(svc.app, p1ID), PlayersForPair(svc.app, p2ID)...)
+		svc.notifier.NotifyPlayers(allPlayers, NotifMatchAssigned(m.Id, pairNames[p2ID], compName))
+	}
 }
 
 // buildLeveledState constructs the in-memory state from the competition's
@@ -388,38 +405,15 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing) (*level
 		return nil, err
 	}
 
-	// Sort pairs by rating desc, then seed index, then pair name.
 	seedIDs := comp.GetStringSlice("seed_pairs")
-	seedPos := make(map[string]int, len(seedIDs))
-	for i, id := range seedIDs {
-		seedPos[id] = i
-	}
 	pairNames := PairNames(app, activePairIDs)
-
-	sortedPairs := make([]string, len(activePairIDs))
-	copy(sortedPairs, activePairIDs)
-	sort.SliceStable(sortedPairs, func(i, j int) bool {
-		ri, rj := ratings[sortedPairs[i]], ratings[sortedPairs[j]]
-		if ri != rj {
-			return ri > rj
-		}
-		si, hasI := seedPos[sortedPairs[i]]
-		sj, hasJ := seedPos[sortedPairs[j]]
-		if hasI != hasJ {
-			return hasI // seeded before unseeded
-		}
-		if hasI && si != sj {
-			return si < sj
-		}
-		return pairNames[sortedPairs[i]] < pairNames[sortedPairs[j]]
-	})
+	sortedPairs := sortPairsByRating(activePairIDs, ratings, seedIDs, pairNames)
 
 	position := make(map[string]int, len(sortedPairs))
 	for i, id := range sortedPairs {
 		position[id] = i
 	}
 
-	// Load existing matches.
 	matches, err := app.FindRecordsByFilter("matches",
 		"competition = {:c}",
 		"", 0, 0, map[string]any{"c": comp.Id})
@@ -427,30 +421,8 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing) (*level
 		return nil, err
 	}
 
-	played := make(map[string]int, len(sortedPairs))
-	pending := make(map[string]int, len(sortedPairs))
-	met := make(map[string]map[string]struct{}, len(sortedPairs))
-	for _, id := range sortedPairs {
-		met[id] = map[string]struct{}{}
-	}
+	played, pending, met := tallyMatchState(sortedPairs, matches, withdrawnSet)
 
-	for _, m := range matches {
-		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
-		if withdrawnSet[p1] || withdrawnSet[p2] {
-			continue
-		}
-		addMet(met, p1, p2)
-		switch m.GetString("status") {
-		case "final":
-			played[p1]++
-			played[p2]++
-		default:
-			pending[p1]++
-			pending[p2]++
-		}
-	}
-
-	// Mark avoid pairings as met for this run.
 	for _, av := range avoid {
 		addMet(met, av.A, av.B)
 	}
@@ -500,6 +472,59 @@ func setMatchFields(rec *core.Record, comp *core.Record, p Pairing, now time.Tim
 }
 
 var _ = slog.Debug // keep slog import used
+
+// sortPairsByRating returns a copy of pairs sorted by rating desc, then seed
+// index asc, then pair name asc.
+func sortPairsByRating(pairs []string, ratings map[string]float64, seedIDs []string, pairNames map[string]string) []string {
+	seedPos := make(map[string]int, len(seedIDs))
+	for i, id := range seedIDs {
+		seedPos[id] = i
+	}
+	sorted := make([]string, len(pairs))
+	copy(sorted, pairs)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		ri, rj := ratings[sorted[i]], ratings[sorted[j]]
+		if ri != rj {
+			return ri > rj
+		}
+		si, hasI := seedPos[sorted[i]]
+		sj, hasJ := seedPos[sorted[j]]
+		if hasI != hasJ {
+			return hasI
+		}
+		if hasI && si != sj {
+			return si < sj
+		}
+		return pairNames[sorted[i]] < pairNames[sorted[j]]
+	})
+	return sorted
+}
+
+// tallyMatchState classifies existing matches into played/pending counts and
+// the met-pairs set, skipping matches involving withdrawn pairs.
+func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[string]bool) (played, pending map[string]int, met map[string]map[string]struct{}) {
+	played = make(map[string]int, len(pairs))
+	pending = make(map[string]int, len(pairs))
+	met = make(map[string]map[string]struct{}, len(pairs))
+	for _, id := range pairs {
+		met[id] = map[string]struct{}{}
+	}
+	for _, m := range matches {
+		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
+		if withdrawn[p1] || withdrawn[p2] {
+			continue
+		}
+		addMet(met, p1, p2)
+		if m.GetString("status") == "final" {
+			played[p1]++
+			played[p2]++
+		} else {
+			pending[p1]++
+			pending[p2]++
+		}
+	}
+	return played, pending, met
+}
 
 // -- helpers ----------------------------------------------------------------
 

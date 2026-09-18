@@ -268,6 +268,15 @@ type Deps struct {
 // Register wires all PocketBase event hooks and cron jobs onto the given app.
 func Register(app core.App, deps Deps) {
 	svc, notifier, searchIndex := deps.Svc, deps.Notifier, deps.SearchIndex
+	registerMatchHooks(app, svc)
+	registerCrons(app, svc, notifier)
+	registerSearch(app, searchIndex)
+	registerBackup(app, deps.Backup)
+	registerSMTP(app, deps.SMTP)
+	registerMailerBranding(app)
+}
+
+func registerMatchHooks(app core.App, svc *league.Service) {
 	app.OnRecordCreate("users").BindFunc(func(e *core.RecordEvent) error {
 		if len(e.Record.GetStringSlice("roles")) == 0 {
 			e.Record.Set("roles", []string{"player"})
@@ -302,51 +311,47 @@ func Register(app core.App, deps Deps) {
 		}
 		return e.Next()
 	})
+}
 
+func registerCrons(app core.App, svc *league.Service, notifier *notify.Notifier) {
 	app.Cron().MustAdd("quorum-timeout", "*/5 * * * *", func() {
 		svc.ConfirmStaleMatches()
 	})
-
 	app.Cron().MustAdd("scheduling-reminders", "0 9 * * *", func() {
 		checkSchedulingReminders(app, notifier)
 	})
-
 	app.Cron().MustAdd("match-reminders", "*/5 * * * *", func() {
 		checkMatchReminders(app, notifier, time.Now())
 	})
-
 	app.Cron().MustAdd("confirmation-reminders", "0 */6 * * *", func() {
 		svc.RemindPendingConfirmations(time.Now())
 	})
-
 	app.Cron().MustAdd("leveled-assignments", "30 0 * * *", func() {
-		now := time.Now()
-		comps, err := app.FindRecordsByFilter("competitions",
-			"active = true && finalized = false", "", 0, 0, nil)
-		if err != nil {
-			slog.Error("leveled-assignments: list competitions", "err", err)
-			return
-		}
-		for _, comp := range comps {
-			created, err := svc.TopUpAssignments(comp.Id, now)
-			if err != nil {
-				slog.Error("leveled-assignments: top-up failed", "competition", comp.Id, "err", err)
-				continue
-			}
-			if len(created) > 0 {
-				slog.Info("leveled-assignments: assigned", "competition", comp.Id, "count", len(created))
-			}
-		}
+		runLeveledAssignments(app, svc)
 	})
-
 	app.Cron().MustAdd("pending-match-penalties", "0 1 * * *", func() {
 		applyPendingMatchPenalties(app, notifier)
 	})
+}
 
-	registerSearch(app, searchIndex)
-	registerBackup(app, deps.Backup)
-	registerSMTP(app, deps.SMTP)
-	registerMailerBranding(app)
+func runLeveledAssignments(app core.App, svc *league.Service) {
+	now := time.Now()
+	comps, err := app.FindRecordsByFilter("competitions",
+		"active = true && finalized = false", "", 0, 0, nil)
+	if err != nil {
+		slog.Error("leveled-assignments: list competitions", "err", err)
+		return
+	}
+	for _, comp := range comps {
+		created, err := svc.TopUpAssignments(comp.Id, now)
+		if err != nil {
+			slog.Error("leveled-assignments: top-up failed", "competition", comp.Id, "err", err)
+			continue
+		}
+		if len(created) > 0 {
+			slog.Info("leveled-assignments: assigned", "competition", comp.Id, "count", len(created))
+		}
+	}
 }
 
 func registerSearch(app core.App, idx *search.Index) {
