@@ -313,8 +313,7 @@ func (svc *Service) TopUpAssignments(compID string, now time.Time, avoid ...Pair
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
-		// PocketBase wraps not-found in a different error; treat any lookup
-		// failure for a known ID pattern as "not found".
+		slog.Error("top-up: find competition", "id", compID, "err", err)
 		return nil, nil
 	}
 
@@ -470,8 +469,6 @@ func setMatchFields(rec *core.Record, comp *core.Record, p Pairing, now time.Tim
 		rec.Set("arrange_by", deadline.Format("2006-01-02"))
 	}
 }
-
-var _ = slog.Debug // keep slog import used
 
 // sortPairsByRating returns a copy of pairs sorted by rating desc, then seed
 // index asc, then pair name asc.
