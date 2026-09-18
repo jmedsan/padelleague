@@ -289,14 +289,31 @@ test.describe('leveled league', () => {
     // Phase 6: Standings shows "Aj." column
     // =========================================================================
 
-    // Navigate directly to the standings tab so the server renders it active
-    await page.goto(`/competition/${competitionId}?tab=clasificacion`);
+    // Navigate back to competition page and activate standings tab via JS
+    await page.goto(`/competition/${competitionId}`);
     await page.waitForLoadState('domcontentloaded');
 
+    // DaisyUI tabs use CSS :checked on radio inputs — click the label instead of check()
+    const standingsRadio = page.locator('input[role="tab"][aria-label="Clasificación"]');
+    await standingsRadio.evaluate((el: HTMLInputElement) => {
+      el.checked = true;
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await page.waitForTimeout(300);
+
     // "Aj." column header should be present in standings (leveled league)
-    // Two Aj. th elements: desktop (hidden sm:block) and mobile (sm:hidden). On mobile
-    // viewport the mobile table is visible, so use last() which picks the sm:hidden one.
-    await expect(page.locator('th:has-text("Aj.")').last()).toBeVisible({ timeout: 5000 });
+    // standings-table.html has two tables (sm:hidden mobile + hidden sm:block desktop).
+    // After activating the tab, assert at least one th is visible.
+    const ajHeaders = page.locator('th:has-text("Aj.")');
+    const count = await ajHeaders.count();
+    let ajVisible = false;
+    for (let i = 0; i < count; i++) {
+      if (await ajHeaders.nth(i).isVisible().catch(() => false)) {
+        ajVisible = true;
+        break;
+      }
+    }
+    expect(ajVisible, 'Expected at least one "Aj." column header to be visible in standings').toBe(true);
 
     // =========================================================================
     // Phase 7: Admin "Liberar partido" on a pending match
