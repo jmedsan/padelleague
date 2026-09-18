@@ -341,9 +341,8 @@ test.describe('leveled league', () => {
       const releaseBtn = page.locator('button:has-text("Liberar partido")');
       await expect(releaseBtn).toBeVisible({ timeout: 5000 });
 
-      await releaseBtn.click();
-      // Dialog auto-accepted by page.on('dialog', d => d.accept())
-      await page.waitForURL(`**/competition/${competitionId}`, { timeout: 10000 });
+      // AdminRelease uses HX-Redirect, not a full page redirect
+      await clickAndWaitForHxRedirect(page, releaseBtn);
       await page.waitForLoadState('domcontentloaded');
 
       // The released match no longer exists
