@@ -16,10 +16,10 @@ import (
 
 func TestParseProposalData_ValidJSON(t *testing.T) {
 	t.Parallel()
-	raw := `{"date":"2026-10-15","time":"19:30","venue_id":"abc123","venue_name":"Padel 360","venue_text":""}`
+	raw := `{"date":"2027-10-15","time":"19:30","venue_id":"abc123","venue_name":"Padel 360","venue_text":""}`
 	pd := ParseProposalData(raw)
 	require.NotNil(t, pd)
-	assert.Equal(t, "2026-10-15", pd.Date)
+	assert.Equal(t, "2027-10-15", pd.Date)
 	assert.Equal(t, "19:30", pd.Time)
 	assert.Equal(t, "abc123", pd.VenueID)
 	assert.Equal(t, "Padel 360", pd.VenueName)
@@ -187,7 +187,7 @@ func TestProposalNotifiesOpposingPair(t *testing.T) {
 
 	// A member of pair 1 proposes; pair 2 must hear about it.
 	author := p1.GetString("player1")
-	h.notifyProposal(match, 1, proposalNotice{AuthorID: author, Date: "2026-09-20", Time: "19:00", VenueName: "Club Test"})
+	h.notifyProposal(match, 1, proposalNotice{AuthorID: author, Date: "2027-09-20", Time: "19:00", VenueName: "Club Test"})
 
 	notifs, err := app.FindRecordsByFilter("notifications",
 		"type = 'scheduling'", "", 0, 0, nil)
@@ -218,7 +218,7 @@ func TestProposalFromPairTwoNotifiesPairOne(t *testing.T) {
 	match := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
 
 	h := &ThreadHandler{app: app, notifier: notify.NewNotifier(app, "", "")}
-	h.notifyProposal(match, 2, proposalNotice{AuthorID: p2.GetString("player1"), Date: "2026-09-20", Time: "19:00", VenueName: "Club Test"})
+	h.notifyProposal(match, 2, proposalNotice{AuthorID: p2.GetString("player1"), Date: "2027-09-20", Time: "19:00", VenueName: "Club Test"})
 
 	notifs, err := app.FindRecordsByFilter("notifications", "type = 'scheduling'", "", 0, 0, nil)
 	require.NoError(t, err)
@@ -252,7 +252,7 @@ func TestProposalSendsEmail(t *testing.T) {
 
 	h := &ThreadHandler{app: testApp, notifier: notify.NewNotifier(testApp, "", "")}
 	h.notifyProposal(match, 1, proposalNotice{
-		AuthorID: p1.GetString("player1"), Date: "2026-09-20", Time: "19:00", VenueName: "Club Test",
+		AuthorID: p1.GetString("player1"), Date: "2027-09-20", Time: "19:00", VenueName: "Club Test",
 	})
 
 	assert.Greater(t, testApp.TestMailer.TotalSend(), 0, "scheduling proposal must send email")
@@ -328,7 +328,7 @@ func makeProposal(tb testing.TB, app core.App, matchID, authorID string) *core.R
 	msg.Set("match", matchID)
 	msg.Set("author", authorID)
 	msg.Set("type", "scheduling_proposal")
-	msg.Set("proposal_data", `{"date":"2026-09-20","time":"19:00","venue_name":"Club Test","venue_id":"","venue_text":""}`)
+	msg.Set("proposal_data", `{"date":"2027-09-20","time":"19:00","venue_name":"Club Test","venue_id":"","venue_text":""}`)
 	msg.Set("proposal_status", "pending")
 	require.NoError(tb, app.Save(msg))
 	return msg
@@ -764,7 +764,7 @@ func TestThreadWithMessages(t *testing.T) {
 		proposal.Set("author", p1.GetString("player1"))
 		proposal.Set("type", "scheduling_proposal")
 		proposal.Set("proposal_data", map[string]any{
-			"date": "2026-09-20", "time": "19:00", "venue_name": "Club Padel",
+			"date": "2027-09-20", "time": "19:00", "venue_name": "Club Padel",
 		})
 		proposal.Set("proposal_status", "pending")
 		require.NoError(tb, app.Save(proposal))
@@ -806,7 +806,7 @@ func TestThreadMessagesWithData(t *testing.T) {
 		proposal.Set("author", p2.GetString("player1"))
 		proposal.Set("type", "scheduling_proposal")
 		proposal.Set("proposal_data", map[string]any{
-			"date": "2026-09-20", "time": "19:00", "venue_name": "Club",
+			"date": "2027-09-20", "time": "19:00", "venue_name": "Club",
 		})
 		proposal.Set("proposal_status", "accepted")
 		require.NoError(tb, app.Save(proposal))
@@ -915,7 +915,7 @@ func TestThread_PlayoffHidesProposal(t *testing.T) {
 		p2 := makePairTB(tb, app, "POThr2")
 		comp := makeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		match.Set("date", "2026-10-15")
+		match.Set("date", "2027-10-15")
 		match.Set("time", "20:00")
 		match.Set("club", "Padel 360")
 		require.NoError(tb, app.Save(match))
@@ -1412,7 +1412,7 @@ func TestThreadMessages_AllTypesRenderCorrectSubDefine(t *testing.T) {
 		proposal.Set("author", p2.GetString("player1"))
 		proposal.Set("type", "scheduling_proposal")
 		proposal.Set("proposal_data", map[string]any{
-			"date": "2026-10-05", "time": "20:00", "venue_name": "Padel 360",
+			"date": "2027-10-05", "time": "20:00", "venue_name": "Padel 360",
 		})
 		proposal.Set("proposal_status", "pending")
 		require.NoError(tb, app.Save(proposal))
@@ -1459,7 +1459,7 @@ func TestPlayerProposalBlockedOnFinalizedComp(t *testing.T) {
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
-		s.Body = strings.NewReader("date=2026-10-01&time=20:00&venue=" + v.Id)
+		s.Body = strings.NewReader("date=2027-10-01&time=20:00&venue=" + v.Id)
 	}
 	s.Test(t)
 }

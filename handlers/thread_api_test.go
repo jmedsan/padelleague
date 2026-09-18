@@ -123,7 +123,7 @@ func TestThreadPostProposal(t *testing.T) {
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		matchID = match.Id
 		s.URL = "/match/" + match.Id + "/thread/proposal"
-		s.Body = strings.NewReader("date=2026-09-15&time=18:00&venue_text=Club+Test")
+		s.Body = strings.NewReader("date=2027-09-15&time=18:00&venue_text=Club+Test")
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
@@ -163,7 +163,7 @@ func TestThreadRespondProposal(t *testing.T) {
 		msg.Set("match", match.Id)
 		msg.Set("author", proposer)
 		msg.Set("type", "scheduling_proposal")
-		msg.Set("proposal_data", `{"date":"2026-09-15","time":"18:00","venue_name":"Club Test","venue_id":"","venue_text":""}`)
+		msg.Set("proposal_data", `{"date":"2027-09-15","time":"18:00","venue_name":"Club Test","venue_id":"","venue_text":""}`)
 		msg.Set("proposal_status", "pending")
 		require.NoError(tb, app.Save(msg))
 		msgID = msg.Id
@@ -206,7 +206,7 @@ func TestThreadRespondProposalReject(t *testing.T) {
 		msg.Set("match", match.Id)
 		msg.Set("author", proposer)
 		msg.Set("type", "scheduling_proposal")
-		msg.Set("proposal_data", `{"date":"2026-09-15","time":"18:00","venue_name":"Club","venue_id":"","venue_text":""}`)
+		msg.Set("proposal_data", `{"date":"2027-09-15","time":"18:00","venue_name":"Club","venue_id":"","venue_text":""}`)
 		msg.Set("proposal_status", "pending")
 		require.NoError(tb, app.Save(msg))
 		msgID = msg.Id
@@ -251,7 +251,7 @@ func TestThreadRespondOwnProposalRejected(t *testing.T) {
 		msg.Set("match", match.Id)
 		msg.Set("author", proposer)
 		msg.Set("type", "scheduling_proposal")
-		msg.Set("proposal_data", `{"date":"2026-09-15","time":"18:00","venue_name":"Club","venue_id":"","venue_text":""}`)
+		msg.Set("proposal_data", `{"date":"2027-09-15","time":"18:00","venue_name":"Club","venue_id":"","venue_text":""}`)
 		msg.Set("proposal_status", "pending")
 		require.NoError(tb, app.Save(msg))
 
