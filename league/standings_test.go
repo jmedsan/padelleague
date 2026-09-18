@@ -655,6 +655,163 @@ func TestComputeStandings_HeadToHeadOverridesInputOrder(t *testing.T) {
 		"head-to-head must promote the winner above its registration order")
 }
 
+// TestStandings_AdjustmentLeveled verifies that Adjustment and Score are
+// computed correctly for a leveled league.
+//
+// Setup: 4 pairs, target_matches=3 (leveled: 3 < 4-1 is false, so use target=2
+// with 4 pairs). Actually: 4 pairs, target=2 (< 4-1=3), which is leveled.
+//
+// Matches (all final):
+//   A beats B  6-4 6-4  (A: 1W, B: 1L)
+//   A beats C  6-4 6-4  (A: 2W, C: 1L)
+//   D beats B  6-4 6-4  (D: 1W, B: 2L)
+//   D beats C  6-4 6-4  (D: 2W, C: 2L)
+//   B beats C  6-4 6-4  (B: 1W, C: 3L — wait, need to keep balanced)
+//
+// Simpler setup: A beats B, A beats C, D beats B, B beats C — all 2-0.
+// Results:
+//   A: 2W/0L, Points=6
+//   D: 1W/1L, Points=3
+//   B: 1W/2L, Points=3
+//   C: 0W/2L, Points=0
+//
+// SOS(A) = mean win_rate of A's opponents (B and C):
+//   win_rate(B) = 1/3, win_rate(C) = 0/2 = 0
+//   SOS(A) = (1/3 + 0) / 2 = 1/6 ≈ 0.1667
+//   Adjustment(A) = 3 × 2 × 1.5 × (1/6 - 0.5) = 9 × (-1/3) = -3.0
+//
+// SOS(D) = mean of D's played opponents: only B (D played A and B? — wait)
+//
+// Let me use a cleaner setup for predictable math.
+//
+// 4 pairs A,B,C,D with target_matches=3 (3 < 3 is false, target must be < pairs-1=3).
+// Use target_matches=2 for 4 pairs (IsLeveled: 2 < 3 = true).
+// Matches:
+//   A beats B  (A: 1W, B: 1L)
+//   A beats C  (A: 2W, C: 1L)
+//   D beats B  (D: 1W, B: 2L)
+//   D beats C  (D: 2W, C: 2L)
+// Stats: A=2W/0L(Pts=6), D=2W/0L(Pts=6), B=0W/2L(Pts=0), C=0W/2L(Pts=0)
+// SOS(A): A played B and C. win_rate(B)=0/2=0, win_rate(C)=0/2=0 → SOS=0
+//   Adj(A) = 3×2×1.5×(0-0.5) = 9×(-0.5) = -4.5
+// SOS(D): D played B and C. Same → Adj(D) = -4.5
+// SOS(B): B played A and D. win_rate(A)=2/2=1, win_rate(D)=2/2=1 → SOS=1
+//   Adj(B) = 3×2×1.5×(1-0.5) = 9×0.5 = 4.5
+// SOS(C): C played A and D. → SOS=1, Adj(C) = 4.5
+// Score: A=6-4.5=1.5, D=6-4.5=1.5, B=0+4.5=4.5, C=0+4.5=4.5
+// Order by Score desc: B/C (4.5) > A/D (1.5).
+// Tiebreak B vs C (same Score=4.5, same Points=0): by existing chain (set diff/game/name).
+// Tiebreak A vs D (same Score=1.5, same Points=6): by existing chain.
+//
+// This proves the adjustment works AND that order follows Score not Points.
+func TestStandings_AdjustmentLeveled(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	a := makePair(t, app, "Adj A")
+	b := makePair(t, app, "Adj B")
+	c := makePair(t, app, "Adj C")
+	d := makePair(t, app, "Adj D")
+
+	// target_matches=2, 4 pairs: 2 < 4-1=3 → IsLeveled=true
+	comp := makeCompetition(t, app, []*core.Record{a, b, c, d})
+	comp.Set("target_matches", 2)
+	require.NoError(t, app.Save(comp))
+
+	// A beats B and C; D beats B and C.
+	finalMatch(t, app, comp.Id, a, b, a, "6-4 6-4", 0)
+	finalMatch(t, app, comp.Id, a, c, a, "6-4 6-4", 0)
+	finalMatch(t, app, comp.Id, d, b, d, "6-4 6-4", 0)
+	finalMatch(t, app, comp.Id, d, c, d, "6-4 6-4", 0)
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	require.Len(t, rows, 4)
+
+	// Locate each pair's row.
+	rowA := rowByName(t, rows, "Adj A")
+	rowB := rowByName(t, rows, "Adj B")
+	rowC := rowByName(t, rows, "Adj C")
+	rowD := rowByName(t, rows, "Adj D")
+
+	// Base points.
+	assert.Equal(t, 6, rowA.Points)
+	assert.Equal(t, 6, rowD.Points)
+	assert.Equal(t, 0, rowB.Points)
+	assert.Equal(t, 0, rowC.Points)
+
+	// Adjustments: A and D played two opponents each with 0% win rate.
+	// SOS = 0, Adj = 3×2×1.5×(0−0.5) = −4.5
+	assert.InDelta(t, -4.5, rowA.Adjustment, 0.05)
+	assert.InDelta(t, -4.5, rowD.Adjustment, 0.05)
+
+	// B and C played two opponents each with 100% win rate.
+	// SOS = 1, Adj = 3×2×1.5×(1−0.5) = 4.5
+	assert.InDelta(t, 4.5, rowB.Adjustment, 0.05)
+	assert.InDelta(t, 4.5, rowC.Adjustment, 0.05)
+
+	// Score = Points + Adjustment.
+	assert.InDelta(t, 1.5, rowA.Score, 0.05)
+	assert.InDelta(t, 1.5, rowD.Score, 0.05)
+	assert.InDelta(t, 4.5, rowB.Score, 0.05)
+	assert.InDelta(t, 4.5, rowC.Score, 0.05)
+
+	// Order follows Score (descending): B/C (4.5) > A/D (1.5).
+	// B and C both have Score 4.5; A and D both have 1.5.
+	// Positions 1 and 2 must be B and C (in some order).
+	top2 := map[string]bool{rows[0].PairName: true, rows[1].PairName: true}
+	assert.True(t, top2["Adj B"], "B should be in top 2 by Score")
+	assert.True(t, top2["Adj C"], "C should be in top 2 by Score")
+	// Positions 3 and 4 must be A and D.
+	bottom2 := map[string]bool{rows[2].PairName: true, rows[3].PairName: true}
+	assert.True(t, bottom2["Adj A"], "A should be in bottom 2 by Score")
+	assert.True(t, bottom2["Adj D"], "D should be in bottom 2 by Score")
+}
+
+// TestStandings_RoundRobinUnchanged verifies that Adjustment is 0 and the
+// sort order is byte-identical to the pre-leveled behavior (P7).
+func TestStandings_RoundRobinUnchanged(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	a := makePair(t, app, "RRU A")
+	b := makePair(t, app, "RRU B")
+	c := makePair(t, app, "RRU C")
+
+	// target_matches=0 → IsLeveled=false.
+	comp := makeCompetition(t, app, []*core.Record{a, b, c})
+	// default target_matches is 0
+
+	finalMatch(t, app, comp.Id, a, b, a, "6-3 6-4", 1)
+	finalMatch(t, app, comp.Id, b, c, b, "6-3 6-4", 2)
+	finalMatch(t, app, comp.Id, a, c, a, "6-3 6-4", 3)
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	require.Len(t, rows, 3)
+
+	rowA := rowByName(t, rows, "RRU A")
+	rowB := rowByName(t, rows, "RRU B")
+	rowC := rowByName(t, rows, "RRU C")
+
+	// Adjustment must be 0 for round-robin.
+	assert.Equal(t, 0.0, rowA.Adjustment)
+	assert.Equal(t, 0.0, rowB.Adjustment)
+	assert.Equal(t, 0.0, rowC.Adjustment)
+
+	// Score == float64(Points).
+	assert.Equal(t, float64(rowA.Points), rowA.Score)
+	assert.Equal(t, float64(rowB.Points), rowB.Score)
+	assert.Equal(t, float64(rowC.Points), rowC.Score)
+
+	// Order by points: A(6) > B(3) > C(0).
+	assert.Equal(t, "RRU A", rows[0].PairName)
+	assert.Equal(t, "RRU B", rows[1].PairName)
+	assert.Equal(t, "RRU C", rows[2].PairName)
+}
+
 func TestPenaltyTotals_SumsActiveRows(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
