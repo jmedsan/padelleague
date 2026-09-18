@@ -115,6 +115,8 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 
 	precedentes := buildPrecedentesView(h.app, match, mc.Pair1Name, mc.Pair2Name)
 
+	canRelease := isAdmin && comp != nil && league.IsLeveled(comp) && league.IsPreScore(match.GetString("status"))
+
 	return h.renderPage(e, "match.html", map[string]any{
 		"PageTitle":           matchPageTitle(mc),
 		"Card":                mc,
@@ -126,6 +128,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		"Precedentes":         precedentes,
 		"OGImage":             mc.CompetitionLogo,
 		"FooterCompetitionID": compID,
+		"CanRelease":          canRelease,
 	})
 }
 
@@ -314,6 +317,49 @@ func (h *MatchHandler) notifyResultProposal(match *core.Record, userID, scores s
 	if err := h.notifier.NotifyAdmins(an, participants...); err != nil {
 		slog.Error("notify admins match progress failed", "match", match.Id, "err", err)
 	}
+}
+
+// AdminRelease deletes a pending leveled-league match so the pair-assignment
+// cron can re-pair the affected pairs. Only valid for leveled competitions and
+// pre-score match statuses.
+func (h *MatchHandler) AdminRelease(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	match, err := h.app.FindRecordById("matches", id)
+	if err != nil {
+		return alertError(e, "Partido no encontrado")
+	}
+
+	compID := match.GetString("competition")
+	comp, _ := h.app.FindRecordById("competitions", compID)
+
+	if comp == nil || !league.IsLeveled(comp) || !league.IsPreScore(match.GetString("status")) {
+		return alertError(e, "Solo se puede liberar un partido sin resultado de una liga nivelada")
+	}
+
+	if err := h.app.RunInTransaction(func(txApp core.App) error {
+		notifs, err := txApp.FindRecordsByFilter("notifications", "related_match = {:m}", "", 0, 0, map[string]any{"m": id})
+		if err != nil {
+			return err
+		}
+		for _, n := range notifs {
+			if err := txApp.Delete(n); err != nil {
+				return err
+			}
+		}
+		return txApp.Delete(match)
+	}); err != nil {
+		return alertError(e, "Error al liberar el partido")
+	}
+
+	league.LogCompetitionEvent(h.app, league.CompetitionEvent{
+		CompetitionID: compID,
+		ActorID:       e.Auth.Id,
+		Kind:          "assignment_released",
+		Detail:        "liberó un partido de liga nivelada",
+	})
+
+	flash(e, "Partido liberado")
+	return redirectHX(e, "/competition/"+compID)
 }
 
 // AdminOverride lets an admin set the final score, bypassing the normal flow.

@@ -23,6 +23,15 @@
 
     {{template "precedentesStrip" .Precedentes}}
 
+    {{if .CanRelease}}
+    <div class="mt-4">
+        <button hx-post="/match/{{.Card.Match.Id}}/release" hx-target="body"
+                hx-confirm="¿Liberar este partido? Se eliminará y las parejas podrán ser emparejadas de nuevo."
+                data-confirm-title="Liberar partido" data-confirm-danger data-confirm-ok="Liberar"
+                class="btn btn-error btn-outline btn-sm">Liberar partido</button>
+    </div>
+    {{end}}
+
     <div class="mt-6" id="match-thread"
          hx-get="/match/{{.Card.Match.Id}}/thread"
          hx-trigger="load"

@@ -270,6 +270,7 @@ func setupAllRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	e.Router.POST("/match/{id}/submit", match.MatchSubmit).BindFunc(requireAuthTest)
 	e.Router.POST("/match/{id}/correct", match.MatchCorrect).BindFunc(requireAuthTest)
 	e.Router.POST("/match/{id}/admin-override", match.AdminOverride).BindFunc(requireAuthTest)
+	e.Router.POST("/match/{id}/release", match.AdminRelease).BindFunc(requireAdminTest)
 	e.Router.POST("/match/{id}/report-unplayed", match.ReportUnplayed).BindFunc(requireAuthTest)
 	e.Router.POST("/match/{id}/cancel-date", match.CancelDate).BindFunc(requireAuthTest)
 

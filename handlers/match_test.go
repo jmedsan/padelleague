@@ -1606,3 +1606,161 @@ func TestMatchDetail_Round1_ShowsJornada1(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+// makeMatchNotification creates a notification with related_match pointing to matchID.
+func makeMatchNotification(t testing.TB, app core.App, userID, matchID string) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("notifications")
+	require.NoError(t, err)
+	rec := core.NewRecord(col)
+	rec.Set("user", userID)
+	rec.Set("type", "general")
+	rec.Set("title", "Test")
+	rec.Set("body", "test body")
+	rec.Set("related_match", matchID)
+	require.NoError(t, app.Save(rec))
+	return rec
+}
+
+func TestAdminRelease_OK(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /match/{id}/release admin deletes a pending leveled match",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "RelA")
+		p2 := makePairTB(tb, app, "RelB")
+		p3 := makePairTB(tb, app, "RelC")
+		// 3 pairs, target=1 < 3-1=2 → IsLeveled=true
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3}, 1, 1)
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		m.Set("round_number", 0)
+		require.NoError(tb, app.Save(m))
+		matchID = m.Id
+		// attach a notification to the match
+		user1, _ := app.FindRecordById("users", p1.GetString("player1"))
+		makeMatchNotification(tb, app, user1.Id, matchID)
+		admin := makeAdminUserTB(tb, app)
+		s.URL = "/match/" + matchID + "/release"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		// match must be deleted
+		_, err := app.FindRecordById("matches", matchID)
+		assert.Error(tb, err, "match must be deleted after release")
+		// notification must be deleted
+		notifs, _ := app.FindRecordsByFilter("notifications", "related_match = {:m}", "", 0, 0, map[string]any{"m": matchID})
+		assert.Empty(tb, notifs, "notifications for the match must be deleted")
+		// competition event logged
+		events, _ := app.FindRecordsByFilter("competition_events", "kind = 'assignment_released'", "", 0, 0, nil)
+		assert.NotEmpty(tb, events, "assignment_released event must be logged")
+	}
+	s.Test(t)
+}
+
+func TestAdminRelease_PlayerForbidden(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /match/{id}/release player gets redirect (not admin)",
+		Method:         http.MethodPost,
+		ExpectedStatus: 302,
+	}
+	var matchID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "FrbA")
+		p2 := makePairTB(tb, app, "FrbB")
+		p3 := makePairTB(tb, app, "FrbC")
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3}, 1, 1)
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		m.Set("round_number", 0)
+		require.NoError(tb, app.Save(m))
+		matchID = m.Id
+		s.URL = "/match/" + matchID + "/release"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		_, err := app.FindRecordById("matches", matchID)
+		assert.NoError(tb, err, "match must still exist when non-admin tries to release")
+	}
+	s.Test(t)
+}
+
+func TestAdminRelease_ConfirmedMatch(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /match/{id}/release confirmed match returns error",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Solo se puede liberar un partido sin resultado de una liga nivelada"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "CfmA")
+		p2 := makePairTB(tb, app, "CfmB")
+		p3 := makePairTB(tb, app, "CfmC")
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3}, 1, 1)
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
+		m.Set("round_number", 0)
+		require.NoError(tb, app.Save(m))
+		s.URL = "/match/" + m.Id + "/release"
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestAdminRelease_RoundRobinMatch(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /match/{id}/release round-robin match returns error",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Solo se puede liberar un partido sin resultado de una liga nivelada"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "RRA")
+		p2 := makePairTB(tb, app, "RRB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + m.Id + "/release"
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestAdminRelease_ButtonVisibility(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /match/{id} release button shown to admin on pending leveled match only",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Liberar partido"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "BtnA")
+		p2 := makePairTB(tb, app, "BtnB")
+		p3 := makePairTB(tb, app, "BtnC")
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3}, 1, 1)
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		m.Set("round_number", 0)
+		require.NoError(tb, app.Save(m))
+		s.URL = "/match/" + m.Id
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
