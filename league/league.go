@@ -39,3 +39,9 @@ func New(app core.App, notifier Notifier) *Service {
 		shuffle:  rand.Shuffle,
 	}
 }
+
+// SetShuffle replaces the shuffle seam. Tests call this to get deterministic
+// leveled-assignment ordering; production code always uses rand.Shuffle.
+func (s *Service) SetShuffle(fn func(n int, swap func(i, j int))) {
+	s.shuffle = fn
+}

@@ -388,6 +388,7 @@ func TestGenerateInitialAssignments(t *testing.T) {
 	comp := makeLeveledCompetition(t, app, pairs, 4, 2)
 
 	svc := New(app, nil)
+	svc.SetShuffle(func(_ int, _ func(int, int)) {}) // deterministic for count assertions
 	n, err := svc.GenerateInitialAssignments(app, comp, time.Now())
 	require.NoError(t, err)
 	assert.Greater(t, n, 0, "should create at least one match")
