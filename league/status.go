@@ -1,5 +1,16 @@
 package league
 
+import "fmt"
+
+// RoundLabel returns the display label for a league round number.
+// Round 0 (leveled-league assignments) returns "" — it has no round identity.
+func RoundLabel(n int) string {
+	if n == 0 {
+		return ""
+	}
+	return fmt.Sprintf("Jornada %d", n)
+}
+
 // Match status constants.
 const (
 	StatusPending   = "pending"

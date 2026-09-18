@@ -5,6 +5,7 @@ package search
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
 
@@ -98,23 +99,40 @@ func buildMatches(app core.App) []Entry {
 	return entries
 }
 
+// shortRoundLabel returns the compact round label for search display (e.g. "J3").
+// Returns "" for round 0 (leveled-league assignments have no round identity).
+func shortRoundLabel(n int) string {
+	if n == 0 {
+		return ""
+	}
+	return fmt.Sprintf("J%d", n)
+}
+
 func buildMatchEntry(app core.App, m *core.Record) Entry {
 	pairNames := league.PairNames(app, []string{m.GetString("pair1"), m.GetString("pair2")})
 	p1 := pairNames[m.GetString("pair1")]
 	p2 := pairNames[m.GetString("pair2")]
 	round := int(m.GetFloat("round_number"))
-	label := fmt.Sprintf("%s vs %s (J%d)", p1, p2, round)
+	roundLabel := league.RoundLabel(round)
+	label := p1 + " vs " + p2
+	if roundLabel != "" {
+		label += " (" + shortRoundLabel(round) + ")"
+	}
 	compID := m.GetString("competition")
 	secondary := league.CompetitionName(app, compID)
 	if score := m.GetString("scores"); score != "" {
 		secondary += " · " + score
+	}
+	keywords := []string{"partido", p1, p2}
+	if roundLabel != "" {
+		keywords = append(keywords, strings.ToLower(roundLabel))
 	}
 	return NewEntry(Entry{
 		Label:     label,
 		Secondary: secondary,
 		Type:      "partido",
 		URL:       league.EntityURL("match", m.Id),
-		Keywords:  []string{"partido", fmt.Sprintf("jornada %d", round), p1, p2},
+		Keywords:  keywords,
 		Scope:     matchScope(app, compID),
 		RecordID:  m.Id,
 	})

@@ -44,13 +44,13 @@
 {{end}}
 
 <div role="tablist" class="tabs tabs-boxed bg-base-100 shadow-sm mb-6 p-1">
-    <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" id="tab-jornadas" aria-label="{{if .IsPlayoff}}Rondas{{else}}Jornadas{{end}}"{{if ne .ActiveTab "clasificacion"}} checked{{end}}>
+    <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" id="tab-jornadas" aria-label="{{if .IsPlayoff}}Rondas{{else if .IsLeveled}}Partidos{{else}}Jornadas{{end}}"{{if ne .ActiveTab "clasificacion"}} checked{{end}}>
     <div role="tabpanel" class="tab-content pt-6 basis-full min-w-0">
         {{if not .IsPlayoff}}
         <form method="get" hx-boost="true" hx-trigger="change" class="mb-3">
             <input type="hidden" name="tab" value="jornadas">
             <select name="pair" class="select select-bordered select-sm w-full sm:w-64">
-                <option value="">Todas las parejas</option>
+                <option value="{{if .IsLeveled}}all{{end}}">Todas las parejas</option>
                 {{range .PairOptions}}{{if .IsOwn}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>★ {{.Name}}</option>{{end}}{{end}}
                 <optgroup label="Otras parejas">
                     {{range .PairOptions}}{{if not .IsOwn}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>{{end}}{{end}}
@@ -65,9 +65,9 @@
         {{range .Rounds}}
         {{if .Matches}}
         <div class="collapse collapse-arrow bg-base-100 shadow-sm rounded-lg border border-base-300">
-            <input type="checkbox" {{if and $.AutoExpandRound (eq $.AutoExpandRound .RoundNumber)}}checked{{end}}>
+            <input type="checkbox" {{if and $.AutoExpandRound (eq $.AutoExpandRound .Key)}}checked{{end}}>
             <div class="collapse-title font-bold text-sm py-2 min-h-0">
-                Jornada {{.RoundNumber}}
+                {{.Title}}
                 <span class="badge badge-soft-ghost badge-sm ml-1">{{len .Matches}}</span>
             </div>
             <div class="collapse-content">
@@ -116,7 +116,7 @@
     <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Clasificación"{{if eq .ActiveTab "clasificacion"}} checked{{end}}>
     <div role="tabpanel" class="tab-content pt-6 basis-full min-w-0">
         <div class="card bg-base-100 shadow-sm rounded-xl">
-            {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "PlayerPairIDs" .PlayerPairIDs "Mode" .Mode "WithdrawnPairs" .WithdrawnPairs)}}
+            {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "HasAdjustment" .HasAdjustment "PlayerPairIDs" .PlayerPairIDs "Mode" .Mode "WithdrawnPairs" .WithdrawnPairs)}}
         </div>
     </div>
     {{end}}

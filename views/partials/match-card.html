@@ -7,7 +7,7 @@
         </div>
 
         {{if not .Mode.Full}}
-        <p class="text-sm opacity-60">{{if .CompetitionName}}{{template "competitionIdentity" (dict "ID" (.Match.GetString "competition") "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true))}} · {{end}}J{{.RoundNum}}</p>
+        <p class="text-sm opacity-60">{{if .CompetitionName}}{{template "competitionIdentity" (dict "ID" (.Match.GetString "competition") "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true))}}{{if .RoundNum}} · {{end}}{{end}}{{if .RoundNum}}J{{.RoundNum}}{{end}}</p>
         {{end}}
 
         {{if not (and .Mode.Full (not .Mode.Editable))}}
@@ -199,7 +199,7 @@
 {{define "upcomingMatchRow"}}
 <a href="/match/{{.MatchID}}" class="flex items-center gap-3 p-3 rounded-xl bg-base-200/50 hover:bg-base-200 transition-colors" data-testid="upcoming-match">
     <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-none">
-        <span class="text-sm font-bold text-primary">J{{.RoundNumber}}</span>
+        {{if .RoundNumber}}<span class="text-sm font-bold text-primary">J{{.RoundNumber}}</span>{{else}}<span class="text-sm font-bold text-primary opacity-40">—</span>{{end}}
     </div>
     <div class="flex-1 min-w-0">
         <p class="font-medium text-sm truncate">vs <span data-testid="upcoming-opponent">{{.Opponent}}</span></p>

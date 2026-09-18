@@ -161,9 +161,9 @@
         <div class="space-y-3">
             {{range .Rounds}}
             <div class="collapse collapse-arrow bg-base-200 rounded-box">
-                <input type="checkbox" {{if eq $.AutoExpandRound .Number}}checked{{end}}>
+                <input type="checkbox" {{if eq $.AutoExpandRound .Key}}checked{{end}}>
                 <div class="collapse-title font-medium text-sm">
-                    Jornada {{.Number}}
+                    {{.Title}}
                     <span class="badge badge-soft-ghost badge-sm ml-2">{{.Played}}/{{.Total}} partido{{if ne .Total 1}}s{{end}} jugado{{if ne .Total 1}}s{{end}}</span>
                     {{template "warningBadge" .Warning}}
                 </div>
@@ -634,7 +634,7 @@
             Clasificación
         </h2>
         {{if .Standings}}
-        {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "Mode" .Mode "WithdrawnPairs" .WithdrawnPairs)}}
+        {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "HasAdjustment" .HasAdjustment "Mode" .Mode "WithdrawnPairs" .WithdrawnPairs)}}
         {{else}}
         {{template "emptyState" "No hay datos de clasificación todavía"}}
         {{end}}

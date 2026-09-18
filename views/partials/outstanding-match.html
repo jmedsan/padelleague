@@ -7,7 +7,7 @@
 {{define "outstandingMatchDesktopRow"}}
 <tr>
     <td>{{template "competitionIdentity" (dict "ID" .CompetitionID "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true))}}</td>
-    <td>{{.RoundNumber}}</td>
+    <td>{{if .RoundNumber}}Jornada {{.RoundNumber}}{{end}}</td>
     <td>{{template "pairLink" (elink .Pair1ID .Pair1)}} <span class="opacity-50">vs</span> {{template "pairLink" (elink .Pair2ID .Pair2)}}</td>
     <td>{{.StatusLabel}}</td>
     <td class="text-right">{{if .ArrangeBy}}<span title="{{fmtDate .ArrangeByRel}}">{{relDate .ArrangeByRel}}</span>{{end}}</td>
@@ -26,7 +26,7 @@
 <li class="flex items-center gap-4 px-4 py-2 min-h-[72px]">
     <a href="/match/{{.MatchID}}" class="flex-1 min-w-0">
         <p class="font-medium break-words">{{.Pair1}} <span class="opacity-50">vs</span> {{.Pair2}}</p>
-        <p class="text-sm opacity-60 truncate">{{.CompetitionName}} · Jornada {{.RoundNumber}}{{if .ArrangeBy}} · límite {{fmtDate .ArrangeByRel}}{{end}}</p>
+        <p class="text-sm opacity-60 truncate">{{.CompetitionName}}{{if .RoundNumber}} · Jornada {{.RoundNumber}}{{end}}{{if .ArrangeBy}} · límite {{fmtDate .ArrangeByRel}}{{end}}</p>
     </a>
     <div class="flex items-center gap-1 shrink-0">
         {{if .ArrangeBy}}{{template "warningBadge" .Warning}}{{end}}

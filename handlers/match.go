@@ -61,12 +61,12 @@ func canReportUnplayed(status string, team int, date string) bool {
 
 // matchRoundLabel returns the breadcrumb label for a match's round: the
 // bracket round name ("Final", "Semifinal", ...) for playoffs, "Jornada N"
-// otherwise.
+// for regular rounds, and "" for round 0 (leveled-league assignments).
 func matchRoundLabel(app core.App, comp *core.Record, roundNum int) string {
 	if maxRound, ok := league.PlayoffMaxRound(app, comp); ok {
 		return bracketRoundName(roundNum, maxRound)
 	}
-	return fmt.Sprintf("Jornada %d", roundNum)
+	return league.RoundLabel(roundNum)
 }
 
 // MatchDetail renders the match page with score, status, and available actions.
@@ -96,7 +96,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	compID := match.GetString("competition")
 	comp, _ := h.app.FindRecordById("competitions", compID)
 	compName := ""
-	roundLabel := fmt.Sprintf("Jornada %d", mc.RoundNum)
+	roundLabel := league.RoundLabel(mc.RoundNum)
 	if comp != nil {
 		compName = comp.GetString("name")
 		if !isAdmin && !league.PlayerCanModify(comp, time.Now()) {
