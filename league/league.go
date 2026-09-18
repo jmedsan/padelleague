@@ -1,7 +1,11 @@
 // Package league implements domain logic for scoring, standings, fixtures, and awards.
 package league
 
-import "github.com/pocketbase/pocketbase/core"
+import (
+	"math/rand/v2"
+
+	"github.com/pocketbase/pocketbase/core"
+)
 
 // Notification bundles the fields for a player notification.
 type Notification struct {
@@ -22,9 +26,16 @@ type Notifier interface {
 type Service struct {
 	app      core.App
 	notifier Notifier
+
+	// Test seam: initialized to rand.Shuffle in New; tests override per instance.
+	shuffle func(n int, swap func(i, j int))
 }
 
 // New creates a Service with the given PocketBase app and notifier.
 func New(app core.App, notifier Notifier) *Service {
-	return &Service{app: app, notifier: notifier}
+	return &Service{
+		app:      app,
+		notifier: notifier,
+		shuffle:  rand.Shuffle,
+	}
 }
