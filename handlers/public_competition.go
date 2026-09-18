@@ -15,6 +15,8 @@ import (
 // RoundView groups matches by round number for the competition page.
 type RoundView struct {
 	RoundNumber int
+	Key         string // unique group key for auto-expand (e.g. "round-1" or "pending")
+	Title       string // display title (e.g. "Jornada 1" or "Por jugar")
 	Matches     []MatchCard
 }
 
@@ -94,21 +96,47 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	pairNames := collectPairNames(h.app, matches)
 
 	isPlayoff := league.IsPlayoff(comp)
-	pairFilter := e.Request.URL.Query().Get("pair")
+	isLeveled := league.IsLeveled(comp)
 	compPairIDs := comp.GetStringSlice("pairs")
-	if pairFilter != "" && !isPlayoff && !slices.Contains(compPairIDs, pairFilter) {
+
+	// Determine pair filter. For leveled leagues: default to the viewer's own
+	// pair when the URL has no "pair" key (not even empty string), so "Por jugar"
+	// is scoped to the player by default. "?pair=all" shows everything.
+	urlPair, hasPairKey := e.Request.URL.Query()["pair"]
+	pairFilter := ""
+	if hasPairKey {
+		pairFilter = urlPair[0]
+	}
+	if pairFilter != "all" && pairFilter != "" && !isPlayoff && !slices.Contains(compPairIDs, pairFilter) {
 		pairFilter = ""
 	}
 	if isPlayoff {
 		pairFilter = ""
 	}
-	rounds := buildRounds(matches, pairNames, playerPairIDs, pairFilter)
-	for i := range rounds {
-		enrichWithPendingResults(h.app, rounds[i].Matches)
+	if isLeveled && !hasPairKey {
+		// default to viewer's own pair
+		for pid := range playerPairIDs {
+			if slices.Contains(compPairIDs, pid) {
+				pairFilter = pid
+				break
+			}
+		}
+	}
+
+	var rounds []RoundView
+	if isLeveled {
+		tz := league.Timezone(h.app)
+		rounds = buildLeveledRounds(matches, pairNames, playerPairIDs, pairFilter, tz)
+	} else {
+		rounds = buildRounds(matches, pairNames, playerPairIDs, pairFilter)
+		for i := range rounds {
+			enrichWithPendingResults(h.app, rounds[i].Matches)
+		}
 	}
 	autoExpandRound := firstIncompleteRound(rounds)
 
 	data := h.buildCompetitionData(comp, rounds, autoExpandRound, published || isAdmin)
+	data["IsLeveled"] = isLeveled
 	h.populateCompetitionData(data, competitionDataParams{
 		e: e, comp: comp, isPlayoff: isPlayoff, compPairIDs: compPairIDs,
 		playerPairIDs: playerPairIDs, pairFilter: pairFilter, rounds: rounds, userID: userID,
@@ -142,10 +170,10 @@ func (h *PublicHandler) populateCompetitionData(data map[string]any, p competiti
 	if !p.isPlayoff {
 		data["PairOptions"] = buildPairOptions(h.app, p.compPairIDs, p.playerPairIDs, p.pairFilter)
 	}
-	if p.pairFilter != "" {
+	if p.pairFilter != "" && p.pairFilter != "all" {
 		data["ActiveTab"] = "jornadas"
 	}
-	if p.pairFilter != "" && len(p.rounds) == 0 {
+	if p.pairFilter != "" && p.pairFilter != "all" && len(p.rounds) == 0 {
 		data["FilterEmptyState"] = "Sin partidos para esta pareja"
 	}
 	h.addCompetitionDocViews(data, comp, p.userID, fileTokenFor(p.e))
@@ -231,12 +259,12 @@ func (h *PublicHandler) AcceptDocs(e *core.RequestEvent) error {
 // returns nil when the competition isn't a league, showFixtures is false
 // (the calendar isn't published for this viewer), fewer than 2 pairs have
 // standings, or no match has been played yet.
-func (h *PublicHandler) competitionStandings(comp *core.Record, showFixtures bool) ([]league.StandingRowFull, bool) {
+func (h *PublicHandler) competitionStandings(comp *core.Record, showFixtures bool) ([]league.StandingRowFull, bool, bool) {
 	if comp.GetString("type") != "league" || !showFixtures {
-		return nil, false
+		return nil, false, false
 	}
 	rows, _ := h.leagueSvc.ComputeStandings(comp.Id)
-	hasPlayed, hasPenalties := false, false
+	hasPlayed, hasPenalties, hasAdjustment := false, false, false
 	for _, s := range rows {
 		if s.Played > 0 {
 			hasPlayed = true
@@ -244,16 +272,19 @@ func (h *PublicHandler) competitionStandings(comp *core.Record, showFixtures boo
 		if s.Penalty > 0 {
 			hasPenalties = true
 		}
+		if s.Adjustment != 0 {
+			hasAdjustment = true
+		}
 	}
 	if len(rows) < 2 || !hasPlayed {
-		return nil, hasPenalties
+		return nil, hasPenalties, hasAdjustment
 	}
-	return rows, hasPenalties
+	return rows, hasPenalties, hasAdjustment
 }
 
-func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundView, autoExpandRound int, showFixtures bool) map[string]any {
+func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundView, autoExpandRound string, showFixtures bool) map[string]any {
 	id := comp.Id
-	standings, hasPenalties := h.competitionStandings(comp, showFixtures)
+	standings, hasPenalties, hasAdjustment := h.competitionStandings(comp, showFixtures)
 
 	var awards []league.Award
 	if !comp.GetBool("active") && showFixtures {
@@ -281,6 +312,7 @@ func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundVi
 		"IsArchived":      !comp.GetBool("active"),
 		"AutoExpandRound": autoExpandRound,
 		"HasPenalties":    hasPenalties,
+		"HasAdjustment":   hasAdjustment,
 		"IsPlayoff":       isPlayoff,
 		"Bracket":         bracket,
 		"WithdrawnPairs":  wp,
@@ -355,18 +387,19 @@ func buildRounds(matches []*core.Record, pairNames map[string]string, playerPair
 	sort.Ints(roundNums)
 	rounds := make([]RoundView, 0, len(roundNums))
 	for _, rn := range roundNums {
-		rounds = append(rounds, RoundView{RoundNumber: rn, Matches: roundMap[rn]})
+		key := fmt.Sprintf("round-%d", rn)
+		rounds = append(rounds, RoundView{RoundNumber: rn, Key: key, Title: fmt.Sprintf("Jornada %d", rn), Matches: roundMap[rn]})
 	}
 	return rounds
 }
 
-func firstIncompleteRound(rounds []RoundView) int {
+func firstIncompleteRound(rounds []RoundView) string {
 	for _, rv := range rounds {
 		for _, mv := range rv.Matches {
 			if mv.Match.GetString("status") != league.StatusFinal {
-				return rv.RoundNumber
+				return rv.Key
 			}
 		}
 	}
-	return 0
+	return ""
 }

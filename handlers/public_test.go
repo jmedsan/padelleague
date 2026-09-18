@@ -1371,3 +1371,152 @@ func TestBuildHomeActions_NextMatchDedupWithTask(t *testing.T) {
 	require.Len(t, actions, 1, "NextMatch deduped with existing task")
 	assert.Equal(t, "dispute", actions[0].Kind, "dispute wins over play from NextMatch")
 }
+
+// --- Leveled competition page ---
+
+// makeLeveledCompTB creates a leveled competition. At minimum 3 pairs are
+// needed since IsLeveled requires target < len(pairs)-1.
+func makeLeveledCompTB(t testing.TB, app core.App, pairs []*core.Record, target, open int) *core.Record {
+	t.Helper()
+	comp := makeCompetitionTB(t, app, "league", pairs)
+	comp.Set("target_matches", target)
+	comp.Set("open_assignments", open)
+	require.NoError(t, app.Save(comp))
+	return comp
+}
+
+func TestLeveledCompetitionPage_GroupTitles(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "leveled competition page shows Por jugar and Jugados groups",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"LvlPairA"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "LvlPairA")
+		p2 := makePairTB(tb, app, "LvlPairB")
+		p3 := makePairTB(tb, app, "LvlPairC")
+		// target=1 < len(pairs)-1=2 → IsLeveled=true
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3}, 1, 1)
+
+		// One pending and one finalized match.
+		mPending := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		_ = mPending
+		mFinal := makeMatchTB(tb, app, comp.Id, p1.Id, p3.Id, league.StatusFinal)
+		mFinal.Set("finalized_at", "2026-09-10 12:00:00.000Z")
+		mFinal.Set("result", "6-2 6-1")
+		require.NoError(tb, app.Save(mFinal))
+
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "Por jugar", "must show pending group title")
+		assert.Contains(tb, body, "septiembre 2026", "must show played month group")
+		assert.NotContains(tb, body, "Jornada", "must not show Jornada for leveled")
+	}
+	s.Test(t)
+}
+
+func TestLeveledCompetitionPage_TabLabel(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "leveled competition page tab label is Partidos not Jornadas",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"TabPairA"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "TabPairA")
+		p2 := makePairTB(tb, app, "TabPairB")
+		p3 := makePairTB(tb, app, "TabPairC")
+		// target=1 < 3-1=2 → IsLeveled=true
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3}, 1, 1)
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "Partidos", "tab label must be Partidos for leveled")
+		assert.NotContains(tb, body, "aria-label=\"Jornadas\"", "must not have Jornadas tab for leveled")
+	}
+	s.Test(t)
+}
+
+func TestLeveledCompetitionPage_OwnPairDefault(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "leveled competition page defaults to own pair when no pair URL key",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"OwnPair"},
+	}
+	var myPairName, oppPairName string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "OwnPair")
+		p2 := makePairTB(tb, app, "OppPair")
+		p3 := makePairTB(tb, app, "AlienPair")
+		myPairName = "OwnPair"
+		oppPairName = "OppPair"
+		// 3 pairs, target=1 < 3-1=2 → IsLeveled=true
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3}, 1, 1)
+
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending") // my match
+		makeMatchTB(tb, app, comp.Id, p2.Id, p3.Id, "pending") // alien match — p3 not mine
+
+		s.URL = "/competition/" + comp.Id // no ?pair= key
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		// The viewer's pair match should appear; the alien-only match should not.
+		assert.Contains(tb, body, myPairName, "own pair match must appear")
+		// AlienPair appears in the dropdown options but must NOT appear in a match card.
+		// Match cards contain href="/match/" links — count them to verify only 1 match shown.
+		assert.Equal(tb, 1, strings.Count(body, `href="/match/`), "only own-pair match card must appear")
+		_ = oppPairName
+	}
+	s.Test(t)
+}
+
+func TestLeveledCompetitionPage_PairAll(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "leveled competition page with ?pair=all shows all matches",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"AllPA"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "AllPA")
+		p2 := makePairTB(tb, app, "AllPB")
+		p3 := makePairTB(tb, app, "AllPC")
+		// target=1 < 3-1=2 → IsLeveled=true
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3}, 1, 1)
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		makeMatchTB(tb, app, comp.Id, p2.Id, p3.Id, "pending") // p3 not in viewer's pair
+
+		s.URL = "/competition/" + comp.Id + "?pair=all"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "AllPA", "AllPA match must appear")
+		assert.Contains(tb, body, "AllPC", "AllPC match must appear with ?pair=all")
+	}
+	s.Test(t)
+}

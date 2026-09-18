@@ -142,17 +142,20 @@ func (h *ICalHandler) Match(e *core.RequestEvent) error {
 // matchDescription builds the iCal description and returns the competition
 // name separately so callers can also fold it into the event summary.
 func (h *ICalHandler) matchDescription(match *core.Record) (description, compName string) {
-	description = fmt.Sprintf("Jornada %d", int(match.GetFloat("round_number")))
+	roundLabel := league.RoundLabel(int(match.GetFloat("round_number")))
 	cid := match.GetString("competition")
 	if cid == "" {
-		return description, ""
+		return roundLabel, ""
 	}
 	comp, err := h.app.FindRecordById("competitions", cid)
 	if err != nil || comp == nil {
-		return description, ""
+		return roundLabel, ""
 	}
 	compName = comp.GetString("name")
-	return description + " — " + compName, compName
+	if roundLabel == "" {
+		return compName, compName
+	}
+	return roundLabel + " — " + compName, compName
 }
 
 // matchURL builds the absolute match URL for the iCal URL property.
@@ -200,7 +203,12 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 		summary := pairNames[m.GetString("pair1")] + " vs " + pairNames[m.GetString("pair2")] + " · " + comp.GetString("name")
 		location := h.venueLocation(m.GetString("club"))
 
-		description := fmt.Sprintf("Jornada %d — %s", int(m.GetFloat("round_number")), comp.GetString("name"))
+		roundLabel := league.RoundLabel(int(m.GetFloat("round_number")))
+		compNameStr := comp.GetString("name")
+		description := compNameStr
+		if roundLabel != "" {
+			description = roundLabel + " — " + compNameStr
+		}
 
 		mURL := ""
 		if host := e.Request.Host; host != "" {

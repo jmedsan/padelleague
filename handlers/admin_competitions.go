@@ -60,7 +60,12 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 
 	pairNameMap := league.PairNames(h.app, pairIDs)
 
-	rounds := h.buildRoundGroups(comp, matches, pairNameMap)
+	var rounds []roundGroup
+	if league.IsLeveled(comp) {
+		rounds = h.buildLeveledRoundGroups(comp, matches, pairNameMap)
+	} else {
+		rounds = h.buildRoundGroups(comp, matches, pairNameMap)
+	}
 	disputes := league.CompHealthItems(h.app, id, time.Now(), "disputes", "walkovers")
 	allUsers := findRecordsLogged(h.app, "Detail: find players", RecordQuery{
 		Collection: "users", Filter: "roles ~ 'player'", Sort: "display_name",
@@ -426,6 +431,8 @@ type roundDate struct {
 
 type roundGroup struct {
 	Number  int
+	Key     string // unique key for auto-expand matching
+	Title   string // display title
 	Matches []MatchCard
 	Played  int
 	Total   int
@@ -464,7 +471,8 @@ func (h *CompetitionHandler) buildRoundGroups(comp *core.Record, matches []*core
 		for i, idx := range idxs {
 			ms[i] = allCards[idx]
 		}
-		rounds = append(rounds, roundGroup{Number: rn, Matches: ms})
+		key := fmt.Sprintf("round-%d", rn)
+		rounds = append(rounds, roundGroup{Number: rn, Key: key, Title: fmt.Sprintf("Jornada %d", rn), Matches: ms})
 	}
 	sort.Slice(rounds, func(i, j int) bool {
 		return rounds[i].Number < rounds[j].Number
@@ -473,15 +481,40 @@ func (h *CompetitionHandler) buildRoundGroups(comp *core.Record, matches []*core
 	return rounds
 }
 
-// firstIncompleteRoundGroup returns the number of the first round with an
-// unplayed match, or 0 if every round is complete (or there are none).
-func firstIncompleteRoundGroup(rounds []roundGroup) int {
+// buildLeveledRoundGroups builds admin round groups for a leveled league,
+// grouping matches into "Por jugar" and monthly "Jugados — <mes año>" groups.
+func (h *CompetitionHandler) buildLeveledRoundGroups(comp *core.Record, matches []*core.Record, pairNames map[string]string) []roundGroup {
+	noPairs := map[string]struct{}{}
+	var allCards []MatchCard
+	for _, m := range matches {
+		allCards = append(allCards, NewMatchRow(m, pairNames, noPairs))
+	}
+	enrichWithPendingResults(h.app, allCards)
+
+	tz := league.Timezone(h.app)
+	groups := leveledGroups(allCards, tz)
+	result := make([]roundGroup, len(groups))
+	for i, g := range groups {
+		played, total := 0, len(g.Matches)
+		for _, mc := range g.Matches {
+			if mc.Match.GetString("status") == league.StatusFinal {
+				played++
+			}
+		}
+		result[i] = roundGroup{Key: g.Key, Title: g.Title, Matches: g.Matches, Played: played, Total: total}
+	}
+	return result
+}
+
+// firstIncompleteRoundGroup returns the key of the first round with an
+// unplayed match, or "" if every round is complete (or there are none).
+func firstIncompleteRoundGroup(rounds []roundGroup) string {
 	for _, r := range rounds {
 		if r.Played < r.Total {
-			return r.Number
+			return r.Key
 		}
 	}
-	return 0
+	return ""
 }
 
 // populateRoundProgress fills each round's Played/Total/Warning in place.

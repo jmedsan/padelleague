@@ -2127,3 +2127,129 @@ func TestWithdrawPairNotifications(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// Task 9: Leveled league admin display — group titles and standings Aj. column
+
+func TestAdminDetail_LeveledGroups(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "admin detail for leveled league shows Por jugar and Jugados groups",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"AdminLvlA"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "AdminLvlA")
+		p2 := makePairTB(tb, app, "AdminLvlB")
+		p3 := makePairTB(tb, app, "AdminLvlC")
+
+		// target=1 < 3-1=2 → IsLeveled=true
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3})
+		comp.Set("target_matches", 1)
+		comp.Set("open_assignments", 1)
+		require.NoError(tb, app.Save(comp))
+
+		mFinal := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, league.StatusFinal)
+		mFinal.Set("finalized_at", "2026-09-10 12:00:00.000Z")
+		mFinal.Set("result", "6-2 6-1")
+		mFinal.Set("winner", p1.Id)
+		mFinal.Set("scores", "6-2 6-1")
+		require.NoError(tb, app.Save(mFinal))
+
+		mPending := makeMatchTB(tb, app, comp.Id, p1.Id, p3.Id, "pending")
+		_ = mPending
+
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "Por jugar", "admin must show Por jugar group")
+		assert.Contains(tb, body, "septiembre 2026", "admin must show played month group")
+		assert.NotContains(tb, body, "Jornada 1", "admin must not show Jornada for leveled")
+	}
+	s.Test(t)
+}
+
+func TestAdminDetail_LeveledStandings_AjColumn(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "admin standings for leveled league shows Aj. column",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"AjPairA"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "AjPairA")
+		p2 := makePairTB(tb, app, "AjPairB")
+		p3 := makePairTB(tb, app, "AjPairC")
+		p4 := makePairTB(tb, app, "AjPairD")
+
+		// Leveled league with 4 pairs, target=2: IsLeveled = 2 < 4-1=3 ✓
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3, p4})
+		comp.Set("target_matches", 2)
+		comp.Set("open_assignments", 1)
+		require.NoError(tb, app.Save(comp))
+
+		// Finalize some matches so standings compute and SOS adjustment applies.
+		finalizeMatch := func(pa, pb *core.Record, scores, winner string) {
+			m := makeMatchTB(tb, app, comp.Id, pa.Id, pb.Id, league.StatusFinal)
+			m.Set("finalized_at", "2026-09-10 12:00:00.000Z")
+			m.Set("result", scores)
+			m.Set("scores", scores)
+			m.Set("winner", winner)
+			require.NoError(tb, app.Save(m))
+		}
+		// p1 beats p2 and p3; SOS for p1 = mean(winRate(p2), winRate(p3)) = 0 → adj ≠ 0
+		finalizeMatch(p1, p2, "6-1 6-2", p1.Id)
+		finalizeMatch(p1, p3, "6-0 6-0", p1.Id)
+
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "Aj.", "leveled standings must show Aj. column")
+	}
+	s.Test(t)
+}
+
+func TestAdminDetail_RoundRobin_NoAjColumn(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "admin standings for round-robin shows no Aj. column",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"RRA"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "RRA")
+		p2 := makePairTB(tb, app, "RRB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, league.StatusFinal)
+		m.Set("finalized_at", "2026-09-10 12:00:00.000Z")
+		m.Set("result", "6-1 6-2")
+		m.Set("scores", "6-1 6-2")
+		m.Set("winner", p1.Id)
+		require.NoError(tb, app.Save(m))
+
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.NotContains(tb, body, "Aj.", "round-robin standings must not show Aj. column")
+	}
+	s.Test(t)
+}

@@ -4,7 +4,7 @@
         <ul>
             <li><a href="/">Inicio</a></li>
             <li><a href="{{competitionURL .CompetitionID}}" class="truncate max-w-[150px] sm:max-w-none inline-block align-bottom">{{.CompetitionName}}</a></li>
-            <li>{{.RoundLabel}}</li>
+            {{if .RoundLabel}}<li>{{.RoundLabel}}</li>{{end}}
         </ul>
     </div>
 

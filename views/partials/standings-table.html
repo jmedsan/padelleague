@@ -12,6 +12,7 @@
                     <th class="text-right">DS</th>
                     <th class="text-right">DJ</th>
                     {{if .HasPenalties}}<th class="text-right">Pen</th>{{end}}
+                    {{if .HasAdjustment}}<th class="text-right">Aj.</th>{{end}}
                     <th class="text-right font-bold">Pts</th>
                 </tr>
             </thead>
@@ -28,7 +29,8 @@
                     <td class="text-right">{{printf "%+d" (sub .SetsWon .SetsLost)}}</td>
                     <td class="text-right">{{printf "%+d" (sub .GamesWon .GamesLost)}}</td>
                     {{if $.HasPenalties}}<td class="text-right text-error">{{if gt .Penalty 0}}-{{.Penalty}}{{else}}<span class="opacity-40">—</span>{{end}}</td>{{end}}
-                    <td class="text-right text-lg font-bold">{{.Points}}</td>
+                    {{if $.HasAdjustment}}<td class="text-right opacity-70">{{printf "%+.1f" .Adjustment}}</td>{{end}}
+                    <td class="text-right text-lg font-bold">{{if $.HasAdjustment}}{{printf "%.1f" .Score}}{{else}}{{.Points}}{{end}}</td>
                 </tr>
                 {{end}}
             </tbody>
@@ -49,6 +51,7 @@
                     <th class="text-right">DS</th>
                     <th class="text-right">DJ</th>
                     {{if .HasPenalties}}<th class="text-right">Pen</th>{{end}}
+                    {{if .HasAdjustment}}<th class="text-right">Aj.</th>{{end}}
                 </tr>
             </thead>
             <tbody>
@@ -58,13 +61,14 @@
                         <span class="inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold {{if eq .Position 1}}bg-warning text-warning-content{{else if eq .Position 2}}bg-base-300{{else if eq .Position 3}}bg-orange-700/20{{else}}bg-base-200{{end}}">{{.Position}}</span>
                     </td>
                     <td class="font-medium whitespace-nowrap truncate" title="{{.PairName}}">{{template "pairLink" (dict "ID" .PairID "Name" .PairName "IsMine" (and $.PlayerPairIDs (hasKey $.PlayerPairIDs .PairID)))}}{{if and $.WithdrawnPairs (index $.WithdrawnPairs .PairID)}}<span class="ml-1 align-middle">{{template "withdrawnBadge" .}}</span>{{end}}</td>
-                    <td class="text-right text-lg font-bold">{{.Points}}</td>
+                    <td class="text-right text-lg font-bold">{{if $.HasAdjustment}}{{printf "%.1f" .Score}}{{else}}{{.Points}}{{end}}</td>
                     <td class="text-right">{{.Played}}</td>
                     <td class="text-right text-success">{{.Wins}}</td>
                     <td class="text-right text-error">{{.Losses}}</td>
                     <td class="text-right">{{printf "%+d" (sub .SetsWon .SetsLost)}}</td>
                     <td class="text-right">{{printf "%+d" (sub .GamesWon .GamesLost)}}</td>
                     {{if $.HasPenalties}}<td class="text-right text-error">{{if gt .Penalty 0}}-{{.Penalty}}{{else}}<span class="opacity-40">—</span>{{end}}</td>{{end}}
+                    {{if $.HasAdjustment}}<td class="text-right opacity-70">{{printf "%+.1f" .Adjustment}}</td>{{end}}
                 </tr>
                 {{end}}
             </tbody>
