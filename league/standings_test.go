@@ -662,23 +662,26 @@ func TestComputeStandings_HeadToHeadOverridesInputOrder(t *testing.T) {
 // with 4 pairs). Actually: 4 pairs, target=2 (< 4-1=3), which is leveled.
 //
 // Matches (all final):
-//   A beats B  6-4 6-4  (A: 1W, B: 1L)
-//   A beats C  6-4 6-4  (A: 2W, C: 1L)
-//   D beats B  6-4 6-4  (D: 1W, B: 2L)
-//   D beats C  6-4 6-4  (D: 2W, C: 2L)
-//   B beats C  6-4 6-4  (B: 1W, C: 3L — wait, need to keep balanced)
+//
+//	A beats B  6-4 6-4  (A: 1W, B: 1L)
+//	A beats C  6-4 6-4  (A: 2W, C: 1L)
+//	D beats B  6-4 6-4  (D: 1W, B: 2L)
+//	D beats C  6-4 6-4  (D: 2W, C: 2L)
+//	B beats C  6-4 6-4  (B: 1W, C: 3L — wait, need to keep balanced)
 //
 // Simpler setup: A beats B, A beats C, D beats B, B beats C — all 2-0.
 // Results:
-//   A: 2W/0L, Points=6
-//   D: 1W/1L, Points=3
-//   B: 1W/2L, Points=3
-//   C: 0W/2L, Points=0
+//
+//	A: 2W/0L, Points=6
+//	D: 1W/1L, Points=3
+//	B: 1W/2L, Points=3
+//	C: 0W/2L, Points=0
 //
 // SOS(A) = mean win_rate of A's opponents (B and C):
-//   win_rate(B) = 1/3, win_rate(C) = 0/2 = 0
-//   SOS(A) = (1/3 + 0) / 2 = 1/6 ≈ 0.1667
-//   Adjustment(A) = 3 × 2 × 1.5 × (1/6 - 0.5) = 9 × (-1/3) = -3.0
+//
+//	win_rate(B) = 1/3, win_rate(C) = 0/2 = 0
+//	SOS(A) = (1/3 + 0) / 2 = 1/6 ≈ 0.1667
+//	Adjustment(A) = 3 × 2 × 1.5 × (1/6 - 0.5) = 9 × (-1/3) = -3.0
 //
 // SOS(D) = mean of D's played opponents: only B (D played A and B? — wait)
 //
@@ -687,16 +690,22 @@ func TestComputeStandings_HeadToHeadOverridesInputOrder(t *testing.T) {
 // 4 pairs A,B,C,D with target_matches=3 (3 < 3 is false, target must be < pairs-1=3).
 // Use target_matches=2 for 4 pairs (IsLeveled: 2 < 3 = true).
 // Matches:
-//   A beats B  (A: 1W, B: 1L)
-//   A beats C  (A: 2W, C: 1L)
-//   D beats B  (D: 1W, B: 2L)
-//   D beats C  (D: 2W, C: 2L)
+//
+//	A beats B  (A: 1W, B: 1L)
+//	A beats C  (A: 2W, C: 1L)
+//	D beats B  (D: 1W, B: 2L)
+//	D beats C  (D: 2W, C: 2L)
+//
 // Stats: A=2W/0L(Pts=6), D=2W/0L(Pts=6), B=0W/2L(Pts=0), C=0W/2L(Pts=0)
 // SOS(A): A played B and C. win_rate(B)=0/2=0, win_rate(C)=0/2=0 → SOS=0
-//   Adj(A) = 3×2×1.5×(0-0.5) = 9×(-0.5) = -4.5
+//
+//	Adj(A) = 3×2×1.5×(0-0.5) = 9×(-0.5) = -4.5
+//
 // SOS(D): D played B and C. Same → Adj(D) = -4.5
 // SOS(B): B played A and D. win_rate(A)=2/2=1, win_rate(D)=2/2=1 → SOS=1
-//   Adj(B) = 3×2×1.5×(1-0.5) = 9×0.5 = 4.5
+//
+//	Adj(B) = 3×2×1.5×(1-0.5) = 9×0.5 = 4.5
+//
 // SOS(C): C played A and D. → SOS=1, Adj(C) = 4.5
 // Score: A=6-4.5=1.5, D=6-4.5=1.5, B=0+4.5=4.5, C=0+4.5=4.5
 // Order by Score desc: B/C (4.5) > A/D (1.5).

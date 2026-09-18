@@ -120,7 +120,7 @@ func TestRatings_KSchedule(t *testing.T) {
 
 	// K formula: max(40, 200 * 4 / (4 + n))
 	cases := []struct {
-		n    int
+		n     int
 		wantK float64
 	}{
 		{0, 200.0},

@@ -22,6 +22,9 @@ type SampleOptions struct {
 	Matches      bool
 	Playoff      bool
 	StaticFS     fs.FS
+	// Svc is required to seed the leveled league example; if nil the leveled
+	// competition is skipped.
+	Svc *league.Service
 }
 
 // SampleLeaguePartial loads sample data up to the highest selected stage:
@@ -51,7 +54,7 @@ func SampleLeaguePartial(app core.App, opts SampleOptions) error {
 		if err := createMixedCompetition(txApp, pairIDs[:1]); err != nil {
 			return err
 		}
-		return nil
+		return createLeveledSampleCompetition(txApp, opts.Svc)
 	})
 }
 
@@ -783,4 +786,97 @@ func createSamplePlayoff(txApp core.App, pairIDs []string) error {
 	}
 	league.LogCompetitionEvent(txApp, league.CompetitionEvent{CompetitionID: comp.Id, Kind: "activated", Detail: "activó la competición"})
 	return generateSampleBracket(txApp, comp.Id, pairIDs)
+}
+
+// createLeveledSampleCompetition creates a leveled league example with 8 pairs,
+// target_matches=4, open_assignments=2, seeded in registration order, published
+// calendar, and initial assignments created via GenerateInitialAssignments.
+// When svc is nil the leveled competition is skipped.
+func createLeveledSampleCompetition(txApp core.App, svc *league.Service) error {
+	if svc == nil {
+		return nil
+	}
+	pairIDs, err := createLeveledPairs(txApp)
+	if err != nil {
+		return err
+	}
+
+	compCol, err := txApp.FindCollectionByNameOrId("competitions")
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	comp := core.NewRecord(compCol)
+	comp.Set("name", "Liga nivelada de ejemplo")
+	comp.Set("type", "league")
+	comp.Set("gender_type", "free")
+	comp.Set("active", true)
+	comp.Set("pairs", pairIDs)
+	comp.Set("seed_pairs", pairIDs)
+	comp.Set("target_matches", 4)
+	comp.Set("open_assignments", 2)
+	comp.Set("calendar_status", "published")
+	comp.Set("start_date", now.Add(-10*24*time.Hour))
+	comp.Set("end_date", now.Add(20*24*time.Hour))
+	if err := txApp.Save(comp); err != nil {
+		return fmt.Errorf("create leveled competition: %w", err)
+	}
+	league.LogCompetitionEvent(txApp, league.CompetitionEvent{CompetitionID: comp.Id, Kind: "activated", Detail: "activó la competición"})
+
+	if _, err := svc.GenerateInitialAssignments(txApp, comp, now); err != nil {
+		return fmt.Errorf("generate leveled assignments: %w", err)
+	}
+	return nil
+}
+
+func createLeveledPairs(txApp core.App) ([]string, error) {
+	userCol, err := txApp.FindCollectionByNameOrId("users")
+	if err != nil {
+		return nil, err
+	}
+	pairCol, err := txApp.FindCollectionByNameOrId("pairs")
+	if err != nil {
+		return nil, err
+	}
+
+	leveledNames := []string{
+		"Jugador N1", "Jugador N2", "Jugador N3", "Jugador N4",
+		"Jugador N5", "Jugador N6", "Jugador N7", "Jugador N8",
+		"Jugador N9", "Jugador N10", "Jugador N11", "Jugador N12",
+		"Jugador N13", "Jugador N14", "Jugador N15", "Jugador N16",
+	}
+	genders := []string{"male", "female", "male", "male", "female", "female", "male", "female",
+		"male", "female", "male", "male", "female", "female", "male", "female"}
+	playerIDs := make([]string, 16)
+	for i, name := range leveledNames {
+		u := core.NewRecord(userCol)
+		u.Set("email", fmt.Sprintf("leveled-p%d@padelleague.com", i+1))
+		u.SetPassword(SamplePlayerPassword)
+		u.Set("roles", []string{"player"})
+		u.Set("display_name", name)
+		u.Set("gender", genders[i])
+		u.SetVerified(true)
+		if err := txApp.Save(u); err != nil {
+			return nil, fmt.Errorf("create leveled player %d: %w", i+1, err)
+		}
+		playerIDs[i] = u.Id
+	}
+
+	pairNames := []string{
+		"Pareja N1", "Pareja N2", "Pareja N3", "Pareja N4",
+		"Pareja N5", "Pareja N6", "Pareja N7", "Pareja N8",
+	}
+	pairIDs := make([]string, 8)
+	for i, name := range pairNames {
+		p := core.NewRecord(pairCol)
+		p.Set("name", name)
+		p.Set("player1", playerIDs[i*2])
+		p.Set("player2", playerIDs[i*2+1])
+		p.Set("captain", playerIDs[i*2])
+		if err := txApp.Save(p); err != nil {
+			return nil, fmt.Errorf("create leveled pair %s: %w", name, err)
+		}
+		pairIDs[i] = p.Id
+	}
+	return pairIDs, nil
 }
