@@ -1,8 +1,12 @@
 package league
 
 import (
+	"database/sql"
+	"errors"
+	"log/slog"
 	"math"
 	"sort"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -271,6 +275,231 @@ func nextRequester(st *leveledState, skipped map[string]bool) string {
 	}
 	return best
 }
+
+// GenerateInitialAssignments creates the initial pending matches for a leveled
+// league. Called inside a transaction by the fixture handler. Returns the count
+// of created matches. Does NOT notify — PublishCalendar handles that.
+func (svc *Service) GenerateInitialAssignments(txApp core.App, comp *core.Record, now time.Time) (int, error) {
+	st, err := buildLeveledState(txApp, comp, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	pairings := plan(svc, st)
+	if err := createMatchRecords(txApp, comp, pairings, now); err != nil {
+		return 0, err
+	}
+	return len(pairings), nil
+}
+
+// TopUpAssignments creates new pending matches for pairs that need them. Called
+// after a match becomes final, after a pending match is deleted, and by the
+// daily cron. avoid marks pairs as met for this run only (so a just-deleted
+// pairing is not immediately recreated). Returns nil, nil for a missing
+// competition (not an error — the competition may have been deleted).
+func (svc *Service) TopUpAssignments(compID string, now time.Time, avoid ...Pairing) ([]*core.Record, error) {
+	comp, err := svc.app.FindRecordById("competitions", compID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		// PocketBase wraps not-found in a different error; treat any lookup
+		// failure for a known ID pattern as "not found".
+		return nil, nil
+	}
+
+	if !IsLeveled(comp) {
+		return nil, nil
+	}
+	if comp.GetString("calendar_status") != "published" {
+		return nil, nil
+	}
+	if CompetitionPhase(comp, now) != PhasePlaying {
+		return nil, nil
+	}
+
+	st, err := buildLeveledState(svc.app, comp, avoid)
+	if err != nil {
+		return nil, err
+	}
+
+	pairings := plan(svc, st)
+	if len(pairings) == 0 {
+		return nil, nil
+	}
+
+	var created []*core.Record
+	if err := svc.app.RunInTransaction(func(txApp core.App) error {
+		col, err := txApp.FindCollectionByNameOrId("matches")
+		if err != nil {
+			return err
+		}
+		for _, p := range pairings {
+			rec := core.NewRecord(col)
+			setMatchFields(rec, comp, p, now)
+			if err := txApp.Save(rec); err != nil {
+				return err
+			}
+			created = append(created, rec)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	// Notify after the transaction commits.
+	if svc.notifier != nil {
+		compName := comp.GetString("name")
+		pairNames := PairNames(svc.app, comp.GetStringSlice("pairs"))
+		for _, m := range created {
+			p1ID := m.GetString("pair1")
+			p2ID := m.GetString("pair2")
+			p1Players := PlayersForPair(svc.app, p1ID)
+			p2Players := PlayersForPair(svc.app, p2ID)
+			allPlayers := append(p1Players, p2Players...)
+			notif := NotifMatchAssigned(m.Id, pairNames[p2ID], compName)
+			svc.notifier.NotifyPlayers(allPlayers, notif)
+		}
+	}
+
+	return created, nil
+}
+
+// buildLeveledState constructs the in-memory state from the competition's
+// current matches and ratings, marking avoid pairs as met.
+func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing) (*leveledState, error) {
+	target := comp.GetInt("target_matches")
+	open := OpenAssignments(comp)
+
+	allPairIDs := comp.GetStringSlice("pairs")
+	withdrawnSet := make(map[string]bool)
+	for _, id := range comp.GetStringSlice("withdrawn_pairs") {
+		withdrawnSet[id] = true
+	}
+	var activePairIDs []string
+	for _, id := range allPairIDs {
+		if !withdrawnSet[id] {
+			activePairIDs = append(activePairIDs, id)
+		}
+	}
+
+	ratings, err := Ratings(app, comp)
+	if err != nil {
+		return nil, err
+	}
+
+	// Sort pairs by rating desc, then seed index, then pair name.
+	seedIDs := comp.GetStringSlice("seed_pairs")
+	seedPos := make(map[string]int, len(seedIDs))
+	for i, id := range seedIDs {
+		seedPos[id] = i
+	}
+	pairNames := PairNames(app, activePairIDs)
+
+	sortedPairs := make([]string, len(activePairIDs))
+	copy(sortedPairs, activePairIDs)
+	sort.SliceStable(sortedPairs, func(i, j int) bool {
+		ri, rj := ratings[sortedPairs[i]], ratings[sortedPairs[j]]
+		if ri != rj {
+			return ri > rj
+		}
+		si, hasI := seedPos[sortedPairs[i]]
+		sj, hasJ := seedPos[sortedPairs[j]]
+		if hasI != hasJ {
+			return hasI // seeded before unseeded
+		}
+		if hasI && si != sj {
+			return si < sj
+		}
+		return pairNames[sortedPairs[i]] < pairNames[sortedPairs[j]]
+	})
+
+	position := make(map[string]int, len(sortedPairs))
+	for i, id := range sortedPairs {
+		position[id] = i
+	}
+
+	// Load existing matches.
+	matches, err := app.FindRecordsByFilter("matches",
+		"competition = {:c}",
+		"", 0, 0, map[string]any{"c": comp.Id})
+	if err != nil {
+		return nil, err
+	}
+
+	played := make(map[string]int, len(sortedPairs))
+	pending := make(map[string]int, len(sortedPairs))
+	met := make(map[string]map[string]struct{}, len(sortedPairs))
+	for _, id := range sortedPairs {
+		met[id] = map[string]struct{}{}
+	}
+
+	for _, m := range matches {
+		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
+		if withdrawnSet[p1] || withdrawnSet[p2] {
+			continue
+		}
+		addMet(met, p1, p2)
+		switch m.GetString("status") {
+		case "final":
+			played[p1]++
+			played[p2]++
+		default:
+			pending[p1]++
+			pending[p2]++
+		}
+	}
+
+	// Mark avoid pairings as met for this run.
+	for _, av := range avoid {
+		addMet(met, av.A, av.B)
+	}
+
+	return &leveledState{
+		target:   target,
+		open:     open,
+		comfort:  ceilDiv(target, 2),
+		pairs:    sortedPairs,
+		played:   played,
+		pending:  pending,
+		met:      met,
+		position: position,
+	}, nil
+}
+
+// createMatchRecords writes one match record per pairing using txApp.
+func createMatchRecords(txApp core.App, comp *core.Record, pairings []Pairing, now time.Time) error {
+	if len(pairings) == 0 {
+		return nil
+	}
+	col, err := txApp.FindCollectionByNameOrId("matches")
+	if err != nil {
+		return err
+	}
+	for _, p := range pairings {
+		rec := core.NewRecord(col)
+		setMatchFields(rec, comp, p, now)
+		if err := txApp.Save(rec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// setMatchFields populates a new match record for a leveled assignment.
+func setMatchFields(rec *core.Record, comp *core.Record, p Pairing, now time.Time) {
+	rec.Set("competition", comp.Id)
+	rec.Set("round_number", 0)
+	rec.Set("matches_to_win", 1)
+	rec.Set("pair1", p.A)
+	rec.Set("pair2", p.B)
+	rec.Set("status", "pending")
+	if deadline, ok := assignmentDeadline(comp, now); ok {
+		rec.Set("arrange_by", deadline.Format("2006-01-02"))
+	}
+}
+
+var _ = slog.Debug // keep slog import used
 
 // -- helpers ----------------------------------------------------------------
 

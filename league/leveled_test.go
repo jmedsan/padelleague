@@ -1,7 +1,9 @@
 package league
 
 import (
+	"math/rand/v2"
 	"testing"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/assert"
@@ -325,5 +327,506 @@ func TestPlan_SteadyState(t *testing.T) {
 			"pair %s should not exceed open+1 (%d) pending, got %d", pair, st.open+1, cnt)
 		assert.LessOrEqual(t, cnt, st.target,
 			"pair %s should not exceed target (%d) pending, got %d", pair, st.target, cnt)
+	}
+}
+
+// =============================================================================
+// DB-touching tests (GenerateInitialAssignments + TopUpAssignments)
+// =============================================================================
+
+// pendingMatchesFor returns pending match records that involve pairID.
+func pendingMatchesFor(t *testing.T, app core.App, compID, pairID string) []*core.Record {
+	t.Helper()
+	matches, err := app.FindRecordsByFilter("matches",
+		"competition = {:c} && status = 'pending' && (pair1 = {:p} || pair2 = {:p})",
+		"", 0, 0,
+		map[string]any{"c": compID, "p": pairID})
+	require.NoError(t, err)
+	return matches
+}
+
+// allMatchesFor returns all match records that involve pairID.
+func allMatchesFor(t *testing.T, app core.App, compID, pairID string) []*core.Record {
+	t.Helper()
+	matches, err := app.FindRecordsByFilter("matches",
+		"competition = {:c} && (pair1 = {:p} || pair2 = {:p})",
+		"", 0, 0,
+		map[string]any{"c": compID, "p": pairID})
+	require.NoError(t, err)
+	return matches
+}
+
+// hasDuplicatePairing returns true if any two pairs appear more than once
+// in the same match within the competition.
+func hasDuplicatePairing(t *testing.T, app core.App, compID string) bool {
+	t.Helper()
+	matches, err := app.FindRecordsByFilter("matches",
+		"competition = {:c}", "", 0, 0, map[string]any{"c": compID})
+	require.NoError(t, err)
+	type pair struct{ a, b string }
+	seen := map[pair]bool{}
+	for _, m := range matches {
+		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
+		if p1 > p2 {
+			p1, p2 = p2, p1
+		}
+		k := pair{p1, p2}
+		if seen[k] {
+			return true
+		}
+		seen[k] = true
+	}
+	return false
+}
+
+// -- TestGenerateInitialAssignments ----------------------------------------
+
+func TestGenerateInitialAssignments(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 6)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "Gen")
+	}
+	comp := makeLeveledCompetition(t, app, pairs, 4, 2)
+
+	svc := New(app, nil)
+	n, err := svc.GenerateInitialAssignments(app, comp, time.Now())
+	require.NoError(t, err)
+	assert.Greater(t, n, 0, "should create at least one match")
+
+	// No duplicate pairings.
+	assert.False(t, hasDuplicatePairing(t, app, comp.Id), "no duplicate pairings")
+
+	// Every pair gets 2 or 3 pending matches.
+	for _, p := range pairs {
+		ms := pendingMatchesFor(t, app, comp.Id, p.Id)
+		cnt := len(ms)
+		assert.GreaterOrEqual(t, cnt, 2, "pair %s: expected >=2 pending, got %d", p.Id, cnt)
+		assert.LessOrEqual(t, cnt, 3, "pair %s: expected <=3 pending, got %d", p.Id, cnt)
+		// All matches have round_number=0 and status=pending.
+		for _, m := range ms {
+			assert.Equal(t, 0, m.GetInt("round_number"))
+			assert.Equal(t, "pending", m.GetString("status"))
+		}
+	}
+}
+
+// -- TestGenerateInitialAssignments_Seeded ----------------------------------
+
+func TestGenerateInitialAssignments_Seeded(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 6)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "Seed")
+	}
+	comp := makeLeveledCompetition(t, app, pairs, 4, 2)
+
+	// Seed order: pairs[0] = strongest, pairs[5] = weakest.
+	seedIDs := make([]string, len(pairs))
+	for i, p := range pairs {
+		seedIDs[i] = p.Id
+	}
+	comp.Set("seed_pairs", seedIDs)
+	require.NoError(t, app.Save(comp))
+
+	// Identity shuffle: keep in order so we can predict opponent proximity.
+	svc := New(app, nil)
+	svc.shuffle = func(n int, swap func(i, j int)) {}
+
+	_, err := svc.GenerateInitialAssignments(app, comp, time.Now())
+	require.NoError(t, err)
+
+	// Each pair's opponent should be within comfort=ceil(4/2)=2 places.
+	for _, p := range pairs {
+		ms := pendingMatchesFor(t, app, comp.Id, p.Id)
+		myPos := -1
+		for i, s := range seedIDs {
+			if s == p.Id {
+				myPos = i
+				break
+			}
+		}
+		for _, m := range ms {
+			oppID := m.GetString("pair1")
+			if oppID == p.Id {
+				oppID = m.GetString("pair2")
+			}
+			oppPos := -1
+			for i, s := range seedIDs {
+				if s == oppID {
+					oppPos = i
+					break
+				}
+			}
+			dist := myPos - oppPos
+			if dist < 0 {
+				dist = -dist
+			}
+			assert.LessOrEqual(t, dist, 2,
+				"pair at pos %d got opponent at pos %d (dist %d > comfort 2)", myPos, oppPos, dist)
+		}
+	}
+}
+
+// -- TestTopUp_OrdersByRating -----------------------------------------------
+
+func TestTopUp_OrdersByRating(t *testing.T) {
+	app := newTestApp(t)
+	// 4 pairs with seed order so ratings are well-separated.
+	pa := makePair(t, app, "TopA")
+	pb := makePair(t, app, "TopB")
+	pc := makePair(t, app, "TopC")
+	pd := makePair(t, app, "TopD")
+	pairs := []*core.Record{pa, pb, pc, pd}
+
+	comp := makeLeveledCompetition(t, app, pairs, 3, 2)
+	comp.Set("seed_pairs", []string{pa.Id, pb.Id, pc.Id, pd.Id})
+	require.NoError(t, app.Save(comp))
+
+	svc := New(app, nil)
+	// Seed gives pa strong rating. Give pa a final match against pb already,
+	// leaving pa needing opponents.
+	now := time.Now()
+	makeLeveledMatch(t, app, comp.Id, pa.Id, pb.Id, "6-0 6-0", pa.Id, "final", now.Add(-time.Hour))
+
+	created, err := svc.TopUpAssignments(comp.Id, now)
+	require.NoError(t, err)
+
+	// pa (top seed) should get an opponent from inside its comfort zone (dist ≤ 2),
+	// never pd (pos 3, dist=3 for pa at pos 0 in a 4-pair league — comfort=ceil(3/2)=2).
+	for _, m := range created {
+		if m.GetString("pair1") == pa.Id || m.GetString("pair2") == pa.Id {
+			oppID := m.GetString("pair1")
+			if oppID == pa.Id {
+				oppID = m.GetString("pair2")
+			}
+			assert.NotEqual(t, pd.Id, oppID,
+				"top-rated pair should not be matched with pair 3 positions away when comfort=2")
+		}
+	}
+}
+
+// -- TestTopUp_TargetIsHardCap ----------------------------------------------
+
+func TestTopUp_TargetIsHardCap(t *testing.T) {
+	app := newTestApp(t)
+	pa := makePair(t, app, "Cap A")
+	pb := makePair(t, app, "Cap B")
+	pc := makePair(t, app, "Cap C")
+
+	// target=2, open=2: 3 pairs so 3 < 3-1=2 is false. Use target=1, 3 pairs (1 < 2 → leveled).
+	comp := makeLeveledCompetition(t, app, []*core.Record{pa, pb, pc}, 1, 1)
+
+	now := time.Now()
+	// pa already at target: 1 final match.
+	makeLeveledMatch(t, app, comp.Id, pa.Id, pb.Id, "6-0 6-0", pa.Id, "final", now.Add(-time.Hour))
+
+	svc := New(app, nil)
+	created, err := svc.TopUpAssignments(comp.Id, now)
+	require.NoError(t, err)
+
+	// pa must not appear in any new match.
+	for _, m := range created {
+		assert.NotEqual(t, pa.Id, m.GetString("pair1"), "pair at target must not get new assignment")
+		assert.NotEqual(t, pa.Id, m.GetString("pair2"), "pair at target must not get new assignment")
+	}
+}
+
+// -- TestTopUp_RequesterStopsAtOpen -----------------------------------------
+
+func TestTopUp_RequesterStopsAtOpen(t *testing.T) {
+	app := newTestApp(t)
+	pa := makePair(t, app, "Open A")
+	pb := makePair(t, app, "Open B")
+	pc := makePair(t, app, "Open C")
+	pd := makePair(t, app, "Open D")
+
+	// target=3, open=1, 4 pairs (3 < 3 is false — use target=2, open=1, 4 pairs: 2 < 3 → leveled).
+	comp := makeLeveledCompetition(t, app, []*core.Record{pa, pb, pc, pd}, 2, 1)
+
+	now := time.Now()
+	// pa already has open=1 pending match.
+	makeLeveledMatch(t, app, comp.Id, pa.Id, pb.Id, "", "", "pending", time.Time{})
+
+	svc := New(app, nil)
+	created, err := svc.TopUpAssignments(comp.Id, now)
+	require.NoError(t, err)
+
+	// pa should not be a requester (already at open pending).
+	for _, m := range created {
+		assert.NotEqual(t, pa.Id, m.GetString("pair1"), "pair at open pending should not be requester")
+		assert.NotEqual(t, pa.Id, m.GetString("pair2"), "pair at open pending should not be requester")
+	}
+}
+
+// -- TestTopUp_SkipsMetAndPending ------------------------------------------
+
+func TestTopUp_SkipsMetAndPending(t *testing.T) {
+	app := newTestApp(t)
+	pa := makePair(t, app, "Met A")
+	pb := makePair(t, app, "Met B")
+	pc := makePair(t, app, "Met C")
+	pd := makePair(t, app, "Met D")
+
+	comp := makeLeveledCompetition(t, app, []*core.Record{pa, pb, pc, pd}, 2, 2)
+
+	// pa already has a pending match against pb.
+	makeLeveledMatch(t, app, comp.Id, pa.Id, pb.Id, "", "", "pending", time.Time{})
+
+	svc := New(app, nil)
+	created, err := svc.TopUpAssignments(comp.Id, time.Now())
+	require.NoError(t, err)
+
+	// No new match should pair pa and pb again.
+	for _, m := range created {
+		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
+		isPB := (p1 == pa.Id && p2 == pb.Id) || (p1 == pb.Id && p2 == pa.Id)
+		assert.False(t, isPB, "pa and pb are already pending — must not be re-paired")
+	}
+}
+
+// -- TestTopUp_Avoid --------------------------------------------------------
+
+func TestTopUp_Avoid(t *testing.T) {
+	app := newTestApp(t)
+	pa := makePair(t, app, "Av A")
+	pb := makePair(t, app, "Av B")
+	pc := makePair(t, app, "Av C")
+	pd := makePair(t, app, "Av D")
+
+	comp := makeLeveledCompetition(t, app, []*core.Record{pa, pb, pc, pd}, 2, 2)
+
+	svc := New(app, nil)
+	// Avoid pa-pb.
+	_, err := svc.TopUpAssignments(comp.Id, time.Now(), Pairing{A: pa.Id, B: pb.Id})
+	require.NoError(t, err)
+
+	// No new match should pair pa and pb.
+	matches, err := app.FindRecordsByFilter("matches",
+		"competition = {:c}", "", 0, 0, map[string]any{"c": comp.Id})
+	require.NoError(t, err)
+	for _, m := range matches {
+		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
+		isPB := (p1 == pa.Id && p2 == pb.Id) || (p1 == pb.Id && p2 == pa.Id)
+		assert.False(t, isPB, "avoided pairing must not be created")
+	}
+}
+
+// -- TestTopUp_Idempotent ---------------------------------------------------
+
+func TestTopUp_Idempotent(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 6)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "Idem")
+	}
+	comp := makeLeveledCompetition(t, app, pairs, 4, 2)
+
+	svc := New(app, nil)
+	now := time.Now()
+
+	first, err := svc.TopUpAssignments(comp.Id, now)
+	require.NoError(t, err)
+
+	second, err := svc.TopUpAssignments(comp.Id, now)
+	require.NoError(t, err)
+
+	assert.Greater(t, len(first), 0, "first call should create matches")
+	assert.Empty(t, second, "second call with no change should create nothing (P6)")
+}
+
+// -- TestTopUp_NoOpWhenNotAssignable ----------------------------------------
+
+func TestTopUp_NoOpWhenNotAssignable(t *testing.T) {
+	app := newTestApp(t)
+	pa := makePair(t, app, "NoOp A")
+	pb := makePair(t, app, "NoOp B")
+	pc := makePair(t, app, "NoOp C")
+	pd := makePair(t, app, "NoOp D")
+	svc := New(app, nil)
+	now := time.Now()
+
+	t.Run("draft calendar", func(t *testing.T) {
+		comp := makeLeveledCompetition(t, app, []*core.Record{pa, pb, pc, pd}, 2, 2)
+		comp.Set("calendar_status", "draft")
+		require.NoError(t, app.Save(comp))
+		created, err := svc.TopUpAssignments(comp.Id, now)
+		require.NoError(t, err)
+		assert.Empty(t, created)
+	})
+
+	t.Run("finalized competition", func(t *testing.T) {
+		comp := makeLeveledCompetition(t, app, []*core.Record{pa, pb, pc, pd}, 2, 2)
+		comp.Set("finalized", true)
+		require.NoError(t, app.Save(comp))
+		created, err := svc.TopUpAssignments(comp.Id, now)
+		require.NoError(t, err)
+		assert.Empty(t, created)
+	})
+
+	t.Run("past end_date", func(t *testing.T) {
+		comp := makeLeveledCompetition(t, app, []*core.Record{pa, pb, pc, pd}, 2, 2)
+		past := now.Add(-48 * time.Hour)
+		pastDT := past.Format("2006-01-02")
+		comp.Set("end_date", pastDT)
+		require.NoError(t, app.Save(comp))
+		created, err := svc.TopUpAssignments(comp.Id, now)
+		require.NoError(t, err)
+		assert.Empty(t, created)
+	})
+
+	t.Run("round-robin (target=0)", func(t *testing.T) {
+		comp := makeCompetition(t, app, []*core.Record{pa, pb, pc, pd})
+		// target_matches defaults to 0, so IsLeveled = false
+		created, err := svc.TopUpAssignments(comp.Id, now)
+		require.NoError(t, err)
+		assert.Empty(t, created)
+	})
+
+	t.Run("missing competition", func(t *testing.T) {
+		created, err := svc.TopUpAssignments("nonexistent-id", now)
+		assert.NoError(t, err)
+		assert.Nil(t, created)
+	})
+}
+
+// -- TestTopUp_ExcludesWithdrawn -------------------------------------------
+
+func TestTopUp_ExcludesWithdrawn(t *testing.T) {
+	app := newTestApp(t)
+	pa := makePair(t, app, "Wd A")
+	pb := makePair(t, app, "Wd B")
+	pc := makePair(t, app, "Wd C")
+	pd := makePair(t, app, "Wd D")
+
+	comp := makeLeveledCompetition(t, app, []*core.Record{pa, pb, pc, pd}, 2, 2)
+	// Withdraw pa.
+	comp.Set("withdrawn_pairs", []string{pa.Id})
+	require.NoError(t, app.Save(comp))
+
+	svc := New(app, nil)
+	created, err := svc.TopUpAssignments(comp.Id, time.Now())
+	require.NoError(t, err)
+
+	for _, m := range created {
+		assert.NotEqual(t, pa.Id, m.GetString("pair1"), "withdrawn pair must not be assigned")
+		assert.NotEqual(t, pa.Id, m.GetString("pair2"), "withdrawn pair must not be assigned")
+	}
+}
+
+// -- TestTopUp_NotifiesBothPairs --------------------------------------------
+
+func TestTopUp_NotifiesBothPairs(t *testing.T) {
+	app := newTestApp(t)
+	pa := makePair(t, app, "Ntf A")
+	pb := makePair(t, app, "Ntf B")
+	pc := makePair(t, app, "Ntf C")
+	pd := makePair(t, app, "Ntf D")
+
+	comp := makeLeveledCompetition(t, app, []*core.Record{pa, pb, pc, pd}, 2, 2)
+
+	notifier := &fakeNotifier{}
+	svc := New(app, notifier)
+	created, err := svc.TopUpAssignments(comp.Id, time.Now())
+	require.NoError(t, err)
+	require.NotEmpty(t, created, "should create at least one match")
+
+	// One call per created match, 4 player IDs (2 pairs × 2 players).
+	assert.Len(t, notifier.calls, len(created),
+		"one notification call per created match")
+	for _, call := range notifier.calls {
+		assert.Equal(t, "match_assigned", call.notifType)
+		assert.Len(t, call.playerIDs, 4,
+			"notification should include 4 player IDs (both pairs)")
+	}
+}
+
+// -- TestLeveledSeason_Invariants ------------------------------------------
+
+func TestLeveledSeason_Invariants(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 8)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "Inv")
+	}
+	comp := makeLeveledCompetition(t, app, pairs, 5, 2)
+
+	seedIDs := make([]string, len(pairs))
+	for i, p := range pairs {
+		seedIDs[i] = p.Id
+	}
+	comp.Set("seed_pairs", seedIDs)
+	require.NoError(t, app.Save(comp))
+
+	svc := New(app, nil)
+	now := time.Now()
+
+	// Generate initial assignments.
+	_, err := svc.GenerateInitialAssignments(app, comp, now)
+	require.NoError(t, err)
+
+	checkInvariants := func(step string) {
+		t.Helper()
+		// P1: no duplicate pairings.
+		assert.False(t, hasDuplicatePairing(t, app, comp.Id), "%s: P1 duplicate pairing", step)
+
+		// P2 + P3: per pair.
+		for _, p := range pairs {
+			allMs := allMatchesFor(t, app, comp.Id, p.Id)
+			pendMs := pendingMatchesFor(t, app, comp.Id, p.Id)
+			played := 0
+			for _, m := range allMs {
+				if m.GetString("status") == "final" {
+					played++
+				}
+			}
+			load := played + len(pendMs)
+			assert.LessOrEqual(t, load, 5, "%s: P2 pair %s load %d > target 5", step, p.Id, load)
+			assert.LessOrEqual(t, len(pendMs), 3, "%s: P3 pair %s pending %d > open+1=3", step, p.Id, len(pendMs))
+		}
+	}
+
+	checkInvariants("after generate")
+
+	rng := rand.New(rand.NewPCG(42, 0))
+
+	// Simulate season: finalize random pending matches, top up.
+	for iter := range 40 {
+		allPending, err := app.FindRecordsByFilter("matches",
+			"competition = {:c} && status = 'pending'",
+			"", 0, 0, map[string]any{"c": comp.Id})
+		require.NoError(t, err)
+		if len(allPending) == 0 {
+			break
+		}
+
+		// Finalize a random pending match.
+		m := allPending[rng.IntN(len(allPending))]
+		winner := m.GetString("pair1")
+		m.Set("status", "final")
+		m.Set("scores", "6-3 6-4")
+		m.Set("winner", winner)
+		m.Set("finalized_at", now.Add(time.Duration(iter)*time.Hour).Format("2006-01-02"))
+		require.NoError(t, app.Save(m))
+
+		_, err = svc.TopUpAssignments(comp.Id, now)
+		require.NoError(t, err)
+
+		checkInvariants("iter " + time.Now().Format("05"))
+	}
+
+	// P5: every pair ends on exactly target.
+	for _, p := range pairs {
+		allMs := allMatchesFor(t, app, comp.Id, p.Id)
+		played := 0
+		for _, m := range allMs {
+			if m.GetString("status") == "final" {
+				played++
+			}
+		}
+		pendMs := pendingMatchesFor(t, app, comp.Id, p.Id)
+		load := played + len(pendMs)
+		assert.Equal(t, 5, load,
+			"P5: pair %s should end on exactly target=5, got load=%d", p.Id, load)
 	}
 }

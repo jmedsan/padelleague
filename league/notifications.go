@@ -203,6 +203,18 @@ func NotifAdminSupersedeFailed(matchID, pair1Name, pair2Name, compName string) N
 	}
 }
 
+// NotifMatchAssigned notifies a player that a new opponent has been assigned
+// for a leveled-league match.
+func NotifMatchAssigned(matchID, opponentName, compName string) Notification {
+	return Notification{
+		Type:     "match_assigned",
+		Title:    "Nuevo partido asignado",
+		Body:     fmt.Sprintf("Tu próximo rival es %s.", opponentName),
+		MatchID:  matchID,
+		CompName: compName,
+	}
+}
+
 // NotifCalendarPublished notifies a player that a competition's calendar was
 // published and its matches are now visible to them.
 func NotifCalendarPublished(compID, compName string) Notification {
