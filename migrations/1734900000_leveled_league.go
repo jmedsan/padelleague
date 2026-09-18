@@ -18,7 +18,7 @@ func init() {
 			&core.RelationField{
 				Name:          "seed_pairs",
 				CollectionId:  mustCollectionID(app, "pairs"),
-				MaxSelect:     0,
+				MaxSelect:     100,
 				CascadeDelete: false,
 			},
 		)
