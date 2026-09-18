@@ -162,6 +162,15 @@
                         <label class="label" for="create-comp-max-pending"><span class="label-text">Máx. partidos pendientes <span class="tooltip tooltip-right" data-tip="Penalización de -1 punto por cada partido pendiente por encima de este límite al terminar la temporada. 0 = desactivado"><span class="text-info cursor-help">ⓘ</span></span></span></label>
                         <input type="number" id="create-comp-max-pending" name="max_pending_matches" value="{{.Defaults.DefaultMaxPendingMatches}}" min="0" class="input input-bordered input-sm">
                     </div>
+                    <div class="divider my-2 text-xs opacity-60">Liga nivelada</div>
+                    <div class="form-control mb-3">
+                        <label class="label" for="create-comp-target"><span class="label-text">Partidos por pareja <span class="tooltip tooltip-right" data-tip="Vacío o 0 = todos contra todos. Un número positivo activa la liga nivelada: cada pareja juega exactamente ese número de partidos elegidos por nivel"><span class="text-info cursor-help">ⓘ</span></span></span></label>
+                        <input type="number" id="create-comp-target" name="target_matches" value="0" min="0" class="input input-bordered input-sm">
+                    </div>
+                    <div class="form-control">
+                        <label class="label" for="create-comp-open"><span class="label-text">Partidos abiertos a la vez <span class="tooltip tooltip-right" data-tip="Cuántos partidos pendientes puede tener cada pareja simultáneamente en una liga nivelada"><span class="text-info cursor-help">ⓘ</span></span></span></label>
+                        <input type="number" id="create-comp-open" name="open_assignments" value="0" min="0" class="input input-bordered input-sm">
+                    </div>
                 </div>
             </div>
             <div class="modal-action">

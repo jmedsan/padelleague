@@ -66,6 +66,13 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		Collection: "users", Filter: "roles ~ 'player'", Sort: "display_name",
 	})
 	isLeague := comp.GetString("type") == "league"
+	isLeveled := league.IsLeveled(comp)
+
+	seedPairs := comp.GetStringSlice("seed_pairs")
+	seedRankMap := make(map[string]int, len(seedPairs))
+	for i, pid := range seedPairs {
+		seedRankMap[pid] = i + 1
+	}
 
 	data := map[string]any{
 		"PageTitle":           comp.GetString("name"),
@@ -80,6 +87,8 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"PenaltyRows":         penaltyRows,
 		"ActivePenalty":       activePenalty,
 		"IsLeague":            isLeague,
+		"IsLeveled":           isLeveled,
+		"SeedRankMap":         seedRankMap,
 		"HasFixtures":         len(matches) > 0,
 		"HasUnpaid":           anyUnpaid(pairEntries),
 		"UnpaidCount":         countUnpaid(pairEntries),
