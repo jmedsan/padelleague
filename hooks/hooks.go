@@ -76,7 +76,7 @@ func remindCompetitionMatches(app core.App, notifier *notify.Notifier, comp *cor
 	}
 
 	for _, m := range matches {
-		deadline, ok := league.RoundArrangeDate(comp, m.GetInt("round_number"))
+		deadline, ok := league.MatchArrangeDate(comp, m)
 		if !ok {
 			continue
 		}

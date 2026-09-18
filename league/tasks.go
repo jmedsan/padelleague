@@ -151,7 +151,7 @@ func pendingMatchTasks(app core.App, comp *core.Record, playerPairIDs map[string
 		if IsPlayoff(comp) {
 			continue
 		}
-		deadline, ok := RoundArrangeDate(comp, roundNum)
+		deadline, ok := MatchArrangeDate(comp, m)
 		if !ok {
 			continue
 		}
