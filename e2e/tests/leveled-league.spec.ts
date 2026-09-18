@@ -235,12 +235,12 @@ test.describe('leveled league', () => {
     // No "Liberar partido" for a player
     await expect(page.locator('button:has-text("Liberar partido")')).toHaveCount(0);
 
-    // Set a date and status=scheduled (IsPreScore: pending|scheduled — not "confirmed")
+    // Set date + club to satisfy HasDateAndPlace; status stays pending (IsPreScore=true)
     await page.request.patch(
       `/api/collections/matches/records/${matchId}`,
       {
         headers: { Authorization: suToken },
-        data: { date: new Date().toISOString().slice(0, 10), status: 'scheduled' },
+        data: { date: new Date().toISOString().slice(0, 10), club: 'Padel 360' },
       },
     );
 
@@ -251,9 +251,24 @@ test.describe('leveled league', () => {
     await enterScore(page, '6-2 6-3');
     await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")').first());
 
-    // Confirm score as pair-2 player
-    const p2Email = PLAYERS[PAIR_DEFS[1].p1].email;
-    await loginAs(page, p2Email, PLAYER_PASSWORD);
+    // Confirm score as the actual opponent's player (opponent determined from match record)
+    const matchRec = await page.request.get(
+      `/api/collections/matches/records/${matchId}`,
+      { headers: { Authorization: suToken } },
+    );
+    const matchData = await matchRec.json();
+    const opponentPairId = matchData.pair1 === pairIds[0] ? matchData.pair2 : matchData.pair1;
+    const opponentPairRec = await page.request.get(
+      `/api/collections/pairs/records/${opponentPairId}`,
+      { headers: { Authorization: suToken } },
+    );
+    const opponentPairData = await opponentPairRec.json();
+    const opponentPlayerRec = await page.request.get(
+      `/api/collections/users/records/${opponentPairData.player1}`,
+      { headers: { Authorization: suToken } },
+    );
+    const opponentEmail = (await opponentPlayerRec.json()).email as string;
+    await loginAs(page, opponentEmail, PLAYER_PASSWORD);
     await page.goto(`/match/${matchId}`);
     await page.waitForLoadState('domcontentloaded');
     await confirmScore(page);
@@ -266,24 +281,21 @@ test.describe('leveled league', () => {
     await page.goto(`/competition/${competitionId}`);
     await page.waitForLoadState('domcontentloaded');
 
-    // "Jugados — <mes>" group must appear
-    await expect(page.locator('.collapse-title').filter({ hasText: /^Jugados — / })).toBeVisible({ timeout: 10000 });
+    // "Jugados — <mes>" group must appear (use networkidle to ensure all renders complete)
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.collapse-title').filter({ hasText: /Jugados — / })).toBeVisible({ timeout: 10000 });
 
     // =========================================================================
     // Phase 6: Standings shows "Aj." column
     // =========================================================================
 
-    const standingsTab = page.locator('input[aria-label="Clasificación"]');
-    if (await standingsTab.isVisible().catch(() => false)) {
-      await standingsTab.check();
-    } else {
-      // Try role=tab
-      await page.getByRole('tab', { name: 'Clasificación' }).click().catch(() => null);
-    }
-    await page.waitForTimeout(500);
+    // Navigate directly to the standings tab so the server renders it active
+    await page.goto(`/competition/${competitionId}?tab=clasificacion`);
+    await page.waitForLoadState('domcontentloaded');
 
     // "Aj." column header should be present in standings (leveled league)
-    await expect(page.locator('th:has-text("Aj.")')).toBeVisible({ timeout: 5000 });
+    const standingsPanel = page.locator('[role="tabpanel"]').filter({ has: page.locator('th:has-text("Aj.")') });
+    await expect(standingsPanel.locator('th:has-text("Aj.")')).toBeVisible({ timeout: 5000 });
 
     // =========================================================================
     // Phase 7: Admin "Liberar partido" on a pending match
