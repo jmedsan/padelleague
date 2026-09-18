@@ -294,7 +294,9 @@ test.describe('leveled league', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // "Aj." column header should be present in standings (leveled league)
-    await expect(page.locator('th:has-text("Aj.")').first()).toBeVisible({ timeout: 5000 });
+    // Two Aj. th elements: desktop (hidden sm:block) and mobile (sm:hidden). On mobile
+    // viewport the mobile table is visible, so use last() which picks the sm:hidden one.
+    await expect(page.locator('th:has-text("Aj.")').last()).toBeVisible({ timeout: 5000 });
 
     // =========================================================================
     // Phase 7: Admin "Liberar partido" on a pending match
