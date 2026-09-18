@@ -157,6 +157,38 @@ func TestOutstandingMatches_OrderingAndFields(t *testing.T) {
 	assert.Empty(t, out[2].ArrangeBy, "playoff matches show status only, no deadline")
 }
 
+func TestOutstandingMatches_Round0_NoRoundLabel(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "R0OA")
+	p2 := makePair(t, app, "R0OB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	mCol, err := app.FindCollectionByNameOrId("matches")
+	require.NoError(t, err)
+	m := core.NewRecord(mCol)
+	m.Set("competition", comp.Id)
+	m.Set("pair1", p1.Id)
+	m.Set("pair2", p2.Id)
+	m.Set("round_number", 0)
+	m.Set("status", StatusPending)
+	require.NoError(t, app.Save(m))
+
+	out := OutstandingMatches(app, time.Now())
+	require.NotEmpty(t, out, "round-0 match must appear in outstanding list")
+
+	var row *OutstandingMatch
+	for i := range out {
+		if out[i].MatchID == m.Id {
+			row = &out[i]
+			break
+		}
+	}
+	require.NotNil(t, row, "round-0 match not found in outstanding results")
+	assert.Equal(t, 0, row.RoundNumber)
+	assert.Equal(t, "", RoundLabel(row.RoundNumber), "round-0 label must be empty string")
+}
+
 func TestSortOutstanding_SameWarning_TiebreakByDeadline(t *testing.T) {
 	t.Parallel()
 	early := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)

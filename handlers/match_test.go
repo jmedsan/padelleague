@@ -1553,3 +1553,56 @@ func TestCancelDateWithin24h(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// Round-0 breadcrumb: leveled-league matches must not show "Jornada 0"
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestMatchDetail_Round0_NoBreadcrumbJornada(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "GET /match/{id} round-0 match has no Jornada label in breadcrumb",
+		Method:         http.MethodGet,
+		ExpectedStatus: 200,
+		// round_number=0 must never produce "Jornada 0" in the page
+		NotExpectedContent: []string{"Jornada 0"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "R0A")
+		p2 := makePairTB(tb, app, "R0B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		m.Set("round_number", 0)
+		require.NoError(tb, app.Save(m))
+		s.URL = "/match/" + m.Id
+		user, err := app.FindRecordById("users", p1.GetString("player1"))
+		require.NoError(tb, err)
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestMatchDetail_Round1_ShowsJornada1(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "GET /match/{id} round-1 match shows Jornada 1 in breadcrumb",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Jornada 1"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "R1A")
+		p2 := makePairTB(tb, app, "R1B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending") // round_number=1 by default
+		s.URL = "/match/" + m.Id
+		user, err := app.FindRecordById("users", p1.GetString("player1"))
+		require.NoError(tb, err)
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}

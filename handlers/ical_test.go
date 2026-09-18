@@ -557,6 +557,35 @@ func TestICalMatch_SummaryEscapesComma(t *testing.T) {
 	s.Test(t)
 }
 
+// TestICalMatch_Round0_NoJornadaInDescription checks that a leveled-league
+// match (round_number=0) never produces "Jornada 0" or "(J0)" in the iCal
+// DESCRIPTION or anywhere else in the response.
+func TestICalMatch_Round0_NoJornadaInDescription(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		Name:               "GET /ical/match/{id} round-0 has no Jornada 0 in description",
+		Method:             http.MethodGet,
+		ExpectedStatus:     200,
+		ExpectedContent:    []string{"VCALENDAR"},
+		NotExpectedContent: []string{"Jornada 0", "J0"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "IcalR0A")
+		p2 := makePairTB(tb, app, "IcalR0B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		m.Set("round_number", 0)
+		m.Set("date", "2026-10-01")
+		m.Set("time", "20:00")
+		require.NoError(tb, app.Save(m))
+		s.URL = "/ical/match/" + m.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
 // readBody reads the response body from the *http.Response passed to AfterTestFunc.
 // Verified: PocketBase reads from recorder.Body directly for ExpectedContent checks,
 // never from res.Body. res is recorder.Result(), which wraps recorder.Body.Bytes()
