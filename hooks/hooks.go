@@ -35,12 +35,30 @@ func validateTransition(oldStatus, newStatus string) error {
 	return nil
 }
 
+// stampFinalized sets finalized_at once when a match reaches the final status.
+func stampFinalized(rec *core.Record, now time.Time) {
+	if rec.GetString("status") != league.StatusFinal {
+		return
+	}
+	if !rec.GetDateTime("finalized_at").IsZero() {
+		return
+	}
+	rec.Set("finalized_at", now.UTC().Format("2006-01-02 15:04:05.000Z"))
+}
+
 func handleAdvance(svc *league.Service, rec *core.Record) {
 	if rec.GetString("status") != league.StatusFinal {
 		return
 	}
 	if err := svc.AdvancePlayoff(rec); err != nil {
 		slog.Error("auto-advance playoff failed", "match", rec.Id, "err", err)
+	}
+	compID := rec.GetString("competition")
+	if _, err := svc.TopUpAssignments(compID, time.Now(), league.Pairing{
+		A: rec.GetString("pair1"),
+		B: rec.GetString("pair2"),
+	}); err != nil {
+		slog.Error("top-up after finalization failed", "match", rec.Id, "err", err)
 	}
 }
 
@@ -257,16 +275,31 @@ func Register(app core.App, deps Deps) {
 		return e.Next()
 	})
 
+	app.OnRecordCreate("matches").BindFunc(func(e *core.RecordEvent) error {
+		stampFinalized(e.Record, time.Now())
+		return e.Next()
+	})
+
 	app.OnRecordUpdate("matches").BindFunc(func(e *core.RecordEvent) error {
 		old := e.Record.Original().GetString("status")
 		if err := validateTransition(old, e.Record.GetString("status")); err != nil {
 			return err
 		}
+		stampFinalized(e.Record, time.Now())
 		return e.Next()
 	})
 
 	app.OnRecordAfterUpdateSuccess("matches").BindFunc(func(e *core.RecordEvent) error {
 		handleAdvance(svc, e.Record)
+		return e.Next()
+	})
+
+	app.OnRecordAfterDeleteSuccess("matches").BindFunc(func(e *core.RecordEvent) error {
+		compID := e.Record.GetString("competition")
+		avoid := league.Pairing{A: e.Record.GetString("pair1"), B: e.Record.GetString("pair2")}
+		if _, err := svc.TopUpAssignments(compID, time.Now(), avoid); err != nil {
+			slog.Error("top-up after match delete failed", "match", e.Record.Id, "err", err)
+		}
 		return e.Next()
 	})
 
@@ -284,6 +317,26 @@ func Register(app core.App, deps Deps) {
 
 	app.Cron().MustAdd("confirmation-reminders", "0 */6 * * *", func() {
 		svc.RemindPendingConfirmations(time.Now())
+	})
+
+	app.Cron().MustAdd("leveled-assignments", "30 0 * * *", func() {
+		now := time.Now()
+		comps, err := app.FindRecordsByFilter("competitions",
+			"active = true && finalized = false", "", 0, 0, nil)
+		if err != nil {
+			slog.Error("leveled-assignments: list competitions", "err", err)
+			return
+		}
+		for _, comp := range comps {
+			created, err := svc.TopUpAssignments(comp.Id, now)
+			if err != nil {
+				slog.Error("leveled-assignments: top-up failed", "competition", comp.Id, "err", err)
+				continue
+			}
+			if len(created) > 0 {
+				slog.Info("leveled-assignments: assigned", "competition", comp.Id, "count", len(created))
+			}
+		}
 	})
 
 	app.Cron().MustAdd("pending-match-penalties", "0 1 * * *", func() {
