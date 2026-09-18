@@ -904,7 +904,7 @@ func TestThread_PlayoffHidesProposal(t *testing.T) {
 		Method:         http.MethodGet,
 		ExpectedStatus: 200,
 		ExpectedContent: []string{
-			"15/10/2026",
+			"15/10/2027",
 			"20:00",
 			"Padel 360",
 		},
@@ -927,7 +927,7 @@ func TestThread_PlayoffHidesProposal(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
 		assert.NotContains(tb, body, "Proponer fecha", "playoff must not show propose-date form")
-		assert.Contains(tb, body, "15/10/2026", "playoff must show admin-set date")
+		assert.Contains(tb, body, "15/10/2027", "playoff must show admin-set date")
 	}
 	s.Test(t)
 }
