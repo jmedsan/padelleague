@@ -93,6 +93,16 @@
                         <label class="label" for="edit-comp-reminder"><span class="label-text">Recordatorios de partido (horas antes) <span class="tooltip tooltip-right" data-tip="Cuántas horas antes del partido enviar recordatorios. Vacío = usar valor global"><span class="text-info cursor-help">ⓘ</span></span></span></label>
                         <input type="text" id="edit-comp-reminder" name="match_reminder_hours" value="{{.CompReminderHoursDisplay}}" class="input input-bordered input-sm" placeholder="Vacío = valor global">
                     </div>
+                    <div class="divider my-2 text-xs opacity-60">Liga nivelada</div>
+                    <div class="form-control mb-3">
+                        <label class="label" for="edit-comp-target"><span class="label-text">Partidos por pareja <span class="tooltip tooltip-right" data-tip="Vacío o 0 = todos contra todos. Un número positivo activa la liga nivelada: cada pareja juega exactamente ese número de partidos elegidos por nivel"><span class="text-info cursor-help">ⓘ</span></span></span></label>
+                        <input type="number" id="edit-comp-target" name="target_matches" value="{{.Competition.GetInt "target_matches"}}" min="0" class="input input-bordered input-sm" {{if .HasFixtures}}disabled{{end}}>
+                        {{if .HasFixtures}}<label class="label"><span class="label-text-alt text-warning">Bloqueado — ya hay partidos generados</span></label>{{end}}
+                    </div>
+                    <div class="form-control">
+                        <label class="label" for="edit-comp-open"><span class="label-text">Partidos abiertos a la vez <span class="tooltip tooltip-right" data-tip="Cuántos partidos pendientes puede tener cada pareja simultáneamente en una liga nivelada"><span class="text-info cursor-help">ⓘ</span></span></span></label>
+                        <input type="number" id="edit-comp-open" name="open_assignments" value="{{.Competition.GetInt "open_assignments"}}" min="0" class="input input-bordered input-sm">
+                    </div>
                 </div>
             </div>
             <div class="modal-action">
@@ -350,6 +360,35 @@
         {{end}}
     </div>
 </div>
+
+<!-- Nivel inicial (leveled league only, shown when target_matches > 0) -->
+{{if .IsLeveled}}
+<div class="collapse collapse-arrow bg-base-100 shadow mb-6" data-testid="section-seed-order">
+    <input type="checkbox" {{if not .HasFixtures}}checked{{end}}>
+    <div class="collapse-title text-lg font-bold">Nivel inicial</div>
+    <div class="collapse-content">
+        {{if .HasFixtures}}
+        <div class="alert alert-warning mb-3 text-sm">Bloqueado — el calendario ya está generado.</div>
+        {{end}}
+        <p class="text-sm text-base-content/70 mb-3">Asigna un número a cada pareja (1 = más fuerte). Las parejas sin número quedan sin clasificar.</p>
+        <div id="seed-result" class="mb-2" aria-live="polite"></div>
+        <form hx-post="/admin/competitions/{{.Competition.Id}}/seed" hx-target="#seed-result">
+            <div class="space-y-2 mb-4">
+                {{range .Entries}}
+                <div class="flex items-center gap-3">
+                    <span class="flex-1 font-medium text-sm">{{.PairName}}</span>
+                    <input type="number" name="seed_{{.PairID}}" value="{{index $.SeedRankMap .PairID}}" min="1" placeholder="—"
+                           class="input input-bordered input-sm w-20" {{if $.HasFixtures}}disabled{{end}}>
+                </div>
+                {{end}}
+            </div>
+            {{if not .HasFixtures}}
+            <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm">Guardar orden</button>
+            {{end}}
+        </form>
+    </div>
+</div>
+{{end}}
 
 <!-- Penalty modals (outside collapse so they stay reachable) -->
 {{range .Entries}}
