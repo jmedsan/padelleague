@@ -20,6 +20,14 @@ func makeLeveledCompetition(t *testing.T, app core.App, pairs []*core.Record, ta
 	return comp
 }
 
+// newDeterministicSvc returns a Service with a no-op shuffle so leveled
+// assignment tests produce stable results regardless of CPU load.
+func newDeterministicSvc(app core.App) *Service {
+	svc := New(app, nil)
+	svc.SetShuffle(func(_ int, _ func(int, int)) {})
+	return svc
+}
+
 // -- TestIsLeveled ----------------------------------------------------------
 
 func TestIsLeveled(t *testing.T) {
@@ -387,7 +395,7 @@ func TestGenerateInitialAssignments(t *testing.T) {
 	}
 	comp := makeLeveledCompetition(t, app, pairs, 4, 2)
 
-	svc := New(app, nil)
+	svc := newDeterministicSvc(app)
 	svc.SetShuffle(func(_ int, _ func(int, int)) {}) // deterministic for count assertions
 	n, err := svc.GenerateInitialAssignments(app, comp, time.Now())
 	require.NoError(t, err)
@@ -429,7 +437,7 @@ func TestGenerateInitialAssignments_Seeded(t *testing.T) {
 	require.NoError(t, app.Save(comp))
 
 	// Identity shuffle: keep in order so we can predict opponent proximity.
-	svc := New(app, nil)
+	svc := newDeterministicSvc(app)
 	svc.shuffle = func(_ int, _ func(i, j int)) {}
 
 	_, err := svc.GenerateInitialAssignments(app, comp, time.Now())
@@ -482,7 +490,7 @@ func TestTopUp_OrdersByRating(t *testing.T) {
 	comp.Set("seed_pairs", []string{pa.Id, pb.Id, pc.Id, pd.Id})
 	require.NoError(t, app.Save(comp))
 
-	svc := New(app, nil)
+	svc := newDeterministicSvc(app)
 	// Seed gives pa strong rating. Give pa a final match against pb already,
 	// leaving pa needing opponents.
 	now := time.Now()
@@ -520,7 +528,7 @@ func TestTopUp_TargetIsHardCap(t *testing.T) {
 	// pa already at target: 1 final match.
 	makeLeveledMatch(t, app, comp.Id, pa.Id, pb.Id, "6-0 6-0", pa.Id, "final", now.Add(-time.Hour))
 
-	svc := New(app, nil)
+	svc := newDeterministicSvc(app)
 	created, err := svc.TopUpAssignments(comp.Id, now)
 	require.NoError(t, err)
 
@@ -547,7 +555,7 @@ func TestTopUp_RequesterStopsAtOpen(t *testing.T) {
 	// pa already has open=1 pending match.
 	makeLeveledMatch(t, app, comp.Id, pa.Id, pb.Id, "", "", "pending", time.Time{})
 
-	svc := New(app, nil)
+	svc := newDeterministicSvc(app)
 	created, err := svc.TopUpAssignments(comp.Id, now)
 	require.NoError(t, err)
 
@@ -572,7 +580,7 @@ func TestTopUp_SkipsMetAndPending(t *testing.T) {
 	// pa already has a pending match against pb.
 	makeLeveledMatch(t, app, comp.Id, pa.Id, pb.Id, "", "", "pending", time.Time{})
 
-	svc := New(app, nil)
+	svc := newDeterministicSvc(app)
 	created, err := svc.TopUpAssignments(comp.Id, time.Now())
 	require.NoError(t, err)
 
@@ -595,7 +603,7 @@ func TestTopUp_Avoid(t *testing.T) {
 
 	comp := makeLeveledCompetition(t, app, []*core.Record{pa, pb, pc, pd}, 2, 2)
 
-	svc := New(app, nil)
+	svc := newDeterministicSvc(app)
 	// Avoid pa-pb.
 	_, err := svc.TopUpAssignments(comp.Id, time.Now(), Pairing{A: pa.Id, B: pb.Id})
 	require.NoError(t, err)
@@ -621,7 +629,7 @@ func TestTopUp_Idempotent(t *testing.T) {
 	}
 	comp := makeLeveledCompetition(t, app, pairs, 4, 2)
 
-	svc := New(app, nil)
+	svc := newDeterministicSvc(app)
 	now := time.Now()
 
 	first, err := svc.TopUpAssignments(comp.Id, now)
@@ -642,7 +650,7 @@ func TestTopUp_NoOpWhenNotAssignable(t *testing.T) {
 	pb := makePair(t, app, "NoOp B")
 	pc := makePair(t, app, "NoOp C")
 	pd := makePair(t, app, "NoOp D")
-	svc := New(app, nil)
+	svc := newDeterministicSvc(app)
 	now := time.Now()
 
 	t.Run("draft calendar", func(t *testing.T) {
@@ -703,7 +711,7 @@ func TestTopUp_ExcludesWithdrawn(t *testing.T) {
 	comp.Set("withdrawn_pairs", []string{pa.Id})
 	require.NoError(t, app.Save(comp))
 
-	svc := New(app, nil)
+	svc := newDeterministicSvc(app)
 	created, err := svc.TopUpAssignments(comp.Id, time.Now())
 	require.NoError(t, err)
 
@@ -757,7 +765,7 @@ func TestLeveledSeason_Invariants(t *testing.T) {
 	comp.Set("seed_pairs", seedIDs)
 	require.NoError(t, app.Save(comp))
 
-	svc := New(app, nil)
+	svc := newDeterministicSvc(app)
 	now := time.Now()
 
 	// Generate initial assignments.
