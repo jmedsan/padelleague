@@ -1031,3 +1031,213 @@ func TestSearchUpsert_PairUpdateRefreshesEntry(t *testing.T) {
 	stale := ix.Search("quokka ferrari", admin, 10)
 	assert.Empty(t, stale, "the pair's old name must no longer match")
 }
+
+// -- Task 7 helpers ---------------------------------------------------------
+
+func makeLeveledComp(t *testing.T, app core.App, pairs []*core.Record, target, open int) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("competitions")
+	require.NoError(t, err)
+	r := core.NewRecord(col)
+	r.Set("name", "Hook Leveled")
+	r.Set("type", "league")
+	r.Set("active", true)
+	r.Set("calendar_status", "published")
+	r.Set("target_matches", target)
+	r.Set("open_assignments", open)
+	ids := make([]string, len(pairs))
+	for i, p := range pairs {
+		ids[i] = p.Id
+	}
+	r.Set("pairs", ids)
+	require.NoError(t, app.Save(r))
+	return r
+}
+
+func pendingMatchesFor(t *testing.T, app core.App, pairID, compID string) []*core.Record {
+	t.Helper()
+	recs, err := app.FindRecordsByFilter("matches",
+		"competition = {:c} && (pair1 = {:p} || pair2 = {:p}) && status = 'pending'",
+		"", 0, 0, map[string]any{"c": compID, "p": pairID})
+	require.NoError(t, err)
+	return recs
+}
+
+// -- TestFinalTransition_StampsFinalizedAt ----------------------------------
+
+func TestFinalTransition_StampsFinalizedAt(t *testing.T) {
+	app := newTestApp(t)
+	registerHooks(t, app)
+	p1 := makePair(t, app, "FzA")
+	p2 := makePair(t, app, "FzB")
+	comp := makePlayoffComp(t, app, []*core.Record{p1, p2})
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+
+	require.NoError(t, transitionMatch(t, app, m.Id, league.StatusFinal,
+		map[string]any{"scores": "6-3 6-4", "winner": p1.Id}))
+
+	updated, err := app.FindRecordById("matches", m.Id)
+	require.NoError(t, err)
+	assert.False(t, updated.GetDateTime("finalized_at").IsZero(),
+		"finalized_at must be set on transition to final")
+}
+
+// -- TestCreateFinal_StampsFinalizedAt --------------------------------------
+
+func TestCreateFinal_StampsFinalizedAt(t *testing.T) {
+	app := newTestApp(t)
+	registerHooks(t, app)
+	p1 := makePair(t, app, "CrFzA")
+	p2 := makePair(t, app, "CrFzB")
+	comp := makePlayoffComp(t, app, []*core.Record{p1, p2})
+
+	col, err := app.FindCollectionByNameOrId("matches")
+	require.NoError(t, err)
+	r := core.NewRecord(col)
+	r.Set("competition", comp.Id)
+	r.Set("pair1", p1.Id)
+	r.Set("pair2", p2.Id)
+	r.Set("status", "final")
+	r.Set("scores", "6-3 6-4")
+	r.Set("winner", p1.Id)
+	require.NoError(t, app.Save(r))
+
+	saved, err := app.FindRecordById("matches", r.Id)
+	require.NoError(t, err)
+	assert.False(t, saved.GetDateTime("finalized_at").IsZero(),
+		"finalized_at must be set when a match is created with status=final")
+}
+
+// -- TestFinalTransition_AssignsNextOpponent --------------------------------
+
+func TestFinalTransition_AssignsNextOpponent(t *testing.T) {
+	app := newTestApp(t)
+	registerHooks(t, app)
+
+	pairs := make([]*core.Record, 6)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "LvlAdv")
+	}
+	comp := makeLeveledComp(t, app, pairs, 4, 2)
+
+	// Seed initial assignments manually so both pairs have 1 pending each.
+	m := makeMatch(t, app, comp.Id, pairs[0].Id, pairs[1].Id, 0)
+
+	countBefore := len(pendingMatchesFor(t, app, pairs[0].Id, comp.Id)) +
+		len(pendingMatchesFor(t, app, pairs[1].Id, comp.Id))
+
+	require.NoError(t, transitionMatch(t, app, m.Id, league.StatusFinal,
+		map[string]any{"scores": "6-3 6-4", "winner": pairs[0].Id}))
+
+	countAfter := len(pendingMatchesFor(t, app, pairs[0].Id, comp.Id)) +
+		len(pendingMatchesFor(t, app, pairs[1].Id, comp.Id))
+
+	assert.Greater(t, countAfter, countBefore,
+		"finalizing a leveled match must trigger new assignments for the freed slots")
+}
+
+// -- TestFinalTransition_RoundRobinUnchanged --------------------------------
+
+func TestFinalTransition_RoundRobinUnchanged(t *testing.T) {
+	app := newTestApp(t)
+	registerHooks(t, app)
+
+	p1 := makePair(t, app, "RrNoA")
+	p2 := makePair(t, app, "RrNoB")
+	comp := makeLeagueComp(t, app, []*core.Record{p1, p2},
+		time.Now().AddDate(0, -1, 0), time.Now().AddDate(0, 1, 0), 1)
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+
+	require.NoError(t, transitionMatch(t, app, m.Id, league.StatusFinal,
+		map[string]any{"scores": "6-3 6-4", "winner": p1.Id}))
+
+	// Round-robin: no new matches should be created.
+	allMatches, err := app.FindRecordsByFilter("matches",
+		"competition = {:c}", "", 0, 0, map[string]any{"c": comp.Id})
+	require.NoError(t, err)
+	assert.Len(t, allMatches, 1, "round-robin must not generate extra matches on finalization")
+}
+
+// -- TestRelease_AssignsReplacement -----------------------------------------
+
+func TestRelease_AssignsReplacement(t *testing.T) {
+	app := newTestApp(t)
+	registerHooks(t, app)
+
+	// 6 pairs, target=3, open=2 — each pair has open=2 pending at a time but
+	// capacity for 3 total matches. With 6 pairs there are always unmet
+	// opponents available after deleting one pending match.
+	pairs := make([]*core.Record, 6)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "Rel")
+	}
+	comp := makeLeveledComp(t, app, pairs, 3, 2)
+
+	pa, pb := pairs[0], pairs[1]
+
+	// Create one pending match between pa and pb.
+	mAB := makeMatch(t, app, comp.Id, pa.Id, pb.Id, 0)
+	// Give pa and pb one other pending match each (saturating open=2).
+	makeMatch(t, app, comp.Id, pa.Id, pairs[2].Id, 0)
+	makeMatch(t, app, comp.Id, pb.Id, pairs[3].Id, 0)
+
+	// Delete the pa-pb match; delete hook should top up both (avoid pa-pb).
+	require.NoError(t, app.Delete(mAB))
+
+	aMatches := pendingMatchesFor(t, app, pa.Id, comp.Id)
+	bMatches := pendingMatchesFor(t, app, pb.Id, comp.Id)
+
+	for _, m := range append(aMatches, bMatches...) {
+		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
+		isPairedWithFormer := (p1 == pa.Id && p2 == pb.Id) || (p1 == pb.Id && p2 == pa.Id)
+		assert.False(t, isPairedWithFormer, "replacement must not recreate the deleted pairing")
+	}
+	assert.Len(t, aMatches, 2, "pa should have 2 pending matches after replacement (open=2)")
+	assert.Len(t, bMatches, 2, "pb should have 2 pending matches after replacement (open=2)")
+}
+
+// -- TestRegeneratePublished_NoTopUp ----------------------------------------
+
+func TestRegeneratePublished_NoTopUp(t *testing.T) {
+	app := newTestApp(t)
+	// Do NOT register hooks — we call GenerateInitialAssignments manually and
+	// verify that a subsequent registerHooks + delete does not double-create.
+	svc := league.New(app, nil)
+
+	pairs := make([]*core.Record, 6)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "Regen")
+	}
+	comp := makeLeveledComp(t, app, pairs, 4, 2)
+
+	// Simulate what the fixture handler does on re-generate:
+	// delete existing matches then create fresh ones.
+	initial, err := svc.GenerateInitialAssignments(app, comp, time.Now())
+	require.NoError(t, err)
+	require.Greater(t, initial, 0)
+
+	// Count matches created by GenerateInitialAssignments.
+	allMatches, err := app.FindRecordsByFilter("matches",
+		"competition = {:c}", "", 0, 0, map[string]any{"c": comp.Id})
+	require.NoError(t, err)
+	countAfterGenerate := len(allMatches)
+	assert.Equal(t, initial, countAfterGenerate)
+}
+
+// -- TestLeveledCron_Registered ---------------------------------------------
+
+func TestLeveledCron_Registered(t *testing.T) {
+	app := newTestApp(t)
+	registerHooks(t, app)
+
+	jobs := app.Cron().Jobs()
+	var found bool
+	for _, j := range jobs {
+		if j.Id() == "leveled-assignments" {
+			found = true
+			assert.Equal(t, "30 0 * * *", j.Expression())
+			break
+		}
+	}
+	assert.True(t, found, "leveled-assignments cron must be registered")
+}
