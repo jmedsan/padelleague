@@ -6,7 +6,7 @@ import {
 } from '../season-helpers';
 import {
   createPlayer, createPair, addPairToCompetition, markAllPairsPaid,
-  generateFixtures, setDates, submitScore, confirmScore,
+  generateFixtures, setDates, submitScore, confirmScore, enterScore,
   createDocument, attachDocumentToCompetition, acceptDocsGate,
   clickAndWaitForHxRedirect,
   assertFinalStandings, assertPlayoffChampion,
@@ -482,6 +482,118 @@ test.describe('guided navigation tour', () => {
     // =======================================================================
 
     assertFallbacksMatch(collectFallbacks(), EXPECTED_FALLBACKS);
+  });
+
+  // -----------------------------------------------------------------------
+  // Leveled-league leg: reaches the leveled competition by clicking and
+  // asserts "Por jugar" is present (fails on "Jornada 0" if Title reverted)
+  // -----------------------------------------------------------------------
+  test('leveled competition shows Por jugar group (not Jornada 0)', async ({ page }) => {
+    test.setTimeout(120000);
+    page.on('dialog', d => d.accept());
+
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    const authResp = await page.request.post('/api/collections/_superusers/auth-with-password', {
+      data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+    });
+    if (!authResp.ok()) throw new Error(`Superuser auth failed: ${authResp.status()}`);
+    const localSuToken = (await authResp.json()).token;
+
+    // Create 3 players + 1 pair as player 2 (minimum for IsLeveled with target=1)
+    const suffix = uniqueSuffix();
+    const pws = 'TestPass123456';
+    const emailA = `gt-a-${suffix}@test.local`;
+    const emailB = `gt-b-${suffix}@test.local`;
+    const emailC = `gt-c-${suffix}@test.local`;
+    const emailD = `gt-d-${suffix}@test.local`;
+    const emailE = `gt-e-${suffix}@test.local`;
+    const emailF = `gt-f-${suffix}@test.local`;
+    for (const [em, nm] of [
+      [emailA, `GT-A ${suffix}`], [emailB, `GT-B ${suffix}`],
+      [emailC, `GT-C ${suffix}`], [emailD, `GT-D ${suffix}`],
+      [emailE, `GT-E ${suffix}`], [emailF, `GT-F ${suffix}`],
+    ]) {
+      await page.goto('/admin/players');
+      await page.waitForLoadState('domcontentloaded');
+      await createPlayer(page, em, nm);
+    }
+    const idA = await lookupPlayerId(page.request, localSuToken, emailA);
+    const idB = await lookupPlayerId(page.request, localSuToken, emailB);
+    const idC = await lookupPlayerId(page.request, localSuToken, emailC);
+    const idD = await lookupPlayerId(page.request, localSuToken, emailD);
+    const idE = await lookupPlayerId(page.request, localSuToken, emailE);
+    const idF = await lookupPlayerId(page.request, localSuToken, emailF);
+    for (const [id] of [[idA],[idB],[idC],[idD],[idE],[idF]]) {
+      await setPlayerPassword(page.request, localSuToken, id, pws);
+    }
+    await page.goto('/admin/pairs');
+    await page.waitForLoadState('domcontentloaded');
+    const pIdAB = await createPair(page, `GT-AB ${suffix}`, idA, idB, localSuToken);
+    await page.goto('/admin/pairs');
+    await page.waitForLoadState('domcontentloaded');
+    const pIdCD = await createPair(page, `GT-CD ${suffix}`, idC, idD, localSuToken);
+    await page.goto('/admin/pairs');
+    await page.waitForLoadState('domcontentloaded');
+    const pIdEF = await createPair(page, `GT-EF ${suffix}`, idE, idF, localSuToken);
+
+    // Create leveled competition: 3 pairs, target=1, open=1 → IsLeveled=true (1 < 3-1=2)
+    const compName = `GT-Leveled ${suffix}`;
+    await page.goto('/admin/competitions');
+    await page.waitForLoadState('domcontentloaded');
+    await page.getByRole('button', { name: /crear competición/i }).first().click();
+    const dlg = page.locator('dialog#modal-create');
+    await dlg.locator('input[name="name"]').fill(compName);
+    await dlg.locator('select[name="type"]').selectOption('league');
+    await dlg.locator('input[name="active"]').check();
+    await dlg.locator('.collapse').filter({ hasText: 'Opciones avanzadas' }).locator('input[type="checkbox"]').first().check({ force: true });
+    await dlg.locator('input#create-comp-target').fill('1');
+    await dlg.locator('input#create-comp-open').fill('1');
+    await clickAndWaitForHxRedirect(page, dlg.locator('button[type="submit"]'));
+
+    const urlM = page.url().match(/\/admin\/competitions\/([^/]+)/);
+    let lvCompId = urlM ? urlM[1] : '';
+    if (!lvCompId) {
+      const r = await page.request.get(
+        `/api/collections/competitions/records?filter=name='${compName}'&perPage=1`,
+        { headers: { Authorization: localSuToken } },
+      );
+      lvCompId = (await r.json()).items?.[0]?.id ?? '';
+    }
+    if (!lvCompId) throw new Error('Leveled competition not found');
+
+    // Add 3 pairs and generate assignments
+    await page.goto(`/admin/competitions/${lvCompId}`);
+    await page.waitForLoadState('domcontentloaded');
+    for (const pid of [pIdAB, pIdCD, pIdEF]) {
+      await addPairToCompetition(page, pid);
+    }
+    await generateFixtures(page);
+    await page.waitForLoadState('domcontentloaded');
+
+    // Publish
+    await page.locator('button:has-text("Publicar calendario")').click();
+    await page.waitForLoadState('domcontentloaded');
+
+    // Player navigates from home → competition card → sees "Por jugar"
+    await loginAs(page, emailA, pws);
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+
+    // Click the competition card/link
+    const lvLink = page.locator(`a[href="/competition/${lvCompId}"]`).first();
+    await lvLink.waitFor({ timeout: 10000 });
+    await lvLink.click();
+    await page.waitForLoadState('domcontentloaded');
+
+    // Must show "Partidos" tab (not "Jornadas")
+    await expect(page.locator('input[aria-label="Partidos"]')).toBeVisible({ timeout: 5000 });
+
+    // Must show "Por jugar" group
+    await expect(page.locator('.collapse-title:has-text("Por jugar")')).toBeVisible({ timeout: 5000 });
+
+    // Must NOT show "Jornada 0"
+    const mainText = await page.locator('main').textContent() ?? '';
+    expect(mainText).not.toMatch(/Jornada\s+0/);
   });
 });
 
