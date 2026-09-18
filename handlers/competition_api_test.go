@@ -50,6 +50,7 @@ func setupCompRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.POST("/competitions/{id}/penalty", comp.ApplyPenalty)
 	g.POST("/competitions/{id}/withdraw-pair", comp.WithdrawPair)
 	g.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
+	g.POST("/competitions/{id}/seed", cpairs.SetSeed)
 	g.POST("/disputes/{id}/resolve", dispute.DisputesResolve)
 	g.POST("/disputes/{id}/walkover-approve", dispute.WalkoverApprove)
 
@@ -1011,6 +1012,393 @@ func TestWithdrawPairPreScoreOnly(t *testing.T) {
 		comp, err := app.FindRecordById("competitions", compID)
 		require.NoError(tb, err)
 		assert.Contains(tb, comp.GetStringSlice("withdrawn_pairs"), pairID)
+	}
+	s.Test(t)
+}
+
+// -- Task 8: leveled-league fields (target_matches, open_assignments) -------
+
+func TestLeveledFieldsPersistOnCreate(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions persists target_matches and open_assignments",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.URL = "/admin/competitions"
+		s.Body = strings.NewReader("name=LeveledNew&type=league&target_matches=4&open_assignments=2")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		comps, err := app.FindRecordsByFilter("competitions", "name = 'LeveledNew'", "", 1, 0, nil)
+		require.NoError(tb, err)
+		require.Len(tb, comps, 1)
+		assert.Equal(tb, 4, comps[0].GetInt("target_matches"))
+		assert.Equal(tb, 2, comps[0].GetInt("open_assignments"))
+	}
+	s.Test(t)
+}
+
+func TestLeveledFieldsPersistOnUpdate(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id} persists target_matches and open_assignments",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Body = strings.NewReader("name=LeveledUpd&type=league&target_matches=3&open_assignments=2")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Equal(tb, 3, c.GetInt("target_matches"))
+		assert.Equal(tb, 2, c.GetInt("open_assignments"))
+	}
+	s.Test(t)
+}
+
+func TestLeveledFieldsEmptyDefaultsToZero(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions — empty leveled fields default to 0",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.URL = "/admin/competitions"
+		s.Body = strings.NewReader("name=LeveledZero&type=league")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		comps, err := app.FindRecordsByFilter("competitions", "name = 'LeveledZero'", "", 1, 0, nil)
+		require.NoError(tb, err)
+		require.Len(tb, comps, 1)
+		assert.Equal(tb, 0, comps[0].GetInt("target_matches"))
+		assert.Equal(tb, 0, comps[0].GetInt("open_assignments"))
+	}
+	s.Test(t)
+}
+
+func TestLeveledFieldsInvalidRejected(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/competitions — non-numeric target_matches rejected",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"debe ser un número"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.URL = "/admin/competitions"
+		s.Body = strings.NewReader("name=BadTarget&type=league&target_matches=abc")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestLeveledFieldsNegativeRejected(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/competitions — negative target_matches rejected",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"no puede ser negativo"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.URL = "/admin/competitions"
+		s.Body = strings.NewReader("name=NegTarget&type=league&target_matches=-1")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestLeveledPlayTwiceRejected(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/competitions — play_twice with target_matches>0 rejected",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Una liga nivelada no puede ser a doble vuelta"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.URL = "/admin/competitions"
+		s.Body = strings.NewReader("name=PlayTwiceLvl&type=league&target_matches=4&play_twice=on")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestLeveledOpenGTTargetRejected(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/competitions — open_assignments > target_matches rejected",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Partidos abiertos"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.URL = "/admin/competitions"
+		s.Body = strings.NewReader("name=OpenGTTarget&type=league&target_matches=2&open_assignments=5")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestLeveledChangedWithMatchesRejected(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/competitions/{id} — changing target_matches with existing matches rejected",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"No se puede cambiar con el calendario generado"},
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "LkA")
+		p2 := makePairTB(tb, app, "LkB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("target_matches", 3)
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+		// Create a match so HasFixtures = true
+		makeMatchTB(tb, app, compID, p1.Id, p2.Id, "pending")
+		s.URL = "/admin/competitions/" + compID
+		s.Body = strings.NewReader("name=LkComp&type=league&target_matches=4")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestRoundRobinDefaultMatchCount(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST generate — round-robin (no target_matches) produces n*(n-1)/2 matches",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID string
+	var n int
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		n = 5
+		pairs := make([]*core.Record, n)
+		for i := range pairs {
+			pairs[i] = makePairTB(tb, app, "RR")
+		}
+		comp := makeCompetitionTB(tb, app, "league", pairs)
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + compID + "/generate"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		matches, err := app.FindRecordsByFilter("matches",
+			"competition = {:c}", "", 0, 0, map[string]any{"c": compID})
+		require.NoError(tb, err)
+		expected := n * (n - 1) / 2
+		assert.Equal(tb, expected, len(matches), "round-robin: n*(n-1)/2 matches")
+	}
+	s.Test(t)
+}
+
+// -- Task 8: SetSeed handler ------------------------------------------------
+
+func TestSetSeed_NumberedPairsInOrder(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/seed — numbered pairs saved in ascending order",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID string
+	var p1ID, p2ID, p3ID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "SdA")
+		p2 := makePairTB(tb, app, "SdB")
+		p3 := makePairTB(tb, app, "SdC")
+		p1ID, p2ID, p3ID = p1.Id, p2.Id, p3.Id
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3})
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + compID + "/seed"
+		// p2=1 (strongest), p3=2, p1=3
+		s.Body = strings.NewReader("seed_" + p2.Id + "=1&seed_" + p3.Id + "=2&seed_" + p1.Id + "=3")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		seeds := c.GetStringSlice("seed_pairs")
+		assert.Equal(tb, []string{p2ID, p3ID, p1ID}, seeds, "seed_pairs must be sorted by number ascending")
+	}
+	s.Test(t)
+}
+
+func TestSetSeed_PartialNumbering(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/seed — partial numbering saves only numbered pairs",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID string
+	var p1ID, p2ID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "PaA")
+		p2 := makePairTB(tb, app, "PaB")
+		p3 := makePairTB(tb, app, "PaC")
+		p1ID, p2ID = p1.Id, p2.Id
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3})
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + compID + "/seed"
+		// Only p1 and p2 get seeds
+		s.Body = strings.NewReader("seed_" + p1.Id + "=1&seed_" + p2.Id + "=2")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		seeds := c.GetStringSlice("seed_pairs")
+		assert.Equal(tb, []string{p1ID, p2ID}, seeds)
+	}
+	s.Test(t)
+}
+
+func TestSetSeed_DuplicateRejected(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/competitions/{id}/seed — duplicate numbers rejected",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Dos parejas tienen el mismo nivel"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "DpA")
+		p2 := makePairTB(tb, app, "DpB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		s.URL = "/admin/competitions/" + comp.Id + "/seed"
+		s.Body = strings.NewReader("seed_" + p1.Id + "=1&seed_" + p2.Id + "=1")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestSetSeed_LockedWithMatches(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/competitions/{id}/seed — locked when matches exist",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"No se puede cambiar con el calendario generado"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "LkSdA")
+		p2 := makePairTB(tb, app, "LkSdB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/admin/competitions/" + comp.Id + "/seed"
+		s.Body = strings.NewReader("seed_" + p1.Id + "=1")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestRemovePairDropsFromSeedPairs(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/remove-pair drops pair from seed_pairs",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, p1ID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "RmSdA")
+		p2 := makePairTB(tb, app, "RmSdB")
+		p1ID = p1.Id
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("seed_pairs", []string{p1.Id, p2.Id})
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + compID + "/remove-pair"
+		s.Body = strings.NewReader("pair_id=" + p1ID)
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.NotContains(tb, c.GetStringSlice("seed_pairs"), p1ID,
+			"removed pair must not remain in seed_pairs")
 	}
 	s.Test(t)
 }

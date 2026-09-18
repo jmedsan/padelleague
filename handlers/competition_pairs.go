@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"log/slog"
+	"sort"
 	"strconv"
 	"time"
 
@@ -120,11 +121,82 @@ func (h *CompetitionPairsHandler) RemovePair(e *core.RequestEvent) error {
 	delete(paymentStatus, pairID)
 	comp.Set("payment_status", paymentStatus)
 
+	// Remove from seed_pairs if present.
+	seedPairs := comp.GetStringSlice("seed_pairs")
+	var filteredSeeds []string
+	for _, sid := range seedPairs {
+		if sid != pairID {
+			filteredSeeds = append(filteredSeeds, sid)
+		}
+	}
+	comp.Set("seed_pairs", filteredSeeds)
+
 	if err := h.app.Save(comp); err != nil {
 		slog.Error("remove pair failed", "competition", compID, "err", err)
 		return alertError(e, "Error al eliminar la pareja")
 	}
 
+	return redirectHX(e, "/admin/competitions/"+compID)
+}
+
+// SetSeed saves the initial seed order for a leveled competition.
+// Pairs with a seed number are sorted ascending (1 = strongest) and saved to
+// seed_pairs. Locked once matches exist.
+func (h *CompetitionPairsHandler) SetSeed(e *core.RequestEvent) error {
+	compID := e.Request.PathValue("id")
+
+	comp, err := h.app.FindRecordById("competitions", compID)
+	if err != nil {
+		return alertError(e, "Competición no encontrada")
+	}
+
+	// Locked when the calendar already has matches.
+	matches, err := h.app.FindRecordsByFilter("matches",
+		"competition = {:c}", "", 1, 0, map[string]any{"c": compID})
+	if err != nil {
+		return alertError(e, "Error al comprobar partidos")
+	}
+	if len(matches) > 0 {
+		return alertError(e, "No se puede cambiar con el calendario generado")
+	}
+
+	type entry struct {
+		pairID string
+		rank   int
+	}
+	var numbered []entry
+	seen := map[int]bool{}
+
+	for _, pairID := range comp.GetStringSlice("pairs") {
+		v := e.Request.FormValue("seed_" + pairID)
+		if v == "" {
+			continue
+		}
+		n, err := strconv.Atoi(v)
+		if err != nil || n <= 0 {
+			continue
+		}
+		if seen[n] {
+			return alertError(e, "Dos parejas tienen el mismo nivel")
+		}
+		seen[n] = true
+		numbered = append(numbered, entry{pairID: pairID, rank: n})
+	}
+
+	// Check for duplicates across all submitted values before committing sort.
+	sort.Slice(numbered, func(i, j int) bool { return numbered[i].rank < numbered[j].rank })
+
+	seeds := make([]string, len(numbered))
+	for i, en := range numbered {
+		seeds[i] = en.pairID
+	}
+	comp.Set("seed_pairs", seeds)
+
+	if err := h.app.Save(comp); err != nil {
+		slog.Error("set seed failed", "competition", compID, "err", err)
+		return alertError(e, "Error al guardar el orden")
+	}
+	flash(e, "Orden guardado")
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 

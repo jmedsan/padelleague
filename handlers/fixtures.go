@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 
@@ -52,6 +53,14 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 		return alertError(e, "Se necesitan al menos 2 parejas")
 	}
 
+	if league.IsLeveled(comp) {
+		n := len(pairIDs)
+		target := comp.GetInt("target_matches")
+		if (n*target)%2 != 0 {
+			return alertError(e, fmt.Sprintf("Con %d parejas, los partidos por pareja deben ser un número par", n))
+		}
+	}
+
 	err = h.app.RunInTransaction(func(txApp core.App) error {
 		return h.regenerateFixturesTx(txApp, comp, pairIDs, existingMatches)
 	})
@@ -82,7 +91,15 @@ func (h *FixtureHandler) regenerateFixturesTx(txApp core.App, comp *core.Record,
 	}
 
 	var roundCount int
-	if compType == "league" {
+	if compType == "league" && league.IsLeveled(comp) {
+		if h.leagueSvc == nil {
+			return fmt.Errorf("leagueSvc not wired")
+		}
+		if _, err := h.leagueSvc.GenerateInitialAssignments(txApp, comp, time.Now()); err != nil {
+			return err
+		}
+		// rounds stays 0 for leveled leagues (no round schedule panel).
+	} else if compType == "league" {
 		n, err := h.generateLeague(txApp, compID, pairIDs, comp.GetBool("play_twice"))
 		if err != nil {
 			return err

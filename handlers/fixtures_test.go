@@ -450,3 +450,79 @@ func TestGenerateFixturesRegenerate(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+// -- Task 8: leveled fixture generation ------------------------------------
+
+func TestGenerateLeveledFixtures(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST generate — leveled: round_number=0, draft, rounds=0, arrange_by set",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		pairs := make([]*core.Record, 6)
+		for i := range pairs {
+			pairs[i] = makePairTB(tb, app, "Lvl")
+		}
+		comp := makeCompetitionTB(tb, app, "league", pairs)
+		comp.Set("target_matches", 4)
+		comp.Set("open_assignments", 2)
+		// Set dates so assignmentDeadline has something to work with.
+		comp.Set("start_date", "2026-10-01")
+		comp.Set("end_date", "2026-12-31")
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + compID + "/generate"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		matches, err := app.FindRecordsByFilter("matches",
+			"competition = {:c}", "", 0, 0, map[string]any{"c": compID})
+		require.NoError(tb, err)
+		require.NotEmpty(tb, matches, "leveled generation must create matches")
+
+		for _, m := range matches {
+			assert.Equal(tb, 0, m.GetInt("round_number"), "leveled matches must have round_number=0")
+			assert.NotEmpty(tb, m.GetString("arrange_by"), "leveled matches must have arrange_by set")
+		}
+
+		comp, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "draft", comp.GetString("calendar_status"))
+		assert.Equal(tb, 0, comp.GetInt("rounds"), "leveled comp must have rounds=0")
+	}
+	s.Test(t)
+}
+
+func TestGenerateLeveledFixtures_OddReject(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST generate — leveled: odd pairs×target rejected",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"los partidos por pareja deben ser un número par"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		// 5 pairs × 3 target = 15 (odd) → must be rejected
+		// IsLeveled: target=3 < 5-1=4 ✓
+		pairs := make([]*core.Record, 5)
+		for i := range pairs {
+			pairs[i] = makePairTB(tb, app, "Odd")
+		}
+		comp := makeCompetitionTB(tb, app, "league", pairs)
+		comp.Set("target_matches", 3)
+		comp.Set("open_assignments", 2)
+		require.NoError(tb, app.Save(comp))
+		s.URL = "/admin/competitions/" + comp.Id + "/generate"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}

@@ -139,9 +139,7 @@ func TestChooser_RandomInsideZone(t *testing.T) {
 
 	// identity shuffle: inside-zone candidates keep order [B(1), C(2)]
 	// first candidate inside zone should be chosen.
-	identityShuffle := func(n int, swap func(i, j int)) {
-		// no-op: keeps original order
-	}
+	identityShuffle := func(_ int, _ func(int, int)) {}
 	svc := &Service{shuffle: identityShuffle}
 	got := svc.chooseOpponent(st, "A")
 	assert.Equal(t, "B", got, "identity shuffle should pick first in-zone candidate")
@@ -176,7 +174,7 @@ func TestChooser_NearestOutsideZone(t *testing.T) {
 		position: map[string]int{"A": 0, "B": 1, "C": 2, "D": 3},
 	}
 
-	identityShuffle := func(n int, swap func(i, j int)) {}
+	identityShuffle := func(_ int, _ func(int, int)) {}
 	svc := &Service{shuffle: identityShuffle}
 	got := svc.chooseOpponent(st, "A")
 	assert.Equal(t, "C", got, "when no eligible pair inside zone, pick nearest outside (C at d=2)")
@@ -305,7 +303,7 @@ func TestPlan_SteadyState(t *testing.T) {
 		position: map[string]int{"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5},
 	}
 
-	svc := &Service{shuffle: func(n int, swap func(i, j int)) {}} // identity
+	svc := &Service{shuffle: func(_ int, _ func(int, int)) {}} // identity
 
 	pairings := plan(svc, st)
 
@@ -431,7 +429,7 @@ func TestGenerateInitialAssignments_Seeded(t *testing.T) {
 
 	// Identity shuffle: keep in order so we can predict opponent proximity.
 	svc := New(app, nil)
-	svc.shuffle = func(n int, swap func(i, j int)) {}
+	svc.shuffle = func(_ int, _ func(i, j int)) {}
 
 	_, err := svc.GenerateInitialAssignments(app, comp, time.Now())
 	require.NoError(t, err)
