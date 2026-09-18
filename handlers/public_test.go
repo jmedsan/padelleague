@@ -1376,11 +1376,11 @@ func TestBuildHomeActions_NextMatchDedupWithTask(t *testing.T) {
 
 // makeLeveledCompTB creates a leveled competition. At minimum 3 pairs are
 // needed since IsLeveled requires target < len(pairs)-1.
-func makeLeveledCompTB(t testing.TB, app core.App, pairs []*core.Record, target, open int) *core.Record {
+func makeLeveledCompTB(t testing.TB, app core.App, pairs []*core.Record) *core.Record {
 	t.Helper()
 	comp := makeCompetitionTB(t, app, "league", pairs)
-	comp.Set("target_matches", target)
-	comp.Set("open_assignments", open)
+	comp.Set("target_matches", 1)
+	comp.Set("open_assignments", 1)
 	require.NoError(t, app.Save(comp))
 	return comp
 }
@@ -1400,7 +1400,7 @@ func TestLeveledCompetitionPage_GroupTitles(t *testing.T) {
 		p2 := makePairTB(tb, app, "LvlPairB")
 		p3 := makePairTB(tb, app, "LvlPairC")
 		// target=1 < len(pairs)-1=2 → IsLeveled=true
-		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3}, 1, 1)
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3})
 
 		// One pending and one finalized match.
 		mPending := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
@@ -1438,7 +1438,7 @@ func TestLeveledCompetitionPage_TabLabel(t *testing.T) {
 		p2 := makePairTB(tb, app, "TabPairB")
 		p3 := makePairTB(tb, app, "TabPairC")
 		// target=1 < 3-1=2 → IsLeveled=true
-		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3}, 1, 1)
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3})
 		s.URL = "/competition/" + comp.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		s.Headers = authHeaders(tb, user)
@@ -1469,7 +1469,7 @@ func TestLeveledCompetitionPage_OwnPairDefault(t *testing.T) {
 		myPairName = "OwnPair"
 		oppPairName = "OppPair"
 		// 3 pairs, target=1 < 3-1=2 → IsLeveled=true
-		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3}, 1, 1)
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3})
 
 		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending") // my match
 		makeMatchTB(tb, app, comp.Id, p2.Id, p3.Id, "pending") // alien match — p3 not mine
@@ -1505,7 +1505,7 @@ func TestLeveledCompetitionPage_PairAll(t *testing.T) {
 		p2 := makePairTB(tb, app, "AllPB")
 		p3 := makePairTB(tb, app, "AllPC")
 		// target=1 < 3-1=2 → IsLeveled=true
-		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3}, 1, 1)
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3})
 		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		makeMatchTB(tb, app, comp.Id, p2.Id, p3.Id, "pending") // p3 not in viewer's pair
 

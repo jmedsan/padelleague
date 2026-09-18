@@ -13,7 +13,7 @@ import (
 )
 
 // newMatchCard builds a minimal MatchCard from a match record for group tests.
-func newLeveledMatchCard(t *testing.T, app core.App, m *core.Record) MatchCard {
+func newLeveledMatchCard(t *testing.T, _ core.App, m *core.Record) MatchCard {
 	t.Helper()
 	return NewMatchRow(m, map[string]string{}, map[string]struct{}{})
 }
@@ -70,7 +70,7 @@ func TestLeveledGroups_DeadlineOrder(t *testing.T) {
 	m3 := makeRawMatch(t, app, comp.Id, p1.Id, p2.Id, "pending") // no deadline
 
 	setArrangeBy(t, app, m1, now.Add(5*24*time.Hour)) // later
-	setArrangeBy(t, app, m2, now)                      // earliest
+	setArrangeBy(t, app, m2, now)                     // earliest
 
 	cards := []MatchCard{
 		newLeveledMatchCard(t, app, m1),

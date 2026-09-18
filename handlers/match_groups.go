@@ -22,16 +22,39 @@ type LeveledGroup struct {
 	Matches []MatchCard
 }
 
+type monthKey struct {
+	year  int
+	month time.Month
+}
+
+func pendingByArrangeBy(pending []MatchCard) func(i, j int) bool {
+	return func(i, j int) bool {
+		ai := pending[i].Match.GetDateTime("arrange_by").Time()
+		aj := pending[j].Match.GetDateTime("arrange_by").Time()
+		if ai.IsZero() {
+			return false
+		}
+		if aj.IsZero() {
+			return true
+		}
+		return ai.Before(aj)
+	}
+}
+
+func newerMonthFirst(order []monthKey) func(i, j int) bool {
+	return func(i, j int) bool {
+		if order[i].year != order[j].year {
+			return order[i].year > order[j].year
+		}
+		return order[i].month > order[j].month
+	}
+}
+
 // leveledGroups partitions match cards into:
 //   - "Por jugar": non-final matches sorted by arrange_by (empty deadline last)
 //   - "Jugados — <mes año>": finalized matches grouped by calendar month of
 //     finalized_at in the given timezone, newest month first.
 func leveledGroups(cards []MatchCard, tz *time.Location) []LeveledGroup {
-	type monthKey struct {
-		year  int
-		month time.Month
-	}
-
 	var pending []MatchCard
 	byMonth := map[monthKey][]MatchCard{}
 	var monthOrder []monthKey
@@ -55,27 +78,8 @@ func leveledGroups(cards []MatchCard, tz *time.Location) []LeveledGroup {
 		}
 	}
 
-	sort.SliceStable(pending, func(i, j int) bool {
-		ai := pending[i].Match.GetDateTime("arrange_by").Time()
-		aj := pending[j].Match.GetDateTime("arrange_by").Time()
-		if ai.IsZero() && aj.IsZero() {
-			return false
-		}
-		if ai.IsZero() {
-			return false
-		}
-		if aj.IsZero() {
-			return true
-		}
-		return ai.Before(aj)
-	})
-
-	sort.Slice(monthOrder, func(i, j int) bool {
-		if monthOrder[i].year != monthOrder[j].year {
-			return monthOrder[i].year > monthOrder[j].year
-		}
-		return monthOrder[i].month > monthOrder[j].month
-	})
+	sort.SliceStable(pending, pendingByArrangeBy(pending))
+	sort.Slice(monthOrder, newerMonthFirst(monthOrder))
 
 	var groups []LeveledGroup
 
@@ -100,16 +104,23 @@ func leveledGroups(cards []MatchCard, tz *time.Location) []LeveledGroup {
 	return groups
 }
 
+// leveledRoundsCtx holds the display context for buildLeveledRounds.
+type leveledRoundsCtx struct {
+	PairNames     map[string]string
+	PlayerPairIDs map[string]struct{}
+	PairFilter    string
+}
+
 // buildLeveledRounds converts matches into leveled RoundView groups for the
 // public competition page.
-func buildLeveledRounds(matches []*core.Record, pairNames map[string]string, playerPairIDs map[string]struct{}, pairFilter string, tz *time.Location) []RoundView {
+func buildLeveledRounds(matches []*core.Record, ctx leveledRoundsCtx, tz *time.Location) []RoundView {
 	var cards []MatchCard
 	for _, m := range matches {
-		if pairFilter != "" && pairFilter != "all" &&
-			m.GetString("pair1") != pairFilter && m.GetString("pair2") != pairFilter {
+		if ctx.PairFilter != "" && ctx.PairFilter != "all" &&
+			m.GetString("pair1") != ctx.PairFilter && m.GetString("pair2") != ctx.PairFilter {
 			continue
 		}
-		cards = append(cards, NewMatchRow(m, pairNames, playerPairIDs))
+		cards = append(cards, NewMatchRow(m, ctx.PairNames, ctx.PlayerPairIDs))
 	}
 
 	groups := leveledGroups(cards, tz)

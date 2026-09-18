@@ -1637,7 +1637,7 @@ func TestAdminRelease_OK(t *testing.T) {
 		p2 := makePairTB(tb, app, "RelB")
 		p3 := makePairTB(tb, app, "RelC")
 		// 3 pairs, target=1 < 3-1=2 → IsLeveled=true
-		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3}, 1, 1)
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3})
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		m.Set("round_number", 0)
 		require.NoError(tb, app.Save(m))
@@ -1649,7 +1649,7 @@ func TestAdminRelease_OK(t *testing.T) {
 		s.URL = "/match/" + matchID + "/release"
 		s.Headers = authHeaders(tb, admin)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		// match must be deleted
 		_, err := app.FindRecordById("matches", matchID)
 		assert.Error(tb, err, "match must be deleted after release")
@@ -1677,7 +1677,7 @@ func TestAdminRelease_PlayerForbidden(t *testing.T) {
 		p1 := makePairTB(tb, app, "FrbA")
 		p2 := makePairTB(tb, app, "FrbB")
 		p3 := makePairTB(tb, app, "FrbC")
-		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3}, 1, 1)
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3})
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		m.Set("round_number", 0)
 		require.NoError(tb, app.Save(m))
@@ -1707,7 +1707,7 @@ func TestAdminRelease_ConfirmedMatch(t *testing.T) {
 		p1 := makePairTB(tb, app, "CfmA")
 		p2 := makePairTB(tb, app, "CfmB")
 		p3 := makePairTB(tb, app, "CfmC")
-		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3}, 1, 1)
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3})
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
 		m.Set("round_number", 0)
 		require.NoError(tb, app.Save(m))
@@ -1754,7 +1754,7 @@ func TestAdminRelease_ButtonVisibility(t *testing.T) {
 		p1 := makePairTB(tb, app, "BtnA")
 		p2 := makePairTB(tb, app, "BtnB")
 		p3 := makePairTB(tb, app, "BtnC")
-		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3}, 1, 1)
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3})
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		m.Set("round_number", 0)
 		require.NoError(tb, app.Save(m))
