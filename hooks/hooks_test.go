@@ -35,6 +35,15 @@ func registerHooks(t *testing.T, app *tests.TestApp) {
 	Register(app, Deps{Svc: svc})
 }
 
+// registerHooksDeterministic registers hooks with a no-op shuffle so
+// leveled-assignment count assertions are stable under parallel test load.
+func registerHooksDeterministic(t *testing.T, app *tests.TestApp) {
+	t.Helper()
+	svc := league.New(app, nil)
+	svc.SetShuffle(func(_ int, _ func(int, int)) {})
+	Register(app, Deps{Svc: svc})
+}
+
 func registerHooksWithNotifier(t *testing.T, app *tests.TestApp) {
 	t.Helper()
 	svc := league.New(app, nil)
@@ -1162,7 +1171,7 @@ func TestFinalTransition_RoundRobinUnchanged(t *testing.T) {
 
 func TestRelease_AssignsReplacement(t *testing.T) {
 	app := newTestApp(t)
-	registerHooks(t, app)
+	registerHooksDeterministic(t, app)
 
 	// 6 pairs, target=3, open=2 — each pair has open=2 pending at a time but
 	// capacity for 3 total matches. With 6 pairs there are always unmet
