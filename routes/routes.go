@@ -228,6 +228,7 @@ func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], d
 	g.POST("/competitions/{id}/pairs", pairs.AddPair)
 	g.POST("/competitions/{id}/copy-pairs", pairs.CopyPairs)
 	g.POST("/competitions/{id}/remove-pair", pairs.RemovePair)
+	g.POST("/competitions/{id}/seed", pairs.SetSeed)
 	g.POST("/competitions/{id}/payment", payments.TogglePayment)
 	g.POST("/competitions/{id}/payment-all", payments.TogglePaymentAll)
 	g.POST("/competitions/{id}/payment-reminder", payments.SendPaymentReminder)

@@ -146,6 +146,9 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 	if err := applyCompFormFields(record, e, false); err != nil {
 		return err
 	}
+	if msg := validateLeveledFields(record, e, 0, false); msg != "" {
+		return alertError(e, msg)
+	}
 
 	if err := h.app.Save(record); err != nil {
 		slog.Error("create competition failed", "err", err)
@@ -178,6 +181,7 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 		return alertError(e, "Competición no encontrada")
 	}
 	before := record.Original()
+	oldTarget := record.GetInt("target_matches")
 
 	oldStart := record.GetString("start_date")
 	oldEnd := record.GetString("end_date")
@@ -195,6 +199,11 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 
 	if err := applyCompFormFields(record, e, true); err != nil {
 		return err
+	}
+
+	hasFixtures := hasCompetitionMatches(h.app, id)
+	if msg := validateLeveledFields(record, e, oldTarget, hasFixtures); msg != "" {
+		return alertError(e, msg)
 	}
 
 	if err := h.app.Save(record); err != nil {
@@ -721,7 +730,48 @@ func setSchedulingFields(record *core.Record, e *core.RequestEvent) string {
 		return "Máx. partidos pendientes: " + msg
 	}
 	record.Set("max_pending_matches", maxPending)
+
+	target, msg := formIntValidated(e, "target_matches", 0)
+	if msg != "" {
+		return "Partidos por pareja: " + msg
+	}
+	record.Set("target_matches", target)
+
+	open, msg := formIntValidated(e, "open_assignments", 0)
+	if msg != "" {
+		return "Partidos abiertos: " + msg
+	}
+	record.Set("open_assignments", open)
+
 	return ""
+}
+
+// validateLeveledFields checks leveled-league constraints that depend on other
+// fields (play_twice, open vs target) and on existing matches. hasFixtures must
+// be true when the competition already has generated matches.
+func validateLeveledFields(record *core.Record, e *core.RequestEvent, oldTarget int, hasFixtures bool) string {
+	target := record.GetInt("target_matches")
+	if target == 0 {
+		return ""
+	}
+	if record.GetBool("play_twice") {
+		return "Una liga nivelada no puede ser a doble vuelta"
+	}
+	open := record.GetInt("open_assignments")
+	if open > target {
+		return "Partidos abiertos a la vez no puede superar los partidos por pareja"
+	}
+	if hasFixtures && target != oldTarget {
+		return "No se puede cambiar con el calendario generado"
+	}
+	return ""
+}
+
+// hasCompetitionMatches reports whether the competition has any matches.
+func hasCompetitionMatches(app core.App, compID string) bool {
+	matches, err := app.FindRecordsByFilter("matches", "competition = {:c}", "", 1, 0,
+		map[string]any{"c": compID})
+	return err == nil && len(matches) > 0
 }
 
 // formIntValidated parses a form field as a non-negative integer, returning
