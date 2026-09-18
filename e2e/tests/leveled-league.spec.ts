@@ -294,8 +294,7 @@ test.describe('leveled league', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // "Aj." column header should be present in standings (leveled league)
-    const standingsPanel = page.locator('[role="tabpanel"]').filter({ has: page.locator('th:has-text("Aj.")') });
-    await expect(standingsPanel.locator('th:has-text("Aj.")')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('th:has-text("Aj.")').first()).toBeVisible({ timeout: 5000 });
 
     // =========================================================================
     // Phase 7: Admin "Liberar partido" on a pending match
