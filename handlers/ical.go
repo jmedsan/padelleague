@@ -195,40 +195,7 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 
 	var events strings.Builder
 	for _, m := range datedMatches {
-		dtStart, dtEnd := formatICalDate(m)
-		if dtStart == "" {
-			continue
-		}
-
-		summary := pairNames[m.GetString("pair1")] + " vs " + pairNames[m.GetString("pair2")] + " · " + comp.GetString("name")
-		location := h.venueLocation(m.GetString("club"))
-
-		roundLabel := league.RoundLabel(int(m.GetFloat("round_number")))
-		compNameStr := comp.GetString("name")
-		description := compNameStr
-		if roundLabel != "" {
-			description = roundLabel + " — " + compNameStr
-		}
-
-		mURL := ""
-		if host := e.Request.Host; host != "" {
-			scheme := "https"
-			if e.Request.TLS == nil {
-				scheme = "http"
-			}
-			mURL = fmt.Sprintf("%s://%s/match/%s", scheme, host, m.Id)
-		}
-
-		events.WriteString(buildVEvent(vEvent{
-			UID:         m.Id + "@padelleague",
-			DTStamp:     time.Now().UTC().Format("20060102T150405Z"),
-			DTStart:     dtStart,
-			DTEnd:       dtEnd,
-			Summary:     summary,
-			Location:    location,
-			Description: description,
-			URL:         mURL,
-		}))
+		events.WriteString(h.buildCompMatchEvent(e, m, pairNames, comp.GetString("name")))
 	}
 
 	ics := wrapVCalendar(events.String())
@@ -237,6 +204,38 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 	e.Response.Header().Set("Content-Type", "text/calendar")
 	e.Response.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	return e.String(http.StatusOK, ics)
+}
+
+func (h *ICalHandler) buildCompMatchEvent(e *core.RequestEvent, m *core.Record, pairNames map[string]string, compName string) string {
+	dtStart, dtEnd := formatICalDate(m)
+	if dtStart == "" {
+		return ""
+	}
+	summary := pairNames[m.GetString("pair1")] + " vs " + pairNames[m.GetString("pair2")] + " · " + compName
+	location := h.venueLocation(m.GetString("club"))
+	roundLabel := league.RoundLabel(int(m.GetFloat("round_number")))
+	description := compName
+	if roundLabel != "" {
+		description = roundLabel + " — " + compName
+	}
+	mURL := ""
+	if host := e.Request.Host; host != "" {
+		scheme := "https"
+		if e.Request.TLS == nil {
+			scheme = "http"
+		}
+		mURL = fmt.Sprintf("%s://%s/match/%s", scheme, host, m.Id)
+	}
+	return buildVEvent(vEvent{
+		UID:         m.Id + "@padelleague",
+		DTStamp:     time.Now().UTC().Format("20060102T150405Z"),
+		DTStart:     dtStart,
+		DTEnd:       dtEnd,
+		Summary:     summary,
+		Location:    location,
+		Description: description,
+		URL:         mURL,
+	})
 }
 
 // venueLocation appends the venue's address to its name, when a venue

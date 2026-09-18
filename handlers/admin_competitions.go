@@ -36,48 +36,36 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 	if err != nil {
 		return alertError(e, "Competición no encontrada")
 	}
+	data := h.buildDetailData(e, id, comp)
+	data["CompReminderHoursDisplay"] = compReminderHoursDisplay(comp)
+	return h.renderPage(e, "admin/competition-detail.html", data)
+}
 
+func (h *CompetitionHandler) buildDetailData(e *core.RequestEvent, id string, comp *core.Record) map[string]any {
 	pairIDs := comp.GetStringSlice("pairs")
-	seeding := getSeeding(comp)
-	payment := paymentInfo{app: h.app, status: getPaymentStatus(comp), paidAt: getPaymentDates(comp), paidBy: getPaymentActors(comp)}
-	penaltyRows := h.getPenaltyRows(id)
-	activePenalty := firstActivePenalty(penaltyRows)
+	pairEntries, allPairs := h.loadPairEntries(comp, pairIDs)
 
-	withdrawnIDs := comp.GetStringSlice("withdrawn_pairs")
-	withdrawnSet := make(map[string]bool, len(withdrawnIDs))
-	for _, id := range withdrawnIDs {
-		withdrawnSet[id] = true
-	}
-	pairEntries := buildPairEntries(pairIDs, seeding, payment, withdrawnSet)
-	allPairs := availablePairs(h.app, pairIDs)
 	allComps := findRecordsLogged(h.app, "Detail: find other competitions", RecordQuery{
 		Collection: "competitions", Filter: "id != {:cid}", Sort: "name", Params: map[string]any{"cid": id},
 	})
-
 	matches := findRecordsLogged(h.app, "Detail: find matches", RecordQuery{
 		Collection: "matches", Filter: "competition = {:cid}", Sort: "round_number,created", Params: map[string]any{"cid": id},
 	})
+	allUsers := findRecordsLogged(h.app, "Detail: find players", RecordQuery{
+		Collection: "users", Filter: "roles ~ 'player'", Sort: "display_name",
+	})
 
 	pairNameMap := league.PairNames(h.app, pairIDs)
-
 	var rounds []roundGroup
 	if league.IsLeveled(comp) {
 		rounds = h.buildLeveledRoundGroups(comp, matches, pairNameMap)
 	} else {
 		rounds = h.buildRoundGroups(comp, matches, pairNameMap)
 	}
-	disputes := league.CompHealthItems(h.app, id, time.Now(), "disputes", "walkovers")
-	allUsers := findRecordsLogged(h.app, "Detail: find players", RecordQuery{
-		Collection: "users", Filter: "roles ~ 'player'", Sort: "display_name",
-	})
-	isLeague := comp.GetString("type") == "league"
-	isLeveled := league.IsLeveled(comp)
 
-	seedPairs := comp.GetStringSlice("seed_pairs")
-	seedRankMap := make(map[string]int, len(seedPairs))
-	for i, pid := range seedPairs {
-		seedRankMap[pid] = i + 1
-	}
+	penaltyRows := h.getPenaltyRows(id)
+	disputes := league.CompHealthItems(h.app, id, time.Now(), "disputes", "walkovers")
+	seedRankMap := buildSeedRankMap(comp)
 
 	data := map[string]any{
 		"PageTitle":           comp.GetString("name"),
@@ -90,9 +78,9 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"AutoExpandRound":     firstIncompleteRoundGroup(rounds),
 		"Disputes":            disputes,
 		"PenaltyRows":         penaltyRows,
-		"ActivePenalty":       activePenalty,
-		"IsLeague":            isLeague,
-		"IsLeveled":           isLeveled,
+		"ActivePenalty":       firstActivePenalty(penaltyRows),
+		"IsLeague":            comp.GetString("type") == "league",
+		"IsLeveled":           league.IsLeveled(comp),
 		"SeedRankMap":         seedRankMap,
 		"HasFixtures":         len(matches) > 0,
 		"HasUnpaid":           anyUnpaid(pairEntries),
@@ -102,8 +90,27 @@ func (h *CompetitionHandler) Detail(e *core.RequestEvent) error {
 		"FooterCompetitionID": id,
 	}
 	h.addDetailExtras(data, comp, matches, fileTokenFor(e))
-	data["CompReminderHoursDisplay"] = compReminderHoursDisplay(comp)
-	return h.renderPage(e, "admin/competition-detail.html", data)
+	return data
+}
+
+func (h *CompetitionHandler) loadPairEntries(comp *core.Record, pairIDs []string) ([]pairEntry, []*core.Record) {
+	seeding := getSeeding(comp)
+	payment := paymentInfo{app: h.app, status: getPaymentStatus(comp), paidAt: getPaymentDates(comp), paidBy: getPaymentActors(comp)}
+	withdrawnIDs := comp.GetStringSlice("withdrawn_pairs")
+	withdrawnSet := make(map[string]bool, len(withdrawnIDs))
+	for _, wid := range withdrawnIDs {
+		withdrawnSet[wid] = true
+	}
+	return buildPairEntries(pairIDs, seeding, payment, withdrawnSet), availablePairs(h.app, pairIDs)
+}
+
+func buildSeedRankMap(comp *core.Record) map[string]int {
+	seedPairs := comp.GetStringSlice("seed_pairs")
+	m := make(map[string]int, len(seedPairs))
+	for i, pid := range seedPairs {
+		m[pid] = i + 1
+	}
+	return m
 }
 
 func applyCompFormFields(record *core.Record, e *core.RequestEvent, clearReminderIfEmpty bool) error {
@@ -483,7 +490,7 @@ func (h *CompetitionHandler) buildRoundGroups(comp *core.Record, matches []*core
 
 // buildLeveledRoundGroups builds admin round groups for a leveled league,
 // grouping matches into "Por jugar" and monthly "Jugados — <mes año>" groups.
-func (h *CompetitionHandler) buildLeveledRoundGroups(comp *core.Record, matches []*core.Record, pairNames map[string]string) []roundGroup {
+func (h *CompetitionHandler) buildLeveledRoundGroups(_ *core.Record, matches []*core.Record, pairNames map[string]string) []roundGroup {
 	noPairs := map[string]struct{}{}
 	var allCards []MatchCard
 	for _, m := range matches {
@@ -791,7 +798,7 @@ func setSchedulingFields(record *core.Record, e *core.RequestEvent) string {
 // validateLeveledFields checks leveled-league constraints that depend on other
 // fields (play_twice, open vs target) and on existing matches. hasFixtures must
 // be true when the competition already has generated matches.
-func validateLeveledFields(record *core.Record, e *core.RequestEvent, oldTarget int, hasFixtures bool) string {
+func validateLeveledFields(record *core.Record, _ *core.RequestEvent, oldTarget int, hasFixtures bool) string {
 	target := record.GetInt("target_matches")
 	if target == 0 {
 		return ""

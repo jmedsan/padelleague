@@ -91,22 +91,21 @@ func (h *FixtureHandler) regenerateFixturesTx(txApp core.App, comp *core.Record,
 	}
 
 	var roundCount int
-	if compType == "league" && league.IsLeveled(comp) {
-		if h.leagueSvc == nil {
-			return fmt.Errorf("leagueSvc not wired")
-		}
-		if _, err := h.leagueSvc.GenerateInitialAssignments(txApp, comp, time.Now()); err != nil {
+	switch {
+	case compType == "league" && league.IsLeveled(comp):
+		if err := h.generateLeveled(txApp, comp); err != nil {
 			return err
 		}
-		// rounds stays 0 for leveled leagues (no round schedule panel).
-	} else if compType == "league" {
+	case compType == "league":
 		n, err := h.generateLeague(txApp, compID, pairIDs, comp.GetBool("play_twice"))
 		if err != nil {
 			return err
 		}
 		roundCount = n
-	} else if err := h.generatePlayoff(txApp, compID, pairIDs, comp); err != nil {
-		return err
+	default:
+		if err := h.generatePlayoff(txApp, compID, pairIDs, comp); err != nil {
+			return err
+		}
 	}
 
 	if compType == "league" && roundCount > 0 {
@@ -131,6 +130,14 @@ func (h *FixtureHandler) persistRoundSchedule(comp *core.Record, roundCount int)
 	start := comp.GetDateTime("start_date").Time()
 	end := comp.GetDateTime("end_date").Time()
 	comp.Set("round_arrange_dates", league.StoreRoundSchedule(start, end, roundCount))
+}
+
+func (h *FixtureHandler) generateLeveled(txApp core.App, comp *core.Record) error {
+	if h.leagueSvc == nil {
+		return fmt.Errorf("leagueSvc not wired")
+	}
+	_, err := h.leagueSvc.GenerateInitialAssignments(txApp, comp, time.Now())
+	return err
 }
 
 func (h *FixtureHandler) generateLeague(txApp core.App, compID string, pairIDs []string, double bool) (int, error) {

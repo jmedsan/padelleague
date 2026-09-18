@@ -99,40 +99,19 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	isLeveled := league.IsLeveled(comp)
 	compPairIDs := comp.GetStringSlice("pairs")
 
-	// Determine pair filter. For leveled leagues: default to the viewer's own
-	// pair when the URL has no "pair" key (not even empty string), so "Por jugar"
-	// is scoped to the player by default. "?pair=all" shows everything.
-	urlPair, hasPairKey := e.Request.URL.Query()["pair"]
-	pairFilter := ""
-	if hasPairKey {
-		pairFilter = urlPair[0]
-	}
-	if pairFilter != "all" && pairFilter != "" && !isPlayoff && !slices.Contains(compPairIDs, pairFilter) {
-		pairFilter = ""
-	}
-	if isPlayoff {
-		pairFilter = ""
-	}
-	if isLeveled && !hasPairKey {
-		// default to viewer's own pair
-		for pid := range playerPairIDs {
-			if slices.Contains(compPairIDs, pid) {
-				pairFilter = pid
-				break
-			}
-		}
-	}
+	pairFilter := resolvePairFilter(e.Request.URL.Query(), pairFilterCtx{
+		IsPlayoff:     isPlayoff,
+		IsLeveled:     isLeveled,
+		CompPairIDs:   compPairIDs,
+		PlayerPairIDs: playerPairIDs,
+	})
 
-	var rounds []RoundView
-	if isLeveled {
-		tz := league.Timezone(h.app)
-		rounds = buildLeveledRounds(matches, pairNames, playerPairIDs, pairFilter, tz)
-	} else {
-		rounds = buildRounds(matches, pairNames, playerPairIDs, pairFilter)
-		for i := range rounds {
-			enrichWithPendingResults(h.app, rounds[i].Matches)
-		}
-	}
+	rounds := h.buildCompRounds(matches, roundsCtx{
+		PairNames:     pairNames,
+		PlayerPairIDs: playerPairIDs,
+		PairFilter:    pairFilter,
+		IsLeveled:     isLeveled,
+	})
 	autoExpandRound := firstIncompleteRound(rounds)
 
 	data := h.buildCompetitionData(comp, rounds, autoExpandRound, published || isAdmin)
@@ -142,6 +121,62 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		playerPairIDs: playerPairIDs, pairFilter: pairFilter, rounds: rounds, userID: userID,
 	})
 	return h.render.Page(e, "competition.html", data)
+}
+
+type roundsCtx struct {
+	PairNames     map[string]string
+	PlayerPairIDs map[string]struct{}
+	PairFilter    string
+	IsLeveled     bool
+}
+
+func (h *PublicHandler) buildCompRounds(matches []*core.Record, ctx roundsCtx) []RoundView {
+	if ctx.IsLeveled {
+		tz := league.Timezone(h.app)
+		return buildLeveledRounds(matches, leveledRoundsCtx{
+			PairNames:     ctx.PairNames,
+			PlayerPairIDs: ctx.PlayerPairIDs,
+			PairFilter:    ctx.PairFilter,
+		}, tz)
+	}
+	rounds := buildRounds(matches, ctx.PairNames, ctx.PlayerPairIDs, ctx.PairFilter)
+	for i := range rounds {
+		enrichWithPendingResults(h.app, rounds[i].Matches)
+	}
+	return rounds
+}
+
+// pairFilterCtx holds competition-level info for resolvePairFilter.
+type pairFilterCtx struct {
+	IsPlayoff     bool
+	IsLeveled     bool
+	CompPairIDs   []string
+	PlayerPairIDs map[string]struct{}
+}
+
+// resolvePairFilter determines the active pair filter for the competition page.
+// For leveled leagues with no URL "pair" key, defaults to the viewer's own pair.
+// Playoffs always show all pairs.
+func resolvePairFilter(query map[string][]string, ctx pairFilterCtx) string {
+	if ctx.IsPlayoff {
+		return ""
+	}
+	urlPair, hasPairKey := query["pair"]
+	pairFilter := ""
+	if hasPairKey {
+		pairFilter = urlPair[0]
+	}
+	if pairFilter != "all" && pairFilter != "" && !slices.Contains(ctx.CompPairIDs, pairFilter) {
+		pairFilter = ""
+	}
+	if ctx.IsLeveled && !hasPairKey {
+		for pid := range ctx.PlayerPairIDs {
+			if slices.Contains(ctx.CompPairIDs, pid) {
+				return pid
+			}
+		}
+	}
+	return pairFilter
 }
 
 // competitionDataParams bundles the inputs populateCompetitionData needs
