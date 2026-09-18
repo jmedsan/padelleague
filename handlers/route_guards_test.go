@@ -75,7 +75,7 @@ func playerRoutes() []playerRoute {
 			name: "thread proposal", captainGated: false, withdrawnBlocked: true,
 			setup: func(_ testing.TB, _ core.App, f guardFixture) (string, string) {
 				return "/match/" + f.match.Id + "/thread/proposal",
-					"date=2026-09-15&time=18:00&venue_text=Club+Test"
+					"date=2027-09-15&time=18:00&venue_text=Club+Test"
 			},
 		},
 		{
@@ -104,7 +104,7 @@ func playerRoutes() []playerRoute {
 			setup: func(tb testing.TB, app core.App, f guardFixture) (string, string) {
 				msg := makeSchedulingProposal(tb, app, f.match.Id, f.rival)
 				return fmt.Sprintf("/match/%s/thread/proposal/%s/reject-and-counter", f.match.Id, msg.Id),
-					"date=2026-09-16&time=19:00&venue_text=Club+Test"
+					"date=2027-09-16&time=19:00&venue_text=Club+Test"
 			},
 		},
 	}
@@ -192,7 +192,7 @@ func newGuardFixture(tb testing.TB, app core.App, label string) guardFixture {
 	p2 := makePairTB(tb, app, "Guard "+label+" B")
 	comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 	match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
-	match.Set("date", "2026-09-01")
+	match.Set("date", "2027-09-01")
 	match.Set("time", "18:00")
 	match.Set("club", "Padel 360")
 	require.NoError(tb, app.Save(match))
@@ -210,7 +210,7 @@ func makeSchedulingProposal(tb testing.TB, app core.App, matchID, authorID strin
 	msg.Set("match", matchID)
 	msg.Set("author", authorID)
 	msg.Set("type", "scheduling_proposal")
-	msg.Set("proposal_data", `{"date":"2026-09-15","time":"18:00","venue_name":"Club Test","venue_id":"","venue_text":""}`)
+	msg.Set("proposal_data", `{"date":"2027-09-15","time":"18:00","venue_name":"Club Test","venue_id":"","venue_text":""}`)
 	msg.Set("proposal_status", "pending")
 	require.NoError(tb, app.Save(msg))
 	return msg
