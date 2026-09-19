@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"math"
+	"math/rand/v2"
 	"sort"
 	"time"
 
@@ -164,9 +165,9 @@ const (
 // completable does a randomized greedy check: can we build a valid schedule
 // for the remaining need, given met, allowing up to slack unfilled slots?
 func completable(need map[string]int, met map[string]map[string]struct{}, slack, tries int) bool {
-	for pass := range tries {
-		_ = pass
-		if tryGreedy(need, met, slack) {
+	rng := rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))
+	for range tries {
+		if tryGreedy(need, met, slack, rng) {
 			return true
 		}
 	}
@@ -174,7 +175,8 @@ func completable(need map[string]int, met map[string]map[string]struct{}, slack,
 }
 
 // tryGreedy attempts one greedy pass: serve the most-constrained pair first.
-func tryGreedy(origNeed map[string]int, origMet map[string]map[string]struct{}, slack int) bool {
+// rng provides per-pass randomness so repeated calls explore different orderings.
+func tryGreedy(origNeed map[string]int, origMet map[string]map[string]struct{}, slack int, rng *rand.Rand) bool {
 	need := make(map[string]int, len(origNeed))
 	for k, v := range origNeed {
 		need[k] = v
@@ -183,47 +185,58 @@ func tryGreedy(origNeed map[string]int, origMet map[string]map[string]struct{}, 
 
 	missed := 0
 	for {
-		// Find pair with positive need.
 		pairs := pairsWithNeed(need)
 		if len(pairs) == 0 {
 			break
 		}
-		// Pick the one with fewest eligible opponents (most constrained).
-		sort.Slice(pairs, func(i, j int) bool {
-			oi := countEligible(pairs[i], need, met)
-			oj := countEligible(pairs[j], need, met)
-			if oi != oj {
-				return oi < oj
-			}
-			return pairs[i] < pairs[j]
-		})
+		sortByConstraint(pairs, need, met, rng)
 		p := pairs[0]
 
-		// Find eligible opponents for p, sorted by fewest options.
 		candidates := eligibleCandidates(p, need, met)
 		if len(candidates) == 0 {
-			missed++
-			// p can't be filled; count as 1 missed slot (pair can't complete need[p]).
+			missed += need[p]
 			need[p] = 0
 			if missed > slack {
 				return false
 			}
 			continue
 		}
-		sort.Slice(candidates, func(i, j int) bool {
-			oi := countEligible(candidates[i], need, met)
-			oj := countEligible(candidates[j], need, met)
-			if oi != oj {
-				return oi < oj
-			}
-			return candidates[i] < candidates[j]
-		})
-		q := candidates[0]
-		need[p]--
+		sortByConstraint(candidates, need, met, rng)
+		missed += fillNeed(p, candidates, need, met)
+		if missed > slack {
+			return false
+		}
+	}
+	return missed <= slack
+}
+
+// sortByConstraint sorts ids by fewest (options − need) first; ties broken randomly.
+func sortByConstraint(ids []string, need map[string]int, met map[string]map[string]struct{}, rng *rand.Rand) {
+	sort.Slice(ids, func(i, j int) bool {
+		oi := countEligible(ids[i], need, met) - need[ids[i]]
+		oj := countEligible(ids[j], need, met) - need[ids[j]]
+		if oi != oj {
+			return oi < oj
+		}
+		return rng.Float64() < 0.5
+	})
+}
+
+// fillNeed fills all of p's remaining need slots from candidates and returns
+// the number of slots that could not be filled (need[p] > len(candidates)).
+func fillNeed(p string, candidates []string, need map[string]int, met map[string]map[string]struct{}) int {
+	fill := need[p]
+	missed := 0
+	if fill > len(candidates) {
+		missed = fill - len(candidates)
+		fill = len(candidates)
+	}
+	for _, q := range candidates[:fill] {
 		need[q]--
 		addMet(met, p, q)
 	}
-	return missed <= slack
+	need[p] = 0
+	return missed
 }
 
 // minSlack finds the minimum slack for which completable returns true.
