@@ -92,6 +92,10 @@ invariants:
 ci: fmt-check lint dead css invariants test vuln
 	@echo "CI gate passed"
 
+simulate: ## leveled-league simulation (SEASONS=100)
+	go test ./league -run TestSimulation_LeveledLeague -count=1 -v -timeout 0 \
+	    -parallel 5 -simulation.seasons=$(or $(SEASONS),100)
+
 # Push notification error paths. Needs system Chrome with the Push API and a
 # display, so it cannot run headless in CI alongside `make e2e`. Kept as a
 # named target so it is discoverable and runnable in one command rather than
