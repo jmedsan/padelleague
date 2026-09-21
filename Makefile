@@ -4,7 +4,7 @@ export
 LOCAL_URL ?= http://127.0.0.1:8090
 OPENER ?= xdg-open
 
-.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci e2e
+.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci e2e e2e-scenario scenario-serve e2e-scenario-stop
 
 css:
 	cd frontend && npx tailwindcss -i ../static/css/input.css -o ../static/css/styles.css --minify
@@ -114,3 +114,20 @@ stop:
 reset: stop
 	rm -rf pb_data
 	$(MAKE) run
+
+e2e-scenario: ## scenario tests (leveled league)
+	@E2E_PORT=$$(node e2e/find-free-port.mjs) && \
+	echo "scenario tests on port $$E2E_PORT" && \
+	cd e2e && E2E_PORT=$$E2E_PORT npx playwright test --config playwright.scenario.config.ts
+
+scenario-serve: ## baseline only, keep server alive for manual testing
+	@E2E_PORT=$$(node e2e/find-free-port.mjs) && \
+	cd e2e && E2E_KEEP=1 E2E_PORT=$$E2E_PORT npx playwright test \
+	  --config playwright.scenario.config.ts --grep "00 baseline"
+
+e2e-scenario-stop: ## stop a kept scenario server
+	@if [ -f e2e/.test-data/scenario.pid ]; then \
+		kill $$(cat e2e/.test-data/scenario.pid) 2>/dev/null || true; \
+		rm e2e/.test-data/scenario.pid; \
+		echo "scenario server stopped"; \
+	else echo "no scenario server running"; fi
