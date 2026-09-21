@@ -236,9 +236,9 @@ const STAGE_ORDER = ['created', 'assigned', 'mid', 'end'] as const;
 
 async function stageCreated(api: ScenarioApi, ctx: ScenarioCtx): Promise<ScenarioCtx> {
   const suffix = uniqueSuffix();
-  const target = 3;
-  const open = 2;
-  const players = await createPlayers(api, 16, suffix);
+  const target = 6;
+  const open = 3;
+  const players = await createPlayers(api, 32, suffix);
   const pairs = await createPairs(api, players, suffix);
   const competitionId = await createCompetition(api, `Leveled-16-${suffix}`, target, open);
   for (const pair of pairs) {

@@ -2,8 +2,10 @@ import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { spawnServer, superuserLogin } from './server';
 import { ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME } from './global-setup';
+import { buildToStage, ScenarioApi } from './scenario-helpers';
 
 const PORT = process.env.E2E_PORT ? Number(process.env.E2E_PORT) : 8098;
+const STAGE = process.env.STAGE || 'assigned';
 const TEST_DATA_DIR = join(__dirname, '.test-data');
 
 export default async function scenarioSetup() {
@@ -27,12 +29,24 @@ export default async function scenarioSetup() {
   const suToken = await superuserLogin(handle.baseURL, ADMIN_EMAIL, ADMIN_PASSWORD);
   const adminCookie = await getAdminCookie(handle.baseURL);
 
+  const api: ScenarioApi = { baseURL: handle.baseURL, suToken, adminCookie };
+  const ctx = await buildToStage(api, STAGE);
+
   mkdirSync(TEST_DATA_DIR, { recursive: true });
-  mkdirSync(join(__dirname, 'scenarios'), { recursive: true });
 
   writeFileSync(
     join(TEST_DATA_DIR, 'scenario.json'),
-    JSON.stringify({ baseURL: handle.baseURL, suToken, adminCookie }, null, 2),
+    JSON.stringify({
+      baseURL: handle.baseURL,
+      suToken,
+      adminCookie,
+      competitionId: ctx.competitionId,
+      players: ctx.players,
+      pairs: ctx.pairs,
+      target: ctx.target,
+      open: ctx.open,
+      stage: ctx.stage,
+    }, null, 2),
   );
 }
 
