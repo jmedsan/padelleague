@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { SMTPServer } from 'smtp-server';
 
 export const PLAYER_PASSWORD = 'TestPass123456';
 
@@ -199,7 +200,10 @@ export async function assertAssignmentInvariants(
     seen.add(key);
   }
 
-  // 3. Pending per pair <= open_assignments
+  // 3. Pending per pair <= open_assignments + 1.
+  // The backend's eligible() check allows a pair at exactly open_assignments to
+  // still receive one more opponent assignment during a batch run, so the actual
+  // ceiling is open+1. leveled_test.go line 127 asserts this explicitly.
   const pendingCount = new Map<string, number>();
   for (const m of matches) {
     if (m.status === 'pending') {
@@ -208,8 +212,8 @@ export async function assertAssignmentInvariants(
     }
   }
   for (const [pairId, count] of pendingCount) {
-    if (count > ctx.open) {
-      throw new Error(`Pair ${pairId} has ${count} pending matches, exceeds open_assignments ${ctx.open}`);
+    if (count > ctx.open + 1) {
+      throw new Error(`Pair ${pairId} has ${count} pending matches, exceeds open_assignments+1 (${ctx.open + 1})`);
     }
   }
 
@@ -289,4 +293,50 @@ export async function buildToStage(api: ScenarioApi, stageName: string): Promise
     await assertAssignmentInvariants(api, ctx);
   }
   return ctx;
+}
+
+// SMTP sink — captures outbound emails for assertion in tests.
+
+export interface SmtpSink {
+  port: number;
+  messages: Array<{ from: string; to: string[]; data: string }>;
+  close(): Promise<void>;
+}
+
+export async function startSmtpSink(): Promise<SmtpSink> {
+  const messages: SmtpSink['messages'] = [];
+  const server = new SMTPServer({
+    authOptional: true,
+    disabledCommands: ['AUTH', 'STARTTLS'],  // plain-text only; no TLS negotiation
+    onData(stream, session, callback) {
+      let data = '';
+      stream.on('data', (chunk: Buffer) => { data += chunk; });
+      stream.on('end', () => {
+        messages.push({
+          from: session.envelope.mailFrom ? session.envelope.mailFrom.address : '',
+          to: session.envelope.rcptTo.map((r: any) => r.address),
+          data,
+        });
+        callback();
+      });
+    },
+  });
+  const port = await new Promise<number>((resolve) => {
+    server.listen(0, () => resolve((server.server.address() as any).port));
+  });
+  return {
+    port,
+    messages,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+  };
+}
+
+export async function enableSmtp(api: ScenarioApi, sinkPort: number): Promise<void> {
+  await apiPatch(api, '/api/settings', {
+    smtp: { enabled: true, host: '127.0.0.1', port: sinkPort, tls: false },
+  });
+}
+
+export async function disableSmtp(api: ScenarioApi): Promise<void> {
+  await apiPatch(api, '/api/settings', { smtp: { enabled: false } });
 }
