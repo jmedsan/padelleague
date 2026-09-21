@@ -15,6 +15,8 @@
   "devDependencies": {
     "@playwright/test": "^1.61.1",
     "@types/node": "^26.2.0",
+    "@types/smtp-server": "^3.5.13",
+    "smtp-server": "^3.19.7",
     "typescript": "^7.0.2"
   }
 }
