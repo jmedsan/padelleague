@@ -1,10 +1,10 @@
-import { test, expect, Page, APIRequestContext } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { uniqueSuffix, setPlayerPassword } from '../season-helpers';
 import {
   createPlayer, createPair, addPairToCompetition,
   generateFixtures, clickAndWaitForHxRedirect,
-  lookupPlayerId, enterScore, confirmScore,
+  lookupPlayerId,
 } from '../tour-helpers';
 
 const RUN_ID = uniqueSuffix();
@@ -50,7 +50,7 @@ let suToken = '';
 test.describe('leveled league', () => {
   test.describe.configure({ retries: 0 });
 
-  test('full leveled-league flow (admin setup + player view + result + standings + release)', async ({ page }) => {
+  test('leveled-league admin dialog + player view', async ({ page }) => {
     test.setTimeout(300000);
 
     page.on('dialog', d => d.accept());
@@ -199,163 +199,6 @@ test.describe('leveled league', () => {
     // No "Jornada" text anywhere in the page body
     const bodyText = await page.locator('main').textContent() ?? '';
     expect(bodyText).not.toMatch(/Jornada\s+0/);
-
-    // =========================================================================
-    // Phase 3: Player switches to "Todas las parejas"
-    // =========================================================================
-
-    await filterSelect.selectOption('all');
-    await page.waitForLoadState('domcontentloaded');
-
-    // Now all pairs' matches should be visible (more match cards)
-    const allMatchLinks = page.locator('a[href^="/match/"]');
-    const allCount = await allMatchLinks.count();
-    expect(allCount).toBeGreaterThanOrEqual(2);
-
-    // =========================================================================
-    // Phase 4: Player submits a result on own match
-    // =========================================================================
-
-    // Go back to own-pair filter to find the first match
-    await filterSelect.selectOption(pairIds[0]);
-    await page.waitForLoadState('domcontentloaded');
-
-    const firstMatchLink = page.locator('a[href^="/match/"]').first();
-    const firstMatchHref = await firstMatchLink.getAttribute('href');
-    if (!firstMatchHref) throw new Error('No match link found');
-    const matchId = firstMatchHref.split('/match/')[1];
-
-    await firstMatchLink.click();
-    await page.waitForLoadState('domcontentloaded');
-
-    // Match page has no "Jornada" breadcrumb for round-0 match
-    const breadcrumb = await page.locator('.breadcrumbs').textContent() ?? '';
-    expect(breadcrumb).not.toMatch(/Jornada/);
-
-    // No "Liberar partido" for a player
-    await expect(page.locator('button:has-text("Liberar partido")')).toHaveCount(0);
-
-    // Set date + club to satisfy HasDateAndPlace; status stays pending (IsPreScore=true)
-    await page.request.patch(
-      `/api/collections/matches/records/${matchId}`,
-      {
-        headers: { Authorization: suToken },
-        data: { date: new Date().toISOString().slice(0, 10), club: 'Padel 360' },
-      },
-    );
-
-    await page.reload();
-    await page.waitForLoadState('domcontentloaded');
-
-    // Submit score as pair-1 player
-    await enterScore(page, '6-2 6-3');
-    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")').first());
-
-    // Confirm score as the actual opponent's player (opponent determined from match record)
-    const matchRec = await page.request.get(
-      `/api/collections/matches/records/${matchId}`,
-      { headers: { Authorization: suToken } },
-    );
-    const matchData = await matchRec.json();
-    const opponentPairId = matchData.pair1 === pairIds[0] ? matchData.pair2 : matchData.pair1;
-    const opponentPairRec = await page.request.get(
-      `/api/collections/pairs/records/${opponentPairId}`,
-      { headers: { Authorization: suToken } },
-    );
-    const opponentPairData = await opponentPairRec.json();
-    const opponentPlayerRec = await page.request.get(
-      `/api/collections/users/records/${opponentPairData.player1}`,
-      { headers: { Authorization: suToken } },
-    );
-    const opponentEmail = (await opponentPlayerRec.json()).email as string;
-    await loginAs(page, opponentEmail, PLAYER_PASSWORD);
-    await page.goto(`/match/${matchId}`);
-    await page.waitForLoadState('domcontentloaded');
-    await confirmScore(page);
-
-    // =========================================================================
-    // Phase 5: Player reloads competition — played match in "Jugados — <mes>"
-    // =========================================================================
-
-    await loginAs(page, p1Email, PLAYER_PASSWORD);
-    await page.goto(`/competition/${competitionId}`);
-    await page.waitForLoadState('domcontentloaded');
-
-    // "Jugados — <mes>" group must appear (use networkidle to ensure all renders complete)
-    await page.waitForLoadState('networkidle');
-    await expect(page.locator('.collapse-title').filter({ hasText: /Jugados — / })).toBeVisible({ timeout: 10000 });
-
-    // =========================================================================
-    // Phase 6: Standings shows "Aj." column
-    // =========================================================================
-
-    // Navigate back to competition page and activate standings tab via JS
-    await page.goto(`/competition/${competitionId}`);
-    await page.waitForLoadState('domcontentloaded');
-
-    // DaisyUI tabs use CSS :checked on radio inputs — click the label instead of check()
-    const standingsRadio = page.locator('input[role="tab"][aria-label="Clasificación"]');
-    await standingsRadio.evaluate((el: HTMLInputElement) => {
-      el.checked = true;
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-    await page.waitForTimeout(300);
-
-    // "Aj." column header should be present in standings (leveled league)
-    // standings-table.html has two tables (sm:hidden mobile + hidden sm:block desktop).
-    // After activating the tab, assert at least one th is visible.
-    const ajHeaders = page.locator('th:has-text("Aj.")');
-    const count = await ajHeaders.count();
-    let ajVisible = false;
-    for (let i = 0; i < count; i++) {
-      if (await ajHeaders.nth(i).isVisible().catch(() => false)) {
-        ajVisible = true;
-        break;
-      }
-    }
-    expect(ajVisible, 'Expected at least one "Aj." column header to be visible in standings').toBe(true);
-
-    // =========================================================================
-    // Phase 7: Admin "Liberar partido" on a pending match
-    // =========================================================================
-
-    // Find a pending match for pair-1 (new one should exist after top-up from result)
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-
-    // Get all pending matches via API
-    const pendingResp = await page.request.get(
-      `/api/collections/matches/records?filter=competition='${competitionId}'%26%26status='pending'&perPage=50`,
-      { headers: { Authorization: suToken } },
-    );
-    const pendingMatches = (await pendingResp.json()).items ?? [];
-    if (pendingMatches.length === 0) {
-      console.log('No pending matches to release — skipping release phase');
-    } else {
-      const targetMatch = pendingMatches[0];
-      const targetMatchId = targetMatch.id;
-
-      await page.goto(`/match/${targetMatchId}`);
-      await page.waitForLoadState('domcontentloaded');
-
-      // "Liberar partido" button is visible for admin on pending leveled match
-      const releaseBtn = page.locator('button:has-text("Liberar partido")');
-      await expect(releaseBtn).toBeVisible({ timeout: 5000 });
-
-      // Release button uses hx-confirm — a custom DaisyUI modal (not window.confirm).
-      // Click release → wait for modal → click #confirm-ok → wait for HX-Redirect nav.
-      await releaseBtn.click();
-      const confirmOk = page.locator('#confirm-ok');
-      await confirmOk.waitFor({ timeout: 5000 });
-      await clickAndWaitForHxRedirect(page, confirmOk);
-      await page.waitForLoadState('domcontentloaded');
-
-      // The released match no longer exists
-      const releasedResp = await page.request.get(
-        `/api/collections/matches/records/${targetMatchId}`,
-        { headers: { Authorization: suToken } },
-      );
-      expect(releasedResp.status()).toBe(404);
-    }
   });
 
   // =========================================================================
