@@ -1,16 +1,12 @@
-import { execSync, spawn, ChildProcess } from 'child_process';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'fs';
-import { tmpdir } from 'os';
+import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { spawnServer, superuserLogin } from './server';
 
 // Port must match playwright.config.ts's resolution of E2E_PORT (see the
 // comment there) so the server we spawn and the baseURL tests navigate
 // against are the same value.
 const PORT = process.env.E2E_PORT ? Number(process.env.E2E_PORT) : 8099;
 const BASE_URL = `http://localhost:${PORT}`;
-// Unique per run (not a fixed path) so two concurrent `make e2e` runs don't
-// share — or race to overwrite — the same binary file.
-const BINARY = join(mkdtempSync(join(tmpdir(), 'pl-')), 'padelleague');
 
 export const ADMIN_EMAIL = 'admin@test.com';
 export const ADMIN_PASSWORD = 'testpass123456';
@@ -28,20 +24,9 @@ export const PLAYER4_EMAIL = 'player4@test.com';
 export const PLAYER4_PASSWORD = 'testpass123456';
 export const PLAYER4_NAME = 'Test Player 4';
 
-let serverProcess: ChildProcess;
-
 export default async function globalSetup() {
-  execSync(`go build -o ${BINARY} .`, {
-    cwd: join(__dirname, '..'),
-    stdio: 'inherit',
-  });
-
-  const dataDir = mkdtempSync(join(tmpdir(), 'padelleague-test-'));
-
-  serverProcess = spawn(BINARY, ['serve', `--http=0.0.0.0:${PORT}`, `--dir=${dataDir}`], {
-    env: {
-      PATH: process.env.PATH || '',
-      HOME: process.env.HOME || '',
+  const handle = await spawnServer(PORT, {
+    extraEnv: {
       PB_ADMIN_EMAIL: ADMIN_EMAIL,
       PB_ADMIN_PASSWORD: ADMIN_PASSWORD,
       APP_ADMIN1_EMAIL: ADMIN_EMAIL,
@@ -56,44 +41,16 @@ export default async function globalSetup() {
       APP_ENV: 'dev',
       APP_DEV_TOOLS: 'true',
     },
-    stdio: ['ignore', 'pipe', 'inherit'],
   });
 
-  serverProcess.stdout?.resume();
+  (globalThis as any).__E2E_SERVER = handle.process;
+  (globalThis as any).__E2E_DATA_DIR = handle.dataDir;
 
-  (globalThis as any).__E2E_SERVER = serverProcess;
-  (globalThis as any).__E2E_DATA_DIR = dataDir;
-
-  await waitForServer(BASE_URL + '/login', 60_000);
   await seedTestData();
 }
 
-async function waitForServer(url: string, timeoutMs: number) {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    try {
-      const res = await fetch(url);
-      if (res.ok || res.status === 200) return;
-    } catch {
-      // server not ready yet
-    }
-    await new Promise(r => setTimeout(r, 500));
-  }
-  throw new Error(`Server did not start within ${timeoutMs}ms`);
-}
-
 async function seedTestData() {
-  // Login as superuser via PocketBase API
-  const authResp = await fetch(`${BASE_URL}/api/collections/_superusers/auth-with-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identity: ADMIN_EMAIL, password: ADMIN_PASSWORD }),
-  });
-  const authData = await authResp.json();
-  if (!authData.token) {
-    throw new Error(`Superuser auth failed: ${JSON.stringify(authData)}`);
-  }
-  const adminToken = authData.token;
+  const adminToken = await superuserLogin(BASE_URL, ADMIN_EMAIL, ADMIN_PASSWORD);
 
   // Get player IDs
   const player1 = await getUser(PLAYER1_EMAIL, adminToken);
