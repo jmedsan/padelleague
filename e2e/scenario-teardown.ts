@@ -7,6 +7,7 @@ export default async function scenarioTeardown() {
   const handle = (globalThis as any).__SCENARIO_SERVER as ServerHandle;
   if (process.env.E2E_KEEP === '1') {
     writeFileSync(join(__dirname, '.test-data/scenario.pid'), String(handle.process.pid));
+    writeFileSync(join(__dirname, '.test-data/scenario.dir'), handle.dataDir);
     console.log(`\n=== Scenario server kept alive ===`);
     console.log(`URL:       ${handle.baseURL}`);
     console.log(`Admin:     ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);

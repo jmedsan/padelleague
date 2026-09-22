@@ -125,9 +125,19 @@ scenario-serve: ## baseline only, keep server alive for manual testing
 	cd e2e && E2E_KEEP=1 E2E_PORT=$$E2E_PORT npx playwright test \
 	  --config playwright.scenario.config.ts --grep "00 baseline"
 
-e2e-scenario-stop: ## stop a kept scenario server
+e2e-scenario-stop: ## stop a kept scenario server and delete its data
 	@if [ -f e2e/.test-data/scenario.pid ]; then \
-		kill $$(cat e2e/.test-data/scenario.pid) 2>/dev/null || true; \
-		rm e2e/.test-data/scenario.pid; \
+		pid=$$(cat e2e/.test-data/scenario.pid); \
+		kill $$pid 2>/dev/null || true; \
+		timeout=50; while kill -0 $$pid 2>/dev/null && [ $$timeout -gt 0 ]; do \
+			sleep 0.2; timeout=$$((timeout - 1)); done; \
+		rm -f e2e/.test-data/scenario.pid; \
+		if [ -f e2e/.test-data/scenario.dir ]; then \
+			d=$$(cat e2e/.test-data/scenario.dir); \
+			case "$$d" in /tmp/padelleague-test-*) \
+				[ -d "$$d" ] && rm -rf -- "$$d" && echo "deleted $$d";; \
+			*) echo "refusing to delete: $$d";; esac; \
+			rm -f e2e/.test-data/scenario.dir; \
+		fi; \
 		echo "scenario server stopped"; \
 	else echo "no scenario server running"; fi
