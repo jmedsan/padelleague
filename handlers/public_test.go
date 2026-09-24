@@ -1389,7 +1389,7 @@ func TestLeveledCompetitionPage_GroupTitles(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "leveled competition page shows Por jugar and Jugados groups",
+		Name:            "leveled competition page shows Jornada and Jugados groups",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"LvlPairA"},
@@ -1402,9 +1402,10 @@ func TestLeveledCompetitionPage_GroupTitles(t *testing.T) {
 		// target=1 < len(pairs)-1=2 → IsLeveled=true
 		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3})
 
-		// One pending and one finalized match.
+		// One pending (slot 1) and one finalized match.
 		mPending := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		_ = mPending
+		mPending.Set("slot", 1)
+		require.NoError(tb, app.Save(mPending))
 		mFinal := makeMatchTB(tb, app, comp.Id, p1.Id, p3.Id, league.StatusFinal)
 		mFinal.Set("finalized_at", "2026-09-10 12:00:00.000Z")
 		mFinal.Set("result", "6-2 6-1")
@@ -1416,9 +1417,8 @@ func TestLeveledCompetitionPage_GroupTitles(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		assert.Contains(tb, body, "Por jugar", "must show pending group title")
+		assert.Contains(tb, body, "Jornada 1", "must show Jornada 1 group for a slot-1 pending match")
 		assert.Contains(tb, body, "septiembre 2026", "must show played month group")
-		assert.NotContains(tb, body, "Jornada", "must not show Jornada for leveled")
 	}
 	s.Test(t)
 }

@@ -111,6 +111,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		PlayerPairIDs: playerPairIDs,
 		PairFilter:    pairFilter,
 		IsLeveled:     isLeveled,
+		Open:          league.OpenAssignments(comp),
 	})
 	autoExpandRound := firstIncompleteRound(rounds)
 
@@ -128,6 +129,7 @@ type roundsCtx struct {
 	PlayerPairIDs map[string]struct{}
 	PairFilter    string
 	IsLeveled     bool
+	Open          int
 }
 
 func (h *PublicHandler) buildCompRounds(matches []*core.Record, ctx roundsCtx) []RoundView {
@@ -137,6 +139,7 @@ func (h *PublicHandler) buildCompRounds(matches []*core.Record, ctx roundsCtx) [
 			PairNames:     ctx.PairNames,
 			PlayerPairIDs: ctx.PlayerPairIDs,
 			PairFilter:    ctx.PairFilter,
+			Open:          ctx.Open,
 		}, tz)
 	}
 	rounds := buildRounds(matches, ctx.PairNames, ctx.PlayerPairIDs, ctx.PairFilter)
