@@ -2172,6 +2172,12 @@ func TestAdminDetail_LeveledGroups(t *testing.T) {
 		body := readBody(tb, res)
 		assert.Contains(tb, body, "Jornada 1", "admin must show Jornada 1 group for a slot-1 pending match")
 		assert.Contains(tb, body, "septiembre 2026", "admin must show played month group")
+		// The Jornada group is unplayed by construction — its badge must show
+		// a plain count, never a "0/N jugados" ratio (regression: the badge
+		// template originally special-cased Key=="pending", a key the new
+		// slot-based grouping never produces).
+		assert.Contains(tb, body, "1 partido</span>", "Jornada group badge must be a plain count")
+		assert.NotContains(tb, body, "0/1 partido", "Jornada group badge must not show a played/total ratio")
 	}
 	s.Test(t)
 }
