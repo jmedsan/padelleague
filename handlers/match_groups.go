@@ -27,17 +27,53 @@ type monthKey struct {
 	month time.Month
 }
 
+// schedulingRank orders match statuses the way an admin triages them: no
+// proposal yet, then proposed, then confirmed/disputed/final — stuck matches
+// (still pending) float to the top of "Por jugar".
+func schedulingRank(status string) int {
+	switch status {
+	case league.StatusPending:
+		return 0
+	case league.StatusScheduled:
+		return 1
+	case league.StatusConfirmed:
+		return 2
+	case league.StatusDisputed:
+		return 3
+	default:
+		return 4
+	}
+}
+
+// pendingSortKey returns the deterministic tiebreak pair name for a match —
+// the lower of its two pair names, matching the standings tiebreaker
+// convention (pair name as the stable last resort).
+func pendingSortKey(mc MatchCard) string {
+	if mc.Pair1Name <= mc.Pair2Name {
+		return mc.Pair1Name
+	}
+	return mc.Pair2Name
+}
+
+// pendingByArrangeBy sorts "Por jugar" matches by scheduling state first
+// (unscheduled matches float to the top), then arrange-by deadline, then
+// pair name as a stable tiebreaker.
 func pendingByArrangeBy(pending []MatchCard) func(i, j int) bool {
 	return func(i, j int) bool {
+		ri := schedulingRank(pending[i].Match.GetString("status"))
+		rj := schedulingRank(pending[j].Match.GetString("status"))
+		if ri != rj {
+			return ri < rj
+		}
 		ai := pending[i].Match.GetDateTime("arrange_by").Time()
 		aj := pending[j].Match.GetDateTime("arrange_by").Time()
-		if ai.IsZero() {
-			return false
+		if ai.IsZero() != aj.IsZero() {
+			return aj.IsZero()
 		}
-		if aj.IsZero() {
-			return true
+		if !ai.Equal(aj) {
+			return ai.Before(aj)
 		}
-		return ai.Before(aj)
+		return pendingSortKey(pending[i]) < pendingSortKey(pending[j])
 	}
 }
 
