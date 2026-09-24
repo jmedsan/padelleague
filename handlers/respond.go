@@ -78,7 +78,7 @@ func alertWarning(e *core.RequestEvent, msg string) error {
 }
 
 func flashAlert(e *core.RequestEvent, class, msg string) error {
-	fragment := `<div class="` + class + ` text-sm py-2">` + html.EscapeString(msg) + `</div>`
+	fragment := `<div class="alert ` + class + ` text-sm py-2">` + html.EscapeString(msg) + `</div>`
 	if e.Request.Header.Get("HX-Request") == "true" {
 		e.Response.Header().Set("HX-Retarget", "#flash")
 		e.Response.Header().Set("HX-Reswap", "innerHTML")
