@@ -2135,7 +2135,7 @@ func TestAdminDetail_LeveledGroups(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "admin detail for leveled league shows Por jugar and Jugados groups",
+		Name:            "admin detail for leveled league shows Jornada and Jugados groups",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"AdminLvlA"},
@@ -2161,16 +2161,16 @@ func TestAdminDetail_LeveledGroups(t *testing.T) {
 		require.NoError(tb, app.Save(mFinal))
 
 		mPending := makeMatchTB(tb, app, comp.Id, p1.Id, p3.Id, "pending")
-		_ = mPending
+		mPending.Set("slot", 1)
+		require.NoError(tb, app.Save(mPending))
 
 		s.URL = "/admin/competitions/" + comp.Id
 		s.Headers = authHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		assert.Contains(tb, body, "Por jugar", "admin must show Por jugar group")
+		assert.Contains(tb, body, "Jornada 1", "admin must show Jornada 1 group for a slot-1 pending match")
 		assert.Contains(tb, body, "septiembre 2026", "admin must show played month group")
-		assert.NotContains(tb, body, "Jornada 1", "admin must not show Jornada for leveled")
 	}
 	s.Test(t)
 }

@@ -511,10 +511,10 @@ func (h *CompetitionHandler) buildRoundGroups(comp *core.Record, matches []*core
 }
 
 // buildLeveledRoundGroups builds admin round groups for a leveled league,
-// grouping matches into "Por jugar" and monthly "Jugados — <mes año>" groups.
-// pairFilter, when non-empty, restricts the list to matches involving that
-// pair (mirrors the public competition page's team filter).
-func (h *CompetitionHandler) buildLeveledRoundGroups(_ *core.Record, matches []*core.Record, pairNames map[string]string, pairFilter string) []roundGroup {
+// grouping matches into Jornada/Bloque/weekly and monthly "Jugados — <mes
+// año>" groups. pairFilter, when non-empty, restricts the list to matches
+// involving that pair (mirrors the public competition page's team filter).
+func (h *CompetitionHandler) buildLeveledRoundGroups(comp *core.Record, matches []*core.Record, pairNames map[string]string, pairFilter string) []roundGroup {
 	noPairs := map[string]struct{}{}
 	var allCards []MatchCard
 	for _, m := range matches {
@@ -526,7 +526,7 @@ func (h *CompetitionHandler) buildLeveledRoundGroups(_ *core.Record, matches []*
 	enrichWithPendingResults(h.app, allCards)
 
 	tz := league.Timezone(h.app)
-	groups := leveledGroups(allCards, tz)
+	groups := leveledGroups(allCards, tz, league.OpenAssignments(comp))
 	result := make([]roundGroup, len(groups))
 	for i, g := range groups {
 		played, total := 0, len(g.Matches)
