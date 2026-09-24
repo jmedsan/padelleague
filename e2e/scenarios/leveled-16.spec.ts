@@ -189,4 +189,65 @@ test.describe('leveled-16 scenario', () => {
 
     await assertAssignmentInvariants(api, ctx);
   });
+
+  test('04 admin pair filter + scheduling-status sort', async ({ page }) => {
+    // Pick two pending matches that don't share a pair, so filtering by
+    // matchA's pair legitimately excludes matchB.
+    const data = await apiGet(api, `/api/collections/matches/records?filter=${encodeURIComponent(`competition='${ctx.competitionId}' && status='pending'`)}&perPage=500`);
+    const pending: any[] = data.items;
+    expect(pending.length).toBeGreaterThanOrEqual(2);
+    const matchA = pending[0];
+    const matchAPairs = new Set([matchA.pair1, matchA.pair2]);
+    const matchB = pending.find(m => !matchAPairs.has(m.pair1) && !matchAPairs.has(m.pair2));
+    expect(matchB, 'need a second pending match with no shared pair with matchA').toBeTruthy();
+
+    // Give matchA an earlier arrange_by but "scheduled" status (a proposal
+    // made but not yet accepted); matchB a later arrange_by but still
+    // "pending" (no proposal at all). If sorting were arrange_by-only,
+    // matchA would come first — the scheduling-status fix must put matchB
+    // first, since "pending" outranks "scheduled" in admin triage order.
+    // "scheduled" (not "confirmed") because the match status state machine
+    // (hooks/hooks.go validTransitions) only allows confirmed→{final,disputed},
+    // so a "confirmed" match here couldn't be reverted to pending afterward.
+    // Wrapped in try/finally so a mid-test failure can't leave matches in a
+    // mutated state for later steps or other specs (e.g. smtp-verify, which
+    // picks the first status='pending' match).
+    try {
+      await apiPatch(api, `/api/collections/matches/records/${matchA.id}`, {
+        status: 'scheduled',
+        arrange_by: '2026-10-01',
+      });
+      await apiPatch(api, `/api/collections/matches/records/${matchB.id}`, {
+        arrange_by: '2026-10-15',
+      });
+
+      await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      await page.goto(`/admin/competitions/${ctx.competitionId}`);
+      await page.waitForLoadState('domcontentloaded');
+
+      // Expand "Por jugar" and confirm matchB (pending, later date) appears
+      // before matchA (scheduled, earlier date).
+      const porJugarTitle = page.locator('.collapse-title:has-text("Por jugar")');
+      await expect(porJugarTitle).toBeVisible({ timeout: 10000 });
+      await porJugarTitle.locator('..').locator('input[type="checkbox"]').click();
+      const rows = page.locator(`a[href="/match/${matchB.id}"], a[href="/match/${matchA.id}"]`);
+      await expect(rows.first()).toHaveAttribute('href', `/match/${matchB.id}`, { timeout: 10000 });
+
+      // Pair filter: selecting matchA's pair1 shows only matches for that pair.
+      const pairFilter = page.getByLabel('Filtrar por pareja', { exact: true });
+      await pairFilter.selectOption(matchA.pair1);
+      await page.waitForLoadState('domcontentloaded');
+      await expect(page.locator(`a[href="/match/${matchA.id}"]`)).toBeVisible({ timeout: 10000 });
+      await expect(page.locator(`a[href="/match/${matchB.id}"]`)).toHaveCount(0);
+    } finally {
+      // Restore both matches to their original pending state for later steps.
+      // scheduled→pending is a valid transition (unlike confirmed→pending).
+      await apiPatch(api, `/api/collections/matches/records/${matchA.id}`, {
+        status: 'pending', arrange_by: matchA.arrange_by || null,
+      });
+      await apiPatch(api, `/api/collections/matches/records/${matchB.id}`, {
+        arrange_by: matchB.arrange_by || null,
+      });
+    }
+  });
 });

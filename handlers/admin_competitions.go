@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -56,9 +57,12 @@ func (h *CompetitionHandler) buildDetailData(e *core.RequestEvent, id string, co
 	})
 
 	pairNameMap := league.PairNames(h.app, pairIDs)
+	isLeveled := league.IsLeveled(comp)
 	var rounds []roundGroup
-	if league.IsLeveled(comp) {
-		rounds = h.buildLeveledRoundGroups(comp, matches, pairNameMap)
+	var pairFilter string
+	if isLeveled {
+		pairFilter = resolveAdminPairFilter(e.Request.URL.Query(), pairIDs)
+		rounds = h.buildLeveledRoundGroups(comp, matches, pairNameMap, pairFilter)
 	} else {
 		rounds = h.buildRoundGroups(comp, matches, pairNameMap)
 	}
@@ -80,7 +84,7 @@ func (h *CompetitionHandler) buildDetailData(e *core.RequestEvent, id string, co
 		"PenaltyRows":         penaltyRows,
 		"ActivePenalty":       firstActivePenalty(penaltyRows),
 		"IsLeague":            comp.GetString("type") == "league",
-		"IsLeveled":           league.IsLeveled(comp),
+		"IsLeveled":           isLeveled,
 		"SeedRankMap":         seedRankMap,
 		"HasFixtures":         len(matches) > 0,
 		"HasUnpaid":           anyUnpaid(pairEntries),
@@ -89,8 +93,26 @@ func (h *CompetitionHandler) buildDetailData(e *core.RequestEvent, id string, co
 		"Mode":                AdminFull,
 		"FooterCompetitionID": id,
 	}
+	if isLeveled {
+		data["PairOptions"] = buildPairOptions(h.app, pairIDs, map[string]struct{}{}, pairFilter)
+	}
 	h.addDetailExtras(data, comp, matches, fileTokenFor(e))
 	return data
+}
+
+// resolveAdminPairFilter reads the "pair" query param for the admin match
+// list filter. Empty or "all" (or an id outside the competition) means no
+// filter — show every pair's matches.
+func resolveAdminPairFilter(query map[string][]string, compPairIDs []string) string {
+	vals, ok := query["pair"]
+	if !ok || len(vals) == 0 {
+		return ""
+	}
+	pair := vals[0]
+	if pair == "all" || !slices.Contains(compPairIDs, pair) {
+		return ""
+	}
+	return pair
 }
 
 func (h *CompetitionHandler) loadPairEntries(comp *core.Record, pairIDs []string) ([]pairEntry, []*core.Record) {
@@ -490,10 +512,15 @@ func (h *CompetitionHandler) buildRoundGroups(comp *core.Record, matches []*core
 
 // buildLeveledRoundGroups builds admin round groups for a leveled league,
 // grouping matches into "Por jugar" and monthly "Jugados — <mes año>" groups.
-func (h *CompetitionHandler) buildLeveledRoundGroups(_ *core.Record, matches []*core.Record, pairNames map[string]string) []roundGroup {
+// pairFilter, when non-empty, restricts the list to matches involving that
+// pair (mirrors the public competition page's team filter).
+func (h *CompetitionHandler) buildLeveledRoundGroups(_ *core.Record, matches []*core.Record, pairNames map[string]string, pairFilter string) []roundGroup {
 	noPairs := map[string]struct{}{}
 	var allCards []MatchCard
 	for _, m := range matches {
+		if pairFilter != "" && m.GetString("pair1") != pairFilter && m.GetString("pair2") != pairFilter {
+			continue
+		}
 		allCards = append(allCards, NewMatchRow(m, pairNames, noPairs))
 	}
 	enrichWithPendingResults(h.app, allCards)

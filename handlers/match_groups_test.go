@@ -91,6 +91,46 @@ func TestLeveledGroups_DeadlineOrder(t *testing.T) {
 	assert.Equal(t, m3.Id, pending.Matches[2].Match.Id)
 }
 
+// TestLeveledGroups_SchedulingStatusOrder verifies pending matches sort by
+// scheduling state first (pending < scheduled < confirmed < disputed), so
+// unscheduled matches float above proposed/confirmed ones regardless of
+// arrange_by — the admin triage order.
+func TestLeveledGroups_SchedulingStatusOrder(t *testing.T) {
+	t.Parallel()
+	app := newTestAppForGroups(t)
+
+	p1 := makePairTB(t, app, "DLA")
+	p2 := makePairTB(t, app, "DLB")
+	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
+
+	now := time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
+	// Earlier deadline but confirmed — should sort AFTER the later-deadline
+	// pending match, because scheduling state wins over arrange_by.
+	mConfirmed := makeRawMatch(t, app, comp.Id, p1.Id, p2.Id, league.StatusConfirmed)
+	mScheduled := makeRawMatch(t, app, comp.Id, p1.Id, p2.Id, league.StatusScheduled)
+	mPending := makeRawMatch(t, app, comp.Id, p1.Id, p2.Id, league.StatusPending)
+
+	setArrangeBy(t, app, mConfirmed, now) // earliest deadline
+	setArrangeBy(t, app, mScheduled, now.Add(24*time.Hour))
+	setArrangeBy(t, app, mPending, now.Add(48*time.Hour)) // latest deadline
+
+	cards := []MatchCard{
+		newLeveledMatchCard(t, app, mConfirmed),
+		newLeveledMatchCard(t, app, mScheduled),
+		newLeveledMatchCard(t, app, mPending),
+	}
+
+	groups := leveledGroups(cards, time.UTC)
+	require.Len(t, groups, 1)
+	pending := groups[0].Matches
+	require.Len(t, pending, 3)
+	// pending (rank 0) first despite latest deadline, then scheduled (rank
+	// 1), then confirmed (rank 2) last despite earliest deadline.
+	assert.Equal(t, mPending.Id, pending[0].Match.Id)
+	assert.Equal(t, mScheduled.Id, pending[1].Match.Id)
+	assert.Equal(t, mConfirmed.Id, pending[2].Match.Id)
+}
+
 // TestLeveledGroups_MonthGroups verifies finalized matches are grouped by
 // month, newest first, with correct Spanish titles.
 func TestLeveledGroups_MonthGroups(t *testing.T) {

@@ -114,7 +114,11 @@ func TestEligible(t *testing.T) {
 		assert.False(t, st2.eligible("A", "B"))
 	})
 
-	// pending == open is eligible
+	// pending == open is eligible — this is the deliberate "one above open"
+	// rule (recipe.md §3.2): only a requester needs a free slot; an opponent
+	// may be pushed to open+1. A strict cap here was simulated and rejected
+	// (recipe.md §5 "all values" table) — it made pairing quality as uneven
+	// as random assignment.
 	st3 := &leveledState{
 		target:   5,
 		open:     3,

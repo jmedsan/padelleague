@@ -157,14 +157,29 @@
 
         <div id="generate-result" class="mb-2" aria-live="polite"></div>
 
-        {{if .HasFixtures}}
+        {{if .IsLeveled}}
+        <form method="get" hx-boost="true" hx-trigger="change" class="mb-3">
+            <select name="pair" aria-label="Filtrar por pareja" class="select select-bordered select-sm w-full sm:w-64">
+                <option value="all">Todas las parejas</option>
+                {{range .PairOptions}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>{{end}}
+            </select>
+        </form>
+        {{end}}
+
+        {{if and .HasFixtures (not .Rounds)}}
+        {{template "emptyState" "Esta pareja no tiene partidos"}}
+        {{else if .HasFixtures}}
         <div class="space-y-3">
             {{range .Rounds}}
             <div class="collapse collapse-arrow bg-base-200 rounded-box">
                 <input type="checkbox" {{if eq $.AutoExpandRound .Key}}checked{{end}}>
                 <div class="collapse-title font-medium text-sm">
                     {{.Title}}
+                    {{if eq .Key "pending"}}
+                    <span class="badge badge-soft-ghost badge-sm ml-2">{{.Total}} partido{{if ne .Total 1}}s{{end}}</span>
+                    {{else}}
                     <span class="badge badge-soft-ghost badge-sm ml-2">{{.Played}}/{{.Total}} partido{{if ne .Total 1}}s{{end}} jugado{{if ne .Total 1}}s{{end}}</span>
+                    {{end}}
                     {{template "warningBadge" .Warning}}
                 </div>
                 <div class="collapse-content">
