@@ -66,6 +66,35 @@ func TestIsLeveled(t *testing.T) {
 	}
 }
 
+// -- TestOpenAssignments -----------------------------------------------------
+
+func TestOpenAssignments(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 6)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "P")
+	}
+
+	cases := []struct {
+		name string
+		open int
+		want int
+	}{
+		{"unset defaults to 3", 0, 3},
+		{"positive value passes through", 5, 5},
+		{"one passes through", 1, 1},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			comp := makeCompetition(t, app, pairs)
+			comp.Set("open_assignments", tc.open)
+			require.NoError(t, app.Save(comp))
+			assert.Equal(t, tc.want, OpenAssignments(comp))
+		})
+	}
+}
+
 // -- TestEligible -----------------------------------------------------------
 
 func TestEligible(t *testing.T) {
@@ -192,6 +221,49 @@ func TestChooser_NearestOutsideZone(t *testing.T) {
 	got := svc.chooseOpponent(st, "A")
 	assert.Equal(t, "C", got, "when no eligible pair inside zone, pick nearest outside (C at d=2)")
 }
+
+// TestCollectCandidates_OutsideSortOrder pins the tie-break chain
+// (dist -> load -> position) with candidates where the criteria actively
+// disagree, so a sort key swap or comparator mutation changes the order.
+func TestCollectCandidates_OutsideSortOrder(t *testing.T) {
+	// Requester A at pos 0, comfort 0 (everyone lands outside).
+	// B: pos=2 (dist=2), load=4 (eligible, heaviest) — same dist as C, heavier load.
+	// C: pos=-2 (dist=2), load=1 — same dist as B, lighter load → must sort before B.
+	// D: pos=3 (dist=3), load=0 — farthest, must sort last despite lightest load.
+	// E,F: pos=-10,10 (dist=10, tied), load=2 (tied with each other) — only
+	// position (E<F) distinguishes them, so E must sort before F. F precedes
+	// E in st.pairs (input order to sort.Slice) so a comparator that treats
+	// the load tie as "no preference" would preserve [F, E] — the wrong
+	// order — rather than coincidentally landing on the right one.
+	st := &leveledState{
+		target:  5,
+		open:    5,
+		comfort: 0,
+		pairs:   []string{"A", "B", "C", "D", "F", "E"},
+		met:     map[string]map[string]struct{}{},
+		played:  map[string]int{"A": 0, "B": 4, "C": 1, "D": 0, "E": 2, "F": 2},
+		pending: map[string]int{"A": 0, "B": 0, "C": 0, "D": 0, "E": 0, "F": 0},
+		position: map[string]int{
+			"A": 0, "B": 2, "C": -2, "D": 3, "E": -10, "F": 10,
+		},
+	}
+	identityShuffle := func(_ int, _ func(int, int)) {}
+	svc := &Service{shuffle: identityShuffle}
+
+	_, outside := svc.collectCandidates(st, "A")
+	require.Len(t, outside, 5)
+	got := []string{outside[0].id, outside[1].id, outside[2].id, outside[3].id, outside[4].id}
+	assert.Equal(t, []string{"C", "B", "D", "E", "F"}, got,
+		"dist ties (B,C) break on load (C<B); D sorts last on dist; "+
+			"E,F tie on dist+load, break on position (E<F)")
+}
+
+// Note: `a.dist < b.dist` and `a.load < b.load` in collectCandidates' sort.Slice
+// comparator (leveled.go) are equivalent mutants under `<=` — each is only
+// reached when the guarding `!=` check on the same field is true (operands
+// differ), and <= agrees with < whenever the operands differ. The
+// distinguishing case (operands equal) falls through to the next tie-break
+// level instead, never reaching these lines.
 
 // -- TestCompletable --------------------------------------------------------
 
@@ -982,6 +1054,28 @@ func TestPlan_CalendarFloor(t *testing.T) {
 		assert.GreaterOrEqual(t, m.GetInt("slot"), 5,
 			"slot must be floored to the current calendar position, not the pair's raw ordinal")
 	}
+}
+
+// TestSlotFor_NegativeWindow covers the u<=0 guard: when end<start the pace
+// unit is negative, so slotFor must fall back to the load-based slot instead
+// of computing a nonsensical calendar floor. Unreachable via the handler
+// (fixtures.go rejects end<=start at creation), but the guard exists in
+// slotFor itself and must be verified in isolation.
+//
+// The u<=0 vs u<0 boundary (u==0, i.e. end==start) is not separately tested:
+// at u==0, now.Sub(start)/u is +Inf/-Inf/NaN, and int(math.Ceil(...)) of any
+// of those is math.MinInt64 in Go — so calSlot > slot is false either way and
+// both guard forms fall through to the same load-based slot. Equivalent mutant.
+func TestSlotFor_NegativeWindow(t *testing.T) {
+	now := time.Now()
+	st := &leveledState{
+		target: 5,
+		start:  now.Add(-time.Hour),
+		end:    now.Add(-2 * time.Hour), // end < start → u < 0
+		now:    now,
+		played: map[string]int{"p": 1, "q": 2},
+	}
+	assert.Equal(t, 3, st.slotFor("p", "q"), "u<0 must fall back to load-based slot")
 }
 
 func TestSlotCap(t *testing.T) {
