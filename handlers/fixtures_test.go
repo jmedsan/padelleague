@@ -499,6 +499,62 @@ func TestGenerateLeveledFixtures(t *testing.T) {
 	s.Test(t)
 }
 
+func TestGenerateLeveledFixtures_MissingDatesReject(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST generate — leveled: missing start/end dates rejected",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"necesitan fecha de inicio y de fin"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		pairs := make([]*core.Record, 6)
+		for i := range pairs {
+			pairs[i] = makePairTB(tb, app, "NoDate")
+		}
+		comp := makeCompetitionTB(tb, app, "league", pairs)
+		comp.Set("target_matches", 4)
+		comp.Set("open_assignments", 2)
+		comp.Set("start_date", "")
+		comp.Set("end_date", "")
+		require.NoError(tb, app.Save(comp))
+		s.URL = "/admin/competitions/" + comp.Id + "/generate"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestGenerateLeveledFixtures_StartAfterEndReject(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST generate — leveled: start_date >= end_date rejected",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"fecha de inicio debe ser anterior a la fecha de fin"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		pairs := make([]*core.Record, 6)
+		for i := range pairs {
+			pairs[i] = makePairTB(tb, app, "BadDate")
+		}
+		comp := makeCompetitionTB(tb, app, "league", pairs)
+		comp.Set("target_matches", 4)
+		comp.Set("open_assignments", 2)
+		comp.Set("start_date", "2026-12-31")
+		comp.Set("end_date", "2026-10-01")
+		require.NoError(tb, app.Save(comp))
+		s.URL = "/admin/competitions/" + comp.Id + "/generate"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
 func TestGenerateLeveledFixtures_OddReject(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

@@ -59,6 +59,14 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 		if (n*target)%2 != 0 {
 			return alertError(e, fmt.Sprintf("Con %d parejas, los partidos por pareja deben ser un número par", n))
 		}
+		start := comp.GetDateTime("start_date").Time()
+		end := comp.GetDateTime("end_date").Time()
+		if start.IsZero() || end.IsZero() {
+			return alertError(e, "Las competiciones niveladas necesitan fecha de inicio y de fin")
+		}
+		if !start.Before(end) {
+			return alertError(e, "La fecha de inicio debe ser anterior a la fecha de fin")
+		}
 	}
 
 	err = h.app.RunInTransaction(func(txApp core.App) error {
