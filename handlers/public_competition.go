@@ -120,6 +120,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	h.populateCompetitionData(data, competitionDataParams{
 		e: e, comp: comp, isPlayoff: isPlayoff, compPairIDs: compPairIDs,
 		playerPairIDs: playerPairIDs, pairFilter: pairFilter, rounds: rounds, userID: userID,
+		isLeveled: isLeveled, matches: matches,
 	})
 	return h.render.Page(e, "competition.html", data)
 }
@@ -193,6 +194,8 @@ type competitionDataParams struct {
 	pairFilter    string
 	rounds        []RoundView
 	userID        string
+	isLeveled     bool
+	matches       []*core.Record
 }
 
 // populateCompetitionData fills in the remaining page-data fields for
@@ -214,6 +217,9 @@ func (h *PublicHandler) populateCompetitionData(data map[string]any, p competiti
 	if p.pairFilter != "" && p.pairFilter != "all" && len(p.rounds) == 0 {
 		data["FilterEmptyState"] = "Sin partidos para esta pareja"
 	}
+	if msg := leveledInfoMessage(comp, p); msg != "" {
+		data["LeveledInfoMessage"] = msg
+	}
 	h.addCompetitionDocViews(data, comp, p.userID, fileTokenFor(p.e))
 	data["Announcements"] = findRecordsLogged(h.app, "Competition: find announcements", RecordQuery{
 		Collection: "announcements",
@@ -221,6 +227,35 @@ func (h *PublicHandler) populateCompetitionData(data map[string]any, p competiti
 		Sort:       "-created",
 		Params:     map[string]any{"cid": comp.Id},
 	})
+}
+
+// leveledInfoMessage returns the informational message telling a player
+// filtered to their own pair that new matches get assigned once current
+// ones are finished — shown only while their pair hasn't reached
+// target_matches yet. Returns "" when not applicable (round-robin, no pair
+// filter, or the pair's schedule is already complete).
+func leveledInfoMessage(comp *core.Record, p competitionDataParams) string {
+	if !p.isLeveled || p.pairFilter == "" || p.pairFilter == "all" {
+		return ""
+	}
+	target := comp.GetInt("target_matches")
+	var pending, total int
+	for _, m := range p.matches {
+		if m.GetString("pair1") != p.pairFilter && m.GetString("pair2") != p.pairFilter {
+			continue
+		}
+		total++
+		if m.GetString("status") != league.StatusFinal {
+			pending++
+		}
+	}
+	if total >= target {
+		return ""
+	}
+	if pending == 0 {
+		return "No tienes partidos pendientes. Se te asignará el siguiente en breve."
+	}
+	return fmt.Sprintf("Tienes %d partidos pendientes. Cuando termines uno se te asignará el siguiente.", pending)
 }
 
 // docsGate renders the mandatory-documents gate page and reports gated=true
