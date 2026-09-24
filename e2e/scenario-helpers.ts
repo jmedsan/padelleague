@@ -152,25 +152,6 @@ export async function publishCalendar(api: ScenarioApi, compId: string): Promise
   await formPost(api, `/admin/competitions/${compId}/publish`);
 }
 
-export async function playMatchFastForward(
-  api: ScenarioApi,
-  matchId: string,
-  score: string,
-  winnerId: string,
-): Promise<void> {
-  // Date and club are required before a final result can be set.
-  await apiPatch(api, `/api/collections/matches/records/${matchId}`, {
-    date: '2025-06-01T12:00:00.000Z',
-    club: 'Test Club',
-  });
-  // Setting status=final fires the OnRecordAfterUpdateSuccess hook → TopUpAssignments.
-  await apiPatch(api, `/api/collections/matches/records/${matchId}`, {
-    status: 'final',
-    scores: score,
-    winner: winnerId,
-  });
-}
-
 // assertAssignmentInvariants checks the four core leveled-league invariants for
 // every match in the competition.
 export async function assertAssignmentInvariants(
