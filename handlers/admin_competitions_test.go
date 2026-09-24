@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -2286,4 +2287,63 @@ func TestValidateLeveledFields_DateBlankingAllowedWithoutFixtures(t *testing.T) 
 
 	msg := validateLeveledFields(comp, nil, 2, false)
 	assert.Empty(t, msg, "no fixtures yet — blanking dates is allowed")
+}
+
+func TestUpdateCompetition_RefreshesLeveledArrangeBy(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id} recomputes leveled arrange_by on date change",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, pendingID, finalID string
+	var oldArrangeBy string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		pairs := make([]*core.Record, 5)
+		for i := range pairs {
+			pairs[i] = makePairTB(tb, app, fmt.Sprintf("RefreshLvl%d", i))
+		}
+		comp := makeCompetitionTB(tb, app, "league", pairs)
+		comp.Set("target_matches", 3) // 3 < 5-1=4 → IsLeveled=true
+		comp.Set("open_assignments", 2)
+		comp.Set("start_date", "2026-01-01T00:00:00Z")
+		comp.Set("end_date", "2026-04-11T00:00:00Z") // 100-day window
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+
+		mPending := makeMatchTB(tb, app, comp.Id, pairs[0].Id, pairs[1].Id, "pending")
+		mPending.Set("slot", 3)
+		require.NoError(tb, app.Save(mPending))
+		pendingID = mPending.Id
+		oldArrangeBy = mPending.GetString("arrange_by")
+
+		mFinal := makeMatchTB(tb, app, comp.Id, pairs[2].Id, pairs[3].Id, league.StatusFinal)
+		mFinal.Set("slot", 1)
+		mFinal.Set("arrange_by", "2026-01-31")
+		require.NoError(tb, app.Save(mFinal))
+		finalID = mFinal.Id
+
+		s.URL = "/admin/competitions/" + comp.Id
+		// New window: start pushed forward 10 days, same length.
+		s.Body = strings.NewReader("name=Test+Competition&type=league&target_matches=3&open_assignments=2&start_date=2026-01-11&end_date=2026-04-21")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		_ = compID
+		pending, err := app.FindRecordById("matches", pendingID)
+		require.NoError(tb, err)
+		assert.NotEqual(tb, oldArrangeBy, pending.GetString("arrange_by"),
+			"non-final leveled match arrange_by must be recomputed after date change")
+
+		final, err := app.FindRecordById("matches", finalID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "2026-01-31 00:00:00.000Z", final.GetString("arrange_by"),
+			"finalized match arrange_by must not be touched")
+	}
+	s.Test(t)
 }
