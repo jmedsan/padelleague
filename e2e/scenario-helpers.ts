@@ -122,12 +122,17 @@ export async function createCompetition(
   target: number,
   open: number,
 ): Promise<string> {
+  const now = Date.now();
+  const startDate = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const endDate = new Date(now + 60 * 24 * 60 * 60 * 1000).toISOString();
   const record = await apiPost(api, '/api/collections/competitions/records', {
     name,
     type: 'league',
     active: true,
     target_matches: target,
     open_assignments: open,
+    start_date: startDate,
+    end_date: endDate,
   });
   return record.id;
 }

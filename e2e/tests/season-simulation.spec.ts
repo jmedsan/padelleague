@@ -339,7 +339,8 @@ async function createPair(page: Page, name: string, player1Id: string, player2Id
 
 async function addPairToCompetition(page: Page, compId: string, pairId: string, seed?: number) {
   await page.goto(`/admin/competitions/${compId}`);
-  await page.selectOption('select[name="pair"]', pairId);
+  // aria-label disambiguates from the leveled-league "Filtrar por pareja" select.
+  await page.selectOption('select[aria-label="Pareja"]', pairId);
   if (seed !== undefined) {
     await page.fill('input[name="seed"]', String(seed));
   }
