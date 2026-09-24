@@ -464,7 +464,7 @@ func TestSlotDeadline(t *testing.T) {
 		require.NoError(t, app.Save(comp))
 
 		want := time.Date(2026, 1, 31, 12, 0, 0, 0, time.UTC)
-		got, ok := slotDeadline(comp, 3)
+		got, ok := SlotDeadline(comp, 3)
 		require.True(t, ok)
 		assert.Equal(t, want, got)
 	})
@@ -477,7 +477,7 @@ func TestSlotDeadline(t *testing.T) {
 		comp.Set("target_matches", 10)
 		require.NoError(t, app.Save(comp))
 
-		got, ok := slotDeadline(comp, 10)
+		got, ok := SlotDeadline(comp, 10)
 		require.True(t, ok)
 		wantY, wantM, wantD := end.Date()
 		gotY, gotM, gotD := got.Date()
@@ -494,7 +494,7 @@ func TestSlotDeadline(t *testing.T) {
 		comp.Set("target_matches", 10)
 		require.NoError(t, app.Save(comp))
 
-		_, ok := slotDeadline(comp, 0)
+		_, ok := SlotDeadline(comp, 0)
 		assert.False(t, ok)
 	})
 
@@ -506,7 +506,7 @@ func TestSlotDeadline(t *testing.T) {
 		comp.Set("target_matches", 0)
 		require.NoError(t, app.Save(comp))
 
-		_, ok := slotDeadline(comp, 3)
+		_, ok := SlotDeadline(comp, 3)
 		assert.False(t, ok)
 	})
 
@@ -516,7 +516,7 @@ func TestSlotDeadline(t *testing.T) {
 		comp.Set("target_matches", 10)
 		require.NoError(t, app.Save(comp))
 
-		_, ok := slotDeadline(comp, 3)
+		_, ok := SlotDeadline(comp, 3)
 		assert.False(t, ok)
 	})
 }

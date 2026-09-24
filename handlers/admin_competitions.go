@@ -260,6 +260,9 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 	if record.GetString("start_date") != oldStart || record.GetString("end_date") != oldEnd {
 		resetWarnLevels(h.app, id)
 		h.refreshRoundSchedule(record)
+		if league.IsLeveled(record) {
+			h.refreshLeveledArrangeBy(record)
+		}
 	}
 
 	flash(e, "Competición actualizada")
@@ -694,6 +697,31 @@ func (h *CompetitionHandler) refreshRoundSchedule(comp *core.Record) {
 	comp.Set("round_arrange_dates", league.StoreRoundSchedule(start, end, rounds))
 	if err := h.app.Save(comp); err != nil {
 		slog.Error("refresh round schedule failed", "competition", comp.Id, "err", err)
+	}
+}
+
+// refreshLeveledArrangeBy recomputes arrange_by for every non-final leveled
+// match using its stored slot, after start_date/end_date changed. Matches
+// with slot=0 (round-robin or pre-migration) are left untouched.
+func (h *CompetitionHandler) refreshLeveledArrangeBy(comp *core.Record) {
+	matches := findRecordsLogged(h.app, "refreshLeveledArrangeBy: find matches", RecordQuery{
+		Collection: "matches",
+		Filter:     "competition = {:cid} && status != 'final'",
+		Params:     map[string]any{"cid": comp.Id},
+	})
+	for _, m := range matches {
+		slot := m.GetInt("slot")
+		if slot <= 0 {
+			continue
+		}
+		deadline, ok := league.SlotDeadline(comp, slot)
+		if !ok {
+			continue
+		}
+		m.Set("arrange_by", deadline.Format("2006-01-02"))
+		if err := h.app.Save(m); err != nil {
+			slog.Error("refresh leveled arrange_by failed", "match", m.Id, "err", err)
+		}
 	}
 }
 

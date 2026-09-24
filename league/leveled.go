@@ -518,7 +518,7 @@ func setMatchFields(rec *core.Record, comp *core.Record, p Pairing, now time.Tim
 	rec.Set("slot", slot)
 
 	if slot > 0 {
-		if deadline, ok := slotDeadline(comp, slot); ok {
+		if deadline, ok := SlotDeadline(comp, slot); ok {
 			rec.Set("arrange_by", deadline.Format("2006-01-02"))
 		}
 	} else if deadline, ok := assignmentDeadline(comp, now); ok {
