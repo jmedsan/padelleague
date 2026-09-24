@@ -15,6 +15,7 @@ import (
 // Pairing is an ordered pair of pair IDs assigned to play each other.
 type Pairing struct {
 	A, B string
+	Slot int // 0 for round-robin; 1+ for leveled-league display grouping
 }
 
 // IsLeveled reports whether the competition assigns opponents by rating
@@ -44,6 +45,7 @@ type leveledState struct {
 	pending  map[string]int
 	met      map[string]map[string]struct{}
 	position map[string]int // 0-based index in rating order
+	nextSlot map[string]int // next per-pair ordinal (1-based) for display grouping
 }
 
 func (st *leveledState) load(p string) int {
@@ -433,10 +435,15 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing) (*level
 		return nil, err
 	}
 
-	played, pending, met := tallyMatchState(sortedPairs, matches, withdrawnSet)
+	played, pending, met, maxSlot := tallyMatchState(sortedPairs, matches, withdrawnSet)
 
 	for _, av := range avoid {
 		addMet(met, av.A, av.B)
+	}
+
+	nextSlot := make(map[string]int, len(sortedPairs))
+	for _, id := range sortedPairs {
+		nextSlot[id] = maxSlot[id] + 1
 	}
 
 	return &leveledState{
@@ -448,6 +455,7 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing) (*level
 		pending:  pending,
 		met:      met,
 		position: position,
+		nextSlot: nextSlot,
 	}, nil
 }
 
@@ -512,10 +520,11 @@ func sortPairsByRating(pairs []string, ratings map[string]float64, seedIDs []str
 
 // tallyMatchState classifies existing matches into played/pending counts and
 // the met-pairs set, skipping matches involving withdrawn pairs.
-func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[string]bool) (played, pending map[string]int, met map[string]map[string]struct{}) {
+func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[string]bool) (played, pending map[string]int, met map[string]map[string]struct{}, maxSlot map[string]int) {
 	played = make(map[string]int, len(pairs))
 	pending = make(map[string]int, len(pairs))
 	met = make(map[string]map[string]struct{}, len(pairs))
+	maxSlot = make(map[string]int, len(pairs))
 	for _, id := range pairs {
 		met[id] = map[string]struct{}{}
 	}
@@ -532,8 +541,14 @@ func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[strin
 			pending[p1]++
 			pending[p2]++
 		}
+		if s := m.GetInt("slot"); s > maxSlot[p1] {
+			maxSlot[p1] = s
+		}
+		if s := m.GetInt("slot"); s > maxSlot[p2] {
+			maxSlot[p2] = s
+		}
 	}
-	return played, pending, met
+	return played, pending, met, maxSlot
 }
 
 // -- helpers ----------------------------------------------------------------
