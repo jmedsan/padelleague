@@ -840,6 +840,9 @@ func validateLeveledFields(record *core.Record, _ *core.RequestEvent, oldTarget 
 	if hasFixtures && target != oldTarget {
 		return "No se puede cambiar con el calendario generado"
 	}
+	if hasFixtures && (record.GetDateTime("start_date").IsZero() || record.GetDateTime("end_date").IsZero()) {
+		return "No se pueden eliminar las fechas de una competición nivelada con partidos"
+	}
 	return ""
 }
 

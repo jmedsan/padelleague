@@ -2253,3 +2253,37 @@ func TestAdminDetail_RoundRobin_NoAjColumn(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestValidateLeveledFields_DateBlankingBlocked(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 4)
+	for i := range pairs {
+		pairs[i] = makePairTB(t, app, "DBL")
+	}
+	comp := makeCompetitionTB(t, app, "league", pairs)
+	comp.Set("target_matches", 2)
+	comp.Set("open_assignments", 1)
+	comp.Set("start_date", "")
+	comp.Set("end_date", "")
+
+	msg := validateLeveledFields(comp, nil, 2, true)
+	assert.Contains(t, msg, "No se pueden eliminar las fechas", "blanking dates on a leveled league with fixtures must be rejected")
+}
+
+func TestValidateLeveledFields_DateBlankingAllowedWithoutFixtures(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 4)
+	for i := range pairs {
+		pairs[i] = makePairTB(t, app, "DBA")
+	}
+	comp := makeCompetitionTB(t, app, "league", pairs)
+	comp.Set("target_matches", 2)
+	comp.Set("open_assignments", 1)
+	comp.Set("start_date", "")
+	comp.Set("end_date", "")
+
+	msg := validateLeveledFields(comp, nil, 2, false)
+	assert.Empty(t, msg, "no fixtures yet — blanking dates is allowed")
+}
