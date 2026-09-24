@@ -45,7 +45,9 @@ type leveledState struct {
 	pending  map[string]int
 	met      map[string]map[string]struct{}
 	position map[string]int // 0-based index in rating order
-	nextSlot map[string]int // next per-pair ordinal (1-based) for display grouping
+	start    time.Time      // competition start_date, zero if unset
+	end      time.Time      // competition end_date, zero if unset
+	now      time.Time
 }
 
 func (st *leveledState) load(p string) int {
@@ -273,12 +275,37 @@ func plan(svc *Service, st *leveledState) []Pairing {
 			skipped[p] = true
 			continue
 		}
-		result = append(result, Pairing{A: p, B: q})
+		slot := st.slotFor(p, q)
+		result = append(result, Pairing{A: p, B: q, Slot: slot})
 		st.pending[p]++
 		st.pending[q]++
 		addMet(st.met, p, q)
 	}
 	return result
+}
+
+// slotFor returns the ordinal for a new p–q pairing: the higher of the two
+// pairs' own match counts (load) plus one, raised to the current calendar
+// position (ceil((now−start)/u)) so a pair that falls behind never gets a
+// past-dated slot. Using load — not an inherited running counter — keeps the
+// slot bounded by open+1 regardless of how many opponents a popular pair has
+// paired with (recipe §3.2's eligible() already caps load at open for a
+// non-requester). The in-memory result is never capped here — setMatchFields
+// caps it at target when storing.
+func (st *leveledState) slotFor(p, q string) int {
+	slot := max(st.load(p), st.load(q)) + 1
+	if st.start.IsZero() || st.end.IsZero() || st.target <= 0 || !st.now.After(st.start) {
+		return slot
+	}
+	u := st.end.Sub(st.start) / time.Duration(st.target)
+	if u <= 0 {
+		return slot
+	}
+	calSlot := int(math.Ceil(float64(st.now.Sub(st.start)) / float64(u)))
+	if calSlot > slot {
+		return calSlot
+	}
+	return slot
 }
 
 // nextRequester returns the pair that wants an assignment and has the lowest
@@ -305,7 +332,7 @@ func nextRequester(st *leveledState, skipped map[string]bool) string {
 // league. Called inside a transaction by the fixture handler. Returns the count
 // of created matches. Does NOT notify — PublishCalendar handles that.
 func (svc *Service) GenerateInitialAssignments(txApp core.App, comp *core.Record, now time.Time) (int, error) {
-	st, err := buildLeveledState(txApp, comp, nil)
+	st, err := buildLeveledState(txApp, comp, nil, now)
 	if err != nil {
 		return 0, err
 	}
@@ -342,7 +369,7 @@ func (svc *Service) TopUpAssignments(compID string, now time.Time, avoid ...Pair
 		return nil, nil
 	}
 
-	st, err := buildLeveledState(svc.app, comp, avoid)
+	st, err := buildLeveledState(svc.app, comp, avoid, now)
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +425,7 @@ func notifyAssignments(svc *Service, comp *core.Record, created []*core.Record) 
 
 // buildLeveledState constructs the in-memory state from the competition's
 // current matches and ratings, marking avoid pairs as met.
-func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing) (*leveledState, error) {
+func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now time.Time) (*leveledState, error) {
 	target := comp.GetInt("target_matches")
 	open := OpenAssignments(comp)
 
@@ -435,15 +462,10 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing) (*level
 		return nil, err
 	}
 
-	played, pending, met, maxSlot := tallyMatchState(sortedPairs, matches, withdrawnSet)
+	played, pending, met := tallyMatchState(sortedPairs, matches, withdrawnSet)
 
 	for _, av := range avoid {
 		addMet(met, av.A, av.B)
-	}
-
-	nextSlot := make(map[string]int, len(sortedPairs))
-	for _, id := range sortedPairs {
-		nextSlot[id] = maxSlot[id] + 1
 	}
 
 	return &leveledState{
@@ -455,7 +477,9 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing) (*level
 		pending:  pending,
 		met:      met,
 		position: position,
-		nextSlot: nextSlot,
+		start:    comp.GetDateTime("start_date").Time(),
+		end:      comp.GetDateTime("end_date").Time(),
+		now:      now,
 	}, nil
 }
 
@@ -486,7 +510,18 @@ func setMatchFields(rec *core.Record, comp *core.Record, p Pairing, now time.Tim
 	rec.Set("pair1", p.A)
 	rec.Set("pair2", p.B)
 	rec.Set("status", "pending")
-	if deadline, ok := assignmentDeadline(comp, now); ok {
+
+	slot := p.Slot
+	if target := comp.GetInt("target_matches"); slot > target {
+		slot = target
+	}
+	rec.Set("slot", slot)
+
+	if slot > 0 {
+		if deadline, ok := slotDeadline(comp, slot); ok {
+			rec.Set("arrange_by", deadline.Format("2006-01-02"))
+		}
+	} else if deadline, ok := assignmentDeadline(comp, now); ok {
 		rec.Set("arrange_by", deadline.Format("2006-01-02"))
 	}
 }
@@ -520,11 +555,10 @@ func sortPairsByRating(pairs []string, ratings map[string]float64, seedIDs []str
 
 // tallyMatchState classifies existing matches into played/pending counts and
 // the met-pairs set, skipping matches involving withdrawn pairs.
-func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[string]bool) (played, pending map[string]int, met map[string]map[string]struct{}, maxSlot map[string]int) {
+func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[string]bool) (played, pending map[string]int, met map[string]map[string]struct{}) {
 	played = make(map[string]int, len(pairs))
 	pending = make(map[string]int, len(pairs))
 	met = make(map[string]map[string]struct{}, len(pairs))
-	maxSlot = make(map[string]int, len(pairs))
 	for _, id := range pairs {
 		met[id] = map[string]struct{}{}
 	}
@@ -541,14 +575,8 @@ func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[strin
 			pending[p1]++
 			pending[p2]++
 		}
-		if s := m.GetInt("slot"); s > maxSlot[p1] {
-			maxSlot[p1] = s
-		}
-		if s := m.GetInt("slot"); s > maxSlot[p2] {
-			maxSlot[p2] = s
-		}
 	}
-	return played, pending, met, maxSlot
+	return played, pending, met
 }
 
 // -- helpers ----------------------------------------------------------------

@@ -2,6 +2,7 @@ package league
 
 import (
 	"math/rand/v2"
+	"sort"
 	"testing"
 	"time"
 
@@ -839,5 +840,172 @@ func TestLeveledSeason_Invariants(t *testing.T) {
 		load := played + len(pendMs)
 		assert.Equal(t, 5, load,
 			"P5: pair %s should end on exactly target=5, got load=%d", p.Id, load)
+	}
+}
+
+// -- Slot assignment ---------------------------------------------------------
+
+func TestPlan_SlotAssignment(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 16)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "Slot")
+	}
+	comp := makeLeveledCompetition(t, app, pairs, 6, 3)
+	start := time.Now().Add(-7 * 24 * time.Hour)
+	end := time.Now().Add(90 * 24 * time.Hour)
+	comp.Set("start_date", start.Format(time.RFC3339))
+	comp.Set("end_date", end.Format(time.RFC3339))
+	require.NoError(t, app.Save(comp))
+
+	svc := newDeterministicSvc(app)
+	now := time.Now()
+	_, err := svc.GenerateInitialAssignments(app, comp, now)
+	require.NoError(t, err)
+
+	matches, err := app.FindRecordsByFilter("matches", "competition = {:c}", "", 0, 0,
+		map[string]any{"c": comp.Id})
+	require.NoError(t, err)
+
+	slotsByPair := map[string][]int{}
+	for _, m := range matches {
+		slotsByPair[m.GetString("pair1")] = append(slotsByPair[m.GetString("pair1")], m.GetInt("slot"))
+		slotsByPair[m.GetString("pair2")] = append(slotsByPair[m.GetString("pair2")], m.GetInt("slot"))
+	}
+
+	// P1 (bounded, non-decreasing slots): slot = max(load(p), load(q)) + 1
+	// keeps every slot within [1, open+1] — eligible() already caps a
+	// non-requester's load at open, and a requester's load is < open before
+	// the pairing. Two matches CAN share a slot (not strict monotonicity):
+	// only the k-th match's slot is guaranteed >= k.
+	for _, p := range pairs {
+		slots := slotsByPair[p.Id]
+		sort.Ints(slots)
+		require.NotEmpty(t, slots, "pair %s should have assigned matches", p.Id)
+		for i, s := range slots {
+			assert.GreaterOrEqual(t, s, i+1, "pair %s's %d-th match slot must be >= %d", p.Id, i+1, i+1)
+			assert.LessOrEqual(t, s, 4, "pair %s slot must not exceed open+1=4", p.Id)
+		}
+	}
+
+	// Exactly `open` (3) Jornada groups worth of slots (1..3) should exist;
+	// slot 4 is the documented "one above open" overflow, present for at
+	// most a few pairs, never forming its own full Jornada.
+	slotCounts := map[int]int{}
+	for _, m := range matches {
+		slotCounts[m.GetInt("slot")]++
+	}
+	for s := 1; s <= 3; s++ {
+		assert.Positive(t, slotCounts[s], "slot %d should have matches (Jornada %d)", s, s)
+	}
+}
+
+// TestPlan_TopUpSlot verifies a top-up assigned well into the season gets a
+// slot at or above the current calendar position, even though load-based
+// slots alone would put it back in the initial-batch range (finalizing a
+// match leaves a pair's load unchanged: played+1, pending-1).
+func TestPlan_TopUpSlot(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 16)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "TopUpSlot")
+	}
+	comp := makeLeveledCompetition(t, app, pairs, 10, 2)
+	start := time.Now().Add(-50 * 24 * time.Hour)
+	end := time.Now().Add(50 * 24 * time.Hour) // 100-day window, u=10d
+	comp.Set("start_date", start.Format(time.RFC3339))
+	comp.Set("end_date", end.Format(time.RFC3339))
+	require.NoError(t, app.Save(comp))
+
+	svc := newDeterministicSvc(app)
+	now := time.Now()
+	_, err := svc.GenerateInitialAssignments(app, comp, now)
+	require.NoError(t, err)
+
+	initial, err := app.FindRecordsByFilter("matches", "competition = {:c}", "", 0, 0,
+		map[string]any{"c": comp.Id})
+	require.NoError(t, err)
+
+	// Finalize every pending match for one pair so it drops below `open`
+	// and wants() a new assignment again. Top up at the same "now" — 50
+	// days into a 100-day/target-10 window puts the calendar position at
+	// slot 5.
+	targetPair := initial[0].GetString("pair1")
+	var lastOpponent string
+	for _, m := range initial {
+		if m.GetString("pair1") != targetPair && m.GetString("pair2") != targetPair {
+			continue
+		}
+		lastOpponent = m.GetString("pair2")
+		if lastOpponent == targetPair {
+			lastOpponent = m.GetString("pair1")
+		}
+		m.Set("status", "final")
+		m.Set("scores", "6-3 6-4")
+		m.Set("winner", targetPair)
+		require.NoError(t, app.Save(m))
+	}
+
+	created, err := svc.TopUpAssignments(comp.Id, now, Pairing{A: targetPair, B: lastOpponent})
+	require.NoError(t, err)
+	require.NotEmpty(t, created, "top-up should create new matches")
+
+	for _, nm := range created {
+		assert.GreaterOrEqual(t, nm.GetInt("slot"), 5,
+			"top-up slot must be floored to the current calendar position")
+	}
+}
+
+func TestPlan_CalendarFloor(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 6)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "CalFloor")
+	}
+	comp := makeLeveledCompetition(t, app, pairs, 10, 2)
+	start := time.Now().Add(-50 * 24 * time.Hour) // well in the past
+	end := time.Now().Add(50 * 24 * time.Hour)    // 100-day window, now = start+50d
+	comp.Set("start_date", start.Format(time.RFC3339))
+	comp.Set("end_date", end.Format(time.RFC3339))
+	require.NoError(t, app.Save(comp))
+
+	svc := newDeterministicSvc(app)
+	now := time.Now()
+	_, err := svc.GenerateInitialAssignments(app, comp, now)
+	require.NoError(t, err)
+
+	// u = 100d/10 = 10d; now is ~50d after start → calendar floor ≈ ceil(50/10) = 5.
+	matches, err := app.FindRecordsByFilter("matches", "competition = {:c}", "", 0, 0,
+		map[string]any{"c": comp.Id})
+	require.NoError(t, err)
+	for _, m := range matches {
+		assert.GreaterOrEqual(t, m.GetInt("slot"), 5,
+			"slot must be floored to the current calendar position, not the pair's raw ordinal")
+	}
+}
+
+func TestSlotCap(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 4)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "SlotCap")
+	}
+	comp := makeLeveledCompetition(t, app, pairs, 2, 2)
+	start := time.Now().Add(-90 * 24 * time.Hour)
+	end := time.Now().Add(-1 * 24 * time.Hour) // window already past → forces a high calendar floor
+	comp.Set("start_date", start.Format(time.RFC3339))
+	comp.Set("end_date", end.Format(time.RFC3339))
+	require.NoError(t, app.Save(comp))
+
+	svc := newDeterministicSvc(app)
+	now := time.Now()
+	_, err := svc.GenerateInitialAssignments(app, comp, now)
+	require.NoError(t, err)
+
+	matches, err := app.FindRecordsByFilter("matches", "competition = {:c}", "", 0, 0,
+		map[string]any{"c": comp.Id})
+	require.NoError(t, err)
+	for _, m := range matches {
+		assert.LessOrEqual(t, m.GetInt("slot"), 2, "stored slot must never exceed target_matches")
 	}
 }
