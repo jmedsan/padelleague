@@ -382,6 +382,28 @@ func assignmentDeadline(comp *core.Record, now time.Time) (time.Time, bool) {
 	return truncateToNoonUTC(deadline), true
 }
 
+// slotDeadline returns the arrange-by deadline for a match at the given
+// per-pair ordinal slot, dividing the competition's window into
+// target_matches equal-length pace units. Returns ok=false when
+// target_matches, slot, or either date is missing.
+func slotDeadline(comp *core.Record, slot int) (time.Time, bool) {
+	target := comp.GetInt("target_matches")
+	if target <= 0 || slot <= 0 {
+		return time.Time{}, false
+	}
+	start := comp.GetDateTime("start_date").Time()
+	end := comp.GetDateTime("end_date").Time()
+	if start.IsZero() || end.IsZero() {
+		return time.Time{}, false
+	}
+	u := end.Sub(start) / time.Duration(target)
+	deadline := start.Add(time.Duration(slot) * u)
+	if deadline.After(end) {
+		deadline = end
+	}
+	return truncateToNoonUTC(deadline), true
+}
+
 // MatchArrangeDate returns the arrange-by date for a match. When the match has
 // its own arrange_by field set, it is returned capped at the competition's
 // end_date. Otherwise falls through to RoundArrangeDate for the match's

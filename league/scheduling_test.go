@@ -449,6 +449,78 @@ func TestAssignmentDeadline(t *testing.T) {
 	})
 }
 
+func TestSlotDeadline(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 4, 11, 0, 0, 0, 0, time.UTC) // 100-day window
+
+	t.Run("100-day window target=10 slot=3 → u=10d, arrange_by=start+30d at noon UTC", func(t *testing.T) {
+		app := newTestApp(t)
+		comp := makeCompetition(t, app, nil)
+		comp.Set("start_date", start.Format(time.RFC3339))
+		comp.Set("end_date", end.Format(time.RFC3339))
+		comp.Set("target_matches", 10)
+		require.NoError(t, app.Save(comp))
+
+		want := time.Date(2026, 1, 31, 12, 0, 0, 0, time.UTC)
+		got, ok := slotDeadline(comp, 3)
+		require.True(t, ok)
+		assert.Equal(t, want, got)
+	})
+
+	t.Run("slot capped at end_date when it overflows the window", func(t *testing.T) {
+		app := newTestApp(t)
+		comp := makeCompetition(t, app, nil)
+		comp.Set("start_date", start.Format(time.RFC3339))
+		comp.Set("end_date", end.Format(time.RFC3339))
+		comp.Set("target_matches", 10)
+		require.NoError(t, app.Save(comp))
+
+		got, ok := slotDeadline(comp, 10)
+		require.True(t, ok)
+		wantY, wantM, wantD := end.Date()
+		gotY, gotM, gotD := got.Date()
+		assert.Equal(t, wantY, gotY)
+		assert.Equal(t, wantM, gotM)
+		assert.Equal(t, wantD, gotD)
+	})
+
+	t.Run("slot=0 → false", func(t *testing.T) {
+		app := newTestApp(t)
+		comp := makeCompetition(t, app, nil)
+		comp.Set("start_date", start.Format(time.RFC3339))
+		comp.Set("end_date", end.Format(time.RFC3339))
+		comp.Set("target_matches", 10)
+		require.NoError(t, app.Save(comp))
+
+		_, ok := slotDeadline(comp, 0)
+		assert.False(t, ok)
+	})
+
+	t.Run("target=0 → false", func(t *testing.T) {
+		app := newTestApp(t)
+		comp := makeCompetition(t, app, nil)
+		comp.Set("start_date", start.Format(time.RFC3339))
+		comp.Set("end_date", end.Format(time.RFC3339))
+		comp.Set("target_matches", 0)
+		require.NoError(t, app.Save(comp))
+
+		_, ok := slotDeadline(comp, 3)
+		assert.False(t, ok)
+	})
+
+	t.Run("no dates → false", func(t *testing.T) {
+		app := newTestApp(t)
+		comp := makeCompetition(t, app, nil)
+		comp.Set("target_matches", 10)
+		require.NoError(t, app.Save(comp))
+
+		_, ok := slotDeadline(comp, 3)
+		assert.False(t, ok)
+	})
+}
+
 func TestMatchArrangeDate(t *testing.T) {
 	t.Parallel()
 
