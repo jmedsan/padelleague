@@ -175,10 +175,10 @@
                 <input type="checkbox" {{if eq $.AutoExpandRound .Key}}checked{{end}}>
                 <div class="collapse-title font-medium text-sm">
                     {{.Title}}
-                    {{if eq .Key "pending"}}
-                    <span class="badge badge-soft-ghost badge-sm ml-2">{{.Total}} partido{{if ne .Total 1}}s{{end}}</span>
-                    {{else}}
+                    {{if hasPrefix .Key "played-"}}
                     <span class="badge badge-soft-ghost badge-sm ml-2">{{.Played}}/{{.Total}} partido{{if ne .Total 1}}s{{end}} jugado{{if ne .Total 1}}s{{end}}</span>
+                    {{else}}
+                    <span class="badge badge-soft-ghost badge-sm ml-2">{{.Total}} partido{{if ne .Total 1}}s{{end}}</span>
                     {{end}}
                     {{template "warningBadge" .Warning}}
                 </div>
