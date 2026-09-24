@@ -1520,3 +1520,145 @@ func TestLeveledCompetitionPage_PairAll(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestLeveledCompetitionPage_InfoMessage(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "leveled competition page shows info message when pair has pending < target",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"InfoMsg0"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		pairs := make([]*core.Record, 5)
+		for i := range pairs {
+			pairs[i] = makePairTB(tb, app, fmt.Sprintf("InfoMsg%d", i))
+		}
+		p1 := pairs[0]
+		comp := makeCompetitionTB(tb, app, "league", pairs)
+		comp.Set("target_matches", 3) // 3 < 5-1=4 → IsLeveled=true
+		comp.Set("open_assignments", 2)
+		require.NoError(tb, app.Save(comp))
+
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, pairs[1].Id, "pending")
+		m.Set("slot", 1)
+		require.NoError(tb, app.Save(m))
+
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "Tienes 1 partidos pendientes", "must show pending-count message")
+	}
+	s.Test(t)
+}
+
+func TestLeveledCompetitionPage_InfoMessage_ZeroPending(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "leveled competition page shows zero-pending variant between matches",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"ZeroPend0"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		pairs := make([]*core.Record, 5)
+		for i := range pairs {
+			pairs[i] = makePairTB(tb, app, fmt.Sprintf("ZeroPend%d", i))
+		}
+		p1 := pairs[0]
+		comp := makeCompetitionTB(tb, app, "league", pairs)
+		comp.Set("target_matches", 3) // 3 < 5-1=4 → IsLeveled=true
+		comp.Set("open_assignments", 2)
+		require.NoError(tb, app.Save(comp))
+		// No matches at all yet for this pair — total=0 < target=3, pending=0.
+
+		s.URL = "/competition/" + comp.Id + "?pair=" + p1.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "No tienes partidos pendientes", "must show zero-pending message")
+	}
+	s.Test(t)
+}
+
+func TestLeveledCompetitionPage_InfoMessage_HiddenWhenComplete(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "leveled competition page hides info message when pair reached target",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Done0"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		pairs := make([]*core.Record, 5)
+		for i := range pairs {
+			pairs[i] = makePairTB(tb, app, fmt.Sprintf("Done%d", i))
+		}
+		p1 := pairs[0]
+		comp := makeCompetitionTB(tb, app, "league", pairs)
+		comp.Set("target_matches", 1) // 1 < 5-1=4 → IsLeveled=true
+		comp.Set("open_assignments", 1)
+		require.NoError(tb, app.Save(comp))
+
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, pairs[1].Id, league.StatusFinal)
+		m.Set("finalized_at", "2026-09-10 12:00:00.000Z")
+		m.Set("result", "6-2 6-1")
+		require.NoError(tb, app.Save(m))
+
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.NotContains(tb, body, "partidos pendientes", "must not show info message when pair schedule is complete")
+	}
+	s.Test(t)
+}
+
+func TestLeveledCompetitionPage_InfoMessage_HiddenForAllPairsView(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "leveled competition page hides info message on ?pair=all",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"AllHide0"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		pairs := make([]*core.Record, 5)
+		for i := range pairs {
+			pairs[i] = makePairTB(tb, app, fmt.Sprintf("AllHide%d", i))
+		}
+		p1 := pairs[0]
+		comp := makeCompetitionTB(tb, app, "league", pairs)
+		comp.Set("target_matches", 3) // 3 < 5-1=4 → IsLeveled=true
+		comp.Set("open_assignments", 2)
+		require.NoError(tb, app.Save(comp))
+
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, pairs[1].Id, "pending")
+		m.Set("slot", 1)
+		require.NoError(tb, app.Save(m))
+
+		s.URL = "/competition/" + comp.Id + "?pair=all"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.NotContains(tb, body, "partidos pendientes", "must not show info message on all-pairs view")
+	}
+	s.Test(t)
+}
