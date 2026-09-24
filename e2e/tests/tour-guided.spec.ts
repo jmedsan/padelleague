@@ -486,9 +486,9 @@ test.describe('guided navigation tour', () => {
 
   // -----------------------------------------------------------------------
   // Leveled-league leg: reaches the leveled competition by clicking and
-  // asserts "Por jugar" is present (fails on "Jornada 0" if Title reverted)
+  // asserts "Jornada 1" is present, never the defensive "Jornada 0" fallback
   // -----------------------------------------------------------------------
-  test('leveled competition shows Por jugar group (not Jornada 0)', async ({ page }) => {
+  test('leveled competition shows Jornada 1 group (not Jornada 0)', async ({ page }) => {
     test.setTimeout(120000);
     page.on('dialog', d => d.accept());
 
@@ -499,7 +499,8 @@ test.describe('guided navigation tour', () => {
     if (!authResp.ok()) throw new Error(`Superuser auth failed: ${authResp.status()}`);
     const localSuToken = (await authResp.json()).token;
 
-    // Create 3 players + 1 pair as player 2 (minimum for IsLeveled with target=1)
+    // 4 pairs (8 players), target=2, open=1: 4 pairs × target 2 = 8 (even, passes
+    // the pairs×target validation), and 2 < 4-1=3 keeps IsLeveled true.
     const suffix = uniqueSuffix();
     const pws = 'TestPass123456';
     const emailA = `gt-a-${suffix}@test.local`;
@@ -508,10 +509,13 @@ test.describe('guided navigation tour', () => {
     const emailD = `gt-d-${suffix}@test.local`;
     const emailE = `gt-e-${suffix}@test.local`;
     const emailF = `gt-f-${suffix}@test.local`;
+    const emailG = `gt-g-${suffix}@test.local`;
+    const emailH = `gt-h-${suffix}@test.local`;
     for (const [em, nm] of [
       [emailA, `GT-A ${suffix}`], [emailB, `GT-B ${suffix}`],
       [emailC, `GT-C ${suffix}`], [emailD, `GT-D ${suffix}`],
       [emailE, `GT-E ${suffix}`], [emailF, `GT-F ${suffix}`],
+      [emailG, `GT-G ${suffix}`], [emailH, `GT-H ${suffix}`],
     ]) {
       await page.goto('/admin/players');
       await page.waitForLoadState('domcontentloaded');
@@ -523,7 +527,9 @@ test.describe('guided navigation tour', () => {
     const idD = await lookupPlayerId(page.request, localSuToken, emailD);
     const idE = await lookupPlayerId(page.request, localSuToken, emailE);
     const idF = await lookupPlayerId(page.request, localSuToken, emailF);
-    for (const [id] of [[idA],[idB],[idC],[idD],[idE],[idF]]) {
+    const idG = await lookupPlayerId(page.request, localSuToken, emailG);
+    const idH = await lookupPlayerId(page.request, localSuToken, emailH);
+    for (const [id] of [[idA],[idB],[idC],[idD],[idE],[idF],[idG],[idH]]) {
       await setPlayerPassword(page.request, localSuToken, id, pws);
     }
     await page.goto('/admin/pairs');
@@ -535,8 +541,10 @@ test.describe('guided navigation tour', () => {
     await page.goto('/admin/pairs');
     await page.waitForLoadState('domcontentloaded');
     const pIdEF = await createPair(page, `GT-EF ${suffix}`, idE, idF, localSuToken);
+    await page.goto('/admin/pairs');
+    await page.waitForLoadState('domcontentloaded');
+    const pIdGH = await createPair(page, `GT-GH ${suffix}`, idG, idH, localSuToken);
 
-    // Create leveled competition: 3 pairs, target=1, open=1 → IsLeveled=true (1 < 3-1=2)
     const compName = `GT-Leveled ${suffix}`;
     await page.goto('/admin/competitions');
     await page.waitForLoadState('domcontentloaded');
@@ -546,7 +554,7 @@ test.describe('guided navigation tour', () => {
     await dlg.locator('select[name="type"]').selectOption('league');
     await dlg.locator('input[name="active"]').check();
     await dlg.locator('.collapse').filter({ hasText: 'Opciones avanzadas' }).locator('input[type="checkbox"]').first().check({ force: true });
-    await dlg.locator('input#create-comp-target').fill('1');
+    await dlg.locator('input#create-comp-target').fill('2');
     await dlg.locator('input#create-comp-open').fill('1');
     await clickAndWaitForHxRedirect(page, dlg.locator('button[type="submit"]'));
 
@@ -561,10 +569,21 @@ test.describe('guided navigation tour', () => {
     }
     if (!lvCompId) throw new Error('Leveled competition not found');
 
+    // Leveled leagues require start_date/end_date before "Generar calendario"
+    // will accept them — set via API since the create dialog has no date fields.
+    const gtNow = Date.now();
+    await page.request.patch(`/api/collections/competitions/records/${lvCompId}`, {
+      headers: { Authorization: localSuToken },
+      data: {
+        start_date: new Date(gtNow - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        end_date: new Date(gtNow + 60 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    });
+
     // Add 3 pairs and generate assignments
     await page.goto(`/admin/competitions/${lvCompId}`);
     await page.waitForLoadState('domcontentloaded');
-    for (const pid of [pIdAB, pIdCD, pIdEF]) {
+    for (const pid of [pIdAB, pIdCD, pIdEF, pIdGH]) {
       await addPairToCompetition(page, pid);
     }
     await generateFixtures(page);
@@ -574,7 +593,7 @@ test.describe('guided navigation tour', () => {
     await page.locator('button:has-text("Publicar calendario")').click();
     await page.waitForLoadState('domcontentloaded');
 
-    // Player navigates from home → competition card → sees "Por jugar"
+    // Player navigates from home → competition card → sees "Jornada 1"
     await loginAs(page, emailA, pws);
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
@@ -588,8 +607,8 @@ test.describe('guided navigation tour', () => {
     // Must show "Partidos" tab (not "Jornadas")
     await expect(page.locator('input[aria-label="Partidos"]')).toBeVisible({ timeout: 5000 });
 
-    // Must show "Por jugar" group
-    await expect(page.locator('.collapse-title:has-text("Por jugar")')).toBeVisible({ timeout: 5000 });
+    // Must show "Jornada 1" group
+    await expect(page.locator('.collapse-title:has-text("Jornada 1")')).toBeVisible({ timeout: 5000 });
 
     // Must NOT show "Jornada 0"
     const mainText = await page.locator('main').textContent() ?? '';

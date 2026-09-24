@@ -56,6 +56,16 @@ test.describe('leveled-16 scenario', () => {
     await page.goto(`/competition/${ctx.competitionId}`);
     await page.waitForLoadState('domcontentloaded');
     await expect(page).toHaveURL(new RegExp(`/competition/${ctx.competitionId}`));
+
+    // The initial batch renders exactly `open` Jornada groups (1..open),
+    // never a stray "Jornada 0" — the round-robin fallback title. Admin has
+    // no own pair, so resolvePairFilter already defaults to "all".
+    await page.locator('input[aria-label="Partidos"]').click();
+    await page.waitForLoadState('domcontentloaded');
+    for (let s = 1; s <= ctx.open; s++) {
+      await expect(page.locator(`.collapse-title:has-text("Jornada ${s}")`).first()).toBeVisible({ timeout: 10000 });
+    }
+    await expect(page.locator('.collapse-title:has-text("Jornada 0")')).toHaveCount(0);
   });
 
   test('01 assignments visible in UI', async ({ page }) => {
@@ -70,12 +80,16 @@ test.describe('leveled-16 scenario', () => {
     await page.locator('input[aria-label="Partidos"]').click();
     await page.waitForLoadState('domcontentloaded');
 
-    // "Por jugar" group is present
-    await expect(page.locator('.collapse-title:has-text("Por jugar")')).toBeVisible({ timeout: 10000 });
+    // "Jornada 1" group is present
+    await expect(page.locator('.collapse-title:has-text("Jornada 1")')).toBeVisible({ timeout: 10000 });
 
     // Pair filter dropdown is present and at least one match link is visible
     await expect(page.locator('select[name="pair"]')).toBeVisible();
     await expect(page.locator('a[href^="/match/"]').first()).toBeVisible({ timeout: 5000 });
+
+    // Player info message: this pair hasn't reached target_matches yet, so
+    // the "new matches get assigned after you finish" message is visible.
+    await expect(page.locator('text=partidos pendientes')).toBeVisible({ timeout: 5000 });
   });
 
   test('02 play match → top-up fires', async ({ page }) => {
@@ -191,15 +205,26 @@ test.describe('leveled-16 scenario', () => {
   });
 
   test('04 admin pair filter + scheduling-status sort', async ({ page }) => {
-    // Pick two pending matches that don't share a pair, so filtering by
-    // matchA's pair legitimately excludes matchB.
+    // Pick two pending matches with the same slot (so both land in the same
+    // Jornada group and the sort assertion is meaningful) that don't share
+    // a pair, so filtering by matchA's pair legitimately excludes matchB.
     const data = await apiGet(api, `/api/collections/matches/records?filter=${encodeURIComponent(`competition='${ctx.competitionId}' && status='pending'`)}&perPage=500`);
     const pending: any[] = data.items;
     expect(pending.length).toBeGreaterThanOrEqual(2);
-    const matchA = pending[0];
-    const matchAPairs = new Set([matchA.pair1, matchA.pair2]);
-    const matchB = pending.find(m => !matchAPairs.has(m.pair1) && !matchAPairs.has(m.pair2));
-    expect(matchB, 'need a second pending match with no shared pair with matchA').toBeTruthy();
+    let matchA: any;
+    let matchB: any;
+    outer: for (const a of pending) {
+      if (a.slot < 1 || a.slot > ctx.open) continue; // must land in a Jornada group
+      const aPairs = new Set([a.pair1, a.pair2]);
+      for (const b of pending) {
+        if (b.id === a.id || b.slot !== a.slot) continue;
+        if (aPairs.has(b.pair1) || aPairs.has(b.pair2)) continue;
+        matchA = a;
+        matchB = b;
+        break outer;
+      }
+    }
+    expect(matchB, 'need two same-Jornada pending matches with no shared pair').toBeTruthy();
 
     // Give matchA an earlier arrange_by but "scheduled" status (a proposal
     // made but not yet accepted); matchB a later arrange_by but still
@@ -225,11 +250,11 @@ test.describe('leveled-16 scenario', () => {
       await page.goto(`/admin/competitions/${ctx.competitionId}`);
       await page.waitForLoadState('domcontentloaded');
 
-      // Expand "Por jugar" and confirm matchB (pending, later date) appears
-      // before matchA (scheduled, earlier date).
-      const porJugarTitle = page.locator('.collapse-title:has-text("Por jugar")');
-      await expect(porJugarTitle).toBeVisible({ timeout: 10000 });
-      await porJugarTitle.locator('..').locator('input[type="checkbox"]').click();
+      // Expand matchA/matchB's shared Jornada group and confirm matchB
+      // (pending, later date) appears before matchA (scheduled, earlier date).
+      const jornadaTitle = page.locator(`.collapse-title:has-text("Jornada ${matchA.slot}")`);
+      await expect(jornadaTitle).toBeVisible({ timeout: 10000 });
+      await jornadaTitle.locator('..').locator('input[type="checkbox"]').click();
       const rows = page.locator(`a[href="/match/${matchB.id}"], a[href="/match/${matchA.id}"]`);
       await expect(rows.first()).toHaveAttribute('href', `/match/${matchB.id}`, { timeout: 10000 });
 

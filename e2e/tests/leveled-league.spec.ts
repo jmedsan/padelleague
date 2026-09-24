@@ -123,6 +123,17 @@ test.describe('leveled league', () => {
       if (!competitionId) throw new Error('Competition not found after create');
     }
 
+    // Leveled leagues require start_date/end_date before "Generar calendario"
+    // will accept them — set via API since the create dialog has no date fields.
+    const now = Date.now();
+    await page.request.patch(`/api/collections/competitions/records/${competitionId}`, {
+      headers: { Authorization: suToken },
+      data: {
+        start_date: new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        end_date: new Date(now + 60 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    });
+
     // Add pairs (no seed param — leveled leagues are type "league", seed input only
     // appears for playoff type; seed order is set separately via the Nivel inicial card)
     await page.goto(`/admin/competitions/${competitionId}`);
@@ -184,8 +195,8 @@ test.describe('leveled league', () => {
     await expect(page.locator('input[aria-label="Partidos"]')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('input[aria-label="Jornadas"]')).toHaveCount(0);
 
-    // "Por jugar" group is present
-    await expect(page.locator('.collapse-title:has-text("Por jugar")')).toBeVisible({ timeout: 5000 });
+    // "Jornada 1" group is present
+    await expect(page.locator('.collapse-title:has-text("Jornada 1")')).toBeVisible({ timeout: 5000 });
 
     // Own pair is preselected in the filter dropdown
     const filterSelect = page.locator('select[name="pair"]');
@@ -223,6 +234,6 @@ test.describe('leveled league', () => {
     await page.waitForLoadState('domcontentloaded');
 
     await expect(page.locator('input[aria-label="Partidos"]')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.collapse-title:has-text("Por jugar")')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.collapse-title:has-text("Jornada 1")')).toBeVisible({ timeout: 5000 });
   });
 });
