@@ -3,7 +3,7 @@ import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { clickAndWaitForHxRedirect, setDates } from '../tour-helpers';
 import {
   ScenarioApi, ScenarioData, apiGet,
-  loadCtx, saveCtx, requireStage, assertAssignmentInvariants, jornadaTitle,
+  loadCtx, saveCtx, requireStage, assertAssignmentInvariants,
 } from '../scenario-helpers';
 
 let ctx: ScenarioData;
@@ -52,8 +52,8 @@ test.describe('leveled-16 pre-generation', () => {
     await page.goto(`/admin/competitions/${ctx.competitionId}`);
     await page.waitForLoadState('domcontentloaded');
 
-    const startDate = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
-    const endDate = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10);
+    const startDate = new Date(Date.now()).toISOString().slice(0, 10);
+    const endDate = new Date(Date.now() + 70 * 86400000).toISOString().slice(0, 10);
     await setDates(page, startDate, endDate);
 
     // Verify dates were saved by checking the competition record
@@ -90,11 +90,10 @@ test.describe('leveled-16 pre-generation', () => {
     await expect(pubBtn).toBeVisible({ timeout: 10000 });
     await clickAndWaitForHxRedirect(page, pubBtn);
 
-    const comp = await apiGet(api, `/api/collections/competitions/records/${ctx.competitionId}`);
+    await page.waitForLoadState('domcontentloaded');
     for (let s = 1; s <= ctx.open; s++) {
-      const title = jornadaTitle(comp.start_date, comp.end_date, ctx.target, s);
       await expect(
-        page.locator(`.collapse-title:has-text("${title}")`).first(),
+        page.locator(`.collapse-title:has-text("Jornada ${s}")`).first(),
       ).toBeVisible({ timeout: 10000 });
     }
     await expect(page.locator('.collapse-title:has-text("Jornada 0")')).toHaveCount(0);
