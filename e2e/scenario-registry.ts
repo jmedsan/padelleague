@@ -8,9 +8,14 @@ export interface Scenario {
 }
 
 export const SCENARIOS: Record<string, Scenario> = {
-  'leveled-16-pregen': {
-    description: '16 pairs, no dates — admin adds dates, generates + publishes through the UI',
+  'leveled-16-nodates': {
+    description: '16 pairs, no dates — generate refused until dates are set',
     startStage: 'created',
+    specs: ['leveled-16-nodates.spec.ts'],
+  },
+  'leveled-16-pregen': {
+    description: 'dates already set, not generated — admin clicks Generar + publishes through the UI',
+    startStage: 'dated',
     specs: ['leveled-16-pregen.spec.ts'],
   },
   'leveled-16': {
@@ -19,9 +24,9 @@ export const SCENARIOS: Record<string, Scenario> = {
     specs: ['leveled-16.spec.ts'],
   },
   'leveled-16-full': {
-    description: 'pregen → baseline, incremental on one server',
+    description: 'nodates → pregen → baseline, incremental on one server',
     startStage: 'created',
-    specs: ['leveled-16-pregen.spec.ts', 'leveled-16.spec.ts'],
+    specs: ['leveled-16-nodates.spec.ts', 'leveled-16-pregen.spec.ts', 'leveled-16.spec.ts'],
   },
   'smtp-verify': {
     description: 'SMTP sink receives finalization email',

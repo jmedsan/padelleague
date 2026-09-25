@@ -156,10 +156,14 @@ export async function createCompetition(
   return record.id;
 }
 
+// 29/09/2036–10/12/2036 is a deliberately hard season: 73 inclusive days
+// over target_matches=10 does not divide evenly (7.3 days/Jornada), so it
+// exercises league.JornadaWindow's whole-day ceiling-division partition
+// instead of a round number that would pass even with a fractional-day bug.
 export function competitionDates(): { startDate: string; endDate: string } {
   return {
     startDate: '2036-09-29T12:00:00.000Z',
-    endDate: '2036-12-07T12:00:00.000Z',
+    endDate: '2036-12-10T12:00:00.000Z',
   };
 }
 
@@ -172,18 +176,26 @@ function fmtShortDate(d: Date): string {
   return `${d.getUTCDate()} ${SPANISH_MONTHS[d.getUTCMonth()]}`;
 }
 
-// jornadaTitle mirrors league.JornadaWindow: end_date is inclusive, so the
-// window length is (end + 1 day - start) divided into `target` equal
-// units. Jornada n's range is [start+(n-1)*u, start+n*u-1day], capped at
-// end for the last Jornada.
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function ceilDiv(a: number, b: number): number {
+  return Math.ceil(a / b);
+}
+
+// jornadaTitle mirrors league.JornadaWindow's whole-day ceiling-division
+// partition (league/scheduling.go jornadaDayRange): the D = end-start+1
+// inclusive days are split into `target` whole-day Jornadas via
+// ceil((n-1)*D/target)..ceil(n*D/target)-1 day offsets from start, so
+// every boundary lands on a whole calendar day even when D isn't a
+// multiple of target.
 export function jornadaTitle(startISO: string, endISO: string, target: number, n: number): string {
   const start = new Date(startISO);
   const end = new Date(endISO);
-  const u = (end.getTime() + MS_PER_DAY - start.getTime()) / target;
-  const lo = new Date(start.getTime() + (n - 1) * u);
-  let hi = new Date(start.getTime() + n * u - MS_PER_DAY);
-  if (n >= target || hi.getTime() > end.getTime()) hi = end;
+  const days = Math.round((end.getTime() - start.getTime()) / MS_PER_DAY) + 1;
+  const loDay = ceilDiv((n - 1) * days, target);
+  const hiDay = ceilDiv(n * days, target) - 1;
+  const lo = new Date(start.getTime() + loDay * MS_PER_DAY);
+  const hi = new Date(start.getTime() + hiDay * MS_PER_DAY);
   return `Jornada ${n} · ${fmtShortDate(lo)} – ${fmtShortDate(hi)}`;
 }
 
