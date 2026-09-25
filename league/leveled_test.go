@@ -386,6 +386,7 @@ func TestPlan_SteadyState(t *testing.T) {
 		played:   map[string]int{"A": 0, "B": 0, "C": 0, "D": 0, "E": 0, "F": 0},
 		pending:  map[string]int{"A": 0, "B": 0, "C": 0, "D": 0, "E": 0, "F": 0},
 		position: map[string]int{"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5},
+		occupied: map[string]map[int]bool{"A": {}, "B": {}, "C": {}, "D": {}, "E": {}, "F": {}},
 	}
 
 	svc := &Service{shuffle: func(_ int, _ func(int, int)) {}} // identity
@@ -945,18 +946,23 @@ func TestPlan_SlotAssignment(t *testing.T) {
 		slotsByPair[m.GetString("pair2")] = append(slotsByPair[m.GetString("pair2")], m.GetInt("slot"))
 	}
 
-	// P1 (bounded, non-decreasing slots): slot = max(load(p), load(q)) + 1
-	// keeps every slot within [1, open+1] — eligible() already caps a
-	// non-requester's load at open, and a requester's load is < open before
-	// the pairing. Two matches CAN share a slot (not strict monotonicity):
-	// only the k-th match's slot is guaranteed >= k.
+	// slot = smallest slot free for BOTH pairs (hole-filling): every pair's
+	// own matches land on DISTINCT slots — never two matches in the same
+	// Jornada for one pair, so a collision-free schedule is always
+	// achievable. Needing a slot free for BOTH sides (not each pair's own
+	// smallest independently) can occasionally leave a hole for one side —
+	// its own next free slot was already taken by the other pair's
+	// unrelated match — and can push a pairing past open+1=4; neither ever
+	// goes past open+2=5 in this fixture (16 pairs, open 3).
 	for _, p := range pairs {
 		slots := slotsByPair[p.Id]
 		sort.Ints(slots)
 		require.NotEmpty(t, slots, "pair %s should have assigned matches", p.Id)
-		for i, s := range slots {
-			assert.GreaterOrEqual(t, s, i+1, "pair %s's %d-th match slot must be >= %d", p.Id, i+1, i+1)
-			assert.LessOrEqual(t, s, 4, "pair %s slot must not exceed open+1=4", p.Id)
+		seen := map[int]bool{}
+		for _, s := range slots {
+			assert.False(t, seen[s], "pair %s must never hold two matches in slot %d", p.Id, s)
+			seen[s] = true
+			assert.LessOrEqual(t, s, 5, "pair %s slot must not exceed open+2=5", p.Id)
 		}
 	}
 
@@ -1000,8 +1006,8 @@ func TestPlan_TopUpSlot(t *testing.T) {
 
 	// Finalize every pending match for one pair so it drops below `open`
 	// and wants() a new assignment again. Top up at the same "now" — 50
-	// days into a 100-day/target-10 window puts the calendar position at
-	// slot 5.
+	// days into a 100-day/target-10 window (u=10d) puts the current window
+	// at floor(50/10)+1 = 6.
 	targetPair := initial[0].GetString("pair1")
 	var lastOpponent string
 	for _, m := range initial {
@@ -1023,8 +1029,8 @@ func TestPlan_TopUpSlot(t *testing.T) {
 	require.NotEmpty(t, created, "top-up should create new matches")
 
 	for _, nm := range created {
-		assert.GreaterOrEqual(t, nm.GetInt("slot"), 5,
-			"top-up slot must be floored to the current calendar position")
+		assert.GreaterOrEqual(t, nm.GetInt("slot"), 6,
+			"top-up slot must be floored to the current calendar window")
 	}
 }
 
@@ -1046,36 +1052,89 @@ func TestPlan_CalendarFloor(t *testing.T) {
 	_, err := svc.GenerateInitialAssignments(app, comp, now)
 	require.NoError(t, err)
 
-	// u = 100d/10 = 10d; now is ~50d after start → calendar floor ≈ ceil(50/10) = 5.
+	// u = 100d/10 = 10d; now is ~50d after start → current window = floor(50/10)+1 = 6.
 	matches, err := app.FindRecordsByFilter("matches", "competition = {:c}", "", 0, 0,
 		map[string]any{"c": comp.Id})
 	require.NoError(t, err)
 	for _, m := range matches {
-		assert.GreaterOrEqual(t, m.GetInt("slot"), 5,
-			"slot must be floored to the current calendar position, not the pair's raw ordinal")
+		assert.GreaterOrEqual(t, m.GetInt("slot"), 6,
+			"slot must be floored to the current calendar window, not the pair's raw ordinal")
 	}
 }
 
 // TestSlotFor_NegativeWindow covers the u<=0 guard: when end<start the pace
-// unit is negative, so slotFor must fall back to the load-based slot instead
-// of computing a nonsensical calendar floor. Unreachable via the handler
-// (fixtures.go rejects end<=start at creation), but the guard exists in
-// slotFor itself and must be verified in isolation.
-//
-// The u<=0 vs u<0 boundary (u==0, i.e. end==start) is not separately tested:
-// at u==0, now.Sub(start)/u is +Inf/-Inf/NaN, and int(math.Ceil(...)) of any
-// of those is math.MinInt64 in Go — so calSlot > slot is false either way and
-// both guard forms fall through to the same load-based slot. Equivalent mutant.
+// unit is negative, so currentWindow must fall back to 1 instead of computing
+// a nonsensical calendar position. Unreachable via the handler (fixtures.go
+// rejects end<=start at creation), but the guard exists in currentWindow
+// itself and must be verified in isolation.
 func TestSlotFor_NegativeWindow(t *testing.T) {
 	now := time.Now()
 	st := &leveledState{
-		target: 5,
-		start:  now.Add(-time.Hour),
-		end:    now.Add(-2 * time.Hour), // end < start → u < 0
-		now:    now,
-		played: map[string]int{"p": 1, "q": 2},
+		target:   5,
+		start:    now.Add(-time.Hour),
+		end:      now.Add(-2 * time.Hour), // end < start → u < 0
+		now:      now,
+		occupied: map[string]map[int]bool{},
 	}
-	assert.Equal(t, 3, st.slotFor("p", "q"), "u<0 must fall back to load-based slot")
+	assert.Equal(t, 1, st.slotFor("p", "q"), "u<0 must fall back to slot 1")
+}
+
+// TestSlotFor_FillsHoles verifies a pair whose earlier Jornada is still open
+// (e.g. it was the opponent side of another pair's slot-2 match, so it has no
+// match at slot 1 yet) gets its hole filled first, rather than being pushed
+// to slot 3 alongside a fully-booked opponent.
+func TestSlotFor_FillsHoles(t *testing.T) {
+	st := &leveledState{
+		target: 5,
+		occupied: map[string]map[int]bool{
+			"p": {2: true}, // p already has a match at slot 2, slot 1 is a hole
+			"q": {},        // q has no matches yet
+		},
+	}
+	assert.Equal(t, 1, st.slotFor("p", "q"), "p's hole at slot 1 must be filled, not slot 3")
+}
+
+// TestSlotFor_NoCrossPairCollision verifies slotFor picks a slot free for
+// BOTH pairs, not each pair's own smallest slot independently: p's smallest
+// free slot (1) must not be used when q already occupies it, even though q's
+// own smallest free slot (2) happens to be exactly the slot p occupies.
+func TestSlotFor_NoCrossPairCollision(t *testing.T) {
+	st := &leveledState{
+		target: 5,
+		occupied: map[string]map[int]bool{
+			"p": {2: true}, // p's own smallest free slot is 1
+			"q": {1: true}, // q's own smallest free slot is 2 — but slot 1 collides with q
+		},
+	}
+	assert.Equal(t, 3, st.slotFor("p", "q"), "slot must be free for both pairs, not just the max of their own frees")
+}
+
+// TestSlotFor_CurrentWindowFloor verifies slotFor never assigns a slot before
+// the competition's current calendar window, even when both pairs have no
+// occupied slots yet (a mid-season top-up must not land in the past).
+func TestSlotFor_CurrentWindowFloor(t *testing.T) {
+	now := time.Now()
+	st := &leveledState{
+		target:   10,
+		start:    now.Add(-50 * 24 * time.Hour),
+		end:      now.Add(50 * 24 * time.Hour), // 100-day window, u=10d, now=start+50d → cur=6
+		now:      now,
+		occupied: map[string]map[int]bool{},
+	}
+	assert.Equal(t, 6, st.slotFor("p", "q"), "slot must floor to the current calendar window")
+}
+
+// TestSlotFor_CapAtTarget verifies slotFor never returns a slot past target,
+// even when both pairs' free slots would otherwise land beyond it.
+func TestSlotFor_CapAtTarget(t *testing.T) {
+	st := &leveledState{
+		target: 3,
+		occupied: map[string]map[int]bool{
+			"p": {1: true, 2: true, 3: true},
+			"q": {1: true, 2: true, 3: true},
+		},
+	}
+	assert.Equal(t, 3, st.slotFor("p", "q"), "slot must be capped at target even past a full house")
 }
 
 func TestSlotCap(t *testing.T) {
