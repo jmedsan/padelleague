@@ -108,6 +108,57 @@ func (h *CompetitionPaymentsHandler) SendPaymentReminder(e *core.RequestEvent) e
 	return alertSuccess(e, "Recordatorio enviado a "+strconv.Itoa(len(players))+" jugadores")
 }
 
+// ToggleBalls marks a single pair's ball-delivery status as delivered or not.
+func (h *CompetitionPaymentsHandler) ToggleBalls(e *core.RequestEvent) error {
+	compID := e.Request.PathValue("id")
+	pairID := e.Request.FormValue("pair_id")
+
+	comp, err := h.app.FindRecordById("competitions", compID)
+	if err != nil {
+		return alertError(e, "Competición no encontrada")
+	}
+
+	ballsStatus := getBallsStatus(comp)
+	nowDelivered := !ballsStatus[pairID]
+	ballsStatus[pairID] = nowDelivered
+	comp.Set("balls_status", ballsStatus)
+	if nowDelivered {
+		setBallsRecordedBy(comp, pairID, e.Auth.Id)
+	}
+
+	if err := h.app.Save(comp); err != nil {
+		slog.Error("toggle balls failed", "err", err)
+		return alertError(e, "Error al cambiar el estado de las bolas")
+	}
+
+	flash(e, "Bolas registradas")
+	return redirectHX(e, "/admin/competitions/"+compID)
+}
+
+// ToggleBallsAll marks every pair in a competition as having received balls.
+func (h *CompetitionPaymentsHandler) ToggleBallsAll(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	comp, err := h.app.FindRecordById("competitions", id)
+	if err != nil {
+		return alertError(e, "Competición no encontrada")
+	}
+
+	pairIDs := comp.GetStringSlice("pairs")
+	status := map[string]bool{}
+	for _, pid := range pairIDs {
+		status[pid] = true
+		setBallsRecordedBy(comp, pid, e.Auth.Id)
+	}
+
+	comp.Set("balls_status", status)
+	if err := h.app.Save(comp); err != nil {
+		return alertError(e, "Error al guardar")
+	}
+
+	flash(e, "Todas las bolas marcadas como entregadas")
+	return redirectHX(e, "/admin/competitions/"+id)
+}
+
 func getPaymentStatus(comp *core.Record) map[string]bool {
 	status := make(map[string]bool)
 	if err := comp.UnmarshalJSONField("payment_status", &status); err != nil {
@@ -140,6 +191,42 @@ func getPaymentActors(comp *core.Record) map[string]string {
 	actors := make(map[string]string)
 	if err := comp.UnmarshalJSONField("payment_paid_by", &actors); err != nil {
 		slog.Warn("unmarshal payment_paid_by", "err", err)
+	}
+	return actors
+}
+
+func getBallsStatus(comp *core.Record) map[string]bool {
+	status := make(map[string]bool)
+	if err := comp.UnmarshalJSONField("balls_status", &status); err != nil {
+		slog.Warn("unmarshal balls_status", "err", err)
+	}
+	return status
+}
+
+// setBallsRecordedBy stamps the current time and actor for pairID into the
+// competition's balls_delivered_at/balls_delivered_by maps, ready for Save.
+func setBallsRecordedBy(comp *core.Record, pairID, actorID string) {
+	deliveredAt := getBallsDates(comp)
+	deliveredAt[pairID] = time.Now().Format(time.RFC3339)
+	comp.Set("balls_delivered_at", deliveredAt)
+
+	deliveredBy := getBallsActors(comp)
+	deliveredBy[pairID] = actorID
+	comp.Set("balls_delivered_by", deliveredBy)
+}
+
+func getBallsDates(comp *core.Record) map[string]string {
+	dates := make(map[string]string)
+	if err := comp.UnmarshalJSONField("balls_delivered_at", &dates); err != nil {
+		slog.Warn("unmarshal balls_delivered_at", "err", err)
+	}
+	return dates
+}
+
+func getBallsActors(comp *core.Record) map[string]string {
+	actors := make(map[string]string)
+	if err := comp.UnmarshalJSONField("balls_delivered_by", &actors); err != nil {
+		slog.Warn("unmarshal balls_delivered_by", "err", err)
 	}
 	return actors
 }

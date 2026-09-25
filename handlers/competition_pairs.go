@@ -3,7 +3,6 @@ package handlers
 import (
 	"fmt"
 	"log/slog"
-	"sort"
 	"strconv"
 	"time"
 
@@ -23,13 +22,19 @@ func NewCompetitionPairsHandler(app core.App) *CompetitionPairsHandler {
 }
 
 type pairEntry struct {
-	PairID     string
-	PairName   string
-	Seed       int
-	Paid       bool
-	PaidAt     string // render.FmtTime, empty if never recorded
-	PaidByName string
-	Withdrawn  bool
+	PairID      string
+	PairName    string
+	Seed        int
+	Paid        bool
+	PaidAt      string // render.FmtTime, empty if never recorded
+	PaidByName  string
+	Balls       bool
+	BallsAt     string // render.FmtTime, empty if never recorded
+	BallsByName string
+	Level       string
+	LevelLabel  string
+	LevelLocked bool
+	Withdrawn   bool
 }
 
 // AddPair enrolls a pair in a competition, validating player uniqueness.
@@ -121,82 +126,23 @@ func (h *CompetitionPairsHandler) RemovePair(e *core.RequestEvent) error {
 	delete(paymentStatus, pairID)
 	comp.Set("payment_status", paymentStatus)
 
-	// Remove from seed_pairs if present.
-	seedPairs := comp.GetStringSlice("seed_pairs")
-	var filteredSeeds []string
-	for _, sid := range seedPairs {
-		if sid != pairID {
-			filteredSeeds = append(filteredSeeds, sid)
-		}
-	}
-	comp.Set("seed_pairs", filteredSeeds)
+	ballsStatus := getBallsStatus(comp)
+	delete(ballsStatus, pairID)
+	comp.Set("balls_status", ballsStatus)
+
+	ballsAt := getBallsDates(comp)
+	delete(ballsAt, pairID)
+	comp.Set("balls_delivered_at", ballsAt)
+
+	ballsBy := getBallsActors(comp)
+	delete(ballsBy, pairID)
+	comp.Set("balls_delivered_by", ballsBy)
 
 	if err := h.app.Save(comp); err != nil {
 		slog.Error("remove pair failed", "competition", compID, "err", err)
 		return alertError(e, "Error al eliminar la pareja")
 	}
 
-	return redirectHX(e, "/admin/competitions/"+compID)
-}
-
-// SetSeed saves the initial seed order for a leveled competition.
-// Pairs with a seed number are sorted ascending (1 = strongest) and saved to
-// seed_pairs. Locked once matches exist.
-func (h *CompetitionPairsHandler) SetSeed(e *core.RequestEvent) error {
-	compID := e.Request.PathValue("id")
-
-	comp, err := h.app.FindRecordById("competitions", compID)
-	if err != nil {
-		return alertError(e, "Competición no encontrada")
-	}
-
-	// Locked when the calendar already has matches.
-	matches, err := h.app.FindRecordsByFilter("matches",
-		"competition = {:c}", "", 1, 0, map[string]any{"c": compID})
-	if err != nil {
-		return alertError(e, "Error al comprobar partidos")
-	}
-	if len(matches) > 0 {
-		return alertError(e, "No se puede cambiar con el calendario generado")
-	}
-
-	type entry struct {
-		pairID string
-		rank   int
-	}
-	var numbered []entry
-	seen := map[int]bool{}
-
-	for _, pairID := range comp.GetStringSlice("pairs") {
-		v := e.Request.FormValue("seed_" + pairID)
-		if v == "" {
-			continue
-		}
-		n, err := strconv.Atoi(v)
-		if err != nil || n <= 0 {
-			continue
-		}
-		if seen[n] {
-			return alertError(e, "Dos parejas tienen el mismo nivel")
-		}
-		seen[n] = true
-		numbered = append(numbered, entry{pairID: pairID, rank: n})
-	}
-
-	// Check for duplicates across all submitted values before committing sort.
-	sort.Slice(numbered, func(i, j int) bool { return numbered[i].rank < numbered[j].rank })
-
-	seeds := make([]string, len(numbered))
-	for i, en := range numbered {
-		seeds[i] = en.pairID
-	}
-	comp.Set("seed_pairs", seeds)
-
-	if err := h.app.Save(comp); err != nil {
-		slog.Error("set seed failed", "competition", compID, "err", err)
-		return alertError(e, "Error al guardar el orden")
-	}
-	flash(e, "Orden guardado")
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
@@ -281,27 +227,57 @@ type paymentInfo struct {
 	app    core.App
 }
 
-func buildPairEntries(pairIDs []string, seeding map[string]int, payment paymentInfo, withdrawnSet map[string]bool) []pairEntry {
+// ballsInfo bundles the three ball-delivery maps read from a competition
+// record, mirroring paymentInfo.
+type ballsInfo struct {
+	status      map[string]bool
+	deliveredAt map[string]string
+	deliveredBy map[string]string
+}
+
+// pairEntryInputs bundles the per-pair maps buildPairEntries reads, keeping
+// it within the argument-count limit.
+type pairEntryInputs struct {
+	seeding      map[string]int
+	payment      paymentInfo
+	balls        ballsInfo
+	withdrawnSet map[string]bool
+}
+
+func buildPairEntries(pairIDs []string, in pairEntryInputs) []pairEntry {
 	var entries []pairEntry
 	for _, pid := range pairIDs {
-		pair, err := payment.app.FindRecordById("pairs", pid)
+		pair, err := in.payment.app.FindRecordById("pairs", pid)
 		if err != nil {
 			continue
 		}
+		level := pair.GetString("level")
 		entry := pairEntry{
-			PairID:    pid,
-			PairName:  pair.GetString("name"),
-			Seed:      seeding[pid],
-			Paid:      payment.status[pid],
-			Withdrawn: withdrawnSet[pid],
+			PairID:      pid,
+			PairName:    pair.GetString("name"),
+			Seed:        in.seeding[pid],
+			Paid:        in.payment.status[pid],
+			Balls:       in.balls.status[pid],
+			Level:       level,
+			LevelLabel:  league.LevelLabel(level),
+			LevelLocked: league.LevelLocked(in.payment.app, pid),
+			Withdrawn:   in.withdrawnSet[pid],
 		}
-		if raw, ok := payment.paidAt[pid]; ok {
+		if raw, ok := in.payment.paidAt[pid]; ok {
 			if t, err := time.Parse(time.RFC3339, raw); err == nil {
 				entry.PaidAt = render.FmtTime(t)
 			}
 		}
-		if uid, ok := payment.paidBy[pid]; ok && uid != "" {
-			entry.PaidByName = league.PlayerName(payment.app, uid)
+		if uid, ok := in.payment.paidBy[pid]; ok && uid != "" {
+			entry.PaidByName = league.PlayerName(in.payment.app, uid)
+		}
+		if raw, ok := in.balls.deliveredAt[pid]; ok {
+			if t, err := time.Parse(time.RFC3339, raw); err == nil {
+				entry.BallsAt = render.FmtTime(t)
+			}
+		}
+		if uid, ok := in.balls.deliveredBy[pid]; ok && uid != "" {
+			entry.BallsByName = league.PlayerName(in.payment.app, uid)
 		}
 		entries = append(entries, entry)
 	}
