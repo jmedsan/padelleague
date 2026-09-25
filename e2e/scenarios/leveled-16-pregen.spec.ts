@@ -3,7 +3,7 @@ import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { clickAndWaitForHxRedirect, setDates } from '../tour-helpers';
 import {
   ScenarioApi, ScenarioData, apiGet,
-  loadCtx, saveCtx, requireStage, assertAssignmentInvariants,
+  loadCtx, saveCtx, requireStage, assertAssignmentInvariants, jornadaTitle,
 } from '../scenario-helpers';
 
 let ctx: ScenarioData;
@@ -90,9 +90,11 @@ test.describe('leveled-16 pre-generation', () => {
     await expect(pubBtn).toBeVisible({ timeout: 10000 });
     await clickAndWaitForHxRedirect(page, pubBtn);
 
+    const comp = await apiGet(api, `/api/collections/competitions/records/${ctx.competitionId}`);
     for (let s = 1; s <= ctx.open; s++) {
+      const title = jornadaTitle(comp.start_date, comp.end_date, ctx.target, s);
       await expect(
-        page.locator(`.collapse-title:has-text("Jornada ${s}")`).first(),
+        page.locator(`.collapse-title:has-text("${title}")`).first(),
       ).toBeVisible({ timeout: 10000 });
     }
     await expect(page.locator('.collapse-title:has-text("Jornada 0")')).toHaveCount(0);

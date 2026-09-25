@@ -3,7 +3,7 @@ import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { enterScore, clickAndWaitForHxRedirect } from '../tour-helpers';
 import {
   assertAssignmentInvariants, ScenarioApi, ScenarioData,
-  apiGet, apiPatch, PLAYER_PASSWORD, loadCtx, ensureStage,
+  apiGet, apiPatch, PLAYER_PASSWORD, loadCtx, ensureStage, jornadaTitle,
 } from '../scenario-helpers';
 
 let ctx: ScenarioData;
@@ -47,8 +47,10 @@ test.describe('leveled-16 scenario', () => {
     // no own pair, so resolvePairFilter already defaults to "all".
     await page.locator('input[aria-label="Partidos"]').click();
     await page.waitForLoadState('domcontentloaded');
+    const comp = await apiGet(api, `/api/collections/competitions/records/${ctx.competitionId}`);
     for (let s = 1; s <= ctx.open; s++) {
-      await expect(page.locator(`.collapse-title:has-text("Jornada ${s}")`).first()).toBeVisible({ timeout: 10000 });
+      const title = jornadaTitle(comp.start_date, comp.end_date, ctx.target, s);
+      await expect(page.locator(`.collapse-title:has-text("${title}")`).first()).toBeVisible({ timeout: 10000 });
     }
     await expect(page.locator('.collapse-title:has-text("Jornada 0")')).toHaveCount(0);
   });
@@ -65,8 +67,10 @@ test.describe('leveled-16 scenario', () => {
     await page.locator('input[aria-label="Partidos"]').click();
     await page.waitForLoadState('domcontentloaded');
 
-    // "Jornada 1" group is present
-    await expect(page.locator('.collapse-title:has-text("Jornada 1")')).toBeVisible({ timeout: 10000 });
+    // "Jornada 1" group is present, titled with the competition's date range
+    const comp = await apiGet(api, `/api/collections/competitions/records/${ctx.competitionId}`);
+    const jornada1Title = jornadaTitle(comp.start_date, comp.end_date, ctx.target, 1);
+    await expect(page.locator(`.collapse-title:has-text("${jornada1Title}")`)).toBeVisible({ timeout: 10000 });
 
     // Pair filter dropdown is present and at least one match link is visible
     await expect(page.locator('select[name="pair"]')).toBeVisible();
@@ -237,9 +241,9 @@ test.describe('leveled-16 scenario', () => {
 
       // Expand matchA/matchB's shared Jornada group and confirm matchB
       // (pending, later date) appears before matchA (scheduled, earlier date).
-      const jornadaTitle = page.locator(`.collapse-title:has-text("Jornada ${matchA.slot}")`);
-      await expect(jornadaTitle).toBeVisible({ timeout: 10000 });
-      await jornadaTitle.locator('..').locator('input[type="checkbox"]').click();
+      const jornadaGroup = page.locator(`.collapse-title:has-text("Jornada ${matchA.slot}")`);
+      await expect(jornadaGroup).toBeVisible({ timeout: 10000 });
+      await jornadaGroup.locator('..').locator('input[type="checkbox"]').click();
       const rows = page.locator(`a[href="/match/${matchB.id}"], a[href="/match/${matchA.id}"]`);
       await expect(rows.first()).toHaveAttribute('href', `/match/${matchB.id}`, { timeout: 10000 });
 
