@@ -1,27 +1,25 @@
 import { test, expect } from '@playwright/test';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import { loginAs } from '../helpers';
 import { enterScore, clickAndWaitForHxRedirect } from '../tour-helpers';
 import {
   ScenarioApi,
-  ScenarioCtx,
+  ScenarioData,
   apiGet,
   apiPatch,
   startSmtpSink,
   enableSmtp,
   disableSmtp,
   PLAYER_PASSWORD,
+  loadCtx,
+  ensureStage,
 } from '../scenario-helpers';
 
-// Load the baseline context written by scenario-setup.ts globalSetup.
-function loadCtx(): ScenarioCtx & { baseURL: string; suToken: string; adminCookie: string } {
-  const raw = readFileSync(join(__dirname, '../.test-data/scenario.json'), 'utf-8');
-  return JSON.parse(raw);
-}
-
 test('smtp sink receives email on match finalization', async ({ page }) => {
-  const saved = loadCtx();
+  const raw = loadCtx();
+  const saved = await ensureStage(
+    { baseURL: raw.baseURL, suToken: raw.suToken, adminCookie: raw.adminCookie },
+    'assigned',
+  );
   const api: ScenarioApi = {
     baseURL: saved.baseURL,
     suToken: saved.suToken,

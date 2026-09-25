@@ -1,5 +1,8 @@
 import { randomUUID } from 'crypto';
+import { readFileSync, writeFileSync } from 'fs';
+import { join } from 'path';
 import { SMTPServer } from 'smtp-server';
+import { STAGE_ORDER, type StageName } from './scenario-registry';
 
 export const PLAYER_PASSWORD = 'TestPass123456';
 
@@ -122,19 +125,22 @@ export async function createCompetition(
   target: number,
   open: number,
 ): Promise<string> {
-  const now = Date.now();
-  const startDate = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const endDate = new Date(now + 60 * 24 * 60 * 60 * 1000).toISOString();
   const record = await apiPost(api, '/api/collections/competitions/records', {
     name,
     type: 'league',
     active: true,
     target_matches: target,
     open_assignments: open,
-    start_date: startDate,
-    end_date: endDate,
   });
   return record.id;
+}
+
+export function competitionDates(): { startDate: string; endDate: string } {
+  const now = Date.now();
+  return {
+    startDate: new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    endDate: new Date(now + 60 * 24 * 60 * 60 * 1000).toISOString(),
+  };
 }
 
 export async function addPairToCompetition(
@@ -222,8 +228,6 @@ export async function assertAssignmentInvariants(
 
 type Stage = (api: ScenarioApi, ctx: ScenarioCtx) => Promise<ScenarioCtx>;
 
-const STAGE_ORDER = ['created', 'assigned', 'mid', 'end'] as const;
-
 async function stageCreated(api: ScenarioApi, ctx: ScenarioCtx): Promise<ScenarioCtx> {
   const suffix = uniqueSuffix();
   const target = 6;
@@ -235,6 +239,15 @@ async function stageCreated(api: ScenarioApi, ctx: ScenarioCtx): Promise<Scenari
     await addPairToCompetition(api, competitionId, pair.id);
   }
   return { ...ctx, competitionId, players, pairs, target, open, stage: 'created' };
+}
+
+async function stageDated(api: ScenarioApi, ctx: ScenarioCtx): Promise<ScenarioCtx> {
+  const { startDate, endDate } = competitionDates();
+  await apiPatch(api, `/api/collections/competitions/records/${ctx.competitionId}`, {
+    start_date: startDate,
+    end_date: endDate,
+  });
+  return { ...ctx, stage: 'dated' };
 }
 
 async function stageAssigned(api: ScenarioApi, ctx: ScenarioCtx): Promise<ScenarioCtx> {
@@ -253,6 +266,7 @@ async function stageEndSeason(api: ScenarioApi, ctx: ScenarioCtx): Promise<Scena
 
 const STAGES: Record<string, Stage> = {
   created: stageCreated,
+  dated: stageDated,
   assigned: stageAssigned,
   mid: stageMidSeason,
   end: stageEndSeason,
@@ -270,15 +284,58 @@ function emptyCtx(api: ScenarioApi): ScenarioCtx {
   };
 }
 
-export async function buildToStage(api: ScenarioApi, stageName: string): Promise<ScenarioCtx> {
-  const target = STAGE_ORDER.indexOf(stageName as typeof STAGE_ORDER[number]);
+async function advanceToStage(api: ScenarioApi, ctx: ScenarioCtx, stageName: string): Promise<ScenarioCtx> {
+  const current = STAGE_ORDER.indexOf(ctx.stage as StageName);
+  const target = STAGE_ORDER.indexOf(stageName as StageName);
   if (target === -1) throw new Error(`Unknown stage: ${stageName}`);
-  let ctx = emptyCtx(api);
-  for (let i = 0; i <= target; i++) {
-    ctx = await STAGES[STAGE_ORDER[i]](api, ctx);
-    await assertAssignmentInvariants(api, ctx);
+  let sc = ctx;
+  for (let i = Math.max(current + 1, 0); i <= target; i++) {
+    sc = await STAGES[STAGE_ORDER[i]](api, sc);
+    await assertAssignmentInvariants(api, sc);
   }
-  return ctx;
+  return sc;
+}
+
+export async function buildToStage(api: ScenarioApi, stageName: string): Promise<ScenarioCtx> {
+  return advanceToStage(api, emptyCtx(api), stageName);
+}
+
+const SCENARIO_JSON = join(__dirname, '.test-data/scenario.json');
+
+export interface ScenarioData extends ScenarioCtx {
+  baseURL: string;
+  suToken: string;
+  adminCookie: string;
+}
+
+export function loadCtx(): ScenarioData {
+  return JSON.parse(readFileSync(SCENARIO_JSON, 'utf-8'));
+}
+
+export function saveCtx(ctx: ScenarioData): void {
+  const { api: _, ...rest } = ctx as any;
+  writeFileSync(SCENARIO_JSON, JSON.stringify(rest, null, 2));
+}
+
+export async function ensureStage(api: ScenarioApi, stage: StageName): Promise<ScenarioData> {
+  const ctx = loadCtx();
+  const current = STAGE_ORDER.indexOf(ctx.stage as StageName);
+  const target = STAGE_ORDER.indexOf(stage);
+  if (current >= target) return ctx;
+  const sc = await advanceToStage(api, { ...ctx, api }, stage);
+  const { api: _, ...rest } = sc as any;
+  const updated: ScenarioData = { ...ctx, ...rest, stage: sc.stage };
+  saveCtx(updated);
+  return updated;
+}
+
+export function requireStage(ctx: ScenarioData, stage: StageName): void {
+  if (ctx.stage !== stage) {
+    throw new Error(
+      `Scenario must start at stage '${stage}' (got '${ctx.stage}'). ` +
+      `Run: make e2e-scenario SCENARIO=leveled-16-pregen`,
+    );
+  }
 }
 
 // SMTP sink — captures outbound emails for assertion in tests.

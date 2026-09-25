@@ -135,11 +135,21 @@ export async function generateFixtures(page: Page): Promise<void> {
 }
 
 export async function setDates(page: Page, startDate: string, endDate: string): Promise<void> {
-  // Open the edit modal to set competition start/end dates
   await page.locator('label[for="edit-modal"]').first().click();
-  await page.waitForTimeout(300);
-  await page.fill('input[name="start_date"]', startDate);
-  await page.fill('input[name="end_date"]', endDate);
+  await page.waitForTimeout(500);
+  await page.evaluate(({ s, e }) => {
+    const startEl = document.querySelector<HTMLInputElement>('input[name="start_date"]')!;
+    const endEl = document.querySelector<HTMLInputElement>('input[name="end_date"]')!;
+    if ((startEl as any)._flatpickr) {
+      (startEl as any)._flatpickr.setDate(s, true);
+      (endEl as any)._flatpickr.setDate(e, true);
+    } else {
+      startEl.value = s;
+      endEl.value = e;
+      startEl.dispatchEvent(new Event('change', { bubbles: true }));
+      endEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }, { s: startDate, e: endDate });
   await clickAndWaitForHxRedirect(page, page.locator('.modal button:has-text("Guardar")'));
 }
 

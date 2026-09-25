@@ -115,15 +115,17 @@ reset: stop
 	rm -rf pb_data
 	$(MAKE) run
 
-e2e-scenario: ## scenario tests (leveled league)
+e2e-scenario: ## run a scenario: make e2e-scenario SCENARIO=<name>
+	@if [ -z "$(SCENARIO)" ]; then cd e2e && npx tsx list-scenarios.ts; exit 1; fi
 	@E2E_PORT=$$(node e2e/find-free-port.mjs) && \
-	echo "scenario tests on port $$E2E_PORT" && \
-	cd e2e && E2E_PORT=$$E2E_PORT npx playwright test --config playwright.scenario.config.ts
+	echo "scenario '$(SCENARIO)' on port $$E2E_PORT" && \
+	cd e2e && SCENARIO=$(SCENARIO) E2E_PORT=$$E2E_PORT npx playwright test --config playwright.scenario.config.ts
 
-scenario-serve: ## baseline only, keep server alive for manual testing
+scenario-serve: ## boot a scenario and keep server alive: make scenario-serve SCENARIO=<name>
+	@if [ -z "$(SCENARIO)" ]; then cd e2e && npx tsx list-scenarios.ts; exit 1; fi
 	@E2E_PORT=$$(node e2e/find-free-port.mjs) && \
-	cd e2e && E2E_KEEP=1 E2E_PORT=$$E2E_PORT npx playwright test \
-	  --config playwright.scenario.config.ts --grep "00 baseline"
+	cd e2e && E2E_KEEP=1 SCENARIO=$(SCENARIO) E2E_PORT=$$E2E_PORT npx playwright test \
+	  --config playwright.scenario.config.ts --grep "00 "
 
 e2e-scenario-stop: ## stop a kept scenario server and delete its data
 	@if [ -f e2e/.test-data/scenario.pid ]; then \

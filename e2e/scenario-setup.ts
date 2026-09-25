@@ -3,12 +3,16 @@ import { join } from 'path';
 import { spawnServer, superuserLogin } from './server';
 import { ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME } from './global-setup';
 import { buildToStage, ScenarioApi } from './scenario-helpers';
+import { SCENARIOS } from './scenario-registry';
 
 const PORT = process.env.E2E_PORT ? Number(process.env.E2E_PORT) : 8098;
-const STAGE = process.env.STAGE || 'assigned';
+const SCENARIO = process.env.SCENARIO ?? '';
 const TEST_DATA_DIR = join(__dirname, '.test-data');
 
 export default async function scenarioSetup() {
+  const scenario = SCENARIOS[SCENARIO];
+  if (!scenario) throw new Error(`Unknown scenario: ${SCENARIO}`);
+
   const keepAlive = process.env.E2E_KEEP === '1';
 
   const handle = await spawnServer(PORT, {
@@ -30,7 +34,7 @@ export default async function scenarioSetup() {
   const adminCookie = await getAdminCookie(handle.baseURL);
 
   const api: ScenarioApi = { baseURL: handle.baseURL, suToken, adminCookie };
-  const ctx = await buildToStage(api, STAGE);
+  const ctx = await buildToStage(api, scenario.startStage);
 
   mkdirSync(TEST_DATA_DIR, { recursive: true });
 
