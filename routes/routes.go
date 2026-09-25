@@ -228,10 +228,11 @@ func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], d
 	g.POST("/competitions/{id}/pairs", pairs.AddPair)
 	g.POST("/competitions/{id}/copy-pairs", pairs.CopyPairs)
 	g.POST("/competitions/{id}/remove-pair", pairs.RemovePair)
-	g.POST("/competitions/{id}/seed", pairs.SetSeed)
 	g.POST("/competitions/{id}/payment", payments.TogglePayment)
 	g.POST("/competitions/{id}/payment-all", payments.TogglePaymentAll)
 	g.POST("/competitions/{id}/payment-reminder", payments.SendPaymentReminder)
+	g.POST("/competitions/{id}/balls", payments.ToggleBalls)
+	g.POST("/competitions/{id}/balls-all", payments.ToggleBallsAll)
 	g.POST("/competitions/{id}/penalty", comp.ApplyPenalty)
 	g.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
 	g.POST("/competitions/{id}/publish", comp.PublishCalendar)
@@ -263,6 +264,7 @@ func registerAdminPairRoutes(g *router.RouterGroup[*core.RequestEvent], deps Dep
 	g.GET("/pairs", h.Pairs)
 	g.POST("/pairs", h.PairsCreate)
 	g.POST("/pairs/{id}", h.PairsUpdate)
+	g.POST("/pairs/{id}/level", h.SetLevel)
 }
 
 func registerAdminPlayerRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {

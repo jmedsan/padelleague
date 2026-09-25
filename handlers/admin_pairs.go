@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"log/slog"
+	"slices"
+	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
 
@@ -27,6 +29,8 @@ type PairView struct {
 	Player1Avatar string
 	Player2Avatar string
 	CaptainID     string
+	Level         string
+	LevelLocked   bool
 }
 
 // Pairs renders the admin pairs management page.
@@ -42,6 +46,8 @@ func (h *PairHandler) Pairs(e *core.RequestEvent) error {
 			Player1Avatar: league.PlayerAvatarURL(h.app, p.GetString("player1")),
 			Player2Avatar: league.PlayerAvatarURL(h.app, p.GetString("player2")),
 			CaptainID:     p.GetString("captain"),
+			Level:         p.GetString("level"),
+			LevelLocked:   league.LevelLocked(h.app, p.Id),
 		})
 	}
 
@@ -51,6 +57,7 @@ func (h *PairHandler) Pairs(e *core.RequestEvent) error {
 		"PageTitle": "Parejas",
 		"Pairs":     views,
 		"Users":     users,
+		"Levels":    league.Levels,
 		"Mode":      AdminSummary,
 	})
 }
@@ -155,6 +162,40 @@ func (h *PairHandler) PairsUpdate(e *core.RequestEvent) error {
 
 	flash(e, "Pareja actualizada")
 	return redirectHX(e, "/admin/pairs")
+}
+
+// SetLevel saves a pair's skill-level classification. Pair-scoped (not
+// competition-scoped) so it works from both the competition pairs table and
+// the admin pairs page; the caller passes return_to so the redirect lands
+// back on whichever surface submitted it.
+func (h *PairHandler) SetLevel(e *core.RequestEvent) error {
+	pairID := e.Request.PathValue("id")
+	level := e.Request.FormValue("level")
+
+	pair, err := h.app.FindRecordById("pairs", pairID)
+	if err != nil {
+		return alertError(e, "Pareja no encontrada")
+	}
+
+	if !slices.ContainsFunc(league.Levels, func(l league.Level) bool { return l.Key == level }) {
+		return alertError(e, "Nivel no válido")
+	}
+	if league.LevelLocked(h.app, pairID) {
+		return alertError(e, "No se puede cambiar el nivel de una pareja con partidos en una liga nivelada")
+	}
+
+	pair.Set("level", level)
+	if err := h.app.Save(pair); err != nil {
+		slog.Error("set pair level failed", "pair", pairID, "err", err)
+		return alertError(e, "Error al guardar el nivel")
+	}
+
+	flash(e, "Nivel actualizado")
+	returnTo := e.Request.FormValue("return_to")
+	if !strings.HasPrefix(returnTo, "/admin/") {
+		returnTo = "/admin/pairs"
+	}
+	return redirectHX(e, returnTo)
 }
 
 // applyPairCaptain reads the captain form value and either sets it on the pair
