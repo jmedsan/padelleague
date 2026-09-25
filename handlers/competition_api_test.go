@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -50,12 +51,14 @@ func setupCompRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.POST("/competitions/{id}/penalty", comp.ApplyPenalty)
 	g.POST("/competitions/{id}/withdraw-pair", comp.WithdrawPair)
 	g.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
-	g.POST("/competitions/{id}/seed", cpairs.SetSeed)
+	g.POST("/competitions/{id}/balls", cpayments.ToggleBalls)
+	g.POST("/competitions/{id}/balls-all", cpayments.ToggleBallsAll)
 	g.POST("/disputes/{id}/resolve", dispute.DisputesResolve)
 	g.POST("/disputes/{id}/walkover-approve", dispute.WalkoverApprove)
 
 	pairs := NewPairHandler(app, r.Page)
 	g.POST("/pairs/{id}", pairs.PairsUpdate)
+	g.POST("/pairs/{id}/level", pairs.SetLevel)
 }
 
 func TestCompUpdate(t *testing.T) {
@@ -1248,30 +1251,87 @@ func TestRoundRobinDefaultMatchCount(t *testing.T) {
 	s.Test(t)
 }
 
-// -- Task 8: SetSeed handler ------------------------------------------------
+// -- Level + balls handlers --------------------------------------------------
 
-func TestSetSeed_NumberedPairsInOrder(t *testing.T) {
+func TestSetPairLevel(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "POST /admin/competitions/{id}/seed — numbered pairs saved in ascending order",
+		Name:           "POST /admin/pairs/{id}/level saves the level",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var compID string
-	var p1ID, p2ID, p3ID string
+	var pairID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupCompRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "SdA")
-		p2 := makePairTB(tb, app, "SdB")
-		p3 := makePairTB(tb, app, "SdC")
-		p1ID, p2ID, p3ID = p1.Id, p2.Id, p3.Id
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3})
+		p1 := makePairTB(tb, app, "LvA")
+		pairID = p1.Id
+		s.URL = "/admin/pairs/" + pairID + "/level"
+		s.Body = strings.NewReader("level=advanced")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		p, err := app.FindRecordById("pairs", pairID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "advanced", p.GetString("level"))
+	}
+	s.Test(t)
+}
+
+func TestSetPairLevel_Locked(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/pairs/{id}/level — locked when pair has leveled matches",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"No se puede cambiar el nivel"},
+	}
+	var pairID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := makePairTB(tb, app, "LkLvA")
+		p2 := makePairTB(tb, app, "LkLvB")
+		p3 := makePairTB(tb, app, "LkLvC")
+		p4 := makePairTB(tb, app, "LkLvD")
+		pairID = p1.Id
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3, p4})
+		comp.Set("target_matches", 2)
+		require.NoError(tb, app.Save(comp))
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/admin/pairs/" + pairID + "/level"
+		s.Body = strings.NewReader("level=advanced")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestToggleBalls(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/balls toggles balls_status",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, pairID, adminID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		adminID = admin.Id
+		p1 := makePairTB(tb, app, "BlA")
+		p2 := makePairTB(tb, app, "BlB")
+		pairID = p1.Id
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
-		s.URL = "/admin/competitions/" + compID + "/seed"
-		// p2=1 (strongest), p3=2, p1=3
-		s.Body = strings.NewReader("seed_" + p2.Id + "=1&seed_" + p3.Id + "=2&seed_" + p1.Id + "=3")
+		s.URL = "/admin/competitions/" + compID + "/balls"
+		s.Body = strings.NewReader("pair_id=" + pairID)
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -1279,17 +1339,21 @@ func TestSetSeed_NumberedPairsInOrder(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		c, err := app.FindRecordById("competitions", compID)
 		require.NoError(tb, err)
-		seeds := c.GetStringSlice("seed_pairs")
-		assert.Equal(tb, []string{p2ID, p3ID, p1ID}, seeds, "seed_pairs must be sorted by number ascending")
+		status := map[string]bool{}
+		require.NoError(tb, c.UnmarshalJSONField("balls_status", &status))
+		assert.True(tb, status[pairID])
+		by := map[string]string{}
+		require.NoError(tb, c.UnmarshalJSONField("balls_delivered_by", &by))
+		assert.Equal(tb, adminID, by[pairID])
 	}
 	s.Test(t)
 }
 
-func TestSetSeed_PartialNumbering(t *testing.T) {
+func TestToggleBallsAll(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "POST /admin/competitions/{id}/seed — partial numbering saves only numbered pairs",
+		Name:           "POST /admin/competitions/{id}/balls-all sets every pair delivered",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
@@ -1298,15 +1362,12 @@ func TestSetSeed_PartialNumbering(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupCompRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "PaA")
-		p2 := makePairTB(tb, app, "PaB")
-		p3 := makePairTB(tb, app, "PaC")
+		p1 := makePairTB(tb, app, "BlAllA")
+		p2 := makePairTB(tb, app, "BlAllB")
 		p1ID, p2ID = p1.Id, p2.Id
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3})
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
-		s.URL = "/admin/competitions/" + compID + "/seed"
-		// Only p1 and p2 get seeds
-		s.Body = strings.NewReader("seed_" + p1.Id + "=1&seed_" + p2.Id + "=2")
+		s.URL = "/admin/competitions/" + compID + "/balls-all"
 		hdrs := authHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -1314,66 +1375,19 @@ func TestSetSeed_PartialNumbering(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		c, err := app.FindRecordById("competitions", compID)
 		require.NoError(tb, err)
-		seeds := c.GetStringSlice("seed_pairs")
-		assert.Equal(tb, []string{p1ID, p2ID}, seeds)
+		status := map[string]bool{}
+		require.NoError(tb, c.UnmarshalJSONField("balls_status", &status))
+		assert.True(tb, status[p1ID])
+		assert.True(tb, status[p2ID])
 	}
 	s.Test(t)
 }
 
-func TestSetSeed_DuplicateRejected(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "POST /admin/competitions/{id}/seed — duplicate numbers rejected",
-		Method:          http.MethodPost,
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"Dos parejas tienen el mismo nivel"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
-		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "DpA")
-		p2 := makePairTB(tb, app, "DpB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		s.URL = "/admin/competitions/" + comp.Id + "/seed"
-		s.Body = strings.NewReader("seed_" + p1.Id + "=1&seed_" + p2.Id + "=1")
-		hdrs := authHeaders(tb, admin)
-		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-		s.Headers = hdrs
-	}
-	s.Test(t)
-}
-
-func TestSetSeed_LockedWithMatches(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
-		Name:            "POST /admin/competitions/{id}/seed — locked when matches exist",
-		Method:          http.MethodPost,
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"No se puede cambiar con el calendario generado"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
-		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "LkSdA")
-		p2 := makePairTB(tb, app, "LkSdB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		s.URL = "/admin/competitions/" + comp.Id + "/seed"
-		s.Body = strings.NewReader("seed_" + p1.Id + "=1")
-		hdrs := authHeaders(tb, admin)
-		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-		s.Headers = hdrs
-	}
-	s.Test(t)
-}
-
-func TestRemovePairDropsFromSeedPairs(t *testing.T) {
+func TestRemovePair_ClearsBolas(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "POST /admin/competitions/{id}/remove-pair drops pair from seed_pairs",
+		Name:           "POST /admin/competitions/{id}/remove-pair clears balls entries",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
@@ -1381,11 +1395,13 @@ func TestRemovePairDropsFromSeedPairs(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupCompRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "RmSdA")
-		p2 := makePairTB(tb, app, "RmSdB")
+		p1 := makePairTB(tb, app, "RmBlA")
+		p2 := makePairTB(tb, app, "RmBlB")
 		p1ID = p1.Id
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		comp.Set("seed_pairs", []string{p1.Id, p2.Id})
+		comp.Set("balls_status", map[string]bool{p1.Id: true, p2.Id: true})
+		comp.Set("balls_delivered_at", map[string]string{p1.Id: time.Now().Format(time.RFC3339)})
+		comp.Set("balls_delivered_by", map[string]string{p1.Id: admin.Id})
 		require.NoError(tb, app.Save(comp))
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + compID + "/remove-pair"
@@ -1397,8 +1413,14 @@ func TestRemovePairDropsFromSeedPairs(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		c, err := app.FindRecordById("competitions", compID)
 		require.NoError(tb, err)
-		assert.NotContains(tb, c.GetStringSlice("seed_pairs"), p1ID,
-			"removed pair must not remain in seed_pairs")
+		status := map[string]bool{}
+		require.NoError(tb, c.UnmarshalJSONField("balls_status", &status))
+		_, stillThere := status[p1ID]
+		assert.False(tb, stillThere, "removed pair must not remain in balls_status")
+		at := map[string]string{}
+		require.NoError(tb, c.UnmarshalJSONField("balls_delivered_at", &at))
+		_, atThere := at[p1ID]
+		assert.False(tb, atThere, "removed pair must not remain in balls_delivered_at")
 	}
 	s.Test(t)
 }
