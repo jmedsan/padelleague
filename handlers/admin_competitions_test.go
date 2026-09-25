@@ -565,6 +565,93 @@ func TestToggleCompetition(t *testing.T) {
 	s.Test(t)
 }
 
+// TestUpdateCompetition_RedirectsToDetail pins the redirect target: the edit
+// form lives on the competition detail page (admin/competition-detail.html),
+// so a save must return the admin there, not to the competitions list. Fails
+// on the pre-fix code, which redirected to "/admin/competitions".
+func TestUpdateCompetition_RedirectsToDetail(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id} redirects back to the detail page",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Body = strings.NewReader("name=Updated&type=league")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/admin/competitions/"+compID, res.Header.Get("HX-Redirect"))
+	}
+	s.Test(t)
+}
+
+// TestToggleCompetition_RedirectsToDetailWithReturnField pins Toggle's
+// dual-context redirect: the toggle form renders both on the competitions
+// list (inactive card) and on the competition detail header. The detail
+// header's form carries a hidden return=detail field so Toggle can tell
+// which caller submitted it — a Referer/HX-Current-URL header is not
+// reliable here since confirm.js defers the request past the click that set
+// the browser's notion of "current page". Fails on the pre-fix code, which
+// always redirected to "/admin/competitions".
+func TestToggleCompetition_RedirectsToDetailWithReturnField(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/toggle with return=detail redirects to the detail page",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/toggle"
+		s.Body = strings.NewReader("return=detail")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/admin/competitions/"+compID, res.Header.Get("HX-Redirect"))
+	}
+	s.Test(t)
+}
+
+// TestToggleCompetition_NoReturnFieldFallsBackToList covers the list-page
+// caller: without the return=detail field, Toggle must fall back to the list.
+func TestToggleCompetition_NoReturnFieldFallsBackToList(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/toggle with no return field falls back to the list",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		comp := makeCompetitionTB(tb, app, "league", nil)
+		s.URL = "/admin/competitions/" + comp.Id + "/toggle"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/admin/competitions", res.Header.Get("HX-Redirect"))
+	}
+	s.Test(t)
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Group 9: AddPair with seed
 // ═══════════════════════════════════════════════════════════════════════

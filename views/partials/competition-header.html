@@ -25,6 +25,7 @@
                   hx-confirm="¿Cambiar el estado de la competición?" data-confirm-ok="Cambiar"
                   hx-on:confirm:cancelled="this.querySelector('input[type=checkbox]').checked = !this.querySelector('input[type=checkbox]').checked"
                   class="flex items-center gap-2">
+                <input type="hidden" name="return" value="detail">
                 <span class="label-text text-sm">{{if .Comp.GetBool "active"}}Activa{{else}}Inactiva{{end}}</span>
                 <input type="checkbox" class="toggle toggle-success" onchange="this.form.requestSubmit()" {{if .Comp.GetBool "active"}}checked{{end}}>
             </form>
