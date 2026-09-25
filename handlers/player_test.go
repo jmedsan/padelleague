@@ -364,6 +364,28 @@ func TestGen2_PlayerProfile_ZeroMatches(t *testing.T) {
 	s.Test(t)
 }
 
+func TestGen2_PlayerProfile_ShowsGender(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "player profile shows gender label",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Mujer"},
+	}
+
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Carla", "")
+		user.Set("gender", "female")
+		require.NoError(tb, app.Save(user))
+		s.URL = "/player/" + user.Id
+		s.Headers = authHeaders(tb, user)
+	}
+
+	s.Test(t)
+}
+
 func TestPlayerProfileWithMatches(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
