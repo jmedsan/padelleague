@@ -69,7 +69,6 @@ func (h *CompetitionHandler) buildDetailData(e *core.RequestEvent, id string, co
 
 	penaltyRows := h.getPenaltyRows(id)
 	disputes := league.CompHealthItems(h.app, id, time.Now(), "disputes", "walkovers")
-	seedRankMap := buildSeedRankMap(comp)
 
 	data := map[string]any{
 		"PageTitle":           comp.GetString("name"),
@@ -85,10 +84,12 @@ func (h *CompetitionHandler) buildDetailData(e *core.RequestEvent, id string, co
 		"ActivePenalty":       firstActivePenalty(penaltyRows),
 		"IsLeague":            comp.GetString("type") == "league",
 		"IsLeveled":           isLeveled,
-		"SeedRankMap":         seedRankMap,
+		"Levels":              league.Levels,
 		"HasFixtures":         len(matches) > 0,
 		"HasUnpaid":           anyUnpaid(pairEntries),
 		"UnpaidCount":         countUnpaid(pairEntries),
+		"HasNoBolas":          anyNoBolas(pairEntries),
+		"NoBolasCount":        countNoBolas(pairEntries),
 		"Phase":               league.PhaseOf(comp, time.Now()),
 		"Mode":                AdminFull,
 		"FooterCompetitionID": id,
@@ -116,23 +117,15 @@ func resolveAdminPairFilter(query map[string][]string, compPairIDs []string) str
 }
 
 func (h *CompetitionHandler) loadPairEntries(comp *core.Record, pairIDs []string) ([]pairEntry, []*core.Record) {
-	seeding := getSeeding(comp)
 	payment := paymentInfo{app: h.app, status: getPaymentStatus(comp), paidAt: getPaymentDates(comp), paidBy: getPaymentActors(comp)}
+	balls := ballsInfo{status: getBallsStatus(comp), deliveredAt: getBallsDates(comp), deliveredBy: getBallsActors(comp)}
 	withdrawnIDs := comp.GetStringSlice("withdrawn_pairs")
 	withdrawnSet := make(map[string]bool, len(withdrawnIDs))
 	for _, wid := range withdrawnIDs {
 		withdrawnSet[wid] = true
 	}
-	return buildPairEntries(pairIDs, seeding, payment, withdrawnSet), availablePairs(h.app, pairIDs)
-}
-
-func buildSeedRankMap(comp *core.Record) map[string]int {
-	seedPairs := comp.GetStringSlice("seed_pairs")
-	m := make(map[string]int, len(seedPairs))
-	for i, pid := range seedPairs {
-		m[pid] = i + 1
-	}
-	return m
+	in := pairEntryInputs{seeding: getSeeding(comp), payment: payment, balls: balls, withdrawnSet: withdrawnSet}
+	return buildPairEntries(pairIDs, in), availablePairs(h.app, pairIDs)
 }
 
 func applyCompFormFields(record *core.Record, e *core.RequestEvent, clearReminderIfEmpty bool) error {
