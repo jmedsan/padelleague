@@ -397,17 +397,17 @@ test.describe('match thread', () => {
     ]);
     await page.waitForLoadState('domcontentloaded');
 
-    // Withdraw button is visible — accept the confirm dialog
+    // Withdraw button is visible — accept the confirm dialog. hx-confirm is
+    // intercepted by static/js/confirm.js's custom #confirm-modal, not the
+    // native window.confirm().
     const withdrawBtn = page.locator('button:has-text("Retirar")').first();
     await expect(withdrawBtn).toBeVisible({ timeout: 10000 });
 
-    page.once('dialog', async (dialog) => {
-      expect(dialog.message()).toContain('Retirar');
-      await dialog.accept();
-    });
+    await withdrawBtn.click();
+    await expect(page.locator('#confirm-message')).toContainText('Retirar');
     await Promise.all([
       page.waitForEvent('load', { timeout: 10000 }),
-      withdrawBtn.click(),
+      page.locator('#confirm-ok').click(),
     ]);
     await page.waitForLoadState('domcontentloaded');
 

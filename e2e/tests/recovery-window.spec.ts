@@ -65,10 +65,13 @@ test.describe('end-of-league recovery window', () => {
     await page.goto(`/admin/competitions/${compId}`);
     await expect(page.getByText('En recuperación')).toBeVisible({ timeout: 10000 });
 
-    page.once('dialog', dialog => dialog.accept());
+    // hx-confirm is intercepted by static/js/confirm.js's custom
+    // #confirm-modal, not the native window.confirm() — the request only
+    // fires once #confirm-ok is clicked.
+    await page.locator('[data-testid="finalize-league"]').click();
     await Promise.all([
       page.waitForResponse(resp => resp.url().includes(`/admin/competitions/${compId}/finalize`)),
-      page.locator('[data-testid="finalize-league"]').click(),
+      page.locator('#confirm-ok').click(),
     ]);
     await page.waitForLoadState('networkidle');
 

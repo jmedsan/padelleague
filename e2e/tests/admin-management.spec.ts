@@ -15,7 +15,7 @@ async function getSuperuserToken(page: Page) {
 const NAV_LABELS: Record<string, string> = {
   '/admin/competitions': 'Competiciones',
   '/admin/health': 'Salud',
-  '/admin/players': 'Jugadores',
+  '/admin/players': 'Usuarios',
   '/admin/venues': 'Clubes',
 };
 
