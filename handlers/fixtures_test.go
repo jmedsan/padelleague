@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"padelleague/league"
 	"testing"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -382,6 +383,45 @@ func TestGenerateLeagueFixtures(t *testing.T) {
 		assert.Equal(tb, 3, len(matches))
 	}
 	s.Test(t)
+}
+
+// TestGenerateFlashMessage verifies the post-generation flash: plain for
+// round-robin and on-time leveled leagues, with an appended note when the
+// admin generates a leveled calendar after Jornada 1 already closed.
+func TestGenerateFlashMessage(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+
+	pairs := make([]*core.Record, 12)
+	for i := range pairs {
+		pairs[i] = makePairTB(t, app, fmt.Sprintf("Flash%02d", i))
+	}
+
+	t.Run("round-robin: plain message", func(t *testing.T) {
+		comp := makeCompetitionTB(t, app, "league", pairs[:2])
+		assert.Equal(t, "Calendario generado", generateFlashMessage(comp))
+	})
+
+	t.Run("leveled, generated before the season starts: plain message", func(t *testing.T) {
+		comp := makeCompetitionTB(t, app, "league", pairs) // 12 pairs, target 6 < 11 → leveled
+		comp.Set("target_matches", 6)
+		comp.Set("start_date", time.Now().Add(24*time.Hour).Format(time.RFC3339))
+		comp.Set("end_date", time.Now().Add(80*24*time.Hour).Format(time.RFC3339))
+		require.NoError(t, app.Save(comp))
+		assert.Equal(t, "Calendario generado", generateFlashMessage(comp))
+	})
+
+	t.Run("leveled, generated after Jornada 1 closed: appends the Jornada note", func(t *testing.T) {
+		comp := makeCompetitionTB(t, app, "league", pairs) // 12 pairs, target 10 < 11 → leveled
+		comp.Set("target_matches", 10)
+		start := time.Now().Add(-7 * 24 * time.Hour)
+		comp.Set("start_date", start.Format(time.RFC3339))
+		comp.Set("end_date", start.Add(70*24*time.Hour).Format(time.RFC3339)) // u=7d → cur=2
+		require.NoError(t, app.Save(comp))
+		assert.Equal(t,
+			"Calendario generado. La jornada 1 ya ha terminado; los partidos se asignan desde la jornada 2.",
+			generateFlashMessage(comp))
+	})
 }
 
 func TestGenerateFixtures_WithdrawnPairs_Blocked(t *testing.T) {
