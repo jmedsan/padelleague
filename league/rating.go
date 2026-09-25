@@ -35,9 +35,20 @@ var Levels = []Level{
 	{"unranked", "Sin clasificar", 0},
 }
 
-// LevelLabel returns the Spanish display label for a level key, or the key
-// itself when unrecognized.
+// NormalizeLevel maps an empty level (never set — new pairs don't get
+// "unranked" written until the admin edits them) to the unranked key, so
+// callers never need a separate empty-string branch.
+func NormalizeLevel(key string) string {
+	if key == "" {
+		return "unranked"
+	}
+	return key
+}
+
+// LevelLabel returns the Spanish display label for a level key (empty
+// treated as unranked), or the key itself when unrecognized.
 func LevelLabel(key string) string {
+	key = NormalizeLevel(key)
 	for _, l := range Levels {
 		if l.Key == key {
 			return l.Label
@@ -46,9 +57,11 @@ func LevelLabel(key string) string {
 	return key
 }
 
-// LevelElo returns the hidden-Elo starting offset for a level key, or 0
-// (the "Intermedio"/unranked baseline) when unrecognized.
+// LevelElo returns the hidden-Elo starting offset for a level key (empty
+// treated as unranked), or 0 (the "Intermedio"/unranked baseline) when
+// unrecognized.
 func LevelElo(key string) float64 {
+	key = NormalizeLevel(key)
 	for _, l := range Levels {
 		if l.Key == key {
 			return l.EloStart
