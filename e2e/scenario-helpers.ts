@@ -151,10 +151,9 @@ export async function createCompetition(
 }
 
 export function competitionDates(): { startDate: string; endDate: string } {
-  const now = Date.now();
   return {
-    startDate: new Date(now).toISOString(),
-    endDate: new Date(now + 70 * 24 * 60 * 60 * 1000).toISOString(),
+    startDate: '2026-09-28T12:00:00.000Z',
+    endDate: '2026-12-06T12:00:00.000Z',
   };
 }
 
