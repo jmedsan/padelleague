@@ -236,6 +236,7 @@ func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], d
 	g.POST("/competitions/{id}/penalty", comp.ApplyPenalty)
 	g.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
 	g.POST("/competitions/{id}/publish", comp.PublishCalendar)
+	g.POST("/competitions/{id}/delete-calendar", comp.DeleteCalendar)
 	g.POST("/competitions/{id}/round-dates", comp.UpdateRoundDates)
 	g.POST("/competitions/{id}/withdraw-pair", comp.WithdrawPair)
 	g.POST("/competitions/{id}/round-dates/regenerate", comp.RegenerateRoundDates)
