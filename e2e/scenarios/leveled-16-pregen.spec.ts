@@ -52,8 +52,8 @@ test.describe('leveled-16 pre-generation', () => {
     await page.goto(`/admin/competitions/${ctx.competitionId}`);
     await page.waitForLoadState('domcontentloaded');
 
-    const startDate = new Date(Date.now()).toISOString().slice(0, 10);
-    const endDate = new Date(Date.now() + 70 * 86400000).toISOString().slice(0, 10);
+    const startDate = '2026-09-28';
+    const endDate = '2026-12-06';
     await setDates(page, startDate, endDate);
 
     // Verify dates were saved by checking the competition record
