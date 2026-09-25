@@ -229,6 +229,12 @@ test.describe('reference navigation tour', () => {
     // --- Step 5: Generate fixtures ---
     await generateFixtures(page);
 
+    // Calendars are draft-only until published — a player can't see or act
+    // on any match before this (handlers/respond.go matchVisibleTo), and the
+    // propose/accept flow below logs in as real players.
+    await page.locator('button:has-text("Publicar calendario")').click();
+    await page.waitForLoadState('domcontentloaded');
+
     // A pair can't play without paying — mark all pairs paid.
     await markAllPairsPaid(page);
 
@@ -367,8 +373,17 @@ test.describe('reference navigation tour', () => {
       await parejasCheckbox.check({ force: true });
       await page.waitForTimeout(300);
     }
+    // The desktop table's Penalizar trigger is icon-only (aria-label, no text
+    // node) and lives in the "Más acciones" dropdown on mobile with visible
+    // text instead — one selector can't match both markups.
     const penaltyModal = page.locator(`#penalty-modal-${pairIds[0]} + .modal`);
-    await page.locator(`label[for="penalty-modal-${pairIds[0]}"]:has-text("Penalizar")`).click();
+    if (isMobile(page)) {
+      const dropdown = page.locator(`.dropdown:has(label[for="penalty-modal-${pairIds[0]}"])`);
+      await dropdown.locator('button[aria-label="Más acciones"]').click();
+      await dropdown.locator(`label[for="penalty-modal-${pairIds[0]}"]`).click();
+    } else {
+      await page.locator(`label[for="penalty-modal-${pairIds[0]}"][aria-label="Penalizar"]`).click();
+    }
     await penaltyModal.locator('textarea[name="reason"]').fill('Ajuste de clasificación');
     await clickAndWaitForHxRedirect(page, penaltyModal.locator('button:has-text("Confirmar penalización")'));
 

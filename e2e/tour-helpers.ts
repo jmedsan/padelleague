@@ -1,6 +1,6 @@
 import { Page, expect, APIRequestContext } from '@playwright/test';
 import { ExpectedRow, PairId } from './season-helpers';
-import { loginAs } from './helpers';
+import { loginAs, isMobile } from './helpers';
 
 // ---------------------------------------------------------------------------
 // referenceFallback — tracks non-affordance navigations for the guided spec
@@ -293,6 +293,18 @@ export async function acceptDocsGate(page: Page): Promise<void> {
 // Assertion helpers
 // ---------------------------------------------------------------------------
 
+// standingsColumnIndex maps each visible header's text (trimmed) to its
+// column index, so column assertions survive standings-table.html adding or
+// reordering columns (e.g. Pen/Aj. only render when the competition has any
+// penalty/adjustment, and the mobile table orders columns differently from
+// the desktop one) instead of breaking on a hardcoded position.
+async function standingsColumnIndex(page: Page, tableSelector: string): Promise<Record<string, number>> {
+  const headers = await page.locator(`${tableSelector} thead th`).allInnerTexts();
+  const index: Record<string, number> = {};
+  headers.forEach((h, i) => { index[h.trim()] = i; });
+  return index;
+}
+
 export async function assertFinalStandings(
   page: Page,
   compId: string,
@@ -302,9 +314,13 @@ export async function assertFinalStandings(
 ): Promise<void> {
   await page.goto(`/competition/${compId}`);
   await page.locator('input[aria-label="Clasificación"]').click();
-  await page.waitForSelector('table.table-zebra tbody tr', { timeout: 5000 });
+  // standings-table.html renders two separate <table> elements — table-zebra
+  // (desktop) and table-sm (mobile) — CSS-hidden at the other breakpoint.
+  const tableSelector = isMobile(page) ? 'table.table-sm' : 'table.table-zebra';
+  await page.waitForSelector(`${tableSelector} tbody tr`, { timeout: 5000 });
 
-  const rows = page.locator('table.table-zebra tbody tr');
+  const col = await standingsColumnIndex(page, tableSelector);
+  const rows = page.locator(`${tableSelector} tbody tr`);
   const count = await rows.count();
   expect(count).toBe(expected.length);
 
@@ -317,17 +333,17 @@ export async function assertFinalStandings(
     const setDiff = exp.setsWon - exp.setsLost;
     const gameDiff = exp.gamesWon - exp.gamesLost;
 
-    await expect(cells.nth(0)).toContainText(String(exp.position));
-    await expect(cells.nth(1)).toContainText(name);
-    await expect(cells.nth(2)).toContainText(String(exp.played));
-    await expect(cells.nth(3)).toContainText(String(exp.wins));
-    await expect(cells.nth(4)).toContainText(String(exp.losses));
-    await expect(cells.nth(5)).toContainText(setDiff >= 0 ? `+${setDiff}` : String(setDiff));
-    await expect(cells.nth(6)).toContainText(gameDiff >= 0 ? `+${gameDiff}` : String(gameDiff));
-    await expect(cells.nth(7)).toContainText(String(exp.points));
+    await expect(cells.nth(col['#'])).toContainText(String(exp.position));
+    await expect(cells.nth(col['Pareja'])).toContainText(name);
+    await expect(cells.nth(col['PJ'])).toContainText(String(exp.played));
+    await expect(cells.nth(col['PG'])).toContainText(String(exp.wins));
+    await expect(cells.nth(col['PP'])).toContainText(String(exp.losses));
+    await expect(cells.nth(col['DS'])).toContainText(setDiff >= 0 ? `+${setDiff}` : String(setDiff));
+    await expect(cells.nth(col['DJ'])).toContainText(gameDiff >= 0 ? `+${gameDiff}` : String(gameDiff));
+    await expect(cells.nth(col['Pts'])).toContainText(String(exp.points));
 
     if (hasPenalties && exp.penalty > 0) {
-      await expect(cells.nth(8)).toContainText(`-${exp.penalty}`);
+      await expect(cells.nth(col['Pen'])).toContainText(`-${exp.penalty}`);
     }
   }
 }
