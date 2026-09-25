@@ -263,25 +263,25 @@ func buildPairEntries(pairIDs []string, in pairEntryInputs) []pairEntry {
 			LevelLocked: league.LevelLocked(in.payment.app, pid),
 			Withdrawn:   in.withdrawnSet[pid],
 		}
-		if raw, ok := in.payment.paidAt[pid]; ok {
-			if t, err := time.Parse(time.RFC3339, raw); err == nil {
-				entry.PaidAt = render.FmtTime(t)
-			}
-		}
-		if uid, ok := in.payment.paidBy[pid]; ok && uid != "" {
-			entry.PaidByName = league.PlayerName(in.payment.app, uid)
-		}
-		if raw, ok := in.balls.deliveredAt[pid]; ok {
-			if t, err := time.Parse(time.RFC3339, raw); err == nil {
-				entry.BallsAt = render.FmtTime(t)
-			}
-		}
-		if uid, ok := in.balls.deliveredBy[pid]; ok && uid != "" {
-			entry.BallsByName = league.PlayerName(in.payment.app, uid)
-		}
+		entry.PaidAt, entry.PaidByName = traceFor(in.payment.app, pid, in.payment.paidAt, in.payment.paidBy)
+		entry.BallsAt, entry.BallsByName = traceFor(in.payment.app, pid, in.balls.deliveredAt, in.balls.deliveredBy)
 		entries = append(entries, entry)
 	}
 	return entries
+}
+
+// traceFor resolves a pair's traceability line (formatted timestamp + actor
+// name) from parallel at/by maps, shared by the Pagado and Bolas columns.
+func traceFor(app core.App, pairID string, at, by map[string]string) (atStr, byName string) {
+	if raw, ok := at[pairID]; ok {
+		if t, err := time.Parse(time.RFC3339, raw); err == nil {
+			atStr = render.FmtTime(t)
+		}
+	}
+	if uid, ok := by[pairID]; ok && uid != "" {
+		byName = league.PlayerName(app, uid)
+	}
+	return atStr, byName
 }
 
 func availablePairs(app core.App, enrolledIDs []string) []*core.Record {
