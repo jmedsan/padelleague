@@ -258,7 +258,7 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 	}
 
 	flash(e, "Competición actualizada")
-	return redirectHX(e, "/admin/competitions")
+	return redirectHX(e, "/admin/competitions/"+id)
 }
 
 // LogoUpload handles POST to upload and set a competition's logo image.
@@ -338,6 +338,9 @@ func (h *CompetitionHandler) Toggle(e *core.RequestEvent) error {
 	}
 	league.LogCompetitionEvent(h.app, league.CompetitionEvent{CompetitionID: id, ActorID: e.Auth.Id, Kind: kind, Detail: detail})
 
+	if e.Request.FormValue("return") == "detail" {
+		return redirectHX(e, "/admin/competitions/"+id)
+	}
 	return redirectHX(e, "/admin/competitions")
 }
 

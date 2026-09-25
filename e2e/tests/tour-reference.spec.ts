@@ -60,7 +60,7 @@ const pairNames: Record<PairId, string> = {
 // .claude/steering/e2e-timing.md.
 const NAV_HREFS: Record<string, string> = {
   'Competiciones': '/admin/competitions',
-  'Jugadores': '/admin/players',
+  'Usuarios': '/admin/players',
 };
 
 async function navTo(page: Page, label: string): Promise<void> {
@@ -136,10 +136,10 @@ test.describe('reference navigation tour', () => {
     if (!authResp.ok()) throw new Error(`Superuser auth failed: ${authResp.status()}`);
     suToken = (await authResp.json()).token;
 
-    // --- Step 1: Create players via Jugadores nav link ---
+    // --- Step 1: Create players via Usuarios nav link ---
     playerIds = [];
     for (const player of PLAYERS) {
-      await navTo(page, 'Jugadores');
+      await navTo(page, 'Usuarios');
       await createPlayer(page, player.email, player.name);
     }
     for (const player of PLAYERS) {
@@ -192,6 +192,35 @@ test.describe('reference navigation tour', () => {
 
     // After upload: the competition header shows the logo image (green state).
     await expect(page.locator('img[src*="/logo/competition/"]').first()).toBeVisible({ timeout: 10000 });
+
+    // --- Regression: editing a competition must keep the admin on its detail
+    // page, not bounce them to the list (the edit form only exists there).
+    await page.locator('label[for="edit-modal"]', { hasText: 'Editar' }).click();
+    await page.waitForSelector('#edit-comp-name', { state: 'visible' });
+    await page.fill('#edit-comp-name', `${COMP_NAME} editado`);
+    await page.locator('button[type="submit"]', { hasText: 'Guardar' }).click();
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('h1, h2, h3').filter({ hasText: `${COMP_NAME} editado` }).first()).toBeVisible({ timeout: 10000 });
+    expect(page.url()).toContain(`/admin/competitions/${competitionId}`);
+    expect(page.url()).not.toBe(`${new URL(page.url()).origin}/admin/competitions`);
+
+    // --- Regression: toggling active/inactive from the DETAIL page header
+    // must also keep the admin on the detail page — Toggle is shared with the
+    // list card's "Activar" button, which must still go to the list (covered
+    // by TestToggleCompetition_NoRefererFallsBackToList on the Go side).
+    // The toggle carries hx-confirm, intercepted by static/js/confirm.js's
+    // custom #confirm-modal — the request only fires once #confirm-ok is
+    // clicked.
+    const activeToggle = page.locator('form[hx-post*="/toggle"] input[type="checkbox"]');
+    await activeToggle.click();
+    await page.locator('#confirm-ok').click();
+    await page.waitForLoadState('domcontentloaded');
+    expect(page.url()).toContain(`/admin/competitions/${competitionId}`);
+    expect(page.url()).not.toBe(`${new URL(page.url()).origin}/admin/competitions`);
+    // Restore active state — the rest of the tour needs this competition active.
+    await page.locator('form[hx-post*="/toggle"] input[type="checkbox"]').click();
+    await page.locator('#confirm-ok').click();
+    await page.waitForLoadState('domcontentloaded');
 
     for (const pairId of pairIds) {
       await addPairToCompetition(page, pairId);

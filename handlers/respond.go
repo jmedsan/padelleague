@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -196,6 +197,16 @@ func checkNotWithdrawn(app core.App, e *core.RequestEvent, match *core.Record, t
 func redirectHX(e *core.RequestEvent, url string) error {
 	e.Response.Header().Set("HX-Redirect", url)
 	return e.NoContent(http.StatusNoContent)
+}
+
+// safeRefererOr returns the request's Referer path if it is same-origin
+// relative (starts with "/", not "//"), otherwise fallback.
+func safeRefererOr(e *core.RequestEvent, fallback string) string {
+	dest := e.Request.Header.Get("Referer")
+	if dest == "" || !strings.HasPrefix(dest, "/") || strings.HasPrefix(dest, "//") {
+		return fallback
+	}
+	return dest
 }
 
 // truncateRunes caps s at n runes, cutting on rune boundaries.

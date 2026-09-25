@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -31,9 +30,5 @@ func (h *ViewHandler) Switch(e *core.RequestEvent) error {
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})
-	dest := e.Request.Header.Get("Referer")
-	if dest == "" || !strings.HasPrefix(dest, "/") || strings.HasPrefix(dest, "//") {
-		dest = "/"
-	}
-	return e.Redirect(http.StatusFound, dest)
+	return e.Redirect(http.StatusFound, safeRefererOr(e, "/"))
 }
