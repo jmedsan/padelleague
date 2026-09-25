@@ -36,6 +36,7 @@ var competitionUpdateLabels = []struct {
 	{"default_penalty", "Penalización por defecto", fmtActivityString, "0"},
 	{"recovery_days", "Período extra", fmtActivityString, "0"},
 	{"match_reminder_hours", "Recordatorios de partido", fmtActivityString, ""},
+	{"target_matches", "Partidos por pareja", fmtActivityString, ""},
 }
 
 // competitionUpdateDetail builds an "actualizó la configuración: Field: old

@@ -127,7 +127,7 @@ func (h *CompetitionHandler) loadPairEntries(comp *core.Record, pairIDs []string
 	return buildPairEntries(pairIDs, in), availablePairs(h.app, pairIDs)
 }
 
-func applyCompFormFields(record *core.Record, e *core.RequestEvent, clearReminderIfEmpty bool) error {
+func applyCompFormFields(record *core.Record, e *core.RequestEvent, clearReminderIfEmpty, hasFixtures bool) error {
 	if v := e.Request.FormValue("quorum_timeout_hours"); v != "" {
 		hours, err := strconv.Atoi(v)
 		if err != nil {
@@ -144,7 +144,7 @@ func applyCompFormFields(record *core.Record, e *core.RequestEvent, clearReminde
 	} else if clearReminderIfEmpty {
 		record.Set("match_reminder_hours", nil)
 	}
-	if msg := setSchedulingFields(record, e); msg != "" {
+	if msg := setSchedulingFields(record, e, hasFixtures); msg != "" {
 		return alertError(e, msg)
 	}
 	return nil
@@ -178,7 +178,7 @@ func (h *CompetitionHandler) Create(e *core.RequestEvent) error {
 	if msg := applyCompIdentity(record, e); msg != "" {
 		return alertError(e, msg)
 	}
-	if err := applyCompFormFields(record, e, false); err != nil {
+	if err := applyCompFormFields(record, e, false, false); err != nil {
 		return err
 	}
 	if msg := validateLeveledFields(record, e, 0, false); msg != "" {
@@ -217,6 +217,7 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 	}
 	before := record.Original()
 	oldTarget := record.GetInt("target_matches")
+	hasFixtures := hasCompetitionMatches(h.app, id)
 
 	oldStart := record.GetString("start_date")
 	oldEnd := record.GetString("end_date")
@@ -232,11 +233,10 @@ func (h *CompetitionHandler) Update(e *core.RequestEvent) error {
 		record.Set("gender_type", gt)
 	}
 
-	if err := applyCompFormFields(record, e, true); err != nil {
+	if err := applyCompFormFields(record, e, true, hasFixtures); err != nil {
 		return err
 	}
 
-	hasFixtures := hasCompetitionMatches(h.app, id)
 	if msg := validateLeveledFields(record, e, oldTarget, hasFixtures); msg != "" {
 		return alertError(e, msg)
 	}
@@ -566,7 +566,12 @@ func getSeeding(comp *core.Record) map[string]int {
 // Create and Update. It returns a ready-to-display Spanish error message
 // (empty on success) rather than an error, since every caller only ever
 // shows the message verbatim via alertError — never wraps or type-checks it.
-func setSchedulingFields(record *core.Record, e *core.RequestEvent) string {
+// hasFixtures is true only for Update on a competition with generated
+// matches: target_matches is then disabled in the edit form (see
+// competition-detail.html), so a disabled input isn't submitted at all —
+// reading it here would default to 0 and silently turn a leveled league
+// into a plain one. The stored value is left untouched in that case.
+func setSchedulingFields(record *core.Record, e *core.RequestEvent, hasFixtures bool) string {
 	if v := e.Request.FormValue("start_date"); v != "" {
 		record.Set("start_date", v)
 	}
@@ -612,11 +617,13 @@ func setSchedulingFields(record *core.Record, e *core.RequestEvent) string {
 	}
 	record.Set("max_pending_matches", maxPending)
 
-	target, msg := formIntValidated(e, "target_matches", 0)
-	if msg != "" {
-		return "Partidos por pareja: " + msg
+	if !hasFixtures {
+		target, msg := formIntValidated(e, "target_matches", 0)
+		if msg != "" {
+			return "Partidos por pareja: " + msg
+		}
+		record.Set("target_matches", target)
 	}
-	record.Set("target_matches", target)
 
 	open, msg := formIntValidated(e, "open_assignments", 0)
 	if msg != "" {
