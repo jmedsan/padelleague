@@ -449,13 +449,78 @@ func TestAssignmentDeadline(t *testing.T) {
 	})
 }
 
+func TestJornadaWindow(t *testing.T) {
+	t.Parallel()
+
+	// The scenario's actual dates (2036 draw): end_date is inclusive, so a
+	// Mon-to-Sun span of 29/09-07/12 is a 70-day window, target=10 → 7-day
+	// Jornadas exactly.
+	t.Run("2036 scenario dates: 7-day Jornadas, no drift", func(t *testing.T) {
+		start := time.Date(2036, 9, 29, 0, 0, 0, 0, time.UTC)
+		end := time.Date(2036, 12, 7, 0, 0, 0, 0, time.UTC)
+
+		cases := []struct {
+			n      int
+			wantLo string
+			wantHi string
+		}{
+			{1, "2036-09-29", "2036-10-05"},
+			{2, "2036-10-06", "2036-10-12"},
+			{3, "2036-10-13", "2036-10-19"},
+		}
+		for _, tc := range cases {
+			lo, hi := JornadaWindow(start, end, 10, tc.n)
+			assert.Equal(t, tc.wantLo, lo.Format("2006-01-02"), "Jornada %d lo", tc.n)
+			assert.Equal(t, tc.wantHi, hi.Format("2006-01-02"), "Jornada %d hi", tc.n)
+		}
+	})
+
+	t.Run("2026 scenario dates: 7-day Jornadas, no drift", func(t *testing.T) {
+		start := time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC)
+		end := time.Date(2026, 12, 6, 0, 0, 0, 0, time.UTC)
+
+		cases := []struct {
+			n              int
+			wantLo, wantHi string
+		}{
+			{1, "2026-09-28", "2026-10-04"},
+			{2, "2026-10-05", "2026-10-11"},
+			{3, "2026-10-12", "2026-10-18"},
+		}
+		for _, tc := range cases {
+			lo, hi := JornadaWindow(start, end, 10, tc.n)
+			assert.Equal(t, tc.wantLo, lo.Format("2006-01-02"), "Jornada %d lo", tc.n)
+			assert.Equal(t, tc.wantHi, hi.Format("2006-01-02"), "Jornada %d hi", tc.n)
+		}
+	})
+
+	t.Run("last Jornada is capped at end_date, never drifts past it", func(t *testing.T) {
+		start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+		end := time.Date(2026, 4, 11, 0, 0, 0, 0, time.UTC) // 101-day inclusive window
+		_, hi := JornadaWindow(start, end, 10, 10)
+		assert.Equal(t, end, hi, "last Jornada's hi must equal end_date exactly")
+	})
+
+	t.Run("consecutive Jornadas never overlap and never gap", func(t *testing.T) {
+		start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+		end := time.Date(2026, 4, 11, 0, 0, 0, 0, time.UTC)
+		target := 10
+		for n := 1; n < target; n++ {
+			_, hi := JornadaWindow(start, end, target, n)
+			nextLo, _ := JornadaWindow(start, end, target, n+1)
+			assert.Equal(t, hi.AddDate(0, 0, 1), nextLo,
+				"Jornada %d's hi+1day must equal Jornada %d's lo (no gap, no overlap)", n, n+1)
+		}
+	})
+}
+
 func TestSlotDeadline(t *testing.T) {
 	t.Parallel()
 
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 4, 11, 0, 0, 0, 0, time.UTC) // 100-day window
 
-	t.Run("100-day window target=10 slot=3 → u=10d, arrange_by=start+30d at noon UTC", func(t *testing.T) {
+	t.Run("101-day inclusive window target=10 slot=3 → u≈10.1d, arrange_by=Jornada 3's last day at noon UTC", func(t *testing.T) {
 		app := newTestApp(t)
 		comp := makeCompetition(t, app, nil)
 		comp.Set("start_date", start.Format(time.RFC3339))
@@ -463,7 +528,9 @@ func TestSlotDeadline(t *testing.T) {
 		comp.Set("target_matches", 10)
 		require.NoError(t, app.Save(comp))
 
-		want := time.Date(2026, 1, 31, 12, 0, 0, 0, time.UTC)
+		// end_date is inclusive (Apr 11 is a playable day), so the window
+		// is 101 days / 10 = 10d4h24m per Jornada; slot 3 ends Jan 30.
+		want := time.Date(2026, 1, 30, 12, 0, 0, 0, time.UTC)
 		got, ok := SlotDeadline(comp, 3)
 		require.True(t, ok)
 		assert.Equal(t, want, got)

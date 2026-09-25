@@ -99,17 +99,11 @@ func (w leveledWindow) hasDates() bool {
 	return w.target > 0 && !w.start.IsZero() && !w.end.IsZero()
 }
 
-// jornadaRange returns the [lo, hi] date range for Jornada n: the window is
-// divided into target equal-length units, n's range is [start+(n-1)*u,
-// start+n*u-1day], capped at end for the last Jornada.
+// jornadaRange returns the [lo, hi] date range for Jornada n — see
+// league.JornadaWindow for the shared computation every Jornada-window call
+// site uses.
 func (w leveledWindow) jornadaRange(n int) (lo, hi time.Time) {
-	u := w.end.Sub(w.start) / time.Duration(w.target)
-	lo = w.start.Add(time.Duration(n-1) * u)
-	hi = w.start.Add(time.Duration(n)*u).AddDate(0, 0, -1)
-	if n >= w.target || hi.After(w.end) {
-		hi = w.end
-	}
-	return lo, hi
+	return league.JornadaWindow(w.start, w.end, w.target, n)
 }
 
 // leveledGroups partitions match cards into:

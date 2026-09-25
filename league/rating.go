@@ -70,9 +70,10 @@ func LevelElo(key string) float64 {
 	return 0
 }
 
-// LevelLocked reports whether pairID has ever played a match in a leveled
-// competition, in which case its level can no longer be changed (its rating
-// history already depends on the starting Elo).
+// LevelLocked reports whether pairID has any match at all in a leveled
+// competition — draft included, not just played — in which case its level
+// can no longer be changed; the schedule already depends on the starting
+// Elo. To change a level, delete the calendar and regenerate.
 func LevelLocked(app core.App, pairID string) bool {
 	matches, err := app.FindRecordsByFilter("matches",
 		"pair1 = {:pid} || pair2 = {:pid}", "", 0, 0, map[string]any{"pid": pairID})

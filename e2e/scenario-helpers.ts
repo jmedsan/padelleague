@@ -172,15 +172,17 @@ function fmtShortDate(d: Date): string {
   return `${d.getUTCDate()} ${SPANISH_MONTHS[d.getUTCMonth()]}`;
 }
 
-// jornadaTitle mirrors handlers.leveledWindow.jornadaRange: the competition
-// window divided into `target` equal-length units, Jornada n's range is
-// [start+(n-1)*u, start+n*u-1day], capped at end for the last Jornada.
+// jornadaTitle mirrors league.JornadaWindow: end_date is inclusive, so the
+// window length is (end + 1 day - start) divided into `target` equal
+// units. Jornada n's range is [start+(n-1)*u, start+n*u-1day], capped at
+// end for the last Jornada.
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 export function jornadaTitle(startISO: string, endISO: string, target: number, n: number): string {
   const start = new Date(startISO);
   const end = new Date(endISO);
-  const u = (end.getTime() - start.getTime()) / target;
+  const u = (end.getTime() + MS_PER_DAY - start.getTime()) / target;
   const lo = new Date(start.getTime() + (n - 1) * u);
-  let hi = new Date(start.getTime() + n * u - 24 * 60 * 60 * 1000);
+  let hi = new Date(start.getTime() + n * u - MS_PER_DAY);
   if (n >= target || hi.getTime() > end.getTime()) hi = end;
   return `Jornada ${n} · ${fmtShortDate(lo)} – ${fmtShortDate(hi)}`;
 }

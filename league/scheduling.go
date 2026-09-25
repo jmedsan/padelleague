@@ -17,6 +17,28 @@ func truncateToNoonUTC(t time.Time) time.Time {
 	return time.Date(y, m, d, 12, 0, 0, 0, time.UTC)
 }
 
+// JornadaWindow returns the [lo, hi] calendar-day range for Jornada n out of
+// target, given the competition's start_date/end_date. end_date is
+// inclusive (a competition ending 07/12 plays matches through the 7th), so
+// the window length is (end + 1 day − start), divided into target equal
+// units; Jornada n is [start+(n-1)u, start+n·u-1 day], with the last
+// Jornada capped at end so rounding never pushes it past the season.
+// Callers with only a single date value (no time-of-day) should pass dates
+// truncated to midnight UTC; the returned lo/hi carry whatever time-of-day
+// start/end did.
+func JornadaWindow(start, end time.Time, target, n int) (lo, hi time.Time) {
+	if target <= 0 {
+		return start, end
+	}
+	u := end.AddDate(0, 0, 1).Sub(start) / time.Duration(target)
+	lo = start.Add(time.Duration(n-1) * u)
+	hi = start.Add(time.Duration(n)*u - 24*time.Hour)
+	if n >= target || hi.After(end) {
+		hi = end
+	}
+	return lo, hi
+}
+
 // Warning represents how urgently a match needs to be arranged.
 type Warning int
 
@@ -413,12 +435,8 @@ func SlotDeadline(comp *core.Record, slot int) (time.Time, bool) {
 	if start.IsZero() || end.IsZero() {
 		return time.Time{}, false
 	}
-	u := end.Sub(start) / time.Duration(target)
-	deadline := start.Add(time.Duration(slot) * u)
-	if deadline.After(end) {
-		deadline = end
-	}
-	return truncateToNoonUTC(deadline), true
+	_, hi := JornadaWindow(start, end, target, slot)
+	return truncateToNoonUTC(hi), true
 }
 
 // MatchArrangeDate returns the arrange-by date for a match. When the match has
@@ -428,11 +446,14 @@ func SlotDeadline(comp *core.Record, slot int) (time.Time, bool) {
 func MatchArrangeDate(comp *core.Record, match *core.Record) (time.Time, bool) {
 	arrangeBy := match.GetDateTime("arrange_by").Time()
 	if !arrangeBy.IsZero() {
+		arrangeBy = truncateToNoonUTC(arrangeBy)
 		end := comp.GetDateTime("end_date").Time()
-		if !end.IsZero() && arrangeBy.After(end) {
-			return truncateToNoonUTC(end), true
+		if !end.IsZero() {
+			if end = truncateToNoonUTC(end); arrangeBy.After(end) {
+				return end, true
+			}
 		}
-		return truncateToNoonUTC(arrangeBy), true
+		return arrangeBy, true
 	}
 	return RoundArrangeDate(comp, match.GetInt("round_number"))
 }
