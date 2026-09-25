@@ -617,7 +617,11 @@ func setSchedulingFields(record *core.Record, e *core.RequestEvent, hasFixtures 
 	}
 	record.Set("max_pending_matches", maxPending)
 
-	if !hasFixtures {
+	// A disabled input (competition-detail.html, once fixtures exist) is
+	// never submitted, so an absent field means "leave it untouched", not
+	// "set it to 0". A present field is read and validated as normal even
+	// with fixtures — validateLeveledFields still rejects an actual change.
+	if !hasFixtures || e.Request.FormValue("target_matches") != "" {
 		target, msg := formIntValidated(e, "target_matches", 0)
 		if msg != "" {
 			return "Partidos por pareja: " + msg
