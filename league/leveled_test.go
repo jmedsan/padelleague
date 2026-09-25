@@ -2,6 +2,7 @@ package league
 
 import (
 	"math/rand/v2"
+	"slices"
 	"sort"
 	"testing"
 	"time"
@@ -687,6 +688,82 @@ func TestGenerateInitialAssignments_Seeded(t *testing.T) {
 	}
 }
 
+// -- TestGenerateInitialAssignments_HomeAwayBalance --------------------------
+
+// homeAwayCounts tallies how many times each pair appears as pair1 (home)
+// and pair2 (away) across all matches in comp.
+func homeAwayCounts(t *testing.T, app core.App, compID string, pairs []*core.Record) map[string][2]int {
+	t.Helper()
+	counts := map[string][2]int{}
+	for _, p := range pairs {
+		counts[p.Id] = [2]int{}
+	}
+	matches, err := app.FindRecordsByFilter("matches", "competition = {:c}", "", 0, 0,
+		map[string]any{"c": compID})
+	require.NoError(t, err)
+	for _, m := range matches {
+		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
+		c := counts[p1]
+		c[0]++
+		counts[p1] = c
+		c = counts[p2]
+		c[1]++
+		counts[p2] = c
+	}
+	return counts
+}
+
+func TestGenerateInitialAssignments_HomeAwayBalance(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 8)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "HA")
+	}
+	comp := makeLeveledCompetition(t, app, pairs, 5, 2)
+
+	svc := newDeterministicSvc(app)
+	_, err := svc.GenerateInitialAssignments(app, comp, time.Now())
+	require.NoError(t, err)
+
+	for id, c := range homeAwayCounts(t, app, comp.Id, pairs) {
+		home, away := c[0], c[1]
+		diff := home - away
+		if diff < 0 {
+			diff = -diff
+		}
+		assert.LessOrEqual(t, diff, 1, "pair %s: home=%d away=%d, imbalance > 1", id, home, away)
+	}
+}
+
+// TestTopUp_PicksAwayForHomeHeavyPair verifies a pair that has already played
+// its persisted matches at home gets assigned away on its next top-up match.
+func TestTopUp_PicksAwayForHomeHeavyPair(t *testing.T) {
+	app := newTestApp(t)
+	pa := makePair(t, app, "HA A")
+	pb := makePair(t, app, "HA B")
+	pc := makePair(t, app, "HA C")
+	pd := makePair(t, app, "HA D")
+
+	comp := makeLeveledCompetition(t, app, []*core.Record{pa, pb, pc, pd}, 2, 1)
+
+	now := time.Now()
+	// pa is home (pair1) in a final match against pb: home=1, away=0, load=1.
+	makeLeveledMatch(t, app, comp.Id, pa.Id, pb.Id, "6-0 6-0", pa.Id, "final", now.Add(-time.Hour))
+
+	svc := newDeterministicSvc(app)
+	created, err := svc.TopUpAssignments(comp.Id, now)
+	require.NoError(t, err)
+
+	found := false
+	for _, m := range created {
+		if m.GetString("pair1") == pa.Id || m.GetString("pair2") == pa.Id {
+			found = true
+			assert.Equal(t, pa.Id, m.GetString("pair2"), "pa is home-heavy; its fresh opponent should be home, pa away")
+		}
+	}
+	require.True(t, found, "pa should have received a top-up match")
+}
+
 // -- TestTopUp_OrdersByRating -----------------------------------------------
 
 func TestTopUp_OrdersByRating(t *testing.T) {
@@ -966,8 +1043,9 @@ func TestTopUp_NotifiesBothPairs(t *testing.T) {
 	pb := makePair(t, app, "Ntf B")
 	pc := makePair(t, app, "Ntf C")
 	pd := makePair(t, app, "Ntf D")
+	pairs := []*core.Record{pa, pb, pc, pd}
 
-	comp := makeLeveledCompetition(t, app, []*core.Record{pa, pb, pc, pd}, 2, 2)
+	comp := makeLeveledCompetition(t, app, pairs, 2, 2)
 
 	notifier := &fakeNotifier{}
 	svc := New(app, notifier)
@@ -975,14 +1053,50 @@ func TestTopUp_NotifiesBothPairs(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, created, "should create at least one match")
 
-	// One call per created match, 4 player IDs (2 pairs × 2 players).
-	assert.Len(t, notifier.calls, len(created),
-		"one notification call per created match")
-	for _, call := range notifier.calls {
-		assert.Equal(t, "match_assigned", call.notifType)
-		assert.Len(t, call.playerIDs, 4,
-			"notification should include 4 player IDs (both pairs)")
+	pairNames := PairNames(app, comp.GetStringSlice("pairs"))
+
+	// Two calls per created match (one per pair), each with 2 player IDs and
+	// the OTHER pair's name in the body — never the recipient's own name.
+	assert.Len(t, notifier.calls, 2*len(created),
+		"two notification calls per created match, one per pair")
+	for _, m := range created {
+		p1ID, p2ID := m.GetString("pair1"), m.GetString("pair2")
+		p1Players := PlayersForPair(app, p1ID)
+		p2Players := PlayersForPair(app, p2ID)
+
+		call1 := findNotifyCallFor(t, notifier.calls, m.Id, p1Players)
+		assert.Equal(t, "match_assigned", call1.notifType)
+		assert.Contains(t, call1.body, pairNames[p2ID], "pair1's players should be told pair2's name")
+		assert.NotContains(t, call1.body, pairNames[p1ID], "pair1's players should not be told their own name")
+
+		call2 := findNotifyCallFor(t, notifier.calls, m.Id, p2Players)
+		assert.Equal(t, "match_assigned", call2.notifType)
+		assert.Contains(t, call2.body, pairNames[p1ID], "pair2's players should be told pair1's name")
+		assert.NotContains(t, call2.body, pairNames[p2ID], "pair2's players should not be told their own name")
 	}
+}
+
+// findNotifyCallFor returns the notification call for matchID addressed to
+// exactly playerIDs.
+func findNotifyCallFor(t *testing.T, calls []notifyCall, matchID string, playerIDs []string) notifyCall {
+	t.Helper()
+	for _, call := range calls {
+		if call.matchID != matchID || len(call.playerIDs) != len(playerIDs) {
+			continue
+		}
+		match := true
+		for _, id := range playerIDs {
+			if !slices.Contains(call.playerIDs, id) {
+				match = false
+				break
+			}
+		}
+		if match {
+			return call
+		}
+	}
+	require.Fail(t, "no notify call found", "matchID=%s playerIDs=%v", matchID, playerIDs)
+	return notifyCall{}
 }
 
 // -- TestLeveledSeason_Invariants ------------------------------------------

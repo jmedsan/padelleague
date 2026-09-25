@@ -46,6 +46,8 @@ type leveledState struct {
 	met      map[string]map[string]struct{}
 	position map[string]int          // 0-based index in rating order
 	occupied map[string]map[int]bool // pair id -> set of slots it already has a match at
+	home     map[string]int          // pair id -> number of matches played/pending as home (pair1)
+	tieCoin  int                     // flips on every home/away tiebreak, so symmetric ties alternate
 	start    time.Time               // competition start_date, zero if unset
 	end      time.Time               // competition end_date, zero if unset
 	now      time.Time
@@ -58,6 +60,35 @@ func (st *leveledState) load(p string) int {
 // wants reports whether p needs a new assignment now.
 func (st *leveledState) wants(p string) bool {
 	return st.pending[p] < st.open && st.load(p) < st.target
+}
+
+// balance returns p's home/away balance: 2*home − load, positive when p has
+// played more matches at home than away.
+func (st *leveledState) balance(p string) int {
+	return 2*st.home[p] - st.load(p)
+}
+
+// homeTeam decides which of p, q plays at home for a new pairing, picking
+// whichever has the lower home/away balance. A balance tie (including the
+// common 0-0 case for two pairs with no prior matches) alternates via
+// tieCoin: p and q are symmetric at a tie, so a value derived from either
+// pair's own state would resolve the same way every time a similarly
+// balanced pair meets another — tieCoin flips on every tie regardless of
+// who's involved, so repeated ties still alternate.
+func (st *leveledState) homeTeam(p, q string) (home, away string) {
+	bp, bq := st.balance(p), st.balance(q)
+	switch {
+	case bq < bp:
+		return q, p
+	case bp < bq:
+		return p, q
+	default:
+		st.tieCoin++
+		if st.tieCoin%2 == 0 {
+			return p, q
+		}
+		return q, p
+	}
 }
 
 // eligible reports whether q is a valid opponent candidate for p.
@@ -289,9 +320,11 @@ func plan(svc *Service, st *leveledState) []Pairing {
 				skipped[p] = true
 				continue
 			}
-			result = append(result, Pairing{A: p, B: q, Slot: k})
+			home, away := st.homeTeam(p, q)
+			result = append(result, Pairing{A: home, B: away, Slot: k})
 			st.pending[p]++
 			st.pending[q]++
+			st.markHome(home)
 			addMet(st.met, p, q)
 			st.occupy(p, k)
 			st.occupy(q, k)
@@ -319,6 +352,14 @@ func (st *leveledState) occupy(p string, slot int) {
 		st.occupied[p] = map[int]bool{}
 	}
 	st.occupied[p][slot] = true
+}
+
+// markHome records that p plays at home for a new pairing.
+func (st *leveledState) markHome(p string) {
+	if st.home == nil {
+		st.home = map[string]int{}
+	}
+	st.home[p]++
 }
 
 // currentWindow returns the calendar Jornada the competition is in right now.
@@ -471,8 +512,8 @@ func notifyAssignments(svc *Service, comp *core.Record, created []*core.Record) 
 	for _, m := range created {
 		p1ID := m.GetString("pair1")
 		p2ID := m.GetString("pair2")
-		allPlayers := append(PlayersForPair(svc.app, p1ID), PlayersForPair(svc.app, p2ID)...)
-		svc.notifier.NotifyPlayers(allPlayers, NotifMatchAssigned(m.Id, pairNames[p2ID], compName))
+		svc.notifier.NotifyPlayers(PlayersForPair(svc.app, p1ID), NotifMatchAssigned(m.Id, pairNames[p2ID], compName))
+		svc.notifier.NotifyPlayers(PlayersForPair(svc.app, p2ID), NotifMatchAssigned(m.Id, pairNames[p1ID], compName))
 	}
 }
 
@@ -514,10 +555,10 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now tim
 		return nil, err
 	}
 
-	played, pending, met, occupied := tallyMatchState(sortedPairs, matches, withdrawnSet)
+	tally := tallyMatchState(sortedPairs, matches, withdrawnSet)
 
 	for _, av := range avoid {
-		addMet(met, av.A, av.B)
+		addMet(tally.met, av.A, av.B)
 	}
 
 	return &leveledState{
@@ -525,11 +566,12 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now tim
 		open:     open,
 		comfort:  ceilDiv(target, 2),
 		pairs:    sortedPairs,
-		played:   played,
-		pending:  pending,
-		met:      met,
+		played:   tally.played,
+		pending:  tally.pending,
+		met:      tally.met,
 		position: position,
-		occupied: occupied,
+		occupied: tally.occupied,
+		home:     tally.home,
 		start:    comp.GetDateTime("start_date").Time(),
 		end:      comp.GetDateTime("end_date").Time(),
 		now:      now,
@@ -594,37 +636,52 @@ func sortPairsByRating(pairs []string, ratings map[string]float64, pairNames map
 	return sorted
 }
 
+// matchTally holds the per-pair state derived from a competition's existing
+// matches: played/pending counts, the met-pairs set, occupied slots, and
+// home-match counts.
+type matchTally struct {
+	played   map[string]int
+	pending  map[string]int
+	met      map[string]map[string]struct{}
+	occupied map[string]map[int]bool
+	home     map[string]int
+}
+
 // tallyMatchState classifies existing matches into played/pending counts, the
-// met-pairs set, and each pair's occupied slots, skipping matches involving
-// withdrawn pairs.
-func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[string]bool) (played, pending map[string]int, met map[string]map[string]struct{}, occupied map[string]map[int]bool) {
-	played = make(map[string]int, len(pairs))
-	pending = make(map[string]int, len(pairs))
-	met = make(map[string]map[string]struct{}, len(pairs))
-	occupied = make(map[string]map[int]bool, len(pairs))
+// met-pairs set, each pair's occupied slots, and home-match counts, skipping
+// matches involving withdrawn pairs.
+func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[string]bool) matchTally {
+	t := matchTally{
+		played:   make(map[string]int, len(pairs)),
+		pending:  make(map[string]int, len(pairs)),
+		met:      make(map[string]map[string]struct{}, len(pairs)),
+		occupied: make(map[string]map[int]bool, len(pairs)),
+		home:     make(map[string]int, len(pairs)),
+	}
 	for _, id := range pairs {
-		met[id] = map[string]struct{}{}
-		occupied[id] = map[int]bool{}
+		t.met[id] = map[string]struct{}{}
+		t.occupied[id] = map[int]bool{}
 	}
 	for _, m := range matches {
 		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
 		if withdrawn[p1] || withdrawn[p2] {
 			continue
 		}
-		addMet(met, p1, p2)
+		addMet(t.met, p1, p2)
+		t.home[p1]++
 		if slot := m.GetInt("slot"); slot > 0 {
-			occupied[p1][slot] = true
-			occupied[p2][slot] = true
+			t.occupied[p1][slot] = true
+			t.occupied[p2][slot] = true
 		}
 		if m.GetString("status") == "final" {
-			played[p1]++
-			played[p2]++
+			t.played[p1]++
+			t.played[p2]++
 		} else {
-			pending[p1]++
-			pending[p2]++
+			t.pending[p1]++
+			t.pending[p2]++
 		}
 	}
-	return played, pending, met, occupied
+	return t
 }
 
 // -- helpers ----------------------------------------------------------------

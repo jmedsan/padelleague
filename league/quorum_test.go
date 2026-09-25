@@ -17,6 +17,8 @@ type notifyCall struct {
 	playerIDs []string
 	notifType string
 	title     string
+	body      string
+	matchID   string
 }
 
 func (f *fakeNotifier) NotifyPlayers(playerUserIDs []string, n Notification) {
@@ -24,6 +26,8 @@ func (f *fakeNotifier) NotifyPlayers(playerUserIDs []string, n Notification) {
 		playerIDs: playerUserIDs,
 		notifType: n.Type,
 		title:     n.Title,
+		body:      n.Body,
+		matchID:   n.MatchID,
 	})
 }
 
