@@ -866,11 +866,13 @@ func createLeveledPairs(txApp core.App) ([]string, error) {
 		"Pareja N1", "Pareja N2", "Pareja N3", "Pareja N4",
 		"Pareja N5", "Pareja N6", "Pareja N7", "Pareja N8",
 	}
-	// First 2 = advanced, middle 4 = intermediate, last 2 = beginner.
+	// Varied levels (including unranked) so the sample demonstrates
+	// skill-based matchmaking, not a flat single-level fixture.
 	pairLevels := []string{
-		"advanced", "advanced",
-		"intermediate", "intermediate", "intermediate", "intermediate",
-		"beginner", "beginner",
+		"advanced",
+		"intermediate_high", "intermediate_low",
+		"beginner_high", "beginner", "beginner",
+		"", "",
 	}
 	pairIDs := make([]string, 8)
 	for i, name := range pairNames {

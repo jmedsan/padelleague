@@ -412,11 +412,22 @@ func TestSampleLeveledLeague(t *testing.T) {
 	pairs := lev.GetStringSlice("pairs")
 	assert.Equal(t, 8, len(pairs), "leveled competition needs 8 pairs")
 
+	// Varied levels including unranked (empty field), demonstrating
+	// skill-based matchmaking — not every pair explicitly classified.
+	seenAdvanced, seenUnranked := false, false
 	for _, pid := range pairs {
 		p, err := app.FindRecordById("pairs", pid)
 		require.NoError(t, err)
-		assert.NotEmpty(t, p.GetString("level"), "every leveled-sample pair must have a level assigned")
+		level := p.GetString("level")
+		if level == "advanced" {
+			seenAdvanced = true
+		}
+		if level == "" {
+			seenUnranked = true
+		}
 	}
+	assert.True(t, seenAdvanced, "leveled sample must include an advanced pair")
+	assert.True(t, seenUnranked, "leveled sample must include an unranked pair")
 
 	pendingMatches, err := app.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'pending' && round_number = 0",
