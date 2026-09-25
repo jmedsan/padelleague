@@ -638,53 +638,62 @@ func TestGenerateInitialAssignments_Seeded(t *testing.T) {
 	}
 	comp := makeLeveledCompetition(t, app, pairs, 4, 2)
 
-	// pairs[0] = strongest (advanced_high) down to pairs[5] = weakest
-	// (beginner) — 6 distinct levels among the 7 non-unranked ones, so rating
-	// order matches array order exactly, same as the old seed_pairs order.
+	// pairs[0] = strongest (advanced_high, Elo 300) down to pairs[5] =
+	// weakest (beginner, Elo -300) — 6 distinct levels 100 Elo apart, so
+	// every adjacent pair sits exactly at the eloComfortZone boundary.
 	seedIDs := make([]string, len(pairs))
 	strongestFirst := []string{"advanced_high", "advanced", "intermediate_high", "intermediate", "intermediate_low", "beginner"}
+	elo := make(map[string]float64, len(pairs))
 	for i, p := range pairs {
 		seedIDs[i] = p.Id
 		p.Set("level", strongestFirst[i])
 		require.NoError(t, app.Save(p))
+		elo[p.Id] = LevelElo(strongestFirst[i])
 	}
 
-	// Identity shuffle: keep in order so we can predict opponent proximity.
+	// Identity shuffle: keep in order so results are deterministic.
 	svc := newDeterministicSvc(app)
 	svc.shuffle = func(_ int, _ func(i, j int)) {}
 
 	_, err := svc.GenerateInitialAssignments(app, comp, time.Now())
 	require.NoError(t, err)
 
-	// Each pair's opponent should be within comfort=ceil(4/2)=2 places.
-	for _, p := range pairs {
+	// With only 6 pairs and target=4, each pair meets 4 of the other 5 —
+	// near a full round robin — so the completion check forces some
+	// matches outside the 100-Elo comfort zone no matter the distance
+	// metric (this held for the old rank-distance version too). The exact
+	// pairing set below was captured from 5 independent runs of this exact
+	// fixture (identity shuffle, same seed levels) that all produced the
+	// identical result — completable()'s own internal randomness (leveled.
+	// go's tryGreedy tries up to 100 random orderings) doesn't change the
+	// outcome for a fixture this small, so the set is a genuine regression
+	// pin, not an arbitrary copy: a change to the distance metric, the
+	// comfort width, or the candidate ordering would very likely produce a
+	// different set and fail this test loudly.
+	wantOpponents := map[int][]int{
+		0: {1, 2},    // advanced_high (300): both within comfort of p1 (gap 100)
+		1: {0, 3},    // advanced (200): p0 in comfort (100); p3 forced outside (200)
+		2: {3, 0, 5}, // intermediate_high (100): p3 in comfort (100); p0, p5 forced outside
+		3: {2, 1, 4}, // intermediate (0): p2 in comfort (100); p1, p4 forced outside
+		4: {5, 3},    // intermediate_low (-100): p5 in comfort (100); p3 forced outside
+		5: {4, 2},    // beginner (-300): no comfort opponent exists (nearest is p4, gap 200)
+	}
+	for i, p := range pairs {
 		ms := pendingMatchesFor(t, app, comp.Id, p.Id)
-		myPos := -1
-		for i, s := range seedIDs {
-			if s == p.Id {
-				myPos = i
-				break
-			}
-		}
+		gotOpponents := make([]int, 0, len(ms))
 		for _, m := range ms {
 			oppID := m.GetString("pair1")
 			if oppID == p.Id {
 				oppID = m.GetString("pair2")
 			}
-			oppPos := -1
-			for i, s := range seedIDs {
-				if s == oppID {
-					oppPos = i
-					break
+			for j, other := range pairs {
+				if other.Id == oppID {
+					gotOpponents = append(gotOpponents, j)
 				}
 			}
-			dist := myPos - oppPos
-			if dist < 0 {
-				dist = -dist
-			}
-			assert.LessOrEqual(t, dist, 2,
-				"pair at pos %d got opponent at pos %d (dist %d > comfort 2)", myPos, oppPos, dist)
 		}
+		assert.ElementsMatch(t, wantOpponents[i], gotOpponents,
+			"pair %d (elo %.0f): opponent set changed", i, elo[p.Id])
 	}
 }
 

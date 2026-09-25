@@ -12,6 +12,12 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// eloComfortZone is the Elo-point width of a candidate's "comfort zone" in
+// collectCandidatesForRound — one skill level (see league/rating.go's
+// Levels, spaced 100 points apart). A candidate within this gap is in the
+// shuffled inside zone; farther candidates are sorted nearest-first outside.
+const eloComfortZone = 100
+
 // Pairing is an ordered pair of pair IDs assigned to play each other.
 type Pairing struct {
 	A, B string
@@ -39,8 +45,9 @@ func OpenAssignments(comp *core.Record) int {
 type leveledState struct {
 	target   int
 	open     int
-	comfort  int // ceil(target/2)
+	comfort  int // Elo points; a candidate within this gap is in the shuffled "comfort zone"
 	pairs    []string
+	elo      map[string]float64 // pair id -> hidden Elo rating at assignment time
 	played   map[string]int
 	pending  map[string]int
 	met      map[string]map[string]struct{}
@@ -110,7 +117,7 @@ func (st *leveledState) eligible(p, q string) bool {
 
 type candidate struct {
 	id       string
-	dist     int
+	dist     float64
 	load     int
 	position int
 }
@@ -140,9 +147,12 @@ func (svc *Service) chooseOpponentForRound(st *leveledState, p string, k int) st
 // have no existing match in round k. Below the last Jornada (k < target) a
 // pair with a match already in round k is excluded up front, before the
 // comfort-zone split — otherwise an occupied pair could dominate the zone
-// order and starve an available one.
+// order and starve an available one. Distance is the absolute Elo gap
+// (rather than a rank-position difference), so pairs tied on Elo — most
+// visibly the four unranked pairs, all seeded at 0 — are genuinely
+// equidistant instead of ordered apart by name.
 func (svc *Service) collectCandidatesForRound(st *leveledState, p string, k int) (inside, outside []candidate) {
-	posP := st.position[p]
+	eloP := st.elo[p]
 	for _, q := range st.pairs {
 		if !st.eligible(p, q) {
 			continue
@@ -150,12 +160,9 @@ func (svc *Service) collectCandidatesForRound(st *leveledState, p string, k int)
 		if k < st.target && st.occupied[q][k] {
 			continue
 		}
-		d := st.position[q] - posP
-		if d < 0 {
-			d = -d
-		}
+		d := math.Abs(st.elo[q] - eloP)
 		c := candidate{id: q, dist: d, load: st.load(q), position: st.position[q]}
-		if d <= st.comfort {
+		if d <= float64(st.comfort) {
 			inside = append(inside, c)
 		} else {
 			outside = append(outside, c)
@@ -564,8 +571,9 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now tim
 	return &leveledState{
 		target:   target,
 		open:     open,
-		comfort:  ceilDiv(target, 2),
+		comfort:  eloComfortZone,
 		pairs:    sortedPairs,
+		elo:      ratings,
 		played:   tally.played,
 		pending:  tally.pending,
 		met:      tally.met,
@@ -755,11 +763,6 @@ func totalNeed(need map[string]int) int {
 		}
 	}
 	return s
-}
-
-// ceilDiv returns ceil(a/b).
-func ceilDiv(a, b int) int {
-	return int(math.Ceil(float64(a) / float64(b)))
 }
 
 // clampInt restricts v to [lo, hi].

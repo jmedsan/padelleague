@@ -1193,16 +1193,36 @@ func TestRelease_AssignsReplacement(t *testing.T) {
 	// Delete the pa-pb match; delete hook should top up both (avoid pa-pb).
 	require.NoError(t, app.Delete(mAB))
 
+	// eligible() (leveled.go) allows an opponent at pending == open — only
+	// a requester needs a free slot, an opponent may be pushed to open+1
+	// (recipe §3.2) — so the real invariant is pending in [0, open+1] for
+	// every pair, not an exact count for any one pair.
+	for _, p := range pairs {
+		ms := pendingMatchesFor(t, app, p.Id, comp.Id)
+		assert.LessOrEqual(t, len(ms), 3, "pair %s: %d pending exceeds open+1=3", p.Id, len(ms))
+		for _, m := range ms {
+			p1, p2 := m.GetString("pair1"), m.GetString("pair2")
+			isPairedWithFormer := (p1 == pa.Id && p2 == pb.Id) || (p1 == pb.Id && p2 == pa.Id)
+			assert.False(t, isPairedWithFormer, "replacement must not recreate the deleted pairing")
+		}
+	}
+
 	aMatches := pendingMatchesFor(t, app, pa.Id, comp.Id)
 	bMatches := pendingMatchesFor(t, app, pb.Id, comp.Id)
+	assert.GreaterOrEqual(t, len(aMatches), 2, "pa should have been given a replacement, back up to at least open=2")
+	assert.GreaterOrEqual(t, len(bMatches), 2, "pb should have been given a replacement, back up to at least open=2")
 
-	for _, m := range append(aMatches, bMatches...) {
-		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
-		isPairedWithFormer := (p1 == pa.Id && p2 == pb.Id) || (p1 == pb.Id && p2 == pa.Id)
-		assert.False(t, isPairedWithFormer, "replacement must not recreate the deleted pairing")
+	// Every pair still under target must have been offered a chance to
+	// reach open — nobody is left stuck below it while a valid opponent
+	// exists (the whole point of the delete hook's top-up).
+	for _, p := range pairs {
+		ms := pendingMatchesFor(t, app, p.Id, comp.Id)
+		assert.GreaterOrEqual(t, len(ms), 2, "pair %s: %d pending, expected to reach open=2 after top-up", p.Id, len(ms))
 	}
-	assert.Len(t, aMatches, 2, "pa should have 2 pending matches after replacement (open=2)")
-	assert.Len(t, bMatches, 2, "pb should have 2 pending matches after replacement (open=2)")
+
+	all, err := app.FindRecordsByFilter("matches", "competition = {:c}", "", 0, 0, map[string]any{"c": comp.Id})
+	require.NoError(t, err)
+	assert.Len(t, all, 7, "expected exactly 7 matches: 2 surviving originals + 5 created by the delete-hook top-up")
 }
 
 // -- TestRegeneratePublished_NoTopUp ----------------------------------------
