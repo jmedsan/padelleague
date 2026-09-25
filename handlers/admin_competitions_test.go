@@ -1263,6 +1263,40 @@ func TestAddPairPlayerOverlap(t *testing.T) {
 // Group 15: HasUnpaid flag on detail page
 // ═══════════════════════════════════════════════════════════════════════
 
+// TestDetailPageUnsetLevelShowsUnranked pins the bug the owner hit: a pair
+// whose level field was never set (empty string, not the literal
+// "unranked") must render with "Sin clasificar" selected in the dropdown —
+// not silently default to the first <option> in DOM order ("Principiante"),
+// which is what an HTML <select> does when no option's value matches the
+// bound field.
+func TestDetailPageUnsetLevelShowsUnranked(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "detail page: unset pair level renders as Sin clasificar, not Principiante",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{`value="unranked" selected`},
+		NotExpectedContent: []string{
+			`value="beginner" selected`,
+		},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "LvlUnsetA")
+		p2 := makePairTB(tb, app, "LvlUnsetB")
+		p3 := makePairTB(tb, app, "LvlUnsetC")
+		p4 := makePairTB(tb, app, "LvlUnsetD")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3, p4})
+		comp.Set("target_matches", 2)
+		require.NoError(tb, app.Save(comp))
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
 func TestDetailPageHasUnpaid(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

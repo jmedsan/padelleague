@@ -35,6 +35,18 @@ func makeLeveledMatch(t *testing.T, app core.App, compID, p1, p2, scores, winner
 
 // TestLevelElo pins every level key's Elo offset, plus the unknown-key
 // fallback to 0.
+// TestLevelLabel_EmptyIsUnranked pins the exact bug the owner hit: a pair
+// whose level was never set (empty string, not the literal "unranked") must
+// still resolve to "Sin clasificar" — not silently match nothing and fall
+// through to whatever the caller's zero value happens to render as.
+func TestLevelLabel_EmptyIsUnranked(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "Sin clasificar", LevelLabel(""))
+	assert.Equal(t, "Sin clasificar", LevelLabel("unranked"))
+	assert.Equal(t, "unranked", NormalizeLevel(""))
+	assert.Equal(t, "advanced", NormalizeLevel("advanced"))
+}
+
 func TestLevelElo(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -50,6 +62,7 @@ func TestLevelElo(t *testing.T) {
 		{"advanced_high", 300},
 		{"unranked", 0},
 		{"not-a-level", 0},
+		{"", 0},
 	}
 	for _, tc := range cases {
 		t.Run(tc.key, func(t *testing.T) {

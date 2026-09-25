@@ -251,7 +251,7 @@ func buildPairEntries(pairIDs []string, in pairEntryInputs) []pairEntry {
 		if err != nil {
 			continue
 		}
-		level := pair.GetString("level")
+		level := league.NormalizeLevel(pair.GetString("level"))
 		entry := pairEntry{
 			PairID:      pid,
 			PairName:    pair.GetString("name"),

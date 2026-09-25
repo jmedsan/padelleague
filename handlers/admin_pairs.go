@@ -46,7 +46,7 @@ func (h *PairHandler) Pairs(e *core.RequestEvent) error {
 			Player1Avatar: league.PlayerAvatarURL(h.app, p.GetString("player1")),
 			Player2Avatar: league.PlayerAvatarURL(h.app, p.GetString("player2")),
 			CaptainID:     p.GetString("captain"),
-			Level:         p.GetString("level"),
+			Level:         league.NormalizeLevel(p.GetString("level")),
 			LevelLocked:   league.LevelLocked(h.app, p.Id),
 		})
 	}
