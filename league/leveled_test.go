@@ -177,13 +177,14 @@ func TestChooser_RandomInsideZone(t *testing.T) {
 		played:   map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
 		pending:  map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
 		position: map[string]int{"A": 0, "B": 1, "C": 2, "D": 3},
+		occupied: map[string]map[int]bool{"A": {}, "B": {}, "C": {}, "D": {}},
 	}
 
 	// identity shuffle: inside-zone candidates keep order [B(1), C(2)]
 	// first candidate inside zone should be chosen.
 	identityShuffle := func(_ int, _ func(int, int)) {}
 	svc := &Service{shuffle: identityShuffle}
-	got := svc.chooseOpponent(st, "A")
+	got := svc.chooseOpponentForRound(st, "A", 1)
 	assert.Equal(t, "B", got, "identity shuffle should pick first in-zone candidate")
 
 	// reversed shuffle: inside-zone candidates reversed → [C(2), B(1)]
@@ -193,7 +194,7 @@ func TestChooser_RandomInsideZone(t *testing.T) {
 		}
 	}
 	svc2 := &Service{shuffle: reversedShuffle}
-	got2 := svc2.chooseOpponent(st, "A")
+	got2 := svc2.chooseOpponentForRound(st, "A", 1)
 	assert.Equal(t, "C", got2, "reversed shuffle should pick last in-zone candidate")
 }
 
@@ -214,11 +215,12 @@ func TestChooser_NearestOutsideZone(t *testing.T) {
 		played:   map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
 		pending:  map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
 		position: map[string]int{"A": 0, "B": 1, "C": 2, "D": 3},
+		occupied: map[string]map[int]bool{"A": {}, "B": {}, "C": {}, "D": {}},
 	}
 
 	identityShuffle := func(_ int, _ func(int, int)) {}
 	svc := &Service{shuffle: identityShuffle}
-	got := svc.chooseOpponent(st, "A")
+	got := svc.chooseOpponentForRound(st, "A", 1)
 	assert.Equal(t, "C", got, "when no eligible pair inside zone, pick nearest outside (C at d=2)")
 }
 
@@ -246,11 +248,12 @@ func TestCollectCandidates_OutsideSortOrder(t *testing.T) {
 		position: map[string]int{
 			"A": 0, "B": 2, "C": -2, "D": 3, "E": -10, "F": 10,
 		},
+		occupied: map[string]map[int]bool{"A": {}, "B": {}, "C": {}, "D": {}, "E": {}, "F": {}},
 	}
 	identityShuffle := func(_ int, _ func(int, int)) {}
 	svc := &Service{shuffle: identityShuffle}
 
-	_, outside := svc.collectCandidates(st, "A")
+	_, outside := svc.collectCandidatesForRound(st, "A", 1)
 	require.Len(t, outside, 5)
 	got := []string{outside[0].id, outside[1].id, outside[2].id, outside[3].id, outside[4].id}
 	assert.Equal(t, []string{"C", "B", "D", "E", "F"}, got,
@@ -258,7 +261,7 @@ func TestCollectCandidates_OutsideSortOrder(t *testing.T) {
 			"E,F tie on dist+load, break on position (E<F)")
 }
 
-// Note: `a.dist < b.dist` and `a.load < b.load` in collectCandidates' sort.Slice
+// Note: `a.dist < b.dist` and `a.load < b.load` in collectCandidatesForRound's sort.Slice
 // comparator (leveled.go) are equivalent mutants under `<=` — each is only
 // reached when the guarding `!=` check on the same field is true (operands
 // differ), and <= agrees with < whenever the operands differ. The
@@ -411,6 +414,134 @@ func TestPlan_SteadyState(t *testing.T) {
 			"pair %s should not exceed open+1 (%d) pending, got %d", pair, st.open+1, cnt)
 		assert.LessOrEqual(t, cnt, st.target,
 			"pair %s should not exceed target (%d) pending, got %d", pair, st.target, cnt)
+	}
+}
+
+// TestPlan_EvenRounds_16 pins the round-fill regression: 16 pairs, open=3
+// must produce exactly 3 Jornadas of 8 matches each (round-robin per round),
+// not the old greedy scatter (7/8/7/1).
+func TestPlan_EvenRounds_16(t *testing.T) {
+	n := 16
+	pairs := make([]string, n)
+	played, pending, position := map[string]int{}, map[string]int{}, map[string]int{}
+	met := map[string]map[string]struct{}{}
+	occupied := map[string]map[int]bool{}
+	for i := range n {
+		id := string(rune('A' + i))
+		pairs[i] = id
+		played[id], pending[id], position[id] = 0, 0, i
+		met[id] = map[string]struct{}{}
+		occupied[id] = map[int]bool{}
+	}
+	st := &leveledState{
+		target: 10, open: 3, comfort: 5,
+		pairs: pairs, played: played, pending: pending,
+		met: met, position: position, occupied: occupied,
+	}
+	svc := &Service{shuffle: func(_ int, _ func(int, int)) {}}
+
+	pairings := plan(svc, st)
+
+	bySlot := map[int]int{}
+	for _, p := range pairings {
+		bySlot[p.Slot]++
+	}
+	assert.Equal(t, map[int]int{1: 8, 2: 8, 3: 8}, bySlot,
+		"16 pairs, open=3 must produce exactly 3 Jornadas of 8 matches each")
+}
+
+// TestPlan_EvenRounds_15 pins odd-pair handling: one pair sits out each
+// round (7 matches instead of 7.5), never scattering into an uneven batch.
+func TestPlan_EvenRounds_15(t *testing.T) {
+	n := 15
+	pairs := make([]string, n)
+	played, pending, position := map[string]int{}, map[string]int{}, map[string]int{}
+	met := map[string]map[string]struct{}{}
+	occupied := map[string]map[int]bool{}
+	for i := range n {
+		id := string(rune('A' + i))
+		pairs[i] = id
+		played[id], pending[id], position[id] = 0, 0, i
+		met[id] = map[string]struct{}{}
+		occupied[id] = map[int]bool{}
+	}
+	st := &leveledState{
+		target: 10, open: 3, comfort: 5,
+		pairs: pairs, played: played, pending: pending,
+		met: met, position: position, occupied: occupied,
+	}
+	svc := &Service{shuffle: func(_ int, _ func(int, int)) {}}
+
+	pairings := plan(svc, st)
+
+	bySlot := map[int]int{}
+	for _, p := range pairings {
+		bySlot[p.Slot]++
+	}
+	for k := 1; k <= 3; k++ {
+		assert.Equal(t, 7, bySlot[k], "Jornada %d should have 7 matches (one pair sits out)", k)
+	}
+}
+
+// TestPlan_TopUpInCurrentRound verifies a top-up never lands before the
+// competition's current calendar window, even though the pairs' own loads
+// alone would place them in an earlier round.
+func TestPlan_TopUpInCurrentRound(t *testing.T) {
+	now := time.Now()
+	pairs := []string{"A", "B", "C", "D"}
+	st := &leveledState{
+		target: 10, open: 2, comfort: 2,
+		pairs:    pairs,
+		met:      map[string]map[string]struct{}{"A": {}, "B": {}, "C": {}, "D": {}},
+		played:   map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
+		pending:  map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
+		position: map[string]int{"A": 0, "B": 1, "C": 2, "D": 3},
+		occupied: map[string]map[int]bool{"A": {}, "B": {}, "C": {}, "D": {}},
+		start:    now.Add(-50 * 24 * time.Hour),
+		end:      now.Add(50 * 24 * time.Hour), // u=10d, now=start+50d → cur=6
+		now:      now,
+	}
+	svc := &Service{shuffle: func(_ int, _ func(int, int)) {}}
+
+	pairings := plan(svc, st)
+
+	require.NotEmpty(t, pairings)
+	for _, p := range pairings {
+		assert.GreaterOrEqual(t, p.Slot, 6, "top-up slot must never be before the current calendar window")
+	}
+}
+
+// TestPlan_LastJornadaMultiple verifies that at k=target the occupied check
+// is skipped: a pair that still wants() can hold multiple matches in the
+// final Jornada, since there is no later round to push the overflow into.
+func TestPlan_LastJornadaMultiple(t *testing.T) {
+	// 3 pairs, target=2 (last Jornada). A has already played B in round 1,
+	// leaving only A-C and B-C available. With one round left, A and B both
+	// still want (pending=1 < open=2), so C must be scheduled twice.
+	st := &leveledState{
+		target: 2, open: 2, comfort: 2,
+		pairs: []string{"A", "B", "C"},
+		met: map[string]map[string]struct{}{
+			"A": {"B": {}}, "B": {"A": {}}, "C": {},
+		},
+		played:   map[string]int{"A": 0, "B": 0, "C": 0},
+		pending:  map[string]int{"A": 1, "B": 1, "C": 0},
+		position: map[string]int{"A": 0, "B": 1, "C": 2},
+		occupied: map[string]map[int]bool{"A": {1: true}, "B": {1: true}, "C": {}},
+	}
+	svc := &Service{shuffle: func(_ int, _ func(int, int)) {}}
+
+	pairings := plan(svc, st)
+
+	countC := 0
+	for _, p := range pairings {
+		if p.A == "C" || p.B == "C" {
+			countC++
+		}
+	}
+	assert.Equal(t, 2, countC, "C must hold both remaining matches in the last Jornada")
+	for _, p := range pairings {
+		assert.Equal(t, st.target, p.Slot, "last-Jornada pairings must land at k=target")
 	}
 }
 
@@ -619,6 +750,16 @@ func TestTopUp_TargetIsHardCap(t *testing.T) {
 
 // -- TestTopUp_RequesterStopsAtOpen -----------------------------------------
 
+// TestTopUp_RequesterStopsAtOpen verifies a pair at exactly `open` pending
+// never becomes a requester (nextRequesterForRound must skip it via
+// wants()). seed_pairs pins the rating order so pc and pd are
+// comfort-zone-adjacent (positions 0,1) while pa/pb sit outside pc/pd's
+// zone (positions 2,3) — otherwise pa/pb's comfort-zone tie with a fresh
+// opponent (both at the same rating distance) can make the requester pick
+// pa/pb regardless of correctness, which would make this fixture unable to
+// isolate the requester-role bug from ordinary opponent selection (see
+// TestEligible "pending == open exactly is eligible" — an opponent at
+// pending==open is a separate, allowed path, not what this test checks).
 func TestTopUp_RequesterStopsAtOpen(t *testing.T) {
 	app := newTestApp(t)
 	pa := makePair(t, app, "Open A")
@@ -626,18 +767,22 @@ func TestTopUp_RequesterStopsAtOpen(t *testing.T) {
 	pc := makePair(t, app, "Open C")
 	pd := makePair(t, app, "Open D")
 
-	// target=3, open=1, 4 pairs (3 < 3 is false — use target=2, open=1, 4 pairs: 2 < 3 → leveled).
+	// target=2, open=1, 4 pairs.
 	comp := makeLeveledCompetition(t, app, []*core.Record{pa, pb, pc, pd}, 2, 1)
+	comp.Set("seed_pairs", []string{pc.Id, pd.Id, pa.Id, pb.Id})
+	require.NoError(t, app.Save(comp))
 
 	now := time.Now()
-	// pa already has open=1 pending match.
+	// pa already has open=1 pending match (with pb), so wants(pa)=false.
+	// pc and pd have never met and are each other's comfort-zone match, so
+	// the top-up should simply pair them together without ever touching pa.
 	makeLeveledMatch(t, app, comp.Id, pa.Id, pb.Id, "", "", "pending", time.Time{})
 
 	svc := newDeterministicSvc(app)
 	created, err := svc.TopUpAssignments(comp.Id, now)
 	require.NoError(t, err)
+	require.NotEmpty(t, created, "pc/pd still want a match, so a top-up must create one")
 
-	// pa should not be a requester (already at open pending).
 	for _, m := range created {
 		assert.NotEqual(t, pa.Id, m.GetString("pair1"), "pair at open pending should not be requester")
 		assert.NotEqual(t, pa.Id, m.GetString("pair2"), "pair at open pending should not be requester")
@@ -946,14 +1091,9 @@ func TestPlan_SlotAssignment(t *testing.T) {
 		slotsByPair[m.GetString("pair2")] = append(slotsByPair[m.GetString("pair2")], m.GetInt("slot"))
 	}
 
-	// slot = smallest slot free for BOTH pairs (hole-filling): every pair's
-	// own matches land on DISTINCT slots — never two matches in the same
-	// Jornada for one pair, so a collision-free schedule is always
-	// achievable. Needing a slot free for BOTH sides (not each pair's own
-	// smallest independently) can occasionally leave a hole for one side —
-	// its own next free slot was already taken by the other pair's
-	// unrelated match — and can push a pairing past open+1=4; neither ever
-	// goes past open+2=5 in this fixture (16 pairs, open 3).
+	// Round-fill assigns one match per pair per Jornada: every pair's
+	// matches land on distinct slots within 1..open, never repeating a
+	// round and never spilling past open.
 	for _, p := range pairs {
 		slots := slotsByPair[p.Id]
 		sort.Ints(slots)
@@ -962,20 +1102,17 @@ func TestPlan_SlotAssignment(t *testing.T) {
 		for _, s := range slots {
 			assert.False(t, seen[s], "pair %s must never hold two matches in slot %d", p.Id, s)
 			seen[s] = true
-			assert.LessOrEqual(t, s, 5, "pair %s slot must not exceed open+2=5", p.Id)
+			assert.LessOrEqual(t, s, 3, "pair %s slot must not exceed open=3", p.Id)
 		}
 	}
 
-	// Exactly `open` (3) Jornada groups worth of slots (1..3) should exist;
-	// slot 4 is the documented "one above open" overflow, present for at
-	// most a few pairs, never forming its own full Jornada.
+	// 16 pairs, open=3 → exactly 3 Jornadas of 8 matches each.
 	slotCounts := map[int]int{}
 	for _, m := range matches {
 		slotCounts[m.GetInt("slot")]++
 	}
-	for s := 1; s <= 3; s++ {
-		assert.Positive(t, slotCounts[s], "slot %d should have matches (Jornada %d)", s, s)
-	}
+	assert.Equal(t, map[int]int{1: 8, 2: 8, 3: 8}, slotCounts,
+		"16 pairs, open=3 must produce exactly 3 even Jornadas")
 }
 
 // TestPlan_TopUpSlot verifies a top-up assigned well into the season gets a
@@ -1062,14 +1199,14 @@ func TestPlan_CalendarFloor(t *testing.T) {
 	}
 }
 
-// TestSlotFor_LateGeneration verifies that generating a calendar for a
+// TestPlan_LateGeneration verifies that generating a calendar for a
 // competition whose window already started skips the closed Jornadas
 // entirely: with start=7 days ago, target=10 (u=7d), the current window is
 // floor(7/7)+1=2, so the initial batch must land in Jornada 2 or later —
 // never Jornada 1, and no match's deadline is in the past. This pins the
 // scenario the owner hit: an admin who adds dates and generates a few days
 // late must not see the app assign matches to an already-closed Jornada.
-func TestSlotFor_LateGeneration(t *testing.T) {
+func TestPlan_LateGeneration(t *testing.T) {
 	app := newTestApp(t)
 	pairs := make([]*core.Record, 6)
 	for i := range pairs {
@@ -1094,86 +1231,38 @@ func TestSlotFor_LateGeneration(t *testing.T) {
 	for _, m := range matches {
 		slot := m.GetInt("slot")
 		assert.GreaterOrEqual(t, slot, 2, "no match may land in the already-closed Jornada 1")
-		assert.LessOrEqual(t, slot, 4, "open=2 initial batch must not spill past cur+open+1=4")
+		assert.LessOrEqual(t, slot, 4, "open=2 initial batch must not spill past cur+open=4 (a round-skipped pair retries next Jornada)")
 		deadline, ok := SlotDeadline(comp, slot)
 		require.True(t, ok)
 		assert.False(t, deadline.Before(now), "a generated match's arrange_by must never be in the past")
 	}
 }
 
-// TestSlotFor_NegativeWindow covers the u<=0 guard: when end<start the pace
+// TestPlan_NegativeWindow covers the u<=0 guard: when end<start the pace
 // unit is negative, so currentWindow must fall back to 1 instead of computing
 // a nonsensical calendar position. Unreachable via the handler (fixtures.go
 // rejects end<=start at creation), but the guard exists in currentWindow
 // itself and must be verified in isolation.
-func TestSlotFor_NegativeWindow(t *testing.T) {
+func TestPlan_NegativeWindow(t *testing.T) {
 	now := time.Now()
 	st := &leveledState{
-		target:   5,
+		target: 5, open: 2, comfort: 3,
+		pairs:    []string{"p", "q"},
+		met:      map[string]map[string]struct{}{"p": {}, "q": {}},
+		played:   map[string]int{"p": 0, "q": 0},
+		pending:  map[string]int{"p": 0, "q": 0},
+		position: map[string]int{"p": 0, "q": 1},
+		occupied: map[string]map[int]bool{"p": {}, "q": {}},
 		start:    now.Add(-time.Hour),
 		end:      now.Add(-2 * time.Hour), // end < start → u < 0
 		now:      now,
-		occupied: map[string]map[int]bool{},
 	}
-	assert.Equal(t, 1, st.slotFor("p", "q"), "u<0 must fall back to slot 1")
-}
+	svc := &Service{shuffle: func(_ int, _ func(int, int)) {}}
 
-// TestSlotFor_FillsHoles verifies a pair whose earlier Jornada is still open
-// (e.g. it was the opponent side of another pair's slot-2 match, so it has no
-// match at slot 1 yet) gets its hole filled first, rather than being pushed
-// to slot 3 alongside a fully-booked opponent.
-func TestSlotFor_FillsHoles(t *testing.T) {
-	st := &leveledState{
-		target: 5,
-		occupied: map[string]map[int]bool{
-			"p": {2: true}, // p already has a match at slot 2, slot 1 is a hole
-			"q": {},        // q has no matches yet
-		},
-	}
-	assert.Equal(t, 1, st.slotFor("p", "q"), "p's hole at slot 1 must be filled, not slot 3")
-}
+	pairings := plan(svc, st)
 
-// TestSlotFor_NoCrossPairCollision verifies slotFor picks a slot free for
-// BOTH pairs, not each pair's own smallest slot independently: p's smallest
-// free slot (1) must not be used when q already occupies it, even though q's
-// own smallest free slot (2) happens to be exactly the slot p occupies.
-func TestSlotFor_NoCrossPairCollision(t *testing.T) {
-	st := &leveledState{
-		target: 5,
-		occupied: map[string]map[int]bool{
-			"p": {2: true}, // p's own smallest free slot is 1
-			"q": {1: true}, // q's own smallest free slot is 2 — but slot 1 collides with q
-		},
-	}
-	assert.Equal(t, 3, st.slotFor("p", "q"), "slot must be free for both pairs, not just the max of their own frees")
-}
-
-// TestSlotFor_CurrentWindowFloor verifies slotFor never assigns a slot before
-// the competition's current calendar window, even when both pairs have no
-// occupied slots yet (a mid-season top-up must not land in the past).
-func TestSlotFor_CurrentWindowFloor(t *testing.T) {
-	now := time.Now()
-	st := &leveledState{
-		target:   10,
-		start:    now.Add(-50 * 24 * time.Hour),
-		end:      now.Add(50 * 24 * time.Hour), // 100-day window, u=10d, now=start+50d → cur=6
-		now:      now,
-		occupied: map[string]map[int]bool{},
-	}
-	assert.Equal(t, 6, st.slotFor("p", "q"), "slot must floor to the current calendar window")
-}
-
-// TestSlotFor_CapAtTarget verifies slotFor never returns a slot past target,
-// even when both pairs' free slots would otherwise land beyond it.
-func TestSlotFor_CapAtTarget(t *testing.T) {
-	st := &leveledState{
-		target: 3,
-		occupied: map[string]map[int]bool{
-			"p": {1: true, 2: true, 3: true},
-			"q": {1: true, 2: true, 3: true},
-		},
-	}
-	assert.Equal(t, 3, st.slotFor("p", "q"), "slot must be capped at target even past a full house")
+	require.NotEmpty(t, pairings)
+	assert.Equal(t, 1, pairings[0].Slot, "u<0 must fall back to starting at slot 1")
 }
 
 func TestSlotCap(t *testing.T) {

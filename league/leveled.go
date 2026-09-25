@@ -84,12 +84,13 @@ type candidate struct {
 	position int
 }
 
-// chooseOpponent returns the best eligible opponent for p, or "" if none exists.
-// Candidates inside the comfort zone are shuffled (random order); candidates
-// outside are sorted nearest-first, then by lower load, then by better position.
-// The first candidate that passes the completion check wins.
-func (svc *Service) chooseOpponent(st *leveledState, p string) string {
-	inside, outside := svc.collectCandidates(st, p)
+// chooseOpponentForRound returns the best eligible opponent for p within
+// round k, or "" if none exists. Candidates inside the comfort zone are
+// shuffled (random order); candidates outside are sorted nearest-first, then
+// by lower load, then by better position. The first candidate that passes
+// the completion check wins.
+func (svc *Service) chooseOpponentForRound(st *leveledState, p string, k int) string {
+	inside, outside := svc.collectCandidatesForRound(st, p, k)
 
 	need := make(map[string]int, len(st.pairs))
 	for _, id := range st.pairs {
@@ -103,12 +104,19 @@ func (svc *Service) chooseOpponent(st *leveledState, p string) string {
 	return firstCompletable(p, outside, ctx)
 }
 
-// collectCandidates builds the inside-zone (shuffled) and outside-zone (sorted)
-// candidate lists for p.
-func (svc *Service) collectCandidates(st *leveledState, p string) (inside, outside []candidate) {
+// collectCandidatesForRound builds the inside-zone (shuffled) and
+// outside-zone (sorted) candidate lists for p, restricted to opponents that
+// have no existing match in round k. Below the last Jornada (k < target) a
+// pair with a match already in round k is excluded up front, before the
+// comfort-zone split — otherwise an occupied pair could dominate the zone
+// order and starve an available one.
+func (svc *Service) collectCandidatesForRound(st *leveledState, p string, k int) (inside, outside []candidate) {
 	posP := st.position[p]
 	for _, q := range st.pairs {
 		if !st.eligible(p, q) {
+			continue
+		}
+		if k < st.target && st.occupied[q][k] {
 			continue
 		}
 		d := st.position[q] - posP
@@ -260,31 +268,49 @@ func minSlack(need map[string]int, met map[string]map[string]struct{}) int {
 	return max
 }
 
-// plan runs the fill loop (recipe §3.5) and returns the pairings to create.
+// plan fills one Jornada at a time, starting from the competition's current
+// calendar window, so every pair plays at most once per round (recipe §3.5).
+// Each round repeats the wants/choose/pair loop until no requester remains,
+// then advances to the next Jornada. The loop stops early once no pair wants
+// a new assignment — reached after `open` rounds in the initial batch, or
+// immediately once a top-up's few requesters are satisfied.
 func plan(svc *Service, st *leveledState) []Pairing {
 	var result []Pairing
-	skipped := map[string]bool{}
 
-	for {
-		// Find the pair with wants() not yet skipped; lowest load, then best position.
-		p := nextRequester(st, skipped)
-		if p == "" {
+	for k := st.currentWindow(); k <= st.target; k++ {
+		skipped := map[string]bool{}
+		for {
+			p := nextRequesterForRound(st, skipped, k)
+			if p == "" {
+				break
+			}
+			q := svc.chooseOpponentForRound(st, p, k)
+			if q == "" {
+				skipped[p] = true
+				continue
+			}
+			result = append(result, Pairing{A: p, B: q, Slot: k})
+			st.pending[p]++
+			st.pending[q]++
+			addMet(st.met, p, q)
+			st.occupy(p, k)
+			st.occupy(q, k)
+		}
+		if !anyWants(st) {
 			break
 		}
-		q := svc.chooseOpponent(st, p)
-		if q == "" {
-			skipped[p] = true
-			continue
-		}
-		slot := st.slotFor(p, q)
-		result = append(result, Pairing{A: p, B: q, Slot: slot})
-		st.pending[p]++
-		st.pending[q]++
-		addMet(st.met, p, q)
-		st.occupy(p, slot)
-		st.occupy(q, slot)
 	}
 	return result
+}
+
+// anyWants reports whether any pair still wants a new assignment.
+func anyWants(st *leveledState) bool {
+	for _, p := range st.pairs {
+		if st.wants(p) {
+			return true
+		}
+	}
+	return false
 }
 
 // occupy records that p already has a match at slot.
@@ -328,33 +354,19 @@ func currentWindowFor(start, end time.Time, target int, now time.Time) int {
 	return clampInt(cur, 1, target)
 }
 
-// freeSlot returns the smallest slot ≥ from with no existing match for
-// EITHER p or q — the pairing needs one shared free slot, not each pair's
-// own smallest independently (their smallest can collide with the other's
-// unrelated occupied slot).
-func (st *leveledState) freeSlot(p, q string, from int) int {
-	n := from
-	for st.occupied[p][n] || st.occupied[q][n] {
-		n++
-	}
-	return n
-}
-
-// slotFor returns the ordinal for a new p–q pairing: the smallest slot at or
-// after the competition's current calendar window that is free for both
-// pairs — never a past-dated slot, and it fills an earlier hole before
-// pushing to a new one. The in-memory result is never capped here —
-// setMatchFields caps it at target when storing.
-func (st *leveledState) slotFor(p, q string) int {
-	return min(st.target, st.freeSlot(p, q, st.currentWindow()))
-}
-
-// nextRequester returns the pair that wants an assignment and has the lowest
-// load, then the best (lowest) position. Returns "" when none wants one.
-func nextRequester(st *leveledState, skipped map[string]bool) string {
+// nextRequesterForRound returns the pair that wants an assignment, has no
+// existing match in round k, and has the lowest load, then the best (lowest)
+// position. Below the last Jornada (k < target) a pair already occupying
+// round k is excluded; at k == target the occupancy check is skipped so a
+// pair that still wants() can receive multiple matches in the final round.
+// Returns "" when none wants one.
+func nextRequesterForRound(st *leveledState, skipped map[string]bool, k int) string {
 	best := ""
 	for _, p := range st.pairs {
 		if skipped[p] || !st.wants(p) {
+			continue
+		}
+		if k < st.target && st.occupied[p][k] {
 			continue
 		}
 		if best == "" {
