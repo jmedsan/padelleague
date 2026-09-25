@@ -192,7 +192,7 @@ func resolveFooter(e *core.RequestEvent, data map[string]any) {
 		return
 	}
 	if e.Auth == nil && compID == "" {
-		data["Footer"] = league.FooterContext(e.App, "", "", false)
+		data["Footer"] = league.GlobalSponsorsOnlyFooter(e.App)
 		data["Branding"] = league.Branding(e.App, "")
 		return
 	}
