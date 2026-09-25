@@ -1,0 +1,16 @@
+{{/*
+  pairLevelSelect: skill-level dropdown, admin-only, saves on change.
+  Fields: PairID, ReturnTo, Current (level key), Locked (bool), Levels
+  (league.Levels), SizeClass (e.g. "select-sm" or "select-md w-full").
+*/}}
+{{define "pairLevelSelect"}}
+<form hx-post="/admin/pairs/{{.PairID}}/level" hx-trigger="change">
+    <input type="hidden" name="return_to" value="{{.ReturnTo}}">
+    <select name="level" class="select select-bordered {{.SizeClass}}"
+            {{if .Locked}}disabled{{end}} aria-label="Nivel">
+        {{range .Levels}}
+        <option value="{{.Key}}" {{if eq .Key $.Current}}selected{{end}}>{{.Label}}</option>
+        {{end}}
+    </select>
+</form>
+{{end}}
