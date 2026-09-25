@@ -158,8 +158,8 @@ export async function createCompetition(
 
 export function competitionDates(): { startDate: string; endDate: string } {
   return {
-    startDate: '2026-09-28T12:00:00.000Z',
-    endDate: '2026-12-06T12:00:00.000Z',
+    startDate: '2036-09-29T12:00:00.000Z',
+    endDate: '2036-12-07T12:00:00.000Z',
   };
 }
 

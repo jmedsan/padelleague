@@ -94,7 +94,7 @@ test.describe('leveled-16 scenario', () => {
 
     // Set date and club first — required before score submission
     await apiPatch(api, `/api/collections/matches/records/${matchId}`, {
-      date: '2026-10-01T10:00:00.000Z',
+      date: '2036-10-02T10:00:00.000Z',
       club: 'Test Club',
     });
 
@@ -224,10 +224,10 @@ test.describe('leveled-16 scenario', () => {
     try {
       await apiPatch(api, `/api/collections/matches/records/${matchA.id}`, {
         status: 'scheduled',
-        arrange_by: '2026-10-01',
+        arrange_by: '2036-10-02',
       });
       await apiPatch(api, `/api/collections/matches/records/${matchB.id}`, {
-        arrange_by: '2026-10-15',
+        arrange_by: '2036-10-16',
       });
 
       await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
