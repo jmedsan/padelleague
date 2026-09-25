@@ -295,19 +295,37 @@ func (st *leveledState) occupy(p string, slot int) {
 	st.occupied[p][slot] = true
 }
 
-// currentWindow returns the calendar Jornada the competition is in right now:
-// floor((now−start)/u)+1, clamped to [1, target]. Returns 1 when there is no
-// usable window (missing dates, zero target/unit, or now before start).
+// currentWindow returns the calendar Jornada the competition is in right now.
 func (st *leveledState) currentWindow() int {
-	if st.start.IsZero() || st.end.IsZero() || st.target <= 0 || !st.now.After(st.start) {
+	return currentWindowFor(st.start, st.end, st.target, st.now)
+}
+
+// CurrentWindow returns the calendar Jornada a leveled competition is in
+// right now: floor((now−start)/u)+1, clamped to [1, target_matches]. Returns
+// 1 when there is no usable window (missing dates, zero target, or now
+// before start) — the ordinary case where the season hasn't started yet.
+func CurrentWindow(comp *core.Record, now time.Time) int {
+	return currentWindowFor(
+		comp.GetDateTime("start_date").Time(),
+		comp.GetDateTime("end_date").Time(),
+		comp.GetInt("target_matches"),
+		now,
+	)
+}
+
+// currentWindowFor computes floor((now−start)/u)+1, clamped to [1, target].
+// Returns 1 when there is no usable window (missing dates, zero target/unit,
+// or now before start).
+func currentWindowFor(start, end time.Time, target int, now time.Time) int {
+	if start.IsZero() || end.IsZero() || target <= 0 || !now.After(start) {
 		return 1
 	}
-	u := st.end.Sub(st.start) / time.Duration(st.target)
+	u := end.Sub(start) / time.Duration(target)
 	if u <= 0 {
 		return 1
 	}
-	cur := int(math.Floor(float64(st.now.Sub(st.start))/float64(u))) + 1
-	return clampInt(cur, 1, st.target)
+	cur := int(math.Floor(float64(now.Sub(start))/float64(u))) + 1
+	return clampInt(cur, 1, target)
 }
 
 // freeSlot returns the smallest slot ≥ from with no existing match for

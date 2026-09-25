@@ -1062,6 +1062,45 @@ func TestPlan_CalendarFloor(t *testing.T) {
 	}
 }
 
+// TestSlotFor_LateGeneration verifies that generating a calendar for a
+// competition whose window already started skips the closed Jornadas
+// entirely: with start=7 days ago, target=10 (u=7d), the current window is
+// floor(7/7)+1=2, so the initial batch must land in Jornada 2 or later —
+// never Jornada 1, and no match's deadline is in the past. This pins the
+// scenario the owner hit: an admin who adds dates and generates a few days
+// late must not see the app assign matches to an already-closed Jornada.
+func TestSlotFor_LateGeneration(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 6)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "LateGen")
+	}
+	comp := makeLeveledCompetition(t, app, pairs, 10, 2)
+	start := time.Now().Add(-7 * 24 * time.Hour)
+	end := start.Add(70 * 24 * time.Hour) // u = 70d/10 = 7d
+	comp.Set("start_date", start.Format(time.RFC3339))
+	comp.Set("end_date", end.Format(time.RFC3339))
+	require.NoError(t, app.Save(comp))
+
+	svc := newDeterministicSvc(app)
+	now := time.Now()
+	_, err := svc.GenerateInitialAssignments(app, comp, now)
+	require.NoError(t, err)
+
+	matches, err := app.FindRecordsByFilter("matches", "competition = {:c}", "", 0, 0,
+		map[string]any{"c": comp.Id})
+	require.NoError(t, err)
+	require.NotEmpty(t, matches)
+	for _, m := range matches {
+		slot := m.GetInt("slot")
+		assert.GreaterOrEqual(t, slot, 2, "no match may land in the already-closed Jornada 1")
+		assert.LessOrEqual(t, slot, 4, "open=2 initial batch must not spill past cur+open+1=4")
+		deadline, ok := SlotDeadline(comp, slot)
+		require.True(t, ok)
+		assert.False(t, deadline.Before(now), "a generated match's arrange_by must never be in the past")
+	}
+}
+
 // TestSlotFor_NegativeWindow covers the u<=0 guard: when end<start the pace
 // unit is negative, so currentWindow must fall back to 1 instead of computing
 // a nonsensical calendar position. Unreachable via the handler (fixtures.go
