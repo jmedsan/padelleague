@@ -414,9 +414,11 @@ func TestGenerateFlashMessage(t *testing.T) {
 	t.Run("leveled, generated after Jornada 1 closed: appends the Jornada note", func(t *testing.T) {
 		comp := makeCompetitionTB(t, app, "league", pairs) // 12 pairs, target 10 < 11 → leveled
 		comp.Set("target_matches", 10)
-		start := time.Now().Add(-7 * 24 * time.Hour)
+		start := time.Now().Add(-8 * 24 * time.Hour)
 		comp.Set("start_date", start.Format(time.RFC3339))
-		comp.Set("end_date", start.Add(70*24*time.Hour).Format(time.RFC3339)) // u=7d → cur=2
+		// end_date is inclusive, so a 70-day-later end is a 71-day window:
+		// u = 71/10 = 7.1d. now is 8 real days past start → cur=2.
+		comp.Set("end_date", start.Add(70*24*time.Hour).Format(time.RFC3339))
 		require.NoError(t, app.Save(comp))
 		assert.Equal(t,
 			"Calendario generado. La jornada 1 ya ha terminado; los partidos se asignan desde la jornada 2.",
