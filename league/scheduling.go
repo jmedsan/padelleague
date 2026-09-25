@@ -20,23 +20,58 @@ func truncateToNoonUTC(t time.Time) time.Time {
 // JornadaWindow returns the [lo, hi] calendar-day range for Jornada n out of
 // target, given the competition's start_date/end_date. end_date is
 // inclusive (a competition ending 07/12 plays matches through the 7th), so
-// the window length is (end + 1 day − start), divided into target equal
-// units; Jornada n is [start+(n-1)u, start+n·u-1 day], with the last
-// Jornada capped at end so rounding never pushes it past the season.
+// the D = end−start+1 inclusive days are partitioned into target whole-day
+// Jornadas via jornadaDayRange — never a fractional-day unit, so a Jornada's
+// last day (its deadline) always lands on a whole calendar day.
 // Callers with only a single date value (no time-of-day) should pass dates
 // truncated to midnight UTC; the returned lo/hi carry whatever time-of-day
-// start/end did.
+// start had.
 func JornadaWindow(start, end time.Time, target, n int) (lo, hi time.Time) {
 	if target <= 0 {
 		return start, end
 	}
-	u := end.AddDate(0, 0, 1).Sub(start) / time.Duration(target)
-	lo = start.Add(time.Duration(n-1) * u)
-	hi = start.Add(time.Duration(n)*u - 24*time.Hour)
-	if n >= target || hi.After(end) {
-		hi = end
+	loDay, hiDay := jornadaDayRange(SeasonDays(start, end), target, n)
+	return start.AddDate(0, 0, loDay), start.AddDate(0, 0, hiDay)
+}
+
+// SeasonDays returns the inclusive whole-day count of a competition's play
+// window (end_date included), the D a leveled league's target_matches is
+// partitioned across. Callers validating target_matches <= SeasonDays(...)
+// prevent a season too short to give every Jornada at least one day.
+func SeasonDays(start, end time.Time) int {
+	return daysBetween(start, end) + 1
+}
+
+// daysBetween returns the whole number of calendar days from a to b (may be
+// negative). Both times are truncated to their own time-of-day first, so
+// callers don't need a/b already midnight-aligned.
+func daysBetween(a, b time.Time) int {
+	ay, am, ad := a.UTC().Date()
+	by, bm, bd := b.UTC().Date()
+	a = time.Date(ay, am, ad, 0, 0, 0, 0, time.UTC)
+	b = time.Date(by, bm, bd, 0, 0, 0, 0, time.UTC)
+	return int(b.Sub(a).Hours() / 24)
+}
+
+// jornadaDayRange partitions days inclusive days into target whole-day
+// Jornadas as evenly as possible, returning the 0-indexed [lo, hi] day
+// offsets from day 0 for Jornada n (1-based). Ceiling division makes every
+// Jornada's hi the exact day before the next Jornada's lo, so the ranges
+// tile the season with no gap and no overlap; hi is clamped to lo when
+// days < target so a short season still yields a valid (if degenerate)
+// range instead of hi < lo.
+func jornadaDayRange(days, target, n int) (lo, hi int) {
+	lo = ceilDiv((n-1)*days, target)
+	hi = ceilDiv(n*days, target) - 1
+	if hi < lo {
+		hi = lo
 	}
 	return lo, hi
+}
+
+// ceilDiv returns ceil(a/b) for non-negative a and positive b.
+func ceilDiv(a, b int) int {
+	return (a + b - 1) / b
 }
 
 // Warning represents how urgently a match needs to be arranged.

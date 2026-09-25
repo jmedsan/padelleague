@@ -387,18 +387,21 @@ func CurrentWindow(comp *core.Record, now time.Time) int {
 	)
 }
 
-// currentWindowFor computes floor((now−start)/u)+1, clamped to [1, target].
-// Returns 1 when there is no usable window (missing dates, zero target/unit,
-// or now before start).
+// currentWindowFor returns the Jornada containing now, using the same
+// whole-day partition as JornadaWindow: with i the calendar-day offset of
+// now from start and D the inclusive day count, window = floor(i·T/D)+1.
+// Returns 1 when there is no usable window (missing dates, zero target, or
+// now before start); clamps to target once now reaches or passes end.
 func currentWindowFor(start, end time.Time, target int, now time.Time) int {
 	if start.IsZero() || end.IsZero() || target <= 0 || !now.After(start) {
 		return 1
 	}
-	u := end.AddDate(0, 0, 1).Sub(start) / time.Duration(target)
-	if u <= 0 {
+	days := SeasonDays(start, end)
+	if days <= 0 {
 		return 1
 	}
-	cur := int(math.Floor(float64(now.Sub(start))/float64(u))) + 1
+	i := clampInt(daysBetween(start, now), 0, days-1)
+	cur := i*target/days + 1
 	return clampInt(cur, 1, target)
 }
 

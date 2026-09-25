@@ -493,7 +493,11 @@ func TestPlan_EvenRounds_15(t *testing.T) {
 // competition's current calendar window, even though the pairs' own loads
 // alone would place them in an earlier round.
 func TestPlan_TopUpInCurrentRound(t *testing.T) {
-	now := time.Now()
+	// day-aligned: start=day0, end=day99 (100 inclusive days), now=day50 →
+	// 10 even 10-day Jornadas, day50 opens J6 ([50,59]) → cur=6.
+	start := time.Date(2036, 1, 1, 0, 0, 0, 0, time.UTC)
+	now := start.AddDate(0, 0, 50)
+	end := start.AddDate(0, 0, 99)
 	pairs := []string{"A", "B", "C", "D"}
 	st := &leveledState{
 		target: 10, open: 2, comfort: 2,
@@ -503,8 +507,8 @@ func TestPlan_TopUpInCurrentRound(t *testing.T) {
 		pending:  map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
 		position: map[string]int{"A": 0, "B": 1, "C": 2, "D": 3},
 		occupied: map[string]map[int]bool{"A": {}, "B": {}, "C": {}, "D": {}},
-		start:    now.Add(-50 * 24 * time.Hour),
-		end:      now.Add(50 * 24 * time.Hour), // u=10d, now=start+50d → cur=6
+		start:    start,
+		end:      end,
 		now:      now,
 	}
 	svc := &Service{shuffle: func(_ int, _ func(int, int)) {}}
@@ -1320,18 +1324,19 @@ func TestPlan_CalendarFloor(t *testing.T) {
 		pairs[i] = makePair(t, app, "CalFloor")
 	}
 	comp := makeLeveledCompetition(t, app, pairs, 10, 2)
-	start := time.Now().Add(-50 * 24 * time.Hour) // well in the past
-	end := time.Now().Add(50 * 24 * time.Hour)    // 100-day window, now = start+50d
+	// day-aligned: start=day0, end=day99 (100 inclusive days), now=day50 →
+	// 10 even 10-day Jornadas, day50 opens J6 ([50,59]) → cur=6.
+	start := time.Date(2036, 1, 1, 0, 0, 0, 0, time.UTC)
+	now := start.AddDate(0, 0, 50)
+	end := start.AddDate(0, 0, 99)
 	comp.Set("start_date", start.Format(time.RFC3339))
 	comp.Set("end_date", end.Format(time.RFC3339))
 	require.NoError(t, app.Save(comp))
 
 	svc := newDeterministicSvc(app)
-	now := time.Now()
 	_, err := svc.GenerateInitialAssignments(app, comp, now)
 	require.NoError(t, err)
 
-	// u = 100d/10 = 10d; now is ~50d after start → current window = floor(50/10)+1 = 6.
 	matches, err := app.FindRecordsByFilter("matches", "competition = {:c}", "", 0, 0,
 		map[string]any{"c": comp.Id})
 	require.NoError(t, err)
@@ -1343,11 +1348,12 @@ func TestPlan_CalendarFloor(t *testing.T) {
 
 // TestPlan_LateGeneration verifies that generating a calendar for a
 // competition whose window already started skips the closed Jornadas
-// entirely: with start=7 days ago, target=10 (u=7d), the current window is
-// floor(7/7)+1=2, so the initial batch must land in Jornada 2 or later —
-// never Jornada 1, and no match's deadline is in the past. This pins the
-// scenario the owner hit: an admin who adds dates and generates a few days
-// late must not see the app assign matches to an already-closed Jornada.
+// entirely: day-aligned start=day0, end=day69 (70 inclusive days), target=10
+// gives 10 even 7-day Jornadas, so today (day7) opens J2 ([7,13]) — the
+// initial batch must land in Jornada 2 or later, never Jornada 1, and no
+// match's deadline is in the past. This pins the scenario the owner hit: an
+// admin who adds dates and generates a few days late must not see the app
+// assign matches to an already-closed Jornada.
 func TestPlan_LateGeneration(t *testing.T) {
 	app := newTestApp(t)
 	pairs := make([]*core.Record, 6)
@@ -1355,14 +1361,14 @@ func TestPlan_LateGeneration(t *testing.T) {
 		pairs[i] = makePair(t, app, "LateGen")
 	}
 	comp := makeLeveledCompetition(t, app, pairs, 10, 2)
-	start := time.Now().Add(-7 * 24 * time.Hour)
-	end := start.Add(70 * 24 * time.Hour) // u = 70d/10 = 7d
+	start := time.Date(2036, 1, 1, 0, 0, 0, 0, time.UTC)
+	now := start.AddDate(0, 0, 7)
+	end := start.AddDate(0, 0, 69)
 	comp.Set("start_date", start.Format(time.RFC3339))
 	comp.Set("end_date", end.Format(time.RFC3339))
 	require.NoError(t, app.Save(comp))
 
 	svc := newDeterministicSvc(app)
-	now := time.Now()
 	_, err := svc.GenerateInitialAssignments(app, comp, now)
 	require.NoError(t, err)
 
@@ -1405,6 +1411,26 @@ func TestPlan_NegativeWindow(t *testing.T) {
 
 	require.NotEmpty(t, pairings)
 	assert.Equal(t, 1, pairings[0].Slot, "u<0 must fall back to starting at slot 1")
+}
+
+// TestCurrentWindowFor_NonMultipleSeason pins currentWindowFor against every
+// Jornada boundary of the 73-day/target=10 season (29 Sep–10 Dec 2036, the
+// same non-multiple season TestJornadaWindow pins): today = each Jornada's
+// lo and hi day must resolve to that same Jornada, so display
+// (JornadaWindow), deadline (SlotDeadline) and currentWindowFor never
+// disagree about which Jornada "now" falls in.
+func TestCurrentWindowFor_NonMultipleSeason(t *testing.T) {
+	start := time.Date(2036, 9, 29, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2036, 12, 10, 0, 0, 0, 0, time.UTC)
+	target := 10
+	for n := 1; n <= target; n++ {
+		lo, hi := JornadaWindow(start, end, target, n)
+		assert.Equal(t, n, currentWindowFor(start, end, target, lo),
+			"Jornada %d's first day must resolve to window %d", n, n)
+		assert.Equal(t, n, currentWindowFor(start, end, target, hi),
+			"Jornada %d's last day (its deadline) must still resolve to window %d, not %d",
+			n, n, n+1)
+	}
 }
 
 func TestSlotCap(t *testing.T) {
