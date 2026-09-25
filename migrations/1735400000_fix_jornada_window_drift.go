@@ -32,7 +32,7 @@ func init() {
 			}
 		}
 		return nil
-	}, func(app core.App) error {
+	}, func(_ core.App) error {
 		return nil
 	})
 }
