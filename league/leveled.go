@@ -44,9 +44,10 @@ type leveledState struct {
 	played   map[string]int
 	pending  map[string]int
 	met      map[string]map[string]struct{}
-	position map[string]int // 0-based index in rating order
-	start    time.Time      // competition start_date, zero if unset
-	end      time.Time      // competition end_date, zero if unset
+	position map[string]int          // 0-based index in rating order
+	occupied map[string]map[int]bool // pair id -> set of slots it already has a match at
+	start    time.Time               // competition start_date, zero if unset
+	end      time.Time               // competition end_date, zero if unset
 	now      time.Time
 }
 
@@ -280,32 +281,54 @@ func plan(svc *Service, st *leveledState) []Pairing {
 		st.pending[p]++
 		st.pending[q]++
 		addMet(st.met, p, q)
+		st.occupy(p, slot)
+		st.occupy(q, slot)
 	}
 	return result
 }
 
-// slotFor returns the ordinal for a new p–q pairing: the higher of the two
-// pairs' own match counts (load) plus one, raised to the current calendar
-// position (ceil((now−start)/u)) so a pair that falls behind never gets a
-// past-dated slot. Using load — not an inherited running counter — keeps the
-// slot bounded by open+1 regardless of how many opponents a popular pair has
-// paired with (recipe §3.2's eligible() already caps load at open for a
-// non-requester). The in-memory result is never capped here — setMatchFields
-// caps it at target when storing.
-func (st *leveledState) slotFor(p, q string) int {
-	slot := max(st.load(p), st.load(q)) + 1
+// occupy records that p already has a match at slot.
+func (st *leveledState) occupy(p string, slot int) {
+	if st.occupied[p] == nil {
+		st.occupied[p] = map[int]bool{}
+	}
+	st.occupied[p][slot] = true
+}
+
+// currentWindow returns the calendar Jornada the competition is in right now:
+// floor((now−start)/u)+1, clamped to [1, target]. Returns 1 when there is no
+// usable window (missing dates, zero target/unit, or now before start).
+func (st *leveledState) currentWindow() int {
 	if st.start.IsZero() || st.end.IsZero() || st.target <= 0 || !st.now.After(st.start) {
-		return slot
+		return 1
 	}
 	u := st.end.Sub(st.start) / time.Duration(st.target)
 	if u <= 0 {
-		return slot
+		return 1
 	}
-	calSlot := int(math.Ceil(float64(st.now.Sub(st.start)) / float64(u)))
-	if calSlot > slot {
-		return calSlot
+	cur := int(math.Floor(float64(st.now.Sub(st.start))/float64(u))) + 1
+	return clampInt(cur, 1, st.target)
+}
+
+// freeSlot returns the smallest slot ≥ from with no existing match for
+// EITHER p or q — the pairing needs one shared free slot, not each pair's
+// own smallest independently (their smallest can collide with the other's
+// unrelated occupied slot).
+func (st *leveledState) freeSlot(p, q string, from int) int {
+	n := from
+	for st.occupied[p][n] || st.occupied[q][n] {
+		n++
 	}
-	return slot
+	return n
+}
+
+// slotFor returns the ordinal for a new p–q pairing: the smallest slot at or
+// after the competition's current calendar window that is free for both
+// pairs — never a past-dated slot, and it fills an earlier hole before
+// pushing to a new one. The in-memory result is never capped here —
+// setMatchFields caps it at target when storing.
+func (st *leveledState) slotFor(p, q string) int {
+	return min(st.target, st.freeSlot(p, q, st.currentWindow()))
 }
 
 // nextRequester returns the pair that wants an assignment and has the lowest
@@ -462,7 +485,7 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now tim
 		return nil, err
 	}
 
-	played, pending, met := tallyMatchState(sortedPairs, matches, withdrawnSet)
+	played, pending, met, occupied := tallyMatchState(sortedPairs, matches, withdrawnSet)
 
 	for _, av := range avoid {
 		addMet(met, av.A, av.B)
@@ -477,6 +500,7 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now tim
 		pending:  pending,
 		met:      met,
 		position: position,
+		occupied: occupied,
 		start:    comp.GetDateTime("start_date").Time(),
 		end:      comp.GetDateTime("end_date").Time(),
 		now:      now,
@@ -553,14 +577,17 @@ func sortPairsByRating(pairs []string, ratings map[string]float64, seedIDs []str
 	return sorted
 }
 
-// tallyMatchState classifies existing matches into played/pending counts and
-// the met-pairs set, skipping matches involving withdrawn pairs.
-func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[string]bool) (played, pending map[string]int, met map[string]map[string]struct{}) {
+// tallyMatchState classifies existing matches into played/pending counts, the
+// met-pairs set, and each pair's occupied slots, skipping matches involving
+// withdrawn pairs.
+func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[string]bool) (played, pending map[string]int, met map[string]map[string]struct{}, occupied map[string]map[int]bool) {
 	played = make(map[string]int, len(pairs))
 	pending = make(map[string]int, len(pairs))
 	met = make(map[string]map[string]struct{}, len(pairs))
+	occupied = make(map[string]map[int]bool, len(pairs))
 	for _, id := range pairs {
 		met[id] = map[string]struct{}{}
+		occupied[id] = map[int]bool{}
 	}
 	for _, m := range matches {
 		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
@@ -568,6 +595,10 @@ func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[strin
 			continue
 		}
 		addMet(met, p1, p2)
+		if slot := m.GetInt("slot"); slot > 0 {
+			occupied[p1][slot] = true
+			occupied[p2][slot] = true
+		}
 		if m.GetString("status") == "final" {
 			played[p1]++
 			played[p2]++
@@ -576,7 +607,7 @@ func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[strin
 			pending[p2]++
 		}
 	}
-	return played, pending, met
+	return played, pending, met, occupied
 }
 
 // -- helpers ----------------------------------------------------------------
@@ -655,4 +686,9 @@ func totalNeed(need map[string]int) int {
 // ceilDiv returns ceil(a/b).
 func ceilDiv(a, b int) int {
 	return int(math.Ceil(float64(a) / float64(b)))
+}
+
+// clampInt restricts v to [lo, hi].
+func clampInt(v, lo, hi int) int {
+	return max(lo, min(v, hi))
 }
