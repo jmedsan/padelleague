@@ -1077,6 +1077,50 @@ func TestLeveledFieldsPersistOnUpdate(t *testing.T) {
 	s.Test(t)
 }
 
+// TestUpdateCompetition_KeepsTargetMatchesWhenFixturesExist pins that saving
+// the edit form on a leveled competition that already has fixtures must not
+// touch target_matches — the field is rendered disabled once fixtures exist
+// (competition-detail.html), so the browser never submits it; reading it
+// with a default here would silently zero it out and demote the competition
+// to a plain round-robin league. Fails on the pre-fix code, which always
+// read target_matches from the form and defaulted to 0 when absent.
+func TestUpdateCompetition_KeepsTargetMatchesWhenFixturesExist(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id} with fixtures keeps target_matches unchanged",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupCompRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		pair1 := makePairTB(tb, app, "TM A")
+		pair2 := makePairTB(tb, app, "TM B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair1, pair2})
+		comp.Set("target_matches", 10)
+		require.NoError(tb, app.Save(comp))
+		makeMatchTB(tb, app, comp.Id, pair1.Id, pair2.Id, "pending")
+		compID = comp.Id
+
+		s.URL = "/admin/competitions/" + comp.Id
+		// No target_matches field — matches the disabled-input form the
+		// browser actually submits once fixtures exist.
+		s.Body = strings.NewReader("name=RenamedWithFixtures&type=league")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "RenamedWithFixtures", c.GetString("name"))
+		assert.Equal(tb, 10, c.GetInt("target_matches"), "target_matches must survive an edit once fixtures exist")
+	}
+	s.Test(t)
+}
+
 func TestLeveledFieldsEmptyDefaultsToZero(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
