@@ -33,48 +33,83 @@ func makeLeveledMatch(t *testing.T, app core.App, compID, p1, p2, scores, winner
 	return record
 }
 
-func TestRatings_SeedOnly(t *testing.T) {
+// TestLevelElo pins every level key's Elo offset, plus the unknown-key
+// fallback to 0.
+func TestLevelElo(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		key  string
+		want float64
+	}{
+		{"beginner", -300},
+		{"beginner_high", -200},
+		{"intermediate_low", -100},
+		{"intermediate", 0},
+		{"intermediate_high", 100},
+		{"advanced", 200},
+		{"advanced_high", 300},
+		{"unranked", 0},
+		{"not-a-level", 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.key, func(t *testing.T) {
+			assert.Equal(t, tc.want, LevelElo(tc.key))
+		})
+	}
+}
+
+// TestRatings_LevelStart verifies pairs seed their hidden rating from
+// pairs.level, and a pair with no level (empty string, e.g. legacy data)
+// starts at the unranked/intermediate baseline of 0.
+func TestRatings_LevelStart(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 
 	pa := makePair(t, app, "Alpha")
 	pb := makePair(t, app, "Beta")
 	pc := makePair(t, app, "Gamma")
-	pd := makePair(t, app, "Delta")
-	pe := makePair(t, app, "Epsilon") // unseeded 5th pair
+	pa.Set("level", "advanced")
+	pb.Set("level", "beginner")
+	pc.Set("level", "unranked")
+	require.NoError(t, app.Save(pa))
+	require.NoError(t, app.Save(pb))
+	require.NoError(t, app.Save(pc))
 
-	// Seed order: pa(0), pb(1), pc(2), pd(3) — pe unseeded.
-	comp := makeCompetition(t, app, []*core.Record{pa, pb, pc, pd, pe})
-	comp.Set("seed_pairs", []string{pa.Id, pb.Id, pc.Id, pd.Id})
-	require.NoError(t, app.Save(comp))
+	comp := makeCompetition(t, app, []*core.Record{pa, pb, pc})
 
 	ratings, err := Ratings(app, comp)
 	require.NoError(t, err)
 
-	// n=4 seeded pairs; index i gets ((4-1)/2 - i)*40
-	// i=0 → 1.5*40 = +60; i=1 → 0.5*40 = +20; i=2 → -0.5*40 = -20; i=3 → -1.5*40 = -60
-	assert.InDelta(t, 60.0, ratings[pa.Id], 0.001)
-	assert.InDelta(t, 20.0, ratings[pb.Id], 0.001)
-	assert.InDelta(t, -20.0, ratings[pc.Id], 0.001)
-	assert.InDelta(t, -60.0, ratings[pd.Id], 0.001)
-	assert.InDelta(t, 0.0, ratings[pe.Id], 0.001)
+	assert.InDelta(t, 200.0, ratings[pa.Id], 0.001)
+	assert.InDelta(t, -300.0, ratings[pb.Id], 0.001)
+	assert.InDelta(t, 0.0, ratings[pc.Id], 0.001)
 }
 
-func TestRatings_SeedOnly_NoSeed(t *testing.T) {
+// TestLevelLocked verifies a pair with a match in a leveled competition is
+// locked, while a pair with no matches (or matches only in a non-leveled
+// competition) is not.
+func TestLevelLocked(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 
-	pa := makePair(t, app, "A")
-	pb := makePair(t, app, "B")
+	pa := makePair(t, app, "LockA")
+	pb := makePair(t, app, "LockB")
+	pc := makePair(t, app, "LockC")
+	pd := makePair(t, app, "LockD")
 
-	comp := makeCompetition(t, app, []*core.Record{pa, pb})
-	// no seed_pairs set
+	leveled := makeCompetition(t, app, []*core.Record{pa, pb, pc, pd})
+	leveled.Set("target_matches", 2)
+	require.NoError(t, app.Save(leveled))
+	makeLeveledMatch(t, app, leveled.Id, pa.Id, pb.Id, "", "", "pending", time.Time{})
 
-	ratings, err := Ratings(app, comp)
-	require.NoError(t, err)
+	nonLeveled := makeCompetition(t, app, []*core.Record{pc, pd})
+	makeLeveledMatch(t, app, nonLeveled.Id, pc.Id, pd.Id, "", "", "pending", time.Time{})
 
-	assert.InDelta(t, 0.0, ratings[pa.Id], 0.001)
-	assert.InDelta(t, 0.0, ratings[pb.Id], 0.001)
+	assert.True(t, LevelLocked(app, pa.Id), "pair with a leveled match must be locked")
+	assert.False(t, LevelLocked(app, pc.Id), "pair with only a non-leveled match must not be locked")
+
+	pe := makePair(t, app, "LockE")
+	assert.False(t, LevelLocked(app, pe.Id), "pair with no matches must not be locked")
 }
 
 func TestRatings_OneMatch(t *testing.T) {

@@ -210,6 +210,20 @@ func spearman(order []int) float64 {
 	return 1 - 6*sumSq/float64(n*(n*n-1))
 }
 
+// noisySeedLevels buckets pairs into the 8 skill levels by noisy rank order
+// (strongest first), for setting pairs.level directly — the production
+// mechanism that replaced seed_pairs ordering.
+func noisySeedLevels(pairs []string, trueIdx map[string]int, sd float64, rng *rand.Rand) map[string]string {
+	ranked := noisySeed(pairs, trueIdx, sd, rng)
+	levels := make(map[string]string, len(ranked))
+	n := len(Levels) - 1 // exclude "unranked" from the bucket cycle
+	for i, id := range ranked {
+		bucket := i * n / len(ranked)
+		levels[id] = Levels[bucket].Key
+	}
+	return levels
+}
+
 // noisySeed returns pair IDs sorted by trueIndex + gauss(0, sd).
 func noisySeed(pairs []string, trueIdx map[string]int, sd float64, rng *rand.Rand) []string {
 	type entry struct {

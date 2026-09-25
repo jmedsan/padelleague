@@ -637,13 +637,16 @@ func TestGenerateInitialAssignments_Seeded(t *testing.T) {
 	}
 	comp := makeLeveledCompetition(t, app, pairs, 4, 2)
 
-	// Seed order: pairs[0] = strongest, pairs[5] = weakest.
+	// pairs[0] = strongest (advanced_high) down to pairs[5] = weakest
+	// (beginner) — 6 distinct levels among the 7 non-unranked ones, so rating
+	// order matches array order exactly, same as the old seed_pairs order.
 	seedIDs := make([]string, len(pairs))
+	strongestFirst := []string{"advanced_high", "advanced", "intermediate_high", "intermediate", "intermediate_low", "beginner"}
 	for i, p := range pairs {
 		seedIDs[i] = p.Id
+		p.Set("level", strongestFirst[i])
+		require.NoError(t, app.Save(p))
 	}
-	comp.Set("seed_pairs", seedIDs)
-	require.NoError(t, app.Save(comp))
 
 	// Identity shuffle: keep in order so we can predict opponent proximity.
 	svc := newDeterministicSvc(app)
@@ -696,11 +699,15 @@ func TestTopUp_OrdersByRating(t *testing.T) {
 	pairs := []*core.Record{pa, pb, pc, pd}
 
 	comp := makeLeveledCompetition(t, app, pairs, 3, 2)
-	comp.Set("seed_pairs", []string{pa.Id, pb.Id, pc.Id, pd.Id})
-	require.NoError(t, app.Save(comp))
+	// pa strongest .. pd weakest, distinct levels so rating order is fixed.
+	levels := []string{"advanced_high", "advanced", "intermediate", "beginner"}
+	for i, p := range pairs {
+		p.Set("level", levels[i])
+		require.NoError(t, app.Save(p))
+	}
 
 	svc := newDeterministicSvc(app)
-	// Seed gives pa strong rating. Give pa a final match against pb already,
+	// Level gives pa strong rating. Give pa a final match against pb already,
 	// leaving pa needing opponents.
 	now := time.Now()
 	makeLeveledMatch(t, app, comp.Id, pa.Id, pb.Id, "6-0 6-0", pa.Id, "final", now.Add(-time.Hour))
@@ -752,25 +759,32 @@ func TestTopUp_TargetIsHardCap(t *testing.T) {
 
 // TestTopUp_RequesterStopsAtOpen verifies a pair at exactly `open` pending
 // never becomes a requester (nextRequesterForRound must skip it via
-// wants()). seed_pairs pins the rating order so pc and pd are
-// comfort-zone-adjacent (positions 0,1) while pa/pb sit outside pc/pd's
-// zone (positions 2,3) — otherwise pa/pb's comfort-zone tie with a fresh
-// opponent (both at the same rating distance) can make the requester pick
-// pa/pb regardless of correctness, which would make this fixture unable to
-// isolate the requester-role bug from ordinary opponent selection (see
-// TestEligible "pending == open exactly is eligible" — an opponent at
-// pending==open is a separate, allowed path, not what this test checks).
+// wants()). Levels pin the rating order so pc and pd are
+// comfort-zone-adjacent (advanced/advanced_high) while pa/pb sit outside
+// pc/pd's zone (beginner/beginner_high) — otherwise pa/pb's comfort-zone tie
+// with a fresh opponent (both at the same rating distance) can make the
+// requester pick pa/pb regardless of correctness, which would make this
+// fixture unable to isolate the requester-role bug from ordinary opponent
+// selection (see TestEligible "pending == open exactly is eligible" — an
+// opponent at pending==open is a separate, allowed path, not what this test
+// checks).
 func TestTopUp_RequesterStopsAtOpen(t *testing.T) {
 	app := newTestApp(t)
 	pa := makePair(t, app, "Open A")
 	pb := makePair(t, app, "Open B")
 	pc := makePair(t, app, "Open C")
 	pd := makePair(t, app, "Open D")
+	pa.Set("level", "beginner")
+	pb.Set("level", "beginner_high")
+	pc.Set("level", "advanced")
+	pd.Set("level", "advanced_high")
+	require.NoError(t, app.Save(pa))
+	require.NoError(t, app.Save(pb))
+	require.NoError(t, app.Save(pc))
+	require.NoError(t, app.Save(pd))
 
 	// target=2, open=1, 4 pairs.
 	comp := makeLeveledCompetition(t, app, []*core.Record{pa, pb, pc, pd}, 2, 1)
-	comp.Set("seed_pairs", []string{pc.Id, pd.Id, pa.Id, pb.Id})
-	require.NoError(t, app.Save(comp))
 
 	now := time.Now()
 	// pa already has open=1 pending match (with pb), so wants(pa)=false.
@@ -981,12 +995,12 @@ func TestLeveledSeason_Invariants(t *testing.T) {
 	}
 	comp := makeLeveledCompetition(t, app, pairs, 5, 2)
 
-	seedIDs := make([]string, len(pairs))
+	levelKeys := []string{"advanced_high", "advanced", "intermediate_high", "intermediate",
+		"intermediate_low", "beginner_high", "beginner", "intermediate"}
 	for i, p := range pairs {
-		seedIDs[i] = p.Id
+		p.Set("level", levelKeys[i])
+		require.NoError(t, app.Save(p))
 	}
-	comp.Set("seed_pairs", seedIDs)
-	require.NoError(t, app.Save(comp))
 
 	svc := newDeterministicSvc(app)
 	now := time.Now()
