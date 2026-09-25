@@ -659,6 +659,11 @@ func validateLeveledFields(record *core.Record, _ *core.RequestEvent, oldTarget 
 	if hasFixtures && (record.GetDateTime("start_date").IsZero() || record.GetDateTime("end_date").IsZero()) {
 		return "No se pueden eliminar las fechas de una competición nivelada con partidos"
 	}
+	start := record.GetDateTime("start_date").Time()
+	end := record.GetDateTime("end_date").Time()
+	if !start.IsZero() && !end.IsZero() && league.SeasonDays(start, end) < target {
+		return "La competición necesita al menos tantos días como partidos por pareja"
+	}
 	return ""
 }
 
