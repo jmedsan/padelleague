@@ -46,7 +46,7 @@ test('smtp sink receives email on match finalization', async ({ page }) => {
 
   // Date and club are required before score submission.
   await apiPatch(api, `/api/collections/matches/records/${match.id}`, {
-    date: '2026-10-01T10:00:00.000Z',
+    date: '2036-10-02T10:00:00.000Z',
     club: 'Test Club',
   });
 
