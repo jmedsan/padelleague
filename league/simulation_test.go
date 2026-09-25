@@ -82,9 +82,11 @@ func newSimSeason(t *testing.T, env simEnv, v simVariant, rng *rand.Rand, season
 		for i, p := range env.pairs {
 			pairIDs[i] = p.Id
 		}
-		seeded := noisySeed(pairIDs, trueIdx, sd, rng)
-		comp.Set("seed_pairs", seeded)
-		require.NoError(t, env.app.Save(comp))
+		levels := noisySeedLevels(pairIDs, trueIdx, sd, rng)
+		for _, p := range env.pairs {
+			p.Set("level", levels[p.Id])
+			require.NoError(t, env.app.Save(p))
+		}
 	}
 
 	_, err := env.svc.GenerateInitialAssignments(env.app, comp, time.Now())

@@ -499,9 +499,8 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now tim
 		return nil, err
 	}
 
-	seedIDs := comp.GetStringSlice("seed_pairs")
 	pairNames := PairNames(app, activePairIDs)
-	sortedPairs := sortPairsByRating(activePairIDs, ratings, seedIDs, pairNames)
+	sortedPairs := sortPairsByRating(activePairIDs, ratings, pairNames)
 
 	position := make(map[string]int, len(sortedPairs))
 	for i, id := range sortedPairs {
@@ -580,27 +579,15 @@ func setMatchFields(rec *core.Record, comp *core.Record, p Pairing, now time.Tim
 	}
 }
 
-// sortPairsByRating returns a copy of pairs sorted by rating desc, then seed
-// index asc, then pair name asc.
-func sortPairsByRating(pairs []string, ratings map[string]float64, seedIDs []string, pairNames map[string]string) []string {
-	seedPos := make(map[string]int, len(seedIDs))
-	for i, id := range seedIDs {
-		seedPos[id] = i
-	}
+// sortPairsByRating returns a copy of pairs sorted by rating desc, then pair
+// name asc (deterministic tiebreak).
+func sortPairsByRating(pairs []string, ratings map[string]float64, pairNames map[string]string) []string {
 	sorted := make([]string, len(pairs))
 	copy(sorted, pairs)
 	sort.SliceStable(sorted, func(i, j int) bool {
 		ri, rj := ratings[sorted[i]], ratings[sorted[j]]
 		if ri != rj {
 			return ri > rj
-		}
-		si, hasI := seedPos[sorted[i]]
-		sj, hasJ := seedPos[sorted[j]]
-		if hasI != hasJ {
-			return hasI
-		}
-		if hasI && si != sj {
-			return si < sj
 		}
 		return pairNames[sorted[i]] < pairNames[sorted[j]]
 	})
