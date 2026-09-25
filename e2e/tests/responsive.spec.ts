@@ -469,4 +469,32 @@ test.describe('responsive - no horizontal overflow', () => {
     for (const m of matches) await apiDeleteRecord(page.request, 'matches', m.id);
     await apiDeleteRecord(page.request, 'competitions', compId);
   });
+
+  test('F1: bulk "marcar bolas entregadas" button label wraps inside the button at 375px, no spillover', async ({ page }) => {
+    await getSuperuserToken(page);
+    const data = loadTestData();
+
+    // A pair with balls unset (default) triggers HasNoBolas, which renders
+    // the bulk "Marcar todas las bolas como entregadas" button.
+    const compId = await apiCreateRecord(page.request, 'competitions', {
+      name: `F1 Bolas Overflow ${Date.now()}`, type: 'league', active: true,
+      pairs: [data.pair1Id, data.pair2Id],
+    });
+
+    await page.setViewportSize(MOBILE);
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/admin/competitions/${compId}`);
+    await page.waitForLoadState('domcontentloaded');
+
+    const bolasBtn = page.getByRole('button', { name: 'Marcar todas las bolas como entregadas' });
+    await expect(bolasBtn).toBeVisible();
+    // The button must grow to fit its (possibly two-line) label — content
+    // taller than the button's own box means the label text is spilling
+    // outside the button's visual bounds instead of being contained by it.
+    const overflowsOwnBox = await bolasBtn.evaluate(el => el.scrollHeight > el.clientHeight + 1);
+    expect(overflowsOwnBox, 'button label must not spill outside the button').toBe(false);
+
+    // Cleanup
+    await apiDeleteRecord(page.request, 'competitions', compId);
+  });
 });
