@@ -2109,6 +2109,123 @@ func TestPublishCalendarAlreadyPublishedErrors(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// Group 15b: DeleteCalendar
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestDeleteCalendarDraftRemovesMatches(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/delete-calendar deletes matches and resets status",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID, adminID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		adminID = admin.Id
+		p1 := makePairTB(tb, app, "DelA")
+		p2 := makePairTB(tb, app, "DelB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("calendar_status", "draft")
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		s.URL = "/admin/competitions/" + comp.Id + "/delete-calendar"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "none", c.GetString("calendar_status"))
+
+		matches, err := app.FindRecordsByFilter("matches", "competition = {:c}", "", 0, 0, map[string]any{"c": compID})
+		require.NoError(tb, err)
+		assert.Empty(tb, matches, "all matches must be deleted")
+
+		events, err := app.FindRecordsByFilter("competition_events",
+			"competition = {:c} && kind = 'calendar_deleted'", "", 0, 0, map[string]any{"c": compID})
+		require.NoError(tb, err)
+		require.Len(tb, events, 1)
+		assert.Equal(tb, adminID, events[0].GetString("actor"))
+	}
+	s.Test(t)
+}
+
+func TestDeleteCalendarNonAdminDenied(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/competitions/{id}/delete-calendar denies a non-admin player",
+		Method:         http.MethodPost,
+		ExpectedStatus: 302,
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "DelDenyA")
+		p2 := makePairTB(tb, app, "DelDenyB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("calendar_status", "draft")
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		player := makeUserTB(tb, app, "NonAdminDel", "")
+		s.URL = "/admin/competitions/" + comp.Id + "/delete-calendar"
+		s.Headers = authHeaders(tb, player)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "draft", c.GetString("calendar_status"), "a non-admin must not be able to delete the calendar")
+
+		matches, err := app.FindRecordsByFilter("matches", "competition = {:c}", "", 0, 0, map[string]any{"c": compID})
+		require.NoError(tb, err)
+		assert.NotEmpty(tb, matches, "matches must survive a denied request")
+	}
+	s.Test(t)
+}
+
+func TestDeleteCalendarPublishedErrors(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/competitions/{id}/delete-calendar errors when calendar is published",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"No hay un calendario en borrador"},
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "DelPubA")
+		p2 := makePairTB(tb, app, "DelPubB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("calendar_status", "published")
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		s.URL = "/admin/competitions/" + comp.Id + "/delete-calendar"
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		c, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "published", c.GetString("calendar_status"), "a published calendar must not be deletable")
+
+		matches, err := app.FindRecordsByFilter("matches", "competition = {:c}", "", 0, 0, map[string]any{"c": compID})
+		require.NoError(tb, err)
+		assert.NotEmpty(tb, matches, "matches must survive a rejected request")
+	}
+	s.Test(t)
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // WithdrawPair: correct notifications (R-13)
 // ═══════════════════════════════════════════════════════════════════════
 

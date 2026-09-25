@@ -147,6 +147,7 @@
                 {{if eq (.Competition.GetString "calendar_status") "draft"}}
                 <button hx-post="/admin/competitions/{{.Competition.Id}}/publish" hx-target="#generate-result" hx-disabled-elt="this" class="btn btn-primary btn-sm">Publicar calendario</button>
                 <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" hx-confirm="¿Regenerar el calendario? Se perderán todos los partidos y resultados existentes." data-confirm-title="Regenerar calendario" data-confirm-danger data-confirm-ok="Regenerar" hx-disabled-elt="this" class="btn btn-warning btn-sm">Regenerar</button>
+                <button hx-post="/admin/competitions/{{.Competition.Id}}/delete-calendar" hx-target="#generate-result" hx-confirm="¿Eliminar el calendario? Se perderán todos los partidos." data-confirm-title="Eliminar calendario" data-confirm-danger data-confirm-ok="Eliminar" hx-disabled-elt="this" class="btn btn-error btn-sm">Eliminar calendario</button>
                 {{else if eq (.Competition.GetString "calendar_status") "published"}}
                 <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" hx-confirm="¿Regenerar el calendario? Los jugadores dejarán de verlo hasta que lo publiques de nuevo. Se perderán todos los partidos y resultados existentes." data-confirm-title="Regenerar calendario" data-confirm-danger data-confirm-ok="Regenerar" hx-disabled-elt="this" class="btn btn-warning btn-sm">Regenerar</button>
                 {{else if .Entries}}
