@@ -1,6 +1,17 @@
 import { test, expect, Page } from '@playwright/test';
 import { loginAs, isMobile, openDrawer, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 
+let suToken = '';
+
+async function getSuperuserToken(page: Page) {
+  if (suToken) return;
+  const resp = await page.request.post('/api/collections/_superusers/auth-with-password', {
+    data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+  });
+  if (!resp.ok()) throw new Error(`Superuser auth failed: ${resp.status()}`);
+  suToken = (await resp.json()).token;
+}
+
 const NAV_LABELS: Record<string, string> = {
   '/admin/competitions': 'Competiciones',
   '/admin/health': 'Salud',
@@ -286,6 +297,64 @@ test.describe('admin management', () => {
     await expect(page.locator('input[name="admin_message"]')).toBeVisible();
     await expect(page.locator('input[name="user_joined"]')).toBeVisible();
     await expect(page.locator('input[name="message"]')).toBeVisible();
+  });
+
+  test('F2: activity log shows a verb phrase and Spanish labels for enum field changes', async ({ page }) => {
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto('/admin/competitions');
+    await page.waitForLoadState('domcontentloaded');
+
+    // Create via the real UI form — gender_type defaults to "free" here,
+    // same as CompetitionHandler.Create, so the only field this test
+    // changes afterward is gender_type.
+    const name = `F2 Activity Log ${Date.now()}`;
+    await page.getByRole('button', { name: 'Crear competición' }).first().click();
+    await page.locator('#create-comp-name').fill(name);
+    await Promise.all([
+      page.waitForEvent('load', { timeout: 10000 }),
+      page.locator('#modal-create button[type="submit"]').click(),
+    ]);
+    await expect(page.locator('h1, h2', { hasText: name })).toBeVisible({ timeout: 10000 });
+
+    await page.locator('label[for="edit-modal"]', { hasText: 'Editar' }).click();
+    await page.waitForSelector('#edit-comp-gender', { state: 'visible' });
+    await page.locator('#edit-comp-gender').selectOption('male');
+    await Promise.all([
+      page.waitForEvent('load', { timeout: 10000 }),
+      page.locator('.modal-action button[type="submit"]').click(),
+    ]);
+
+    // The redirect may land back on the competition detail page or on the
+    // list (see the redirect-target bug tracked separately) — navigate to
+    // the competition explicitly so this test doesn't depend on which.
+    await page.locator('.card-title, h1, h2', { hasText: name }).first().click().catch(() => {});
+    await page.waitForLoadState('domcontentloaded');
+    if (!page.url().includes('/admin/competitions/')) {
+      await page.goto('/admin/competitions');
+      await page.waitForLoadState('domcontentloaded');
+      await page.locator('.card-title', { hasText: name }).first().click();
+      await page.waitForLoadState('domcontentloaded');
+    }
+
+    const activityCard = page.locator('div.card', { has: page.getByRole('heading', { level: 2, name: 'Actividad' }) });
+    await expect(activityCard).toBeVisible();
+    // Verb phrase (not a bare field list) and the Spanish label "Masculina"
+    // (not the raw stored value "male"), exactly as the edit form's own
+    // <option> text reads.
+    await expect(activityCard.getByText(/actualizó la configuración:.*Género: Libre → Masculina/)).toBeVisible();
+
+    // Cleanup — the competitions collection's REST API is superuser-only
+    // (see migrations/1725900000_lock_api_rules.go for the same lockdown
+    // pattern on other collections), so the admin's own cookie session
+    // can't delete it; use the same superuser-token pattern responsive.
+    // spec.ts uses for its own teardown.
+    const compId = page.url().split('/admin/competitions/')[1];
+    if (compId) {
+      await getSuperuserToken(page);
+      await page.request.delete(`/api/collections/competitions/records/${compId}`, {
+        headers: { Authorization: suToken },
+      });
+    }
   });
 
   test('admin can toggle admin notifications off and save', async ({ page }) => {

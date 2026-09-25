@@ -6,6 +6,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 
+	"padelleague/league"
 	"padelleague/render"
 )
 
@@ -24,9 +25,9 @@ var competitionUpdateLabels = []struct {
 	unsetZero    string
 }{
 	{"name", "Nombre", fmtActivityString, ""},
-	{"type", "Tipo", fmtActivityString, ""},
+	{"type", "Tipo", fmtActivityCompType, ""},
 	{"play_twice", "Ida y vuelta", fmtActivityBool, ""},
-	{"gender_type", "Género", fmtActivityString, ""},
+	{"gender_type", "Género", fmtActivityGenderType, ""},
 	{"quorum_timeout_hours", "Tiempo de espera", fmtActivityString, ""},
 	{"start_date", "Fecha inicio", fmtActivityDate, ""},
 	{"end_date", "Fecha fin", fmtActivityDate, ""},
@@ -37,11 +38,11 @@ var competitionUpdateLabels = []struct {
 	{"match_reminder_hours", "Recordatorios de partido", fmtActivityString, ""},
 }
 
-// competitionUpdateDetail builds a "Field: old → new" summary of every
-// tracked field that actually changed between before and after, or "" if
-// nothing changed. before must be captured after any field defaulting
-// (e.g. setSchedulingFields) has already run, so a first-time default
-// doesn't read as a spurious change.
+// competitionUpdateDetail builds an "actualizó la configuración: Field: old
+// → new" summary of every tracked field that actually changed between
+// before and after, or "" if nothing changed. before must be captured after
+// any field defaulting (e.g. setSchedulingFields) has already run, so a
+// first-time default doesn't read as a spurious change.
 func competitionUpdateDetail(before, after *core.Record) string {
 	var changes []string
 	for _, f := range competitionUpdateLabels {
@@ -54,7 +55,10 @@ func competitionUpdateDetail(before, after *core.Record) string {
 		}
 		changes = append(changes, fmt.Sprintf("%s: %s → %s", f.label, f.format(oldRaw), f.format(newRaw)))
 	}
-	return strings.Join(changes, "; ")
+	if len(changes) == 0 {
+		return ""
+	}
+	return "actualizó la configuración: " + strings.Join(changes, "; ")
 }
 
 // fmtActivityString renders a raw field value for the activity log,
@@ -74,6 +78,26 @@ func fmtActivityBool(v any) string {
 		return "sí"
 	}
 	return "no"
+}
+
+// fmtActivityGenderType renders a gender_type field value via its Spanish
+// label, showing "—" for an empty value instead of a blank string.
+func fmtActivityGenderType(v any) string {
+	s := fmt.Sprint(v)
+	if s == "" {
+		return "—"
+	}
+	return league.GenderTypeLabel(s)
+}
+
+// fmtActivityCompType renders a competition type field value via its
+// Spanish label, showing "—" for an empty value instead of a blank string.
+func fmtActivityCompType(v any) string {
+	s := fmt.Sprint(v)
+	if s == "" {
+		return "—"
+	}
+	return league.CompetitionTypeLabel(s)
 }
 
 // fmtActivityDate renders a date field value via render.FmtDate, showing

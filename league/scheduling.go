@@ -94,6 +94,23 @@ func IsPlayoff(comp *core.Record) bool {
 	return comp.GetString("type") == "playoff"
 }
 
+// competitionTypeLabels is the single source of truth for a competition's
+// type Spanish label — shared by the create/edit form <option>s and the
+// admin activity log.
+var competitionTypeLabels = map[string]string{
+	"league":  "Liga",
+	"playoff": "Playoff",
+}
+
+// CompetitionTypeLabel returns the Spanish label for a competition's type
+// value, or the raw value if unrecognized.
+func CompetitionTypeLabel(compType string) string {
+	if label, ok := competitionTypeLabels[compType]; ok {
+		return label
+	}
+	return compType
+}
+
 // Phase represents where a round-robin competition sits in its lifecycle.
 type Phase int
 

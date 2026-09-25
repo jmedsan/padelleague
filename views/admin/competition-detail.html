@@ -217,21 +217,21 @@
         <div class="flex flex-wrap gap-2 mb-3">
             {{if .HasUnpaid}}
             <form hx-post="/admin/competitions/{{.Competition.Id}}/payment-all" hx-confirm="¿Marcar todas las parejas como pagadas?" data-confirm-ok="Marcar">
-                <button type="submit" hx-disabled-elt="this" class="btn btn-success btn-sm gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-success btn-sm gap-2 h-auto min-h-11 whitespace-normal text-center leading-tight py-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
                     Marcar todos como pagado
                 </button>
             </form>
             <button hx-post="/admin/competitions/{{.Competition.Id}}/payment-reminder" hx-swap="none"
                     hx-confirm="¿Enviar recordatorio de pago a las parejas pendientes?"
                     hx-disabled-elt="this"
-                    class="btn btn-outline btn-warning btn-sm">
+                    class="btn btn-outline btn-warning btn-sm h-auto min-h-11 whitespace-normal text-center leading-tight py-2">
                 Enviar recordatorio de pago
             </button>
             {{end}}
             {{if .HasNoBolas}}
             <form hx-post="/admin/competitions/{{.Competition.Id}}/balls-all" hx-confirm="¿Marcar todas las parejas con bolas entregadas?" data-confirm-ok="Marcar">
-                <button type="submit" hx-disabled-elt="this" class="btn btn-success btn-sm gap-2">
+                <button type="submit" hx-disabled-elt="this" class="btn btn-success btn-sm gap-2 h-auto min-h-11 whitespace-normal text-center leading-tight py-2">
                     {{template "ballIconOutline"}}
                     Marcar todas las bolas como entregadas
                 </button>

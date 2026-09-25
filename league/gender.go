@@ -2,6 +2,25 @@ package league
 
 import "fmt"
 
+// genderTypeLabels is the single source of truth for a competition's
+// gender_type Spanish label — shared by the create/edit form <option>s and
+// the admin activity log.
+var genderTypeLabels = map[string]string{
+	"free":   "Libre",
+	"male":   "Masculina",
+	"female": "Femenina",
+	"mixed":  "Mixta",
+}
+
+// GenderTypeLabel returns the Spanish label for a competition's gender_type
+// value, or the raw value if unrecognized.
+func GenderTypeLabel(genderType string) string {
+	if label, ok := genderTypeLabels[genderType]; ok {
+		return label
+	}
+	return genderType
+}
+
 // ValidatePairComposition reports whether a pair of the given genders may
 // enter a competition of the given gender-type.
 func ValidatePairComposition(genderType, g1, g2 string) error {

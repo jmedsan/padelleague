@@ -146,6 +146,12 @@ export async function createCompetition(
     active: true,
     target_matches: target,
     open_assignments: open,
+    // CompetitionHandler.Create always defaults these two on the live path
+    // (applyCompIdentity, setSchedulingFields) — match it here so the
+    // scenario's admin activity log doesn't show a spurious change on the
+    // first edit that touches neither field.
+    gender_type: 'free',
+    walkover_score: '6-0 6-0',
   });
   return record.id;
 }
