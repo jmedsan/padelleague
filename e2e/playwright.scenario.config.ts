@@ -10,7 +10,7 @@ if (!scenario) {
     .map(([k, v]) => `  ${k.padEnd(22)} ${v.description}`)
     .join('\n');
   throw new Error(
-    `SCENARIO env var is missing or unknown.\n\nAvailable scenarios:\n${names}\n\nUsage: make e2e-scenario SCENARIO=<name>`,
+    `SCENARIO env var is missing or unknown.\n\nAvailable scenarios:\n${names}\n\nUsage: make scenario-test SCENARIO=<name>`,
   );
 }
 

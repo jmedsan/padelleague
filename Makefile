@@ -4,7 +4,7 @@ export
 LOCAL_URL ?= http://127.0.0.1:8090
 OPENER ?= xdg-open
 
-.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci e2e e2e-scenario scenario-serve e2e-scenario-stop
+.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci e2e scenario-test scenario-serve scenario-stop
 
 css:
 	cd frontend && npx tailwindcss -i ../static/css/input.css -o ../static/css/styles.css --minify
@@ -115,7 +115,7 @@ reset: stop
 	rm -rf pb_data
 	$(MAKE) run
 
-e2e-scenario: ## run a scenario: make e2e-scenario SCENARIO=<name>
+scenario-test: ## run a scenario: make scenario-test SCENARIO=<name>
 	@if [ -z "$(SCENARIO)" ]; then cd e2e && npx tsx list-scenarios.ts; exit 1; fi
 	@E2E_PORT=$$(node e2e/find-free-port.mjs) && \
 	echo "scenario '$(SCENARIO)' on port $$E2E_PORT" && \
@@ -127,7 +127,7 @@ scenario-serve: ## boot a scenario and keep server alive: make scenario-serve SC
 	cd e2e && E2E_KEEP=1 SCENARIO=$(SCENARIO) E2E_PORT=$$E2E_PORT npx playwright test \
 	  --config playwright.scenario.config.ts --grep "00 "
 
-e2e-scenario-stop: ## stop a kept scenario server and delete its data
+scenario-stop: ## stop a kept scenario server and delete its data
 	@if [ -f e2e/.test-data/scenario.pid ]; then \
 		pid=$$(cat e2e/.test-data/scenario.pid); \
 		kill $$pid 2>/dev/null || true; \

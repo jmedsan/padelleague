@@ -13,7 +13,7 @@ export default async function scenarioTeardown() {
     console.log(`Admin:     ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
     console.log(`Data dir:  ${handle.dataDir}`);
     console.log(`PID:       ${handle.process.pid}`);
-    console.log(`Stop with: make e2e-scenario-stop`);
+    console.log(`Stop with: make scenario-stop`);
     console.log(`Note: crons (quorum 5min, leveled top-up 00:30) keep running.`);
     return;
   }
