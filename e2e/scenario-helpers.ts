@@ -98,6 +98,18 @@ export async function createPlayers(
   return players;
 }
 
+// PAIR_LEVELS distributes 16 pairs across skill levels (strongest first) so
+// leveled scenarios demonstrate skill-based matchmaking instead of a flat
+// "everyone unranked" fixture: 2 advanced, 4 intermediate variants, 6
+// beginner variants, 4 left unranked (no level field set — matches how a
+// real pair looks before the admin classifies it).
+const PAIR_LEVELS = [
+  'advanced', 'advanced',
+  'intermediate_high', 'intermediate', 'intermediate', 'intermediate_low',
+  'beginner_high', 'beginner_high', 'beginner', 'beginner', 'beginner', 'beginner',
+  '', '', '', '',
+];
+
 export async function createPairs(
   api: ScenarioApi,
   players: Array<{ id: string; email: string }>,
@@ -108,12 +120,15 @@ export async function createPairs(
     const player1Idx = i;
     const player2Idx = i + 1;
     const name = `Pareja ${pairs.length + 1}-${suffix}`;
-    const record = await apiPost(api, '/api/collections/pairs/records', {
+    const level = PAIR_LEVELS[pairs.length % PAIR_LEVELS.length];
+    const body: Record<string, unknown> = {
       name,
       player1: players[player1Idx].id,
       player2: players[player2Idx].id,
       captain: players[player1Idx].id,
-    });
+    };
+    if (level) body.level = level;
+    const record = await apiPost(api, '/api/collections/pairs/records', body);
     pairs.push({ id: record.id, name, player1Idx, player2Idx });
   }
   return pairs;
