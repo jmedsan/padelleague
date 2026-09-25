@@ -8,6 +8,11 @@
         <div id="avatar-identity">
             {{template "avatarIdentity" (dict "Mode" .Mode "ID" .Data.User.Id "Name" (.Data.User.GetString "display_name") "Roles" (.Data.User.GetStringSlice "roles") "AvatarURL" .Data.AvatarURL "CanEditAvatar" .Data.CanEditAvatar)}}
         </div>
+        {{if eq (.Data.User.GetString "gender") "male"}}
+        <p class="text-sm opacity-70 mt-2">Hombre</p>
+        {{else if eq (.Data.User.GetString "gender") "female"}}
+        <p class="text-sm opacity-70 mt-2">Mujer</p>
+        {{end}}
     </div>
 </div>
 
