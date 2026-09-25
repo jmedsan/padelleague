@@ -1,26 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { enterScore, clickAndWaitForHxRedirect } from '../tour-helpers';
-import { assertAssignmentInvariants, ScenarioCtx, ScenarioApi, apiGet, apiPatch, PLAYER_PASSWORD } from '../scenario-helpers';
+import {
+  assertAssignmentInvariants, ScenarioApi, ScenarioData,
+  apiGet, apiPatch, PLAYER_PASSWORD, loadCtx, ensureStage,
+} from '../scenario-helpers';
 
-// ---------------------------------------------------------------------------
-// Context loaded from scenario setup
-// ---------------------------------------------------------------------------
-
-interface ScenarioData extends ScenarioCtx {
-  baseURL: string;
-  suToken: string;
-  adminCookie: string;
-}
-
-function loadCtx(): ScenarioData {
-  const raw = readFileSync(join(__dirname, '../.test-data/scenario.json'), 'utf-8');
-  return JSON.parse(raw);
-}
-
-// Module-level state shared across serial steps.
 let ctx: ScenarioData;
 let api: ScenarioApi;
 
@@ -29,15 +14,15 @@ let api: ScenarioApi;
 // ---------------------------------------------------------------------------
 
 test.describe('leveled-16 scenario', () => {
-  test.beforeEach(({}, testInfo) => {
-    test.skip(testInfo.project.name !== 'desktop', 'scenario spec is serial, runs desktop-only');
-  });
-
   test.describe.configure({ mode: 'serial' });
   test.describe.configure({ retries: 0 });
 
   test('00 baseline — 24 pending matches, invariants pass', async ({ page }) => {
-    ctx = loadCtx();
+    const raw = loadCtx();
+    ctx = await ensureStage(
+      { baseURL: raw.baseURL, suToken: raw.suToken, adminCookie: raw.adminCookie },
+      'assigned',
+    );
     api = { baseURL: ctx.baseURL, suToken: ctx.suToken, adminCookie: ctx.adminCookie };
 
     const data = await apiGet(api, `/api/collections/matches/records?filter=competition='${ctx.competitionId}'&perPage=500`);
