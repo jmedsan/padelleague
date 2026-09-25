@@ -394,7 +394,7 @@ func currentWindowFor(start, end time.Time, target int, now time.Time) int {
 	if start.IsZero() || end.IsZero() || target <= 0 || !now.After(start) {
 		return 1
 	}
-	u := end.Sub(start) / time.Duration(target)
+	u := end.AddDate(0, 0, 1).Sub(start) / time.Duration(target)
 	if u <= 0 {
 		return 1
 	}

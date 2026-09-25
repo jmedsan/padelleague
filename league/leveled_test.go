@@ -166,14 +166,15 @@ func TestEligible(t *testing.T) {
 // -- TestChooser_RandomInsideZone -------------------------------------------
 
 func TestChooser_RandomInsideZone(t *testing.T) {
-	// 4 pairs at positions 0,1,2,3. Requester is position 0. target=4, open=2.
-	// comfort = ceil(4/2) = 2. Zone for pos 0: d <= 2 → positions 1,2.
-	// Position 3 is outside the zone.
+	// 4 pairs at Elo 0,1,2,3 (rank position and Elo coincide here). Requester
+	// is A (Elo 0). comfort = 2 Elo points. Zone for A: d <= 2 → B(1), C(2).
+	// D(3) is outside the zone.
 	st := &leveledState{
 		target:   4,
 		open:     2,
 		comfort:  2,
 		pairs:    []string{"A", "B", "C", "D"},
+		elo:      map[string]float64{"A": 0, "B": 1, "C": 2, "D": 3},
 		met:      map[string]map[string]struct{}{"A": {}, "B": {}, "C": {}, "D": {}},
 		played:   map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
 		pending:  map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
@@ -202,14 +203,15 @@ func TestChooser_RandomInsideZone(t *testing.T) {
 // -- TestChooser_NearestOutsideZone -----------------------------------------
 
 func TestChooser_NearestOutsideZone(t *testing.T) {
-	// Requester A at pos 0. target=2, open=2. comfort=ceil(2/2)=1.
-	// Zone: d<=1 → only B at pos 1. Mark B as met, so B is ineligible.
-	// Outside zone: C(pos 2, d=2), D(pos 3, d=3). Nearest is C.
+	// Requester A at Elo 0. target=2, open=2. comfort=1 Elo point.
+	// Zone: d<=1 → only B at Elo 1. Mark B as met, so B is ineligible.
+	// Outside zone: C(Elo 2, d=2), D(Elo 3, d=3). Nearest is C.
 	st := &leveledState{
 		target:  2,
 		open:    2,
 		comfort: 1,
 		pairs:   []string{"A", "B", "C", "D"},
+		elo:     map[string]float64{"A": 0, "B": 1, "C": 2, "D": 3},
 		met: map[string]map[string]struct{}{
 			"A": {"B": {}},
 		},
@@ -243,6 +245,9 @@ func TestCollectCandidates_OutsideSortOrder(t *testing.T) {
 		open:    5,
 		comfort: 0,
 		pairs:   []string{"A", "B", "C", "D", "F", "E"},
+		elo: map[string]float64{
+			"A": 0, "B": 2, "C": -2, "D": 3, "E": -10, "F": 10,
+		},
 		met:     map[string]map[string]struct{}{},
 		played:  map[string]int{"A": 0, "B": 4, "C": 1, "D": 0, "E": 2, "F": 2},
 		pending: map[string]int{"A": 0, "B": 0, "C": 0, "D": 0, "E": 0, "F": 0},

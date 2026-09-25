@@ -214,8 +214,9 @@ func TestLeveledGroups_JornadaGrouping(t *testing.T) {
 	p2 := makePairTB(t, app, "JGB")
 	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
 
-	// 30-day window, target 3 → 10-day units: Jornada 1 = [start, start+9],
-	// Jornada 2 = [start+10, start+19], Jornada 3 = [start+20, end].
+	// end_date is inclusive, so a 30-day-later end gives a 31-day window;
+	// target 3 → ~10.33-day units. Expected ranges come from jornadaRange
+	// itself below, so this test tracks the real formula automatically.
 	start := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	end := start.AddDate(0, 0, 30)
 	w := leveledWindow{start: start, end: end, target: 3}
