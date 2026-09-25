@@ -143,6 +143,28 @@ export function competitionDates(): { startDate: string; endDate: string } {
   };
 }
 
+const SPANISH_MONTHS = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+function fmtShortDate(d: Date): string {
+  return `${d.getUTCDate()} ${SPANISH_MONTHS[d.getUTCMonth()]}`;
+}
+
+// jornadaTitle mirrors handlers.leveledWindow.jornadaRange: the competition
+// window divided into `target` equal-length units, Jornada n's range is
+// [start+(n-1)*u, start+n*u-1day], capped at end for the last Jornada.
+export function jornadaTitle(startISO: string, endISO: string, target: number, n: number): string {
+  const start = new Date(startISO);
+  const end = new Date(endISO);
+  const u = (end.getTime() - start.getTime()) / target;
+  const lo = new Date(start.getTime() + (n - 1) * u);
+  let hi = new Date(start.getTime() + n * u - 24 * 60 * 60 * 1000);
+  if (n >= target || hi.getTime() > end.getTime()) hi = end;
+  return `Jornada ${n} · ${fmtShortDate(lo)} – ${fmtShortDate(hi)}`;
+}
+
 export async function addPairToCompetition(
   api: ScenarioApi,
   compId: string,
