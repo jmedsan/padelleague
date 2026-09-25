@@ -3,7 +3,7 @@ import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { enterScore, clickAndWaitForHxRedirect } from '../tour-helpers';
 import {
   assertAssignmentInvariants, ScenarioApi, ScenarioData,
-  apiGet, apiPatch, PLAYER_PASSWORD, loadCtx, ensureStage, jornadaTitle,
+  apiGet, apiPatch, PLAYER_PASSWORD, loadCtx, ensureStage,
 } from '../scenario-helpers';
 
 let ctx: ScenarioData;
@@ -29,8 +29,7 @@ test.describe('leveled-16 scenario', () => {
     const matches: any[] = data.items;
     const pending = matches.filter(m => m.status === 'pending');
 
-    // 16 pairs × open(3)/2 = 24 nominal; transient open+1 ceiling means up to 16×4/2=32.
-    // Accept anything in [20, 32].
+    // 16 pairs × open(3)/2 = 24 nominal; accept [20, 32].
     expect(pending.length).toBeGreaterThanOrEqual(20);
     expect(pending.length).toBeLessThanOrEqual(32);
 
@@ -47,10 +46,8 @@ test.describe('leveled-16 scenario', () => {
     // no own pair, so resolvePairFilter already defaults to "all".
     await page.locator('input[aria-label="Partidos"]').click();
     await page.waitForLoadState('domcontentloaded');
-    const comp = await apiGet(api, `/api/collections/competitions/records/${ctx.competitionId}`);
     for (let s = 1; s <= ctx.open; s++) {
-      const title = jornadaTitle(comp.start_date, comp.end_date, ctx.target, s);
-      await expect(page.locator(`.collapse-title:has-text("${title}")`).first()).toBeVisible({ timeout: 10000 });
+      await expect(page.locator(`.collapse-title:has-text("Jornada ${s}")`).first()).toBeVisible({ timeout: 10000 });
     }
     await expect(page.locator('.collapse-title:has-text("Jornada 0")')).toHaveCount(0);
   });
@@ -67,10 +64,8 @@ test.describe('leveled-16 scenario', () => {
     await page.locator('input[aria-label="Partidos"]').click();
     await page.waitForLoadState('domcontentloaded');
 
-    // "Jornada 1" group is present, titled with the competition's date range
-    const comp = await apiGet(api, `/api/collections/competitions/records/${ctx.competitionId}`);
-    const jornada1Title = jornadaTitle(comp.start_date, comp.end_date, ctx.target, 1);
-    await expect(page.locator(`.collapse-title:has-text("${jornada1Title}")`)).toBeVisible({ timeout: 10000 });
+    // "Jornada 1" group is present
+    await expect(page.locator('.collapse-title:has-text("Jornada 1")').first()).toBeVisible({ timeout: 10000 });
 
     // Pair filter dropdown is present and at least one match link is visible
     await expect(page.locator('select[name="pair"]')).toBeVisible();

@@ -138,8 +138,8 @@ export async function createCompetition(
 export function competitionDates(): { startDate: string; endDate: string } {
   const now = Date.now();
   return {
-    startDate: new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    endDate: new Date(now + 60 * 24 * 60 * 60 * 1000).toISOString(),
+    startDate: new Date(now).toISOString(),
+    endDate: new Date(now + 70 * 24 * 60 * 60 * 1000).toISOString(),
   };
 }
 
@@ -252,7 +252,7 @@ type Stage = (api: ScenarioApi, ctx: ScenarioCtx) => Promise<ScenarioCtx>;
 
 async function stageCreated(api: ScenarioApi, ctx: ScenarioCtx): Promise<ScenarioCtx> {
   const suffix = uniqueSuffix();
-  const target = 6;
+  const target = 10;
   const open = 3;
   const players = await createPlayers(api, 32, suffix);
   const pairs = await createPairs(api, players, suffix);
