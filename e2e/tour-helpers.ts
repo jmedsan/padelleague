@@ -42,6 +42,18 @@ export async function clickAndWaitForHxRedirect(page: Page, locator: ReturnType<
   await page.waitForLoadState('domcontentloaded');
 }
 
+// clickConfirmAndWaitForHxRedirect is clickAndWaitForHxRedirect for a target
+// that carries hx-confirm — intercepted by static/js/confirm.js's custom
+// #confirm-modal (not window.confirm), so the request only fires once
+// #confirm-ok is clicked.
+export async function clickConfirmAndWaitForHxRedirect(page: Page, locator: ReturnType<Page['locator']>): Promise<void> {
+  const navPromise = page.waitForEvent('framenavigated', { timeout: 15000 });
+  await locator.click();
+  await page.locator('#confirm-ok').click();
+  await navPromise;
+  await page.waitForLoadState('domcontentloaded');
+}
+
 // ---------------------------------------------------------------------------
 // Action helpers — assume the page is already at the right place
 // ---------------------------------------------------------------------------
@@ -166,9 +178,13 @@ export async function markAllPairsPaid(page: Page): Promise<void> {
   const btn = page.getByRole('button', { name: /marcar todos como pagado/i });
   if (await btn.count() === 0) return;
 
+  // The button carries hx-confirm, intercepted by static/js/confirm.js's
+  // custom #confirm-modal — the request only fires once #confirm-ok is
+  // clicked (see scheduling-walkover.spec.ts for the same pattern).
+  await btn.first().click();
   await Promise.all([
     page.waitForResponse((r) => r.url().includes('/payment-all')),
-    btn.first().click(),
+    page.locator('#confirm-ok').click(),
   ]);
   await expect(btn).toHaveCount(0);
 }

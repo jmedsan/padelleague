@@ -8,7 +8,7 @@ import {
   createPlayer, createPair, addPairToCompetition, markAllPairsPaid,
   generateFixtures, setDates, submitScore, confirmScore, enterScore,
   createDocument, attachDocumentToCompetition, acceptDocsGate,
-  clickAndWaitForHxRedirect,
+  clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect,
   assertFinalStandings, assertPlayoffChampion,
   lookupPlayerId, getRoundMatches, getMatchById, setMatchDateAndClub,
   referenceFallback, collectFallbacks, resetFallbacks, assertFallbacksMatch,
@@ -196,11 +196,11 @@ test.describe('guided navigation tour', () => {
     await clickAdminQuickLink(page, 'Competiciones');
     competitionId = await createCompInactive(page, COMP_NAME, 'league', true);
 
-    // 1b. Jugadores quick-link → create 8 players
+    // 1b. Usuarios quick-link → create 8 players
     playerIds = [];
     for (const player of PLAYERS) {
       await goHome(page);
-      await clickAdminQuickLink(page, 'Jugadores');
+      await clickAdminQuickLink(page, 'Usuarios');
       await createPlayer(page, player.email, player.name);
     }
     for (const player of PLAYERS) {
@@ -236,7 +236,7 @@ test.describe('guided navigation tour', () => {
     await goHome(page);
     await clickSetupConfigure(page, competitionId);
     await page.waitForLoadState('domcontentloaded');
-    await clickAndWaitForHxRedirect(page, page.locator('.toggle.toggle-success'));
+    await clickConfirmAndWaitForHxRedirect(page, page.locator('.toggle.toggle-success'));
 
     // =======================================================================
     // Phase 1f: Admin creates mandatory doc + player passes gate
@@ -386,7 +386,7 @@ test.describe('guided navigation tour', () => {
     await clickAdminQuickLink(page, 'Competiciones');
     await page.getByRole('link', { name: COMP_NAME }).first().click();
     await page.waitForLoadState('domcontentloaded');
-    await clickAndWaitForHxRedirect(page, page.getByTestId('finalize-league'));
+    await clickConfirmAndWaitForHxRedirect(page, page.getByTestId('finalize-league'));
 
     // =======================================================================
     // Phase 6: Playoff creation via playoff-prompt card
@@ -419,7 +419,7 @@ test.describe('guided navigation tour', () => {
     await generateFixtures(page);
 
     // Activate playoff via toggle
-    await clickAndWaitForHxRedirect(page, page.locator('.toggle.toggle-success'));
+    await clickConfirmAndWaitForHxRedirect(page, page.locator('.toggle.toggle-success'));
 
     // =======================================================================
     // Phase 7: Play playoff via home affordances
