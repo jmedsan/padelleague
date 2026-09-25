@@ -297,3 +297,22 @@ func countUnpaid(entries []pairEntry) int {
 	}
 	return n
 }
+
+func anyNoBolas(entries []pairEntry) bool {
+	for _, pe := range entries {
+		if !pe.Balls {
+			return true
+		}
+	}
+	return false
+}
+
+func countNoBolas(entries []pairEntry) int {
+	n := 0
+	for _, pe := range entries {
+		if !pe.Balls {
+			n++
+		}
+	}
+	return n
+}
