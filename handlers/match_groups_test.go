@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -88,7 +89,7 @@ func TestLeveledGroups_DeadlineOrder(t *testing.T) {
 	}
 
 	tz := time.UTC
-	groups := leveledGroups(cards, tz, 3)
+	groups := leveledGroups(cards, tz, leveledWindow{target: 3})
 	require.Len(t, groups, 1, "only jornada-1 group")
 	jornada := groups[0]
 	assert.Equal(t, "jornada-1", jornada.Key)
@@ -131,7 +132,7 @@ func TestLeveledGroups_SchedulingStatusOrder(t *testing.T) {
 		newLeveledMatchCard(t, app, mPending),
 	}
 
-	groups := leveledGroups(cards, time.UTC, 3)
+	groups := leveledGroups(cards, time.UTC, leveledWindow{target: 3})
 	require.Len(t, groups, 1)
 	pending := groups[0].Matches
 	require.Len(t, pending, 3)
@@ -166,7 +167,7 @@ func TestLeveledGroups_MonthGroups(t *testing.T) {
 	}
 
 	tz := time.UTC
-	groups := leveledGroups(cards, tz, 3)
+	groups := leveledGroups(cards, tz, leveledWindow{target: 3})
 	// Newest month first: Jan 2027, then Sep 2026
 	require.Len(t, groups, 2)
 	assert.Equal(t, "played-2027-01", groups[0].Key)
@@ -195,15 +196,16 @@ func TestLeveledGroups_Timezone(t *testing.T) {
 	require.NoError(t, err)
 
 	cards := []MatchCard{newLeveledMatchCard(t, app, m)}
-	groups := leveledGroups(cards, madrid, 3)
+	groups := leveledGroups(cards, madrid, leveledWindow{target: 3})
 
 	require.Len(t, groups, 1)
 	assert.Equal(t, "played-2026-10", groups[0].Key, "should be October in Madrid timezone")
 	assert.Equal(t, "Jugados — octubre 2026", groups[0].Title)
 }
 
-// TestLeveledGroups_JornadaGrouping verifies matches with slot ≤ open group
-// under "Jornada N" titles with a date range derived from their arrange_by.
+// TestLeveledGroups_JornadaGrouping verifies matches group by slot under
+// "Jornada N" titles, with a date range derived from the COMPETITION window
+// (start/end/target), not from the matches' own arrange_by values.
 func TestLeveledGroups_JornadaGrouping(t *testing.T) {
 	t.Parallel()
 	app := newTestAppForGroups(t)
@@ -212,16 +214,23 @@ func TestLeveledGroups_JornadaGrouping(t *testing.T) {
 	p2 := makePairTB(t, app, "JGB")
 	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
 
-	base := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	// 30-day window, target 3 → 10-day units: Jornada 1 = [start, start+9],
+	// Jornada 2 = [start+10, start+19], Jornada 3 = [start+20, end].
+	start := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(0, 0, 30)
+	w := leveledWindow{start: start, end: end, target: 3}
+
 	m1 := makeRawMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
 	m2 := makeRawMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
 	m3 := makeRawMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
 	setSlot(t, app, m1, 1)
 	setSlot(t, app, m2, 2)
 	setSlot(t, app, m3, 3)
-	setArrangeBy(t, app, m1, base)
-	setArrangeBy(t, app, m2, base.AddDate(0, 0, 10))
-	setArrangeBy(t, app, m3, base.AddDate(0, 0, 20))
+	// arrange_by values deliberately do NOT match the window's slot ranges —
+	// the title must ignore them and use the competition window instead.
+	setArrangeBy(t, app, m1, start.AddDate(1, 0, 0))
+	setArrangeBy(t, app, m2, start.AddDate(1, 0, 0))
+	setArrangeBy(t, app, m3, start.AddDate(1, 0, 0))
 
 	cards := []MatchCard{
 		newLeveledMatchCard(t, app, m1),
@@ -229,19 +238,24 @@ func TestLeveledGroups_JornadaGrouping(t *testing.T) {
 		newLeveledMatchCard(t, app, m3),
 	}
 
-	groups := leveledGroups(cards, time.UTC, 3)
+	groups := leveledGroups(cards, time.UTC, w)
 	require.Len(t, groups, 3)
 	assert.Equal(t, "jornada-1", groups[0].Key)
 	assert.Equal(t, "jornada-2", groups[1].Key)
 	assert.Equal(t, "jornada-3", groups[2].Key)
-	for _, g := range groups {
-		assert.Contains(t, g.Title, "Jornada", "title should start with Jornada N")
-	}
+
+	lo1, hi1 := w.jornadaRange(1)
+	lo2, hi2 := w.jornadaRange(2)
+	lo3, hi3 := w.jornadaRange(3)
+	assert.Equal(t, fmt.Sprintf("Jornada 1 · %s – %s", fmtShortDate(lo1, time.UTC), fmtShortDate(hi1, time.UTC)), groups[0].Title)
+	assert.Equal(t, fmt.Sprintf("Jornada 2 · %s – %s", fmtShortDate(lo2, time.UTC), fmtShortDate(hi2, time.UTC)), groups[1].Title)
+	assert.Equal(t, fmt.Sprintf("Jornada 3 · %s – %s", fmtShortDate(lo3, time.UTC), fmtShortDate(hi3, time.UTC)), groups[2].Title)
+	assert.Equal(t, end, hi3, "last Jornada is capped at the competition end date")
 }
 
-// TestLeveledGroups_BloqueGrouping verifies matches with slot ≤ open but no
-// arrange_by group under "Bloque N" titles (dateless fallback).
-func TestLeveledGroups_BloqueGrouping(t *testing.T) {
+// TestLeveledGroups_JornadaNoDates verifies a competition with no play
+// window (legacy data) falls back to a plain "Jornada N" title.
+func TestLeveledGroups_JornadaNoDates(t *testing.T) {
 	t.Parallel()
 	app := newTestAppForGroups(t)
 
@@ -253,32 +267,10 @@ func TestLeveledGroups_BloqueGrouping(t *testing.T) {
 	setSlot(t, app, m1, 1)
 
 	cards := []MatchCard{newLeveledMatchCard(t, app, m1)}
-	groups := leveledGroups(cards, time.UTC, 3)
+	groups := leveledGroups(cards, time.UTC, leveledWindow{target: 3})
 	require.Len(t, groups, 1)
 	assert.Equal(t, "jornada-1", groups[0].Key)
-	assert.Equal(t, "Jornada 1", groups[0].Title, "no arrange_by → no date range in title")
-}
-
-// TestLeveledGroups_WeeklyTopUp verifies matches with slot > open and an
-// arrange_by group by ISO week.
-func TestLeveledGroups_WeeklyTopUp(t *testing.T) {
-	t.Parallel()
-	app := newTestAppForGroups(t)
-
-	p1 := makePairTB(t, app, "WTA")
-	p2 := makePairTB(t, app, "WTB")
-	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
-
-	// 2026-10-15 is a Thursday in ISO week 42.
-	m := makeRawMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
-	setSlot(t, app, m, 4)
-	setArrangeBy(t, app, m, time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC))
-
-	cards := []MatchCard{newLeveledMatchCard(t, app, m)}
-	groups := leveledGroups(cards, time.UTC, 3)
-	require.Len(t, groups, 1)
-	assert.Equal(t, "week-2026-42", groups[0].Key)
-	assert.Contains(t, groups[0].Title, "Semana del")
+	assert.Equal(t, "Jornada 1", groups[0].Title, "no window → no date range in title")
 }
 
 // TestLeveledGroups_SlotZeroFallback verifies a match with slot=0 (defensive:
@@ -296,7 +288,7 @@ func TestLeveledGroups_SlotZeroFallback(t *testing.T) {
 	// slot left at 0 (default) — no setSlot call.
 
 	cards := []MatchCard{newLeveledMatchCard(t, app, m)}
-	groups := leveledGroups(cards, time.UTC, 3)
+	groups := leveledGroups(cards, time.UTC, leveledWindow{target: 3})
 	require.Len(t, groups, 1)
 	assert.Equal(t, "bloque-0", groups[0].Key)
 	assert.Equal(t, "Sin asignar", groups[0].Title)

@@ -27,11 +27,6 @@ type monthKey struct {
 	month time.Month
 }
 
-type weekKey struct {
-	year int
-	week int
-}
-
 // schedulingRank orders match statuses the way an admin triages them: no
 // proposal yet, then proposed, then confirmed/disputed/final — stuck matches
 // (still pending) float to the top of their group.
@@ -91,20 +86,42 @@ func newerMonthFirst(order []monthKey) func(i, j int) bool {
 	}
 }
 
+// leveledWindow holds the competition's play window, used to compute each
+// Jornada's date-range title. Zero target or dates means no dates are shown.
+type leveledWindow struct {
+	start  time.Time
+	end    time.Time
+	target int
+}
+
+// hasDates reports whether w carries a usable competition window.
+func (w leveledWindow) hasDates() bool {
+	return w.target > 0 && !w.start.IsZero() && !w.end.IsZero()
+}
+
+// jornadaRange returns the [lo, hi] date range for Jornada n: the window is
+// divided into target equal-length units, n's range is [start+(n-1)*u,
+// start+n*u-1day], capped at end for the last Jornada.
+func (w leveledWindow) jornadaRange(n int) (lo, hi time.Time) {
+	u := w.end.Sub(w.start) / time.Duration(w.target)
+	lo = w.start.Add(time.Duration(n-1) * u)
+	hi = w.start.Add(time.Duration(n)*u).AddDate(0, 0, -1)
+	if n >= w.target || hi.After(w.end) {
+		hi = w.end
+	}
+	return lo, hi
+}
+
 // leveledGroups partitions match cards into:
-//   - "Jornada N" (N=1..open): pending/scheduled/confirmed/disputed matches
-//     at that per-pair ordinal slot, titled with the date range spanning
-//     their arrange_by values (or just "Jornada N" without dates)
-//   - "Bloque N": slot > open matches with no arrange_by (dateless fallback),
-//     or slot = 0 matches under the defensive "Sin asignar" title
-//   - "Semana del D al D de <mes>": slot > open matches with arrange_by,
-//     grouped by ISO week
+//   - "Jornada N" (N=1..target): every non-final match, grouped by its
+//     per-pair ordinal slot, titled with the competition-window date range
+//     for that slot (or just "Jornada N" without a window)
+//   - "Sin asignar": defensive fallback for slot=0 (pre-migration data)
 //   - "Jugados — <mes año>": finalized matches grouped by calendar month of
 //     finalized_at in the given timezone, newest month first
-func leveledGroups(cards []MatchCard, tz *time.Location, open int) []LeveledGroup {
+func leveledGroups(cards []MatchCard, tz *time.Location, w leveledWindow) []LeveledGroup {
 	jornadas := map[int][]MatchCard{}
-	weekBuckets := map[weekKey][]MatchCard{}
-	bloques := map[int][]MatchCard{}
+	unassigned := []MatchCard{}
 	byMonth := map[monthKey][]MatchCard{}
 	var monthOrder []monthKey
 	seenMonth := map[monthKey]bool{}
@@ -126,95 +143,39 @@ func leveledGroups(cards []MatchCard, tz *time.Location, open int) []LeveledGrou
 		}
 
 		slot := mc.Match.GetInt("slot")
-		switch {
-		case slot > 0 && slot <= open:
-			jornadas[slot] = append(jornadas[slot], mc)
-		case slot > open:
-			ab := mc.Match.GetDateTime("arrange_by").Time()
-			if ab.IsZero() {
-				bloques[slot] = append(bloques[slot], mc)
-				continue
-			}
-			local := ab.In(tz)
-			y, w := local.ISOWeek()
-			weekBuckets[weekKey{year: y, week: w}] = append(weekBuckets[weekKey{year: y, week: w}], mc)
-		default:
-			bloques[0] = append(bloques[0], mc)
+		if slot <= 0 {
+			unassigned = append(unassigned, mc)
+			continue
 		}
+		jornadas[slot] = append(jornadas[slot], mc)
 	}
 
 	var groups []LeveledGroup
-	groups = append(groups, jornadaGroups(jornadas, open, tz)...)
-	groups = append(groups, bloqueGroups(bloques)...)
-	groups = append(groups, weekGroups(weekBuckets, tz)...)
+	groups = append(groups, jornadaGroups(jornadas, w, tz)...)
+	if len(unassigned) > 0 {
+		sort.SliceStable(unassigned, pendingByArrangeBy(unassigned))
+		groups = append(groups, LeveledGroup{Key: "bloque-0", Title: "Sin asignar", Matches: unassigned})
+	}
 	groups = append(groups, playedGroups(byMonth, monthOrder)...)
 	return groups
 }
 
-// jornadaGroups builds the "Jornada N" groups (slot 1..open), ascending.
-func jornadaGroups(jornadas map[int][]MatchCard, open int, tz *time.Location) []LeveledGroup {
+// jornadaGroups builds the "Jornada N" groups (slot 1..target), ascending.
+// Empty Jornadas are skipped.
+func jornadaGroups(jornadas map[int][]MatchCard, w leveledWindow, tz *time.Location) []LeveledGroup {
 	var groups []LeveledGroup
-	for s := 1; s <= open; s++ {
+	for s := 1; s <= w.target; s++ {
 		ms := jornadas[s]
 		if len(ms) == 0 {
 			continue
 		}
 		sort.SliceStable(ms, pendingByArrangeBy(ms))
 		title := fmt.Sprintf("Jornada %d", s)
-		if lo, hi, ok := arrangeByRange(ms); ok {
-			title = fmt.Sprintf("Jornada %d — %s al %s", s, fmtShortDate(lo, tz), fmtShortDate(hi, tz))
+		if w.hasDates() {
+			lo, hi := w.jornadaRange(s)
+			title = fmt.Sprintf("Jornada %d · %s – %s", s, fmtShortDate(lo, tz), fmtShortDate(hi, tz))
 		}
 		groups = append(groups, LeveledGroup{Key: fmt.Sprintf("jornada-%d", s), Title: title, Matches: ms})
-	}
-	return groups
-}
-
-// bloqueGroups builds the dateless-fallback groups: slot > open with no
-// arrange_by, and the defensive slot=0 "Sin asignar" group.
-func bloqueGroups(bloques map[int][]MatchCard) []LeveledGroup {
-	slots := make([]int, 0, len(bloques))
-	for s := range bloques {
-		slots = append(slots, s)
-	}
-	sort.Ints(slots)
-
-	var groups []LeveledGroup
-	for _, s := range slots {
-		ms := bloques[s]
-		sort.SliceStable(ms, pendingByArrangeBy(ms))
-		title := fmt.Sprintf("Bloque %d", s)
-		if s == 0 {
-			title = "Sin asignar"
-		}
-		groups = append(groups, LeveledGroup{Key: fmt.Sprintf("bloque-%d", s), Title: title, Matches: ms})
-	}
-	return groups
-}
-
-// weekGroups builds the "Semana del D al D de <mes>" groups for top-up
-// matches with a known arrange_by, in chronological order.
-func weekGroups(weekBuckets map[weekKey][]MatchCard, tz *time.Location) []LeveledGroup {
-	keys := make([]weekKey, 0, len(weekBuckets))
-	for wk := range weekBuckets {
-		keys = append(keys, wk)
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		if keys[i].year != keys[j].year {
-			return keys[i].year < keys[j].year
-		}
-		return keys[i].week < keys[j].week
-	})
-
-	var groups []LeveledGroup
-	for _, wk := range keys {
-		ms := weekBuckets[wk]
-		sort.SliceStable(ms, pendingByArrangeBy(ms))
-		mon := isoWeekMonday(wk.year, wk.week, tz)
-		sun := mon.AddDate(0, 0, 6)
-		title := fmt.Sprintf("Semana del %s al %s", fmtShortDate(mon, tz), fmtShortDate(sun, tz))
-		groups = append(groups, LeveledGroup{
-			Key: fmt.Sprintf("week-%d-%02d", wk.year, wk.week), Title: title, Matches: ms,
-		})
 	}
 	return groups
 }
@@ -231,42 +192,20 @@ func playedGroups(byMonth map[monthKey][]MatchCard, monthOrder []monthKey) []Lev
 	return groups
 }
 
-// arrangeByRange returns the min and max arrange_by across ms, ok=false when
-// none have one set.
-func arrangeByRange(ms []MatchCard) (lo, hi time.Time, ok bool) {
-	for _, mc := range ms {
-		ab := mc.Match.GetDateTime("arrange_by").Time()
-		if ab.IsZero() {
-			continue
-		}
-		if !ok || ab.Before(lo) {
-			lo = ab
-		}
-		if !ok || ab.After(hi) {
-			hi = ab
-		}
-		ok = true
+// leveledWindowFor builds the leveledWindow from a leveled competition's
+// stored start/end dates and target_matches.
+func leveledWindowFor(comp *core.Record) leveledWindow {
+	return leveledWindow{
+		start:  comp.GetDateTime("start_date").Time(),
+		end:    comp.GetDateTime("end_date").Time(),
+		target: comp.GetInt("target_matches"),
 	}
-	return lo, hi, ok
 }
 
-// fmtShortDate formats t as "D de <mes>" in the given timezone (e.g. "15 de enero").
+// fmtShortDate formats t as "D mes" in the given timezone (e.g. "15 enero").
 func fmtShortDate(t time.Time, tz *time.Location) string {
 	local := t.In(tz)
-	return fmt.Sprintf("%d de %s", local.Day(), spanishMonths[local.Month()-1])
-}
-
-// isoWeekMonday returns the Monday of the given ISO week/year at midnight in tz.
-func isoWeekMonday(year, week int, tz *time.Location) time.Time {
-	// Jan 4 is always in ISO week 1; walk to that week's Monday, then add
-	// (week-1) weeks.
-	jan4 := time.Date(year, 1, 4, 0, 0, 0, 0, tz)
-	offset := int(jan4.Weekday())
-	if offset == 0 {
-		offset = 7 // Sunday → ISO weekday 7
-	}
-	week1Monday := jan4.AddDate(0, 0, -(offset - 1))
-	return week1Monday.AddDate(0, 0, (week-1)*7)
+	return fmt.Sprintf("%d %s", local.Day(), spanishMonths[local.Month()-1])
 }
 
 // leveledRoundsCtx holds the display context for buildLeveledRounds.
@@ -274,7 +213,7 @@ type leveledRoundsCtx struct {
 	PairNames     map[string]string
 	PlayerPairIDs map[string]struct{}
 	PairFilter    string
-	Open          int
+	Window        leveledWindow
 }
 
 // buildLeveledRounds converts matches into leveled RoundView groups for the
@@ -289,7 +228,7 @@ func buildLeveledRounds(matches []*core.Record, ctx leveledRoundsCtx, tz *time.L
 		cards = append(cards, NewMatchRow(m, ctx.PairNames, ctx.PlayerPairIDs))
 	}
 
-	groups := leveledGroups(cards, tz, ctx.Open)
+	groups := leveledGroups(cards, tz, ctx.Window)
 	rounds := make([]RoundView, 0, len(groups))
 	for _, g := range groups {
 		rounds = append(rounds, RoundView{
