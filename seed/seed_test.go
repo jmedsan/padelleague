@@ -412,8 +412,11 @@ func TestSampleLeveledLeague(t *testing.T) {
 	pairs := lev.GetStringSlice("pairs")
 	assert.Equal(t, 8, len(pairs), "leveled competition needs 8 pairs")
 
-	seedPairs := lev.GetStringSlice("seed_pairs")
-	assert.Equal(t, 8, len(seedPairs), "all 8 pairs must appear in seed order")
+	for _, pid := range pairs {
+		p, err := app.FindRecordById("pairs", pid)
+		require.NoError(t, err)
+		assert.NotEmpty(t, p.GetString("level"), "every leveled-sample pair must have a level assigned")
+	}
 
 	pendingMatches, err := app.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'pending' && round_number = 0",

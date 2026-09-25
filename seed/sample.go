@@ -788,9 +788,10 @@ func createSamplePlayoff(txApp core.App, pairIDs []string) error {
 	return generateSampleBracket(txApp, comp.Id, pairIDs)
 }
 
-// createLeveledSampleCompetition creates a leveled league example with 8 pairs,
-// target_matches=4, open_assignments=2, seeded in registration order, published
-// calendar, and initial assignments created via GenerateInitialAssignments.
+// createLeveledSampleCompetition creates a leveled league example with 8
+// pairs (levels advanced/intermediate/beginner), target_matches=4,
+// open_assignments=2, published calendar, and initial assignments created
+// via GenerateInitialAssignments.
 // When svc is nil the leveled competition is skipped.
 func createLeveledSampleCompetition(txApp core.App, svc *league.Service) error {
 	if svc == nil {
@@ -812,7 +813,6 @@ func createLeveledSampleCompetition(txApp core.App, svc *league.Service) error {
 	comp.Set("gender_type", "free")
 	comp.Set("active", true)
 	comp.Set("pairs", pairIDs)
-	comp.Set("seed_pairs", pairIDs)
 	comp.Set("target_matches", 4)
 	comp.Set("open_assignments", 2)
 	comp.Set("calendar_status", "published")
@@ -866,6 +866,12 @@ func createLeveledPairs(txApp core.App) ([]string, error) {
 		"Pareja N1", "Pareja N2", "Pareja N3", "Pareja N4",
 		"Pareja N5", "Pareja N6", "Pareja N7", "Pareja N8",
 	}
+	// First 2 = advanced, middle 4 = intermediate, last 2 = beginner.
+	pairLevels := []string{
+		"advanced", "advanced",
+		"intermediate", "intermediate", "intermediate", "intermediate",
+		"beginner", "beginner",
+	}
 	pairIDs := make([]string, 8)
 	for i, name := range pairNames {
 		p := core.NewRecord(pairCol)
@@ -873,6 +879,7 @@ func createLeveledPairs(txApp core.App) ([]string, error) {
 		p.Set("player1", playerIDs[i*2])
 		p.Set("player2", playerIDs[i*2+1])
 		p.Set("captain", playerIDs[i*2])
+		p.Set("level", pairLevels[i])
 		if err := txApp.Save(p); err != nil {
 			return nil, fmt.Errorf("create leveled pair %s: %w", name, err)
 		}
