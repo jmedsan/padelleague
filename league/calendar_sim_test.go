@@ -24,6 +24,7 @@ var (
 	calSeasons = flag.Int("calendar.seasons", 0, "seasons for the calendar simulation; 0 skips it")
 	calSeed    = flag.Uint64("calendar.seed", 0, "RNG seed; 0 = time-based, logged")
 	calAdmin   = flag.Bool("calendar.admin", false, "model an admin using the existing tools: release after 14 overdue days, 7-day recovery week, walkovers at close")
+	calRules   = flag.Bool("calendar.rulebook", false, "with -calendar.admin: close per the rulebook instead of walkovers: -1 per pending match above 2 at end_date (oldest first), -1 to each pair per match unplayed after the extra week")
 )
 
 const (
@@ -123,6 +124,8 @@ type calSeasonResult struct {
 	releases     int
 	closeWalkers int // walkovers at close with a clear responsible pair
 	closeAnnul   int // unplayed at close with no responsible pair (rulebook: -1 each; no tool)
+	// rulebook close: penalty points per pair
+	penalty map[string]int
 }
 
 func TestCalendarSimulation(t *testing.T) {
@@ -196,9 +199,17 @@ func runCalendarSeason(t *testing.T, app core.App, svc *Service, pairs []*core.R
 		require.NoError(t, app.Save(comp))
 	}
 	blocked := map[string][2]int{} // match id -> days each side alone blocked it
+	res.penalty = map[string]int{}
 	now := start
+	pendingAtEnd := map[string]int{}
 	for day := start; !day.After(last); day = day.AddDate(0, 0, 1) {
 		now = day.Add(20 * time.Hour)
+		if day.Equal(end.AddDate(0, 0, 1)) {
+			for _, m := range pendingCalendarMatches(t, app, comp.Id) {
+				pendingAtEnd[m.GetString("pair1")]++
+				pendingAtEnd[m.GetString("pair2")]++
+			}
+		}
 		for _, p := range pairs {
 			b := behavior[p.Id]
 			if b.prof == profAbandon && !b.withdrawn && !day.Before(b.quitDay) {
@@ -267,7 +278,20 @@ func runCalendarSeason(t *testing.T, app core.App, svc *Service, pairs []*core.R
 		require.NoError(t, err)
 	}
 	res.unplayed = len(pendingCalendarMatches(t, app, comp.Id))
-	if *calAdmin {
+	if *calAdmin && *calRules {
+		// Rulebook: at end_date, every pending match above 2 per pair costs -1
+		// (oldest first); after the extra week, every unplayed match costs -1
+		// to each pair. Unplayed matches stay unplayed (no result awarded).
+		for _, m := range pendingCalendarMatches(t, app, comp.Id) {
+			res.penalty[m.GetString("pair1")]++
+			res.penalty[m.GetString("pair2")]++
+		}
+		for p, n := range pendingAtEnd {
+			if n > 2 {
+				res.penalty[p] += n - 2
+			}
+		}
+	} else if *calAdmin {
 		// Close: report-unplayed → walkover with penalty against the side that
 		// blocked the match more days; no responsible side → rulebook -1 each.
 		for _, m := range pendingCalendarMatches(t, app, comp.Id) {
@@ -421,7 +445,7 @@ func calendarReport(results []calSeasonResult) string {
 			group[b] = g
 		}
 	}
-	var profN, profOver, profShort [4]int
+	var profN, profOver, profShort, profPen [4]int
 	var vsPlayed, vsOverdue [4]int
 	walk, withd, rel, cw, ca := 0, 0, 0, 0, 0
 	for _, r := range results {
@@ -436,6 +460,7 @@ func calendarReport(results []calSeasonResult) string {
 			if r.short[p] {
 				profShort[pr]++
 			}
+			profPen[pr] += r.penalty[p]
 		}
 		for i := range 4 {
 			vsPlayed[i] += r.vsPlayed[i]
@@ -447,9 +472,9 @@ func calendarReport(results []calSeasonResult) string {
 		if profN[i] == 0 {
 			continue
 		}
-		profRows += fmt.Sprintf("| %s | %d | %.2f | %.0f%% | %.1f%% (n=%d) |\n", name, profN[i],
+		profRows += fmt.Sprintf("| %s | %d | %.2f | %.0f%% | %.1f%% (n=%d) | %.2f |\n", name, profN[i],
 			float64(profOver[i])/float64(profN[i]), 100*float64(profShort[i])/float64(profN[i]),
-			100*float64(vsOverdue[i])/float64(max(vsPlayed[i], 1)), vsPlayed[i])
+			100*float64(vsOverdue[i])/float64(max(vsPlayed[i], 1)), vsPlayed[i], float64(profPen[i])/float64(profN[i]))
 	}
 	perPair := func(b string) string {
 		g := group[b]
@@ -463,5 +488,5 @@ func calendarReport(results []calSeasonResult) string {
 		float64(unplayed)/n, float64(short)/n, 100*float64(exact)/n, maxLate,
 		peakHist[0], peakHist[1], peakHist[2], peakHist[3], peakHist[4], peakHist[5],
 		perPair("<=4"), perPair("5"), perPair("6+")) +
-		fmt.Sprintf("\n\nWithdrawals: %.2f/season, withdrawal walkovers: %.2f/season, admin releases: %.2f/season, close walkovers (responsible side): %.2f/season, close with no responsible side (rulebook -1 each, no tool): %.2f/season\n\n| Profile | Pair-seasons | Overdue per pair-season | Ends short | Overdue share of matches played AGAINST this profile |\n|---|---|---|---|---|\n%s", float64(withd)/n, float64(walk)/n, float64(rel)/n, float64(cw)/n, float64(ca)/n, profRows)
+		fmt.Sprintf("\n\nWithdrawals: %.2f/season, withdrawal walkovers: %.2f/season, admin releases: %.2f/season, close walkovers (responsible side): %.2f/season, close with no responsible side (rulebook -1 each, no tool): %.2f/season\n\n| Profile | Pair-seasons | Overdue per pair-season | Ends short | Overdue share of matches played AGAINST this profile | Rulebook penalty points per pair-season |\n|---|---|---|---|---|---|\n%s", float64(withd)/n, float64(walk)/n, float64(rel)/n, float64(cw)/n, float64(ca)/n, profRows)
 }
