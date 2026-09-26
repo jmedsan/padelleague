@@ -255,6 +255,34 @@ test.describe('responsive - no horizontal overflow', () => {
     for (const uid of [p1, p2, p3, p4]) await apiDeleteRecord(page.request, 'users', uid);
   });
 
+  // H1-class sweep: every admin page header pairing a title (+ optional
+  // count badge) with an action button must wrap instead of overflowing —
+  // same bug as the tab strip above, found across five pages (admin
+  // invitations, players, pairs, health) whose header row was missing
+  // flex-wrap. Measured via bounding box at 360px, not by eyeballing text
+  // length. outstanding.html and competition-detail.html's Documentos
+  // header have no adjacent button (title + count only) — not this class,
+  // excluded here.
+  test('H1-sweep: admin page headers wrap instead of overflowing at 360px', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 740 });
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+
+    const pages: Array<{ url: string; header: string }> = [
+      { url: '/admin/invitations', header: '.card-body > .flex.items-center.justify-between' },
+      { url: '/admin/players', header: '.card-body > .flex.items-center.justify-between' },
+      { url: '/admin/pairs', header: '.flex.justify-between.items-center' },
+      { url: '/admin/venues', header: '.card-body > .flex.items-center.justify-between' },
+      { url: '/admin/health', header: '.flex.items-end.justify-between' },
+    ];
+    for (const { url, header } of pages) {
+      await page.goto(url);
+      await page.waitForLoadState('domcontentloaded');
+      await checkNoOverflow(page);
+      const box = await page.locator(header).first().boundingBox();
+      expect(box?.width, `${url} header must not exceed the 360px viewport`).toBeLessThanOrEqual(360);
+    }
+  });
+
   test('admin pairs', async ({ page }) => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
