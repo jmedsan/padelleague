@@ -179,9 +179,12 @@ func TestEligible(t *testing.T) {
 func TestChooser_RandomInsideZone(t *testing.T) {
 	// 4 pairs at Elo 0,1,2,3 (rank position and Elo coincide here). Requester
 	// is A (Elo 0). comfort = 2 Elo points. Zone for A: d <= 2 → B(1), C(2).
-	// D(3) is outside the zone.
+	// D(3) is outside the zone. target=3: a full round-robin among 4 pairs
+	// (each plays the other 3 exactly once) is the largest target ffactor's
+	// exact completability accepts here — anything higher is unreachable
+	// with only 3 possible opponents per pair.
 	st := &leveledState{
-		target:   4,
+		target:   3,
 		open:     2,
 		comfort:  2,
 		pairs:    []string{"A", "B", "C", "D"},
@@ -217,19 +220,37 @@ func TestChooser_RandomInsideZone(t *testing.T) {
 // equal-Elo pair sitting at pending=3 should never be chosen ahead of one at
 // pending=1 just because the shuffle happened to put it first.
 func TestChooser_InsideZonePrefersLowerLoad(t *testing.T) {
-	// 4 pairs at Elo 0,1,2,3. Requester A (Elo 0). comfort=2 → zone: B(1), C(2).
-	// B is more loaded (pending=3) than C (pending=1).
+	// 6 pairs at Elo 0..5, target=5 (full round-robin — reachable with 5
+	// possible opponents each, so ffactor's exact check stays satisfiable).
+	// Requester A (Elo 0). comfort=2 → zone: B(1), C(2). B is more loaded
+	// (pending=3) than C (pending=1); D/E/F sit outside the zone.
 	st := &leveledState{
-		target:   10,
-		open:     4,
-		comfort:  2,
-		pairs:    []string{"A", "B", "C", "D"},
-		elo:      map[string]float64{"A": 0, "B": 1, "C": 2, "D": 3},
-		met:      map[string]map[string]struct{}{"A": {}, "B": {}, "C": {}, "D": {}},
-		played:   map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
-		pending:  map[string]int{"A": 0, "B": 3, "C": 1, "D": 0},
-		position: map[string]int{"A": 0, "B": 1, "C": 2, "D": 3},
-		occupied: map[string]map[int]bool{"A": {}, "B": {}, "C": {}, "D": {}},
+		target:  5,
+		open:    4,
+		comfort: 2,
+		pairs:   []string{"A", "B", "C", "D", "E", "F"},
+		elo:     map[string]float64{"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5},
+		// B's 3 pending matches (vs D,E,F) and C's 1 pending match (vs D)
+		// must show up in met too — pending and met describe the same
+		// scheduled-but-not-final matches, so a fixture claiming pending
+		// counts without the matching met entries would hand ffactor an
+		// inconsistent (and artificially easier) state.
+		met: map[string]map[string]struct{}{
+			"A": {},
+			"B": {"D": {}, "E": {}, "F": {}},
+			"C": {"D": {}},
+			"D": {"B": {}, "C": {}},
+			"E": {"B": {}},
+			"F": {"B": {}},
+		},
+		played: map[string]int{"A": 0, "B": 0, "C": 0, "D": 0, "E": 0, "F": 0},
+		pending: map[string]int{
+			"A": 0, "B": 3, "C": 1, "D": 2, "E": 1, "F": 1,
+		},
+		position: map[string]int{"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5},
+		occupied: map[string]map[int]bool{
+			"A": {}, "B": {}, "C": {}, "D": {}, "E": {}, "F": {},
+		},
 	}
 
 	// Identity shuffle keeps iteration order [B, C] — B (more loaded) would
@@ -314,109 +335,136 @@ func TestCollectCandidates_OutsideSortOrder(t *testing.T) {
 // distinguishing case (operands equal) falls through to the next tie-break
 // level instead, never reaching these lines.
 
-// -- TestCompletable --------------------------------------------------------
+// -- TestFfactor --------------------------------------------------------
 
-func TestCompletable(t *testing.T) {
+func TestFfactor(t *testing.T) {
 	cases := []struct {
 		name  string
-		need  map[string]int
-		met   map[string]map[string]struct{}
-		slack int
+		need  []int
+		avail []uint32
 		want  bool
 	}{
 		{
-			name: "4 pairs needing 1 with A-B and C-D met → true (can do A-C, B-D)",
-			need: map[string]int{"A": 1, "B": 1, "C": 1, "D": 1},
-			met: map[string]map[string]struct{}{
-				"A": {"B": {}},
-				"B": {"A": {}},
-				"C": {"D": {}},
-				"D": {"C": {}},
-			},
-			slack: 0,
+			name:  "all needs already zero → true",
+			need:  []int{0, 0, 0, 0},
+			avail: []uint32{0b1110, 0b1101, 0b1011, 0b0111},
 			want:  true,
 		},
 		{
-			name: "2 pairs needing 1 that met → false (no valid match)",
-			need: map[string]int{"A": 1, "B": 1},
-			met: map[string]map[string]struct{}{
-				"A": {"B": {}},
-				"B": {"A": {}},
-			},
-			slack: 0,
-			want:  false,
-		},
-		{
-			name: "slack 1 still false (both pairs met each other, need 1 each, 1 slot can't be filled)",
-			need: map[string]int{"A": 1, "B": 1},
-			met: map[string]map[string]struct{}{
-				"A": {"B": {}},
-				"B": {"A": {}},
-			},
-			slack: 1,
-			want:  false,
-		},
-		{
-			name: "slack 2 allows 2 unfillable slots → true",
-			need: map[string]int{"A": 1, "B": 1},
-			met: map[string]map[string]struct{}{
-				"A": {"B": {}},
-				"B": {"A": {}},
-			},
-			slack: 2,
+			name:  "4 pairs needing 1, A-B and C-D unavailable to each other → true (A-C, B-D)",
+			need:  []int{1, 1, 1, 1},
+			avail: []uint32{0b0100, 0b1000, 0b0001, 0b0010}, // A:{C} B:{D} C:{A} D:{B}
 			want:  true,
+		},
+		{
+			name:  "odd total need (3 vertices needing 1 each) → false",
+			need:  []int{1, 1, 1},
+			avail: []uint32{0b110, 0b101, 0b011},
+			want:  false,
+		},
+		{
+			name:  "degree deficit: A needs 2 but only has 1 available → false",
+			need:  []int{2, 1, 1},
+			avail: []uint32{0b010, 0b001, 0b100}, // A:{B} B:{C} C:{A} — A's degree is 1 < need 2
+			want:  false,
+		},
+		{
+			name: "two-cluster: {A,B} and {C,D} each need 1 but can only pair within their own cluster, and A-B / C-D are mutually unavailable → false",
+			need: []int{1, 1, 1, 1},
+			avail: []uint32{
+				0b0000, // A: no one available (A-B excluded, A can't reach C/D)
+				0b0000, // B: same
+				0b0000, // C
+				0b0000, // D
+			},
+			want: false,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := completable(tc.need, tc.met, tc.slack, 100)
-			assert.Equal(t, tc.want, got)
+			need := append([]int(nil), tc.need...)
+			avail := append([]uint32(nil), tc.avail...)
+			assert.Equal(t, tc.want, ffactor(need, avail))
 		})
 	}
 }
 
-// -- TestMinSlack -----------------------------------------------------------
-
-func TestMinSlack(t *testing.T) {
-	cases := []struct {
-		name string
-		need map[string]int
-		met  map[string]map[string]struct{}
-		want int
-	}{
-		{
-			name: "completable with 0 slack → 0",
-			need: map[string]int{"A": 1, "B": 1, "C": 1, "D": 1},
-			met: map[string]map[string]struct{}{
-				"A": {"B": {}}, "B": {"A": {}},
-				"C": {"D": {}}, "D": {"C": {}},
-			},
-			want: 0,
-		},
-		{
-			name: "odd total (3 pairs needing 1) → min slack 1",
-			need: map[string]int{"A": 1, "B": 1, "C": 1},
-			met:  map[string]map[string]struct{}{"A": {}, "B": {}, "C": {}},
-			want: 1,
-		},
-		{
-			name: "two pairs needing 1 that met → min slack 2",
-			need: map[string]int{"A": 1, "B": 1},
-			met: map[string]map[string]struct{}{
-				"A": {"B": {}},
-				"B": {"A": {}},
-			},
-			want: 2,
-		},
+// bruteForceFactorable is an independent, exhaustive reference for ffactor:
+// it recursively picks the first vertex with remaining need and tries every
+// possible partner, backtracking on failure. Used only to cross-check
+// ffactor's bitmask/memoized search on small (N<=8) random instances — the
+// two implementations share no code, so agreement is meaningful evidence.
+func bruteForceFactorable(need []int, avail []uint32) bool {
+	v := -1
+	total := 0
+	for i, n := range need {
+		if n > 0 {
+			if v == -1 {
+				v = i
+			}
+			total += n
+		}
 	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got := minSlack(tc.need, tc.met)
-			assert.Equal(t, tc.want, got)
-		})
+	if v == -1 {
+		return true
 	}
+	if total%2 != 0 {
+		return false
+	}
+	for u := 0; u < len(need); u++ {
+		if u == v || need[u] <= 0 || avail[v]&(1<<uint(u)) == 0 {
+			continue
+		}
+		need[v]--
+		need[u]--
+		avail[v] &^= 1 << uint(u)
+		avail[u] &^= 1 << uint(v)
+		if bruteForceFactorable(need, avail) {
+			return true
+		}
+		need[v]++
+		need[u]++
+		avail[v] |= 1 << uint(u)
+		avail[u] |= 1 << uint(v)
+	}
+	return false
+}
+
+// TestFfactor_BruteForceCrossCheck runs ffactor against bruteForceFactorable
+// over many random small (N<=8) instances — an independent implementation
+// agreeing across hundreds of random states is strong evidence ffactor's
+// bitmask search and memoization don't silently diverge from "exact".
+func TestFfactor_BruteForceCrossCheck(t *testing.T) {
+	rng := rand.New(rand.NewPCG(1, 2))
+	for trial := 0; trial < 500; trial++ {
+		n := 2 + rng.IntN(7) // 2..8
+		need := make([]int, n)
+		for i := range need {
+			need[i] = rng.IntN(3) // 0..2
+		}
+		avail := randomAvailGraph(rng, n)
+
+		want := bruteForceFactorable(append([]int(nil), need...), append([]uint32(nil), avail...))
+		got := ffactor(append([]int(nil), need...), append([]uint32(nil), avail...))
+		require.Equal(t, want, got, "trial %d: need=%v avail=%v", trial, need, avail)
+	}
+}
+
+// randomAvailGraph builds a random undirected availability graph over n
+// vertices: each edge is included independently with 50% probability.
+func randomAvailGraph(rng *rand.Rand, n int) []uint32 {
+	avail := make([]uint32, n)
+	for i := 0; i < n; i++ {
+		for j := i + 1; j < n; j++ {
+			if rng.IntN(2) != 0 {
+				continue
+			}
+			avail[i] |= 1 << uint(j)
+			avail[j] |= 1 << uint(i)
+		}
+	}
+	return avail
 }
 
 // -- TestPlan_SteadyState ---------------------------------------------------
@@ -534,19 +582,33 @@ func TestPlan_EvenRounds_15(t *testing.T) {
 // alone would place them in an earlier round.
 func TestPlan_TopUpInCurrentRound(t *testing.T) {
 	// day-aligned: start=day0, end=day99 (100 inclusive days), now=day50 →
-	// 10 even 10-day Jornadas, day50 opens J6 ([50,59]) → cur=6.
+	// 10 even 10-day Jornadas, day50 opens J6 ([50,59]) → cur=6. 11 pairs
+	// (so target=10 is exactly a full round-robin, reachable under ffactor's
+	// exact completability check) all still unmet.
 	start := time.Date(2036, 1, 1, 0, 0, 0, 0, time.UTC)
 	now := start.AddDate(0, 0, 50)
 	end := start.AddDate(0, 0, 99)
-	pairs := []string{"A", "B", "C", "D"}
+	pairs := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"}
+	met := make(map[string]map[string]struct{}, len(pairs))
+	played := make(map[string]int, len(pairs))
+	pending := make(map[string]int, len(pairs))
+	position := make(map[string]int, len(pairs))
+	occupied := make(map[string]map[int]bool, len(pairs))
+	for i, p := range pairs {
+		met[p] = map[string]struct{}{}
+		occupied[p] = map[int]bool{}
+		position[p] = i
+	}
 	st := &leveledState{
-		target: 10, open: 2, comfort: 2,
+		target:   10,
+		open:     2,
+		comfort:  2,
 		pairs:    pairs,
-		met:      map[string]map[string]struct{}{"A": {}, "B": {}, "C": {}, "D": {}},
-		played:   map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
-		pending:  map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
-		position: map[string]int{"A": 0, "B": 1, "C": 2, "D": 3},
-		occupied: map[string]map[int]bool{"A": {}, "B": {}, "C": {}, "D": {}},
+		met:      met,
+		played:   played,
+		pending:  pending,
+		position: position,
+		occupied: occupied,
 		start:    start,
 		end:      end,
 		now:      now,
@@ -1295,6 +1357,112 @@ func TestTopUp_ConcurrentFinalization(t *testing.T) {
 	}
 }
 
+// -- TestFfactor_SeasonSimulationProperty -----------------------------------
+
+// simulateFfactorSeason runs one full in-memory season (no DB) for a
+// leveled league of n pairs and target t: generates the initial batch via
+// plan(), then repeatedly finalizes a random pending match and re-plans
+// until nobody wants() more, exactly mirroring the real
+// GenerateInitialAssignments -> finalize -> TopUpAssignments cycle without
+// PocketBase overhead. Returns the final load of every pair and every
+// pairing ever created (each appearing once per side).
+func simulateFfactorSeason(rng *rand.Rand, n, target int) (loads map[string]int, pairings []Pairing) {
+	pairs := make([]string, n)
+	met := make(map[string]map[string]struct{}, n)
+	played := make(map[string]int, n)
+	pending := make(map[string]int, n)
+	position := make(map[string]int, n)
+	occupied := make(map[string]map[int]bool, n)
+	elo := make(map[string]float64, n)
+	for i := range pairs {
+		id := fmt.Sprintf("P%02d", i)
+		pairs[i] = id
+		met[id] = map[string]struct{}{}
+		occupied[id] = map[int]bool{}
+		position[id] = i
+		elo[id] = rng.Float64() * 200
+	}
+	st := &leveledState{
+		target: target, open: target, comfort: 50,
+		pairs: pairs, elo: elo, met: met, played: played, pending: pending,
+		position: position, occupied: occupied,
+	}
+	svc := &Service{shuffle: func(n int, swap func(int, int)) { rng.Shuffle(n, swap) }}
+
+	apply := func(ps []Pairing) {
+		pairings = append(pairings, ps...)
+	}
+	apply(plan(svc, st))
+
+	for anyWants(st) {
+		var pendingPairs []string
+		for p, n := range pending {
+			for i := 0; i < n; i++ {
+				pendingPairs = append(pendingPairs, p)
+			}
+		}
+		if len(pendingPairs) == 0 {
+			break // wants() but nothing pending to finalize: no progress possible
+		}
+		// Finalize one arbitrary pending "slot": since Pairing already
+		// tracks both sides, just walk pairings for one not yet finalized.
+		for i, p := range pairings {
+			if p.Slot == 0 {
+				continue // already finalized marker
+			}
+			pending[p.A]--
+			pending[p.B]--
+			played[p.A]++
+			played[p.B]++
+			pairings[i].Slot = 0 // mark finalized so it isn't reused
+			break
+		}
+		apply(plan(svc, st))
+	}
+
+	loads = make(map[string]int, n)
+	for _, p := range pairs {
+		loads[p] = played[p] + pending[p]
+	}
+	return loads, pairings
+}
+
+// TestFfactor_SeasonSimulationProperty runs 200 randomized in-memory seasons
+// (the oracle's F2 property) and requires every pair to land on EXACTLY
+// target in every one, with no pair ever paired against the same opponent
+// twice — the whole point of the exact (no-slack) completability check
+// replacing the old greedy-with-slack search.
+func TestFfactor_SeasonSimulationProperty(t *testing.T) {
+	rng := rand.New(rand.NewPCG(7, 11))
+	for season := 0; season < 200; season++ {
+		n := 4 + rng.IntN(13) // 4..16 pairs
+		target := 1 + rng.IntN(n-1)
+		if (n*target)%2 != 0 {
+			// n*target must be even for every pair to reach target exactly
+			// (each match consumes one "need" unit from each side) — the
+			// same parity GenerateFixtures validates before calling into
+			// the assignment engine.
+			target++
+			if target > n-1 {
+				target -= 2
+			}
+		}
+
+		loads, pairings := simulateFfactorSeason(rng, n, target)
+
+		for id, load := range loads {
+			require.Equal(t, target, load, "season %d (n=%d target=%d): pair %s ended on load=%d, want exactly %d", season, n, target, id, load, target)
+		}
+
+		seen := map[string]bool{}
+		for _, p := range pairings {
+			key1, key2 := p.A+"|"+p.B, p.B+"|"+p.A
+			require.False(t, seen[key1] || seen[key2], "season %d: pairing %s-%s created more than once", season, p.A, p.B)
+			seen[key1] = true
+		}
+	}
+}
+
 // -- TestLeveledSeason_Invariants ------------------------------------------
 
 func TestLeveledSeason_Invariants(t *testing.T) {
@@ -1534,7 +1702,9 @@ func TestPlan_CalendarFloor(t *testing.T) {
 // assign matches to an already-closed Jornada.
 func TestPlan_LateGeneration(t *testing.T) {
 	app := newTestApp(t)
-	pairs := make([]*core.Record, 6)
+	// 11 pairs: target=10 is exactly a full round-robin, reachable under
+	// ffactor's exact completability check.
+	pairs := make([]*core.Record, 11)
 	for i := range pairs {
 		pairs[i] = makePair(t, app, "LateGen")
 	}
@@ -1571,8 +1741,10 @@ func TestPlan_LateGeneration(t *testing.T) {
 // itself and must be verified in isolation.
 func TestPlan_NegativeWindow(t *testing.T) {
 	now := time.Now()
+	// target=1: the only target reachable by 2 pairs (they can only ever
+	// play each other once) under ffactor's exact completability check.
 	st := &leveledState{
-		target: 5, open: 2, comfort: 3,
+		target: 1, open: 2, comfort: 3,
 		pairs:    []string{"p", "q"},
 		met:      map[string]map[string]struct{}{"p": {}, "q": {}},
 		played:   map[string]int{"p": 0, "q": 0},
