@@ -39,7 +39,7 @@ async function navToAdmin(page: Page, href: string): Promise<void> {
 }
 
 test.describe('admin management', () => {
-  test('admin can view pairs page', async ({ page }) => {
+  test('admin can view pairs page', { tag: '@smoke' }, async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await navToAdmin(page, '/admin/pairs');
     await expect(page.getByText('Pareja Alpha')).toBeVisible();

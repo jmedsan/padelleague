@@ -2,7 +2,7 @@ import { test, expect } from '../overflow-guard';
 import { loginAs, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 test.describe('PWA offline support', () => {
-  test('service worker precaches the app shell and offline fallback page', async ({ page }) => {
+  test('service worker precaches the app shell and offline fallback page', { tag: '@smoke' }, async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.waitForFunction(() => navigator.serviceWorker.controller !== null, { timeout: 15000 });
 

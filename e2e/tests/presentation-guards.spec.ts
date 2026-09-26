@@ -132,7 +132,7 @@ test.describe('R-178: presentation quality guards', () => {
     expect(violations, `tour-guided should not goto() static pages: ${violations.join(', ')}`).toHaveLength(0);
   });
 
-  test('non-empty panels: urgent tasks and standings render content', async ({ page }) => {
+  test('non-empty panels: urgent tasks and standings render content', { tag: '@smoke' }, async ({ page }) => {
     // Login as player who has match data in seed
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto('/');

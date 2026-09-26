@@ -34,7 +34,7 @@ async function deleteAllExisting(page: import('@playwright/test').Page, userId: 
 }
 
 test.describe('notification dismiss and history', () => {
-  test('desktop: dismiss via bell, badge decrements, history shows all', async ({ page }) => {
+  test('desktop: dismiss via bell, badge decrements, history shows all', { tag: '@smoke' }, async ({ page }) => {
     if (isMobile(page)) { test.skip(); return; }
 
     const data = loadTestData();

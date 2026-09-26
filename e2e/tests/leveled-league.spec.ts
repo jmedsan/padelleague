@@ -50,7 +50,7 @@ let suToken = '';
 test.describe('leveled league', () => {
   test.describe.configure({ retries: 0 });
 
-  test('leveled-league admin dialog + player view', async ({ page }) => {
+  test('leveled-league admin dialog + player view', { tag: '@smoke' }, async ({ page }) => {
     test.setTimeout(300000);
 
     page.on('dialog', d => d.accept());

@@ -56,7 +56,7 @@ test.describe('responsive - no horizontal overflow', () => {
     await checkNoOverflow(page);
   });
 
-  test('home page', async ({ page }) => {
+  test('home page', { tag: '@smoke' }, async ({ page }) => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await checkNoOverflow(page);

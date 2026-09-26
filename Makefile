@@ -4,7 +4,7 @@ export
 LOCAL_URL ?= http://127.0.0.1:8090
 OPENER ?= xdg-open
 
-.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci e2e scenario-test scenario-serve scenario-stop
+.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci check e2e e2e-smoke scenario-test scenario-serve scenario-stop
 
 css:
 	cd frontend && npx tailwindcss -i ../static/css/input.css -o ../static/css/styles.css --minify
@@ -92,6 +92,21 @@ invariants:
 ci: fmt-check lint dead css invariants test vuln
 	@echo "CI gate passed"
 
+# Fast iteration gate: fmt + lint + test scoped to the Go packages changed vs
+# HEAD (plus everything that imports one of them), plus a smoke e2e pass.
+# `make ci` stays the full release gate; this is for iterating on a change.
+check:
+	@gofmt -l . | (! grep .) || (echo "gofmt needed, run: make fmt" && exit 1)
+	@pkgs=$$(scripts/changed-packages.sh); \
+	if [ -z "$$pkgs" ]; then \
+		echo "no changed Go packages vs HEAD"; \
+	else \
+		echo "checking: $$pkgs"; \
+		golangci-lint run $$pkgs && \
+		go test -parallel 4 $$pkgs; \
+	fi
+	$(MAKE) e2e-smoke
+
 simulate: ## leveled-league simulation (SEASONS=100)
 	go test ./league -run TestSimulation_LeveledLeague -count=1 -v -timeout 0 \
 	    -parallel 5 -simulation.seasons=$(or $(SEASONS),100)
@@ -107,6 +122,16 @@ e2e:
 	@E2E_PORT=$$(node e2e/find-free-port.mjs) && \
 	echo "Using port $$E2E_PORT" && \
 	cd e2e && E2E_PORT=$$E2E_PORT npx playwright test
+
+# ~15 tests tagged @smoke, one representative per area (auth, match, thread,
+# competition, admin, search, responsive, season sim, PWA, notifications,
+# presentation guards, walkover, profile, recovery window, leveled league),
+# desktop + mobile, run in parallel — a fast sanity pass for `make check`.
+# `make e2e` (untagged, workers=1) stays the full release gate.
+e2e-smoke:
+	@E2E_PORT=$$(node e2e/find-free-port.mjs) && \
+	echo "Using port $$E2E_PORT" && \
+	cd e2e && E2E_PORT=$$E2E_PORT npx playwright test --grep @smoke --workers 4 --project desktop --project mobile
 
 stop:
 	@pid=$$(lsof -ti :8090 2>/dev/null) && kill $$pid 2>/dev/null && echo "stopped (pid $$pid)" || echo "not running"

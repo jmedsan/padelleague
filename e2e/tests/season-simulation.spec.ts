@@ -59,7 +59,7 @@ test.describe('season simulation', () => {
   // lighter. State (competitionId, pairIds, suToken, fixtures) is shared via
   // module-level variables — set by Q1, consumed by Q2-Q4.
   test.describe.serial('league standings — ida y vuelta in quarters', () => {
-    test('Q1: build season and play matches 0-2 (scheduling proposal flow)', async ({ page }) => {
+    test('Q1: build season and play matches 0-2 (scheduling proposal flow)', { tag: '@smoke' }, async ({ page }) => {
       test.setTimeout(180000);
       await buildSeason(page);
       fixtures = await mapFixturesToScores(page.request);
