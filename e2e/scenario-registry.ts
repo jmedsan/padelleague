@@ -18,15 +18,20 @@ export const SCENARIOS: Record<string, Scenario> = {
     startStage: 'dated',
     specs: ['leveled-16-pregen.spec.ts'],
   },
+  'leveled-16-start': {
+    description: 'published, ready to play — 24 pending, 0 finals (continuation of pregen)',
+    startStage: 'assigned',
+    specs: ['leveled-16-start.spec.ts'],
+  },
   'leveled-16': {
     description: 'published baseline: play, top-up, release, pair filter',
     startStage: 'assigned',
     specs: ['leveled-16.spec.ts'],
   },
   'leveled-16-full': {
-    description: 'nodates → pregen → baseline, incremental on one server',
+    description: 'nodates → pregen → start → baseline, incremental on one server',
     startStage: 'created',
-    specs: ['leveled-16-nodates.spec.ts', 'leveled-16-pregen.spec.ts', 'leveled-16.spec.ts'],
+    specs: ['leveled-16-nodates.spec.ts', 'leveled-16-pregen.spec.ts', 'leveled-16-start.spec.ts', 'leveled-16.spec.ts'],
   },
   'smtp-verify': {
     description: 'SMTP sink receives finalization email',
