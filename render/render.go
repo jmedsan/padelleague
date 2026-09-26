@@ -185,6 +185,7 @@ func resolveFlash(e *core.RequestEvent, data map[string]any) {
 }
 
 func resolveFooter(e *core.RequestEvent, data map[string]any) {
+	data["Contact"] = league.LoadContactInfo(e.App)
 	compID, _ := data["FooterCompetitionID"].(string)
 	if strings.HasPrefix(e.Request.URL.Path, "/admin/") && compID == "" {
 		data["Footer"] = league.GlobalSponsorsOnlyFooter(e.App)

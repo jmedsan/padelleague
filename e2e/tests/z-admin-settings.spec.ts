@@ -1,4 +1,5 @@
-import { test, expect, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { test, expect } from '../overflow-guard';
 import { loginAs, isMobile, openDrawer, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 
 async function navToAdmin(page: Page, href: string): Promise<void> {
@@ -151,5 +152,60 @@ test.describe('admin settings: league defaults', () => {
     await saveButton.click();
     await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('#settings-reminder-hours')).toHaveValue(original);
+  });
+
+  test('admin sets contact info and the footer contact section appears, then hides again when cleared', async ({ page }) => {
+    const whatsappInput = page.locator('#settings-contact-whatsapp');
+    const emailInput = page.locator('#settings-contact-email');
+    const contactForm = page.locator('form:has(#settings-contact-whatsapp)');
+    const saveButton = contactForm.locator('button:has-text("Guardar")');
+
+    await expect(whatsappInput).toBeVisible();
+    await expect(emailInput).toBeVisible();
+    const originalWhatsapp = await whatsappInput.inputValue();
+    const originalEmail = await emailInput.inputValue();
+
+    await whatsappInput.fill('612345678');
+    await emailInput.fill('admin@example.com');
+    await saveButton.click();
+    await page.waitForLoadState('domcontentloaded');
+    await expect(whatsappInput).toHaveValue('+34 612 34 56 78');
+    await expect(emailInput).toHaveValue('admin@example.com');
+
+    // Reached by clicking, not goto: drawer/nav to home, where the footer renders.
+    if (isMobile(page)) {
+      await openDrawer(page);
+      await page.locator('.drawer-side a[href="/"]').click();
+    } else {
+      await page.locator('a[href="/"]').first().click();
+    }
+    await page.waitForLoadState('domcontentloaded');
+    const contactSection = page.locator('footer', { hasText: 'Contacto:' });
+    await expect(contactSection).toBeVisible();
+    await expect(contactSection.locator('a[href="https://wa.me/34612345678"]')).toBeVisible();
+    await expect(contactSection.locator('a[href="mailto:admin@example.com"]')).toBeVisible();
+
+    // Clear both fields -> the whole section disappears, not just the links.
+    await navToAdmin(page, '/admin/settings');
+    await whatsappInput.fill('');
+    await emailInput.fill('');
+    await saveButton.click();
+    await page.waitForLoadState('domcontentloaded');
+
+    if (isMobile(page)) {
+      await openDrawer(page);
+      await page.locator('.drawer-side a[href="/"]').click();
+    } else {
+      await page.locator('a[href="/"]').first().click();
+    }
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('footer', { hasText: 'Contacto:' })).toHaveCount(0);
+
+    // Restore original values.
+    await navToAdmin(page, '/admin/settings');
+    await whatsappInput.fill(originalWhatsapp);
+    await emailInput.fill(originalEmail);
+    await saveButton.click();
+    await page.waitForLoadState('domcontentloaded');
   });
 });

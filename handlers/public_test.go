@@ -17,6 +17,55 @@ import (
 
 // Cluster 1: Home shows only player's competitions, sets nextMatch
 
+// Contact section: footer shows WhatsApp/email links when app_settings has
+// them set, hides the section entirely when both are empty.
+
+func TestHomeGen2_ContactSectionShowsWhenSet(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "home footer shows the contact section when WhatsApp and email are set",
+		Method:         http.MethodGet,
+		URL:            "/",
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			`href="https://wa.me/34612345678"`,
+			`href="mailto:admin@example.com"`,
+		},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		settings, err := app.FindRecordsByFilter("app_settings", "", "", 1, 0, nil)
+		require.NoError(tb, err)
+		require.Len(tb, settings, 1)
+		settings[0].Set("contact_whatsapp", "+34612345678")
+		settings[0].Set("contact_email", "admin@example.com")
+		require.NoError(tb, app.Save(settings[0]))
+
+		user := makeUserTB(tb, app, "Contact Player", "")
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+func TestHomeGen2_ContactSectionHiddenWhenEmpty(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:     testAppFactory,
+		Name:               "home footer hides the contact section when both WhatsApp and email are empty",
+		Method:             http.MethodGet,
+		URL:                "/",
+		ExpectedStatus:     200,
+		NotExpectedContent: []string{"Contacto:"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "No Contact Player", "")
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
 func TestHomeGen2_OnlyPlayerCompetitions(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

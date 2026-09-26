@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/league"
 	"padelleague/middleware"
 	"padelleague/render"
 )
@@ -33,6 +34,7 @@ func setupSettingsRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.GET("/settings", settings.Settings)
 	g.POST("/settings/defaults", settings.SaveDefaults)
 	g.POST("/settings/branding", settings.SaveBranding)
+	g.POST("/settings/contact", settings.SaveContact)
 	g.POST("/settings/logo", settings.SettingsLogoUpload)
 	g.POST("/settings/logo/delete", settings.SettingsLogoDelete)
 }
@@ -113,6 +115,130 @@ func TestSaveDefaults_InvalidWalkoverScoreRejected(t *testing.T) {
 		require.NoError(tb, err)
 		require.Len(tb, records, 1)
 		assert.Equal(tb, "6-0 6-0", records[0].GetString("walkover_score"), "invalid save must not persist")
+	}
+	s.Test(t)
+}
+
+func TestSaveContact_UpdatesAppSettings(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/settings/contact saves WhatsApp and email",
+		Method:         http.MethodPost,
+		URL:            "/admin/settings/contact",
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSettingsRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		// Pre-populate LoadSettings' package-level cache, matching a real
+		// admin who viewed the settings page before saving — the cache must
+		// be invalidated on save or the next page render (and everywhere
+		// else LoadSettings is read) serves stale contact info.
+		league.LoadSettings(app)
+		s.Body = strings.NewReader("contact_whatsapp=612345678&contact_email=Admin@Example.COM")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/admin/settings", res.Header.Get("HX-Redirect"))
+		records, err := app.FindRecordsByFilter("app_settings", "", "", 1, 0)
+		require.NoError(tb, err)
+		require.Len(tb, records, 1)
+		assert.Equal(tb, "+34612345678", records[0].GetString("contact_whatsapp"), "phone must normalize to E.164")
+		assert.Equal(tb, "admin@example.com", records[0].GetString("contact_email"), "email must lowercase")
+
+		fresh := league.LoadSettings(app)
+		assert.Equal(tb, "+34612345678", fresh.ContactWhatsApp, "cache must be invalidated so LoadSettings reflects the save")
+		assert.Equal(tb, "admin@example.com", fresh.ContactEmail)
+	}
+	s.Test(t)
+}
+
+func TestSaveContact_BothEmptyClearsSettings(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/settings/contact with both fields empty clears them",
+		Method:         http.MethodPost,
+		URL:            "/admin/settings/contact",
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSettingsRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		records, err := app.FindRecordsByFilter("app_settings", "", "", 1, 0)
+		require.NoError(tb, err)
+		require.Len(tb, records, 1)
+		records[0].Set("contact_whatsapp", "+34612345678")
+		records[0].Set("contact_email", "admin@example.com")
+		require.NoError(tb, app.Save(records[0]))
+		s.Body = strings.NewReader("contact_whatsapp=&contact_email=")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		records, err := app.FindRecordsByFilter("app_settings", "", "", 1, 0)
+		require.NoError(tb, err)
+		require.Len(tb, records, 1)
+		assert.Empty(tb, records[0].GetString("contact_whatsapp"))
+		assert.Empty(tb, records[0].GetString("contact_email"))
+	}
+	s.Test(t)
+}
+
+func TestSaveContact_InvalidPhoneRejected(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/settings/contact rejects an invalid WhatsApp number",
+		Method:          http.MethodPost,
+		URL:             "/admin/settings/contact",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"WhatsApp"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSettingsRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.Body = strings.NewReader("contact_whatsapp=not-a-phone&contact_email=")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		records, err := app.FindRecordsByFilter("app_settings", "", "", 1, 0)
+		require.NoError(tb, err)
+		require.Len(tb, records, 1)
+		assert.Empty(tb, records[0].GetString("contact_whatsapp"), "invalid save must not persist")
+	}
+	s.Test(t)
+}
+
+func TestSaveContact_InvalidEmailRejected(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/settings/contact rejects an invalid email",
+		Method:          http.MethodPost,
+		URL:             "/admin/settings/contact",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"no válido"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupSettingsRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		s.Body = strings.NewReader("contact_whatsapp=&contact_email=not-an-email")
+		hdrs := authHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		records, err := app.FindRecordsByFilter("app_settings", "", "", 1, 0)
+		require.NoError(tb, err)
+		require.Len(tb, records, 1)
+		assert.Empty(tb, records[0].GetString("contact_email"), "invalid save must not persist")
 	}
 	s.Test(t)
 }
