@@ -66,6 +66,33 @@ test.describe('match lifecycle', () => {
     await expect(page.getByText('6-3 6-4').first()).toBeVisible({ timeout: 5000 });
   });
 
+  test('score input rejects an invalid non-last set (0-4 4-6)', async ({ page }, testInfo) => {
+    // Only the LAST set may be unfinished; every earlier set must be a
+    // complete, valid padel set. "0-4" as set 1 is neither — it must never
+    // be treated as an in-progress open set just because "4-6" (a valid,
+    // complete set) follows it.
+    const matchId = scratchMatchId('invalid-nonlast-set', testInfo.project.name);
+    await suPatch(`/api/collections/matches/records/${matchId}`, { date: '2025-03-15', club: 'Padel 360' });
+
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    // The score input lives in the lazily-loaded thread fragment
+    // (#match-thread hx-get), not in the initial page HTML.
+    await page.waitForSelector('#result-panel', { timeout: 10000 });
+    const si = page.locator('.score-input').first();
+    await expect(si.locator('.score-cell').first()).toBeVisible({ timeout: 5000 });
+
+    await si.locator('[name="s1a"]').selectOption('0');
+    await si.locator('[name="s1b"]').selectOption('4');
+    await si.locator('[name="s2a"]').selectOption('4');
+    await si.locator('[name="s2b"]').selectOption('6');
+
+    await expect(si.locator('[name="s1a"]')).toHaveClass(/select-error/);
+    await expect(si.locator('[name="s1b"]')).toHaveClass(/select-error/);
+    await expect(si.locator('.score-winner')).toHaveText('');
+    await expect(page.getByRole('button', { name: 'Enviar resultado' })).toBeDisabled();
+  });
+
   test('home page shows matches', async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto('/');
