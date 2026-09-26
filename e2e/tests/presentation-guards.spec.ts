@@ -344,6 +344,71 @@ test.describe('R-178: presentation quality guards', () => {
     await apiDelete(page.request, suToken, 'users', partnerId);
   });
 
+  test('feature: a pending (unconfirmed) result proposal counts in the Clasificación with a tooltip', async ({ page }, testInfo) => {
+    const suToken = await getSuToken(page.request);
+    const suffix = `${Date.now()}-${testInfo.project.name}`;
+    const p1u1 = await apiCreate(page.request, suToken, 'users', {
+      email: `prov-a1-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: `Prov A1 ${suffix}`, roles: ['player'], verified: true, gender: 'male',
+    });
+    const p1u2 = await apiCreate(page.request, suToken, 'users', {
+      email: `prov-a2-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: `Prov A2 ${suffix}`, roles: ['player'], verified: true, gender: 'male',
+    });
+    const p2u1 = await apiCreate(page.request, suToken, 'users', {
+      email: `prov-b1-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: `Prov B1 ${suffix}`, roles: ['player'], verified: true, gender: 'male',
+    });
+    const p2u2 = await apiCreate(page.request, suToken, 'users', {
+      email: `prov-b2-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: `Prov B2 ${suffix}`, roles: ['player'], verified: true, gender: 'male',
+    });
+    const pairAName = `Prov Pareja A ${suffix}`;
+    const pairAId = await apiCreate(page.request, suToken, 'pairs', { name: pairAName, player1: p1u1, player2: p1u2 });
+    const pairBId = await apiCreate(page.request, suToken, 'pairs', { name: `Prov Pareja B ${suffix}`, player1: p2u1, player2: p2u2 });
+    const compName = `Prov Comp ${suffix}`;
+    const compId = await apiCreate(page.request, suToken, 'competitions', {
+      name: compName, type: 'league', active: true, pairs: [pairAId, pairBId], calendar_status: 'published',
+    });
+    const matchId = await apiCreate(page.request, suToken, 'matches', {
+      competition: compId, pair1: pairAId, pair2: pairBId, status: 'scheduled', round_number: 1,
+    });
+    const proposalId = await apiCreate(page.request, suToken, 'match_messages', {
+      match: matchId, author: p1u1, type: 'result_submission', proposal_status: 'pending',
+      content: '6-3 6-4', proposal_data: JSON.stringify({ scores: '6-3 6-4' }),
+    });
+
+    await loginAs(page, `prov-a1-${suffix}@test.local`, 'testpass123456');
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    // Reach the competition by clicking its home card, not goto(url). This
+    // fixture's player belongs to exactly one competition, so home renders
+    // the single-featured-card layout (data-testid="single-comp-entry")
+    // instead of the "Mis competiciones" grid — and also has a pending
+    // "propose a date" home action whose Detail text contains the
+    // competition name too, so a plain hasText <a> locator would be
+    // ambiguous.
+    await page.locator('[data-testid="single-comp-entry"]').click();
+    await page.waitForLoadState('networkidle');
+
+    await page.locator('input[aria-label="Clasificación"]').click();
+    // standingsTable renders both a desktop table and a mobile table, only
+    // one visible per breakpoint via CSS — scope to whichever is visible.
+    const standingsTableClass = isMobile(page) ? 'table.table-sm' : 'table.table-zebra';
+    const row = page.locator(`${standingsTableClass} tbody tr`, { hasText: pairAName }).first();
+    await expect(row, 'the pending proposal must count as a win right away').toBeVisible();
+    const tooltip = row.locator('[data-tip="Incluye resultados sin confirmar"]');
+    await expect(tooltip, 'the row must show the unconfirmed-result tooltip').toBeVisible();
+
+    await apiDelete(page.request, suToken, 'match_messages', proposalId);
+    await apiDelete(page.request, suToken, 'matches', matchId);
+    await apiDelete(page.request, suToken, 'competitions', compId);
+    await apiDelete(page.request, suToken, 'pairs', pairAId);
+    await apiDelete(page.request, suToken, 'pairs', pairBId);
+    for (const uid of [p1u1, p1u2, p2u1, p2u2]) await apiDelete(page.request, suToken, 'users', uid);
+  });
+
   test('R-231: notifications dropdown shows entries when notifications exist', async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto('/');

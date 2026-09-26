@@ -14,9 +14,12 @@ type Award struct {
 	Value    string
 }
 
-// Awards computes end-of-competition awards based on standings and match history.
+// Awards computes end-of-competition awards based on standings and match
+// history. Uses ComputeFinalStandings (settled matches only) — an award is a
+// permanent record and must not be based on a result proposal that could
+// still be superseded.
 func (svc *Service) Awards(competitionID string) []Award {
-	standings, err := svc.ComputeStandings(competitionID)
+	standings, err := svc.ComputeFinalStandings(competitionID)
 	if err != nil || len(standings) == 0 {
 		return nil
 	}
