@@ -1,5 +1,6 @@
 import { test, expect, Page, APIRequestContext } from '@playwright/test';
 import { loginAs, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, loadTestData } from '../helpers';
+import { clickConfirmAndWaitForHxRedirect } from '../tour-helpers';
 
 let suToken = '';
 
@@ -106,11 +107,19 @@ test.describe('scheduling, walkover & bracket', () => {
     const dialog = page.locator(`dialog#walkover-modal-${matchId}`);
     await expect(dialog).toBeVisible({ timeout: 3000 });
     await dialog.locator('textarea[name="reason"]').fill('El rival no se presentó.');
+    // ReportUnplayed responds with redirectHX (HX-Redirect), which htmx
+    // turns into a full window.location navigation AFTER the response
+    // completes — waitForResponse alone (or networkidle) can resolve before
+    // that navigation finishes, racing the next loginAs's own page.goto('/')
+    // ("Navigation to / is interrupted by another navigation to /match/...").
+    // Wait for the real navigation, same as clickAndWaitForHxRedirect.
+    const reportNav = page.waitForEvent('framenavigated', { timeout: 15000 });
     await Promise.all([
       page.waitForResponse(resp => resp.url().includes(`/match/${matchId}/report-unplayed`)),
       dialog.locator('button:has-text("Reportar no jugado")').click(),
     ]);
-    await page.waitForLoadState('networkidle');
+    await reportNav;
+    await page.waitForLoadState('domcontentloaded');
 
     const matchAfterReport = await apiGetRecord(page.request, 'matches', matchId);
     expect(matchAfterReport.status).toBe('disputed');
@@ -128,12 +137,11 @@ test.describe('scheduling, walkover & bracket', () => {
 
     const woForm = page.locator(`form[hx-post*="/admin/disputes/${matchId}/walkover-approve"]`);
     await woForm.locator('select[name="winner"]').selectOption(data.pair1Id);
-    await woForm.locator('button:has-text("Aprobar incomparecencia")').click();
     // hx-confirm is intercepted by static/js/confirm.js's custom #confirm-modal
     // (not the native confirm() dialog), so the request only fires once its
-    // #confirm-ok button is clicked.
-    await page.locator('#confirm-ok').click();
-    await expect(woForm).not.toBeVisible({ timeout: 10000 });
+    // #confirm-ok button is clicked. WalkoverApprove also responds with
+    // redirectHX — wait for the real navigation before the next loginAs.
+    await clickConfirmAndWaitForHxRedirect(page, woForm.locator('button:has-text("Aprobar incomparecencia")'));
 
     // Verify final state
     const matchFinal = await apiGetRecord(page.request, 'matches', matchId);
