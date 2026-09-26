@@ -2,24 +2,27 @@ package migrations
 
 import (
 	"fmt"
+	"os"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/internal/testapp"
 )
 
 var slotTestSeq atomic.Int64
 
+func TestMain(m *testing.M) {
+	os.Exit(testapp.Run(m))
+}
+
 func newSlotTestApp(t *testing.T) core.App {
 	t.Helper()
-	app, err := tests.NewTestApp()
-	require.NoError(t, err)
-	t.Cleanup(app.Cleanup)
-	return app
+	return testapp.New(t)
 }
 
 func makeSlotTestPair(t *testing.T, app core.App, name string) *core.Record {
