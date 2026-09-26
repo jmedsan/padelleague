@@ -296,6 +296,22 @@ func TestWalkoverApprove(t *testing.T) {
 		assert.Equal(tb, 5.0, rows[0].GetFloat("amount"))
 		assert.Equal(tb, "Incomparecencia aprobada", rows[0].GetString("reason"))
 		assert.NotEmpty(tb, rows[0].GetString("applied_by"), "walkover penalty must record approving admin")
+
+		compRec, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		want := league.Notification{
+			Type:     "general",
+			Title:    "Incomparecencia aprobada",
+			Body:     "El administrador ha aprobado la incomparecencia",
+			MatchID:  matchID,
+			CompName: compRec.GetString("name"),
+		}
+		for _, uid := range league.PlayersForPair(app, p1ID) {
+			assertNotified(tb, app, uid, want)
+		}
+		for _, uid := range league.PlayersForPair(app, p2ID) {
+			assertNotified(tb, app, uid, want)
+		}
 	}
 	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + matchCompetitionID(app, s.URL) })
 	s.Test(t)
