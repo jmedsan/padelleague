@@ -223,14 +223,30 @@ function ceilDiv(a: number, b: number): number {
 // every boundary lands on a whole calendar day even when D isn't a
 // multiple of target.
 export function jornadaTitle(startISO: string, endISO: string, target: number, n: number): string {
+  const { lo, hi } = jornadaRange(startISO, endISO, target, n);
+  return `Jornada ${n} · ${fmtShortDate(lo)} – ${fmtShortDate(hi)}`;
+}
+
+// jornadaRange returns the same [lo, hi] Date pair jornadaTitle formats for
+// display — exposed separately so callers that need the exact day (e.g.
+// asserting a match's arrange_by, stored as YYYY-MM-DD) don't have to parse
+// jornadaTitle's Spanish short-date string back into a date.
+export function jornadaRange(startISO: string, endISO: string, target: number, n: number): { lo: Date; hi: Date } {
   const start = new Date(startISO);
   const end = new Date(endISO);
   const days = Math.round((end.getTime() - start.getTime()) / MS_PER_DAY) + 1;
   const loDay = ceilDiv((n - 1) * days, target);
   const hiDay = ceilDiv(n * days, target) - 1;
-  const lo = new Date(start.getTime() + loDay * MS_PER_DAY);
-  const hi = new Date(start.getTime() + hiDay * MS_PER_DAY);
-  return `Jornada ${n} · ${fmtShortDate(lo)} – ${fmtShortDate(hi)}`;
+  return {
+    lo: new Date(start.getTime() + loDay * MS_PER_DAY),
+    hi: new Date(start.getTime() + hiDay * MS_PER_DAY),
+  };
+}
+
+// jornadaHiISO returns Jornada n's last day as a YYYY-MM-DD string, matching
+// the format league.SlotDeadline stores on a match's arrange_by field.
+export function jornadaHiISO(startISO: string, endISO: string, target: number, n: number): string {
+  return jornadaRange(startISO, endISO, target, n).hi.toISOString().slice(0, 10);
 }
 
 export async function addPairToCompetition(
