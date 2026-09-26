@@ -418,11 +418,12 @@ func TestAcceptProposalSupersedeFailureNotifiesAdmin(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var acceptedMsgID, failMsgID, matchID string
+	var acceptedMsgID, failMsgID, matchID, adminID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		// Create an admin user so NotifyAdmins has someone to notify
-		makeAdminUserTB(tb, app)
+		admin := makeAdminUserTB(tb, app)
+		adminID = admin.Id
 
 		p1 := makePairTB(tb, app, "SupFail A")
 		p2 := makePairTB(tb, app, "SupFail B")
@@ -467,15 +468,14 @@ func TestAcceptProposalSupersedeFailureNotifiesAdmin(t *testing.T) {
 			"supersede-failed proposal must remain pending")
 
 		// Admin notification must exist about the failure
-		// The exact title depends on the S-4 fix implementation. Check for
-		// any admin notification that references the failure.
-		admins, _ := app.FindRecordsByFilter("users", "roles ~ 'admin'", "", 0, 0, nil)
-		require.NotEmpty(tb, admins, "test requires at least one admin")
-		adminNotifs, _ := app.FindRecordsByFilter("notifications",
-			"user = {:uid} && type = 'admin_message'",
-			"", 0, 0, map[string]any{"uid": admins[0].Id})
-		assert.GreaterOrEqual(tb, len(adminNotifs), 1,
-			"admin must receive a notification about the supersede failure")
+		adminWant := league.Notification{
+			Type:     "admin_message",
+			Title:    "Propuestas pendientes no actualizadas",
+			Body:     "El partido SupFail A vs SupFail B tiene propuestas que no se pudieron marcar como superadas. Revisa el hilo.",
+			MatchID:  matchID,
+			CompName: "Test Competition",
+		}
+		assertNotified(tb, app, adminID, adminWant)
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
