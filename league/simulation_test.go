@@ -265,7 +265,7 @@ func TestSimulation_LeveledLeague(t *testing.T) {
 // assertStatistical checks wide-margin statistical assertions (only at ≥100 seasons).
 func assertStatistical(t *testing.T, name string, acc *simMetrics) {
 	t.Helper()
-	exactRate := float64(acc.exact) / float64(acc.seasons)
-	assert.GreaterOrEqual(t, exactRate, 0.99,
-		"%s: exact-target rate %.2f%% < 99%% (recipe 99.9%%; may fail until F1 is fixed)", name, exactRate*100)
+	assert.Equal(t, acc.seasons, acc.exact,
+		"%s: exact-target rate must be 100%% under ffactor's exact completability check (got %d/%d)",
+		name, acc.exact, acc.seasons)
 }
