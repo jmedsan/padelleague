@@ -5,7 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"math"
-	"math/rand/v2"
+	"math/bits"
 	"sort"
 	"time"
 
@@ -30,9 +30,10 @@ type Pairing struct {
 // (non-withdrawn) count: this classification drives Jornada grouping, the
 // Aj. standings column, and top-up eligibility for the competition's whole
 // lifetime, and must never flip mid-season just because a pair withdraws —
-// a withdrawal shrinking the active count below the leveled threshold is a
-// completability problem for the assignment engine (activePairCount),
-// not a reason to reclassify the competition as round-robin.
+// a withdrawal shrinking the active pair count below the leveled threshold
+// is a completability problem for the assignment engine (ffactor operates
+// on buildLeveledState's active-only pairs list), not a reason to
+// reclassify the competition as round-robin.
 func IsLeveled(comp *core.Record) bool {
 	target := comp.GetInt("target_matches")
 	pairs := comp.GetStringSlice("pairs")
@@ -140,16 +141,11 @@ type candidate struct {
 func (svc *Service) chooseOpponentForRound(st *leveledState, p string, k int) string {
 	inside, outside := svc.collectCandidatesForRound(st, p, k)
 
-	need := make(map[string]int, len(st.pairs))
-	for _, id := range st.pairs {
-		need[id] = st.target - st.load(id)
-	}
-	ctx := completionCtx{need: need, met: st.met, slack: minSlack(need, st.met)}
-
-	if id := firstCompletable(p, inside, ctx); id != "" {
+	fs := buildFactorState(st)
+	if id := firstFactorable(p, inside, fs); id != "" {
 		return id
 	}
-	return firstCompletable(p, outside, ctx)
+	return firstFactorable(p, outside, fs)
 }
 
 // collectCandidatesForRound builds the inside-zone (shuffled, then sorted by
@@ -193,128 +189,215 @@ func (svc *Service) collectCandidatesForRound(st *leveledState, p string, k int)
 	return inside, outside
 }
 
-// completionCtx holds the per-candidate completion check inputs.
-type completionCtx struct {
-	need  map[string]int
-	met   map[string]map[string]struct{}
-	slack int
+// factorState is the index-based (bitmask) view of a leveledState's
+// remaining need and eligibility, the input shape ffactor operates on.
+// Vertex i corresponds to st.pairs[i]; index maps a pair id back to its
+// vertex for callers working with string ids.
+type factorState struct {
+	need  []int
+	avail []uint32
+	index map[string]int
 }
 
-// firstCompletable returns the id of the first candidate that keeps the
-// schedule completable after adding the p–candidate pairing, or "" if none do.
-func firstCompletable(p string, candidates []candidate, ctx completionCtx) string {
-	for _, c := range candidates {
-		needAfter := make(map[string]int, len(ctx.need))
-		for k, v := range ctx.need {
-			needAfter[k] = v
+// buildFactorState derives a factorState from st: need[v] is how many more
+// matches st.pairs[v] must play to reach target; avail[v] is the bitmask of
+// vertices v could still be paired with (excludes v itself, anyone already
+// met, and anyone with no remaining need). Rebuilt fresh on every call since
+// plan() mutates st.pending/st.met between requesters.
+func buildFactorState(st *leveledState) factorState {
+	n := len(st.pairs)
+	index := make(map[string]int, n)
+	for i, id := range st.pairs {
+		index[id] = i
+	}
+	need := make([]int, n)
+	for i, id := range st.pairs {
+		need[i] = st.target - st.load(id)
+	}
+	avail := make([]uint32, n)
+	for i, id := range st.pairs {
+		var mask uint32
+		for j, other := range st.pairs {
+			if j == i || need[j] <= 0 {
+				continue
+			}
+			if _, met := st.met[id][other]; met {
+				continue
+			}
+			mask |= 1 << uint(j)
 		}
-		needAfter[p]--
-		needAfter[c.id]--
-		metAfter := cloneMet(ctx.met)
-		addMet(metAfter, p, c.id)
-		if completable(needAfter, metAfter, ctx.slack, candidateTries) {
+		avail[i] = mask
+	}
+	return factorState{need: need, avail: avail, index: index}
+}
+
+// firstFactorable returns the id of the first candidate for which pairing p
+// with it still leaves an exactly completable schedule (ffactor), or "" if
+// none do. fs is never mutated — each candidate is tried against a fresh
+// copy of fs.need/fs.avail.
+func firstFactorable(p string, candidates []candidate, fs factorState) string {
+	pv := fs.index[p]
+	for _, c := range candidates {
+		qv := fs.index[c.id]
+		need := append([]int(nil), fs.need...)
+		avail := append([]uint32(nil), fs.avail...)
+		need[pv]--
+		need[qv]--
+		avail[pv] &^= 1 << uint(qv)
+		avail[qv] &^= 1 << uint(pv)
+		if ffactor(need, avail) {
 			return c.id
 		}
 	}
 	return ""
 }
 
-const (
-	baselineTries  = 100
-	candidateTries = 30
-)
+// ffactor reports whether the remaining schedule is EXACTLY completable:
+// every vertex with need > 0 can be paired down to need == 0 using only its
+// avail candidates, with no slack. Vertices are 0..len(need)-1; avail[v] is
+// the bitmask of vertices v may still be paired with. Deterministic;
+// memoized within this call's own search tree only (see ffactorMemoized) —
+// a package-level cache would grow unbounded over a long-running process
+// life, and a fresh call tree gains nothing from a prior competition's
+// (need, avail) states.
+func ffactor(need []int, avail []uint32) bool {
+	return ffactorMemoized(need, avail, make(map[string]bool))
+}
 
-// completable does a randomized greedy check: can we build a valid schedule
-// for the remaining need, given met, allowing up to slack unfilled slots?
-func completable(need map[string]int, met map[string]map[string]struct{}, slack, tries int) bool {
-	rng := rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))
-	for range tries {
-		if tryGreedy(need, met, slack, rng) {
+// ffactorMemoized is ffactor's recursive core, threading one memo map
+// through the whole search so the identical (need, avail) state reached via
+// different branches is solved once.
+func ffactorMemoized(need []int, avail []uint32, memo map[string]bool) bool {
+	var live uint32
+	total := 0
+	for v, n := range need {
+		if n > 0 {
+			live |= 1 << uint(v)
+			total += n
+		}
+	}
+	if live == 0 {
+		return true
+	}
+	if total%2 != 0 {
+		return false
+	}
+	for v, n := range need {
+		if n <= 0 {
+			continue
+		}
+		a := avail[v] & live
+		if bits.OnesCount32(a) < n {
+			return false
+		}
+		avail[v] = a
+	}
+
+	key := factorKey(need, avail)
+	if cached, ok := memo[key]; ok {
+		return cached
+	}
+
+	v := pickFactorVertex(need, avail, live)
+	result := tryFactorSubsets(need, avail, v, memo)
+	memo[key] = result
+	return result
+}
+
+// pickFactorVertex returns the live vertex minimizing
+// popcount(avail[v]) - need[v] (most constrained first), breaking ties
+// toward larger need — the same "hardest first" heuristic a greedy solver
+// uses, kept here to bound the branching factor of the exact search.
+func pickFactorVertex(need []int, avail []uint32, live uint32) int {
+	best := -1
+	var bestSlack int
+	for v := 0; v < len(need); v++ {
+		if live&(1<<uint(v)) == 0 {
+			continue
+		}
+		slack := bits.OnesCount32(avail[v]) - need[v]
+		if best == -1 || slack < bestSlack || (slack == bestSlack && need[v] > need[best]) {
+			best, bestSlack = v, slack
+		}
+	}
+	return best
+}
+
+// tryFactorSubsets enumerates every size-need[v] subset of avail[v], applies
+// it (v and each chosen partner's need drop by one, mutual availability
+// closes), and recurses. Restores need/avail after each attempt so sibling
+// subsets see the original state. Returns true on the first subset that
+// leads to a fully completable schedule.
+func tryFactorSubsets(need []int, avail []uint32, v int, memo map[string]bool) bool {
+	if need[v] == 0 {
+		return ffactorMemoized(need, avail, memo)
+	}
+	for _, subset := range subsetsOfSize(avail[v], need[v]) {
+		origNeed := append([]int(nil), need...)
+		origAvail := append([]uint32(nil), avail...)
+
+		need[v] = 0
+		for u := 0; u < len(need); u++ {
+			if subset&(1<<uint(u)) == 0 {
+				continue
+			}
+			need[u]--
+			avail[v] &^= 1 << uint(u)
+			avail[u] &^= 1 << uint(v)
+		}
+		if ffactorMemoized(need, avail, memo) {
 			return true
 		}
+		copy(need, origNeed)
+		copy(avail, origAvail)
 	}
 	return false
 }
 
-// tryGreedy attempts one greedy pass: serve the most-constrained pair first.
-// rng provides per-pass randomness so repeated calls explore different orderings.
-func tryGreedy(origNeed map[string]int, origMet map[string]map[string]struct{}, slack int, rng *rand.Rand) bool {
-	need := make(map[string]int, len(origNeed))
-	for k, v := range origNeed {
-		need[k] = v
-	}
-	met := cloneMet(origMet)
-
-	missed := 0
-	for {
-		pairs := pairsWithNeed(need)
-		if len(pairs) == 0 {
-			break
+// subsetsOfSize returns every subset of mask with exactly size bits set.
+func subsetsOfSize(mask uint32, size int) []uint32 {
+	var members []int
+	for v := 0; v < 32; v++ {
+		if mask&(1<<uint(v)) != 0 {
+			members = append(members, v)
 		}
-		sortByConstraint(pairs, need, met, rng)
-		p := pairs[0]
-
-		candidates := eligibleCandidates(p, need, met)
-		if len(candidates) == 0 {
-			missed += need[p]
-			need[p] = 0
-			if missed > slack {
-				return false
+	}
+	if size <= 0 || size > len(members) {
+		return nil
+	}
+	var out []uint32
+	combo := make([]int, size)
+	var rec func(start, depth int)
+	rec = func(start, depth int) {
+		if depth == size {
+			var s uint32
+			for _, b := range combo {
+				s |= 1 << uint(b)
 			}
-			continue
+			out = append(out, s)
+			return
 		}
-		sortByConstraint(candidates, need, met, rng)
-		missed += fillNeed(p, candidates, need, met)
-		if missed > slack {
-			return false
+		for i := start; i < len(members); i++ {
+			combo[depth] = members[i]
+			rec(i+1, depth+1)
 		}
 	}
-	return missed <= slack
+	rec(0, 0)
+	return out
 }
 
-// sortByConstraint sorts ids by fewest (options − need) first; ties broken randomly.
-func sortByConstraint(ids []string, need map[string]int, met map[string]map[string]struct{}, rng *rand.Rand) {
-	sort.Slice(ids, func(i, j int) bool {
-		oi := countEligible(ids[i], need, met) - need[ids[i]]
-		oj := countEligible(ids[j], need, met) - need[ids[j]]
-		if oi != oj {
-			return oi < oj
-		}
-		return rng.Float64() < 0.5
-	})
-}
-
-// fillNeed fills all of p's remaining need slots from candidates and returns
-// the number of slots that could not be filled (need[p] > len(candidates)).
-func fillNeed(p string, candidates []string, need map[string]int, met map[string]map[string]struct{}) int {
-	fill := need[p]
-	missed := 0
-	if fill > len(candidates) {
-		missed = fill - len(candidates)
-		fill = len(candidates)
+// factorKey builds a memoization key from need/avail — a length-prefixed
+// byte encoding is enough since both slices share a fixed size per ffactor
+// call tree and never grow.
+func factorKey(need []int, avail []uint32) string {
+	buf := make([]byte, 0, len(need)*4+len(avail)*4)
+	for _, n := range need {
+		buf = append(buf, byte(n), byte(n>>8), byte(n>>16), byte(n>>24))
 	}
-	for _, q := range candidates[:fill] {
-		need[q]--
-		addMet(met, p, q)
+	for _, a := range avail {
+		buf = append(buf, byte(a), byte(a>>8), byte(a>>16), byte(a>>24))
 	}
-	need[p] = 0
-	return missed
-}
-
-// minSlack finds the minimum slack for which completable returns true.
-// Recipe §3.4: try 0 (or 1 when total need is odd), then +2.
-func minSlack(need map[string]int, met map[string]map[string]struct{}) int {
-	max := totalNeed(need)
-	start := 0
-	if max%2 != 0 {
-		start = 1
-	}
-	for s := start; s <= max; s += 2 {
-		if completable(need, met, s, baselineTries) {
-			return s
-		}
-	}
-	return max
+	return string(buf)
 }
 
 // plan fills one Jornada at a time, starting from the competition's current
@@ -742,18 +825,6 @@ func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[strin
 
 // -- helpers ----------------------------------------------------------------
 
-func cloneMet(met map[string]map[string]struct{}) map[string]map[string]struct{} {
-	out := make(map[string]map[string]struct{}, len(met))
-	for k, v := range met {
-		inner := make(map[string]struct{}, len(v))
-		for id := range v {
-			inner[id] = struct{}{}
-		}
-		out[k] = inner
-	}
-	return out
-}
-
 func addMet(met map[string]map[string]struct{}, p, q string) {
 	if met[p] == nil {
 		met[p] = map[string]struct{}{}
@@ -773,54 +844,6 @@ func occupySlot(occupied map[string]map[int]bool, p string, slot int) {
 		occupied[p] = map[int]bool{}
 	}
 	occupied[p][slot] = true
-}
-
-func pairsWithNeed(need map[string]int) []string {
-	var out []string
-	for k, v := range need {
-		if v > 0 {
-			out = append(out, k)
-		}
-	}
-	return out
-}
-
-func countEligible(p string, need map[string]int, met map[string]map[string]struct{}) int {
-	count := 0
-	for q, n := range need {
-		if q == p || n <= 0 {
-			continue
-		}
-		if _, ok := met[p][q]; ok {
-			continue
-		}
-		count++
-	}
-	return count
-}
-
-func eligibleCandidates(p string, need map[string]int, met map[string]map[string]struct{}) []string {
-	var out []string
-	for q, n := range need {
-		if q == p || n <= 0 {
-			continue
-		}
-		if _, ok := met[p][q]; ok {
-			continue
-		}
-		out = append(out, q)
-	}
-	return out
-}
-
-func totalNeed(need map[string]int) int {
-	s := 0
-	for _, v := range need {
-		if v > 0 {
-			s += v
-		}
-	}
-	return s
 }
 
 // clampInt restricts v to [lo, hi].
