@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/internal/testapp"
 	"padelleague/league"
 	_ "padelleague/migrations"
 )
@@ -57,12 +59,13 @@ func withLogCapture(t *testing.T) *logCapture {
 
 var userSeq atomic.Int64
 
+func TestMain(m *testing.M) {
+	os.Exit(testapp.Run(m))
+}
+
 func newTestApp(t *testing.T) *tests.TestApp {
 	t.Helper()
-	app, err := tests.NewTestApp()
-	require.NoError(t, err)
-	t.Cleanup(app.Cleanup)
-	return app
+	return testapp.New(t)
 }
 
 func makeUser(t *testing.T, app core.App, role string) *core.Record {
