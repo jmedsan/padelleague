@@ -54,16 +54,33 @@ func transitionedToFinal(rec *core.Record) bool {
 		rec.Original().GetString("status") != league.StatusFinal
 }
 
+// winnerChangedOnFinal reports whether an admin correction changed the
+// winner of a match that was already final on both sides of the save (see
+// MatchHandler.detectScoreChange) — as opposed to a save that transitioned
+// into final for the first time, which transitionedToFinal already covers.
+func winnerChangedOnFinal(rec *core.Record) bool {
+	orig := rec.Original()
+	return rec.GetString("status") == league.StatusFinal &&
+		orig.GetString("status") == league.StatusFinal &&
+		rec.GetString("winner") != orig.GetString("winner")
+}
+
 // handleAdvance runs playoff-advance and leveled-league top-up when a match
-// reaches final status. Only fires on the transition into final — a save
-// that leaves an already-final match untouched must not re-run
-// TopUpAssignments for a match that never actually finalized just now.
+// reaches final status. TopUpAssignments only fires on the transition into
+// final — re-running it for every later save of an already-final match
+// would waste a full read-plan-save cycle for no effect. AdvancePlayoff
+// additionally fires when an admin corrects the winner of a match that was
+// already final, since a corrected result must still repropagate into the
+// next playoff round.
 func handleAdvance(svc *league.Service, rec *core.Record) {
-	if !transitionedToFinal(rec) {
-		return
+	justFinal := transitionedToFinal(rec)
+	if justFinal || winnerChangedOnFinal(rec) {
+		if err := svc.AdvancePlayoff(rec); err != nil {
+			slog.Error("auto-advance playoff failed", "match", rec.Id, "err", err)
+		}
 	}
-	if err := svc.AdvancePlayoff(rec); err != nil {
-		slog.Error("auto-advance playoff failed", "match", rec.Id, "err", err)
+	if !justFinal {
+		return
 	}
 	compID := rec.GetString("competition")
 	if _, err := svc.TopUpAssignments(compID, time.Now(), league.Pairing{
