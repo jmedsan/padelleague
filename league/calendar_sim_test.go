@@ -23,6 +23,12 @@ import (
 var (
 	calSeasons = flag.Int("calendar.seasons", 0, "seasons for the calendar simulation; 0 skips it")
 	calSeed    = flag.Uint64("calendar.seed", 0, "RNG seed; 0 = time-based, logged")
+	calAdmin   = flag.Bool("calendar.admin", false, "model an admin using the existing tools: release after 14 overdue days, 7-day recovery week, walkovers at close")
+)
+
+const (
+	adminReleaseAfterDays = 14 // a match overdue this long is released and re-paired
+	adminRecoveryDays     = 7  // rulebook: "7 días extraordinarios" after the regular league
 )
 
 // Behavior profiles, drawn per pair and season (assumed shares of an amateur
@@ -113,6 +119,10 @@ type calSeasonResult struct {
 	// per opponent profile: matches played against it and how many were overdue
 	vsPlayed  [4]int
 	vsOverdue [4]int
+	// admin actions
+	releases     int
+	closeWalkers int // walkovers at close with a clear responsible pair
+	closeAnnul   int // unplayed at close with no responsible pair (rulebook: -1 each; no tool)
 }
 
 func TestCalendarSimulation(t *testing.T) {
@@ -179,8 +189,16 @@ func runCalendarSeason(t *testing.T, app core.App, svc *Service, pairs []*core.R
 		res.prof[p.Id] = b.prof
 	}
 
-	for day := start; !day.After(end); day = day.AddDate(0, 0, 1) {
-		now := day.Add(20 * time.Hour)
+	last := end
+	if *calAdmin {
+		last = end.AddDate(0, 0, adminRecoveryDays)
+		comp.Set("recovery_days", adminRecoveryDays)
+		require.NoError(t, app.Save(comp))
+	}
+	blocked := map[string][2]int{} // match id -> days each side alone blocked it
+	now := start
+	for day := start; !day.After(last); day = day.AddDate(0, 0, 1) {
+		now = day.Add(20 * time.Hour)
 		for _, p := range pairs {
 			b := behavior[p.Id]
 			if b.prof == profAbandon && !b.withdrawn && !day.Before(b.quitDay) {
@@ -202,7 +220,26 @@ func runCalendarSeason(t *testing.T, app core.App, svc *Service, pairs []*core.R
 		for _, m := range pend {
 			p1, p2 := m.GetString("pair1"), m.GetString("pair2")
 			deadline := m.GetDateTime("arrange_by").Time()
-			if busy[p1] || busy[p2] || !behavior[p1].available(day, nextFree[p1], deadline) || !behavior[p2].available(day, nextFree[p2], deadline) {
+			a1 := behavior[p1].available(day, nextFree[p1], deadline)
+			a2 := behavior[p2].available(day, nextFree[p2], deadline)
+			if a1 != a2 {
+				b := blocked[m.Id]
+				if a1 {
+					b[1]++
+				} else {
+					b[0]++
+				}
+				blocked[m.Id] = b
+			}
+			if *calAdmin && day.Before(end) && daysBetween(deadline, day) > adminReleaseAfterDays {
+				// Admin release: the match is deleted and both pairs re-paired (delete hook path).
+				require.NoError(t, app.Delete(m))
+				res.releases++
+				_, err := svc.TopUpAssignments(comp.Id, now, Pairing{A: p1, B: p2})
+				require.NoError(t, err)
+				continue
+			}
+			if busy[p1] || busy[p2] || !a1 || !a2 {
 				continue
 			}
 			busy[p1], busy[p2] = true, true
@@ -230,6 +267,24 @@ func runCalendarSeason(t *testing.T, app core.App, svc *Service, pairs []*core.R
 		require.NoError(t, err)
 	}
 	res.unplayed = len(pendingCalendarMatches(t, app, comp.Id))
+	if *calAdmin {
+		// Close: report-unplayed → walkover with penalty against the side that
+		// blocked the match more days; no responsible side → rulebook -1 each.
+		for _, m := range pendingCalendarMatches(t, app, comp.Id) {
+			b := blocked[m.Id]
+			p1, p2 := m.GetString("pair1"), m.GetString("pair2")
+			switch {
+			case b[0] > b[1]:
+				finalizeWalkover(t, app, m, p2, now)
+				res.closeWalkers++
+			case b[1] > b[0]:
+				finalizeWalkover(t, app, m, p1, now)
+				res.closeWalkers++
+			default:
+				res.closeAnnul++
+			}
+		}
+	}
 	for _, p := range pairs {
 		if behavior[p.Id].withdrawn {
 			continue
@@ -308,6 +363,16 @@ func finalizeCalendarMatch(t *testing.T, app core.App, m *core.Record, score str
 	require.NoError(t, app.Save(m))
 }
 
+func finalizeWalkover(t *testing.T, app core.App, m *core.Record, winner string, at time.Time) {
+	t.Helper()
+	m.Set("scores", "6-0 6-0")
+	m.Set("winner", winner)
+	m.Set("status", "final")
+	m.Set("review_type", "walkover")
+	m.Set("finalized_at", at.UTC().Format("2006-01-02 15:04:05.000Z"))
+	require.NoError(t, app.Save(m))
+}
+
 func cleanupCalendarSeason(t *testing.T, app core.App, comp *core.Record) {
 	t.Helper()
 	matches, err := app.FindRecordsByFilter("matches",
@@ -358,10 +423,13 @@ func calendarReport(results []calSeasonResult) string {
 	}
 	var profN, profOver, profShort [4]int
 	var vsPlayed, vsOverdue [4]int
-	walk, withd := 0, 0
+	walk, withd, rel, cw, ca := 0, 0, 0, 0, 0
 	for _, r := range results {
 		walk += r.walkovers
 		withd += r.withdrawals
+		rel += r.releases
+		cw += r.closeWalkers
+		ca += r.closeAnnul
 		for p, pr := range r.prof {
 			profN[pr]++
 			profOver[pr] += r.overdueByPair[p]
@@ -395,5 +463,5 @@ func calendarReport(results []calSeasonResult) string {
 		float64(unplayed)/n, float64(short)/n, 100*float64(exact)/n, maxLate,
 		peakHist[0], peakHist[1], peakHist[2], peakHist[3], peakHist[4], peakHist[5],
 		perPair("<=4"), perPair("5"), perPair("6+")) +
-		fmt.Sprintf("\n\nWithdrawals: %.2f/season, walkovers: %.2f/season\n\n| Profile | Pair-seasons | Overdue per pair-season | Ends short | Overdue share of matches played AGAINST this profile |\n|---|---|---|---|---|\n%s", float64(withd)/n, float64(walk)/n, profRows)
+		fmt.Sprintf("\n\nWithdrawals: %.2f/season, withdrawal walkovers: %.2f/season, admin releases: %.2f/season, close walkovers (responsible side): %.2f/season, close with no responsible side (rulebook -1 each, no tool): %.2f/season\n\n| Profile | Pair-seasons | Overdue per pair-season | Ends short | Overdue share of matches played AGAINST this profile |\n|---|---|---|---|---|\n%s", float64(withd)/n, float64(walk)/n, float64(rel)/n, float64(cw)/n, float64(ca)/n, profRows)
 }
