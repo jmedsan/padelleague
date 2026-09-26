@@ -28,8 +28,25 @@ type Pairing struct {
 // proximity instead of generating a full round-robin.
 func IsLeveled(comp *core.Record) bool {
 	target := comp.GetInt("target_matches")
-	pairs := comp.GetStringSlice("pairs")
-	return !IsPlayoff(comp) && target > 0 && target < len(pairs)-1
+	return !IsPlayoff(comp) && target > 0 && target < activePairCount(comp)-1
+}
+
+// activePairCount returns the number of pairs still competing in comp — its
+// pairs list minus any withdrawn_pairs, so a withdrawal can't silently push
+// target_matches past the classification threshold for what counts as a
+// leveled league.
+func activePairCount(comp *core.Record) int {
+	withdrawn := make(map[string]bool)
+	for _, id := range comp.GetStringSlice("withdrawn_pairs") {
+		withdrawn[id] = true
+	}
+	n := 0
+	for _, id := range comp.GetStringSlice("pairs") {
+		if !withdrawn[id] {
+			n++
+		}
+	}
+	return n
 }
 
 // OpenAssignments returns the number of pending matches the system keeps each
@@ -707,16 +724,22 @@ func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[strin
 	}
 	for _, m := range matches {
 		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
-		if withdrawn[p1] || withdrawn[p2] {
+		final := m.GetString("status") == "final"
+		// A non-final match against a withdrawn pair never resolves — the
+		// pending side skips it entirely. A final match still counts in
+		// full for the non-withdrawn side: a real result played before the
+		// withdrawal, or the walkover WithdrawPair records for the
+		// opponent, is a genuine result the standings must keep.
+		if (withdrawn[p1] || withdrawn[p2]) && !final {
 			continue
 		}
 		addMet(t.met, p1, p2)
 		t.home[p1]++
 		if slot := m.GetInt("slot"); slot > 0 {
-			t.occupied[p1][slot] = true
-			t.occupied[p2][slot] = true
+			occupySlot(t.occupied, p1, slot)
+			occupySlot(t.occupied, p2, slot)
 		}
-		if m.GetString("status") == "final" {
+		if final {
 			t.played[p1]++
 			t.played[p2]++
 		} else {
@@ -750,6 +773,16 @@ func addMet(met map[string]map[string]struct{}, p, q string) {
 	}
 	met[p][q] = struct{}{}
 	met[q][p] = struct{}{}
+}
+
+// occupySlot marks p as occupying slot, auto-vivifying p's entry — needed
+// because a withdrawn pair (whose final matches still count, see
+// tallyMatchState) was never pre-seeded into occupied like the active pairs.
+func occupySlot(occupied map[string]map[int]bool, p string, slot int) {
+	if occupied[p] == nil {
+		occupied[p] = map[int]bool{}
+	}
+	occupied[p][slot] = true
 }
 
 func pairsWithNeed(need map[string]int) []string {

@@ -42,18 +42,21 @@ func TestIsLeveled(t *testing.T) {
 	}
 
 	cases := []struct {
-		name   string
-		target int
-		pairs  []*core.Record
-		typ    string // "" = league, "playoff" = playoff
-		want   bool
+		name      string
+		target    int
+		pairs     []*core.Record
+		typ       string // "" = league, "playoff" = playoff
+		withdrawn int    // withdraw this many pairs from the front of tc.pairs
+		want      bool
 	}{
-		{"target 0 is round-robin", 0, pairs, "", false},
-		{"3 of 6 is leveled", 3, pairs, "", true},
-		{"4 of 6 is leveled", 4, pairs, "", true},
-		{"5 of 6 is boundary (pairs-1), not leveled", 5, pairs, "", false},
-		{"7 of 6 exceeds pairs-1, not leveled", 7, pairs, "", false},
-		{"playoff is never leveled", 3, pairs, "playoff", false},
+		{"target 0 is round-robin", 0, pairs, "", 0, false},
+		{"3 of 6 is leveled", 3, pairs, "", 0, true},
+		{"4 of 6 is leveled", 4, pairs, "", 0, true},
+		{"5 of 6 is boundary (pairs-1), not leveled", 5, pairs, "", 0, false},
+		{"7 of 6 exceeds pairs-1, not leveled", 7, pairs, "", 0, false},
+		{"playoff is never leveled", 3, pairs, "playoff", 0, false},
+		{"4 of 6, 1 withdrawn: 4 >= active(5)-1=4, no longer leveled", 4, pairs, "", 1, false},
+		{"3 of 6, 1 withdrawn: active count (5) governs, still leveled", 3, pairs, "", 1, true},
 	}
 
 	for _, tc := range cases {
@@ -62,6 +65,13 @@ func TestIsLeveled(t *testing.T) {
 			comp.Set("target_matches", tc.target)
 			if tc.typ == "playoff" {
 				comp.Set("type", "playoff")
+			}
+			if tc.withdrawn > 0 {
+				ids := make([]string, tc.withdrawn)
+				for i := 0; i < tc.withdrawn; i++ {
+					ids[i] = tc.pairs[i].Id
+				}
+				comp.Set("withdrawn_pairs", ids)
 			}
 			require.NoError(t, app.Save(comp))
 			assert.Equal(t, tc.want, IsLeveled(comp))
@@ -1081,6 +1091,74 @@ func TestTopUp_ExcludesWithdrawn(t *testing.T) {
 	for _, m := range created {
 		assert.NotEqual(t, pa.Id, m.GetString("pair1"), "withdrawn pair must not be assigned")
 		assert.NotEqual(t, pa.Id, m.GetString("pair2"), "withdrawn pair must not be assigned")
+	}
+}
+
+// TestTopUp_WalkoverAgainstWithdrawnCountsAsPlayed verifies the oracle's
+// audit #1 fix: a FINAL match against a pair that later withdraws — a real
+// result played before the withdrawal, or a WithdrawPair walkover finalized
+// in the survivor's favor — must still count as played for the surviving
+// pair, so it does not get topped up past target (an unwanted 11th match)
+// nor re-paired with an opponent it already (effectively) met.
+func TestTopUp_WalkoverAgainstWithdrawnCountsAsPlayed(t *testing.T) {
+	app := newTestApp(t)
+	pa := makePair(t, app, "WoA")
+	pb := makePair(t, app, "WoB")
+	pc := makePair(t, app, "WoC")
+	pd := makePair(t, app, "WoD")
+
+	// target=1, 4 pairs (1 < 4-1=3 → leveled). pb beats pa 6-0 6-0 (walkover
+	// shape, but the fix must treat any final result the same way). pc and
+	// pd are pb's only other possible opponents at target=1 — if the bug
+	// drops pb's played count to 0, pb would need pairing with one of them
+	// even though it already has a genuine result. With 4 active pairs
+	// pc-pd can pair each other to reach target, so a bug-driven pb
+	// assignment is never masked by "someone had to play pb anyway".
+	comp := makeLeveledCompetition(t, app, []*core.Record{pa, pb, pc, pd}, 1, 1)
+	makeLeveledMatch(t, app, comp.Id, pb.Id, pa.Id, "6-0 6-0", pb.Id, "final", time.Now().Add(-time.Hour))
+
+	// pa withdraws after the result stands.
+	comp.Set("withdrawn_pairs", []string{pa.Id})
+	require.NoError(t, app.Save(comp))
+
+	svc := newDeterministicSvc(app)
+	created, err := svc.TopUpAssignments(comp.Id, time.Now())
+	require.NoError(t, err)
+	for _, nm := range created {
+		assert.NotEqual(t, pb.Id, nm.GetString("pair1"), "pb already reached target via the final result — must not get an 11th/replacement match")
+		assert.NotEqual(t, pb.Id, nm.GetString("pair2"), "pb already reached target via the final result — must not get an 11th/replacement match")
+	}
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	var pbRow StandingRowFull
+	for _, r := range rows {
+		if r.PairID == pb.Id {
+			pbRow = r
+		}
+	}
+	assert.Equal(t, 1, pbRow.Played, "pb's played count must be exactly 1 (the result vs the now-withdrawn pa), not duplicated or dropped")
+	assert.Equal(t, 1, pbRow.Wins, "pb's win over the now-withdrawn pa must still stand")
+	assert.Equal(t, 3, pbRow.Points, "pb must keep the 3 points for the win")
+	assert.Equal(t, 2, pbRow.SetsWon, "pb's sets from the result must still stand")
+	assert.Equal(t, 0, pbRow.SetsLost)
+	assert.Equal(t, 12, pbRow.GamesWon, "pb's games from the result must still stand")
+	assert.Equal(t, 0, pbRow.GamesLost)
+
+	matches, err := app.FindRecordsByFilter("matches", "competition = {:c}", "", 0, 0,
+		map[string]any{"c": comp.Id})
+	require.NoError(t, err)
+	// The original pb-vs-pa result, plus exactly one new pc-vs-pd match (pc
+	// and pd still need to reach target=1 against each other) — no third
+	// match putting pb back in.
+	assert.Len(t, matches, 2, "only pc-pd should be topped up; pb must not get a replacement match")
+	for _, m := range matches {
+		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
+		if p1 == pb.Id || p2 == pb.Id {
+			continue // the original pb-vs-pa result
+		}
+		isCD := (p1 == pc.Id && p2 == pd.Id) || (p1 == pd.Id && p2 == pc.Id)
+		assert.True(t, isCD, "the only new match must be pc vs pd")
 	}
 }
 
