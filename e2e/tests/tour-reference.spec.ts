@@ -9,7 +9,7 @@ import {
   createPlayer, createCompetition, createPair, addPairToCompetition, markAllPairsPaid,
   generateFixtures, submitScore, confirmScore,
   createDocument, attachDocumentToCompetition, acceptDocsGate,
-  clickAndWaitForHxRedirect, expectRedirectedTo,
+  clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect,
   assertFinalStandings, assertPlayoffChampion,
   lookupPlayerId, getRoundMatches, getMatchById, setMatchDateAndClub, acceptScheduleProposal,
 } from '../tour-helpers';
@@ -212,15 +212,15 @@ test.describe('reference navigation tour', () => {
     // custom #confirm-modal — the request only fires once #confirm-ok is
     // clicked.
     const activeToggle = page.locator('form[hx-post*="/toggle"] input[type="checkbox"]');
-    await activeToggle.click();
-    await page.locator('#confirm-ok').click();
-    await page.waitForLoadState('domcontentloaded');
+    await clickConfirmAndWaitForHxRedirect(page, activeToggle, `/admin/competitions/${competitionId}`);
     expect(page.url()).toContain(`/admin/competitions/${competitionId}`);
     expect(page.url()).not.toBe(`${new URL(page.url()).origin}/admin/competitions`);
     // Restore active state — the rest of the tour needs this competition active.
-    await page.locator('form[hx-post*="/toggle"] input[type="checkbox"]').click();
-    await page.locator('#confirm-ok').click();
-    await page.waitForLoadState('domcontentloaded');
+    await clickConfirmAndWaitForHxRedirect(
+      page,
+      page.locator('form[hx-post*="/toggle"] input[type="checkbox"]'),
+      `/admin/competitions/${competitionId}`,
+    );
 
     for (const pairId of pairIds) {
       await addPairToCompetition(page, pairId);
@@ -234,8 +234,7 @@ test.describe('reference navigation tour', () => {
     // propose/accept flow below logs in as real players.
     // Publish redirects via HX-Redirect; wait for that navigation to land or
     // the reload in markAllPairsPaid races it (net::ERR_ABORTED).
-    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'));
-    await expectRedirectedTo(page, new RegExp(`/admin/competitions/${competitionId}$`));
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'), `/admin/competitions/${competitionId}`);
 
     // A pair can't play without paying — mark all pairs paid.
     await markAllPairsPaid(page);
@@ -378,8 +377,7 @@ test.describe('reference navigation tour', () => {
     const penaltyModal = page.locator(`#penalty-modal-${pairIds[0]} + .modal`);
     await clickAction(page, `label[for="penalty-modal-${pairIds[0]}"]`, 'Penalizar');
     await penaltyModal.locator('textarea[name="reason"]').fill('Ajuste de clasificación');
-    await clickAndWaitForHxRedirect(page, penaltyModal.locator('button:has-text("Confirmar penalización")'));
-    await expectRedirectedTo(page, new RegExp(`/admin/competitions/${competitionId}$`));
+    await clickAndWaitForHxRedirect(page, penaltyModal.locator('button:has-text("Confirmar penalización")'), `/admin/competitions/${competitionId}`);
 
     // Assert standings with penalty
     const expectedWithPenalty = computeExpected(SCORE_MATRIX, PENALTIES);
@@ -404,9 +402,11 @@ test.describe('reference navigation tour', () => {
 
     // Same as the league's calendar above: draft-only until published, and
     // matchVisibleTo (handlers/respond.go) rejects every non-admin viewer
-    // (the players in playPlayoffMatch below) until then.
-    await page.locator('button:has-text("Publicar calendario")').click();
-    await page.waitForLoadState('domcontentloaded');
+    // (the players in playPlayoffMatch below) until then. PublishCalendar
+    // redirects via HX-Redirect; the raw click below left this navigation
+    // unawaited, so playPlayoffMatch's first loginAs (a page.goto('/')) could
+    // race the in-flight redirect and throw "Navigation … is interrupted".
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'), `/admin/competitions/${playoffId}`);
 
     // --- Step 10: Play playoff ---
     // Semis: A beats D, B beats C

@@ -4,7 +4,7 @@ import { uniqueSuffix, setPlayerPassword } from '../season-helpers';
 import {
   createPlayer, createPair, addPairToCompetition,
   generateFixtures, clickAndWaitForHxRedirect,
-  lookupPlayerId, expectRedirectedTo,
+  lookupPlayerId,
 } from '../tour-helpers';
 
 const RUN_ID = uniqueSuffix();
@@ -108,8 +108,7 @@ test.describe('leveled league', () => {
     await dialog.locator('input#create-comp-target').fill(String(TARGET));
     await dialog.locator('input#create-comp-open').fill(String(OPEN));
 
-    await clickAndWaitForHxRedirect(page, dialog.locator('button[type="submit"]'));
-    await expectRedirectedTo(page, /\/admin\/competitions\/[^/]+$/);
+    await clickAndWaitForHxRedirect(page, dialog.locator('button[type="submit"]'), /^\/admin\/competitions\/[^/]+$/);
 
     // Extract competition ID from URL
     const urlMatch = page.url().match(/\/admin\/competitions\/([^/]+)/);

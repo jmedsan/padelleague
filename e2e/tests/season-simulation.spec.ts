@@ -129,8 +129,7 @@ test.describe('season simulation', () => {
     await page.goto(`/match/${matchId}`);
     await page.waitForSelector('#thread-details', { timeout: 20000 });
     await enterScore(page, '6-4 2-6 3-4');
-    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
-    await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'), `/match/${matchId}`);
 
     // Step 2: Pair B accepts the partial score.
     await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
@@ -138,8 +137,7 @@ test.describe('season simulation', () => {
     await page.waitForSelector('#thread-details', { timeout: 20000 });
     const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
     await acceptBtn.waitFor({ timeout: 20000 });
-    await clickAndWaitForHxRedirect(page, acceptBtn);
-    await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
+    await clickAndWaitForHxRedirect(page, acceptBtn, `/match/${matchId}`);
 
     // Step 3: Verify the match shows the "Se reanuda desde" carried-sets badge.
     await page.goto(`/match/${matchId}`);
@@ -164,8 +162,7 @@ test.describe('season simulation', () => {
 
     // Submit the full score — the two locked sets are skipped, set 3 is filled.
     await enterScore(page, '6-4 2-6 6-3');
-    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
-    await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'), `/match/${matchId}`);
 
     // Step 6: Pair B accepts the final score.
     await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
@@ -173,8 +170,7 @@ test.describe('season simulation', () => {
     await page.waitForSelector('#thread-details', { timeout: 20000 });
     const finalAcceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
     await finalAcceptBtn.waitFor({ timeout: 20000 });
-    await clickAndWaitForHxRedirect(page, finalAcceptBtn);
-    await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
+    await clickAndWaitForHxRedirect(page, finalAcceptBtn, `/match/${matchId}`);
 
     // Step 7: Match finalized — Confirmado badge, full score visible, no reanuda badge.
     await page.goto(`/match/${matchId}`);
@@ -332,8 +328,7 @@ async function createPair(page: Page, name: string, player1Id: string, player2Id
   await dialog.locator('select[name="player1"]').selectOption(player1Id);
   await dialog.locator('select[name="player2"]').selectOption(player2Id);
 
-  await clickAndWaitForHxRedirect(page, dialog.locator('button[type="submit"]'));
-  await expectRedirectedTo(page, /\/admin\/pairs$/);
+  await clickAndWaitForHxRedirect(page, dialog.locator('button[type="submit"]'), '/admin/pairs');
 
   const resp = await page.request.get(`/api/collections/pairs/records?filter=name='${name}'`, {
     headers: { Authorization: token },
@@ -353,8 +348,7 @@ async function addPairToCompetition(page: Page, compId: string, pairId: string, 
   }
   // AddPair returns redirectHX (204 → window.location); await the redirect so it
   // does not race the next navigation.
-  await clickAndWaitForHxRedirect(page, page.getByTestId('section-add-pairs').locator('button:has-text("Añadir")'));
-  await expectRedirectedTo(page, new RegExp(`/admin/competitions/${compId}$`));
+  await clickAndWaitForHxRedirect(page, page.getByTestId('section-add-pairs').locator('button:has-text("Añadir")'), `/admin/competitions/${compId}`);
 }
 
 async function createPlayoffCompetition(page: Page): Promise<string> {
@@ -421,10 +415,8 @@ async function playPlayoffMatch(page: Page, match: any, winnerLabel: PairId, win
 // players; publish it in the same step so the player flows can see them.
 async function generateFixtures(page: Page, compId: string) {
   await page.goto(`/admin/competitions/${compId}`);
-  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Generar calendario")'));
-  await expectRedirectedTo(page, new RegExp(`/admin/competitions/${compId}$`));
-  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'));
-  await expectRedirectedTo(page, new RegExp(`/admin/competitions/${compId}$`));
+  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Generar calendario")'), `/admin/competitions/${compId}`);
+  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'), `/admin/competitions/${compId}`);
 }
 
 // --- T3: Map fixtures to scores ---
@@ -492,8 +484,7 @@ function playerEmailForPair(pairLabel: PairId, playerIndex: 0 | 1): string {
 async function submitScore(page: Page, matchId: string, score: string) {
   await page.goto(`/match/${matchId}`);
   await enterScore(page, score);
-  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
-  await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
+  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'), `/match/${matchId}`);
 }
 
 async function confirmScore(page: Page, matchId: string) {
@@ -501,8 +492,7 @@ async function confirmScore(page: Page, matchId: string) {
   await page.waitForSelector('#thread-details', { timeout: 15000 });
   const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
   await acceptBtn.waitFor({ timeout: 15000 });
-  await clickAndWaitForHxRedirect(page, acceptBtn);
-  await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
+  await clickAndWaitForHxRedirect(page, acceptBtn, `/match/${matchId}`);
 }
 
 // Thread actions must run on the FULL match page: the `/match/{id}/thread`
@@ -517,8 +507,7 @@ async function gotoMatchThread(page: Page, matchId: string) {
 async function postProposal(page: Page, matchId: string) {
   await gotoMatchThread(page, matchId);
   await page.locator('form[hx-post$="/thread/message"] input[name="content"]').fill('Shall we play?');
-  await clickAndWaitForHxRedirect(page, page.locator('form[hx-post$="/thread/message"] button[type="submit"]'));
-  await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
+  await clickAndWaitForHxRedirect(page, page.locator('form[hx-post$="/thread/message"] button[type="submit"]'), `/match/${matchId}`);
 
   await gotoMatchThread(page, matchId);
   // When no date+place is set, the form renders as an open card (no collapse).
@@ -532,16 +521,14 @@ async function postProposal(page: Page, matchId: string) {
   await page.locator('#proposal-time').selectOption('18:00');
   await page.selectOption('#proposal-form select[name="venue_id"]', 'otro');
   await page.fill('#proposal-form input[name="venue_text"]', 'Test Club');
-  await clickAndWaitForHxRedirect(page, page.locator('#proposal-form button:has-text("Proponer fecha")'));
-  await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
+  await clickAndWaitForHxRedirect(page, page.locator('#proposal-form button:has-text("Proponer fecha")'), `/match/${matchId}`);
 }
 
 async function acceptProposal(page: Page, matchId: string) {
   await page.goto(`/match/${matchId}`);
   const acceptBtn = page.locator('button:has-text("Aceptar")').first();
   await acceptBtn.waitFor({ state: 'visible', timeout: 30000 });
-  await clickAndWaitForHxRedirect(page, acceptBtn);
-  await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
+  await clickAndWaitForHxRedirect(page, acceptBtn, `/match/${matchId}`);
 }
 
 async function rejectProposal(page: Page, matchId: string) {
@@ -550,8 +537,7 @@ async function rejectProposal(page: Page, matchId: string) {
   await rejectBtn.waitFor({ state: 'visible', timeout: 30000 });
   await rejectBtn.click();
   await page.locator('form.reject-form select[name="rejection_reason"]').selectOption({ index: 1 });
-  await clickAndWaitForHxRedirect(page, page.locator('form.reject-form button[type="submit"]'));
-  await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
+  await clickAndWaitForHxRedirect(page, page.locator('form.reject-form button[type="submit"]'), `/match/${matchId}`);
 }
 
 // playMatchRange plays fixtures[start..end] (inclusive) using the same varied
@@ -662,14 +648,12 @@ async function applyPenalty(page: Page, compId: string, pairId: string) {
 	const modal = page.locator(`#penalty-modal-${pairId} + .modal`);
 	await clickAction(page, `label[for="penalty-modal-${pairId}"]`, 'Penalizar');
 	await modal.locator('textarea[name="reason"]').fill('Ajuste de clasificación');
-	await clickAndWaitForHxRedirect(page, modal.locator('button:has-text("Confirmar penalización")'));
-	await expectRedirectedTo(page, new RegExp(`/admin/competitions/${compId}$`));
+	await clickAndWaitForHxRedirect(page, modal.locator('button:has-text("Confirmar penalización")'), `/admin/competitions/${compId}`);
 }
 
 async function togglePayment(page: Page, compId: string, pairId: string) {
   await page.goto(`/admin/competitions/${compId}`);
   // Payment is an icon toggle button behind the custom confirm modal.
   const toggle = page.locator(`form[hx-post$="/payment"]:has(input[value="${pairId}"]) button:visible`).first();
-  await clickConfirmAndWaitForHxRedirect(page, toggle);
-  await expectRedirectedTo(page, new RegExp(`/admin/competitions/${compId}$`));
+  await clickConfirmAndWaitForHxRedirect(page, toggle, `/admin/competitions/${compId}`);
 }

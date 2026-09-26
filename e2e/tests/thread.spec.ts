@@ -5,7 +5,7 @@ import {
   suGet as suGetBase, suPost as suPostBase, suPatch as suPatchBase,
   PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD,
 } from '../helpers';
-import { enterScore, clickAndWaitForHxRedirect, fillFlatpickrDate, expectRedirectedTo } from '../tour-helpers';
+import { enterScore, clickAndWaitForHxRedirect, fillFlatpickrDate } from '../tour-helpers';
 
 function suToken(): string {
   return loadTestData().adminToken;
@@ -312,8 +312,7 @@ test.describe('match thread', () => {
     await page.waitForSelector('#thread-details', { timeout: 10000 });
 
     await enterScore(page, '6-3 2-1');
-    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
-    await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'), `/match/${matchId}`);
 
     await page.waitForSelector('#thread-details', { timeout: 10000 });
     await expect(page.locator('#thread-details').getByText('6-3 2-1')).toBeVisible({ timeout: 5000 });
@@ -324,8 +323,7 @@ test.describe('match thread', () => {
     await page.waitForSelector('#thread-details', { timeout: 10000 });
     const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
     await acceptBtn.waitFor({ timeout: 10000 });
-    await clickAndWaitForHxRedirect(page, acceptBtn);
-    await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
+    await clickAndWaitForHxRedirect(page, acceptBtn, `/match/${matchId}`);
 
     // Match goes back to pending with carried_sets — resume badge appears
     await page.goto(`/match/${matchId}`);
@@ -347,8 +345,7 @@ test.describe('match thread', () => {
 
     // fillCells uses positional indexing — pass full score; locked set 1 is skipped
     await enterScore(page, '6-3 3-6 6-4');
-    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
-    await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'), `/match/${matchId}`);
 
     // Admin (pair2) accepts the final score
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
@@ -356,8 +353,7 @@ test.describe('match thread', () => {
     await page.waitForSelector('#thread-details', { timeout: 10000 });
     const finalAccept = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
     await finalAccept.waitFor({ timeout: 10000 });
-    await clickAndWaitForHxRedirect(page, finalAccept);
-    await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
+    await clickAndWaitForHxRedirect(page, finalAccept, `/match/${matchId}`);
 
     // Match finalized with the full score
     await page.goto(`/match/${matchId}`);
@@ -519,8 +515,7 @@ test.describe('match thread', () => {
     await enterScore(page, '6-3 4-1');
     await expect(page.locator('.score-winner').first()).toContainText('gana', { timeout: 3000 });
 
-    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
-    await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'), `/match/${matchId}`);
 
     // Admin (pair2) accepts
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
@@ -528,8 +523,7 @@ test.describe('match thread', () => {
     await page.waitForSelector('#thread-details', { timeout: 10000 });
     const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
     await acceptBtn.waitFor({ timeout: 10000 });
-    await clickAndWaitForHxRedirect(page, acceptBtn);
-    await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
+    await clickAndWaitForHxRedirect(page, acceptBtn, `/match/${matchId}`);
 
     // Match finalized (rule win = won, not "no terminado")
     await page.goto(`/match/${matchId}`);

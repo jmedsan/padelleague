@@ -5,7 +5,7 @@ import {
   apiCreateRecord as apiCreateRecordBase, apiGetRecord as apiGetRecordBase,
   apiListRecords as apiListRecordsBase, apiDeleteRecord as apiDeleteRecordBase,
 } from '../helpers';
-import { clickConfirmAndWaitForHxRedirect, expectRedirectedTo } from '../tour-helpers';
+import { clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect } from '../tour-helpers';
 
 let suToken = '';
 
@@ -112,20 +112,11 @@ test.describe('scheduling, walkover & bracket', () => {
     const dialog = page.locator(`dialog#walkover-modal-${matchId}`);
     await expect(dialog).toBeVisible({ timeout: 3000 });
     await dialog.locator('textarea[name="reason"]').fill('El rival no se presentó.');
-    // ReportUnplayed responds with redirectHX (HX-Redirect), which htmx
-    // turns into a full window.location navigation AFTER the response
-    // completes — waitForResponse alone (or networkidle) can resolve before
-    // that navigation finishes, racing the next loginAs's own page.goto('/')
-    // ("Navigation to / is interrupted by another navigation to /match/...").
-    // Wait for the real navigation, same as clickAndWaitForHxRedirect.
-    const reportNav = page.waitForEvent('framenavigated', { timeout: 15000 });
-    await Promise.all([
-      page.waitForResponse(resp => resp.url().includes(`/match/${matchId}/report-unplayed`)),
-      dialog.locator('button:has-text("Reportar no jugado")').click(),
-    ]);
-    await reportNav;
-    await page.waitForLoadState('domcontentloaded');
-    await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
+    // ReportUnplayed responds with redirectHX (HX-Redirect) to /match/{id} —
+    // same match page it's already on. clickAndWaitForHxRedirect asserts the
+    // header target and waits for the real document navigation, so the next
+    // loginAs's page.goto('/') never races an in-flight redirect.
+    await clickAndWaitForHxRedirect(page, dialog.locator('button:has-text("Reportar no jugado")'), `/match/${matchId}`);
 
     const matchAfterReport = await apiGetRecord(page.request, 'matches', matchId);
     expect(matchAfterReport.status).toBe('disputed');
@@ -147,8 +138,7 @@ test.describe('scheduling, walkover & bracket', () => {
     // (not the native confirm() dialog), so the request only fires once its
     // #confirm-ok button is clicked. WalkoverApprove also responds with
     // redirectHX — wait for the real navigation before the next loginAs.
-    await clickConfirmAndWaitForHxRedirect(page, woForm.locator('button:has-text("Aprobar incomparecencia")'));
-    await expectRedirectedTo(page, new RegExp(`/admin/competitions/${compId}`));
+    await clickConfirmAndWaitForHxRedirect(page, woForm.locator('button:has-text("Aprobar incomparecencia")'), `/admin/competitions/${compId}`);
 
     // Verify final state
     const matchFinal = await apiGetRecord(page.request, 'matches', matchId);

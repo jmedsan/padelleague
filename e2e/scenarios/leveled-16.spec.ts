@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
-import { enterScore, clickAndWaitForHxRedirect } from '../tour-helpers';
+import { enterScore, clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect } from '../tour-helpers';
 import {
   assertAssignmentInvariants, ScenarioApi, ScenarioData,
   apiGet, apiPatch, PLAYER_PASSWORD, loadCtx, ensureStage,
@@ -37,7 +37,7 @@ async function playMatchToFinal(
   await page.waitForLoadState('domcontentloaded');
 
   await enterScore(page, '6-3 6-4');
-  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")').first());
+  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")').first(), `/match/${matchId}`);
 
   // Login as pair2's first player and accept
   await loginAs(page, player2Record.email, PLAYER_PASSWORD);
@@ -47,7 +47,7 @@ async function playMatchToFinal(
 
   const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
   await acceptBtn.waitFor({ timeout: 10000 });
-  await clickAndWaitForHxRedirect(page, acceptBtn);
+  await clickAndWaitForHxRedirect(page, acceptBtn, `/match/${matchId}`);
 
   const finalMatch = await apiGet(api, `/api/collections/matches/records/${matchId}`);
   expect(finalMatch.status).toBe('final');
@@ -234,13 +234,11 @@ test.describe('leveled-16 scenario', () => {
     // Wait for async thread to load so the full page is settled
     await page.locator('#match-thread').waitFor({ state: 'visible', timeout: 10000 });
 
-    // Click "Liberar partido" — uses custom hx-confirm DaisyUI modal
+    // Click "Liberar partido" — uses custom hx-confirm DaisyUI modal.
+    // handlers/match.go's AdminRelease redirects to /competition/{compID}.
     const releaseBtn = page.locator('button:has-text("Liberar partido")');
     await expect(releaseBtn).toBeVisible({ timeout: 10000 });
-    await releaseBtn.click();
-    const confirmOk = page.locator('#confirm-ok');
-    await confirmOk.waitFor({ timeout: 5000 });
-    await clickAndWaitForHxRedirect(page, confirmOk);
+    await clickConfirmAndWaitForHxRedirect(page, releaseBtn, `/competition/${ctx.competitionId}`);
     await page.waitForLoadState('domcontentloaded');
 
     // Verify the released match is gone
