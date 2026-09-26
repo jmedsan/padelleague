@@ -341,7 +341,7 @@ func TestBroadcast_NotificationLinksToCompetition(t *testing.T) {
 		require.NoError(tb, err)
 		require.NotEmpty(tb, notifs)
 		for _, n := range notifs {
-			assert.Equal(tb, "/competition/"+compID+"#anuncios", n.GetString("link"))
+			assert.Equal(tb, "/competition/"+compID+"#avisos", n.GetString("link"))
 		}
 	}
 	s.Test(t)
@@ -526,7 +526,7 @@ func TestBroadcast_LinkIncludesHash(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "broadcast notification link includes #anuncios hash",
+		Name:           "broadcast notification link includes #avisos hash",
 		Method:         http.MethodPost,
 		URL:            "/placeholder",
 		ExpectedStatus: 204,
@@ -552,7 +552,7 @@ func TestBroadcast_LinkIncludesHash(t *testing.T) {
 		require.NoError(tb, err)
 		require.NotEmpty(tb, notifs)
 		for _, n := range notifs {
-			assert.Equal(tb, "/competition/"+compID+"#anuncios", n.GetString("link"))
+			assert.Equal(tb, "/competition/"+compID+"#avisos", n.GetString("link"))
 		}
 	}
 	s.Test(t)

@@ -257,7 +257,7 @@ func buildAnnouncementEntry(a *core.Record) Entry {
 		Label:     a.GetString("title"),
 		Secondary: a.GetString("body"),
 		Type:      "aviso",
-		URL:       "/competition/" + a.GetString("competition") + "#anuncios",
+		URL:       "/competition/" + a.GetString("competition") + "#avisos",
 		Keywords:  []string{"aviso"},
 		Scope:     Scope{CompID: a.GetString("competition")},
 		RecordID:  a.Id,
