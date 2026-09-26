@@ -9,7 +9,7 @@ import {
   createPlayer, createPair, addPairToCompetition, markAllPairsPaid,
   generateFixtures, setDates, submitScore, confirmScore, enterScore,
   createDocument, attachDocumentToCompetition, acceptDocsGate,
-  clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect,
+  clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect, expectRedirectedTo,
   assertFinalStandings, assertPlayoffChampion,
   lookupPlayerId, getRoundMatches, getMatchById, setMatchDateAndClub,
   referenceFallback, collectFallbacks, resetFallbacks, assertFallbacksMatch,
@@ -246,6 +246,7 @@ test.describe('guided navigation tour', () => {
     await clickSetupConfigure(page, competitionId);
     await page.waitForLoadState('domcontentloaded');
     await clickConfirmAndWaitForHxRedirect(page, page.locator('.toggle.toggle-success'));
+    await expectRedirectedTo(page, new RegExp(`/admin/competitions/${competitionId}$`));
 
     // =======================================================================
     // Phase 1f: Admin creates mandatory doc + player passes gate
@@ -380,6 +381,7 @@ test.describe('guided navigation tour', () => {
     await clickAction(page, `label[for="penalty-modal-${pairIds[0]}"]`, 'Penalizar');
     await penaltyModal.locator('textarea[name="reason"]').fill('Ajuste de clasificación');
     await clickAndWaitForHxRedirect(page, penaltyModal.locator('button:has-text("Confirmar penalización")'));
+    await expectRedirectedTo(page, new RegExp(`/admin/competitions/${competitionId}$`));
 
     // Assert standings with penalty
     const expectedWithPenalty = computeExpected(SCORE_MATRIX, PENALTIES);
@@ -396,6 +398,7 @@ test.describe('guided navigation tour', () => {
     await page.getByRole('link', { name: COMP_NAME }).first().click();
     await page.waitForLoadState('domcontentloaded');
     await clickConfirmAndWaitForHxRedirect(page, page.getByTestId('finalize-league'));
+    await expectRedirectedTo(page, new RegExp(`/admin/competitions/${competitionId}$`));
 
     // =======================================================================
     // Phase 6: Playoff creation via playoff-prompt card
@@ -434,6 +437,7 @@ test.describe('guided navigation tour', () => {
 
     // Activate playoff via toggle
     await clickConfirmAndWaitForHxRedirect(page, page.locator('.toggle.toggle-success'));
+    await expectRedirectedTo(page, new RegExp(`/admin/competitions/${playoffId}$`));
 
     // =======================================================================
     // Phase 7: Play playoff via home affordances
@@ -571,6 +575,7 @@ test.describe('guided navigation tour', () => {
     await dlg.locator('input#create-comp-target').fill('2');
     await dlg.locator('input#create-comp-open').fill('1');
     await clickAndWaitForHxRedirect(page, dlg.locator('button[type="submit"]'));
+    await expectRedirectedTo(page, /\/admin\/competitions\/[^/]+$/);
 
     const urlM = page.url().match(/\/admin\/competitions\/([^/]+)/);
     let lvCompId = urlM ? urlM[1] : '';
@@ -659,6 +664,7 @@ async function createCompInactive(
   // Uncheck active (checked by default in the template)
   await dialog.locator('input[name="active"]').uncheck();
   await clickAndWaitForHxRedirect(page, dialog.locator('button[type="submit"]'));
+  await expectRedirectedTo(page, /\/admin\/competitions\/[^/]+$/);
 
   // Look up the competition ID via API
   const resp = await page.request.get(
