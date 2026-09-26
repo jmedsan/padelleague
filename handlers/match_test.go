@@ -47,12 +47,14 @@ func TestAdminOverrideNewScore(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID string
+	var matchID, p1p1ID, p2p1ID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		admin := makeAdminUserTB(tb, app)
 		p1 := makePairTB(tb, app, "AO A")
 		p2 := makePairTB(tb, app, "AO B")
+		p1p1ID = p1.GetString("player1")
+		p2p1ID = p2.GetString("player1")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		matchID = m.Id
@@ -79,6 +81,16 @@ func TestAdminOverrideNewScore(t *testing.T) {
 			}
 		}
 		assert.True(tb, found, "timeline must contain 'Resultado establecido'")
+
+		want := league.Notification{
+			Type:     "general",
+			Title:    "Corrección de administrador",
+			Body:     "Resultado establecido: 6-3 6-4",
+			MatchID:  matchID,
+			CompName: "Test Competition",
+		}
+		assertNotified(tb, app, p1p1ID, want)
+		assertNotified(tb, app, p2p1ID, want)
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
@@ -1442,9 +1454,11 @@ func TestCancelDateAsParticipant(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID, rivalPlayerID string
+	var matchID, rivalPlayerID, adminID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		adminID = admin.Id
 		p1 := makePairTB(tb, app, "CD A")
 		p2 := makePairTB(tb, app, "CD B")
 		rivalPlayerID = p2.GetString("player1")
@@ -1479,10 +1493,23 @@ func TestCancelDateAsParticipant(t *testing.T) {
 		require.GreaterOrEqual(tb, len(msgs), 1)
 		assert.Contains(tb, msgs[0].GetString("content"), "canceló la fecha")
 
-		notifs, _ := app.FindRecordsByFilter("notifications",
-			"user = {:uid}", "", 0, 0,
-			map[string]any{"uid": rivalPlayerID})
-		assert.GreaterOrEqual(tb, len(notifs), 1, "rival must be notified")
+		wantRival := league.Notification{
+			Type:     "scheduling",
+			Title:    "Partido cancelado",
+			Body:     "CD A P1 (CD A) ha cancelado la fecha: Viaje de trabajo",
+			MatchID:  matchID,
+			CompName: "Test Competition",
+		}
+		assertNotified(tb, app, rivalPlayerID, wantRival)
+
+		wantAdmin := league.Notification{
+			Type:     "dispute",
+			Title:    "Cancelación de partido",
+			Body:     "CD A vs CD B: CD A P1 (CD A) ha cancelado la fecha. Motivo: Viaje de trabajo",
+			MatchID:  matchID,
+			CompName: "Test Competition",
+		}
+		assertNotified(tb, app, adminID, wantAdmin)
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)

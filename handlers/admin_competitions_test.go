@@ -1358,7 +1358,7 @@ func TestPenaltyVoidTraceAndNotification(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var penaltyID, player1ID, player2ID, adminID string
+	var penaltyID, player1ID, player2ID, adminID, compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		enableSMTP(tb, app)
@@ -1368,6 +1368,7 @@ func TestPenaltyVoidTraceAndNotification(t *testing.T) {
 		player1ID = p1.GetString("player1")
 		player2ID = p1.GetString("player2")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1})
+		compID = comp.Id
 		col, err := app.FindCollectionByNameOrId("penalties")
 		require.NoError(tb, err)
 		pen := core.NewRecord(col)
@@ -1393,12 +1394,14 @@ func TestPenaltyVoidTraceAndNotification(t *testing.T) {
 		assert.Equal(tb, "Error administrativo", pen.GetString("void_reason"))
 		assert.False(tb, pen.GetDateTime("voided_at").IsZero(), "voided_at must be set")
 
-		notifs, err := app.FindRecordsByFilter("notifications",
-			"type = 'penalty' && title = 'Penalización anulada'", "", 0, 0, nil)
-		require.NoError(tb, err)
-		require.Len(tb, notifs, 2, "both players of the penalized pair are notified")
-		notifiedUsers := []string{notifs[0].GetString("user"), notifs[1].GetString("user")}
-		assert.ElementsMatch(tb, []string{player1ID, player2ID}, notifiedUsers)
+		want := league.Notification{
+			Type:  "penalty",
+			Title: "Penalización anulada",
+			Body:  "6 puntos anulados",
+			Link:  "/competition/" + compID,
+		}
+		assertNotified(tb, app, player1ID, want)
+		assertNotified(tb, app, player2ID, want)
 	}
 	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
