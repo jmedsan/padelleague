@@ -89,6 +89,7 @@ func TestAdminPairsCreate(t *testing.T) {
 		assert.Equal(tb, u1ID, pairs[0].GetString("player1"))
 		assert.Equal(tb, u2ID, pairs[0].GetString("player2"))
 	}
+	expectRedirect(s, redirectTo("/admin/pairs"))
 	s.Test(t)
 }
 
@@ -154,5 +155,6 @@ func TestAdminPairsUpdate(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "Renamed", p.GetString("name"))
 	}
+	expectRedirect(s, redirectTo("/admin/pairs"))
 	s.Test(t)
 }

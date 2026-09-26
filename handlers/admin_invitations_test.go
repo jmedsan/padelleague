@@ -43,6 +43,7 @@ func TestInvitationAllowed(t *testing.T) {
 		inv := findLatestInvitation(tb, app)
 		assert.Equal(tb, "test@test.com", inv.GetString("email"))
 	}
+	expectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
@@ -69,6 +70,7 @@ func TestInvitationStoresAdminNote(t *testing.T) {
 		inv := findLatestInvitation(tb, app)
 		assert.Equal(tb, "Reserved for Juan", inv.GetString("admin_note"))
 	}
+	expectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
@@ -95,6 +97,7 @@ func TestInvitationLinkMaxUses5(t *testing.T) {
 		inv := findLatestInvitation(tb, app)
 		assert.Equal(tb, 5, int(inv.GetFloat("max_uses")))
 	}
+	expectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
@@ -206,6 +209,7 @@ func TestInvitationEmailHonorsMaxUses(t *testing.T) {
 		assert.Equal(tb, 10, int(inv.GetFloat("max_uses")),
 			"email invitation should honor max_uses from form")
 	}
+	expectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
@@ -240,6 +244,7 @@ func TestInvitationExpiration3Days(t *testing.T) {
 		assert.True(tb, expiresAt.Before(latest),
 			"expires_at %v should be before %v (73h from test start)", expiresAt, latest)
 	}
+	expectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
@@ -386,6 +391,7 @@ func TestInvitationExpirationDefault7Days(t *testing.T) {
 		assert.True(tb, expiresAt.Before(latest),
 			"expires_at %v should be before %v (169h)", expiresAt, latest)
 	}
+	expectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
@@ -410,6 +416,7 @@ func TestAdminInvitationsRevoke(t *testing.T) {
 		_, err := app.FindRecordById("invitations", invID)
 		assert.Error(tb, err, "invitation should be deleted")
 	}
+	expectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
@@ -438,6 +445,7 @@ func TestInvitationEmailSendsOnboardingEmail(t *testing.T) {
 		assert.Contains(tb, msg.Subject, "Invitación")
 		assert.Contains(tb, msg.HTML, "/register?token=")
 	}
+	expectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
@@ -462,5 +470,6 @@ func TestInvitationLinkNoEmailNoEmail(t *testing.T) {
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		assert.Equal(tb, 0, app.TestMailer.TotalSend(), "no email for link-only invitation")
 	}
+	expectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }

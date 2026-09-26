@@ -60,6 +60,7 @@ func TestSubmitCreatesTimelineEntry(t *testing.T) {
 		assert.Equal(tb, playerID, entries[0].GetString("author"))
 		assert.Equal(tb, "6-3 6-4", entries[0].GetString("content"))
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -101,6 +102,7 @@ func TestCorrectCreatesTimelineEntry(t *testing.T) {
 		assert.Equal(tb, correctorID, pending[0].GetString("author"))
 		assert.Equal(tb, "6-4 6-3", pending[0].GetString("content"))
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -139,6 +141,7 @@ func TestReportUnplayedCreatesTimelineEntry(t *testing.T) {
 		assert.Equal(tb, reporterID, entries[0].GetString("author"))
 		assert.Contains(tb, entries[0].GetString("content"), "reportó el partido como no jugado")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -175,6 +178,7 @@ func TestDisputeResolveCreatesTimelineEntry(t *testing.T) {
 		require.Len(tb, entries, 1, "dispute resolve must write one result_event")
 		assert.Contains(tb, entries[0].GetString("content"), "resolvió la disputa")
 	}
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + matchCompetitionID(app, s.URL) })
 	s.Test(t)
 }
 
@@ -211,5 +215,6 @@ func TestWalkoverApproveCreatesTimelineEntry(t *testing.T) {
 		require.Len(tb, entries, 1, "walkover approve must write one result_event")
 		assert.Contains(tb, entries[0].GetString("content"), "aprobó incomparecencia")
 	}
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + matchCompetitionID(app, s.URL) })
 	s.Test(t)
 }

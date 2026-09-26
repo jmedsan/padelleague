@@ -96,6 +96,7 @@ func TestDocumentsCreateWithURLOnly(t *testing.T) {
 		assert.True(tb, docs[0].GetBool("is_mandatory"))
 		assert.Equal(tb, "", docs[0].GetString("file"))
 	}
+	expectRedirect(s, redirectTo("/admin/documents"))
 	s.Test(t)
 }
 
@@ -133,6 +134,7 @@ func TestDocumentsCreateWithFileOnly(t *testing.T) {
 		assert.NotEmpty(tb, docs[0].GetString("file"))
 		assert.Equal(tb, "", docs[0].GetString("url"))
 	}
+	expectRedirect(s, redirectTo("/admin/documents"))
 	s.Test(t)
 }
 
@@ -243,6 +245,7 @@ func TestDocumentsUpdate(t *testing.T) {
 		assert.Equal(tb, "https://new.com", doc.GetString("url"))
 		assert.True(tb, doc.GetBool("is_mandatory"))
 	}
+	expectRedirect(s, redirectTo("/admin/documents"))
 	s.Test(t)
 }
 
@@ -267,6 +270,7 @@ func TestDocumentsDelete(t *testing.T) {
 		_, err := app.FindRecordById("documents", docID)
 		assert.Error(tb, err)
 	}
+	expectRedirect(s, redirectTo("/admin/documents"))
 	s.Test(t)
 }
 
@@ -294,6 +298,7 @@ func TestDocumentsDefaultAndMandatoryFlags(t *testing.T) {
 		assert.True(tb, docs[0].GetBool("is_default"))
 		assert.True(tb, docs[0].GetBool("is_mandatory"))
 	}
+	expectRedirect(s, redirectTo("/admin/documents"))
 	s.Test(t)
 }
 
@@ -331,6 +336,7 @@ func TestCompetitionCreatePreloadsDefaultDocs(t *testing.T) {
 		}
 		assert.Len(tb, attached, 2)
 	}
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestRecordID(app, "competitions") })
 	s.Test(t)
 }
 
@@ -363,6 +369,7 @@ func TestCompetitionAttachDocument(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Contains(tb, comp.GetStringSlice("documents"), docID)
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -396,6 +403,7 @@ func TestCompetitionDetachDocument(t *testing.T) {
 		_, err = app.FindRecordById("documents", docID)
 		assert.NoError(tb, err, "document should still exist in the library")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -434,6 +442,7 @@ func TestCompetitionDetachKeepsOtherComps(t *testing.T) {
 		c2, _ := app.FindRecordById("competitions", comp2ID)
 		assert.Contains(tb, c2.GetStringSlice("documents"), docID)
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 

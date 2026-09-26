@@ -5,12 +5,14 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"padelleague/internal/testapp"
@@ -552,4 +554,68 @@ func readBody(tb testing.TB, res *http.Response) string {
 		}
 	}
 	return string(buf)
+}
+
+// expectRedirect chains an exact HX-Redirect assertion onto a scenario's
+// AfterTestFunc. want runs after the request, so it can derive the target
+// from s.URL or from records the handler created.
+func expectRedirect(s *tests.ApiScenario, want func(app core.App) string) {
+	prev := s.AfterTestFunc
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, want(app), res.Header.Get("HX-Redirect"), "HX-Redirect target")
+		if prev != nil {
+			prev(tb, app, res)
+		}
+	}
+}
+
+// redirectTo is the expectRedirect want for a fixed target.
+func redirectTo(url string) func(core.App) string {
+	return func(core.App) string { return url }
+}
+
+// competitionDetailURL trims a /admin/competitions/{id}/... action URL to the
+// detail page every competition mutation redirects back to.
+func competitionDetailURL(url string) string {
+	return adminEntityURL(url, "/admin/competitions/")
+}
+
+// matchPageURL trims a /match/{id}/... action URL to the match page.
+func matchPageURL(url string) string {
+	return adminEntityURL(url, "/match/")
+}
+
+func adminEntityURL(url, prefix string) string {
+	rest := strings.TrimPrefix(url, prefix)
+	if i := strings.IndexAny(rest, "/?"); i >= 0 {
+		rest = rest[:i]
+	}
+	return prefix + rest
+}
+
+// matchCompetitionID resolves the competition of the match named in a
+// /match/{id}/... or /admin/disputes/{id}/... URL.
+func matchCompetitionID(app core.App, url string) string {
+	id := strings.Split(strings.TrimPrefix(strings.TrimPrefix(url, "/admin/disputes/"), "/match/"), "/")[0]
+	m, err := app.FindRecordById("matches", id)
+	if err != nil {
+		return "(match " + id + " not found)"
+	}
+	return m.GetString("competition")
+}
+
+// newestRecordID returns the id of the most recently created record, for
+// redirects to a page the handler itself just created.
+func newestRecordID(app core.App, collection string) string {
+	recs, err := app.FindAllRecords(collection)
+	if err != nil || len(recs) == 0 {
+		return "(no " + collection + ")"
+	}
+	newest := recs[0]
+	for _, r := range recs[1:] {
+		if r.GetDateTime("created").After(newest.GetDateTime("created")) {
+			newest = r
+		}
+	}
+	return newest.Id
 }

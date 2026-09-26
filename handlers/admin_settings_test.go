@@ -186,6 +186,7 @@ func TestSaveContact_BothEmptyClearsSettings(t *testing.T) {
 		assert.Empty(tb, records[0].GetString("contact_whatsapp"))
 		assert.Empty(tb, records[0].GetString("contact_email"))
 	}
+	expectRedirect(s, redirectTo("/admin/settings"))
 	s.Test(t)
 }
 

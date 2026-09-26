@@ -80,6 +80,7 @@ func TestAdminOverrideNewScore(t *testing.T) {
 		}
 		assert.True(tb, found, "timeline must contain 'Resultado establecido'")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -126,6 +127,7 @@ func TestAdminOverrideCorrectedScore(t *testing.T) {
 		}
 		assert.True(tb, found, "timeline must contain 'Resultado corregido'")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -178,6 +180,7 @@ func TestAdminOverrideNewVenue(t *testing.T) {
 		}
 		assert.True(tb, found, "timeline must contain 'Club establecido'")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -221,6 +224,7 @@ func TestAdminOverrideNewDate(t *testing.T) {
 		}
 		assert.True(tb, found, "timeline must contain 'Fecha establecida'")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -308,6 +312,7 @@ func TestMatchSubmitNotifiesRival(t *testing.T) {
 		assert.GreaterOrEqual(tb, len(notifs), 1,
 			"rival player must receive a notification")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -758,6 +763,7 @@ func TestAdminOverride(t *testing.T) {
 		assert.Equal(tb, "6-4 6-3", m.GetString("scores"))
 		assert.Equal(tb, p1ID, m.GetString("winner"))
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -800,6 +806,7 @@ func TestAdminOverrideWithDateChange(t *testing.T) {
 		rows, _ := app.FindRecordsByFilter("match_reminders", "match = {:mid}", "", 0, 0, map[string]any{"mid": matchID})
 		assert.Empty(tb, rows, "changing the date must clear match reminders")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -847,6 +854,7 @@ func TestAdminOverridePrefillDateNoSpuriousChange(t *testing.T) {
 		// The date did NOT change — must not appear as a change
 		assert.NotContains(tb, content, "Fecha", "same date must not produce a Fecha change entry")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -1014,6 +1022,7 @@ func TestAdminOverrideCourtNumber(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "5", m.GetString("court_number"))
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -1094,6 +1103,7 @@ func TestAdminSubmitAllowedOnFinalizedComp(t *testing.T) {
 		s.Headers = hdrs
 		s.Body = strings.NewReader("scores=6-3+6-4")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -1253,6 +1263,7 @@ func TestMatchSubmitCreatesResultProposal(t *testing.T) {
 		require.NotNil(tb, pd, "proposal_data must be parseable")
 		assert.Equal(tb, "6-3 6-4", pd.Scores)
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -1312,6 +1323,7 @@ func TestMatchSubmitSupersedesPreviousProposal(t *testing.T) {
 			map[string]any{"mid": matchID, "uid": submitterID})
 		assert.Len(tb, superseded, 1, "old proposal must be superseded")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -1398,6 +1410,7 @@ func TestMatchSubmitNoDeadlockNoAdminNotif(t *testing.T) {
 				"no deadlock notification expected when no opposing proposal exists")
 		}
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -1451,6 +1464,7 @@ func TestCancelDateAsParticipant(t *testing.T) {
 			map[string]any{"uid": rivalPlayerID})
 		assert.GreaterOrEqual(tb, len(notifs), 1, "rival must be notified")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -1548,6 +1562,7 @@ func TestCancelDateWithin24h(t *testing.T) {
 		require.GreaterOrEqual(tb, len(msgs), 1)
 		assert.Contains(tb, msgs[0].GetString("content"), "menos de 24h")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -1627,7 +1642,7 @@ func TestAdminRelease_OK(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID string
+	var matchID, compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "RelA")
@@ -1639,6 +1654,7 @@ func TestAdminRelease_OK(t *testing.T) {
 		m.Set("round_number", 0)
 		require.NoError(tb, app.Save(m))
 		matchID = m.Id
+		compID = comp.Id
 		// attach a notification to the match
 		user1, _ := app.FindRecordById("users", p1.GetString("player1"))
 		makeMatchNotification(tb, app, user1.Id, matchID)
@@ -1657,6 +1673,7 @@ func TestAdminRelease_OK(t *testing.T) {
 		events, _ := app.FindRecordsByFilter("competition_events", "kind = 'assignment_released'", "", 0, 0, nil)
 		assert.NotEmpty(tb, events, "assignment_released event must be logged")
 	}
+	expectRedirect(s, func(core.App) string { return "/competition/" + compID })
 	s.Test(t)
 }
 

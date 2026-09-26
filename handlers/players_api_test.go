@@ -79,6 +79,7 @@ func TestPlayerUpdate(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "New Name", p.GetString("display_name"))
 	}
+	expectRedirect(s, redirectTo("/admin/players"))
 	s.Test(t)
 }
 
@@ -101,6 +102,7 @@ func TestPairsCreate(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
+	expectRedirect(s, redirectTo("/admin/pairs"))
 	s.Test(t)
 }
 
@@ -122,6 +124,7 @@ func TestPairsUpdate(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
+	expectRedirect(s, redirectTo("/admin/pairs"))
 	s.Test(t)
 }
 
@@ -142,6 +145,7 @@ func TestVenuesCreate(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
+	expectRedirect(s, redirectTo("/admin/venues"))
 	s.Test(t)
 }
 
@@ -163,6 +167,7 @@ func TestVenuesUpdate(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
+	expectRedirect(s, redirectTo("/admin/venues"))
 	s.Test(t)
 }
 
@@ -188,6 +193,7 @@ func TestVenuesDelete(t *testing.T) {
 		_, err := app.FindRecordById("venues", venueID)
 		assert.Error(tb, err)
 	}
+	expectRedirect(s, redirectTo("/admin/venues"))
 	s.Test(t)
 }
 
@@ -213,6 +219,7 @@ func TestInvitationsRevoke(t *testing.T) {
 		_, err := app.FindRecordById("invitations", inviteID)
 		assert.Error(tb, err)
 	}
+	expectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 

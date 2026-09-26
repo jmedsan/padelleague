@@ -212,6 +212,7 @@ func TestAdminCreateCompetition(t *testing.T) {
 		require.Equal(tb, 1, len(comps))
 		assert.Equal(tb, "league", comps[0].GetString("type"))
 	}
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestRecordID(app, "competitions") })
 	s.Test(t)
 }
 
@@ -238,6 +239,7 @@ func TestAdminCreateInvitation(t *testing.T) {
 		require.NoError(tb, err)
 		assert.GreaterOrEqual(tb, len(invites), 1, "invitation must be created")
 	}
+	expectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
@@ -308,6 +310,7 @@ func TestBroadcast_FanOut(t *testing.T) {
 		assert.Equal(tb, 4, len(notifs), "4 distinct players should get in-app notification")
 		assert.Equal(tb, 4, app.TestMailer.TotalSend(), "4 distinct players should get email")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -345,6 +348,7 @@ func TestBroadcast_NotificationLinksToCompetition(t *testing.T) {
 			assert.Equal(tb, "/competition/"+compID+"#avisos", n.GetString("link"))
 		}
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -448,6 +452,7 @@ func TestBroadcast_DedupSharedPlayer(t *testing.T) {
 		assert.Equal(tb, 3, len(notifs), "shared player u2 should receive only one notification")
 		assert.Equal(tb, 3, app.TestMailer.TotalSend(), "shared player u2 should receive only one email")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -520,6 +525,7 @@ func TestBroadcast_NotificationType(t *testing.T) {
 			assert.Equal(tb, "announcement", n.GetString("type"))
 		}
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -556,6 +562,7 @@ func TestBroadcast_LinkIncludesHash(t *testing.T) {
 			assert.Equal(tb, "/competition/"+compID+"#avisos", n.GetString("link"))
 		}
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 

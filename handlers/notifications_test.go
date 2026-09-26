@@ -420,6 +420,7 @@ func TestDismissNotificationOtherUser(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, 0, len(recs), "non-owner dismiss must not modify anything")
 	}
+	expectRedirect(s, redirectTo(""))
 	s.Test(t)
 }
 
@@ -449,6 +450,7 @@ func TestMarkReadOtherUserBlocked(t *testing.T) {
 		require.NoError(tb, err)
 		assert.False(tb, n.GetBool("read"), "non-owner must not be able to mark another user's notification as read")
 	}
+	expectRedirect(s, redirectTo(""))
 	s.Test(t)
 }
 

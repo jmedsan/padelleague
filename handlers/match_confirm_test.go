@@ -51,6 +51,7 @@ func TestMatchCorrectBoundary_Under24h_Allowed(t *testing.T) {
 		assert.Equal(tb, "6-4 6-3", ParseProposalData(pending[0].GetString("proposal_data")).Scores,
 			"corrected scores must be in the new proposal")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -183,5 +184,6 @@ func TestMatchCorrectAdminBypass(t *testing.T) {
 		assert.Equal(tb, "6-4 6-3", ParseProposalData(pending[0].GetString("proposal_data")).Scores,
 			"newest pending is admin's correction")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }

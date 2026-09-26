@@ -290,5 +290,6 @@ func TestMatchSubmitValidScore(t *testing.T) {
 		require.Len(tb, proposals, 1)
 		assert.Equal(tb, "6-3 6-4", ParseProposalData(proposals[0].GetString("proposal_data")).Scores)
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }

@@ -171,6 +171,7 @@ func TestPlayoffAllUnseeded_KeepsInputOrder(t *testing.T) {
 		assert.True(tb, hasMatchup(matches, pairIDs[1], pairIDs[2]),
 			"expected p2 vs p3")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -219,6 +220,7 @@ func TestPlayoffAllSeeded_SeedOrder(t *testing.T) {
 		assert.True(tb, hasMatchup(matches, pairIDs[3], pairIDs[0]),
 			"expected seed2(p4) vs seed3(p1)")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -264,6 +266,7 @@ func TestPlayoffMixedSeeding_SeededFirst(t *testing.T) {
 		assert.True(tb, hasMatchup(matches, pairIDs[1], pairIDs[0]),
 			"expected seed2(p2) vs unseeded(p1)")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -299,6 +302,7 @@ func TestPlayoffAdvancerPairing_LaterRoundsExist(t *testing.T) {
 			assert.Len(tb, matches, expected, "round %d should have %d matches", round, expected)
 		}
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -352,6 +356,7 @@ func TestGeneratePlayoffFixtures(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, 3, len(matches))
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -382,6 +387,7 @@ func TestGenerateLeagueFixtures(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, 3, len(matches))
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -540,6 +546,7 @@ func TestGenerateLeveledFixtures(t *testing.T) {
 		assert.Equal(tb, "draft", comp.GetString("calendar_status"))
 		assert.Equal(tb, 0, comp.GetInt("rounds"), "leveled comp must have rounds=0")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 

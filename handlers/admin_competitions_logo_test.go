@@ -373,5 +373,6 @@ func TestLogoUpload_ExifOrientationCorrected(t *testing.T) {
 		assert.Greater(tb, topR, topB, "top of the corrected image should be the red half")
 		assert.Greater(tb, bottomB, bottomR, "bottom of the corrected image should be the blue half")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }

@@ -129,6 +129,7 @@ func TestSponsorsCreateValidImage(t *testing.T) {
 		}
 		assert.True(tb, flashSet, "response must set the flash_msg cookie")
 	}
+	expectRedirect(s, redirectTo("/admin/sponsors"))
 	s.Test(t)
 }
 
@@ -263,6 +264,7 @@ func TestSponsorsUpdateNameAndURL(t *testing.T) {
 		assert.Equal(tb, "https://new.com", sponsor.GetString("url"))
 		assert.Equal(tb, origLogo, sponsor.GetString("logo"), "logo must be unchanged when no new file is uploaded")
 	}
+	expectRedirect(s, redirectTo("/admin/sponsors"))
 	s.Test(t)
 }
 
@@ -304,6 +306,7 @@ func TestSponsorsUpdateReplacesLogo(t *testing.T) {
 		assert.NotEmpty(tb, sponsor.GetString("logo"))
 		assert.NotEqual(tb, origLogo, sponsor.GetString("logo"), "logo file must be replaced")
 	}
+	expectRedirect(s, redirectTo("/admin/sponsors"))
 	s.Test(t)
 }
 
@@ -355,6 +358,7 @@ func TestSponsorsDelete(t *testing.T) {
 		_, err := app.FindRecordById("sponsors", sponsorID)
 		assert.Error(tb, err)
 	}
+	expectRedirect(s, redirectTo("/admin/sponsors"))
 	s.Test(t)
 }
 
@@ -387,6 +391,7 @@ func TestSponsorAttach(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Contains(tb, comp.GetStringSlice("sponsors"), sponsorID)
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -420,6 +425,7 @@ func TestSponsorDetach(t *testing.T) {
 		_, err = app.FindRecordById("sponsors", sponsorID)
 		assert.NoError(tb, err, "sponsor should still exist in the library")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -458,6 +464,7 @@ func TestSponsorDetachKeepsOtherComps(t *testing.T) {
 		c2, _ := app.FindRecordById("competitions", comp2ID)
 		assert.Contains(tb, c2.GetStringSlice("sponsors"), sponsorID)
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 

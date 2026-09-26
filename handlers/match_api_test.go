@@ -157,6 +157,7 @@ func TestMatchThreadPostMessage(t *testing.T) {
 		assert.Equal(tb, 1, len(msgs))
 		assert.Equal(tb, "Hola equipo", msgs[0].GetString("content"))
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "#mensajes" })
 	s.Test(t)
 }
 
@@ -310,6 +311,7 @@ func TestAdminOverride_PlayoffDateOrderAccepted(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Contains(tb, m.GetString("date"), "2026-10-20")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -347,6 +349,7 @@ func TestAdminOverride_LeagueDateNoValidation(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Contains(tb, m.GetString("date"), "2026-10-10")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
