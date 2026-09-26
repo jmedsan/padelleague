@@ -200,7 +200,7 @@ func TestChooser_RandomInsideZone(t *testing.T) {
 	// first candidate inside zone should be chosen.
 	identityShuffle := func(_ int, _ func(int, int)) {}
 	svc := &Service{shuffle: identityShuffle}
-	got := svc.chooseOpponentForRound(st, "A", 1)
+	got, _ := svc.chooseOpponentForRound(st, "A", 1)
 	assert.Equal(t, "B", got, "identity shuffle should pick first in-zone candidate")
 
 	// reversed shuffle: inside-zone candidates reversed → [C(2), B(1)]
@@ -210,7 +210,7 @@ func TestChooser_RandomInsideZone(t *testing.T) {
 		}
 	}
 	svc2 := &Service{shuffle: reversedShuffle}
-	got2 := svc2.chooseOpponentForRound(st, "A", 1)
+	got2, _ := svc2.chooseOpponentForRound(st, "A", 1)
 	assert.Equal(t, "C", got2, "reversed shuffle should pick last in-zone candidate")
 }
 
@@ -257,7 +257,7 @@ func TestChooser_InsideZonePrefersLowerLoad(t *testing.T) {
 	// be tried first if load were not applied after the shuffle.
 	identityShuffle := func(_ int, _ func(int, int)) {}
 	svc := &Service{shuffle: identityShuffle}
-	got := svc.chooseOpponentForRound(st, "A", 1)
+	got, _ := svc.chooseOpponentForRound(st, "A", 1)
 	assert.Equal(t, "C", got, "least-loaded in-zone candidate (C, pending=1) must be tried before the more-loaded one (B, pending=3), regardless of shuffle order")
 }
 
@@ -284,7 +284,7 @@ func TestChooser_NearestOutsideZone(t *testing.T) {
 
 	identityShuffle := func(_ int, _ func(int, int)) {}
 	svc := &Service{shuffle: identityShuffle}
-	got := svc.chooseOpponentForRound(st, "A", 1)
+	got, _ := svc.chooseOpponentForRound(st, "A", 1)
 	assert.Equal(t, "C", got, "when no eligible pair inside zone, pick nearest outside (C at d=2)")
 }
 
