@@ -143,7 +143,7 @@
                 {{else if eq (.Competition.GetString "calendar_status") "published"}}<span class="badge badge-success badge-sm">Publicado</span>
                 {{end}}
             </h2>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
                 {{if eq (.Competition.GetString "calendar_status") "draft"}}
                 <button hx-post="/admin/competitions/{{.Competition.Id}}/publish" hx-target="#generate-result" hx-disabled-elt="this" class="btn btn-primary btn-sm">Publicar calendario</button>
                 <button hx-post="/admin/competitions/{{.Competition.Id}}/generate" hx-target="#generate-result" hx-confirm="¿Regenerar el calendario? Se perderán todos los partidos y resultados existentes." data-confirm-title="Regenerar calendario" data-confirm-danger data-confirm-ok="Regenerar" hx-disabled-elt="this" class="btn btn-warning btn-sm">Regenerar</button>
