@@ -288,6 +288,59 @@ func TestTransition_SameStatus_Allowed(t *testing.T) {
 	assert.NoError(t, app.Save(fm), "updating without status change should succeed")
 }
 
+// transitionedToFinal gates handleAdvance's playoff-advance and leveled
+// top-up so they only run on the save that actually finalizes a match, not
+// on every later save of an already-final one.
+
+func TestTransitionedToFinal_PendingToFinal(t *testing.T) {
+	app := newTestApp(t)
+	p1 := makePair(t, app, "TtfPFA")
+	p2 := makePair(t, app, "TtfPFB")
+	comp := makePlayoffComp(t, app, []*core.Record{p1, p2})
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+
+	fm := freshMatch(t, app, m.Id)
+	fm.Set("status", league.StatusFinal)
+	fm.Set("scores", "6-3 6-4")
+	fm.Set("winner", p1.Id)
+	require.NoError(t, app.Save(fm))
+
+	assert.True(t, transitionedToFinal(fm), "a save that moves pending → final must transition")
+}
+
+func TestTransitionedToFinal_AlreadyFinalResave(t *testing.T) {
+	app := newTestApp(t)
+	p1 := makePair(t, app, "TtfARA")
+	p2 := makePair(t, app, "TtfARB")
+	comp := makePlayoffComp(t, app, []*core.Record{p1, p2})
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+
+	fm := freshMatch(t, app, m.Id)
+	fm.Set("status", league.StatusFinal)
+	fm.Set("scores", "6-3 6-4")
+	fm.Set("winner", p1.Id)
+	require.NoError(t, app.Save(fm))
+
+	// Re-read and re-save the now-final match with an unrelated field
+	// changed — status stays final on both sides of this save.
+	resaved := freshMatch(t, app, m.Id)
+	resaved.Set("scores", "6-3 6-2")
+	require.NoError(t, app.Save(resaved))
+
+	assert.False(t, transitionedToFinal(resaved), "a save that leaves an already-final match untouched must not re-transition")
+}
+
+func TestTransitionedToFinal_NeverFinal(t *testing.T) {
+	app := newTestApp(t)
+	p1 := makePair(t, app, "TtfNFA")
+	p2 := makePair(t, app, "TtfNFB")
+	comp := makePlayoffComp(t, app, []*core.Record{p1, p2})
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+
+	fm := freshMatch(t, app, m.Id)
+	assert.False(t, transitionedToFinal(fm), "a pending match must not report as transitioned")
+}
+
 // Default role on user creation
 
 func TestDefaultRole_EmptyRole_SetsPlayer(t *testing.T) {
