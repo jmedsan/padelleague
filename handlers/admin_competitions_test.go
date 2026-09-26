@@ -2453,25 +2453,26 @@ func TestWithdrawPairNotifications(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		// Opponents receive the "pareja retirada" notification with correct text.
-		opponentPlayer1 := opponentPair.GetString("player1")
-		opponentPlayer2 := opponentPair.GetString("player2")
-		opponentNotifs, err := app.FindRecordsByFilter("notifications",
-			"title = 'Pareja retirada'", "", 0, 0, nil)
-		require.NoError(tb, err)
-		require.Len(tb, opponentNotifs, 2, "both opponent players must receive Pareja retirada notification")
-		opponentNotifiedUsers := []string{opponentNotifs[0].GetString("user"), opponentNotifs[1].GetString("user")}
-		assert.ElementsMatch(tb, []string{opponentPlayer1, opponentPlayer2}, opponentNotifiedUsers)
-		assert.Contains(tb, opponentNotifs[0].GetString("body"), "Withdrawn Pair", "body must name the withdrawn pair")
+		opponentWant := league.Notification{
+			Type:     "general",
+			Title:    "Pareja retirada",
+			Body:     "La pareja Withdrawn Pair se ha retirado. El partido se registra como 6-0 6-0 a tu favor.",
+			CompName: "Test Competition",
+		}
+		for _, uid := range league.PlayersForPair(app, opponentPair.Id) {
+			assertNotified(tb, app, uid, opponentWant)
+		}
 
 		// Withdrawn pair's players receive "retirada de la competición" notification.
-		withdrawnPlayer1 := withdrawnPair.GetString("player1")
-		withdrawnPlayer2 := withdrawnPair.GetString("player2")
-		withdrawnNotifs, err := app.FindRecordsByFilter("notifications",
-			"title = 'Retirada de la competición'", "", 0, 0, nil)
-		require.NoError(tb, err)
-		require.Len(tb, withdrawnNotifs, 2, "both withdrawn pair players must be notified")
-		withdrawnNotifiedUsers := []string{withdrawnNotifs[0].GetString("user"), withdrawnNotifs[1].GetString("user")}
-		assert.ElementsMatch(tb, []string{withdrawnPlayer1, withdrawnPlayer2}, withdrawnNotifiedUsers)
+		withdrawnWant := league.Notification{
+			Type:     "general",
+			Title:    "Retirada de la competición",
+			Body:     "Tu pareja ha sido retirada de Test Competition.",
+			CompName: "Test Competition",
+		}
+		for _, uid := range league.PlayersForPair(app, withdrawnPair.Id) {
+			assertNotified(tb, app, uid, withdrawnWant)
+		}
 	}
 	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
