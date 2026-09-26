@@ -48,13 +48,7 @@ func (h *CompetitionHandler) AdminBroadcast(e *core.RequestEvent) error {
 		}
 	}
 
-	h.notifier.NotifyPlayers(players, league.Notification{
-		Type:     "announcement",
-		Title:    title,
-		Body:     body,
-		CompName: comp.GetString("name"),
-		Link:     "/competition/" + comp.Id + "#avisos",
-	})
+	h.notifier.NotifyPlayers(players, league.NotifAnnouncement(comp.Id, comp.GetString("name"), title, body))
 
 	slog.Info("broadcast sent", "competition", comp.Id, "players", len(players))
 	flash(e, "Aviso enviado a "+strconv.Itoa(len(players))+" jugadores")

@@ -514,7 +514,7 @@ func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 		if err != nil {
 			return alertError(e, "Error al quitar la penalización")
 		}
-		h.notifyPenalty(rec, id, "Penalización anulada", fmt.Sprintf("%.0f puntos anulados", rec.GetFloat("amount")))
+		h.notifyPenalty(rec, league.NotifPenaltyVoided(id, rec.GetFloat("amount")))
 		return redirectHX(e, "/admin/competitions/"+id)
 	}
 
@@ -536,16 +536,14 @@ func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 	if err != nil {
 		return alertError(e, "Error al guardar la penalización")
 	}
-	h.notifyPenalty(rec, id, "Penalización aplicada", fmt.Sprintf("%.0f puntos — %s", amount, reason))
+	h.notifyPenalty(rec, league.NotifPenaltyApplied(id, amount, reason))
 	return redirectHX(e, "/admin/competitions/"+id)
 }
 
 // notifyPenalty notifies both players of a penalty's pair after an apply or void.
-func (h *CompetitionHandler) notifyPenalty(penalty *core.Record, compID, title, body string) {
+func (h *CompetitionHandler) notifyPenalty(penalty *core.Record, n league.Notification) {
 	players := league.PlayersForPair(h.app, penalty.GetString("pair"))
-	h.notifier.NotifyPlayers(players, league.Notification{
-		Type: "penalty", Title: title, Body: body, Link: "/competition/" + compID,
-	})
+	h.notifier.NotifyPlayers(players, n)
 }
 
 // PenaltyRow is one penalty entry for the admin UI.

@@ -400,13 +400,7 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	allPlayers := league.MatchPlayersExcluding(h.app, match, "")
-	h.notifier.NotifyPlayers(allPlayers, league.Notification{
-		Type:     "general",
-		Title:    "Corrección de administrador",
-		Body:     strings.Join(changes, ". "),
-		MatchID:  id,
-		CompName: compName,
-	})
+	h.notifier.NotifyPlayers(allPlayers, league.NotifAdminCorrection(id, changes, compName))
 
 	return redirectHX(e, "/match/"+id)
 }
@@ -703,13 +697,9 @@ func (h *MatchHandler) notifyCancelDate(ci cancelInfo) {
 		rivalPairID = match.GetString("pair1")
 	}
 	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	h.notifier.NotifyPlayers(rivalPlayers, league.Notification{
-		Type:     "scheduling",
-		Title:    "Partido cancelado",
-		Body:     fmt.Sprintf("%s ha cancelado la fecha: %s", playerName, reason),
-		MatchID:  id,
-		CompName: compName,
-	})
+	h.notifier.NotifyPlayers(rivalPlayers, league.NotifDateCancelled(league.DateCancelledParams{
+		MatchID: id, PlayerName: playerName, Reason: reason, CompName: compName,
+	}))
 
 	urgency := ""
 	if within24h {
@@ -719,13 +709,10 @@ func (h *MatchHandler) notifyCancelDate(ci cancelInfo) {
 	names := league.PairNames(h.app, pairIDs)
 	pair1Name := names[pairIDs[0]]
 	pair2Name := names[pairIDs[1]]
-	an := league.Notification{
-		Type:     "dispute",
-		Title:    "Cancelación de partido",
-		Body:     fmt.Sprintf("%s vs %s: %s ha cancelado la fecha. Motivo: %s%s", pair1Name, pair2Name, playerName, reason, urgency),
-		MatchID:  id,
-		CompName: compName,
-	}
+	an := league.NotifAdminDateCancelled(league.DateCancelledParams{
+		MatchID: id, PlayerName: playerName, Reason: reason, CompName: compName,
+		Pair1Name: pair1Name, Pair2Name: pair2Name, Urgency: urgency,
+	})
 	if err := h.notifier.NotifyAdmins(an); err != nil {
 		slog.Error("notify admins cancel date", "match", id, "err", err)
 	}

@@ -2,6 +2,7 @@ package league
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -305,6 +306,180 @@ func NotifAdminUserJoined(displayName string) Notification {
 		Title: "Nuevo jugador registrado",
 		Body:  fmt.Sprintf("%s se ha registrado en la liga.", displayName),
 		Link:  "/admin/players",
+	}
+}
+
+// NotifResultAutoConfirmed tells both pairs a result was confirmed by timeout.
+func NotifResultAutoConfirmed(matchID, compName string) Notification {
+	return Notification{
+		Type:    "general",
+		Title:   "Resultado confirmado automáticamente",
+		Body:    fmt.Sprintf("El resultado ha sido confirmado por tiempo de espera · %s.", compName),
+		MatchID: matchID,
+	}
+}
+
+// NotifProposalResponsePending reminds the rival that a result proposal has
+// waited more than thresholdHours for an answer.
+func NotifProposalResponsePending(matchID, submitterName, compName string, thresholdHours int) Notification {
+	return Notification{
+		Type:    "quorum_request",
+		Title:   "Resultado pendiente de respuesta",
+		Body:    fmt.Sprintf("%s propuso un resultado hace más de %d horas · %s. Acepta o contrapropón.", submitterName, thresholdHours, compName),
+		MatchID: matchID,
+	}
+}
+
+// NotifResultConfirmationPending reminds the rival that a submitted result
+// has waited more than thresholdHours for confirmation.
+func NotifResultConfirmationPending(matchID, submitterName, compName string, thresholdHours int) Notification {
+	return Notification{
+		Type:    "quorum_request",
+		Title:   "Resultado pendiente de confirmar",
+		Body:    fmt.Sprintf("%s envió un resultado hace más de %d horas · %s. Confirma o contrapropón.", submitterName, thresholdHours, compName),
+		MatchID: matchID,
+	}
+}
+
+// NotifMatchResumes tells both pairs an unfinished match resumes from the
+// carried sets.
+func NotifMatchResumes(matchID, carried, compName string) Notification {
+	return Notification{
+		Type:    "scheduling",
+		Title:   "Partido por reanudar",
+		Body:    fmt.Sprintf("Se reanuda desde %s 0-0. Acordad una nueva fecha · %s.", carried, compName),
+		MatchID: matchID,
+	}
+}
+
+// NotifPenaltyApplied tells a pair's players a points penalty was applied.
+func NotifPenaltyApplied(compID string, amount float64, reason string) Notification {
+	return Notification{
+		Type:  "penalty",
+		Title: "Penalización aplicada",
+		Body:  fmt.Sprintf("%.0f puntos — %s", amount, reason),
+		Link:  "/competition/" + compID,
+	}
+}
+
+// NotifAdminPenaltiesApplied alerts admins that the daily cron applied
+// pending-match penalties.
+func NotifAdminPenaltiesApplied(compID, compName string, count int) Notification {
+	return Notification{
+		Type:  "penalty",
+		Title: "Penalizaciones automáticas aplicadas",
+		Body:  fmt.Sprintf("%d penalizaciones aplicadas en %s", count, compName),
+		Link:  "/admin/competitions/" + compID,
+	}
+}
+
+// NotifAdminLeagueClosed alerts admins that the rulebook close ended a league.
+func NotifAdminLeagueClosed(compID, compName string, penalties int) Notification {
+	return Notification{
+		Type:  "penalty",
+		Title: "Liga cerrada automáticamente",
+		Body:  fmt.Sprintf("%s ha terminado su semana extraordinaria: %d penalizaciones por partidos no disputados. Revísalas y corrige las que correspondan a una sola pareja.", compName, penalties),
+		Link:  "/admin/competitions/" + compID,
+	}
+}
+
+// NotifRoleChanged tells a user an admin changed their roles.
+func NotifRoleChanged(roles []string) Notification {
+	return Notification{
+		Type:  "admin_message",
+		Title: "Cambio de rol",
+		Body:  "Tu rol ha sido actualizado a " + strings.Join(roles, ", "),
+		Link:  "/profile",
+	}
+}
+
+// NotifPasswordResetRequested tells a user an admin generated a reset link.
+func NotifPasswordResetRequested() Notification {
+	return Notification{
+		Type:  "admin_message",
+		Title: "Restablecimiento de contraseña",
+		Body:  "Un administrador ha solicitado restablecer tu contraseña",
+	}
+}
+
+// NotifPenaltyVoided tells a pair's players a penalty was voided.
+func NotifPenaltyVoided(compID string, amount float64) Notification {
+	return Notification{
+		Type:  "penalty",
+		Title: "Penalización anulada",
+		Body:  fmt.Sprintf("%.0f puntos anulados", amount),
+		Link:  "/competition/" + compID,
+	}
+}
+
+// NotifPaymentReminder reminds unpaid players of a competition fee.
+func NotifPaymentReminder(compID, compName string) Notification {
+	return Notification{
+		Type:     "payment",
+		Title:    "Recordatorio de pago",
+		Body:     "Recuerda realizar el pago para " + compName,
+		Link:     "/competition/" + compID,
+		CompName: compName,
+	}
+}
+
+// NotifAdminCorrection tells both pairs an admin corrected the match.
+func NotifAdminCorrection(matchID string, changes []string, compName string) Notification {
+	return Notification{
+		Type:     "general",
+		Title:    "Corrección de administrador",
+		Body:     strings.Join(changes, ". "),
+		MatchID:  matchID,
+		CompName: compName,
+	}
+}
+
+// DateCancelledParams holds the dynamic parts of a date-cancellation notice.
+type DateCancelledParams struct {
+	MatchID, PlayerName, Reason, CompName string
+	Pair1Name, Pair2Name, Urgency         string // admin variant only
+}
+
+// NotifDateCancelled tells the rival pair a confirmed date was cancelled.
+func NotifDateCancelled(p DateCancelledParams) Notification {
+	return Notification{
+		Type:     "scheduling",
+		Title:    "Partido cancelado",
+		Body:     fmt.Sprintf("%s ha cancelado la fecha: %s", p.PlayerName, p.Reason),
+		MatchID:  p.MatchID,
+		CompName: p.CompName,
+	}
+}
+
+// NotifAdminDateCancelled alerts admins that a confirmed date was cancelled.
+func NotifAdminDateCancelled(p DateCancelledParams) Notification {
+	return Notification{
+		Type:     "dispute",
+		Title:    "Cancelación de partido",
+		Body:     fmt.Sprintf("%s vs %s: %s ha cancelado la fecha. Motivo: %s%s", p.Pair1Name, p.Pair2Name, p.PlayerName, p.Reason, p.Urgency),
+		MatchID:  p.MatchID,
+		CompName: p.CompName,
+	}
+}
+
+// NotifAnnouncement carries an admin broadcast to a competition's players.
+func NotifAnnouncement(compID, compName, title, body string) Notification {
+	return Notification{
+		Type:     "announcement",
+		Title:    title,
+		Body:     body,
+		CompName: compName,
+		Link:     "/competition/" + compID + "#avisos",
+	}
+}
+
+// NotifTestPush is the dev-tools probe through the real pipeline.
+func NotifTestPush() Notification {
+	return Notification{
+		Type:  "general",
+		Title: "Notificación de prueba",
+		Body:  "Si ves esto, las notificaciones funcionan correctamente.",
+		Link:  "/admin/dev-tools",
 	}
 }
 
