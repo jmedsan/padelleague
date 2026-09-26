@@ -20,6 +20,8 @@ type AppSettings struct {
 	InviteExpirationDays     int
 	MatchReminderHours       []int
 	DefaultMaxPendingMatches int
+	ContactWhatsApp          string
+	ContactEmail             string
 }
 
 var (
@@ -71,6 +73,8 @@ func LoadSettings(app core.App) AppSettings {
 		InviteMaxUses:            int(r.GetFloat("invite_max_uses")),
 		InviteExpirationDays:     int(r.GetFloat("invite_expiration_days")),
 		DefaultMaxPendingMatches: int(r.GetFloat("default_max_pending_matches")),
+		ContactWhatsApp:          r.GetString("contact_whatsapp"),
+		ContactEmail:             r.GetString("contact_email"),
 	}
 	if raw := r.GetString("match_reminder_hours"); raw != "" {
 		var hours []int

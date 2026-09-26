@@ -291,6 +291,7 @@ func registerAdminSettingsRoutes(g *router.RouterGroup[*core.RequestEvent], deps
 	g.GET("/settings", settings.Settings)
 	g.POST("/settings/defaults", settings.SaveDefaults)
 	g.POST("/settings/branding", settings.SaveBranding)
+	g.POST("/settings/contact", settings.SaveContact)
 	g.POST("/settings/logo", settings.SettingsLogoUpload)
 	g.POST("/settings/logo/delete", settings.SettingsLogoDelete)
 }

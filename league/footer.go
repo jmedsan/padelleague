@@ -28,6 +28,33 @@ type FooterData struct {
 	LeagueLogoURL string
 }
 
+// ContactInfo holds the global "contact the admin" links, each empty when
+// unset. WhatsAppURL is a ready-to-use wa.me link; EmailURL is a mailto:
+// link. Both empty means the contact section has nothing to show.
+type ContactInfo struct {
+	WhatsAppURL string
+	Email       string
+	EmailURL    string
+}
+
+// LoadContactInfo resolves the app_settings singleton's contact fields into
+// ready-to-render links.
+func LoadContactInfo(app core.App) ContactInfo {
+	settings := leagueSettingsRecord(app)
+	if settings == nil {
+		return ContactInfo{}
+	}
+	var info ContactInfo
+	if wa := settings.GetString("contact_whatsapp"); wa != "" {
+		info.WhatsAppURL = WhatsAppURL(wa)
+	}
+	if email := settings.GetString("contact_email"); email != "" {
+		info.Email = email
+		info.EmailURL = "mailto:" + email
+	}
+	return info
+}
+
 // BrandingData holds the league's identity and sponsor list for a given
 // context. Out of competition context, Name/Tagline/LogoURL reflect the
 // league-wide defaults and Sponsors holds only global sponsors. In

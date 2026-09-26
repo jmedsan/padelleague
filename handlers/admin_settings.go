@@ -92,6 +92,48 @@ func (h *AdminSettingsHandler) SaveBranding(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/settings")
 }
 
+// SaveContact handles POST to update the global "contact the admin"
+// WhatsApp number and email. Both are optional; whichever is present is
+// validated.
+func (h *AdminSettingsHandler) SaveContact(e *core.RequestEvent) error {
+	records, err := h.app.FindRecordsByFilter("app_settings", "", "", 1, 0, nil)
+	if err != nil || len(records) == 0 {
+		return alertError(e, "No se encontró la configuración")
+	}
+	rec := records[0]
+
+	whatsapp := strings.TrimSpace(e.Request.FormValue("contact_whatsapp"))
+	if whatsapp != "" {
+		normalized, phoneErr := league.NormalizePhone(whatsapp)
+		if phoneErr != nil {
+			return alertError(e, "WhatsApp: "+phoneErr.Error())
+		}
+		whatsapp = normalized
+	}
+
+	email := strings.TrimSpace(e.Request.FormValue("contact_email"))
+	if email != "" {
+		normalized, err := league.NormalizeEmail(email)
+		if err != nil {
+			return alertError(e, "Email de contacto no válido")
+		}
+		email = normalized
+	}
+
+	rec.Set("contact_whatsapp", whatsapp)
+	rec.Set("contact_email", email)
+
+	if err := h.app.Save(rec); err != nil {
+		slog.Error("save contact settings", "error", err)
+		return alertError(e, "Error al guardar el contacto")
+	}
+
+	league.InvalidateSettingsCache()
+
+	flash(e, "Contacto actualizado")
+	return redirectHX(e, "/admin/settings")
+}
+
 // SettingsLogoUpload handles POST to upload and set the league-wide logo.
 // Admin only. The image is compressed via compressLogo (aspect-ratio-preserving,
 // no square crop) before being saved.

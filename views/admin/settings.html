@@ -40,6 +40,24 @@
 
 <div class="card bg-base-100 shadow-xl max-w-lg mb-6">
     <div class="card-body">
+        <h2 class="card-title text-lg">Contacto</h2>
+        <p class="text-sm opacity-70 mb-4">WhatsApp y/o email para que los jugadores puedan contactar con la administración. Se muestran en el pie de página cuando al menos uno está configurado.</p>
+        <form hx-post="/admin/settings/contact">
+            <div class="form-control w-full">
+                <label class="label" for="settings-contact-whatsapp"><span class="label-text font-medium">WhatsApp</span></label>
+                <input type="tel" id="settings-contact-whatsapp" name="contact_whatsapp" inputmode="tel" value="{{fmtPhone .Settings.ContactWhatsApp}}" class="input input-bordered w-full" placeholder="+34 612 345 678">
+            </div>
+            <div class="form-control w-full mt-3">
+                <label class="label" for="settings-contact-email"><span class="label-text font-medium">Email</span></label>
+                <input type="email" id="settings-contact-email" name="contact_email" value="{{.Settings.ContactEmail}}" class="input input-bordered w-full" placeholder="admin@ligadalefuerte.com">
+            </div>
+            <button type="submit" hx-disabled-elt="this" class="btn btn-primary w-full mt-4">Guardar</button>
+        </form>
+    </div>
+</div>
+
+<div class="card bg-base-100 shadow-xl max-w-lg mb-6">
+    <div class="card-body">
         <h2 class="card-title text-lg">Valores por defecto</h2>
         <p class="text-sm opacity-70 mb-4">Valores iniciales para nuevas competiciones e invitaciones. Puedes cambiarlos en cada competición al crearla.</p>
         <form hx-post="/admin/settings/defaults">
