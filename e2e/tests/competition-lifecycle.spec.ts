@@ -263,9 +263,9 @@ test.describe('competition lifecycle', () => {
     await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('.badge', { hasText: 'Publicado' })).toBeVisible();
 
-    // Player clicks the bell notification and lands on the competition with
-    // the Jornadas tab showing the now-visible rounds.
-    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    // A participant (p1 is on Pareja A) clicks the bell notification and
+    // lands on the competition with the Jornadas tab showing the rounds.
+    await loginAs(page, p1.email, 'TestPass123456');
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
