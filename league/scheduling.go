@@ -53,6 +53,21 @@ func daysBetween(a, b time.Time) int {
 	return int(b.Sub(a).Hours() / 24)
 }
 
+// calendarDay rebuilds now's date, as seen in loc, as a midnight-UTC
+// time.Time — matching start_date/end_date's own midnight-UTC storage. A
+// leveled league's start/end are date-only values with no timezone
+// attached, so the calendar day the league considers "today" at any moment
+// must be computed in the league's own display timezone (loc), not the
+// server's UTC clock; near midnight the two disagree. A nil loc (e.g. a
+// zero-value test fixture) falls back to UTC.
+func calendarDay(now time.Time, loc *time.Location) time.Time {
+	if loc == nil {
+		loc = time.UTC
+	}
+	y, m, d := now.In(loc).Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+}
+
 // jornadaDayRange partitions days inclusive days into target whole-day
 // Jornadas as evenly as possible, returning the 0-indexed [lo, hi] day
 // offsets from day 0 for Jornada n (1-based). Ceiling division makes every

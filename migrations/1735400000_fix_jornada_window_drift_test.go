@@ -26,7 +26,11 @@ func jornadaFixCompetition(t *testing.T, app core.App) *core.Record {
 	return comp
 }
 
-func jornadaFixMatch(t *testing.T, app core.App, compID, p1, p2 string, slot int, arrangeBy string) *core.Record {
+// jornadaFixMatchSlot is the slot every jornadaFixMatch caller targets —
+// fixed at 3 to match TestSlotDeadline/TestJornadaWindow's shared fixture.
+const jornadaFixMatchSlot = 3
+
+func jornadaFixMatch(t *testing.T, app core.App, compID, p1, p2, arrangeBy string) *core.Record {
 	t.Helper()
 	col, err := app.FindCollectionByNameOrId("matches")
 	require.NoError(t, err)
@@ -36,7 +40,7 @@ func jornadaFixMatch(t *testing.T, app core.App, compID, p1, p2 string, slot int
 	m.Set("pair2", p2)
 	m.Set("status", "pending")
 	m.Set("round_number", 0)
-	m.Set("slot", slot)
+	m.Set("slot", jornadaFixMatchSlot)
 	if arrangeBy != "" {
 		m.Set("arrange_by", arrangeBy)
 	}
@@ -55,7 +59,7 @@ func TestFixCompetitionArrangeBy_RecomputesDriftedValue(t *testing.T) {
 
 	oldDeadline, ok := oldBuggySlotDeadline(comp, 3)
 	require.True(t, ok)
-	m := jornadaFixMatch(t, app, comp.Id, pairs[0], pairs[1], 3, oldDeadline.Format("2006-01-02"))
+	m := jornadaFixMatch(t, app, comp.Id, pairs[0], pairs[1], oldDeadline.Format("2006-01-02"))
 
 	require.NoError(t, fixCompetitionArrangeBy(app, comp))
 
@@ -80,7 +84,7 @@ func TestFixCompetitionArrangeBy_PreservesAdminEditedValue(t *testing.T) {
 	// for slot 3 (2026-01-31) at all — nowhere near either the old or new
 	// computed deadline.
 	adminEdited := "2026-02-15"
-	m := jornadaFixMatch(t, app, comp.Id, pairs[0], pairs[1], 3, adminEdited)
+	m := jornadaFixMatch(t, app, comp.Id, pairs[0], pairs[1], adminEdited)
 
 	require.NoError(t, fixCompetitionArrangeBy(app, comp))
 
@@ -100,7 +104,7 @@ func TestFixCompetitionArrangeBy_SkipsFinalMatches(t *testing.T) {
 
 	oldDeadline, ok := oldBuggySlotDeadline(comp, 3)
 	require.True(t, ok)
-	m := jornadaFixMatch(t, app, comp.Id, pairs[0], pairs[1], 3, oldDeadline.Format("2006-01-02"))
+	m := jornadaFixMatch(t, app, comp.Id, pairs[0], pairs[1], oldDeadline.Format("2006-01-02"))
 	m.Set("status", "final")
 	require.NoError(t, app.Save(m))
 
