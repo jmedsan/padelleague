@@ -23,6 +23,10 @@ type timelineEntry struct {
 	// over Data.Scores for a result_response (Data may be nil).
 	Data   *ProposalData
 	Scores string
+	// Note is a frozen note shown under this entry's dateBox/resultBox (e.g.
+	// a rejection reason) — stored on this entry's OWN record, since the
+	// timeline reads it back via mc.msg, not the parent proposal's record.
+	Note string
 }
 
 func addTimelineEntry(app core.App, e timelineEntry) {
@@ -38,6 +42,9 @@ func addTimelineEntry(app core.App, e timelineEntry) {
 	rec.Set("content", e.Detail)
 	if e.ParentID != "" {
 		rec.Set("parent", e.ParentID)
+	}
+	if e.Note != "" {
+		rec.Set("rejection_text", e.Note)
 	}
 	if e.Action != "" {
 		pd := ProposalData{Action: e.Action, Scores: e.Scores}

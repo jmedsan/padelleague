@@ -567,6 +567,54 @@ func TestRejectProposalCreatesSchedulingResponse(t *testing.T) {
 		assert.Equal(tb, respondentID, responses[0].GetString("author"))
 		assert.Contains(tb, responses[0].GetString("content"), "rechazó la propuesta")
 		assert.Contains(tb, responses[0].GetString("content"), "No puedo ese día")
+		// The reason must live on THIS entry's own record (rejection_text),
+		// not just the original proposal's — timelineNote/mc.msg reads the
+		// entry being rendered, and the original proposal is a different
+		// match_messages record than this response entry.
+		assert.Equal(tb, "No puedo ese día", responses[0].GetString("rejection_text"),
+			"the response entry itself must carry the note shown in the timeline")
+	}
+	s.Test(t)
+}
+
+// TestRejectProposal_TimelineRendersRejectionNote verifies the rendered
+// timeline HTML shows the rejection reason as a Note under the frozen
+// "Rechazada" entry — the same dateBox/resultBox Note pattern already used
+// for a disputed result's rejection reason (component-modes.md).
+func TestRejectProposal_TimelineRendersRejectionNote(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "rejected scheduling proposal shows its reason as a timeline note",
+		Method:         http.MethodGet,
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			"Rechazada",
+			"No puedo ese día",
+		},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "RejNote A")
+		p2 := makePairTB(tb, app, "RejNote B")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		col, _ := app.FindCollectionByNameOrId("match_messages")
+		msg := core.NewRecord(col)
+		msg.Set("match", match.Id)
+		msg.Set("author", p2.GetString("player1"))
+		msg.Set("type", "scheduling_response")
+		msg.Set("content", "rechazó la propuesta de Test Player: No puedo ese día")
+		msg.Set("rejection_text", "No puedo ese día")
+		msg.Set("proposal_data", map[string]any{
+			"action": "reject", "date": "2027-09-20", "time": "19:00", "venue_name": "Club Test",
+		})
+		require.NoError(tb, app.Save(msg))
+
+		s.URL = "/match/" + match.Id + "/thread-messages"
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
 	}
 	s.Test(t)
 }
