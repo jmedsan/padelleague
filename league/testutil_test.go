@@ -2,16 +2,17 @@ package league
 
 import (
 	"fmt"
+	"os"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/pocketbase/pocketbase/tools/types"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/internal/testapp"
 	_ "padelleague/migrations"
 )
 
@@ -20,12 +21,13 @@ var (
 	userSeq atomic.Int64
 )
 
+func TestMain(m *testing.M) {
+	os.Exit(testapp.Run(m))
+}
+
 func newTestApp(t *testing.T) core.App {
 	t.Helper()
-	app, err := tests.NewTestApp()
-	require.NoError(t, err)
-	t.Cleanup(app.Cleanup)
-	return app
+	return testapp.New(t)
 }
 
 func makeUser(t *testing.T, app core.App, displayName, email string) *core.Record {
