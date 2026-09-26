@@ -10,6 +10,8 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/league"
 )
 
 // Dispute resolve auto-determines winner from score (pair2 wins)
@@ -132,7 +134,7 @@ func TestReportUnplayed(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID, userID string
+	var matchID, userID, rivalUserID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "RptA")
@@ -145,6 +147,7 @@ func TestReportUnplayed(t *testing.T) {
 		matchID = match.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		userID = user.Id
+		rivalUserID = p2.GetString("player1")
 		s.URL = "/match/" + match.Id + "/report-unplayed"
 		s.Headers = authHeaders(tb, user)
 	}
@@ -157,6 +160,13 @@ func TestReportUnplayed(t *testing.T) {
 		assert.Contains(tb, m.GetString("dispute_notes"), "[No jugado]")
 		assert.Empty(tb, m.GetString("winner"), "reporting unplayed must not declare a winner")
 		assert.Empty(tb, m.GetString("scores"), "reporting unplayed must not set a score")
+		assertNotified(tb, app, rivalUserID, league.Notification{
+			Type:     "general",
+			Title:    "Partido reportado como no jugado",
+			Body:     "Tu rival ha reportado este partido como no jugado. Un administrador lo revisará.",
+			MatchID:  matchID,
+			CompName: "Test Competition",
+		})
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)

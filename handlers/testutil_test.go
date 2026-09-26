@@ -176,6 +176,35 @@ func makeNotification(t *testing.T, app core.App, userID, title, body string, re
 	return record
 }
 
+// assertNotified finds the notification record for userID with the given
+// title (the most recently created one, since a flow can leave several
+// notifications on the same user) and asserts its type, body, comp_name, and
+// related_match/link exactly match want. want's literal fields must come
+// from the test's own fixture data (the same values the flow under test was
+// seeded/driven with), never from calling the constructor again — otherwise
+// a handler that wires the wrong constructor, or drops a field before
+// calling notify.Notifier, still passes because both sides recompute the
+// same (possibly wrong) string.
+func assertNotified(t testing.TB, app core.App, userID string, want league.Notification) *core.Record {
+	t.Helper()
+	recs, err := app.FindRecordsByFilter("notifications",
+		"user = {:user} && title = {:title}", "-created", 1, 0,
+		map[string]any{"user": userID, "title": want.Title})
+	require.NoError(t, err)
+	require.NotEmptyf(t, recs, "no notification titled %q for user %s", want.Title, userID)
+	rec := recs[0]
+	assert.Equal(t, want.Type, rec.GetString("type"), "notification type")
+	assert.Equal(t, want.Body, rec.GetString("body"), "notification body")
+	assert.Equal(t, want.CompName, rec.GetString("comp_name"), "notification comp_name")
+	if want.Link != "" {
+		assert.Equal(t, want.Link, rec.GetString("link"), "notification link")
+	} else if want.MatchID != "" {
+		assert.Equal(t, want.MatchID, rec.GetString("related_match"), "notification related_match")
+		assert.Equal(t, "/match/"+want.MatchID, rec.GetString("link"), "notification link (derived from MatchID)")
+	}
+	return rec
+}
+
 func authToken(t testing.TB, user *core.Record) string {
 	t.Helper()
 	token, err := user.NewAuthToken()
