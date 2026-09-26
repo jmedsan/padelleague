@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand/v2"
+	"sort"
 )
 
 // simSkills returns the fixed 16-pair true skill values used in the simulation.
@@ -126,8 +127,13 @@ type simMetrics struct {
 	evenSum    float64
 	blowouts   int
 	topVBottom int
-	rhoSum     float64
+	rhoSum     float64 // plain-points ranking (the public table)
 	wrongCat   int
+	rhoSumOld  float64 // ranking by the removed schedule-strength adjustment, for reference
+	wrongOld   int
+	rhoSumElo  float64 // plain points, ties broken by the hidden Elo (internal-only option)
+	wrongElo   int
+	eloSeasons int
 }
 
 func (a *simMetrics) addMatch(m *matchModel, i, j int) {
@@ -167,15 +173,64 @@ func (a *simMetrics) addSeason(played []int, maxPending int) {
 }
 
 func (a *simMetrics) addRanking(order []int) {
-	rho := spearman(order)
+	rho, wrong := rankingQuality(order)
 	a.rhoSum += rho
+	a.wrongCat += wrong
+}
+
+// addRankingOld records the ranking produced by the removed
+// schedule-strength adjustment (recipe §4 before 2026-09-26), kept only to
+// compare the public plain-points table against it.
+func (a *simMetrics) addRankingOld(order []int) {
+	rho, wrong := rankingQuality(order)
+	a.rhoSumOld += rho
+	a.wrongOld += wrong
+}
+
+// addRankingElo records the plain-points ranking with equal points broken
+// by the hidden Elo — a candidate internal-only tiebreak.
+func (a *simMetrics) addRankingElo(order []int) {
+	rho, wrong := rankingQuality(order)
+	a.rhoSumElo += rho
+	a.wrongElo += wrong
+	a.eloSeasons++
+}
+
+// rankingQuality returns the Spearman rho of order against the true order
+// and twice the number of bottom-half pairs ranked in the top half.
+func rankingQuality(order []int) (rho float64, wrongCat int) {
 	wrong := 0
 	for k, trueIdx := range order {
 		if k < 8 && trueIdx >= 8 {
 			wrong++
 		}
 	}
-	a.wrongCat += 2 * wrong
+	return spearman(order), 2 * wrong
+}
+
+// oldAdjustedOrder ranks pairs by the removed formula: points + 3 × played ×
+// 1.5 × (SOS − 0.5), SOS = mean win rate of the opponents faced; ties keep
+// the plain-points order. wins/played are per pair; opps lists each pair's
+// opponents, one entry per match; plain is the plain-points ranking.
+func oldAdjustedOrder(wins, played []int, opps [][]int, plain []int) []int {
+	n := len(wins)
+	score := make([]float64, n)
+	for p := range n {
+		var sos float64
+		for _, o := range opps[p] {
+			if played[o] > 0 {
+				sos += float64(wins[o]) / float64(played[o])
+			}
+		}
+		if len(opps[p]) > 0 {
+			sos /= float64(len(opps[p]))
+		}
+		adj := 3.0 * float64(played[p]) * 1.5 * (sos - 0.5)
+		score[p] = float64(3*wins[p]) + math.Round(adj*10)/10
+	}
+	order := append([]int(nil), plain...)
+	sort.SliceStable(order, func(i, j int) bool { return score[order[i]] > score[order[j]] })
+	return order
 }
 
 // row returns a markdown table row for the given variant name.
@@ -194,8 +249,16 @@ func (a *simMetrics) row(name string) string {
 	tvbPerSeason := float64(a.topVBottom) / float64(s)
 	reliability := 100.0 * (a.rhoSum/float64(s) + 1) / 2
 	wrongPerSeason := float64(a.wrongCat) / float64(s)
-	return fmt.Sprintf("| %s | %.2f%% | %d | %d | %.1f%% | %.1f | %.1f | %.1f%% | %.2f |",
-		name, exactPct, a.over, a.maxPending, evenPct, blowPerSeason, tvbPerSeason, reliability, wrongPerSeason)
+	reliabilityOld := 100.0 * (a.rhoSumOld/float64(s) + 1) / 2
+	wrongOldPerSeason := float64(a.wrongOld) / float64(s)
+	eloCols := "— | —"
+	if a.eloSeasons > 0 {
+		es := float64(a.eloSeasons)
+		eloCols = fmt.Sprintf("%.1f%% | %.2f", 100.0*(a.rhoSumElo/es+1)/2, float64(a.wrongElo)/es)
+	}
+	return fmt.Sprintf("| %s | %.2f%% | %d | %d | %.1f%% | %.1f | %.1f | %.1f%% | %.2f | %.1f%% | %.2f | %s |",
+		name, exactPct, a.over, a.maxPending, evenPct, blowPerSeason, tvbPerSeason,
+		reliability, wrongPerSeason, reliabilityOld, wrongOldPerSeason, eloCols)
 }
 
 // spearman computes the Spearman rank correlation between the observed ranking
@@ -250,8 +313,9 @@ func noisySeed(pairs []string, trueIdx map[string]int, sd float64, rng *rand.Ran
 }
 
 // runRandomBaseline simulates target rounds of circle-method round-robin in
-// memory (no DB), keeping simTarget rounds chosen at random.
-// Ranking columns are unavailable (random tiebreak) so only pairing metrics are collected.
+// memory (no DB), keeping simTarget rounds chosen at random. Results are
+// drawn from the match model and ranked by plain points (ties random, since
+// no sets are simulated), plus the removed adjustment for reference.
 func runRandomBaseline(acc *simMetrics, model *matchModel, rng *rand.Rand) {
 	// Build 15 rounds via circle method.
 	teams := make([]int, simPairs)
@@ -263,6 +327,8 @@ func runRandomBaseline(acc *simMetrics, model *matchModel, rng *rand.Rand) {
 	// Keep simTarget rounds chosen at random (without replacement).
 	perm := rng.Perm(len(allRounds))
 	played := make([]int, simPairs)
+	wins := make([]int, simPairs)
+	opps := make([][]int, simPairs)
 	maxPend := 0
 
 	for _, ri := range perm[:simTarget] {
@@ -273,10 +339,21 @@ func runRandomBaseline(acc *simMetrics, model *matchModel, rng *rand.Rand) {
 			acc.addMatch(model, i, j)
 			played[i]++
 			played[j]++
+			opps[i] = append(opps[i], j)
+			opps[j] = append(opps[j], i)
+			if rng.Float64() < model.p[i][j] {
+				wins[i]++
+			} else {
+				wins[j]++
+			}
 		}
 	}
 	acc.addSeason(played, maxPend)
-	// No ranking data for random baseline — wrongCat and rhoSum not updated.
+
+	plain := rng.Perm(simPairs) // random tiebreak among equal points
+	sort.SliceStable(plain, func(a, b int) bool { return wins[plain[a]] > wins[plain[b]] })
+	acc.addRanking(plain)
+	acc.addRankingOld(oldAdjustedOrder(wins, played, opps, plain))
 }
 
 // circleRounds returns the 15 rounds of a circle-method round-robin for 16 teams.

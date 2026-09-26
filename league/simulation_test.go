@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"math/rand/v2"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -28,18 +29,22 @@ var (
 
 // simVariant describes one row in the comparison table.
 type simVariant struct {
-	name    string
-	leveled bool      // false = random-pairing baseline, no DB
-	seedSDs []float64 // nil = no seed; {2} = good seed; {6} = poor; {2,4,6} = mixed
+	name     string
+	leveled  bool      // false = random-pairing baseline, no DB
+	seedSDs  []float64 // nil = no seed; {2} = good seed; {6} = poor; {2,4,6} = mixed
+	unranked int       // pairs left without a level (seeded at the unranked Elo), drawn at random per season
 }
 
 func simVariants() []simVariant {
 	return []simVariant{
-		{"Random pairing (no leveling)", false, nil},
-		{"Recipe, no admin seed", true, nil},
-		{"Recipe, seed off by 6 places (poor)", true, []float64{6}},
-		{"Recipe, seed off by 2, 4 or 6 places (mixed)", true, []float64{2, 4, 6}},
-		{"Recipe, seed off by 2 places (good)", true, []float64{2}},
+		{"Random pairing (no leveling)", false, nil, 0},
+		{"Recipe, no admin seed", true, nil, 0},
+		{"Recipe, seed off by 6 places (poor)", true, []float64{6}, 0},
+		{"Recipe, seed off by 2, 4 or 6 places (mixed)", true, []float64{2, 4, 6}, 0},
+		{"Recipe, seed off by 2 places (good)", true, []float64{2}, 0},
+		{"80% levelled (3 unranked), seed poor", true, []float64{6}, 3},
+		{"80% levelled (3 unranked), seed mixed", true, []float64{2, 4, 6}, 3},
+		{"80% levelled (3 unranked), seed good", true, []float64{2}, 3},
 	}
 }
 
@@ -83,6 +88,9 @@ func newSimSeason(t *testing.T, env simEnv, v simVariant, rng *rand.Rand, season
 			pairIDs[i] = p.Id
 		}
 		levels := noisySeedLevels(pairIDs, trueIdx, sd, rng)
+		for _, k := range rng.Perm(simPairs)[:v.unranked] {
+			levels[pairIDs[k]] = "unranked"
+		}
 		for _, p := range env.pairs {
 			p.Set("level", levels[p.Id])
 			require.NoError(t, env.app.Save(p))
@@ -130,12 +138,54 @@ func (s *simSeason) run(acc *simMetrics) {
 
 	played := make([]int, simPairs)
 	order := make([]int, len(rows))
+	wins := make([]int, simPairs)
+	playedByIdx := make([]int, simPairs)
 	for k, row := range rows {
 		played[k] = row.Played
 		order[k] = s.trueIdx[row.PairID]
+		wins[order[k]] = row.Wins
+		playedByIdx[order[k]] = row.Played
 	}
 	acc.addRanking(order)
+	acc.addRankingOld(oldAdjustedOrder(wins, playedByIdx, s.opponentsByIdx(), order))
+	acc.addRankingElo(s.eloTiebreakOrder(rows))
 	acc.addSeason(played, s.maxPend)
+}
+
+// eloTiebreakOrder ranks by plain points, breaking equal points by the
+// hidden Elo (Ratings at season end) instead of the rulebook tie chain.
+func (s *simSeason) eloTiebreakOrder(rows []StandingRowFull) []int {
+	s.t.Helper()
+	ratings, err := Ratings(s.app, s.comp)
+	require.NoError(s.t, err)
+	sorted := append([]StandingRowFull(nil), rows...)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		if sorted[i].Points != sorted[j].Points {
+			return sorted[i].Points > sorted[j].Points
+		}
+		return ratings[sorted[i].PairID] > ratings[sorted[j].PairID]
+	})
+	order := make([]int, len(sorted))
+	for k, row := range sorted {
+		order[k] = s.trueIdx[row.PairID]
+	}
+	return order
+}
+
+// opponentsByIdx lists, per true-skill index, the true-skill index of every
+// opponent faced in a final match (one entry per match).
+func (s *simSeason) opponentsByIdx() [][]int {
+	s.t.Helper()
+	finals, err := s.app.FindRecordsByFilter("matches",
+		"competition = {:c} && status = 'final'", "", 0, 0, map[string]any{"c": s.comp.Id})
+	require.NoError(s.t, err)
+	opps := make([][]int, simPairs)
+	for _, m := range finals {
+		i, j := s.trueIdx[m.GetString("pair1")], s.trueIdx[m.GetString("pair2")]
+		opps[i] = append(opps[i], j)
+		opps[j] = append(opps[j], i)
+	}
+	return opps
 }
 
 func (s *simSeason) pending() []*core.Record {
@@ -175,18 +225,34 @@ func (s *simSeason) finalize(m *core.Record, score string) {
 func (s *simSeason) assertInvariants() {
 	s.t.Helper()
 	assert.False(s.t, hasDuplicatePairing(s.t, s.app, s.comp.Id), "P1: duplicate pairing")
-	for _, p := range s.comp.GetStringSlice("pairs") {
-		all := allMatchesFor(s.t, s.app, s.comp.Id, p)
-		pend := pendingMatchesFor(s.t, s.app, s.comp.Id, p)
-		played := 0
-		for _, m := range all {
-			if m.GetString("status") == "final" {
-				played++
+	// P3 is owner rule (a): a pair below open with target left is never left
+	// waiting while an unmet, unfilled opponent exists (the pending ≤ open+1
+	// ceiling yields to it, so it is not asserted).
+	pairs := s.comp.GetStringSlice("pairs")
+	load := make(map[string]int, len(pairs))
+	pending := make(map[string]int, len(pairs))
+	met := make(map[string]map[string]bool, len(pairs))
+	for _, p := range pairs {
+		met[p] = map[string]bool{}
+		for _, m := range allMatchesFor(s.t, s.app, s.comp.Id, p) {
+			load[p]++
+			met[p][m.GetString("pair1")] = true
+			met[p][m.GetString("pair2")] = true
+			if m.GetString("status") != "final" {
+				pending[p]++
 			}
 		}
-		load := played + len(pend)
-		assert.LessOrEqual(s.t, load, simTarget, "P2: pair %s load %d > target", p, load)
-		assert.LessOrEqual(s.t, len(pend), simOpen+1, "P3: pair %s pending %d > open+1", p, len(pend))
+		assert.LessOrEqual(s.t, load[p], simTarget, "P2: pair %s load %d > target", p, load[p])
+	}
+	for _, p := range pairs {
+		if pending[p] >= simOpen || load[p] >= simTarget {
+			continue
+		}
+		for _, q := range pairs {
+			if q != p && !met[p][q] && load[q] < simTarget {
+				assert.Failf(s.t, "P3 violated", "pair %s waits at pending %d while %s is unmet and unfilled", p, pending[p], q)
+			}
+		}
 	}
 }
 
@@ -257,8 +323,8 @@ func TestSimulation_LeveledLeague(t *testing.T) {
 		}
 	})
 
-	header := "| Variant | Every pair exactly 10 | Anyone above 10 | Max pending | Evenness raw | Blowouts/season | Top-4 v bottom-4/season | Reliability | Wrong pairs |\n" +
-		"|---|---|---|---|---|---|---|---|---|\n"
+	header := "| Variant | Every pair exactly 10 | Anyone above 10 | Max pending | Evenness raw | Blowouts/season | Top-4 v bottom-4/season | Reliability (plain points) | Wrong pairs (plain) | Reliability (old adjustment) | Wrong pairs (old adj.) | Reliability (points + Elo tiebreak) | Wrong pairs (Elo tiebreak) |\n" +
+		"|---|---|---|---|---|---|---|---|---|---|---|---|---|\n"
 	t.Logf("\n%s%s", header, strings.Join(rows, "\n"))
 }
 
