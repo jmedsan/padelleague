@@ -1,6 +1,6 @@
 import { test, expect, Page, APIRequestContext } from '@playwright/test';
 import { loginAs, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
-import { enterScore } from '../tour-helpers';
+import { enterScore, fillFlatpickrDate, clickConfirmAndWaitForHxRedirect } from '../tour-helpers';
 import {
   setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,
   computeExpected, PlannedMatch, PairId,
@@ -116,7 +116,7 @@ test.describe('season simulation', () => {
         club: 'Padel 360',
       },
     });
-    if (!matchResp.ok()) throw new Error(`Create match failed: ${matchResp.status()}`);
+    if (!matchResp.ok()) throw new Error(`Create match failed: ${matchResp.status()} ${await matchResp.text()}`);
     const match = await matchResp.json();
     const matchId = match.id;
 
@@ -149,16 +149,17 @@ test.describe('season simulation', () => {
       data: { status: 'scheduled', date: '2025-08-15', club: 'Wurko' },
     });
 
-    // Step 5: Pair A submits the finishing score — locked set 1 (6-4) is skipped.
+    // Step 5: Pair A submits the finishing score. Every completed set is
+    // carried (6-4 and 2-6), so two sets render locked and only set 3 is open.
     await loginAs(page, submitterEmail, PLAYER_PASSWORD);
     await page.goto(`/match/${matchId}`);
     await page.waitForSelector('#thread-details', { timeout: 20000 });
 
-    // Verify exactly one locked set is shown
     const lockedSets = page.locator('.score-set-group[data-locked]');
-    await expect(lockedSets).toHaveCount(1, { timeout: 15000 });
+    await expect(lockedSets).toHaveCount(2, { timeout: 15000 });
+    await expect(page.locator('select[name="s3a"]')).toBeEnabled();
 
-    // Submit the second and third sets — full score has 3 sets, locked set 1 is skipped
+    // Submit the full score — the two locked sets are skipped, set 3 is filled.
     await enterScore(page, '6-4 2-6 6-3');
     await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
 
@@ -409,9 +410,12 @@ async function playPlayoffMatch(page: Page, match: any, winnerLabel: PairId, win
   await confirmScore(page, match.id);
 }
 
+// Generating leaves the calendar in draft, which hides every match from
+// players; publish it in the same step so the player flows can see them.
 async function generateFixtures(page: Page, compId: string) {
   await page.goto(`/admin/competitions/${compId}`);
   await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Generar calendario")'));
+  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'));
 }
 
 // HTMX + redirectHX: click triggers XHR → 204 + HX-Redirect → window.location.href.
@@ -521,8 +525,8 @@ async function postProposal(page: Page, matchId: string) {
     await collapse.locator('input[type="checkbox"]').check();
   }
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-  await page.fill('#proposal-form input[name="date"]', tomorrow);
-  await page.fill('#proposal-form input[name="time"]', '18:00');
+  await fillFlatpickrDate(page, '#proposal-date', tomorrow);
+  await page.locator('#proposal-time').selectOption('18:00');
   await page.selectOption('#proposal-form select[name="venue_id"]', 'otro');
   await page.fill('#proposal-form input[name="venue_text"]', 'Test Club');
   await clickAndWaitForHxRedirect(page, page.locator('#proposal-form button:has-text("Proponer fecha")'));
@@ -540,7 +544,7 @@ async function rejectProposal(page: Page, matchId: string) {
   const rejectBtn = page.locator('button:has-text("Rechazar")').first();
   await rejectBtn.waitFor({ state: 'visible', timeout: 30000 });
   await rejectBtn.click();
-  await page.locator('select[name="rejection_reason"]').selectOption({ index: 1 });
+  await page.locator('form.reject-form select[name="rejection_reason"]').selectOption({ index: 1 });
   await clickAndWaitForHxRedirect(page, page.locator('form.reject-form button[type="submit"]'));
 }
 
@@ -667,13 +671,16 @@ async function assertStandings(
 async function applyPenalty(page: Page, compId: string, pairId: string) {
 	await page.goto(`/admin/competitions/${compId}`);
 	const modal = page.locator(`#penalty-modal-${pairId} + .modal`);
-	await page.locator(`label[for="penalty-modal-${pairId}"]:has-text("Penalizar")`).click();
+	// The Penalizar trigger is an icon-only label (aria-label, no text); the
+	// desktop table and the mobile cards each render one, so click the visible one.
+	await page.locator(`label[for="penalty-modal-${pairId}"][aria-label="Penalizar"]:visible`).first().click();
 	await modal.locator('textarea[name="reason"]').fill('Ajuste de clasificación');
 	await clickAndWaitForHxRedirect(page, modal.locator('button:has-text("Confirmar penalización")'));
 }
 
 async function togglePayment(page: Page, compId: string, pairId: string) {
   await page.goto(`/admin/competitions/${compId}`);
-  const checkbox = page.locator(`tr:has(input[value="${pairId}"]) input[type="checkbox"]`).first();
-  await clickAndWaitForHxRedirect(page, checkbox);
+  // Payment is an icon toggle button behind the custom confirm modal.
+  const toggle = page.locator(`form[hx-post$="/payment"]:has(input[value="${pairId}"]) button:visible`).first();
+  await clickConfirmAndWaitForHxRedirect(page, toggle);
 }
