@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"io"
@@ -12,15 +12,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/handlers"
 	"padelleague/league"
 )
 
-// buildResetURL: X-Forwarded-Proto: https → https:// link
+// handlers.BuildResetURL: X-Forwarded-Proto: https → https:// link
 
 func TestPreCreateResetURLWithForwardedProto(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/players/pre-create with X-Forwarded-Proto: https produces https link",
 		Method:          http.MethodPost,
 		URL:             "/admin/players/pre-create",
@@ -28,9 +29,9 @@ func TestPreCreateResetURLWithForwardedProto(t *testing.T) {
 		ExpectedContent: []string{"reset-password"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		hdrs["X-Forwarded-Proto"] = "https"
 		s.Headers = hdrs
@@ -47,7 +48,7 @@ func TestPreCreateResetURLWithForwardedProto(t *testing.T) {
 	s.Test(t)
 }
 
-// buildResetURL: no header, no TLS → http:// link
+// handlers.BuildResetURL: no header, no TLS → http:// link
 // Note: ApiScenario test client has no TLS, so e.Request.TLS==nil is always
 // true here. The TLS!=nil→https path is not reachable through ApiScenario.
 // However, both mutants on lines 129 and 131 are killed by these two tests:
@@ -58,7 +59,7 @@ func TestPreCreateResetURLWithForwardedProto(t *testing.T) {
 func TestPreCreateResetURLNoTLS(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/players/pre-create without TLS produces http link",
 		Method:          http.MethodPost,
 		URL:             "/admin/players/pre-create",
@@ -66,9 +67,9 @@ func TestPreCreateResetURLNoTLS(t *testing.T) {
 		ExpectedContent: []string{"reset-password"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		// No X-Forwarded-Proto, test HTTP client has no TLS → scheme = http
 		s.Headers = hdrs
@@ -88,7 +89,7 @@ func TestPreCreateResetURLNoTLS(t *testing.T) {
 func TestPlayerUpdateInvalidRole(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/players/{id} rejects invalid role",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
@@ -96,13 +97,13 @@ func TestPlayerUpdateInvalidRole(t *testing.T) {
 	}
 	var playerID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		player := makeUserTB(tb, app, "Role Test", "roletest@test.local")
+		player := handlers.MakeUserTB(tb, app, "Role Test", "roletest@test.local")
 		playerID = player.Id
 		s.URL = "/admin/players/" + player.Id
 		s.Body = strings.NewReader("display_name=Role+Test&gender=male&roles=superadmin")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -120,20 +121,20 @@ func TestPlayerUpdateInvalidRole(t *testing.T) {
 func TestPlayerUpdateEmptyRolesDefaultsToPlayer(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/players/{id} defaults to player when no roles submitted",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var playerID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		player := makeUserTB(tb, app, "Empty Role", "emptyrole@test.local")
+		player := handlers.MakeUserTB(tb, app, "Empty Role", "emptyrole@test.local")
 		playerID = player.Id
 		s.URL = "/admin/players/" + player.Id
 		s.Body = strings.NewReader("display_name=Empty+Role&gender=male")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -143,7 +144,7 @@ func TestPlayerUpdateEmptyRolesDefaultsToPlayer(t *testing.T) {
 		assert.Contains(tb, p.GetStringSlice("roles"), "player",
 			"roles must default to player when none submitted")
 	}
-	expectRedirect(s, redirectTo("/admin/players"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/players"))
 	s.Test(t)
 }
 
@@ -152,21 +153,21 @@ func TestPlayerUpdateEmptyRolesDefaultsToPlayer(t *testing.T) {
 func TestPlayerUpdateRoleChangeNotifies(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/players/{id} notifies the player when roles change",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var playerID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		enableSMTP(tb, app)
 		admin := makeAdminUser(tb, app)
-		player := makeUserTB(tb, app, "Role Change", "rolechange@test.local")
+		player := handlers.MakeUserTB(tb, app, "Role Change", "rolechange@test.local")
 		playerID = player.Id
 		s.URL = "/admin/players/" + player.Id
 		s.Body = strings.NewReader("display_name=Role+Change&gender=male&roles=admin&roles=player")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -179,7 +180,7 @@ func TestPlayerUpdateRoleChangeNotifies(t *testing.T) {
 		}
 		assertNotified(tb, app, playerID, want)
 	}
-	expectRedirect(s, redirectTo("/admin/players"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/players"))
 	s.Test(t)
 }
 
@@ -188,20 +189,20 @@ func TestPlayerUpdateRoleChangeNotifies(t *testing.T) {
 func TestPlayerUpdateSameRolesNoNotification(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/players/{id} does not notify when roles are unchanged",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var playerID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		player := makeUserTB(tb, app, "Same Role", "samerole@test.local")
+		player := handlers.MakeUserTB(tb, app, "Same Role", "samerole@test.local")
 		playerID = player.Id
 		s.URL = "/admin/players/" + player.Id
 		s.Body = strings.NewReader("display_name=Same+Role&gender=male&roles=player")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -211,7 +212,7 @@ func TestPlayerUpdateSameRolesNoNotification(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Empty(tb, notifs, "no notification when roles resubmitted unchanged")
 	}
-	expectRedirect(s, redirectTo("/admin/players"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/players"))
 	s.Test(t)
 }
 
@@ -220,7 +221,7 @@ func TestPlayerUpdateSameRolesNoNotification(t *testing.T) {
 func TestPreCreateInvitationExpiry48h(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/players/pre-create invitation expires in ~48h",
 		Method:          http.MethodPost,
 		URL:             "/admin/players/pre-create",
@@ -229,10 +230,10 @@ func TestPreCreateInvitationExpiry48h(t *testing.T) {
 	}
 	var beforeCreate time.Time
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		beforeCreate = time.Now()
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 		s.Body = strings.NewReader("email=expiry48@test.local&display_name=Expiry48&gender=male")
@@ -256,7 +257,7 @@ func TestPreCreateInvitationExpiry48h(t *testing.T) {
 func TestPreCreateSendsOnboardingEmail(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/players/pre-create sends onboarding email",
 		Method:          http.MethodPost,
 		URL:             "/admin/players/pre-create",
@@ -264,10 +265,10 @@ func TestPreCreateSendsOnboardingEmail(t *testing.T) {
 		ExpectedContent: []string{"Usuario creado"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		enableSMTP(tb, app)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 		s.Body = strings.NewReader("email=onboard@test.local&display_name=OnboardUser&gender=female")
@@ -285,7 +286,7 @@ func TestPreCreateSendsOnboardingEmail(t *testing.T) {
 func TestPlayerEditFormReturnsFragment(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /admin/players/{id}/edit returns edit form fragment",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -293,15 +294,15 @@ func TestPlayerEditFormReturnsFragment(t *testing.T) {
 	}
 	var playerID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		player := makeUserTB(tb, app, "EditTarget", "edittarget@test.local")
+		player := handlers.MakeUserTB(tb, app, "EditTarget", "edittarget@test.local")
 		playerID = player.Id
 		s.URL = "/admin/players/" + player.Id + "/edit"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		assert.Contains(tb, body, "EditTarget", "form contains player name")
 		assert.Contains(tb, body, "edittarget@test.local", "form contains player email")
 		assert.Contains(tb, body, playerID, "form posts to the correct player")
@@ -312,7 +313,7 @@ func TestPlayerEditFormReturnsFragment(t *testing.T) {
 func TestPlayerEditFormUnknownID(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /admin/players/{id}/edit returns 404 for unknown player",
 		Method:          http.MethodGet,
 		URL:             "/admin/players/nonexistent123456/edit",
@@ -320,9 +321,9 @@ func TestPlayerEditFormUnknownID(t *testing.T) {
 		ExpectedContent: []string{"resource"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }

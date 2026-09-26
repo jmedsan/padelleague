@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"net/http"
@@ -9,12 +9,14 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/handlers"
 )
 
 func TestPairPage_ShowsPlayersAndCompetition(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "pair page shows players, competition with position, and matches",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -22,10 +24,10 @@ func TestPairPage_ShowsPlayersAndCompetition(t *testing.T) {
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 
-		u1 := makeUserTB(tb, app, "PairP1", "pairp1@test.local")
-		u2 := makeUserTB(tb, app, "PairP2", "pairp2@test.local")
+		u1 := handlers.MakeUserTB(tb, app, "PairP1", "pairp1@test.local")
+		u2 := handlers.MakeUserTB(tb, app, "PairP2", "pairp2@test.local")
 
 		col, err := app.FindCollectionByNameOrId("pairs")
 		require.NoError(tb, err)
@@ -35,7 +37,7 @@ func TestPairPage_ShowsPlayersAndCompetition(t *testing.T) {
 		pair.Set("player2", u2.Id)
 		require.NoError(tb, app.Save(pair))
 
-		opp := makePairTB(tb, app, "OppPair")
+		opp := handlers.MakePairTB(tb, app, "OppPair")
 
 		compCol, err := app.FindCollectionByNameOrId("competitions")
 		require.NoError(tb, err)
@@ -60,10 +62,10 @@ func TestPairPage_ShowsPlayersAndCompetition(t *testing.T) {
 
 		s.URL = "/pair/" + pair.Id
 		user1, _ := app.FindRecordById("users", u1.Id)
-		s.Headers = authHeaders(tb, user1)
+		s.Headers = handlers.AuthHeaders(tb, user1)
 
 		s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-			body := readBody(tb, res)
+			body := handlers.ReadBody(tb, res)
 			compact := strings.Join(strings.Fields(body), " ")
 
 			assert.Contains(tb, body, "TestPair", "pair name heading")
@@ -83,7 +85,7 @@ func TestPairPage_ShowsPlayersAndCompetition(t *testing.T) {
 func TestPairPage_NotFound(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "pair page returns 404 for unknown pair",
 		Method:          http.MethodGet,
 		URL:             "/pair/nonexistent",
@@ -92,10 +94,10 @@ func TestPairPage_NotFound(t *testing.T) {
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		u := makeUserTB(tb, app, "Viewer", "viewer@test.local")
+		setupProductionRoutes(tb, app, e)
+		u := handlers.MakeUserTB(tb, app, "Viewer", "viewer@test.local")
 		user, _ := app.FindRecordById("users", u.Id)
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 
 	s.Test(t)

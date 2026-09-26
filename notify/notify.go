@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
@@ -22,6 +23,12 @@ type Notifier struct {
 	httpClient      *http.Client
 	save            func(*core.Record) error
 	delete          func(*core.Record) error
+
+	// pushWG tracks in-flight sendPush goroutines fired from deliver, so
+	// tests can drain them (WaitPush) before tearing down the app. Without
+	// this, a push goroutine can still be running FindRecordsByFilter
+	// against app after a test's TestApp has closed its DB, segfaulting.
+	pushWG sync.WaitGroup
 }
 
 // NewNotifier creates a Notifier with the given VAPID keys for web push.
@@ -34,6 +41,14 @@ func NewNotifier(app core.App, vapidPublicKey, vapidPrivateKey string) *Notifier
 		save:            func(rec *core.Record) error { return app.Save(rec) },
 		delete:          func(rec *core.Record) error { return app.Delete(rec) },
 	}
+}
+
+// WaitPush blocks until every in-flight push goroutine fired by deliver has
+// finished. Production has no caller for this (the process outlives its
+// pushes); tests call it before asserting or before the TestApp closes, so a
+// background sendPush can never observe a torn-down app.
+func (n *Notifier) WaitPush() {
+	n.pushWG.Wait()
 }
 
 // PushEnabled reports whether VAPID keys are configured for web push.
@@ -101,7 +116,11 @@ func (n *Notifier) deliver(notifCol *core.Collection, user *core.Record, notif l
 		slog.Error(saveFailMsg, "user", user.Id, "err", err)
 	}
 	if PushChannelEnabled(user) {
-		go n.sendPush(user.Id, notif.Title, notif.Body, link)
+		n.pushWG.Add(1)
+		go func() {
+			defer n.pushWG.Done()
+			n.sendPush(user.Id, notif.Title, notif.Body, link)
+		}()
 	}
 	n.emailNotification(user, notif, link)
 }

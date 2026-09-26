@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"bytes"
@@ -13,6 +13,8 @@ import (
 	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/handlers"
 )
 
 func multipartLogoBody(t testing.TB, imgBytes []byte) (*bytes.Buffer, string) {
@@ -39,28 +41,30 @@ func TestLogoUpload_NonAdminRejected(t *testing.T) {
 	t.Parallel()
 	var compID string
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/logo as a non-admin is redirected",
 		Method:         http.MethodPost,
 		ExpectedStatus: 302,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "Logo A")
-		p2 := makePairTB(tb, app, "Logo B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "Logo A")
+		p2 := handlers.MakePairTB(tb, app, "Logo B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/logo"
 
-		user := makeUserTB(tb, app, "Regular Player", "")
+		user := handlers.MakeUserTB(tb, app, "Regular Player", "")
 		body, contentType := multipartLogoBody(tb, testPNGBytes(tb, 100, 100))
 		s.Body = body
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = contentType
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
-		assert.Contains(tb, res.Header.Get("Location"), "/login")
+		// RequireAppAdmin always redirects non-admins to "/" — it has no
+		// HTMX-aware inline-message path (middleware/admin.go).
+		assert.Equal(tb, "/", res.Header.Get("Location"))
 		comp, err := app.FindRecordById("competitions", compID)
 		require.NoError(tb, err)
 		assert.Empty(tb, comp.GetString("logo"))
@@ -71,7 +75,7 @@ func TestLogoUpload_NonAdminRejected(t *testing.T) {
 func TestLogoUpload_MissingCompetitionRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/logo with an unknown competition id",
 		Method:         http.MethodPost,
 		URL:            "/admin/competitions/does-not-exist/logo",
@@ -81,11 +85,11 @@ func TestLogoUpload_MissingCompetitionRejected(t *testing.T) {
 		},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
 		body, contentType := multipartLogoBody(tb, testPNGBytes(tb, 100, 100))
 		s.Body = body
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = contentType
 		s.Headers = hdrs
 	}
@@ -96,18 +100,18 @@ func TestLogoUpload_NoFileRejected(t *testing.T) {
 	t.Parallel()
 	var compID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions/{id}/logo with no file",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Selecciona una imagen"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "Logo A")
-		p2 := makePairTB(tb, app, "Logo B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "Logo A")
+		p2 := handlers.MakePairTB(tb, app, "Logo B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/logo"
 
@@ -115,7 +119,7 @@ func TestLogoUpload_NoFileRejected(t *testing.T) {
 		w := multipart.NewWriter(&buf)
 		require.NoError(tb, w.Close())
 		s.Body = &buf
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = w.FormDataContentType()
 		s.Headers = hdrs
 	}
@@ -131,18 +135,18 @@ func TestLogoUpload_NonImageRejected(t *testing.T) {
 	t.Parallel()
 	var compID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions/{id}/logo with a non-image file is rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"El archivo debe ser una imagen"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "Logo A")
-		p2 := makePairTB(tb, app, "Logo B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "Logo A")
+		p2 := handlers.MakePairTB(tb, app, "Logo B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/logo"
 
@@ -155,7 +159,7 @@ func TestLogoUpload_NonImageRejected(t *testing.T) {
 		require.NoError(tb, w.Close())
 
 		s.Body = &buf
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = w.FormDataContentType()
 		s.Headers = hdrs
 	}
@@ -171,25 +175,25 @@ func TestLogoUpload_OversizedFileRejected(t *testing.T) {
 	t.Parallel()
 	var compID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions/{id}/logo with a file over 5MB is rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"La imagen no puede superar los 5 MB"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "Logo A")
-		p2 := makePairTB(tb, app, "Logo B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "Logo A")
+		p2 := handlers.MakePairTB(tb, app, "Logo B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/logo"
 
-		oversized := make([]byte, avatarMaxUploadSize+1)
+		oversized := make([]byte, handlers.AvatarMaxUploadSize+1)
 		body, contentType := multipartLogoBody(tb, oversized)
 		s.Body = body
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = contentType
 		s.Headers = hdrs
 	}
@@ -205,18 +209,18 @@ func TestLogoUpload_InvalidImageBytesRejected(t *testing.T) {
 	t.Parallel()
 	var compID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions/{id}/logo with garbage bytes claiming to be an image",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Imagen no válida"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "Logo A")
-		p2 := makePairTB(tb, app, "Logo B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "Logo A")
+		p2 := handlers.MakePairTB(tb, app, "Logo B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/logo"
 
@@ -224,7 +228,7 @@ func TestLogoUpload_InvalidImageBytesRejected(t *testing.T) {
 		// so it passes the Content-Type prefix check and fails decoding.
 		body, contentType := multipartLogoBodyWithType(tb, []byte("not actually a png"), "fake.png", "image/png")
 		s.Body = body
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = contentType
 		s.Headers = hdrs
 	}
@@ -240,23 +244,23 @@ func TestLogoUpload_ValidImageSavesAndRedirects(t *testing.T) {
 	t.Parallel()
 	var compID string
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/logo with a valid image sets the logo and redirects",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "Logo A")
-		p2 := makePairTB(tb, app, "Logo B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "Logo A")
+		p2 := handlers.MakePairTB(tb, app, "Logo B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/logo"
 
 		body, contentType := multipartLogoBody(tb, testPNGBytes(tb, 800, 600))
 		s.Body = body
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = contentType
 		s.Headers = hdrs
 	}
@@ -273,20 +277,20 @@ func TestLogoDelete_ClearsLogoAndRedirects(t *testing.T) {
 	t.Parallel()
 	var compID string
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/logo/delete clears the logo and redirects",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "Logo A")
-		p2 := makePairTB(tb, app, "Logo B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "Logo A")
+		p2 := handlers.MakePairTB(tb, app, "Logo B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/logo/delete"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 
 		f, err := filesystem.NewFileFromBytes([]byte("fake-logo-bytes"), "logo.png")
 		require.NoError(tb, err)
@@ -305,7 +309,7 @@ func TestLogoDelete_ClearsLogoAndRedirects(t *testing.T) {
 func TestLogoDelete_MissingCompetitionRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions/{id}/logo/delete with an unknown competition id",
 		Method:          http.MethodPost,
 		URL:             "/admin/competitions/does-not-exist/logo/delete",
@@ -313,31 +317,31 @@ func TestLogoDelete_MissingCompetitionRejected(t *testing.T) {
 		ExpectedContent: []string{"Competición no encontrada"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
 
 // TestLogoUpload_ExifOrientationCorrected proves the competition logo
-// upload reuses the same compressAvatar pipeline as player avatars — EXIF
+// upload reuses the same handlers.CompressAvatar pipeline as player avatars — EXIF
 // orientation correction included — rather than a divergent code path.
 func TestLogoUpload_ExifOrientationCorrected(t *testing.T) {
 	t.Parallel()
 	var compID string
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/logo with EXIF orientation 6 rotates the image upright",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "Logo A")
-		p2 := makePairTB(tb, app, "Logo B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "Logo A")
+		p2 := handlers.MakePairTB(tb, app, "Logo B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/logo"
 
@@ -347,7 +351,7 @@ func TestLogoUpload_ExifOrientationCorrected(t *testing.T) {
 		jpegBytes := testJPEGWithOrientation(tb, 200, 100, 6)
 		body, contentType := multipartLogoBodyWithType(tb, jpegBytes, "logo.jpg", "image/jpeg")
 		s.Body = body
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = contentType
 		s.Headers = hdrs
 	}
@@ -373,6 +377,6 @@ func TestLogoUpload_ExifOrientationCorrected(t *testing.T) {
 		assert.Greater(tb, topR, topB, "top of the corrected image should be the red half")
 		assert.Greater(tb, bottomB, bottomR, "bottom of the corrected image should be the blue half")
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }

@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"net/http"
@@ -8,27 +8,22 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 
-	"padelleague/middleware"
+	"padelleague/handlers"
 )
-
-func setupViewRoute(_ testing.TB, _ *tests.TestApp, e *core.ServeEvent) {
-	h := NewViewHandler()
-	e.Router.GET("/view/{mode}", h.Switch).BindFunc(middleware.RequireAuth)
-}
 
 func TestViewSwitch_ValidRefererRedirectsBack(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "view switch redirects to the Referer path",
 		Method:         http.MethodGet,
 		URL:            "/view/player",
 		ExpectedStatus: 302,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupViewRoute(tb, app, e)
-		user := makeUserTB(tb, app, "View Switch User", "")
-		s.Headers = authHeaders(tb, user)
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "View Switch User", "")
+		s.Headers = handlers.AuthHeaders(tb, user)
 		s.Headers["Referer"] = "/competition/abc123"
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
@@ -40,16 +35,16 @@ func TestViewSwitch_ValidRefererRedirectsBack(t *testing.T) {
 func TestViewSwitch_ExternalRefererFallsBackToHome(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "view switch rejects an off-site Referer (open redirect)",
 		Method:         http.MethodGet,
 		URL:            "/view/player",
 		ExpectedStatus: 302,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupViewRoute(tb, app, e)
-		user := makeUserTB(tb, app, "View Switch User 2", "")
-		s.Headers = authHeaders(tb, user)
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "View Switch User 2", "")
+		s.Headers = handlers.AuthHeaders(tb, user)
 		s.Headers["Referer"] = "https://evil.example.com/phish"
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
@@ -61,16 +56,16 @@ func TestViewSwitch_ExternalRefererFallsBackToHome(t *testing.T) {
 func TestViewSwitch_ProtocolRelativeRefererFallsBackToHome(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "view switch rejects a protocol-relative Referer (open redirect)",
 		Method:         http.MethodGet,
 		URL:            "/view/player",
 		ExpectedStatus: 302,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupViewRoute(tb, app, e)
-		user := makeUserTB(tb, app, "View Switch User 3", "")
-		s.Headers = authHeaders(tb, user)
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "View Switch User 3", "")
+		s.Headers = handlers.AuthHeaders(tb, user)
 		s.Headers["Referer"] = "//evil.example.com/phish"
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {

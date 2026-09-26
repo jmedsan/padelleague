@@ -1,8 +1,7 @@
-package handlers
+package handlers_test
 
 import (
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 
@@ -11,48 +10,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"padelleague/league"
-	"padelleague/middleware"
-	"padelleague/notify"
-	"padelleague/render"
+	"padelleague/handlers"
 )
-
-func setupPublicRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-	viewsFS := os.DirFS("..")
-	r := render.New(viewsFS, "", true)
-	notifier := notify.NewNotifier(app, "", "")
-	svc := league.New(app, notifier)
-
-	e.Router.BindFunc(middleware.CookieAuth)
-
-	auth := NewAuthHandler(app, notifier, r.Page)
-	e.Router.GET("/login", auth.Login)
-	e.Router.GET("/profile/complete", auth.ProfileComplete).BindFunc(requireAuthTest)
-	e.Router.POST("/profile/complete", auth.ProfileCompleteSubmit).BindFunc(requireAuthTest)
-
-	pub := NewPublicHandler(app, svc, PublicRenderers{Page: r.Page, ErrorPage: r.ErrorPage})
-	e.Router.GET("/", pub.Home).BindFunc(requireAuthTest)
-	e.Router.GET("/competition/{id}", pub.Competition).BindFunc(requireAuthTest)
-	e.Router.POST("/competition/{id}/accept-docs", pub.AcceptDocs).BindFunc(requireAuthTest)
-
-	player := NewPlayerHandler(app, svc, PlayerRenderers{Page: r.Page, Partial: r.Partial, ErrorPage: r.ErrorPage})
-	e.Router.GET("/player/{id}", player.Player).BindFunc(requireAuthTest)
-	e.Router.POST("/player/{id}/avatar", player.PlayerAvatarUpload).BindFunc(requireAuthTest)
-	e.Router.POST("/player/{id}/name", player.PlayerNameUpdate).BindFunc(requireAuthTest)
-	e.Router.POST("/player/{id}/password", player.PlayerPasswordUpdate).BindFunc(requireAuthTest)
-
-	pair := NewPairPageHandler(app, svc, r.Page, r.ErrorPage)
-	e.Router.GET("/pair/{id}", pair.PairPage).BindFunc(requireAuthTest)
-
-	ical := NewICalHandler(app)
-	e.Router.GET("/ical/match/{id}", ical.Match).BindFunc(requireAuthTest)
-	e.Router.GET("/ical/competition/{id}", ical.Competition).BindFunc(requireAuthTest)
-}
 
 func TestHomeWithAuth(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET / with auth returns home with player name",
 		Method:          http.MethodGet,
 		URL:             "/",
@@ -60,9 +24,9 @@ func TestHomeWithAuth(t *testing.T) {
 		ExpectedContent: []string{"Home Player"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Home Player", "")
-		s.Headers = authHeaders(tb, user)
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Home Player", "")
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -70,7 +34,7 @@ func TestHomeWithAuth(t *testing.T) {
 func TestHome_DraftCalendarSuppressesMatchDerivedData(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:     testAppFactory,
+		TestAppFactory:     handlers.TestAppFactory,
 		Name:               "GET / shows the competition card but no upcoming matches while the calendar is draft",
 		Method:             http.MethodGet,
 		URL:                "/",
@@ -79,17 +43,17 @@ func TestHome_DraftCalendarSuppressesMatchDerivedData(t *testing.T) {
 		NotExpectedContent: []string{"Próximos partidos"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "DraftHomeA")
-		p2 := makePairTB(tb, app, "DraftHomeB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "DraftHomeA")
+		p2 := handlers.MakePairTB(tb, app, "DraftHomeB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("name", "Draft Home League")
 		comp.Set("calendar_status", "draft")
 		require.NoError(tb, app.Save(comp))
-		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -97,24 +61,24 @@ func TestHome_DraftCalendarSuppressesMatchDerivedData(t *testing.T) {
 func TestCompetitionPage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /competition/{id} shows pair names",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"CompA", "CompB", "Clasificación"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "CompA")
-		p2 := makePairTB(tb, app, "CompB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "CompA")
+		p2 := handlers.MakePairTB(tb, app, "CompB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
 		m.Set("scores", "6-3 6-3")
 		m.Set("winner", p1.Id)
 		require.NoError(tb, app.Save(m))
 		s.URL = "/competition/" + comp.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -122,7 +86,7 @@ func TestCompetitionPage(t *testing.T) {
 func TestCompetitionPage_DraftCalendarHidesRoundsAndStandings(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:     testAppFactory,
+		TestAppFactory:     handlers.TestAppFactory,
 		Name:               "GET /competition/{id} shows no rounds/standings while the calendar is draft",
 		Method:             http.MethodGet,
 		ExpectedStatus:     200,
@@ -130,19 +94,19 @@ func TestCompetitionPage_DraftCalendarHidesRoundsAndStandings(t *testing.T) {
 		NotExpectedContent: []string{"J1", "6-3"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "DraftCompA")
-		p2 := makePairTB(tb, app, "DraftCompB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "DraftCompA")
+		p2 := handlers.MakePairTB(tb, app, "DraftCompB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("calendar_status", "draft")
 		require.NoError(tb, app.Save(comp))
-		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+		m := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
 		m.Set("scores", "6-3 6-3")
 		m.Set("winner", p1.Id)
 		require.NoError(tb, app.Save(m))
 		s.URL = "/competition/" + comp.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -150,27 +114,27 @@ func TestCompetitionPage_DraftCalendarHidesRoundsAndStandings(t *testing.T) {
 func TestCompetitionDefaultShowsAllPairs(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /competition/{id} with no pair filter shows every pair's matches",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"MineA", "MineB"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "MineA")
-		p2 := makePairTB(tb, app, "MineB")
-		p3 := makePairTB(tb, app, "OtherC")
-		p4 := makePairTB(tb, app, "OtherD")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3, p4})
-		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		makeMatchTB(tb, app, comp.Id, p3.Id, p4.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "MineA")
+		p2 := handlers.MakePairTB(tb, app, "MineB")
+		p3 := handlers.MakePairTB(tb, app, "OtherC")
+		p4 := handlers.MakePairTB(tb, app, "OtherD")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3, p4})
+		handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		handlers.MakeMatchTB(tb, app, comp.Id, p3.Id, p4.Id, "pending")
 		s.URL = "/competition/" + comp.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		matchLinks := strings.Count(body, "href=\"/match/")
 		assert.Equal(tb, 2, matchLinks, "both matches shown by default")
 		assert.Contains(tb, body, "Todas las parejas")
@@ -181,7 +145,7 @@ func TestCompetitionDefaultShowsAllPairs(t *testing.T) {
 func TestCompetitionPairFilterShowsOnlyThatPair(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /competition/{id}?pair=<id> shows only that pair's matches",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -189,20 +153,20 @@ func TestCompetitionPairFilterShowsOnlyThatPair(t *testing.T) {
 	}
 	var wantMatchID, otherMatchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "FilterA")
-		p2 := makePairTB(tb, app, "FilterB")
-		p3 := makePairTB(tb, app, "FilterC")
-		p4 := makePairTB(tb, app, "FilterD")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3, p4})
-		wantMatchID = makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending").Id
-		otherMatchID = makeMatchTB(tb, app, comp.Id, p3.Id, p4.Id, "pending").Id
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "FilterA")
+		p2 := handlers.MakePairTB(tb, app, "FilterB")
+		p3 := handlers.MakePairTB(tb, app, "FilterC")
+		p4 := handlers.MakePairTB(tb, app, "FilterD")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3, p4})
+		wantMatchID = handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending").Id
+		otherMatchID = handlers.MakeMatchTB(tb, app, comp.Id, p3.Id, p4.Id, "pending").Id
 		s.URL = "/competition/" + comp.Id + "?pair=" + p1.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		matchLinks := strings.Count(body, "href=\"/match/")
 		assert.Equal(tb, 1, matchLinks, "only the filtered pair's match")
 		assert.Contains(tb, body, "/match/"+wantMatchID)
@@ -214,24 +178,24 @@ func TestCompetitionPairFilterShowsOnlyThatPair(t *testing.T) {
 func TestCompetitionPairFilterInvalidIDIgnored(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /competition/{id}?pair=<invalid> falls back to showing all pairs",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Liga Dale Fuerte"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "InvA")
-		p2 := makePairTB(tb, app, "InvB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "InvA")
+		p2 := handlers.MakePairTB(tb, app, "InvB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		s.URL = "/competition/" + comp.Id + "?pair=nonexistent-pair-id"
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		matchLinks := strings.Count(body, "href=\"/match/")
 		assert.Equal(tb, 1, matchLinks, "invalid pair id ignored, falls back to showing all (only one match exists)")
 		assert.Contains(tb, body, "Todas las parejas")
@@ -242,26 +206,26 @@ func TestCompetitionPairFilterInvalidIDIgnored(t *testing.T) {
 func TestCompetitionPairOptionsOrder(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /competition/{id} lists own pair(s) first, others alphabetically",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Todas las parejas", "Otras parejas"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		own := makePairTB(tb, app, "Zeta Own Pair")
-		zebra := makePairTB(tb, app, "Zebra Pair")
-		alpha := makePairTB(tb, app, "Ábaco Pair")
-		mid := makePairTB(tb, app, "Medio Pair")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{own, zebra, alpha, mid})
-		makeMatchTB(tb, app, comp.Id, own.Id, zebra.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		own := handlers.MakePairTB(tb, app, "Zeta Own Pair")
+		zebra := handlers.MakePairTB(tb, app, "Zebra Pair")
+		alpha := handlers.MakePairTB(tb, app, "Ábaco Pair")
+		mid := handlers.MakePairTB(tb, app, "Medio Pair")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{own, zebra, alpha, mid})
+		handlers.MakeMatchTB(tb, app, comp.Id, own.Id, zebra.Id, "pending")
 		s.URL = "/competition/" + comp.Id
 		user, _ := app.FindRecordById("users", own.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		optAll := strings.Index(body, "Todas las parejas")
 		optOwn := strings.Index(body, "★ Zeta Own Pair")
 		optAbaco := strings.Index(body, ">Ábaco Pair<")
@@ -282,17 +246,17 @@ func TestCompetitionPairOptionsOrder(t *testing.T) {
 func TestPlayerProfilePage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /player/{id} shows display name",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Profile Viewer"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Profile Viewer", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Profile Viewer", "")
 		s.URL = "/player/" + user.Id
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -300,24 +264,24 @@ func TestPlayerProfilePage(t *testing.T) {
 func TestICalMatch(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /ical/match/{id} with date returns ics",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"VCALENDAR"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "IcalA")
-		p2 := makePairTB(tb, app, "IcalB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "IcalA")
+		p2 := handlers.MakePairTB(tb, app, "IcalB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("date", "2026-09-01")
 		match.Set("time", "18:00")
 		require.NoError(tb, app.Save(match))
 		s.URL = "/ical/match/" + match.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -325,24 +289,24 @@ func TestICalMatch(t *testing.T) {
 func TestICalCompetition(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /ical/competition/{id} with auth returns ics",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"VCALENDAR"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "IcalCompA")
-		p2 := makePairTB(tb, app, "IcalCompB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "IcalCompA")
+		p2 := handlers.MakePairTB(tb, app, "IcalCompB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("date", "2026-09-01")
 		match.Set("time", "18:00")
 		require.NoError(tb, app.Save(match))
 		s.URL = "/ical/competition/" + comp.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -350,7 +314,7 @@ func TestICalCompetition(t *testing.T) {
 func TestProfileCompletePage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /profile/complete shows name form",
 		Method:          http.MethodGet,
 		URL:             "/profile/complete",
@@ -358,9 +322,9 @@ func TestProfileCompletePage(t *testing.T) {
 		ExpectedContent: []string{"display_name"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Profile User", "")
-		s.Headers = authHeaders(tb, user)
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Profile User", "")
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -368,7 +332,7 @@ func TestProfileCompletePage(t *testing.T) {
 func TestProfileCompleteSubmit(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /profile/complete sets display name",
 		Method:         http.MethodPost,
 		URL:            "/profile/complete",
@@ -377,10 +341,10 @@ func TestProfileCompleteSubmit(t *testing.T) {
 	}
 	var userID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Old Name", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Old Name", "")
 		userID = user.Id
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -396,17 +360,17 @@ func TestProfileCompleteSubmit(t *testing.T) {
 func TestCompetitionNotFound(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /competition/{id} with bad ID returns error",
 		Method:          http.MethodGet,
 		ExpectedStatus:  404,
 		ExpectedContent: []string{"no encontrada"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "NotFound Viewer", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "NotFound Viewer", "")
 		s.URL = "/competition/nonexistent_id"
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -414,20 +378,20 @@ func TestCompetitionNotFound(t *testing.T) {
 func TestCompetitionPlayoffNoStandings(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /competition/{id} playoff has no standings",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"PlayA"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "PlayA")
-		p2 := makePairTB(tb, app, "PlayB")
-		comp := makeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "PlayA")
+		p2 := handlers.MakePairTB(tb, app, "PlayB")
+		comp := handlers.MakeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2})
 		s.URL = "/competition/" + comp.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -435,22 +399,22 @@ func TestCompetitionPlayoffNoStandings(t *testing.T) {
 func TestCompetitionArchivedShowsAwards(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /competition/{id} archived shows awards section",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Archivada"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "ArcA")
-		p2 := makePairTB(tb, app, "ArcB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "ArcA")
+		p2 := handlers.MakePairTB(tb, app, "ArcB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("active", false)
 		require.NoError(tb, app.Save(comp))
 		s.URL = "/competition/" + comp.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }

@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"net/http"
@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/handlers"
 	"padelleague/league"
 )
 
@@ -22,19 +23,19 @@ type cardActions struct {
 
 func TestNewMatchCardActions(t *testing.T) {
 	t.Parallel()
-	app := newTestApp(t)
-	p1 := makePairTB(t, app, "Card A")
-	p2 := makePairTB(t, app, "Card B")
-	outsider := makeUserTB(t, app, "Card Outsider", "")
-	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
-	match := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
+	app := handlers.NewTestApp(t)
+	p1 := handlers.MakePairTB(t, app, "Card A")
+	p2 := handlers.MakePairTB(t, app, "Card B")
+	outsider := handlers.MakeUserTB(t, app, "Card Outsider", "")
+	comp := handlers.MakeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
+	match := handlers.MakeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
 	match.Set("date", "2026-09-01")
 	match.Set("club", "Padel 360")
 	require.NoError(t, app.Save(match))
 
 	cases := []struct {
 		name      string
-		mode      Mode
+		mode      handlers.Mode
 		status    string
 		viewerID  string
 		submitted bool
@@ -43,14 +44,14 @@ func TestNewMatchCardActions(t *testing.T) {
 	}{
 		{
 			name:     "player pending participant can submit edit and report walkover",
-			mode:     PlayerFull,
+			mode:     handlers.PlayerFull,
 			status:   "pending",
 			viewerID: p1.GetString("player1"),
 			want:     cardActions{submit: true, edit: true, walkover: true},
 		},
 		{
 			name:      "player confirmed submitter can correct and report walkover",
-			mode:      PlayerFull,
+			mode:      handlers.PlayerFull,
 			status:    "confirmed",
 			viewerID:  p1.GetString("player1"),
 			submitted: true,
@@ -59,7 +60,7 @@ func TestNewMatchCardActions(t *testing.T) {
 		},
 		{
 			name:      "player confirmed opponent can report walkover",
-			mode:      PlayerFull,
+			mode:      handlers.PlayerFull,
 			status:    "confirmed",
 			viewerID:  p2.GetString("player1"),
 			submitted: true,
@@ -67,14 +68,14 @@ func TestNewMatchCardActions(t *testing.T) {
 		},
 		{
 			name:     "admin summary has no player actions",
-			mode:     AdminSummary,
+			mode:     handlers.AdminSummary,
 			status:   "pending",
 			viewerID: p1.GetString("player1"),
 			want:     cardActions{},
 		},
 		{
 			name:      "admin full has no player actions",
-			mode:      AdminFull,
+			mode:      handlers.AdminFull,
 			status:    "confirmed",
 			viewerID:  p2.GetString("player1"),
 			submitted: true,
@@ -82,7 +83,7 @@ func TestNewMatchCardActions(t *testing.T) {
 		},
 		{
 			name:     "player outsider has no actions",
-			mode:     PlayerFull,
+			mode:     handlers.PlayerFull,
 			status:   "pending",
 			viewerID: outsider.Id,
 			want:     cardActions{},
@@ -92,7 +93,7 @@ func TestNewMatchCardActions(t *testing.T) {
 			// confirm/dispute/correct — guards the `team > 0` boundary on the
 			// confirmed path that a pending-only outsider case cannot reach.
 			name:      "player outsider on confirmed match has no actions",
-			mode:      PlayerFull,
+			mode:      handlers.PlayerFull,
 			status:    "confirmed",
 			viewerID:  outsider.Id,
 			submitted: true,
@@ -114,7 +115,7 @@ func TestNewMatchCardActions(t *testing.T) {
 			}
 			require.NoError(t, app.Save(match))
 
-			card := NewMatchCard(app, match, tc.mode, tc.viewerID)
+			card := handlers.NewMatchCard(app, match, tc.mode, tc.viewerID)
 			assert.Equal(t, tc.want, cardActions{
 				submit:   card.CanSubmit,
 				edit:     card.CanEdit,
@@ -128,7 +129,7 @@ func TestNewMatchCardActions(t *testing.T) {
 func TestMatchCardPlayerModeHidesAdminControls(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:     testAppFactory,
+		TestAppFactory:     handlers.TestAppFactory,
 		Name:               "player match card has no admin controls",
 		Method:             http.MethodGet,
 		ExpectedStatus:     http.StatusOK,
@@ -136,11 +137,11 @@ func TestMatchCardPlayerModeHidesAdminControls(t *testing.T) {
 		NotExpectedContent: []string{"Resolver", "Aprobar incomparecencia", "Corrección de administrador"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "Player Card A")
-		p2 := makePairTB(tb, app, "Player Card B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "Player Card A")
+		p2 := handlers.MakePairTB(tb, app, "Player Card B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
 		match.Set("scores", "6-3 6-4")
 		match.Set("submitted_by", p1.GetString("player1"))
 		match.Set("disputed_by", p2.GetString("player1"))
@@ -149,7 +150,7 @@ func TestMatchCardPlayerModeHidesAdminControls(t *testing.T) {
 		s.URL = "/match/" + match.Id
 		player, err := app.FindRecordById("users", p1.GetString("player1"))
 		require.NoError(tb, err)
-		s.Headers = authHeaders(tb, player)
+		s.Headers = handlers.AuthHeaders(tb, player)
 	}
 	s.Test(t)
 }
@@ -157,7 +158,7 @@ func TestMatchCardPlayerModeHidesAdminControls(t *testing.T) {
 func TestMatchCardAdminSummaryIsReadOnly(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:     testAppFactory,
+		TestAppFactory:     handlers.TestAppFactory,
 		Name:               "admin home dispute row is a compact link, not an editable match card",
 		Method:             http.MethodGet,
 		URL:                "/admin/competitions",
@@ -166,19 +167,19 @@ func TestMatchCardAdminSummaryIsReadOnly(t *testing.T) {
 		NotExpectedContent: []string{"Resolver", "Aprobar incomparecencia", "Corrección de administrador"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "Summary A")
-		p2 := makePairTB(tb, app, "Summary B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "Summary A")
+		p2 := handlers.MakePairTB(tb, app, "Summary B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("name", "Summary League")
 		require.NoError(tb, app.Save(comp))
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
 		match.Set("scores", "6-3 6-4")
 		match.Set("submitted_by", p1.GetString("player1"))
 		match.Set("disputed_by", p2.GetString("player1"))
 		match.Set("disputed_scores", "6-4 6-3")
 		require.NoError(tb, app.Save(match))
-		s.Headers = authHeaders(tb, makeAdminUserTB(tb, app))
+		s.Headers = handlers.AuthHeaders(tb, handlers.MakeAdminUserTB(tb, app))
 	}
 	s.Test(t)
 }
@@ -186,18 +187,18 @@ func TestMatchCardAdminSummaryIsReadOnly(t *testing.T) {
 func TestMatchCardAdminFullShowsScoresAndResolveEndpoint(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "admin thread panel shows both scores and resolve endpoint",
 		Method:          http.MethodGet,
 		ExpectedStatus:  http.StatusOK,
 		ExpectedContent: []string{"Resolver", "Full A", "Full B"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "Full A")
-		p2 := makePairTB(tb, app, "Full B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "Full A")
+		p2 := handlers.MakePairTB(tb, app, "Full B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
 		match.Set("scores", "6-3 6-4")
 		match.Set("submitted_by", p1.GetString("player1"))
 		match.Set("disputed_by", p2.GetString("player1"))
@@ -206,7 +207,7 @@ func TestMatchCardAdminFullShowsScoresAndResolveEndpoint(t *testing.T) {
 		// The single result panel (with the resolve endpoint) is in the thread fragment.
 		s.URL = "/match/" + match.Id + "/thread"
 		s.ExpectedContent = append(s.ExpectedContent, `hx-post="/admin/disputes/`+match.Id+`/resolve"`)
-		s.Headers = authHeaders(tb, makeAdminUserTB(tb, app))
+		s.Headers = handlers.AuthHeaders(tb, handlers.MakeAdminUserTB(tb, app))
 	}
 	s.Test(t)
 }
@@ -214,10 +215,10 @@ func TestMatchCardAdminFullShowsScoresAndResolveEndpoint(t *testing.T) {
 func TestMatchCardCrossRoleLeakGuard(t *testing.T) {
 	t.Parallel()
 
-	t.Run("PlayerFull disputed match has no admin forms", func(t *testing.T) {
+	t.Run("handlers.PlayerFull disputed match has no admin forms", func(t *testing.T) {
 		t.Parallel()
 		s := &tests.ApiScenario{
-			TestAppFactory:  testAppFactory,
+			TestAppFactory:  handlers.TestAppFactory,
 			Name:            "player full has no admin resolve or walkover-approve or override forms",
 			Method:          http.MethodGet,
 			ExpectedStatus:  http.StatusOK,
@@ -231,11 +232,11 @@ func TestMatchCardCrossRoleLeakGuard(t *testing.T) {
 			},
 		}
 		s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-			setupAllRoutes(tb, app, e)
-			p1 := makePairTB(tb, app, "Leak Guard A")
-			p2 := makePairTB(tb, app, "Leak Guard B")
-			comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-			match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+			setupProductionRoutes(tb, app, e)
+			p1 := handlers.MakePairTB(tb, app, "Leak Guard A")
+			p2 := handlers.MakePairTB(tb, app, "Leak Guard B")
+			comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+			match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
 			match.Set("scores", "6-3 6-4")
 			match.Set("submitted_by", p1.GetString("player1"))
 			match.Set("disputed_by", p2.GetString("player1"))
@@ -246,15 +247,15 @@ func TestMatchCardCrossRoleLeakGuard(t *testing.T) {
 			s.URL = "/match/" + match.Id
 			player, err := app.FindRecordById("users", p2.GetString("player1"))
 			require.NoError(tb, err)
-			s.Headers = authHeaders(tb, player)
+			s.Headers = handlers.AuthHeaders(tb, player)
 		}
 		s.Test(t)
 	})
 
-	t.Run("AdminFull disputed match has no player submit or confirm forms", func(t *testing.T) {
+	t.Run("handlers.AdminFull disputed match has no player submit or confirm forms", func(t *testing.T) {
 		t.Parallel()
 		s := &tests.ApiScenario{
-			TestAppFactory:  testAppFactory,
+			TestAppFactory:  handlers.TestAppFactory,
 			Name:            "admin full has no player submit or confirm forms",
 			Method:          http.MethodGet,
 			ExpectedStatus:  http.StatusOK,
@@ -267,11 +268,11 @@ func TestMatchCardCrossRoleLeakGuard(t *testing.T) {
 			},
 		}
 		s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-			setupAllRoutes(tb, app, e)
-			p1 := makePairTB(tb, app, "Leak Admin A")
-			p2 := makePairTB(tb, app, "Leak Admin B")
-			comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-			match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+			setupProductionRoutes(tb, app, e)
+			p1 := handlers.MakePairTB(tb, app, "Leak Admin A")
+			p2 := handlers.MakePairTB(tb, app, "Leak Admin B")
+			comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+			match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
 			match.Set("scores", "6-3 6-4")
 			match.Set("submitted_by", p1.GetString("player1"))
 			match.Set("disputed_by", p2.GetString("player1"))
@@ -279,7 +280,7 @@ func TestMatchCardCrossRoleLeakGuard(t *testing.T) {
 			require.NoError(tb, app.Save(match))
 			// The single result panel (resolve for admin) is in the thread fragment.
 			s.URL = "/match/" + match.Id + "/thread"
-			s.Headers = authHeaders(tb, makeAdminUserTB(tb, app))
+			s.Headers = handlers.AuthHeaders(tb, handlers.MakeAdminUserTB(tb, app))
 		}
 		s.Test(t)
 	})
@@ -288,7 +289,7 @@ func TestMatchCardCrossRoleLeakGuard(t *testing.T) {
 func TestMatchRowRendersOuterAnchorNoInnerLinks(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "competition fixture row is an outer anchor with no inner links",
 		Method:         http.MethodGet,
 		ExpectedStatus: http.StatusOK,
@@ -299,32 +300,32 @@ func TestMatchRowRendersOuterAnchorNoInnerLinks(t *testing.T) {
 		},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "Row Pair A")
-		p2 := makePairTB(tb, app, "Row Pair B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "Row Pair A")
+		p2 := handlers.MakePairTB(tb, app, "Row Pair B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		s.URL = "/competition/" + comp.Id
 		player, err := app.FindRecordById("users", p1.GetString("player1"))
 		require.NoError(tb, err)
-		s.Headers = authHeaders(tb, player)
+		s.Headers = handlers.AuthHeaders(tb, player)
 	}
 	s.Test(t)
 }
 
 func TestNewMatchRowFields(t *testing.T) {
 	t.Parallel()
-	app := newTestApp(t)
-	p1 := makePairTB(t, app, "MR A")
-	p2 := makePairTB(t, app, "MR B")
-	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
-	match := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
+	app := handlers.NewTestApp(t)
+	p1 := handlers.MakePairTB(t, app, "MR A")
+	p2 := handlers.MakePairTB(t, app, "MR B")
+	comp := handlers.MakeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
+	match := handlers.MakeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
 
 	pairNames := map[string]string{p1.Id: "MR A", p2.Id: "MR B"}
 	playerPairIDs := map[string]struct{}{p1.Id: {}}
 
-	mc := NewMatchRow(match, pairNames, playerPairIDs)
-	assert.Equal(t, PlayerRow, mc.Mode)
+	mc := handlers.NewMatchRow(match, pairNames, playerPairIDs)
+	assert.Equal(t, handlers.PlayerRow, mc.Mode)
 	assert.Equal(t, "MR A", mc.Pair1Name)
 	assert.Equal(t, "MR B", mc.Pair2Name)
 	assert.True(t, mc.IsMyMatch)
@@ -339,61 +340,61 @@ func TestNewMatchRowFields(t *testing.T) {
 func TestMatchDetailShowsPlaceholderForEmptyPlayoffPairs(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /match/{id} for an empty-pairs playoff match shows the Por definir placeholder",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Por definir", "Final"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "Feed A")
-		p2 := makePairTB(tb, app, "Feed B")
-		p3 := makePairTB(tb, app, "Feed C")
-		p4 := makePairTB(tb, app, "Feed D")
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "Feed A")
+		p2 := handlers.MakePairTB(tb, app, "Feed B")
+		p3 := handlers.MakePairTB(tb, app, "Feed C")
+		p4 := handlers.MakePairTB(tb, app, "Feed D")
 		comp := makePlayoffComp(tb, app, []*core.Record{p1, p2, p3, p4}, nil)
 
 		// Mirrors generatePlayoff's output: round 1 fully paired, round 2
 		// created empty pending round-1 winners.
-		makeMatchTB(tb, app, comp.Id, p1.Id, p4.Id, league.StatusPending)
-		makeMatchTB(tb, app, comp.Id, p2.Id, p3.Id, league.StatusPending)
-		round2 := makeMatchTB(tb, app, comp.Id, "", "", league.StatusPending)
+		handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p4.Id, league.StatusPending)
+		handlers.MakeMatchTB(tb, app, comp.Id, p2.Id, p3.Id, league.StatusPending)
+		round2 := handlers.MakeMatchTB(tb, app, comp.Id, "", "", league.StatusPending)
 		round2.Set("round_number", 2)
 		require.NoError(tb, app.Save(round2))
 
 		s.URL = "/match/" + round2.Id
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
 
 func TestPairPlayerLabel(t *testing.T) {
 	t.Parallel()
-	app := newTestApp(t)
+	app := handlers.NewTestApp(t)
 
-	p1 := makePairTB(t, app, "Label A")
-	p2 := makePairTB(t, app, "Label B")
-	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
-	match := makeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
+	p1 := handlers.MakePairTB(t, app, "Label A")
+	p2 := handlers.MakePairTB(t, app, "Label B")
+	comp := handlers.MakeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
+	match := handlers.MakeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
 
 	t.Run("team 1 player", func(t *testing.T) {
-		got := pairPlayerLabel(app, p1.GetString("player1"), match)
+		got := handlers.PairPlayerLabel(app, p1.GetString("player1"), match)
 		assert.Equal(t, "Label A P1 (Label A)", got)
 	})
 
 	t.Run("team 2 player", func(t *testing.T) {
-		got := pairPlayerLabel(app, p2.GetString("player1"), match)
+		got := handlers.PairPlayerLabel(app, p2.GetString("player1"), match)
 		assert.Equal(t, "Label B P1 (Label B)", got)
 	})
 
 	t.Run("empty user ID", func(t *testing.T) {
-		assert.Equal(t, "", pairPlayerLabel(app, "", match))
+		assert.Equal(t, "", handlers.PairPlayerLabel(app, "", match))
 	})
 
 	t.Run("admin non-participant returns bare name", func(t *testing.T) {
-		admin := makeAdminUserTB(t, app)
-		got := pairPlayerLabel(app, admin.Id, match)
+		admin := handlers.MakeAdminUserTB(t, app)
+		got := handlers.PairPlayerLabel(app, admin.Id, match)
 		assert.Equal(t, "Admin", got)
 	})
 }

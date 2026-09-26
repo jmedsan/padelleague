@@ -3,9 +3,9 @@
 // File: handlers/ical_api_test.go (or add to public_api_test.go)
 //
 // These tests parse the iCal output structurally rather than substring-matching.
-// Uses helpers: setupPublicRoutes, makePairTB, makeCompetitionTB, makeMatchTB, authHeaders
+// Uses helpers: setupProductionRoutes, handlers.MakePairTB, handlers.MakeCompetitionTB, handlers.MakeMatchTB, handlers.AuthHeaders
 
-package handlers
+package handlers_test
 
 import (
 	"net/http"
@@ -16,6 +16,8 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/handlers"
 )
 
 // DTSTART/DTEND carry a TZID parameter, so parseVEvents keys them by their
@@ -52,27 +54,27 @@ func parseVEvents(body string) []map[string]string {
 func TestICalMatch_Duration2Hours(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /ical/match/{id} event spans 2 hours",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"VCALENDAR"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "DurA")
-		p2 := makePairTB(tb, app, "DurB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "DurA")
+		p2 := handlers.MakePairTB(tb, app, "DurB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("date", "2026-09-15")
 		match.Set("time", "18:30")
 		require.NoError(tb, app.Save(match))
 		s.URL = "/ical/match/" + match.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events), "expected exactly one VEVENT")
 		ev := events[0]
@@ -89,27 +91,27 @@ func TestICalMatch_Duration2Hours(t *testing.T) {
 func TestICalMatch_DefaultTime1900(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /ical/match/{id} defaults to 19:00 when no time",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"VCALENDAR"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "DefA")
-		p2 := makePairTB(tb, app, "DefB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "DefA")
+		p2 := handlers.MakePairTB(tb, app, "DefB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("date", "2026-09-15")
 		// no time set
 		require.NoError(tb, app.Save(match))
 		s.URL = "/ical/match/" + match.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events))
 		assert.Equal(tb, "20260915T190000", events[0][dtStartKey])
@@ -123,33 +125,33 @@ func TestICalMatch_DefaultTime1900(t *testing.T) {
 func TestICalMatch_LocationFromClub(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /ical/match/{id} includes LOCATION with venue address",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"VCALENDAR"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		// Distinct from the migration-seeded "Padel 360" venue (no address),
 		// so the LOCATION lookup unambiguously matches this record.
-		venue := makeVenueTB(tb, app, "Padel Test Club")
+		venue := handlers.MakeVenueTB(tb, app, "Padel Test Club")
 		venue.Set("address", "Calle Falsa 123, Madrid")
 		require.NoError(tb, app.Save(venue))
-		p1 := makePairTB(tb, app, "LocA")
-		p2 := makePairTB(tb, app, "LocB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		p1 := handlers.MakePairTB(tb, app, "LocA")
+		p2 := handlers.MakePairTB(tb, app, "LocB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("date", "2026-09-15")
 		match.Set("time", "20:00")
 		match.Set("club", "Padel Test Club")
 		require.NoError(tb, app.Save(match))
 		s.URL = "/ical/match/" + match.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events))
 		assert.Equal(tb, `Padel Test Club\, Calle Falsa 123\, Madrid`, events[0]["LOCATION"])
@@ -157,7 +159,7 @@ func TestICalMatch_LocationFromClub(t *testing.T) {
 	s.Test(t)
 }
 
-// icsEscape escapes backslash, semicolon, and comma per RFC 5545 §3.3.11.
+// handlers.ICSEscape escapes backslash, semicolon, and comma per RFC 5545 §3.3.11.
 // Backslash must be escaped first, or a later semicolon/comma escape would
 // itself get double-escaped.
 
@@ -177,7 +179,7 @@ func TestIcsEscape(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tc.want, icsEscape(tc.in))
+			assert.Equal(t, tc.want, handlers.ICSEscape(tc.in))
 		})
 	}
 }
@@ -188,31 +190,31 @@ func TestIcsEscape(t *testing.T) {
 func TestICalMatch_LocationVenueWithoutAddress(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /ical/match/{id} falls back to club name when venue has no address",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"VCALENDAR"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		// Venue exists (unlike LocationFallsBackWithoutVenue) but its
 		// address field is left empty.
-		makeVenueTB(tb, app, "Bare Court")
-		p1 := makePairTB(tb, app, "LocBareA")
-		p2 := makePairTB(tb, app, "LocBareB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		handlers.MakeVenueTB(tb, app, "Bare Court")
+		p1 := handlers.MakePairTB(tb, app, "LocBareA")
+		p2 := handlers.MakePairTB(tb, app, "LocBareB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("date", "2026-09-15")
 		match.Set("time", "20:00")
 		match.Set("club", "Bare Court")
 		require.NoError(tb, app.Save(match))
 		s.URL = "/ical/match/" + match.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events))
 		assert.Equal(tb, "Bare Court", events[0]["LOCATION"])
@@ -226,7 +228,7 @@ func TestICalMatch_LocationVenueWithoutAddress(t *testing.T) {
 func TestICalMatch_ContainsVTimezoneBlock(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "GET /ical/match/{id} includes a VTIMEZONE block for Europe/Madrid",
 		Method:         http.MethodGet,
 		ExpectedStatus: 200,
@@ -237,17 +239,17 @@ func TestICalMatch_ContainsVTimezoneBlock(t *testing.T) {
 		},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "TzA")
-		p2 := makePairTB(tb, app, "TzB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "TzA")
+		p2 := handlers.MakePairTB(tb, app, "TzB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("date", "2026-09-15")
 		match.Set("time", "20:00")
 		require.NoError(tb, app.Save(match))
 		s.URL = "/ical/match/" + match.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -257,28 +259,28 @@ func TestICalMatch_ContainsVTimezoneBlock(t *testing.T) {
 func TestICalMatch_LocationFallsBackWithoutVenue(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /ical/match/{id} falls back to club name when no venue record matches",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"VCALENDAR"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "LocFbA")
-		p2 := makePairTB(tb, app, "LocFbB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "LocFbA")
+		p2 := handlers.MakePairTB(tb, app, "LocFbB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("date", "2026-09-15")
 		match.Set("time", "20:00")
 		match.Set("club", "Unlisted Court")
 		require.NoError(tb, app.Save(match))
 		s.URL = "/ical/match/" + match.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events))
 		assert.Equal(tb, "Unlisted Court", events[0]["LOCATION"])
@@ -291,28 +293,28 @@ func TestICalMatch_LocationFallsBackWithoutVenue(t *testing.T) {
 func TestICalMatch_NoLocationWhenNoClub(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /ical/match/{id} omits LOCATION when club is empty",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"VCALENDAR"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "NoLocA")
-		p2 := makePairTB(tb, app, "NoLocB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "NoLocA")
+		p2 := handlers.MakePairTB(tb, app, "NoLocB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("date", "2026-09-15")
 		match.Set("time", "20:00")
 		// no club set
 		require.NoError(tb, app.Save(match))
 		s.URL = "/ical/match/" + match.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		assert.NotContains(tb, body, "LOCATION:")
 	}
 	s.Test(t)
@@ -323,32 +325,32 @@ func TestICalMatch_NoLocationWhenNoClub(t *testing.T) {
 func TestICalMatch_DescriptionIncludesCompName(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /ical/match/{id} DESCRIPTION has competition name",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"VCALENDAR"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "DescA")
-		p2 := makePairTB(tb, app, "DescB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "DescA")
+		p2 := handlers.MakePairTB(tb, app, "DescB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("date", "2026-09-15")
 		match.Set("time", "20:00")
 		require.NoError(tb, app.Save(match))
 		s.URL = "/ical/match/" + match.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events))
 		desc := events[0]["DESCRIPTION"]
 		assert.Contains(tb, desc, "Jornada 1", "should include round number")
-		// Competition name is set by makeCompetitionTB — check what it uses
+		// Competition name is set by handlers.MakeCompetitionTB — check what it uses
 		// (typically "Test League" or similar). The key assertion is that
 		// the DESCRIPTION contains more than just "Jornada N".
 		assert.Contains(tb, desc, " — ", "should include competition separator")
@@ -384,19 +386,19 @@ func TestICalMatch_DescriptionIncludesCompName(t *testing.T) {
 func TestICalCompetition_MatchAppearsOnceWhenPlayerInBothPairs(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /ical/competition/{id} match appears once when player is in both pairs",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"VCALENDAR"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		// Create a player who is in two different pairs
 		// This requires making pairs with the same player
-		user := makeUserTB(tb, app, "DedupPlayer", "dedup@test.local")
-		user2 := makeUserTB(tb, app, "Partner1", "partner1@test.local")
-		user3 := makeUserTB(tb, app, "Partner2", "partner2@test.local")
+		user := handlers.MakeUserTB(tb, app, "DedupPlayer", "dedup@test.local")
+		user2 := handlers.MakeUserTB(tb, app, "Partner1", "partner1@test.local")
+		user3 := handlers.MakeUserTB(tb, app, "Partner2", "partner2@test.local")
 
 		col, _ := app.FindCollectionByNameOrId("pairs")
 		pairA := core.NewRecord(col)
@@ -411,18 +413,18 @@ func TestICalCompetition_MatchAppearsOnceWhenPlayerInBothPairs(t *testing.T) {
 		pairB.Set("player2", user.Id)
 		require.NoError(tb, app.Save(pairB))
 
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pairA, pairB})
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{pairA, pairB})
 
-		match := makeMatchTB(tb, app, comp.Id, pairA.Id, pairB.Id, "pending")
+		match := handlers.MakeMatchTB(tb, app, comp.Id, pairA.Id, pairB.Id, "pending")
 		match.Set("date", "2026-09-15")
 		match.Set("time", "20:00")
 		require.NoError(tb, app.Save(match))
 
 		s.URL = "/ical/competition/" + comp.Id
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		events := parseVEvents(body)
 		assert.Equal(tb, 1, len(events), "match between player's two pairs should appear exactly once")
 	}
@@ -434,34 +436,34 @@ func TestICalCompetition_MatchAppearsOnceWhenPlayerInBothPairs(t *testing.T) {
 func TestICalCompetition_DatelessMatchExcluded(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /ical/competition/{id} excludes matches without date",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"VCALENDAR"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "DatelessA")
-		p2 := makePairTB(tb, app, "DatelessB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "DatelessA")
+		p2 := handlers.MakePairTB(tb, app, "DatelessB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 
 		// Match with date
-		dated := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		dated := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		dated.Set("date", "2026-09-15")
 		dated.Set("time", "20:00")
 		require.NoError(tb, app.Save(dated))
 
 		// Match without date
-		_ = makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		_ = handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		// no date set on this one
 
 		s.URL = "/ical/competition/" + comp.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		events := parseVEvents(body)
 		assert.Equal(tb, 1, len(events), "only the dated match should produce a VEVENT")
 	}
@@ -473,27 +475,27 @@ func TestICalCompetition_DatelessMatchExcluded(t *testing.T) {
 func TestICalMatch_TruncatesLongDate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /ical/match/{id} handles datetime string by truncating to date",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"VCALENDAR"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "TruncA")
-		p2 := makePairTB(tb, app, "TruncB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "TruncA")
+		p2 := handlers.MakePairTB(tb, app, "TruncB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("date", "2026-09-15 14:30:00.000Z")
 		match.Set("time", "18:00")
 		require.NoError(tb, app.Save(match))
 		s.URL = "/ical/match/" + match.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events))
 		assert.Equal(tb, "20260915T180000", events[0][dtStartKey],
@@ -507,27 +509,27 @@ func TestICalMatch_TruncatesLongDate(t *testing.T) {
 func TestICalMatch_DTStampPresent(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /ical/match/{id} includes a DTSTAMP",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"VCALENDAR"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "StampA")
-		p2 := makePairTB(tb, app, "StampB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "StampA")
+		p2 := handlers.MakePairTB(tb, app, "StampB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("date", "2026-09-15")
 		match.Set("time", "20:00")
 		require.NoError(tb, app.Save(match))
 		s.URL = "/ical/match/" + match.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events))
 		dtStamp := events[0]["DTSTAMP"]
@@ -542,27 +544,27 @@ func TestICalMatch_DTStampPresent(t *testing.T) {
 func TestICalMatch_SummaryEscapesComma(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /ical/match/{id} escapes commas in SUMMARY",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"VCALENDAR"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "Pérez, Gómez")
-		p2 := makePairTB(tb, app, "EscB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "Pérez, Gómez")
+		p2 := handlers.MakePairTB(tb, app, "EscB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("date", "2026-09-15")
 		match.Set("time", "20:00")
 		require.NoError(tb, app.Save(match))
 		s.URL = "/ical/match/" + match.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		events := parseVEvents(body)
 		require.Equal(tb, 1, len(events))
 		assert.Equal(tb, `Pérez\, Gómez vs EscB · Test Competition`, events[0]["SUMMARY"])
@@ -576,7 +578,7 @@ func TestICalMatch_SummaryEscapesComma(t *testing.T) {
 func TestICalMatch_Round0_NoJornadaInDescription(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:     testAppFactory,
+		TestAppFactory:     handlers.TestAppFactory,
 		Name:               "GET /ical/match/{id} round-0 has no Jornada 0 in description",
 		Method:             http.MethodGet,
 		ExpectedStatus:     200,
@@ -584,23 +586,23 @@ func TestICalMatch_Round0_NoJornadaInDescription(t *testing.T) {
 		NotExpectedContent: []string{"Jornada 0", "J0"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "IcalR0A")
-		p2 := makePairTB(tb, app, "IcalR0B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "IcalR0A")
+		p2 := handlers.MakePairTB(tb, app, "IcalR0B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		m.Set("round_number", 0)
 		m.Set("date", "2026-10-01")
 		m.Set("time", "20:00")
 		require.NoError(tb, app.Save(m))
 		s.URL = "/ical/match/" + m.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
 
-// readBody reads the response body from the *http.Response passed to AfterTestFunc.
+// handlers.ReadBody reads the response body from the *http.Response passed to AfterTestFunc.
 // Verified: PocketBase reads from recorder.Body directly for ExpectedContent checks,
 // never from res.Body. res is recorder.Result(), which wraps recorder.Body.Bytes()
 // in a fresh bytes.NewReader — still at position 0 when AfterTestFunc runs.

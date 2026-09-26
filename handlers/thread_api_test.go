@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"fmt"
@@ -11,27 +11,28 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/handlers"
 	"padelleague/league"
 )
 
 func TestThreadMessages(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /match/{id}/thread-messages returns partial",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"hilo"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "TMsg A")
-		p2 := makePairTB(tb, app, "TMsg B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "TMsg A")
+		p2 := handlers.MakePairTB(tb, app, "TMsg B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		s.URL = "/match/" + match.Id + "/thread-messages"
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -39,23 +40,23 @@ func TestThreadMessages(t *testing.T) {
 func TestThreadMessages_DraftCalendarReturns404ForPlayer(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /match/{id}/thread-messages 404s for a player while the calendar is draft",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Partido no encontrado"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "DraftTMsg A")
-		p2 := makePairTB(tb, app, "DraftTMsg B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "DraftTMsg A")
+		p2 := handlers.MakePairTB(tb, app, "DraftTMsg B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("calendar_status", "draft")
 		require.NoError(tb, app.Save(comp))
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		s.URL = "/match/" + match.Id + "/thread-messages"
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -63,23 +64,23 @@ func TestThreadMessages_DraftCalendarReturns404ForPlayer(t *testing.T) {
 func TestThread_DraftCalendarReturns404ForPlayer(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /match/{id}/thread 404s for a player while the calendar is draft",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Partido no encontrado"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "DraftThread A")
-		p2 := makePairTB(tb, app, "DraftThread B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "DraftThread A")
+		p2 := handlers.MakePairTB(tb, app, "DraftThread B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("calendar_status", "draft")
 		require.NoError(tb, app.Save(comp))
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		s.URL = "/match/" + match.Id + "/thread"
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -87,23 +88,23 @@ func TestThread_DraftCalendarReturns404ForPlayer(t *testing.T) {
 func TestThreadMessages_DraftCalendarStillVisibleToAdmin(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /match/{id}/thread-messages stays visible to an admin while the calendar is draft",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"hilo"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "DraftAdminTMsg A")
-		p2 := makePairTB(tb, app, "DraftAdminTMsg B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "DraftAdminTMsg A")
+		p2 := handlers.MakePairTB(tb, app, "DraftAdminTMsg B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("calendar_status", "draft")
 		require.NoError(tb, app.Save(comp))
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		s.URL = "/match/" + match.Id + "/thread-messages"
-		admin := makeAdminUserTB(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -111,18 +112,18 @@ func TestThreadMessages_DraftCalendarStillVisibleToAdmin(t *testing.T) {
 func TestThreadPostProposal(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /match/{id}/thread/proposal creates proposal",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var matchID, proposerID, rival1, rival2 string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "Prop A")
-		p2 := makePairTB(tb, app, "Prop B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "Prop A")
+		p2 := handlers.MakePairTB(tb, app, "Prop B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		matchID = match.Id
 		proposerID = p1.GetString("player1")
 		rival1 = p2.GetString("player1")
@@ -130,7 +131,7 @@ func TestThreadPostProposal(t *testing.T) {
 		s.URL = "/match/" + match.Id + "/thread/proposal"
 		s.Body = strings.NewReader("date=2027-09-15&time=18:00&venue_text=Club+Test")
 		user, _ := app.FindRecordById("users", proposerID)
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -153,25 +154,25 @@ func TestThreadPostProposal(t *testing.T) {
 		assertNotified(tb, app, rival2, want)
 		assertNotNotified(tb, app, proposerID, want.Title)
 	}
-	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
+	handlers.ExpectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
 func TestThreadRespondProposal(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /match/{id}/thread/proposal/{msgId}/respond accepts",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var msgID, matchID, proposerID, proposerPartnerID, accepterID, accepterPartnerID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "Resp A")
-		p2 := makePairTB(tb, app, "Resp B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "Resp A")
+		p2 := handlers.MakePairTB(tb, app, "Resp B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		matchID = match.Id
 
 		proposerID = p1.GetString("player1")
@@ -192,7 +193,7 @@ func TestThreadRespondProposal(t *testing.T) {
 		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/respond", match.Id, msg.Id)
 		s.Body = strings.NewReader("action=accept")
 		opponent, _ := app.FindRecordById("users", accepterID)
-		hdrs := authHeaders(tb, opponent)
+		hdrs := handlers.AuthHeaders(tb, opponent)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -213,25 +214,25 @@ func TestThreadRespondProposal(t *testing.T) {
 		assertNotified(tb, app, accepterPartnerID, want)
 		assertNotNotified(tb, app, accepterID, want.Title)
 	}
-	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
+	handlers.ExpectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
 func TestThreadRespondProposalReject(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /match/{id}/thread/proposal/{msgId}/respond rejects",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var msgID, matchID, proposerID, proposerPartnerID, responderID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "RejA")
-		p2 := makePairTB(tb, app, "RejB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "RejA")
+		p2 := handlers.MakePairTB(tb, app, "RejB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		matchID = match.Id
 
 		proposerID = p1.GetString("player1")
@@ -251,7 +252,7 @@ func TestThreadRespondProposalReject(t *testing.T) {
 		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/respond", match.Id, msg.Id)
 		s.Body = strings.NewReader("action=reject&rejection_reason=No+puedo&rejection_text=Tengo+trabajo")
 		opponent, _ := app.FindRecordById("users", responderID)
-		hdrs := authHeaders(tb, opponent)
+		hdrs := handlers.AuthHeaders(tb, opponent)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -273,25 +274,25 @@ func TestThreadRespondProposalReject(t *testing.T) {
 		assertNotified(tb, app, proposerPartnerID, want)
 		assertNotNotified(tb, app, responderID, want.Title)
 	}
-	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
+	handlers.ExpectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
 func TestThreadRespondOwnProposalRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST respond to own proposal returns error",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"propia propuesta"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "OwnA")
-		p2 := makePairTB(tb, app, "OwnB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "OwnA")
+		p2 := handlers.MakePairTB(tb, app, "OwnB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 
 		proposer := p1.GetString("player1")
 		col, err := app.FindCollectionByNameOrId("match_messages")
@@ -307,7 +308,7 @@ func TestThreadRespondOwnProposalRejected(t *testing.T) {
 		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/respond", match.Id, msg.Id)
 		s.Body = strings.NewReader("action=accept")
 		user, _ := app.FindRecordById("users", proposer)
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -317,16 +318,16 @@ func TestThreadRespondOwnProposalRejected(t *testing.T) {
 func TestThreadEmptyPairsShowsMessage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /match/{id}/thread with empty pairs shows pending message",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Parejas pendientes"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		comp := handlers.MakeCompetitionTB(tb, app, "league", nil)
 
 		col, err := app.FindCollectionByNameOrId("matches")
 		require.NoError(tb, err)
@@ -337,7 +338,7 @@ func TestThreadEmptyPairsShowsMessage(t *testing.T) {
 		require.NoError(tb, app.Save(match))
 
 		s.URL = "/match/" + match.Id + "/thread"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -345,22 +346,22 @@ func TestThreadEmptyPairsShowsMessage(t *testing.T) {
 func TestPostMessageEmptyContentRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /match/{id}/thread/message with empty content rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"vacío"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "EmptyA")
-		p2 := makePairTB(tb, app, "EmptyB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "EmptyA")
+		p2 := handlers.MakePairTB(tb, app, "EmptyB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		s.URL = "/match/" + match.Id + "/thread/message"
 		s.Body = strings.NewReader("content=&type=chat")
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -370,22 +371,22 @@ func TestPostMessageEmptyContentRejected(t *testing.T) {
 func TestPostProposalMissingDateRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /match/{id}/thread/proposal without date rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"obligatorias"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "NoDtA")
-		p2 := makePairTB(tb, app, "NoDtB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "NoDtA")
+		p2 := handlers.MakePairTB(tb, app, "NoDtB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		s.URL = "/match/" + match.Id + "/thread/proposal"
 		s.Body = strings.NewReader("time=18:00&venue_text=Club")
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}

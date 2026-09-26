@@ -1,11 +1,10 @@
-package handlers
+package handlers_test
 
 import (
 	"bytes"
 	"fmt"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 
@@ -14,30 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"padelleague/league"
-	"padelleague/notify"
-	"padelleague/render"
+	"padelleague/handlers"
 )
-
-func setupDocRoutes(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-	setupFullAdminRoutes(tb, app, e)
-
-	r := render.New(os.DirFS(".."), "", true)
-	doc := NewDocumentHandler(app, r.Page, r.Partial)
-	g := e.Router.Group("/admin")
-	g.BindFunc(requireAuthTest)
-	g.BindFunc(requireAdminTest)
-	g.GET("/documents", doc.Documents)
-	g.GET("/documents/{id}/edit", doc.DocumentEditForm)
-	g.POST("/documents", doc.DocumentsCreate)
-	g.POST("/documents/{id}", doc.DocumentsUpdate)
-	g.POST("/documents/{id}/delete", doc.DocumentsDelete)
-
-	n := notify.NewNotifier(app, "", "")
-	comp := NewCompetitionHandler(app, league.New(app, n), n, render.New(os.DirFS(".."), "", true).Page)
-	g.POST("/competitions/{id}/attach-doc", comp.AttachDocument)
-	g.POST("/competitions/{id}/detach-doc/{docId}", comp.DetachDocument)
-}
 
 func makeDocument(t testing.TB, app core.App, title, url string, isDefault bool) *core.Record {
 	t.Helper()
@@ -54,7 +31,7 @@ func makeDocument(t testing.TB, app core.App, title, url string, isDefault bool)
 func TestDocumentsListGET(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /admin/documents lists documents",
 		Method:          http.MethodGet,
 		URL:             "/admin/documents",
@@ -62,10 +39,10 @@ func TestDocumentsListGET(t *testing.T) {
 		ExpectedContent: []string{"Documentos", "Reglamento"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDocRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
 		makeDocument(tb, app, "Reglamento", "https://example.com/rules", false)
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -73,7 +50,7 @@ func TestDocumentsListGET(t *testing.T) {
 func TestDocumentsCreateWithURLOnly(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/documents with URL only creates doc",
 		Method:         http.MethodPost,
 		URL:            "/admin/documents",
@@ -81,10 +58,10 @@ func TestDocumentsCreateWithURLOnly(t *testing.T) {
 	}
 	var adminRec *core.Record
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDocRoutes(tb, app, e)
-		adminRec = makeAdminUserTB(tb, app)
+		setupProductionRoutes(tb, app, e)
+		adminRec = handlers.MakeAdminUserTB(tb, app)
 		s.Body = strings.NewReader("title=Reglamento&url=https%3A%2F%2Fexample.com%2Frules&is_mandatory=on")
-		hdrs := authHeaders(tb, adminRec)
+		hdrs := handlers.AuthHeaders(tb, adminRec)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -96,22 +73,22 @@ func TestDocumentsCreateWithURLOnly(t *testing.T) {
 		assert.True(tb, docs[0].GetBool("is_mandatory"))
 		assert.Equal(tb, "", docs[0].GetString("file"))
 	}
-	expectRedirect(s, redirectTo("/admin/documents"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/documents"))
 	s.Test(t)
 }
 
 func TestDocumentsCreateWithFileOnly(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/documents with file only creates doc",
 		Method:         http.MethodPost,
 		URL:            "/admin/documents",
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDocRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
 
 		var buf bytes.Buffer
 		w := multipart.NewWriter(&buf)
@@ -122,7 +99,7 @@ func TestDocumentsCreateWithFileOnly(t *testing.T) {
 		require.NoError(tb, w.Close())
 
 		s.Body = &buf
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = w.FormDataContentType()
 		s.Headers = hdrs
 	}
@@ -134,14 +111,14 @@ func TestDocumentsCreateWithFileOnly(t *testing.T) {
 		assert.NotEmpty(tb, docs[0].GetString("file"))
 		assert.Equal(tb, "", docs[0].GetString("url"))
 	}
-	expectRedirect(s, redirectTo("/admin/documents"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/documents"))
 	s.Test(t)
 }
 
 func TestDocumentsCreateWithNeither(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/documents with neither file nor URL rejects",
 		Method:          http.MethodPost,
 		URL:             "/admin/documents",
@@ -149,10 +126,10 @@ func TestDocumentsCreateWithNeither(t *testing.T) {
 		ExpectedContent: []string{"Añade un archivo o un enlace"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDocRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
 		s.Body = strings.NewReader("title=Empty")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -166,7 +143,7 @@ func TestDocumentsCreateWithNeither(t *testing.T) {
 func TestDocumentsCreateWithBoth(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/documents with both file and URL rejects",
 		Method:          http.MethodPost,
 		URL:             "/admin/documents",
@@ -174,8 +151,8 @@ func TestDocumentsCreateWithBoth(t *testing.T) {
 		ExpectedContent: []string{"Añade un archivo o un enlace"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDocRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
 
 		var buf bytes.Buffer
 		w := multipart.NewWriter(&buf)
@@ -186,7 +163,7 @@ func TestDocumentsCreateWithBoth(t *testing.T) {
 		require.NoError(tb, w.Close())
 
 		s.Body = &buf
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = w.FormDataContentType()
 		s.Headers = hdrs
 	}
@@ -200,7 +177,7 @@ func TestDocumentsCreateWithBoth(t *testing.T) {
 func TestDocumentsCreateEmptyTitle(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/documents empty title rejects",
 		Method:          http.MethodPost,
 		URL:             "/admin/documents",
@@ -208,10 +185,10 @@ func TestDocumentsCreateEmptyTitle(t *testing.T) {
 		ExpectedContent: []string{"El título es obligatorio"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDocRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
 		s.Body = strings.NewReader("title=&url=https%3A%2F%2Fexample.com")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -221,20 +198,20 @@ func TestDocumentsCreateEmptyTitle(t *testing.T) {
 func TestDocumentsUpdate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/documents/{id} updates doc",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var docID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDocRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
 		doc := makeDocument(tb, app, "Old Title", "https://old.com", false)
 		docID = doc.Id
 		s.URL = "/admin/documents/" + doc.Id
 		s.Body = strings.NewReader("title=New+Title&url=https%3A%2F%2Fnew.com&is_mandatory=on")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -245,49 +222,49 @@ func TestDocumentsUpdate(t *testing.T) {
 		assert.Equal(tb, "https://new.com", doc.GetString("url"))
 		assert.True(tb, doc.GetBool("is_mandatory"))
 	}
-	expectRedirect(s, redirectTo("/admin/documents"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/documents"))
 	s.Test(t)
 }
 
 func TestDocumentsDelete(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/documents/{id}/delete removes doc",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var docID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDocRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
 		doc := makeDocument(tb, app, "To Delete", "https://del.com", false)
 		docID = doc.Id
 		s.URL = "/admin/documents/" + doc.Id + "/delete"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		_, err := app.FindRecordById("documents", docID)
 		assert.Error(tb, err)
 	}
-	expectRedirect(s, redirectTo("/admin/documents"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/documents"))
 	s.Test(t)
 }
 
 func TestDocumentsDefaultAndMandatoryFlags(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/documents saves default+mandatory flags",
 		Method:         http.MethodPost,
 		URL:            "/admin/documents",
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDocRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
 		s.Body = strings.NewReader("title=Full+Flags&url=https%3A%2F%2Fflags.com&is_default=on&is_mandatory=on")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -298,7 +275,7 @@ func TestDocumentsDefaultAndMandatoryFlags(t *testing.T) {
 		assert.True(tb, docs[0].GetBool("is_default"))
 		assert.True(tb, docs[0].GetBool("is_mandatory"))
 	}
-	expectRedirect(s, redirectTo("/admin/documents"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/documents"))
 	s.Test(t)
 }
 
@@ -307,7 +284,7 @@ func TestDocumentsDefaultAndMandatoryFlags(t *testing.T) {
 func TestCompetitionCreatePreloadsDefaultDocs(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions preloads default docs",
 		Method:         http.MethodPost,
 		URL:            "/admin/competitions",
@@ -315,14 +292,14 @@ func TestCompetitionCreatePreloadsDefaultDocs(t *testing.T) {
 	}
 	var defaultDocIDs []string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDocRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
 		d1 := makeDocument(tb, app, "Default1", "https://d1.com", true)
 		d2 := makeDocument(tb, app, "Default2", "https://d2.com", true)
 		makeDocument(tb, app, "Not Default", "https://nd.com", false)
 		defaultDocIDs = []string{d1.Id, d2.Id}
 		s.Body = strings.NewReader("name=Preload+Test&type=league")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -336,31 +313,31 @@ func TestCompetitionCreatePreloadsDefaultDocs(t *testing.T) {
 		}
 		assert.Len(tb, attached, 2)
 	}
-	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
+	handlers.ExpectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
 	s.Test(t)
 }
 
 func TestCompetitionAttachDocument(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/attach-doc attaches a doc",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID, docID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDocRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "AttA")
-		p2 := makePairTB(tb, app, "AttB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "AttA")
+		p2 := handlers.MakePairTB(tb, app, "AttB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
 		doc := makeDocument(tb, app, "Attach Me", "https://att.com", false)
 		docID = doc.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/attach-doc"
 		s.Body = strings.NewReader("document=" + doc.Id)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -369,32 +346,32 @@ func TestCompetitionAttachDocument(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Contains(tb, comp.GetStringSlice("documents"), docID)
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestCompetitionDetachDocument(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/detach-doc/{docId} detaches doc, keeps library",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID, docID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDocRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "DetA")
-		p2 := makePairTB(tb, app, "DetB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "DetA")
+		p2 := handlers.MakePairTB(tb, app, "DetB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
 		doc := makeDocument(tb, app, "Detach Me", "https://det.com", false)
 		docID = doc.Id
 		comp.Set("documents", []string{doc.Id})
 		require.NoError(tb, app.Save(comp))
 		s.URL = fmt.Sprintf("/admin/competitions/%s/detach-doc/%s", comp.Id, doc.Id)
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		comp, err := app.FindRecordById("competitions", compID)
@@ -403,29 +380,29 @@ func TestCompetitionDetachDocument(t *testing.T) {
 		_, err = app.FindRecordById("documents", docID)
 		assert.NoError(tb, err, "document should still exist in the library")
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestCompetitionDetachKeepsOtherComps(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "detach from C1 keeps doc attached to C2",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var comp1ID, comp2ID, docID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDocRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "KC1A")
-		p2 := makePairTB(tb, app, "KC1B")
-		comp1 := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "KC1A")
+		p2 := handlers.MakePairTB(tb, app, "KC1B")
+		comp1 := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp1ID = comp1.Id
-		p3 := makePairTB(tb, app, "KC2A")
-		p4 := makePairTB(tb, app, "KC2B")
-		comp2 := makeCompetitionTB(tb, app, "league", []*core.Record{p3, p4})
+		p3 := handlers.MakePairTB(tb, app, "KC2A")
+		p4 := handlers.MakePairTB(tb, app, "KC2B")
+		comp2 := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p3, p4})
 		comp2ID = comp2.Id
 		doc := makeDocument(tb, app, "Shared Doc", "https://shared.com", false)
 		docID = doc.Id
@@ -434,7 +411,7 @@ func TestCompetitionDetachKeepsOtherComps(t *testing.T) {
 		comp2.Set("documents", []string{doc.Id})
 		require.NoError(tb, app.Save(comp2))
 		s.URL = fmt.Sprintf("/admin/competitions/%s/detach-doc/%s", comp1.Id, doc.Id)
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		c1, _ := app.FindRecordById("competitions", comp1ID)
@@ -442,28 +419,28 @@ func TestCompetitionDetachKeepsOtherComps(t *testing.T) {
 		c2, _ := app.FindRecordById("competitions", comp2ID)
 		assert.Contains(tb, c2.GetStringSlice("documents"), docID)
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestDocumentEditFormReturnsFragment(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /admin/documents/{id}/edit returns edit form fragment",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Editar documento", "title"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDocRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		doc := makeDocumentTB(tb, app, "TestDoc", false, "https://test.com/doc")
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		doc := handlers.MakeDocumentTB(tb, app, "TestDoc", false, "https://test.com/doc")
 		s.URL = "/admin/documents/" + doc.Id + "/edit"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		assert.Contains(tb, body, "TestDoc", "form contains document title")
 	}
 	s.Test(t)
@@ -472,7 +449,7 @@ func TestDocumentEditFormReturnsFragment(t *testing.T) {
 func TestDocumentEditFormUnknownID(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /admin/documents/{id}/edit returns 404 for unknown document",
 		Method:          http.MethodGet,
 		URL:             "/admin/documents/nonexistent123456/edit",
@@ -480,9 +457,9 @@ func TestDocumentEditFormUnknownID(t *testing.T) {
 		ExpectedContent: []string{"resource"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDocRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }

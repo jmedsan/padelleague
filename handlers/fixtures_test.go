@@ -1,9 +1,10 @@
-package handlers
+package handlers_test
 
 import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"padelleague/handlers"
 	"padelleague/league"
 	"testing"
 	"time"
@@ -101,7 +102,7 @@ func TestGenerateRoundRobin_NoPairTwicePerRound(t *testing.T) {
 
 func makePlayoffComp(tb testing.TB, app core.App, pairs []*core.Record, seeding map[string]int) *core.Record {
 	tb.Helper()
-	comp := makeCompetitionTB(tb, app, "playoff", pairs)
+	comp := handlers.MakeCompetitionTB(tb, app, "playoff", pairs)
 	if seeding != nil {
 		raw, _ := json.Marshal(seeding)
 		comp.Set("seeding", string(raw))
@@ -139,7 +140,7 @@ func hasMatchup(matches [][2]string, a, b string) bool {
 func TestPlayoffAllUnseeded_KeepsInputOrder(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "playoff all unseeded keeps input order",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -147,18 +148,18 @@ func TestPlayoffAllUnseeded_KeepsInputOrder(t *testing.T) {
 	var pairIDs []string
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "Uns A")
-		p2 := makePairTB(tb, app, "Uns B")
-		p3 := makePairTB(tb, app, "Uns C")
-		p4 := makePairTB(tb, app, "Uns D")
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "Uns A")
+		p2 := handlers.MakePairTB(tb, app, "Uns B")
+		p3 := handlers.MakePairTB(tb, app, "Uns C")
+		p4 := handlers.MakePairTB(tb, app, "Uns D")
 		pairs := []*core.Record{p1, p2, p3, p4}
 		pairIDs = []string{p1.Id, p2.Id, p3.Id, p4.Id}
 		comp := makePlayoffComp(tb, app, pairs, nil)
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		// bracketSize=4: slots=[p1,p2,p3,p4] → matches: slot[0] vs slot[3], slot[1] vs slot[2]
@@ -171,7 +172,7 @@ func TestPlayoffAllUnseeded_KeepsInputOrder(t *testing.T) {
 		assert.True(tb, hasMatchup(matches, pairIDs[1], pairIDs[2]),
 			"expected p2 vs p3")
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -180,7 +181,7 @@ func TestPlayoffAllUnseeded_KeepsInputOrder(t *testing.T) {
 func TestPlayoffAllSeeded_SeedOrder(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "playoff all seeded sorts by seed",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -188,12 +189,12 @@ func TestPlayoffAllSeeded_SeedOrder(t *testing.T) {
 	var pairIDs []string
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "Sd A")
-		p2 := makePairTB(tb, app, "Sd B")
-		p3 := makePairTB(tb, app, "Sd C")
-		p4 := makePairTB(tb, app, "Sd D")
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "Sd A")
+		p2 := handlers.MakePairTB(tb, app, "Sd B")
+		p3 := handlers.MakePairTB(tb, app, "Sd C")
+		p4 := handlers.MakePairTB(tb, app, "Sd D")
 		pairs := []*core.Record{p1, p2, p3, p4}
 		pairIDs = []string{p1.Id, p2.Id, p3.Id, p4.Id}
 		// Seeds out of sequence: p1=3, p2=1, p3=4, p4=2
@@ -206,7 +207,7 @@ func TestPlayoffAllSeeded_SeedOrder(t *testing.T) {
 		comp := makePlayoffComp(tb, app, pairs, seeding)
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		// After sorting: seed1=p2, seed2=p4, seed3=p1, seed4=p3
@@ -220,7 +221,7 @@ func TestPlayoffAllSeeded_SeedOrder(t *testing.T) {
 		assert.True(tb, hasMatchup(matches, pairIDs[3], pairIDs[0]),
 			"expected seed2(p4) vs seed3(p1)")
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -229,7 +230,7 @@ func TestPlayoffAllSeeded_SeedOrder(t *testing.T) {
 func TestPlayoffMixedSeeding_SeededFirst(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "playoff seeded pairs outrank unseeded",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -237,12 +238,12 @@ func TestPlayoffMixedSeeding_SeededFirst(t *testing.T) {
 	var pairIDs []string
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "Mix A") // unseeded
-		p2 := makePairTB(tb, app, "Mix B") // seed 2
-		p3 := makePairTB(tb, app, "Mix C") // unseeded
-		p4 := makePairTB(tb, app, "Mix D") // seed 1
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "Mix A") // unseeded
+		p2 := handlers.MakePairTB(tb, app, "Mix B") // seed 2
+		p3 := handlers.MakePairTB(tb, app, "Mix C") // unseeded
+		p4 := handlers.MakePairTB(tb, app, "Mix D") // seed 1
 		pairs := []*core.Record{p1, p2, p3, p4}
 		pairIDs = []string{p1.Id, p2.Id, p3.Id, p4.Id}
 		seeding := map[string]int{
@@ -252,7 +253,7 @@ func TestPlayoffMixedSeeding_SeededFirst(t *testing.T) {
 		comp := makePlayoffComp(tb, app, pairs, seeding)
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		// Sort: seed1=p4, seed2=p2, then unseeded in input order: p1, p3
@@ -266,7 +267,7 @@ func TestPlayoffMixedSeeding_SeededFirst(t *testing.T) {
 		assert.True(tb, hasMatchup(matches, pairIDs[1], pairIDs[0]),
 			"expected seed2(p2) vs unseeded(p1)")
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -275,23 +276,23 @@ func TestPlayoffMixedSeeding_SeededFirst(t *testing.T) {
 func TestPlayoffAdvancerPairing_LaterRoundsExist(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "playoff 8 pairs creates correct bracket structure",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
 		pairs := make([]*core.Record, 8)
 		for i := range pairs {
-			pairs[i] = makePairTB(tb, app, fmt.Sprintf("Brk %c", 'A'+i))
+			pairs[i] = handlers.MakePairTB(tb, app, fmt.Sprintf("Brk %c", 'A'+i))
 		}
 		comp := makePlayoffComp(tb, app, pairs, nil)
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		for round, expected := range map[int]int{1: 4, 2: 2, 3: 1} {
@@ -302,7 +303,7 @@ func TestPlayoffAdvancerPairing_LaterRoundsExist(t *testing.T) {
 			assert.Len(tb, matches, expected, "round %d should have %d matches", round, expected)
 		}
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -311,19 +312,19 @@ func TestPlayoffAdvancerPairing_LaterRoundsExist(t *testing.T) {
 func TestPlayoffFewerThan2Pairs(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "playoff fewer than 2 pairs returns error",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Se necesitan al menos 2 parejas"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "Solo")
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "Solo")
 		comp := makePlayoffComp(tb, app, []*core.Record{p1}, nil)
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -331,23 +332,23 @@ func TestPlayoffFewerThan2Pairs(t *testing.T) {
 func TestGeneratePlayoffFixtures(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/generate for playoff",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "PO A")
-		p2 := makePairTB(tb, app, "PO B")
-		p3 := makePairTB(tb, app, "PO C")
-		p4 := makePairTB(tb, app, "PO D")
-		comp := makeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2, p3, p4})
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "PO A")
+		p2 := handlers.MakePairTB(tb, app, "PO B")
+		p3 := handlers.MakePairTB(tb, app, "PO C")
+		p4 := handlers.MakePairTB(tb, app, "PO D")
+		comp := handlers.MakeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2, p3, p4})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
-		admin := makeAdminUserTB(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		matches, err := app.FindRecordsByFilter("matches",
@@ -356,29 +357,29 @@ func TestGeneratePlayoffFixtures(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, 3, len(matches))
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestGenerateLeagueFixtures(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/generate for league",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "LG A")
-		p2 := makePairTB(tb, app, "LG B")
-		p3 := makePairTB(tb, app, "LG C")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3})
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "LG A")
+		p2 := handlers.MakePairTB(tb, app, "LG B")
+		p3 := handlers.MakePairTB(tb, app, "LG C")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
-		admin := makeAdminUserTB(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		matches, err := app.FindRecordsByFilter("matches",
@@ -387,38 +388,38 @@ func TestGenerateLeagueFixtures(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, 3, len(matches))
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
-// TestGenerateFlashMessage verifies the post-generation flash: plain for
+// TestGenerateFlashMessage verifies the post-generation handlers.Flash: plain for
 // round-robin and on-time leveled leagues, with an appended note when the
 // admin generates a leveled calendar after Jornada 1 already closed.
 func TestGenerateFlashMessage(t *testing.T) {
 	t.Parallel()
-	app := newTestApp(t)
+	app := handlers.NewTestApp(t)
 
 	pairs := make([]*core.Record, 12)
 	for i := range pairs {
-		pairs[i] = makePairTB(t, app, fmt.Sprintf("Flash%02d", i))
+		pairs[i] = handlers.MakePairTB(t, app, fmt.Sprintf("Flash%02d", i))
 	}
 
 	t.Run("round-robin: plain message", func(t *testing.T) {
-		comp := makeCompetitionTB(t, app, "league", pairs[:2])
-		assert.Equal(t, "Calendario generado", generateFlashMessage(comp, app))
+		comp := handlers.MakeCompetitionTB(t, app, "league", pairs[:2])
+		assert.Equal(t, "Calendario generado", handlers.GenerateFlashMessage(comp, app))
 	})
 
 	t.Run("leveled, generated before the season starts: plain message", func(t *testing.T) {
-		comp := makeCompetitionTB(t, app, "league", pairs) // 12 pairs, target 6 < 11 → leveled
+		comp := handlers.MakeCompetitionTB(t, app, "league", pairs) // 12 pairs, target 6 < 11 → leveled
 		comp.Set("target_matches", 6)
 		comp.Set("start_date", time.Now().Add(24*time.Hour).Format(time.RFC3339))
 		comp.Set("end_date", time.Now().Add(80*24*time.Hour).Format(time.RFC3339))
 		require.NoError(t, app.Save(comp))
-		assert.Equal(t, "Calendario generado", generateFlashMessage(comp, app))
+		assert.Equal(t, "Calendario generado", handlers.GenerateFlashMessage(comp, app))
 	})
 
 	t.Run("leveled, generated after Jornada 1 closed: appends the Jornada note", func(t *testing.T) {
-		comp := makeCompetitionTB(t, app, "league", pairs) // 12 pairs, target 10 < 11 → leveled
+		comp := handlers.MakeCompetitionTB(t, app, "league", pairs) // 12 pairs, target 10 < 11 → leveled
 		comp.Set("target_matches", 10)
 		// day-aligned: start=day0, end=day69 (70 inclusive days) → 10 even
 		// 7-day Jornadas; today=day8 opens J2 ([7,13]) → cur=2.
@@ -430,14 +431,14 @@ func TestGenerateFlashMessage(t *testing.T) {
 		require.NoError(t, app.Save(comp))
 		assert.Equal(t,
 			"Calendario generado. La jornada 1 ya ha terminado; los partidos se asignan desde la jornada 2.",
-			generateFlashMessage(comp, app))
+			handlers.GenerateFlashMessage(comp, app))
 	})
 }
 
 func TestGenerateFixtures_WithdrawnPairs_Blocked(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST generate blocked when withdrawn pairs exist",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
@@ -446,17 +447,17 @@ func TestGenerateFixtures_WithdrawnPairs_Blocked(t *testing.T) {
 	var compID string
 	var matchCountBefore int
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		p1 := makePairTB(tb, app, "WD A")
-		p2 := makePairTB(tb, app, "WD B")
-		p3 := makePairTB(tb, app, "WD C")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3})
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "WD A")
+		p2 := handlers.MakePairTB(tb, app, "WD B")
+		p3 := handlers.MakePairTB(tb, app, "WD C")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3})
 		compID = comp.Id
 		// Generate initial fixtures
-		h := NewFixtureHandler(app, nil, nil)
+		h := handlers.NewFixtureHandler(app, nil, nil)
 		txErr := app.RunInTransaction(func(txApp core.App) error {
-			return h.regenerateFixturesTx(txApp, comp, []string{p1.Id, p2.Id, p3.Id}, nil)
+			return h.RegenerateFixturesTx(txApp, comp, []string{p1.Id, p2.Id, p3.Id}, nil)
 		})
 		require.NoError(tb, txErr)
 		matches, err := app.FindRecordsByFilter("matches",
@@ -468,7 +469,7 @@ func TestGenerateFixtures_WithdrawnPairs_Blocked(t *testing.T) {
 		comp.Set("withdrawn_pairs", []string{p3.Id})
 		require.NoError(tb, app.Save(comp))
 		s.URL = "/admin/competitions/" + compID + "/generate?confirm=true"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		matches, err := app.FindRecordsByFilter("matches",
@@ -482,21 +483,21 @@ func TestGenerateFixtures_WithdrawnPairs_Blocked(t *testing.T) {
 func TestGenerateFixturesRegenerate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions/{id}/generate with existing matches warns",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"alert-warning"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "Regen A")
-		p2 := makePairTB(tb, app, "Regen B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "Regen A")
+		p2 := handlers.MakePairTB(tb, app, "Regen B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
-		admin := makeAdminUserTB(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -506,20 +507,20 @@ func TestGenerateFixturesRegenerate(t *testing.T) {
 func TestGenerateLeveledFixtures(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST generate — leveled: round_number=0, draft, rounds=0, arrange_by set",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
 		pairs := make([]*core.Record, 6)
 		for i := range pairs {
-			pairs[i] = makePairTB(tb, app, "Lvl")
+			pairs[i] = handlers.MakePairTB(tb, app, "Lvl")
 		}
-		comp := makeCompetitionTB(tb, app, "league", pairs)
+		comp := handlers.MakeCompetitionTB(tb, app, "league", pairs)
 		comp.Set("target_matches", 4)
 		comp.Set("open_assignments", 2)
 		// Set dates so assignmentDeadline has something to work with.
@@ -528,7 +529,7 @@ func TestGenerateLeveledFixtures(t *testing.T) {
 		require.NoError(tb, app.Save(comp))
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + compID + "/generate"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		matches, err := app.FindRecordsByFilter("matches",
@@ -546,34 +547,34 @@ func TestGenerateLeveledFixtures(t *testing.T) {
 		assert.Equal(tb, "draft", comp.GetString("calendar_status"))
 		assert.Equal(tb, 0, comp.GetInt("rounds"), "leveled comp must have rounds=0")
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestGenerateLeveledFixtures_MissingDatesReject(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST generate — leveled: missing start/end dates rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"necesitan fecha de inicio y de fin"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
 		pairs := make([]*core.Record, 6)
 		for i := range pairs {
-			pairs[i] = makePairTB(tb, app, "NoDate")
+			pairs[i] = handlers.MakePairTB(tb, app, "NoDate")
 		}
-		comp := makeCompetitionTB(tb, app, "league", pairs)
+		comp := handlers.MakeCompetitionTB(tb, app, "league", pairs)
 		comp.Set("target_matches", 4)
 		comp.Set("open_assignments", 2)
 		comp.Set("start_date", "")
 		comp.Set("end_date", "")
 		require.NoError(tb, app.Save(comp))
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -581,27 +582,27 @@ func TestGenerateLeveledFixtures_MissingDatesReject(t *testing.T) {
 func TestGenerateLeveledFixtures_StartAfterEndReject(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST generate — leveled: start_date >= end_date rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"fecha de inicio debe ser anterior a la fecha de fin"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
 		pairs := make([]*core.Record, 6)
 		for i := range pairs {
-			pairs[i] = makePairTB(tb, app, "BadDate")
+			pairs[i] = handlers.MakePairTB(tb, app, "BadDate")
 		}
-		comp := makeCompetitionTB(tb, app, "league", pairs)
+		comp := handlers.MakeCompetitionTB(tb, app, "league", pairs)
 		comp.Set("target_matches", 4)
 		comp.Set("open_assignments", 2)
 		comp.Set("start_date", "2026-12-31")
 		comp.Set("end_date", "2026-10-01")
 		require.NoError(tb, app.Save(comp))
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -609,27 +610,27 @@ func TestGenerateLeveledFixtures_StartAfterEndReject(t *testing.T) {
 func TestGenerateLeveledFixtures_OddReject(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST generate — leveled: odd pairs×target rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"los partidos por pareja deben ser un número par"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
 		// 5 pairs × 3 target = 15 (odd) → must be rejected
 		// IsLeveled: target=3 < 5-1=4 ✓
 		pairs := make([]*core.Record, 5)
 		for i := range pairs {
-			pairs[i] = makePairTB(tb, app, "Odd")
+			pairs[i] = handlers.MakePairTB(tb, app, "Odd")
 		}
-		comp := makeCompetitionTB(tb, app, "league", pairs)
+		comp := handlers.MakeCompetitionTB(tb, app, "league", pairs)
 		comp.Set("target_matches", 3)
 		comp.Set("open_assignments", 2)
 		require.NoError(tb, app.Save(comp))
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }

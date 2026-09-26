@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"fmt"
@@ -10,6 +10,8 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/handlers"
 )
 
 const (
@@ -48,7 +50,7 @@ func playerRoutes() []playerRoute {
 				f.match.Set("submitted_by", f.actor)
 				f.match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
 				require.NoError(tb, app.Save(f.match))
-				makeResultProposal(tb, app, f.match.Id, f.actor, "6-3 6-4")
+				handlers.MakeResultProposal(tb, app, f.match.Id, f.actor, "6-3 6-4")
 				return "/match/" + f.match.Id + "/correct", "scores=6-4+6-3"
 			},
 		},
@@ -88,7 +90,7 @@ func playerRoutes() []playerRoute {
 		{
 			name: "thread respond to result proposal", captainGated: false, withdrawnBlocked: true,
 			setup: func(tb testing.TB, app core.App, f guardFixture) (string, string) {
-				msg := makeResultProposal(tb, app, f.match.Id, f.rival, "6-3 6-4")
+				msg := handlers.MakeResultProposal(tb, app, f.match.Id, f.rival, "6-3 6-4")
 				return fmt.Sprintf("/match/%s/thread/proposal/%s/respond", f.match.Id, msg.Id), "action=accept"
 			},
 		},
@@ -156,7 +158,7 @@ func TestPlayerRouteGuards(t *testing.T) {
 			t.Run(route.name+"/"+sc.name, func(t *testing.T) {
 				t.Parallel()
 				s := &tests.ApiScenario{
-					TestAppFactory: testAppFactory,
+					TestAppFactory: handlers.TestAppFactory,
 					Name:           route.name + " / " + sc.name,
 					Method:         http.MethodPost,
 					ExpectedStatus: http.StatusNoContent,
@@ -168,7 +170,7 @@ func TestPlayerRouteGuards(t *testing.T) {
 					s.NotExpectedContent = []string{"alert-error"}
 				}
 				s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-					setupAllRoutes(tb, app, e)
+					setupProductionRoutes(tb, app, e)
 					f := newGuardFixture(tb, app, route.name)
 					url, body := route.setup(tb, app, f)
 					sc.apply(tb, app, f)
@@ -176,7 +178,7 @@ func TestPlayerRouteGuards(t *testing.T) {
 					s.Body = strings.NewReader(body)
 					user, err := app.FindRecordById("users", f.actor)
 					require.NoError(tb, err)
-					hdrs := authHeaders(tb, user)
+					hdrs := handlers.AuthHeaders(tb, user)
 					hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 					s.Headers = hdrs
 				}
@@ -188,10 +190,10 @@ func TestPlayerRouteGuards(t *testing.T) {
 
 func newGuardFixture(tb testing.TB, app core.App, label string) guardFixture {
 	tb.Helper()
-	p1 := makePairTB(tb, app, "Guard "+label+" A")
-	p2 := makePairTB(tb, app, "Guard "+label+" B")
-	comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-	match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+	p1 := handlers.MakePairTB(tb, app, "Guard "+label+" A")
+	p2 := handlers.MakePairTB(tb, app, "Guard "+label+" B")
+	comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+	match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
 	match.Set("date", "2027-09-01")
 	match.Set("time", "18:00")
 	match.Set("club", "Padel 360")

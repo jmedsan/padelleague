@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"net/http"
@@ -8,14 +8,16 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/handlers"
 )
 
 func TestNewDocumentView_LinkDoc(t *testing.T) {
 	t.Parallel()
-	app := newTestApp(t)
+	app := handlers.NewTestApp(t)
 
-	doc := makeDocumentTB(t, app, "Reglas", true, "https://example.com/reglas")
-	dv := NewDocumentView(doc, PlayerRow, "")
+	doc := handlers.MakeDocumentTB(t, app, "Reglas", true, "https://example.com/reglas")
+	dv := handlers.NewDocumentView(doc, handlers.PlayerRow, "")
 
 	assert.Equal(t, "Reglas", dv.Title)
 	assert.False(t, dv.IsFile)
@@ -26,7 +28,7 @@ func TestNewDocumentView_LinkDoc(t *testing.T) {
 
 func TestNewDocumentView_DefaultFlags(t *testing.T) {
 	t.Parallel()
-	app := newTestApp(t)
+	app := handlers.NewTestApp(t)
 
 	col, _ := app.FindCollectionByNameOrId("documents")
 	doc := core.NewRecord(col)
@@ -35,7 +37,7 @@ func TestNewDocumentView_DefaultFlags(t *testing.T) {
 	doc.Set("is_default", true)
 	require.NoError(t, app.Save(doc))
 
-	dv := NewDocumentView(doc, AdminFull, "")
+	dv := handlers.NewDocumentView(doc, handlers.AdminFull, "")
 
 	assert.Equal(t, "Tarifas", dv.Title)
 	assert.False(t, dv.IsFile)
@@ -48,7 +50,7 @@ func TestNewDocumentView_DefaultFlags(t *testing.T) {
 
 func TestNewDocumentView_FileDoc(t *testing.T) {
 	t.Parallel()
-	app := newTestApp(t)
+	app := handlers.NewTestApp(t)
 
 	col, _ := app.FindCollectionByNameOrId("documents")
 	doc := core.NewRecord(col)
@@ -59,7 +61,7 @@ func TestNewDocumentView_FileDoc(t *testing.T) {
 	// the same branch without going through FileField upload validation.
 	doc.Set("file", "reglamento_abc123.pdf")
 
-	dv := NewDocumentView(doc, PlayerRow, "")
+	dv := handlers.NewDocumentView(doc, handlers.PlayerRow, "")
 
 	assert.True(t, dv.IsFile)
 	assert.Equal(t, "/api/files/documents/docid123456789/reglamento_abc123.pdf", dv.OpenURL)
@@ -67,14 +69,14 @@ func TestNewDocumentView_FileDoc(t *testing.T) {
 
 func TestNewDocumentViewWithAck(t *testing.T) {
 	t.Parallel()
-	app := newTestApp(t)
+	app := handlers.NewTestApp(t)
 
-	doc := makeDocumentTB(t, app, "Reglas", true, "https://example.com/reglas")
-	other := makeDocumentTB(t, app, "Tarifas", false, "https://example.com/tarifas")
+	doc := handlers.MakeDocumentTB(t, app, "Reglas", true, "https://example.com/reglas")
+	other := handlers.MakeDocumentTB(t, app, "Tarifas", false, "https://example.com/tarifas")
 	acked := map[string]struct{}{doc.Id: {}}
 
-	dvAcked := NewDocumentViewWithAck(doc, PlayerRow, "", acked)
-	dvNotAcked := NewDocumentViewWithAck(other, PlayerRow, "", acked)
+	dvAcked := handlers.NewDocumentViewWithAck(doc, handlers.PlayerRow, "", acked)
+	dvNotAcked := handlers.NewDocumentViewWithAck(other, handlers.PlayerRow, "", acked)
 
 	assert.True(t, dvAcked.Acked)
 	assert.False(t, dvNotAcked.Acked)
@@ -83,28 +85,28 @@ func TestNewDocumentViewWithAck(t *testing.T) {
 func TestDocumentCard_PlayerRowNoControls(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "player tab shows doc card without admin controls",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Documentos"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "DocA")
-		p2 := makePairTB(tb, app, "DocB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "DocA")
+		p2 := handlers.MakePairTB(tb, app, "DocB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 
-		doc := makeDocumentTB(tb, app, "Normativa", true, "https://example.com/n")
+		doc := handlers.MakeDocumentTB(tb, app, "Normativa", true, "https://example.com/n")
 		comp.Set("documents", []string{doc.Id})
 		require.NoError(tb, app.Save(comp))
 
 		s.URL = "/competition/" + comp.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		assert.Contains(tb, body, "Normativa", "card shows title")
 		assert.Contains(tb, body, `data-testid="document-card"`, "renders via documentCard")
 		assert.Contains(tb, body, "Abrir", "open action present")
@@ -117,22 +119,22 @@ func TestDocumentCard_PlayerRowNoControls(t *testing.T) {
 func TestDocumentCard_AdminFullHasControls(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "admin library shows doc card with edit/delete",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Documentos"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDocRoutes(tb, app, e)
-		makeDocumentTB(tb, app, "Reglamento Admin", false, "https://example.com/r")
+		setupProductionRoutes(tb, app, e)
+		handlers.MakeDocumentTB(tb, app, "Reglamento Admin", false, "https://example.com/r")
 
 		s.URL = "/admin/documents"
-		admin := makeAdminUserTB(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		assert.Contains(tb, body, "Reglamento Admin", "card shows title")
 		assert.Contains(tb, body, `data-testid="document-card"`, "renders via documentCard")
 		assert.Contains(tb, body, "Editar", "edit control present in admin view")
@@ -144,28 +146,28 @@ func TestDocumentCard_AdminFullHasControls(t *testing.T) {
 func TestDocumentCard_AttachRowHasDetach(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "admin competition detail shows attached doc with detach",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Documentos"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "AttA")
-		p2 := makePairTB(tb, app, "AttB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "AttA")
+		p2 := handlers.MakePairTB(tb, app, "AttB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 
-		doc := makeDocumentTB(tb, app, "Manual", false, "https://example.com/m")
+		doc := handlers.MakeDocumentTB(tb, app, "Manual", false, "https://example.com/m")
 		comp.Set("documents", []string{doc.Id})
 		require.NoError(tb, app.Save(comp))
 
 		s.URL = "/admin/competitions/" + comp.Id
-		admin := makeAdminUserTB(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		assert.Contains(tb, body, "Manual", "attached doc shows title")
 		assert.Contains(tb, body, `data-testid="document-attach-row"`, "renders via documentAttachRow")
 		assert.Contains(tb, body, "Quitar", "detach control present")

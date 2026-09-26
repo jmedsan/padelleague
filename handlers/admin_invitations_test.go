@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"net/http"
@@ -10,6 +10,8 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/handlers"
 )
 
 // findLatestInvitation returns the most recently created pending invitation.
@@ -25,17 +27,17 @@ func findLatestInvitation(tb testing.TB, app *tests.TestApp) *core.Record {
 func TestInvitationAllowed(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/invitations is allowed",
 		Method:         http.MethodPost,
 		URL:            "/admin/invitations",
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("email=test@test.com&max_uses=1")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -43,7 +45,7 @@ func TestInvitationAllowed(t *testing.T) {
 		inv := findLatestInvitation(tb, app)
 		assert.Equal(tb, "test@test.com", inv.GetString("email"))
 	}
-	expectRedirect(s, redirectTo("/admin/invitations"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
@@ -52,17 +54,17 @@ func TestInvitationAllowed(t *testing.T) {
 func TestInvitationStoresAdminNote(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/invitations stores admin_note",
 		Method:         http.MethodPost,
 		URL:            "/admin/invitations",
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("max_uses=1&admin_note=Reserved+for+Juan")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -70,7 +72,7 @@ func TestInvitationStoresAdminNote(t *testing.T) {
 		inv := findLatestInvitation(tb, app)
 		assert.Equal(tb, "Reserved for Juan", inv.GetString("admin_note"))
 	}
-	expectRedirect(s, redirectTo("/admin/invitations"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
@@ -79,17 +81,17 @@ func TestInvitationStoresAdminNote(t *testing.T) {
 func TestInvitationLinkMaxUses5(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/invitations link with max_uses=5",
 		Method:         http.MethodPost,
 		URL:            "/admin/invitations",
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("max_uses=5")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -97,7 +99,7 @@ func TestInvitationLinkMaxUses5(t *testing.T) {
 		inv := findLatestInvitation(tb, app)
 		assert.Equal(tb, 5, int(inv.GetFloat("max_uses")))
 	}
-	expectRedirect(s, redirectTo("/admin/invitations"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
@@ -106,7 +108,7 @@ func TestInvitationLinkMaxUses5(t *testing.T) {
 func TestInvitationLinkMaxUses0Rejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/invitations link with max_uses=0 is rejected",
 		Method:          http.MethodPost,
 		URL:             "/admin/invitations",
@@ -114,10 +116,10 @@ func TestInvitationLinkMaxUses0Rejected(t *testing.T) {
 		ExpectedContent: []string{"usos máximos"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("max_uses=0")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -134,7 +136,7 @@ func TestInvitationLinkMaxUses0Rejected(t *testing.T) {
 func TestInvitationLinkMaxUsesNegativeRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/invitations link with max_uses=-3 is rejected",
 		Method:          http.MethodPost,
 		URL:             "/admin/invitations",
@@ -142,10 +144,10 @@ func TestInvitationLinkMaxUsesNegativeRejected(t *testing.T) {
 		ExpectedContent: []string{"usos máximos"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("max_uses=-3")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -162,7 +164,7 @@ func TestInvitationLinkMaxUsesNegativeRejected(t *testing.T) {
 func TestInvitationLinkMaxUsesNonNumericRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/invitations link with max_uses=abc is rejected",
 		Method:          http.MethodPost,
 		URL:             "/admin/invitations",
@@ -170,10 +172,10 @@ func TestInvitationLinkMaxUsesNonNumericRejected(t *testing.T) {
 		ExpectedContent: []string{"usos máximos"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("max_uses=abc")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -190,17 +192,17 @@ func TestInvitationLinkMaxUsesNonNumericRejected(t *testing.T) {
 func TestInvitationEmailHonorsMaxUses(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/invitations email honors max_uses",
 		Method:         http.MethodPost,
 		URL:            "/admin/invitations",
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("email=someone@test.com&max_uses=10")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -209,7 +211,7 @@ func TestInvitationEmailHonorsMaxUses(t *testing.T) {
 		assert.Equal(tb, 10, int(inv.GetFloat("max_uses")),
 			"email invitation should honor max_uses from form")
 	}
-	expectRedirect(s, redirectTo("/admin/invitations"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
@@ -218,7 +220,7 @@ func TestInvitationEmailHonorsMaxUses(t *testing.T) {
 func TestInvitationExpiration3Days(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/invitations expiration_days=3 sets ~72h expiry",
 		Method:         http.MethodPost,
 		URL:            "/admin/invitations",
@@ -226,11 +228,11 @@ func TestInvitationExpiration3Days(t *testing.T) {
 	}
 	var beforeCreate time.Time
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		beforeCreate = time.Now()
 		s.Body = strings.NewReader("email=exp3@test.com&expiration_days=3")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -244,7 +246,7 @@ func TestInvitationExpiration3Days(t *testing.T) {
 		assert.True(tb, expiresAt.Before(latest),
 			"expires_at %v should be before %v (73h from test start)", expiresAt, latest)
 	}
-	expectRedirect(s, redirectTo("/admin/invitations"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
@@ -253,7 +255,7 @@ func TestInvitationExpiration3Days(t *testing.T) {
 func TestInvitationExpiration0Rejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/invitations expiration_days=0 is rejected",
 		Method:          http.MethodPost,
 		URL:             "/admin/invitations",
@@ -261,10 +263,10 @@ func TestInvitationExpiration0Rejected(t *testing.T) {
 		ExpectedContent: []string{"días hasta expirar"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("email=exp0@test.com&expiration_days=0")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -281,7 +283,7 @@ func TestInvitationExpiration0Rejected(t *testing.T) {
 func TestInvitationExpirationNegativeRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/invitations expiration_days=-5 is rejected",
 		Method:          http.MethodPost,
 		URL:             "/admin/invitations",
@@ -289,10 +291,10 @@ func TestInvitationExpirationNegativeRejected(t *testing.T) {
 		ExpectedContent: []string{"días hasta expirar"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("email=expneg@test.com&expiration_days=-5")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -309,7 +311,7 @@ func TestInvitationExpirationNegativeRejected(t *testing.T) {
 func TestInvitationExpirationNonNumericRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/invitations expiration_days=abc is rejected",
 		Method:          http.MethodPost,
 		URL:             "/admin/invitations",
@@ -317,10 +319,10 @@ func TestInvitationExpirationNonNumericRejected(t *testing.T) {
 		ExpectedContent: []string{"días hasta expirar"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("email=expbad@test.com&expiration_days=abc")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -337,7 +339,7 @@ func TestInvitationExpirationNonNumericRejected(t *testing.T) {
 func TestInvitationInvalidEmailRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/invitations with an invalid email is rejected",
 		Method:          http.MethodPost,
 		URL:             "/admin/invitations",
@@ -345,10 +347,10 @@ func TestInvitationInvalidEmailRejected(t *testing.T) {
 		ExpectedContent: []string{"email no es válido"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("email=not-an-email")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -365,7 +367,7 @@ func TestInvitationInvalidEmailRejected(t *testing.T) {
 func TestInvitationExpirationDefault7Days(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/invitations default expiration is 7 days",
 		Method:         http.MethodPost,
 		URL:            "/admin/invitations",
@@ -373,11 +375,11 @@ func TestInvitationExpirationDefault7Days(t *testing.T) {
 	}
 	var beforeCreate time.Time
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		beforeCreate = time.Now()
 		s.Body = strings.NewReader("email=expdef@test.com")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -391,50 +393,50 @@ func TestInvitationExpirationDefault7Days(t *testing.T) {
 		assert.True(tb, expiresAt.Before(latest),
 			"expires_at %v should be before %v (169h)", expiresAt, latest)
 	}
-	expectRedirect(s, redirectTo("/admin/invitations"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
 func TestAdminInvitationsRevoke(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/invitations/{id}/revoke changes status",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var invID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupFullAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		inv := makeInvitation(t, app, time.Time{})
 		invID = inv.Id
 		s.URL = "/admin/invitations/" + inv.Id + "/revoke"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		_, err := app.FindRecordById("invitations", invID)
 		assert.Error(tb, err, "invitation should be deleted")
 	}
-	expectRedirect(s, redirectTo("/admin/invitations"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
 func TestInvitationEmailSendsOnboardingEmail(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/invitations with email sends invite email",
 		Method:         http.MethodPost,
 		URL:            "/admin/invitations",
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		enableSMTP(tb, app)
 		s.Body = strings.NewReader("email=newplayer@test.com")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -445,31 +447,31 @@ func TestInvitationEmailSendsOnboardingEmail(t *testing.T) {
 		assert.Contains(tb, msg.Subject, "Invitación")
 		assert.Contains(tb, msg.HTML, "/register?token=")
 	}
-	expectRedirect(s, redirectTo("/admin/invitations"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
 func TestInvitationLinkNoEmailNoEmail(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/invitations without email sends no email",
 		Method:         http.MethodPost,
 		URL:            "/admin/invitations",
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		enableSMTP(tb, app)
 		s.Body = strings.NewReader("max_uses=5")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		assert.Equal(tb, 0, app.TestMailer.TotalSend(), "no email for link-only invitation")
 	}
-	expectRedirect(s, redirectTo("/admin/invitations"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }

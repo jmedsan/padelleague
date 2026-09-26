@@ -1,8 +1,7 @@
-package handlers
+package handlers_test
 
 import (
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 
@@ -11,36 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/handlers"
 	"padelleague/league"
-	"padelleague/middleware"
-	"padelleague/notify"
-	"padelleague/render"
 )
-
-func setupDevToolsRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-	viewsFS := os.DirFS("..")
-	r := render.New(viewsFS, "", true)
-	notifier := notify.NewNotifier(app, "", "")
-
-	e.Router.BindFunc(middleware.CookieAuth)
-
-	auth := NewAuthHandler(app, notifier, r.Page)
-	e.Router.GET("/login", auth.Login)
-
-	h := NewAdminDevToolsHandler(app, notifier, viewsFS, r.Page)
-
-	g := e.Router.Group("/admin")
-	g.BindFunc(requireAuthTest)
-	g.BindFunc(requireAdminTest)
-	g.GET("/dev-tools", h.DevTools)
-	g.POST("/dev-tools/test-push", h.TestPush)
-	g.POST("/dev-tools/reset", h.Reset)
-}
 
 func TestDevToolsGET(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /admin/dev-tools returns 200 with reset form",
 		Method:          http.MethodGet,
 		URL:             "/admin/dev-tools",
@@ -48,9 +25,9 @@ func TestDevToolsGET(t *testing.T) {
 		ExpectedContent: []string{"Reiniciar base de datos", "Datos de ejemplo a cargar", "reset-overlay", "Reiniciando la base de datos"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDevToolsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -58,7 +35,7 @@ func TestDevToolsGET(t *testing.T) {
 func TestDevToolsTestPush(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/dev-tools/test-push notifies the current admin",
 		Method:         http.MethodPost,
 		URL:            "/admin/dev-tools/test-push",
@@ -66,10 +43,10 @@ func TestDevToolsTestPush(t *testing.T) {
 	}
 	var adminID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDevToolsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		adminID = admin.Id
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		want := league.Notification{
@@ -80,14 +57,14 @@ func TestDevToolsTestPush(t *testing.T) {
 		}
 		assertNotified(tb, app, adminID, want)
 	}
-	expectRedirect(s, redirectTo("/admin/dev-tools"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/dev-tools"))
 	s.Test(t)
 }
 
 func TestDevToolsShowsPlayoffCheckbox(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /admin/dev-tools shows split Liga/Playoff checkboxes",
 		Method:          http.MethodGet,
 		URL:             "/admin/dev-tools",
@@ -95,9 +72,9 @@ func TestDevToolsShowsPlayoffCheckbox(t *testing.T) {
 		ExpectedContent: []string{"Liga de ejemplo", "Playoff de ejemplo"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDevToolsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -105,7 +82,7 @@ func TestDevToolsShowsPlayoffCheckbox(t *testing.T) {
 func TestResetWrongConfirm(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST reset with wrong confirm leaves data unchanged",
 		Method:          http.MethodPost,
 		URL:             "/admin/dev-tools/reset",
@@ -114,12 +91,12 @@ func TestResetWrongConfirm(t *testing.T) {
 	}
 	var playerID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDevToolsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		player := makeUserTB(tb, app, "Player", "")
+		player := handlers.MakeUserTB(tb, app, "Player", "")
 		playerID = player.Id
 		s.Body = strings.NewReader("confirm=WRONG&players=on")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -134,7 +111,7 @@ func TestResetWrongConfirm(t *testing.T) {
 func TestResetFromScratch(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST reset with no example checkboxes wipes to a clean DB, admins survive",
 		Method:          http.MethodPost,
 		URL:             "/admin/dev-tools/reset",
@@ -143,15 +120,15 @@ func TestResetFromScratch(t *testing.T) {
 	}
 	var admin1ID, admin2ID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDevToolsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin1 := makeAdminUser(tb, app)
 		admin2 := makeAdminUser(tb, app)
 		admin1ID = admin1.Id
 		admin2ID = admin2.Id
-		makeUserTB(tb, app, "Player1", "")
-		makePairTB(tb, app, "TestPair")
+		handlers.MakeUserTB(tb, app, "Player1", "")
+		handlers.MakePairTB(tb, app, "TestPair")
 		s.Body = strings.NewReader("confirm=DELETE")
-		hdrs := authHeaders(tb, admin1)
+		hdrs := handlers.AuthHeaders(tb, admin1)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -179,7 +156,7 @@ func TestResetFromScratch(t *testing.T) {
 func TestResetLoadPlayersOnly(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST reset players=on wipes all then loads only sample players",
 		Method:          http.MethodPost,
 		URL:             "/admin/dev-tools/reset",
@@ -187,11 +164,11 @@ func TestResetLoadPlayersOnly(t *testing.T) {
 		ExpectedContent: []string{"reiniciada", "ejemplo"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDevToolsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		makeUserTB(tb, app, "OldPlayer", "")
+		handlers.MakeUserTB(tb, app, "OldPlayer", "")
 		s.Body = strings.NewReader("confirm=DELETE&players=on")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -214,7 +191,7 @@ func TestResetLoadPlayersOnly(t *testing.T) {
 func TestResetLoadFullSample(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST reset with all example categories loads the full sample league",
 		Method:          http.MethodPost,
 		URL:             "/admin/dev-tools/reset",
@@ -222,10 +199,10 @@ func TestResetLoadFullSample(t *testing.T) {
 		ExpectedContent: []string{"reiniciada", "ejemplo"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDevToolsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("confirm=DELETE&players=on&pairs=on&competitions=on&matches=on")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -256,7 +233,7 @@ func TestResetLoadFullSample(t *testing.T) {
 func TestResetLoadCompetitionNotPlayed(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST reset competitions=on matches=off loads the competition with no played matches",
 		Method:          http.MethodPost,
 		URL:             "/admin/dev-tools/reset",
@@ -264,10 +241,10 @@ func TestResetLoadCompetitionNotPlayed(t *testing.T) {
 		ExpectedContent: []string{"reiniciada", "ejemplo"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDevToolsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("confirm=DELETE&players=on&pairs=on&competitions=on")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -290,7 +267,7 @@ func TestResetLoadCompetitionNotPlayed(t *testing.T) {
 func TestResetLoadPlayoff(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST reset with playoff=on loads a sample playoff competition",
 		Method:          http.MethodPost,
 		URL:             "/admin/dev-tools/reset",
@@ -298,10 +275,10 @@ func TestResetLoadPlayoff(t *testing.T) {
 		ExpectedContent: []string{"reiniciada", "ejemplo"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDevToolsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("confirm=DELETE&players=on&pairs=on&competitions=on&playoff=on")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -323,7 +300,7 @@ func TestResetLoadPlayoff(t *testing.T) {
 func TestResetLoadDocuments(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST reset with competitions=on loads sample documents attached to comp",
 		Method:          http.MethodPost,
 		URL:             "/admin/dev-tools/reset",
@@ -331,10 +308,10 @@ func TestResetLoadDocuments(t *testing.T) {
 		ExpectedContent: []string{"reiniciada", "ejemplo"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupDevToolsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("confirm=DELETE&players=on&pairs=on&competitions=on")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}

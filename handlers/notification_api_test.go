@@ -1,11 +1,10 @@
-package handlers
+package handlers_test
 
 import (
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -16,44 +15,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"padelleague/league"
-	"padelleague/middleware"
+	"padelleague/handlers"
 	"padelleague/notify"
-	"padelleague/render"
 )
-
-func setupNotifRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-	viewsFS := os.DirFS("..")
-	r := render.New(viewsFS, "", true)
-	notifier := notify.NewNotifier(app, "", "")
-	svc := league.New(app, notifier)
-	_ = svc
-
-	e.Router.BindFunc(middleware.CookieAuth)
-
-	auth := NewAuthHandler(app, notifier, r.Page)
-	e.Router.GET("/login", auth.Login)
-
-	notif := NewNotificationHandler(app, r.Page, r.Partial)
-	e.Router.GET("/notifications/count", notif.Count).BindFunc(requireAuthTest)
-	e.Router.GET("/notifications/list", notif.List).BindFunc(requireAuthTest)
-	e.Router.POST("/notifications/{id}/read", notif.MarkRead).BindFunc(requireAuthTest)
-	e.Router.POST("/notifications/read-all", notif.MarkAllRead).BindFunc(requireAuthTest)
-	e.Router.POST("/notifications/{id}/dismiss", notif.Dismiss).BindFunc(requireAuthTest)
-	e.Router.GET("/notifications/history", notif.History).BindFunc(requireAuthTest)
-
-	e.Router.GET("/profile/notifications", notif.Prefs).BindFunc(requireAuthTest)
-	e.Router.POST("/profile/notifications", notif.PrefsSave).BindFunc(requireAuthTest)
-
-	push := NewPushHandler(app, notifier)
-	e.Router.POST("/push/subscribe", push.Subscribe).BindFunc(requireAuthTest)
-	e.Router.POST("/push/unsubscribe", push.Unsubscribe).BindFunc(requireAuthTest)
-}
 
 func TestNotificationListReturnsNewestFirst(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:     testAppFactory,
+		TestAppFactory:     handlers.TestAppFactory,
 		Name:               "GET /notifications/list returns newest 10 of 11",
 		Method:             http.MethodGet,
 		URL:                "/notifications/list",
@@ -62,9 +31,9 @@ func TestNotificationListReturnsNewestFirst(t *testing.T) {
 		NotExpectedContent: []string{"Notif-00"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Order User", "")
-		s.Headers = authHeaders(tb, user)
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Order User", "")
+		s.Headers = handlers.AuthHeaders(tb, user)
 
 		base := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 		for i := 0; i < 11; i++ {
@@ -97,19 +66,19 @@ func TestNotificationListReturnsNewestFirst(t *testing.T) {
 func TestMarkReadNotification(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /notifications/{id}/read marks read and redirects",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var notifID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Notif Reader", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Notif Reader", "")
 		n := makeNotification(t, app, user.Id, "Test", "Body", false)
 		notifID = n.Id
 		s.URL = "/notifications/" + n.Id + "/read"
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
 		n, err := app.FindRecordById("notifications", notifID)
@@ -123,7 +92,7 @@ func TestMarkReadNotification(t *testing.T) {
 func TestMarkAllReadNotifications(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /notifications/read-all marks all read and resets the badge in place",
 		Method:          http.MethodPost,
 		URL:             "/notifications/read-all",
@@ -132,12 +101,12 @@ func TestMarkAllReadNotifications(t *testing.T) {
 	}
 	var userID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Notif Bulk", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Notif Bulk", "")
 		userID = user.Id
 		makeNotification(t, app, user.Id, "N1", "Body1", false)
 		makeNotification(t, app, user.Id, "N2", "Body2", false)
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
 		unread, err := app.FindRecordsByFilter("notifications",
@@ -153,7 +122,7 @@ func TestMarkAllReadNotifications(t *testing.T) {
 func TestNotificationPrefsPage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "GET /profile/notifications returns prefs page with toggles",
 		Method:         http.MethodGet,
 		URL:            "/profile/notifications",
@@ -166,9 +135,9 @@ func TestNotificationPrefsPage(t *testing.T) {
 		},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Prefs User", "")
-		s.Headers = authHeaders(tb, user)
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Prefs User", "")
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -177,7 +146,7 @@ func TestNotificationPrefsSave(t *testing.T) {
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /profile/notifications saves prefs",
 		Method:         http.MethodPost,
 		URL:            "/profile/notifications",
@@ -185,10 +154,10 @@ func TestNotificationPrefsSave(t *testing.T) {
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Prefs Saver", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Prefs Saver", "")
 		userID = user.Id
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -214,7 +183,7 @@ func TestNotificationPrefsSave_NewTypesPersistOff(t *testing.T) {
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /profile/notifications persists announcement/penalty/payment off",
 		Method:         http.MethodPost,
 		URL:            "/profile/notifications",
@@ -222,10 +191,10 @@ func TestNotificationPrefsSave_NewTypesPersistOff(t *testing.T) {
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Prefs New Types", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Prefs New Types", "")
 		userID = user.Id
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -245,7 +214,7 @@ func TestNotificationPrefsSave_NewTypesPersistOff(t *testing.T) {
 		assert.Equal(tb, false, prefs["penalty"])
 		assert.Equal(tb, false, prefs["payment"])
 	}
-	expectRedirect(s, redirectTo("/profile/notifications"))
+	handlers.ExpectRedirect(s, redirectTo("/profile/notifications"))
 	s.Test(t)
 }
 
@@ -253,7 +222,7 @@ func TestNotificationPrefsSave_NewTypesPersistOff(t *testing.T) {
 func TestNotificationPrefsPageReflectsSavedPrefs(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:     testAppFactory,
+		TestAppFactory:     handlers.TestAppFactory,
 		Name:               "GET /profile/notifications renders a disabled toggle unchecked",
 		Method:             http.MethodGet,
 		URL:                "/profile/notifications",
@@ -262,8 +231,8 @@ func TestNotificationPrefsPageReflectsSavedPrefs(t *testing.T) {
 		NotExpectedContent: []string{`name="general" class="toggle toggle-primary" checked`},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Prefs Reader", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Prefs Reader", "")
 		user.Set("notification_prefs", map[string]any{
 			"quorum_request": true,
 			"dispute":        true,
@@ -271,7 +240,7 @@ func TestNotificationPrefsPageReflectsSavedPrefs(t *testing.T) {
 			"scheduling":     true,
 		})
 		require.NoError(tb, app.Save(user))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -279,7 +248,7 @@ func TestNotificationPrefsPageReflectsSavedPrefs(t *testing.T) {
 func TestNotificationPrefsPage_EmailToggleDisabledWhenUnverified(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /profile/notifications disables the email toggle for an unverified user",
 		Method:          http.MethodGet,
 		URL:             "/profile/notifications",
@@ -287,11 +256,11 @@ func TestNotificationPrefsPage_EmailToggleDisabledWhenUnverified(t *testing.T) {
 		ExpectedContent: []string{`name="email" class="toggle toggle-primary"`, "disabled"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Unverified User", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Unverified User", "")
 		user.SetVerified(false)
 		require.NoError(tb, app.Save(user))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -299,7 +268,7 @@ func TestNotificationPrefsPage_EmailToggleDisabledWhenUnverified(t *testing.T) {
 func TestNotificationPrefsPage_EmailToggleEnabledWhenVerified(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:     testAppFactory,
+		TestAppFactory:     handlers.TestAppFactory,
 		Name:               "GET /profile/notifications enables the email toggle for a verified user",
 		Method:             http.MethodGet,
 		URL:                "/profile/notifications",
@@ -307,9 +276,9 @@ func TestNotificationPrefsPage_EmailToggleEnabledWhenVerified(t *testing.T) {
 		NotExpectedContent: []string{`name="email" class="toggle toggle-primary" checked disabled`},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Verified User", "")
-		s.Headers = authHeaders(tb, user)
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Verified User", "")
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -318,7 +287,7 @@ func TestNotificationPrefsSave_UnverifiedEmailTogglePreservesExistingValue(t *te
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /profile/notifications keeps email pref unchanged when user is unverified",
 		Method:         http.MethodPost,
 		URL:            "/profile/notifications",
@@ -326,13 +295,13 @@ func TestNotificationPrefsSave_UnverifiedEmailTogglePreservesExistingValue(t *te
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Unverified Saver", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Unverified Saver", "")
 		user.SetVerified(false)
 		user.Set("notification_prefs", map[string]any{"email": false})
 		require.NoError(tb, app.Save(user))
 		userID = user.Id
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -342,7 +311,7 @@ func TestNotificationPrefsSave_UnverifiedEmailTogglePreservesExistingValue(t *te
 		prefs := notify.NotificationPrefs(user)
 		assert.Equal(tb, false, prefs["email"], "the omitted disabled field must not be silently flipped to true")
 	}
-	expectRedirect(s, redirectTo("/profile/notifications"))
+	handlers.ExpectRedirect(s, redirectTo("/profile/notifications"))
 	s.Test(t)
 }
 
@@ -350,7 +319,7 @@ func TestNotificationPrefsSave_VerifiedUserCanToggleEmailOff(t *testing.T) {
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /profile/notifications turns email off for a verified user who unchecks it",
 		Method:         http.MethodPost,
 		URL:            "/profile/notifications",
@@ -358,10 +327,10 @@ func TestNotificationPrefsSave_VerifiedUserCanToggleEmailOff(t *testing.T) {
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Verified Saver", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Verified Saver", "")
 		userID = user.Id
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -371,7 +340,7 @@ func TestNotificationPrefsSave_VerifiedUserCanToggleEmailOff(t *testing.T) {
 		prefs := notify.NotificationPrefs(user)
 		assert.Equal(tb, false, prefs["email"], "verified user's unchecked email box must be honored")
 	}
-	expectRedirect(s, redirectTo("/profile/notifications"))
+	handlers.ExpectRedirect(s, redirectTo("/profile/notifications"))
 	s.Test(t)
 }
 
@@ -379,7 +348,7 @@ func TestNotificationPrefsSave_NonAdminPreservesAdminPrefs(t *testing.T) {
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /profile/notifications preserves admin prefs for non-admin user",
 		Method:         http.MethodPost,
 		URL:            "/profile/notifications",
@@ -387,14 +356,14 @@ func TestNotificationPrefsSave_NonAdminPreservesAdminPrefs(t *testing.T) {
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Non Admin", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Non Admin", "")
 		user.Set("notification_prefs", map[string]any{
 			"admin_message": true, "user_joined": true, "match_progress": true,
 		})
 		require.NoError(tb, app.Save(user))
 		userID = user.Id
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -406,14 +375,14 @@ func TestNotificationPrefsSave_NonAdminPreservesAdminPrefs(t *testing.T) {
 		assert.Equal(tb, true, prefs["user_joined"], "non-admin must not reset user_joined")
 		assert.Equal(tb, true, prefs["match_progress"], "non-admin must not reset match_progress")
 	}
-	expectRedirect(s, redirectTo("/profile/notifications"))
+	handlers.ExpectRedirect(s, redirectTo("/profile/notifications"))
 	s.Test(t)
 }
 
 func TestPushSubscribeHTTPS(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /push/subscribe with https endpoint succeeds",
 		Method:         http.MethodPost,
 		URL:            "/push/subscribe",
@@ -422,10 +391,10 @@ func TestPushSubscribeHTTPS(t *testing.T) {
 	}
 	var userID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Push User", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Push User", "")
 		userID = user.Id
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = "application/json"
 		s.Headers = hdrs
 	}
@@ -439,14 +408,14 @@ func TestPushSubscribeHTTPS(t *testing.T) {
 		assert.Equal(tb, "key1", subs[0].GetString("p256dh"))
 		assert.Equal(tb, "key2", subs[0].GetString("auth"))
 	}
-	expectRedirect(s, redirectTo(""))
+	handlers.ExpectRedirect(s, redirectTo(""))
 	s.Test(t)
 }
 
 func TestPushSubscribeHTTPRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /push/subscribe with http endpoint fails",
 		Method:          http.MethodPost,
 		URL:             "/push/subscribe",
@@ -455,9 +424,9 @@ func TestPushSubscribeHTTPRejected(t *testing.T) {
 		ExpectedContent: []string{"Endpoint must use https"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Push Bad", "")
-		hdrs := authHeaders(tb, user)
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Push Bad", "")
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = "application/json"
 		s.Headers = hdrs
 	}
@@ -467,7 +436,7 @@ func TestPushSubscribeHTTPRejected(t *testing.T) {
 func TestPushUnsubscribe(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /push/unsubscribe removes subscription",
 		Method:         http.MethodPost,
 		URL:            "/push/unsubscribe",
@@ -476,8 +445,8 @@ func TestPushUnsubscribe(t *testing.T) {
 	}
 	var userID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Unsub User", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Unsub User", "")
 		userID = user.Id
 		col, err := app.FindCollectionByNameOrId("push_subscriptions")
 		require.NoError(tb, err)
@@ -488,7 +457,7 @@ func TestPushUnsubscribe(t *testing.T) {
 		rec.Set("auth", "key2")
 		require.NoError(tb, app.Save(rec))
 
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = "application/json"
 		s.Headers = hdrs
 	}
@@ -499,6 +468,6 @@ func TestPushUnsubscribe(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, 0, len(subs), "subscription must be deleted")
 	}
-	expectRedirect(s, redirectTo(""))
+	handlers.ExpectRedirect(s, redirectTo(""))
 	s.Test(t)
 }

@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"net/http"
@@ -9,6 +9,8 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/handlers"
 )
 
 // Player profile page: partner name, stats, win rate, streaks, comp stats
@@ -16,7 +18,7 @@ import (
 func TestGen2_PlayerProfile_FullStats(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "player profile shows correct partner, stats, streak, comp stats",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -25,11 +27,11 @@ func TestGen2_PlayerProfile_FullStats(t *testing.T) {
 	var compID string
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 
 		// Create two users manually to control who is player1/player2.
-		u1 := makeUserTB(tb, app, "Alice", "alice@test.local")
-		u2 := makeUserTB(tb, app, "Bob", "bob@test.local")
+		u1 := handlers.MakeUserTB(tb, app, "Alice", "alice@test.local")
+		u2 := handlers.MakeUserTB(tb, app, "Bob", "bob@test.local")
 
 		// Create pair with u1 as player1, u2 as player2.
 		col, err := app.FindCollectionByNameOrId("pairs")
@@ -52,7 +54,7 @@ func TestGen2_PlayerProfile_FullStats(t *testing.T) {
 		compID = comp.Id
 
 		// Create a second pair as opponent.
-		opp := makePairTB(tb, app, "Opp")
+		opp := handlers.MakePairTB(tb, app, "Opp")
 
 		// Match 1: pair is pair1, wins "6-3 6-4" (date earlier).
 		matchCol, err := app.FindCollectionByNameOrId("matches")
@@ -81,11 +83,11 @@ func TestGen2_PlayerProfile_FullStats(t *testing.T) {
 		require.NoError(tb, app.Save(m2))
 
 		s.URL = "/player/" + u1.Id
-		s.Headers = authHeaders(tb, u1)
+		s.Headers = handlers.AuthHeaders(tb, u1)
 	}
 
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 
 		assert.Contains(tb, body, "Bob", "partner name should be Bob")
 		assert.Contains(tb, body, ">2</div>", "TotalPlayed should be 2")
@@ -112,7 +114,7 @@ func TestGen2_PlayerProfile_FullStats(t *testing.T) {
 func TestGen2_PlayerProfile_DateOrdering(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "player profile recent matches sorted by date descending",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -120,11 +122,11 @@ func TestGen2_PlayerProfile_DateOrdering(t *testing.T) {
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 
-		pair := makePairTB(tb, app, "DateP")
-		opp := makePairTB(tb, app, "DateOpp")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair, opp})
+		pair := handlers.MakePairTB(tb, app, "DateP")
+		opp := handlers.MakePairTB(tb, app, "DateOpp")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{pair, opp})
 
 		matchCol, err := app.FindCollectionByNameOrId("matches")
 		require.NoError(tb, err)
@@ -155,11 +157,11 @@ func TestGen2_PlayerProfile_DateOrdering(t *testing.T) {
 
 		user, _ := app.FindRecordById("users", pair.GetString("player1"))
 		s.URL = "/player/" + user.Id
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		// Later match (Feb) should appear before earlier match (Jan) in the HTML.
 		febIdx := indexOf(body, "01/02/2026")
 		janIdx := indexOf(body, "01/01/2026")
@@ -185,7 +187,7 @@ func indexOf(s, sub string) int {
 func TestGen2_PlayerProfile_DedupMultiPair(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "player on both pairs counts match once",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -193,11 +195,11 @@ func TestGen2_PlayerProfile_DedupMultiPair(t *testing.T) {
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 
-		shared := makeUserTB(tb, app, "Shared", "shared@test.local")
-		other1 := makeUserTB(tb, app, "Other1", "other1@test.local")
-		other2 := makeUserTB(tb, app, "Other2", "other2@test.local")
+		shared := handlers.MakeUserTB(tb, app, "Shared", "shared@test.local")
+		other1 := handlers.MakeUserTB(tb, app, "Other1", "other1@test.local")
+		other2 := handlers.MakeUserTB(tb, app, "Other2", "other2@test.local")
 
 		pairCol, err := app.FindCollectionByNameOrId("pairs")
 		require.NoError(tb, err)
@@ -214,7 +216,7 @@ func TestGen2_PlayerProfile_DedupMultiPair(t *testing.T) {
 		pairB.Set("player2", shared.Id)
 		require.NoError(tb, app.Save(pairB))
 
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pairA, pairB})
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{pairA, pairB})
 
 		matchCol, err := app.FindCollectionByNameOrId("matches")
 		require.NoError(tb, err)
@@ -230,11 +232,11 @@ func TestGen2_PlayerProfile_DedupMultiPair(t *testing.T) {
 		require.NoError(tb, app.Save(m))
 
 		s.URL = "/player/" + shared.Id
-		s.Headers = authHeaders(tb, shared)
+		s.Headers = handlers.AuthHeaders(tb, shared)
 	}
 
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		assert.Contains(tb, body, ">1</div>", "TotalPlayed should be 1 (not 2)")
 		assert.Contains(tb, body, "100%", "WinRate should be 100%")
 		assert.Contains(tb, body, "1V", "best streak should be 1V")
@@ -248,7 +250,7 @@ func TestGen2_PlayerProfile_DedupMultiPair(t *testing.T) {
 func TestGen2_PlayerProfile_CompetitionStats(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "player profile shows correct per-competition stats",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -256,10 +258,10 @@ func TestGen2_PlayerProfile_CompetitionStats(t *testing.T) {
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 
-		pair := makePairTB(tb, app, "CSPair")
-		opp := makePairTB(tb, app, "CSOpp")
+		pair := handlers.MakePairTB(tb, app, "CSPair")
+		opp := handlers.MakePairTB(tb, app, "CSOpp")
 
 		// Two competitions with different names.
 		compCol, err := app.FindCollectionByNameOrId("competitions")
@@ -308,11 +310,11 @@ func TestGen2_PlayerProfile_CompetitionStats(t *testing.T) {
 
 		user, _ := app.FindRecordById("users", pair.GetString("player1"))
 		s.URL = "/player/" + user.Id
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		assert.Contains(tb, body, "Liga Alfa", "comp1 name")
 		assert.Contains(tb, body, "Liga Beta", "comp2 name")
 
@@ -341,7 +343,7 @@ func TestGen2_PlayerProfile_CompetitionStats(t *testing.T) {
 func TestGen2_PlayerProfile_ZeroMatches(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "player with no matches shows 0% win rate",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -349,14 +351,14 @@ func TestGen2_PlayerProfile_ZeroMatches(t *testing.T) {
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "NoMatches", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "NoMatches", "")
 		s.URL = "/player/" + user.Id
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		assert.Contains(tb, body, "0%", "zero matches should show 0% win rate")
 		assert.Contains(tb, body, ">0</div>", "TotalPlayed should be 0")
 	}
@@ -367,7 +369,7 @@ func TestGen2_PlayerProfile_ZeroMatches(t *testing.T) {
 func TestGen2_PlayerProfile_ShowsGender(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "player profile shows gender label",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -375,12 +377,12 @@ func TestGen2_PlayerProfile_ShowsGender(t *testing.T) {
 	}
 
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Carla", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Carla", "")
 		user.Set("gender", "female")
 		require.NoError(tb, app.Save(user))
 		s.URL = "/player/" + user.Id
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 
 	s.Test(t)
@@ -389,17 +391,17 @@ func TestGen2_PlayerProfile_ShowsGender(t *testing.T) {
 func TestPlayerProfileWithMatches(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /player/{id} with match history shows stats",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Stats A"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "Stats A")
-		p2 := makePairTB(tb, app, "Stats B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "Stats A")
+		p2 := handlers.MakePairTB(tb, app, "Stats B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 
 		// Create several final matches with winners for streak calculations
 		for i := 0; i < 3; i++ {
@@ -428,7 +430,7 @@ func TestPlayerProfileWithMatches(t *testing.T) {
 
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		s.URL = "/player/" + user.Id
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -436,16 +438,16 @@ func TestPlayerProfileWithMatches(t *testing.T) {
 func TestPlayerHistoryRowsHavePairLinks(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "player history rows render pairLink anchors",
 		Method:         http.MethodGet,
 		ExpectedStatus: 200,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "Link A")
-		p2 := makePairTB(tb, app, "Link B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "Link A")
+		p2 := handlers.MakePairTB(tb, app, "Link B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 
 		col, _ := app.FindCollectionByNameOrId("matches")
 		m := core.NewRecord(col)
@@ -467,7 +469,7 @@ func TestPlayerHistoryRowsHavePairLinks(t *testing.T) {
 
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		s.URL = "/player/" + user.Id
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
