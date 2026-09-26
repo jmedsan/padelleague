@@ -74,6 +74,30 @@ export async function formPost(api: ScenarioApi, path: string): Promise<void> {
   if (resp.status >= 400) throw new Error(`POST ${path}: ${resp.status}`);
 }
 
+// formPostData sends a form-urlencoded POST through the app's HTML endpoints
+// using admin cookie auth — for handlers that read e.Request.FormValue(...),
+// as opposed to formPost's empty body (button-only actions) or apiPatch's
+// JSON body (the /api/collections/* REST layer, which parses fields
+// differently than a real HTML form submission — see setDates in
+// tour-helpers.ts for the field values a real form actually sends).
+export async function formPostData(
+  api: ScenarioApi,
+  path: string,
+  data: Record<string, string>,
+): Promise<void> {
+  const resp = await fetch(`${api.baseURL}${path}`, {
+    method: 'POST',
+    headers: {
+      Cookie: api.adminCookie,
+      'HX-Request': 'true',
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams(data).toString(),
+    redirect: 'manual',
+  });
+  if (resp.status >= 400) throw new Error(`POST ${path}: ${resp.status} ${await resp.text()}`);
+}
+
 // Domain helpers
 
 export async function createPlayers(
@@ -160,10 +184,19 @@ export async function createCompetition(
 // over target_matches=10 does not divide evenly (7.3 days/Jornada), so it
 // exercises league.JornadaWindow's whole-day ceiling-division partition
 // instead of a round number that would pass even with a fractional-day bug.
+//
+// Date-only strings (no time-of-day), matching exactly what the admin edit
+// form's flatpickr inputs submit (dateFormat: 'Y-m-d' — views/layout.html).
+// PocketBase's DateTime parses a bare "YYYY-MM-DD" as that day at midnight
+// UTC, not noon: stageDated posts these through the real Update handler
+// (formPostData) rather than an ISO timestamp via the JSON API, so the
+// scenario's stored start_date/end_date time-of-day matches the live path
+// exactly — load-bearing here since JornadaWindow's returned lo/hi carry
+// start's time-of-day.
 export function competitionDates(): { startDate: string; endDate: string } {
   return {
-    startDate: '2036-09-29T12:00:00.000Z',
-    endDate: '2036-12-10T12:00:00.000Z',
+    startDate: '2036-09-29',
+    endDate: '2036-12-10',
   };
 }
 
@@ -299,10 +332,36 @@ async function stageCreated(api: ScenarioApi, ctx: ScenarioCtx): Promise<Scenari
 
 async function stageDated(api: ScenarioApi, ctx: ScenarioCtx): Promise<ScenarioCtx> {
   const { startDate, endDate } = competitionDates();
-  await apiPatch(api, `/api/collections/competitions/records/${ctx.competitionId}`, {
+  // Post through the real admin Update handler (POST /admin/competitions/:id)
+  // instead of a raw PATCH to the JSON API, so start_date/end_date get
+  // stored exactly as the live edit form stores them (see competitionDates'
+  // comment). The edit form (views/admin/competition-detail.html) is
+  // pre-filled with every field's CURRENT value and always submits the
+  // full set — Update's handler treats an absent field as "reset to
+  // handler default" for several of these (target_matches/open_assignments
+  // in particular, since hasFixtures is false pre-generation), so posting
+  // only start_date/end_date would silently zero the leveled-league fields.
+  // Fetch the record first and echo every field back exactly as the
+  // browser form would.
+  const comp = await apiGet(api, `/api/collections/competitions/records/${ctx.competitionId}`);
+  const body: Record<string, string> = {
+    name: comp.name,
+    type: comp.type,
+    gender_type: comp.gender_type,
+    quorum_timeout_hours: String(comp.quorum_timeout_hours ?? 0),
     start_date: startDate,
     end_date: endDate,
-  });
+    arrange_grace_days: String(comp.arrange_grace_days || 3),
+    walkover_score: comp.walkover_score || '6-0 6-0',
+    default_penalty: String(comp.default_penalty || 3),
+    recovery_days: String(comp.recovery_days || 14),
+    max_pending_matches: String(comp.max_pending_matches ?? 0),
+    match_reminder_hours: (comp.match_reminder_hours ?? []).join(', '),
+    target_matches: String(comp.target_matches ?? 0),
+    open_assignments: String(comp.open_assignments ?? 0),
+  };
+  if (comp.play_twice) body.play_twice = 'on'; // checkbox: present+"on" when checked, absent when not
+  await formPostData(api, `/admin/competitions/${ctx.competitionId}`, body);
   return { ...ctx, stage: 'dated' };
 }
 
