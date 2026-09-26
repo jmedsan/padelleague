@@ -10,6 +10,8 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/league"
 )
 
 // Correction window boundary
@@ -23,7 +25,7 @@ func TestMatchCorrectBoundary_Under24h_Allowed(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID string
+	var matchID, submitter, rival1, rival2 string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Bnd A")
@@ -31,7 +33,9 @@ func TestMatchCorrectBoundary_Under24h_Allowed(t *testing.T) {
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
 		matchID = match.Id
-		submitter := p1.GetString("player1")
+		submitter = p1.GetString("player1")
+		rival1 = p2.GetString("player1")
+		rival2 = p2.GetString("player2")
 		match.Set("submitted_by", submitter)
 		match.SetRaw("submitted_at", time.Now().Add(-23*time.Hour-59*time.Minute).UTC().Format(time.RFC3339))
 		require.NoError(tb, app.Save(match))
@@ -50,6 +54,17 @@ func TestMatchCorrectBoundary_Under24h_Allowed(t *testing.T) {
 		require.Len(tb, pending, 1)
 		assert.Equal(tb, "6-4 6-3", ParseProposalData(pending[0].GetString("proposal_data")).Scores,
 			"corrected scores must be in the new proposal")
+
+		want := league.Notification{
+			Type:     "quorum_request",
+			Title:    "Resultado corregido",
+			Body:     "Bnd A P1 (Bnd A) ha corregido el resultado",
+			MatchID:  matchID,
+			CompName: "Test Competition",
+		}
+		assertNotified(tb, app, rival1, want)
+		assertNotified(tb, app, rival2, want)
+		assertNotNotified(tb, app, submitter, want.Title)
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)

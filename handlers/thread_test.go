@@ -1548,7 +1548,7 @@ func TestAcceptResultProposalFinalizesMatch(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID, proposalID string
+	var matchID, proposalID, proposerID, proposerPartnerID, respondentID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "RA A")
@@ -1557,11 +1557,13 @@ func TestAcceptResultProposalFinalizesMatch(t *testing.T) {
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
 		matchID = match.Id
 
-		proposer := p1.GetString("player1")
-		proposal := makeResultProposal(tb, app, match.Id, proposer, "6-3 6-4")
+		proposerID = p1.GetString("player1")
+		proposerPartnerID = p1.GetString("player2")
+		proposal := makeResultProposal(tb, app, match.Id, proposerID, "6-3 6-4")
 		proposalID = proposal.Id
 
-		respondent, _ := app.FindRecordById("users", p2.GetString("player1"))
+		respondentID = p2.GetString("player1")
+		respondent, _ := app.FindRecordById("users", respondentID)
 		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/respond", match.Id, proposal.Id)
 		s.Body = strings.NewReader("action=accept")
 		hdrs := authHeaders(tb, respondent)
@@ -1583,6 +1585,17 @@ func TestAcceptResultProposalFinalizesMatch(t *testing.T) {
 			map[string]any{"mid": matchID})
 		require.Len(tb, responses, 1, "one result_response must exist")
 		assert.Equal(tb, proposalID, responses[0].GetString("parent"), "response must reference the proposal")
+
+		want := league.Notification{
+			Type:     "general",
+			Title:    "Resultado confirmado",
+			Body:     "RA B P1 (RA B) ha confirmado el resultado",
+			MatchID:  matchID,
+			CompName: "Test Competition",
+		}
+		assertNotified(tb, app, proposerID, want)
+		assertNotified(tb, app, proposerPartnerID, want)
+		assertNotNotified(tb, app, respondentID, want.Title)
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
