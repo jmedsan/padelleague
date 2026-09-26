@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { runDataDir } from './run-dir';
 import { SMTPServer } from 'smtp-server';
 import { STAGE_ORDER, type StageName } from './scenario-registry';
 
@@ -415,7 +416,7 @@ export async function buildToStage(api: ScenarioApi, stageName: string): Promise
   return advanceToStage(api, emptyCtx(api), stageName);
 }
 
-const SCENARIO_JSON = join(__dirname, '.test-data/scenario.json');
+const SCENARIO_JSON = join(runDataDir(8098), 'scenario.json');
 
 export interface ScenarioData extends ScenarioCtx {
   baseURL: string;

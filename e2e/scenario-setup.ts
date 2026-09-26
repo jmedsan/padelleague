@@ -1,5 +1,6 @@
-import { mkdirSync, writeFileSync } from 'fs';
+import { writeFileSync } from 'fs';
 import { join } from 'path';
+import { runDataDir } from './run-dir';
 import { spawnServer, superuserLogin } from './server';
 import { ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME } from './global-setup';
 import { buildToStage, ScenarioApi } from './scenario-helpers';
@@ -7,7 +8,6 @@ import { SCENARIOS } from './scenario-registry';
 
 const PORT = process.env.E2E_PORT ? Number(process.env.E2E_PORT) : 8098;
 const SCENARIO = process.env.SCENARIO ?? '';
-const TEST_DATA_DIR = join(__dirname, '.test-data');
 
 export default async function scenarioSetup() {
   const scenario = SCENARIOS[SCENARIO];
@@ -36,10 +36,8 @@ export default async function scenarioSetup() {
   const api: ScenarioApi = { baseURL: handle.baseURL, suToken, adminCookie };
   const ctx = await buildToStage(api, scenario.startStage);
 
-  mkdirSync(TEST_DATA_DIR, { recursive: true });
-
   writeFileSync(
-    join(TEST_DATA_DIR, 'scenario.json'),
+    join(runDataDir(PORT), 'scenario.json'),
     JSON.stringify({
       baseURL: handle.baseURL,
       suToken,

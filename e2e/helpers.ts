@@ -1,6 +1,7 @@
 import { Page, expect } from '@playwright/test';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { runDataDir } from './run-dir';
 
 export const ADMIN_EMAIL = 'admin@test.com';
 export const ADMIN_PASSWORD = 'testpass123456';
@@ -26,7 +27,7 @@ let _cachedData: TestData | null = null;
 
 export function loadTestData(): TestData {
   if (!_cachedData) {
-    const raw = readFileSync(join(__dirname, '.test-data/seed.json'), 'utf-8');
+    const raw = readFileSync(join(runDataDir(8099), 'seed.json'), 'utf-8');
     _cachedData = JSON.parse(raw);
   }
   return _cachedData!;
