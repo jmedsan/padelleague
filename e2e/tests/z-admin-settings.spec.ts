@@ -13,10 +13,10 @@ async function navToAdmin(page: Page, href: string): Promise<void> {
   await page.waitForLoadState('domcontentloaded');
 }
 
-test.describe('admin settings', () => {
+test.describe('admin dev tools: database reset', () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await navToAdmin(page, '/admin/settings');
+    await navToAdmin(page, '/admin/dev-tools');
   });
 
   test('shows reset form with example checkboxes', async ({ page }) => {
@@ -25,6 +25,7 @@ test.describe('admin settings', () => {
     await expect(page.locator('#chk-players')).toBeVisible();
     await expect(page.locator('#chk-pairs')).toBeVisible();
     await expect(page.locator('#chk-competitions')).toBeVisible();
+    await expect(page.locator('#chk-playoff')).toBeVisible();
     await expect(page.locator('#chk-matches')).toBeVisible();
     // Blocking overlay + spinner present but hidden until a reset runs.
     await expect(page.locator('#reset-overlay')).toBeAttached();
@@ -53,6 +54,10 @@ test.describe('admin settings', () => {
     await expect(page.locator('#chk-pairs')).not.toBeChecked();
     await expect(page.locator('#chk-competitions')).toBeDisabled();
     await expect(page.locator('#chk-competitions')).not.toBeChecked();
+    await expect(page.locator('#chk-playoff')).toBeDisabled();
+    await expect(page.locator('#chk-playoff')).not.toBeChecked();
+    await expect(page.locator('#chk-matches')).toBeDisabled();
+    await expect(page.locator('#chk-matches')).not.toBeChecked();
 
     // Re-check players -> pairs re-enabled but not auto-checked; competitions stays disabled
     await page.locator('#chk-players').check();
@@ -60,9 +65,13 @@ test.describe('admin settings', () => {
     await expect(page.locator('#chk-pairs')).not.toBeChecked();
     await expect(page.locator('#chk-competitions')).toBeDisabled();
 
-    // Check pairs -> competitions becomes enabled
+    // Check pairs -> competitions becomes enabled; playoff and matches are each
+    // independently gated on competitions, not chained to one another.
     await page.locator('#chk-pairs').check();
     await expect(page.locator('#chk-competitions')).toBeEnabled();
+    await page.locator('#chk-competitions').check();
+    await expect(page.locator('#chk-playoff')).toBeEnabled();
+    await expect(page.locator('#chk-matches')).toBeEnabled();
   });
 
   test('reset from scratch wipes to an empty database', async ({ page }) => {
@@ -70,10 +79,11 @@ test.describe('admin settings', () => {
     // so an empty selection means "from scratch".
     await page.locator('#chk-players').uncheck();
     await expect(page.locator('#chk-pairs')).not.toBeChecked();
+    await expect(page.locator('#chk-playoff')).not.toBeChecked();
     await expect(page.locator('#chk-matches')).not.toBeChecked();
     await page.locator('#confirm-input').fill('DELETE');
     await Promise.all([
-      page.waitForResponse(resp => resp.url().includes('/admin/settings/reset')),
+      page.waitForResponse(resp => resp.url().includes('/admin/dev-tools/reset')),
       page.locator('#reset-btn').click(),
     ]);
     await expect(page.locator('#reset-result')).toContainText('vacía');
@@ -83,10 +93,11 @@ test.describe('admin settings', () => {
     await page.locator('#chk-players').check();
     await page.locator('#chk-pairs').check();
     await page.locator('#chk-competitions').check();
+    await page.locator('#chk-playoff').check();
     await page.locator('#chk-matches').check();
     await page.locator('#confirm-input').fill('DELETE');
     await Promise.all([
-      page.waitForResponse(resp => resp.url().includes('/admin/settings/reset')),
+      page.waitForResponse(resp => resp.url().includes('/admin/dev-tools/reset')),
       page.locator('#reset-btn').click(),
     ]);
     await expect(page.locator('#reset-result')).toContainText('ejemplo');
@@ -113,14 +124,23 @@ test.describe('admin settings', () => {
     const readRow = dropdown.locator('a:not(.font-medium)').first();
     await expect(readRow).toBeVisible();
   });
+});
+
+test.describe('admin settings: league defaults', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await navToAdmin(page, '/admin/settings');
+  });
 
   test('admin can configure match reminder hours', async ({ page }) => {
     await expect(page.locator('#settings-reminder-hours')).toBeVisible();
     const original = await page.locator('#settings-reminder-hours').inputValue();
+    const defaultsForm = page.locator('form:has(#settings-reminder-hours)');
+    const saveButton = defaultsForm.locator('button:has-text("Guardar")');
 
     // Set custom reminder hours
     await page.locator('#settings-reminder-hours').fill('24, 2');
-    await page.click('button:has-text("Guardar")');
+    await saveButton.click();
     await page.waitForLoadState('domcontentloaded');
 
     // Verify the value persisted
@@ -128,7 +148,7 @@ test.describe('admin settings', () => {
 
     // Restore original value
     await page.locator('#settings-reminder-hours').fill(original);
-    await page.click('button:has-text("Guardar")');
+    await saveButton.click();
     await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('#settings-reminder-hours')).toHaveValue(original);
   });
