@@ -86,6 +86,7 @@ invariants:
 		echo "FAIL: $$n use(s) of a retired ad-hoc dict flag (Compact/Large/Linked) in templates — express via Mode"; \
 		grep -rn '"Compact"\|"Large"\|"Linked"' --include='*.html' views/ | grep -v '{{/\*'; fail=1; \
 	fi; \
+	scripts/check-e2e-selectors.sh || fail=1; \
 	if [ "$$fail" != "0" ]; then exit 1; fi; \
 	echo "invariants hold"
 
