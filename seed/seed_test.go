@@ -16,15 +16,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/internal/testapp"
 	_ "padelleague/migrations"
 )
 
+func TestMain(m *testing.M) {
+	os.Exit(testapp.Run(m))
+}
+
 func newTestApp(t *testing.T) *tests.TestApp {
 	t.Helper()
-	app, err := tests.NewTestApp()
-	require.NoError(t, err)
-	t.Cleanup(app.Cleanup)
-	return app
+	return testapp.New(t)
 }
 
 func TestRun_CreatesUsers(t *testing.T) {
