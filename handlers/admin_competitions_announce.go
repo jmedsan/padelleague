@@ -53,7 +53,7 @@ func (h *CompetitionHandler) AdminBroadcast(e *core.RequestEvent) error {
 		Title:    title,
 		Body:     body,
 		CompName: comp.GetString("name"),
-		Link:     "/competition/" + comp.Id + "#anuncios",
+		Link:     "/competition/" + comp.Id + "#avisos",
 	})
 
 	slog.Info("broadcast sent", "competition", comp.Id, "players", len(players))

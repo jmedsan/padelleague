@@ -32,18 +32,6 @@
       min-width: 2.75rem;
     }
   }
-  /* Tab strips can carry up to 4 labels (Jornadas/Rondas/Partidos, Anuncios,
-     Documentos, Clasificación) — on a narrow phone the default 1rem
-     side-padding and text-sm size push 4 tabs past the viewport width
-     (scrollWidth > clientWidth, S23 at 360px). Tighten padding and type
-     size below the sm breakpoint so 4 tabs fit one row; min-height above
-     still guarantees the 44px tap target. */
-  @media (max-width: 639px) {
-    .tabs-boxed .tab {
-      --tab-padding: 0.25rem;
-      font-size: 0.7rem;
-    }
-  }
   .collapse-content {
     min-width: 0;
   }
@@ -96,6 +84,40 @@
   @media (max-width: 640px) {
     .bracket { --gap: 32px; }
     .bracket .round { min-width: 180px; scroll-snap-align: start; }
+  }
+
+  /* Tab strip component — the ONE pattern for every tab strip in the app.
+     DaisyUI's own .tabs is display:grid with every .tab pinned to
+     grid-row-start:1 (it's how the radio-driven show/hide trick lines up
+     panels on row 2), so a tab row can never wrap: it just grows implicit
+     grid columns past the viewport (this is what broke the competition
+     page's 4-tab strip at 360px — S23, scrollWidth 482 > 360).
+     .tabgroup replaces the grid with two independent boxes: .tabgroup-bar
+     is its own flex-wrap row (wraps to 2 lines rather than overflowing,
+     normal text-sm/font-medium size, ≥44px targets via the touch
+     min-height rule above), and .tabgroup-panels sits after it,
+     unconstrained by the bar's layout. Panels are shown with :has() instead
+     of the grid's adjacent-sibling trick, so panel markup no longer has to
+     stay adjacent to its radio in the DOM. Still no JS, keyboard/aria
+     behavior unchanged (role="tablist"/"tab"/"tabpanel", radio inputs).
+     Reuse this exact shape (.tabgroup > .tabgroup-bar + .tabgroup-panels,
+     one :has() rule per tab id) for any new tab strip. */
+  .tabgroup-bar {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .tabgroup-panel {
+    display: none;
+  }
+  /* One rule per tab id: :has() scopes to the whole .tabgroup ancestor, so
+     the panel doesn't need to be the radio's adjacent sibling — each tab
+     strip on the page lists its own (radio id, panel data-tabpanel) pairs
+     here. */
+  .tabgroup:has(#tab-jornadas:checked) .tabgroup-panel[data-tabpanel="jornadas"],
+  .tabgroup:has(#tab-anuncios:checked) .tabgroup-panel[data-tabpanel="anuncios"],
+  .tabgroup:has(#tab-documentos:checked) .tabgroup-panel[data-tabpanel="documentos"],
+  .tabgroup:has(#tab-clasificacion:checked) .tabgroup-panel[data-tabpanel="clasificacion"] {
+    display: block;
   }
 }
 
