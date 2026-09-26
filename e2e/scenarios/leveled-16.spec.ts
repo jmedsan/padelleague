@@ -4,10 +4,64 @@ import { enterScore, clickAndWaitForHxRedirect } from '../tour-helpers';
 import {
   assertAssignmentInvariants, ScenarioApi, ScenarioData,
   apiGet, apiPatch, PLAYER_PASSWORD, loadCtx, ensureStage,
+  competitionDates, jornadaTitle, jornadaHiISO,
 } from '../scenario-helpers';
+
+// playMatchToFinal drives one leveled match end-to-end through the UI (submit
+// → accept), the same flow step 02 uses, and returns the two pairs involved.
+// Shared by 02 and 02b so both top-up assertions play through the UI rather
+// than finalizing via a raw API PATCH.
+async function playMatchToFinal(
+  page: import('@playwright/test').Page,
+  api: ScenarioApi,
+  matchId: string,
+): Promise<{ pair1Id: string; pair2Id: string }> {
+  const match = await apiGet(api, `/api/collections/matches/records/${matchId}`);
+  const pair1Id = match.pair1;
+  const pair2Id = match.pair2;
+
+  const pair1Record = await apiGet(api, `/api/collections/pairs/records/${pair1Id}`);
+  const pair2Record = await apiGet(api, `/api/collections/pairs/records/${pair2Id}`);
+  const player1Record = await apiGet(api, `/api/collections/users/records/${pair1Record.player1}`);
+  const player2Record = await apiGet(api, `/api/collections/users/records/${pair2Record.player1}`);
+
+  // Set date and club first — required before score submission
+  await apiPatch(api, `/api/collections/matches/records/${matchId}`, {
+    date: '2036-10-02T10:00:00.000Z',
+    club: 'Test Club',
+  });
+
+  // Login as pair1's first player and submit score
+  await loginAs(page, player1Record.email, PLAYER_PASSWORD);
+  await page.goto(`/match/${matchId}`);
+  await page.waitForLoadState('domcontentloaded');
+
+  await enterScore(page, '6-3 6-4');
+  await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")').first());
+
+  // Login as pair2's first player and accept
+  await loginAs(page, player2Record.email, PLAYER_PASSWORD);
+  await page.goto(`/match/${matchId}`);
+  await page.waitForLoadState('domcontentloaded');
+  await page.locator('#thread-details').waitFor({ timeout: 15000 });
+
+  const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
+  await acceptBtn.waitFor({ timeout: 10000 });
+  await clickAndWaitForHxRedirect(page, acceptBtn);
+
+  const finalMatch = await apiGet(api, `/api/collections/matches/records/${matchId}`);
+  expect(finalMatch.status).toBe('final');
+
+  return { pair1Id, pair2Id };
+}
 
 let ctx: ScenarioData;
 let api: ScenarioApi;
+// Pairs that finished a match in step 02 and got topped up to slot 4 — step
+// 02b needs one of these specifically (see its comment) rather than any
+// slot-4 match, since a slot-4 opponent that hasn't itself exhausted its
+// slots 1..open yet does not "want" a slot-5 top-up merely from this match.
+let step02GraduatedPairs: string[] = [];
 
 // ---------------------------------------------------------------------------
 // Serial steps
@@ -77,63 +131,89 @@ test.describe('leveled-16 scenario', () => {
   });
 
   test('02 play match → top-up fires', async ({ page }) => {
-    // Pick a pending match from the API
-    const data = await apiGet(api, `/api/collections/matches/records?filter=${encodeURIComponent(`competition='${ctx.competitionId}' && status='pending'`)}&perPage=500`);
+    // Pick a Jornada-1 pending match from the API — the top-up's slot-4
+    // landing below is only pinned when the finishing pair's first three
+    // slots (1..open) are already occupied, which is guaranteed for slot 1.
+    const data = await apiGet(api, `/api/collections/matches/records?filter=${encodeURIComponent(`competition='${ctx.competitionId}' && status='pending' && slot=1`)}&perPage=500`);
     const pending: any[] = data.items;
     expect(pending.length).toBeGreaterThan(0);
-    const match = pending[0];
-    const matchId = match.id;
-    const pair1Id = match.pair1;
-    const pair2Id = match.pair2;
+    const matchId = pending[0].id;
 
-    // Look up pair records to get player IDs
-    const pair1Record = await apiGet(api, `/api/collections/pairs/records/${pair1Id}`);
-    const pair2Record = await apiGet(api, `/api/collections/pairs/records/${pair2Id}`);
-    const player1Record = await apiGet(api, `/api/collections/users/records/${pair1Record.player1}`);
-    const player2Record = await apiGet(api, `/api/collections/users/records/${pair2Record.player1}`);
-
-    // Set date and club first — required before score submission
-    await apiPatch(api, `/api/collections/matches/records/${matchId}`, {
-      date: '2036-10-02T10:00:00.000Z',
-      club: 'Test Club',
-    });
-
-    // Login as pair1's first player and submit score
-    await loginAs(page, player1Record.email, PLAYER_PASSWORD);
-    await page.goto(`/match/${matchId}`);
-    await page.waitForLoadState('domcontentloaded');
-
-    await enterScore(page, '6-3 6-4');
-    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")').first());
-
-    // Login as pair2's first player and accept
-    await loginAs(page, player2Record.email, PLAYER_PASSWORD);
-    await page.goto(`/match/${matchId}`);
-    await page.waitForLoadState('domcontentloaded');
-    await page.locator('#thread-details').waitFor({ timeout: 15000 });
-
-    const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
-    await acceptBtn.waitFor({ timeout: 10000 });
-    await clickAndWaitForHxRedirect(page, acceptBtn);
-
-    // Verify match is final
-    const finalMatch = await apiGet(api, `/api/collections/matches/records/${matchId}`);
-    expect(finalMatch.status).toBe('final');
+    const { pair1Id, pair2Id } = await playMatchToFinal(page, api, matchId);
 
     // Allow a moment for the top-up hook to fire
     await page.waitForTimeout(1000);
 
-    // Verify both pairs got a new pending match (top-up)
+    // Both finishing pairs get exactly one new pending match, both in slot 4
+    // (their next unoccupied Jornada, since 1..3 are already occupied — see
+    // league.leveledState.occupy/candidateFor) with arrange_by pinned to the
+    // last day of Jornada 4's window.
     const afterData = await apiGet(api, `/api/collections/matches/records?filter=competition='${ctx.competitionId}'&perPage=500`);
     const afterMatches: any[] = afterData.items;
 
-    const pair1PendingAfter = afterMatches.filter(m => m.status === 'pending' && (m.pair1 === pair1Id || m.pair2 === pair1Id));
-    const pair2PendingAfter = afterMatches.filter(m => m.status === 'pending' && (m.pair1 === pair2Id || m.pair2 === pair2Id));
+    const { startDate, endDate } = competitionDates();
+    const jornada4Deadline = jornadaHiISO(startDate, endDate, ctx.target, 4);
 
-    expect(pair1PendingAfter.length).toBeGreaterThan(0);
-    expect(pair2PendingAfter.length).toBeGreaterThan(0);
+    for (const pairId of [pair1Id, pair2Id]) {
+      const pairSlot4After = afterMatches.filter(m => m.status === 'pending' && m.slot === 4 && (m.pair1 === pairId || m.pair2 === pairId));
+      expect(pairSlot4After.length).toBe(1);
+      expect(pairSlot4After[0].arrange_by.slice(0, 10)).toBe(jornada4Deadline);
+    }
 
     await assertAssignmentInvariants(api, ctx);
+
+    step02GraduatedPairs = [pair1Id, pair2Id];
+
+    // The Jornada 4 group is visible in the UI, titled with its date range.
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/competition/${ctx.competitionId}`);
+    await page.waitForLoadState('domcontentloaded');
+    await page.locator('input[aria-label="Partidos"]').click();
+    await page.waitForLoadState('domcontentloaded');
+    const jornada4Title = jornadaTitle(startDate, endDate, ctx.target, 4);
+    await expect(page.locator(`.collapse-title:has-text("${jornada4Title}")`).first()).toBeVisible({ timeout: 10000 });
+  });
+
+  test('02b play a Jornada-4 match → next top-up lands in slot 5', async ({ page }) => {
+    // A pair only "wants" a new assignment once its pending count drops below
+    // `open` (league.leveledState.wants) — its slot-4 opponent from the
+    // initial top-up (a third pair whose own slots 1..open are still
+    // untouched) does not itself want a slot-5 top-up from this match. Play
+    // one of step 02's own graduated pairs' slot-4 match, so at least one
+    // side genuinely triggers the next top-up.
+    expect(step02GraduatedPairs.length).toBe(2);
+    const data = await apiGet(api, `/api/collections/matches/records?filter=${encodeURIComponent(`competition='${ctx.competitionId}' && status='pending' && slot=4`)}&perPage=500`);
+    const pending: any[] = data.items;
+    const match = pending.find(m => step02GraduatedPairs.includes(m.pair1) || step02GraduatedPairs.includes(m.pair2));
+    expect(match, 'need the slot-4 match for one of step 02\'s graduated pairs').toBeTruthy();
+    const matchId = match.id;
+    const graduatedPairId = step02GraduatedPairs.includes(match.pair1) ? match.pair1 : match.pair2;
+
+    await playMatchToFinal(page, api, matchId);
+
+    await page.waitForTimeout(1000);
+
+    const afterData = await apiGet(api, `/api/collections/matches/records?filter=competition='${ctx.competitionId}'&perPage=500`);
+    const afterMatches: any[] = afterData.items;
+
+    const { startDate, endDate } = competitionDates();
+    const jornada5Deadline = jornadaHiISO(startDate, endDate, ctx.target, 5);
+
+    const pairSlot5After = afterMatches.filter(m => m.status === 'pending' && m.slot === 5 && (m.pair1 === graduatedPairId || m.pair2 === graduatedPairId));
+    expect(pairSlot5After.length).toBe(1);
+    expect(pairSlot5After[0].arrange_by.slice(0, 10)).toBe(jornada5Deadline);
+
+    // No pair exceeds open+1 pending across the whole competition.
+    await assertAssignmentInvariants(api, ctx);
+
+    // The Jornada 5 group is visible in the UI, titled with its date range.
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/competition/${ctx.competitionId}`);
+    await page.waitForLoadState('domcontentloaded');
+    await page.locator('input[aria-label="Partidos"]').click();
+    await page.waitForLoadState('domcontentloaded');
+    const jornada5Title = jornadaTitle(startDate, endDate, ctx.target, 5);
+    await expect(page.locator(`.collapse-title:has-text("${jornada5Title}")`).first()).toBeVisible({ timeout: 10000 });
   });
 
   test('03 admin release → re-assignment', async ({ page }) => {
