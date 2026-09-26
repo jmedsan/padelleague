@@ -631,7 +631,7 @@ func TestWithdrawProposal_AuthorWithdraws(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var propID, matchID string
+	var propID, matchID, authorID, rival1, rival2 string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Wd A")
@@ -640,7 +640,9 @@ func TestWithdrawProposal_AuthorWithdraws(t *testing.T) {
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		matchID = match.Id
 
-		authorID := p1.GetString("player1")
+		authorID = p1.GetString("player1")
+		rival1 = p2.GetString("player1")
+		rival2 = p2.GetString("player2")
 		prop := makeProposal(tb, app, match.Id, authorID)
 		propID = prop.Id
 
@@ -660,6 +662,17 @@ func TestWithdrawProposal_AuthorWithdraws(t *testing.T) {
 			map[string]any{"mid": matchID})
 		require.Len(tb, responses, 1, "withdraw must create a timeline entry")
 		assert.Contains(tb, responses[0].GetString("content"), "retiró su propuesta")
+
+		want := league.Notification{
+			Type:     "scheduling",
+			Title:    "Propuesta retirada",
+			Body:     "Wd A P1 (Wd A) ha retirado su propuesta de fecha",
+			MatchID:  matchID,
+			CompName: "Test Competition",
+		}
+		assertNotified(tb, app, rival1, want)
+		assertNotified(tb, app, rival2, want)
+		assertNotNotified(tb, app, authorID, want.Title)
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
@@ -2006,7 +2019,7 @@ func TestRejectAndCounterPropose_ValidDateRejectsAndCreatesNew(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var propID, matchID string
+	var propID, matchID, proposerID, proposerPartnerID, respondentID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "RC Val A")
@@ -2015,11 +2028,12 @@ func TestRejectAndCounterPropose_ValidDateRejectsAndCreatesNew(t *testing.T) {
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		matchID = match.Id
 
-		proposerID := p1.GetString("player1")
+		proposerID = p1.GetString("player1")
+		proposerPartnerID = p1.GetString("player2")
 		prop := makeProposal(tb, app, match.Id, proposerID)
 		propID = prop.Id
 
-		respondentID := p2.GetString("player1")
+		respondentID = p2.GetString("player1")
 		respondent, _ := app.FindRecordById("users", respondentID)
 		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/reject-and-counter", match.Id, prop.Id)
 		s.Body = strings.NewReader("rejection_reason=No+puedo&date=2030-06-15&time=18:00")
@@ -2039,6 +2053,28 @@ func TestRejectAndCounterPropose_ValidDateRejectsAndCreatesNew(t *testing.T) {
 			map[string]any{"mid": matchID})
 		require.Len(tb, newProps, 1, "one new pending proposal must be created")
 		assert.NotEqual(tb, propID, newProps[0].Id, "new proposal must be a different record")
+
+		rejectWant := league.Notification{
+			Type:     "scheduling",
+			Title:    "Propuesta rechazada",
+			Body:     "RC Val B P1 (RC Val B) ha rechazado tu propuesta: No puedo",
+			MatchID:  matchID,
+			CompName: "Test Competition",
+		}
+		assertNotified(tb, app, proposerID, rejectWant)
+		assertNotified(tb, app, proposerPartnerID, rejectWant)
+		assertNotNotified(tb, app, respondentID, rejectWant.Title)
+
+		counterWant := league.Notification{
+			Type:     "scheduling",
+			Title:    "Propuesta de fecha",
+			Body:     "RC Val B P1 (RC Val B) propone jugar el 15/06 a las 18:00",
+			MatchID:  matchID,
+			CompName: "Test Competition",
+		}
+		assertNotified(tb, app, proposerID, counterWant)
+		assertNotified(tb, app, proposerPartnerID, counterWant)
+		assertNotNotified(tb, app, respondentID, counterWant.Title)
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
