@@ -1294,18 +1294,17 @@ func TestPostMessage_AdminNotifiesBothPairs(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		notifs, err := app.FindRecordsByFilter("notifications",
-			"related_match = {:m}", "", 0, 0, map[string]any{"m": matchID})
-		require.NoError(tb, err)
-
-		notifiedUsers := make(map[string]bool)
-		for _, n := range notifs {
-			notifiedUsers[n.GetString("user")] = true
+		want := league.Notification{
+			Type:     "message",
+			Title:    "Nuevo mensaje",
+			Body:     "Admin escribió: Aviso importante",
+			MatchID:  matchID,
+			CompName: "Test Competition",
 		}
-		assert.True(tb, notifiedUsers[p1Player1], "pair1 player1 should be notified")
-		assert.True(tb, notifiedUsers[p1Player2], "pair1 player2 should be notified")
-		assert.True(tb, notifiedUsers[p2Player1], "pair2 player1 should be notified")
-		assert.True(tb, notifiedUsers[p2Player2], "pair2 player2 should be notified")
+		assertNotified(tb, app, p1Player1, want)
+		assertNotified(tb, app, p1Player2, want)
+		assertNotified(tb, app, p2Player1, want)
+		assertNotified(tb, app, p2Player2, want)
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "#mensajes" })
 	s.Test(t)
@@ -1731,16 +1730,16 @@ func TestRejectResultProposalRequiresCounter(t *testing.T) {
 		assert.Contains(tb, timeline[0].GetString("content"), "Resultado rechazado")
 
 		proposerPair, _ := app.FindRecordById("pairs", proposerPairID)
-		for _, field := range []string{"player1", "player2"} {
-			uid := proposerPair.GetString(field)
-			if uid == "" {
-				continue
-			}
-			notifs, _ := app.FindRecordsByFilter("notifications",
-				"user = {:uid} && title = 'Contrapropuesta recibida'",
-				"", 0, 0, map[string]any{"uid": uid})
-			assert.NotEmpty(tb, notifs, "proposer pair member %s must be notified of counter-proposal", uid)
+		want := league.Notification{
+			Type:     "quorum_request",
+			Title:    "Contrapropuesta recibida",
+			Body:     "RR B P1 (RR B) ha propuesto un resultado alternativo",
+			MatchID:  matchID,
+			CompName: "Test Competition",
 		}
+		assertNotified(tb, app, proposerPair.GetString("player1"), want)
+		assertNotified(tb, app, proposerPair.GetString("player2"), want)
+		assertNotNotified(tb, app, respondentID, want.Title)
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)

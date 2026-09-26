@@ -10,6 +10,8 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/league"
 )
 
 func TestMatchSubmitScore(t *testing.T) {
@@ -134,7 +136,7 @@ func TestMatchThreadPostMessage(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID string
+	var matchID, senderID, rival1, rival2 string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Msg A")
@@ -142,9 +144,12 @@ func TestMatchThreadPostMessage(t *testing.T) {
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		matchID = match.Id
+		senderID = p1.GetString("player1")
+		rival1 = p2.GetString("player1")
+		rival2 = p2.GetString("player2")
 		s.URL = "/match/" + match.Id + "/thread/message"
 		s.Body = strings.NewReader("content=Hola+equipo&type=chat")
-		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		user, _ := app.FindRecordById("users", senderID)
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -156,6 +161,17 @@ func TestMatchThreadPostMessage(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, 1, len(msgs))
 		assert.Equal(tb, "Hola equipo", msgs[0].GetString("content"))
+
+		want := league.Notification{
+			Type:     "message",
+			Title:    "Nuevo mensaje",
+			Body:     "Msg A P1 (Msg A) escribió: Hola equipo",
+			MatchID:  matchID,
+			CompName: "Test Competition",
+		}
+		assertNotified(tb, app, rival1, want)
+		assertNotified(tb, app, rival2, want)
+		assertNotNotified(tb, app, senderID, want.Title)
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "#mensajes" })
 	s.Test(t)
