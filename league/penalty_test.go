@@ -311,3 +311,71 @@ func TestApplyPendingMatchPenalties_GrowingCount(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2.0, totals[pA.Id])
 }
+
+// TestApplyPendingMatchPenalties_LeveledCloseProjected: at the close of a
+// leveled league the penalty counts target − played, assigned or not, and a
+// withdrawn pair counts nothing.
+func TestApplyPendingMatchPenalties_LeveledCloseProjected(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 6)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "Close")
+	}
+	comp := makeLeveledCompetition(t, app, pairs, 4, 2)
+	comp.Set("max_pending_matches", 2)
+	comp.Set("withdrawn_pairs", []string{pairs[5].Id})
+	require.NoError(t, app.Save(comp))
+	// pairs[0] played one match (with pairs[1]) and has one assigned but unplayed.
+	makeMatch(t, app, comp.Id, pairs[0].Id, pairs[1].Id, "final")
+	makeMatch(t, app, comp.Id, pairs[0].Id, pairs[2].Id, "pending")
+	setFinishedPhase(t, app, comp)
+	comp, err := app.FindRecordById("competitions", comp.Id)
+	require.NoError(t, err)
+
+	applied, err := ApplyPendingMatchPenalties(app, comp)
+	require.NoError(t, err)
+	perPair := map[string]int{}
+	reasons := map[string]string{}
+	for _, r := range applied {
+		perPair[r.GetString("pair")]++
+		reasons[r.GetString("pair")] = r.GetString("reason")
+	}
+	require.Equal(t, "Partido no disputado al cierre de la competición (3 sin jugar)", reasons[pairs[0].Id])
+	require.Equal(t, "Partido no disputado al cierre de la competición (4 sin jugar)", reasons[pairs[3].Id])
+	require.Equal(t, 3, perPair[pairs[0].Id], "played 1 of 4")
+	require.Equal(t, 3, perPair[pairs[1].Id], "played 1 of 4, nothing assigned")
+	require.Equal(t, 4, perPair[pairs[2].Id], "one assigned but unplayed still counts as 4 short")
+	require.Equal(t, 4, perPair[pairs[3].Id], "never assigned: 4 short")
+	require.Equal(t, 0, perPair[pairs[5].Id], "withdrawn pair is not penalized")
+}
+
+// TestAutoCloseCompetition closes only once the recovery window has ended,
+// logs the event as system-originated, and is idempotent.
+func TestAutoCloseCompetition(t *testing.T) {
+	app := newTestApp(t)
+	pairs := []*core.Record{makePair(t, app, "AC1"), makePair(t, app, "AC2")}
+	comp := makeCompetition(t, app, pairs)
+	comp.Set("end_date", time.Now().AddDate(0, 0, -3))
+	comp.Set("recovery_days", 7)
+	require.NoError(t, app.Save(comp))
+
+	closed, err := AutoCloseCompetition(app, comp, time.Now())
+	require.NoError(t, err)
+	require.False(t, closed, "still inside the extra week")
+
+	closed, err = AutoCloseCompetition(app, comp, time.Now().AddDate(0, 0, 5))
+	require.NoError(t, err)
+	require.True(t, closed)
+	fresh, err := app.FindRecordById("competitions", comp.Id)
+	require.NoError(t, err)
+	require.True(t, fresh.GetBool("finalized"))
+	events, err := app.FindRecordsByFilter("competition_events",
+		"competition = {:c} && kind = 'finalized'", "", 0, 0, map[string]any{"c": comp.Id})
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	require.Equal(t, "", events[0].GetString("actor"), "system-originated")
+
+	closed, err = AutoCloseCompetition(app, fresh, time.Now().AddDate(0, 0, 5))
+	require.NoError(t, err)
+	require.False(t, closed, "already closed")
+}
