@@ -374,6 +374,66 @@ func TestCompetitionGen2_NoPenaltyHidesPenColumn(t *testing.T) {
 	s.Test(t)
 }
 
+// TestCompetitionGen2_PublishedNoPlayShowsStandingsEmptyState verifies a
+// published league with zero played matches still shows the Clasificación
+// tab (matching the always-shown admin card) with the same empty-state text
+// admin uses, instead of hiding the tab entirely.
+func TestCompetitionGen2_PublishedNoPlayShowsStandingsEmptyState(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "published league, no played matches, shows Clasificación tab + empty state",
+		Method:         http.MethodGet,
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			`aria-label="Clasificación"`,
+			"No hay datos de clasificación todavía",
+		},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "EmptyStA")
+		p2 := makePairTB(tb, app, "EmptyStB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
+// TestCompetitionGen2_DraftCalendarHidesStandingsTab verifies a draft
+// calendar hides the Clasificación tab entirely from a non-admin viewer —
+// players must not see anything before the admin publishes.
+func TestCompetitionGen2_DraftCalendarHidesStandingsTab(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "draft calendar hides Clasificación tab",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"DraftStA"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "DraftStA")
+		p2 := makePairTB(tb, app, "DraftStB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("calendar_status", "draft")
+		require.NoError(tb, app.Save(comp))
+
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.NotContains(tb, body, `aria-label="Clasificación"`, "draft calendar must hide the Clasificación tab from a player")
+	}
+	s.Test(t)
+}
+
 // Cluster 7: firstIncompleteRound sets AutoExpandRound
 
 func TestCompetitionGen2_AutoExpandRound(t *testing.T) {

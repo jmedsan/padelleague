@@ -210,11 +210,11 @@ test.describe('responsive - no horizontal overflow', () => {
       name: `H1 Tabs Overflow ${suffix}`, type: 'league', active: true, pairs: [pairA, pairB],
       calendar_status: 'published',
     });
-    // A finalized match is required for Standings to populate (Clasificación tab).
-    // calendar_status must be published too — competitionStandings
-    // (handlers/public_competition.go) hides the Clasificación tab from any
-    // non-admin viewer of a draft calendar, same as matchVisibleTo does for
-    // match pages.
+    // The Clasificación tab itself is always visible once the calendar is
+    // published (an empty-state renders otherwise); a finalized match makes
+    // the standings table render here instead. calendar_status must be
+    // published — a draft calendar still hides the tab from any non-admin
+    // viewer, same as matchVisibleTo does for match pages.
     await apiCreateRecord(page.request, 'matches', {
       competition: compId, pair1: pairA, pair2: pairB, status: 'final',
       round_number: 1, scores: '6-3 6-4', winner: pairA,
