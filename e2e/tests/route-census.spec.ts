@@ -110,10 +110,36 @@ async function resolvePath(request: APIRequestContext, route: CensusRoute): Prom
   return route.path.replace(/\{[^}]+\}/, value);
 }
 
+// assertFullDocument enforces the class of bug behind the /match/{id}/thread
+// census gap: a non-skipped census entry must be a real page (a <head> with
+// a stylesheet <link>), never an HTMX fragment (renderPartial with no layout
+// wrapper). A fragment loaded directly renders with zero CSS, so every guard
+// downstream (tap-target sizing especially) checks unstyled markup and
+// misdiagnoses a layout bug as a template bug. Failing loudly here means a
+// future fragment route can't hide the same way — it must be marked
+// skipCensus with a reason instead.
+async function assertFullDocument(page: Page, path: string): Promise<void> {
+  const hasStylesheet = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('link[rel="stylesheet"]')).length > 0);
+  expect(hasStylesheet, `GET ${path} returned no <link rel="stylesheet"> in <head> — ` +
+    `this looks like a fragment endpoint (renderPartial, no layout). Mark it ` +
+    `skipCensus in route-census.json with that reason, or fix it to render ` +
+    `through the layout template.`).toBe(true);
+}
+
 async function visitAndAssert(page: Page, path: string): Promise<void> {
   const response = await page.goto(path);
   expect(response?.status(), `GET ${path} should return 200`).toBe(200);
   await page.waitForLoadState('domcontentloaded');
+  await assertFullDocument(page, path);
+  // /match/{id} loads its thread panel asynchronously (hx-get on
+  // hx-trigger="load" into #match-thread) — wait for it to actually fill so
+  // the tap-target/other DOM guards check the thread's real controls
+  // (proposal form, chat input, etc.) instead of an empty placeholder div.
+  const threadPanel = page.locator('#match-thread');
+  if (await threadPanel.count() > 0) {
+    await expect(threadPanel).not.toBeEmpty({ timeout: 10000 });
+  }
 }
 
 const census = loadCensus();
