@@ -290,14 +290,12 @@ func (h *PublicHandler) docsGate(e *core.RequestEvent, comp *core.Record, userID
 	return true, err
 }
 
-// addCompetitionDocViews sets DocumentView entries on data when the
-// competition has attached documents, marking which ones userID has
-// acknowledged.
+// addCompetitionDocViews always sets DocumentView entries on data — an empty
+// slice when the competition has no attached documents, so the Documentos
+// tab always renders (matching the admin view) with an empty state rather
+// than disappearing entirely, marking which docs userID has acknowledged.
 func (h *PublicHandler) addCompetitionDocViews(data map[string]any, comp *core.Record, userID, fileToken string) {
 	docs := league.AttachedDocuments(h.app, comp)
-	if len(docs) == 0 {
-		return
-	}
 	ackedSlice := league.AckedDocIDs(h.app, comp.Id, userID)
 	ackedSet := make(map[string]struct{}, len(ackedSlice))
 	for _, id := range ackedSlice {
@@ -328,16 +326,17 @@ func (h *PublicHandler) AcceptDocs(e *core.RequestEvent) error {
 	return redirectHX(e, "/competition/"+comp.Id)
 }
 
-// competitionStandings computes a league competition's standings, or
-// returns nil when the competition isn't a league, showFixtures is false
-// (the calendar isn't published for this viewer), fewer than 2 pairs have
-// standings, or no match has been played yet.
-func (h *PublicHandler) competitionStandings(comp *core.Record, showFixtures bool) ([]league.StandingRowFull, bool, bool) {
+// competitionStandings computes a league competition's standings. A nil
+// result means "no rows to show yet" (fewer than 2 pairs have standings, or
+// no match has been played) — the caller renders the tab's empty state, not
+// hides the tab; the tab's own visibility is showStandingsTab, gated only on
+// competition type and showFixtures.
+func (h *PublicHandler) competitionStandings(comp *core.Record, showFixtures bool) ([]league.StandingRowFull, bool) {
 	if comp.GetString("type") != "league" || !showFixtures {
-		return nil, false, false
+		return nil, false
 	}
 	rows, _ := h.leagueSvc.ComputeStandings(comp.Id)
-	hasPlayed, hasPenalties, hasAdjustment := false, false, false
+	hasPlayed, hasPenalties := false, false
 	for _, s := range rows {
 		if s.Played > 0 {
 			hasPlayed = true
@@ -345,19 +344,17 @@ func (h *PublicHandler) competitionStandings(comp *core.Record, showFixtures boo
 		if s.Penalty > 0 {
 			hasPenalties = true
 		}
-		if s.Adjustment != 0 {
-			hasAdjustment = true
-		}
 	}
 	if len(rows) < 2 || !hasPlayed {
-		return nil, hasPenalties, hasAdjustment
+		return nil, hasPenalties
 	}
-	return rows, hasPenalties, hasAdjustment
+	return rows, hasPenalties
 }
 
 func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundView, autoExpandRound string, showFixtures bool) map[string]any {
 	id := comp.Id
-	standings, hasPenalties, hasAdjustment := h.competitionStandings(comp, showFixtures)
+	standings, hasPenalties := h.competitionStandings(comp, showFixtures)
+	showStandingsTab := comp.GetString("type") == "league" && showFixtures
 
 	var awards []league.Award
 	if !comp.GetBool("active") && showFixtures {
@@ -378,17 +375,17 @@ func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundVi
 	}
 
 	return map[string]any{
-		"Competition":     comp,
-		"Rounds":          rounds,
-		"Standings":       standings,
-		"Awards":          awards,
-		"IsArchived":      !comp.GetBool("active"),
-		"AutoExpandRound": autoExpandRound,
-		"HasPenalties":    hasPenalties,
-		"HasAdjustment":   hasAdjustment,
-		"IsPlayoff":       isPlayoff,
-		"Bracket":         bracket,
-		"WithdrawnPairs":  wp,
+		"Competition":      comp,
+		"Rounds":           rounds,
+		"Standings":        standings,
+		"ShowStandingsTab": showStandingsTab,
+		"Awards":           awards,
+		"IsArchived":       !comp.GetBool("active"),
+		"AutoExpandRound":  autoExpandRound,
+		"HasPenalties":     hasPenalties,
+		"IsPlayoff":        isPlayoff,
+		"Bracket":          bracket,
+		"WithdrawnPairs":   wp,
 	}
 }
 

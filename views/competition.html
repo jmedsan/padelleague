@@ -107,22 +107,28 @@
     </div>
     {{end}}
 
-    {{if .DocumentViews}}
     <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Documentos" id="tab-documentos">
     <div role="tabpanel" class="tab-content pt-6 basis-full min-w-0">
+        {{if .DocumentViews}}
         <div class="space-y-3">
             {{range .DocumentViews}}
             {{template "documentCard" .}}
             {{end}}
         </div>
+        {{else}}
+        {{template "emptyState" "No hay documentos adjuntos"}}
+        {{end}}
     </div>
-    {{end}}
 
-    {{if .Standings}}
+    {{if .ShowStandingsTab}}
     <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Clasificación"{{if eq .ActiveTab "clasificacion"}} checked{{end}}>
     <div role="tabpanel" class="tab-content pt-6 basis-full min-w-0">
         <div class="card bg-base-100 shadow-sm rounded-xl">
-            {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "HasAdjustment" .HasAdjustment "PlayerPairIDs" .PlayerPairIDs "Mode" .Mode "WithdrawnPairs" .WithdrawnPairs)}}
+            {{if .Standings}}
+            {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "PlayerPairIDs" .PlayerPairIDs "Mode" .Mode "WithdrawnPairs" .WithdrawnPairs)}}
+            {{else}}
+            {{template "emptyState" "No hay datos de clasificación todavía"}}
+            {{end}}
         </div>
     </div>
     {{end}}
