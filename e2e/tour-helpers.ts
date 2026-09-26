@@ -368,9 +368,9 @@ export async function assertPlayoffChampion(
   expectedPairName: string,
 ): Promise<void> {
   await page.goto(`/competition/${playoffCompId}`);
-  // The bracket's last round column contains the final match.
-  // The winner has `font-bold text-accent` styling.
-  const bracketColumns = page.locator('.flex.gap-4 > .flex.flex-col');
+  // The bracket's last round column ("Final") contains the final match.
+  // The winner has `font-bold text-accent` styling (matchBracketCell).
+  const bracketColumns = page.locator('.bracket > .round');
   const lastColumn = bracketColumns.last();
   const winner = lastColumn.locator('.font-bold.text-accent').first();
   await expect(winner).toContainText(expectedPairName);
