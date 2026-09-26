@@ -67,6 +67,9 @@ type simSeason struct {
 	rng     *rand.Rand
 	clock   time.Time
 	maxPend int
+	pairMax map[string]int // max pending reached per pair this season
+	steps   int            // top-up steps observed
+	highSum int            // sum over steps of pairs holding >= 5 pending
 }
 
 func newSimSeason(t *testing.T, env simEnv, v simVariant, rng *rand.Rand, seasonIdx int) *simSeason {
@@ -150,6 +153,7 @@ func (s *simSeason) run(acc *simMetrics) {
 	acc.addRankingOld(oldAdjustedOrder(wins, playedByIdx, s.opponentsByIdx(), order))
 	acc.addRankingElo(s.eloTiebreakOrder(rows))
 	acc.addSeason(played, s.maxPend)
+	acc.addPending(s.pairMax, s.steps, s.highSum, s.homeAwayBalanced())
 }
 
 // eloTiebreakOrder ranks by plain points, breaking equal points by the
@@ -198,16 +202,45 @@ func (s *simSeason) pending() []*core.Record {
 }
 
 func (s *simSeason) trackMaxPending(pend []*core.Record) {
+	if s.pairMax == nil {
+		s.pairMax = make(map[string]int, simPairs)
+	}
 	pendPerPair := make(map[string]int, simPairs)
 	for _, m := range pend {
 		pendPerPair[m.GetString("pair1")]++
 		pendPerPair[m.GetString("pair2")]++
 	}
-	for _, v := range pendPerPair {
+	s.steps++
+	for p, v := range pendPerPair {
 		if v > s.maxPend {
 			s.maxPend = v
 		}
+		if v > s.pairMax[p] {
+			s.pairMax[p] = v
+		}
+		if v >= 5 {
+			s.highSum++
+		}
 	}
+}
+
+// homeAwayBalanced reports whether every pair ended the season with the
+// target split exactly: T/2 home for an even target, floor or ceil for odd.
+func (s *simSeason) homeAwayBalanced() bool {
+	s.t.Helper()
+	finals, err := s.app.FindRecordsByFilter("matches",
+		"competition = {:c} && status = 'final'", "", 0, 0, map[string]any{"c": s.comp.Id})
+	require.NoError(s.t, err)
+	home := map[string]int{}
+	for _, m := range finals {
+		home[m.GetString("pair1")]++
+	}
+	for _, p := range s.comp.GetStringSlice("pairs") {
+		if h := home[p]; h != simTarget/2 && h != (simTarget+1)/2 {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *simSeason) finalize(m *core.Record, score string) {
@@ -323,8 +356,8 @@ func TestSimulation_LeveledLeague(t *testing.T) {
 		}
 	})
 
-	header := "| Variant | Every pair exactly 10 | Anyone above 10 | Max pending | Evenness raw | Blowouts/season | Top-4 v bottom-4/season | Reliability (plain points) | Wrong pairs (plain) | Reliability (old adjustment) | Wrong pairs (old adj.) | Reliability (points + Elo tiebreak) | Wrong pairs (Elo tiebreak) |\n" +
-		"|---|---|---|---|---|---|---|---|---|---|---|---|---|\n"
+	header := "| Variant | Every pair exactly 10 | Anyone above 10 | Max pending | Evenness raw | Blowouts/season | Top-4 v bottom-4/season | Reliability (plain points) | Wrong pairs (plain) | Reliability (old adjustment) | Wrong pairs (old adj.) | Reliability (points + Elo tiebreak) | Wrong pairs (Elo tiebreak) | Max pending per pair-season (≤3/4/5/6/7/8+) | Pair-steps at ≥5 pending | Every pair 5/5 |\n" +
+		"|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n"
 	t.Logf("\n%s%s", header, strings.Join(rows, "\n"))
 }
 

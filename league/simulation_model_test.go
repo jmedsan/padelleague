@@ -134,6 +134,32 @@ type simMetrics struct {
 	rhoSumElo  float64 // plain points, ties broken by the hidden Elo (internal-only option)
 	wrongElo   int
 	eloSeasons int
+	pendHist   [6]int // pair-seasons whose max pending was ≤3, 4, 5, 6, 7, 8+
+	pendSteps  int    // pair-steps observed (steps × pairs)
+	pendHigh   int    // pair-steps with ≥5 pending
+	balanced   int    // seasons where every pair ended on the exact home/away split
+	balSeasons int
+}
+
+// addPending records the pending-load distribution and home/away outcome of
+// one DB-backed season.
+func (a *simMetrics) addPending(pairMax map[string]int, steps, highSum int, balanced bool) {
+	for _, v := range pairMax {
+		switch {
+		case v <= 3:
+			a.pendHist[0]++
+		case v >= 8:
+			a.pendHist[5]++
+		default:
+			a.pendHist[v-3]++
+		}
+	}
+	a.pendSteps += steps * simPairs
+	a.pendHigh += highSum
+	a.balSeasons++
+	if balanced {
+		a.balanced++
+	}
 }
 
 func (a *simMetrics) addMatch(m *matchModel, i, j int) {
@@ -256,9 +282,17 @@ func (a *simMetrics) row(name string) string {
 		es := float64(a.eloSeasons)
 		eloCols = fmt.Sprintf("%.1f%% | %.2f", 100.0*(a.rhoSumElo/es+1)/2, float64(a.wrongElo)/es)
 	}
-	return fmt.Sprintf("| %s | %.2f%% | %d | %d | %.1f%% | %.1f | %.1f | %.1f%% | %.2f | %.1f%% | %.2f | %s |",
+	pendCols := "— | — | —"
+	if a.balSeasons > 0 {
+		h := a.pendHist
+		pendCols = fmt.Sprintf("%d/%d/%d/%d/%d/%d | %.1f%% | %.0f%%",
+			h[0], h[1], h[2], h[3], h[4], h[5],
+			100.0*float64(a.pendHigh)/float64(max(a.pendSteps, 1)),
+			100.0*float64(a.balanced)/float64(a.balSeasons))
+	}
+	return fmt.Sprintf("| %s | %.2f%% | %d | %d | %.1f%% | %.1f | %.1f | %.1f%% | %.2f | %.1f%% | %.2f | %s | %s |",
 		name, exactPct, a.over, a.maxPending, evenPct, blowPerSeason, tvbPerSeason,
-		reliability, wrongPerSeason, reliabilityOld, wrongOldPerSeason, eloCols)
+		reliability, wrongPerSeason, reliabilityOld, wrongOldPerSeason, eloCols, pendCols)
 }
 
 // spearman computes the Spearman rank correlation between the observed ranking
