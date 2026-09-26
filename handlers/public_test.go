@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -403,6 +404,36 @@ func TestCompetitionGen2_PublishedNoPlayShowsStandingsEmptyState(t *testing.T) {
 	s.Test(t)
 }
 
+// TestCompetitionGen2_ProvisionalResultShowsInStandingsWithTooltip verifies
+// a pending result proposal counts in the Clasificación right away, with a
+// tooltip on both involved pairs' rows warning the result isn't confirmed.
+func TestCompetitionGen2_ProvisionalResultShowsInStandingsWithTooltip(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "pending result proposal shows in standings with a tooltip",
+		Method:         http.MethodGet,
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			"ProvA",
+			`data-tip="Incluye resultados sin confirmar"`,
+		},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "ProvA")
+		p2 := makePairTB(tb, app, "ProvB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+		createResultProposal(tb, app, m.Id, p1.GetString("player1"), "6-3 6-4")
+
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
 // TestCompetitionGen2_NoAnnouncementsShowsEmptyState verifies the Anuncios
 // tab always shows for a player, even with zero announcements — matching
 // admin's always-shown card, same class as Clasificación/Documentos.
@@ -508,6 +539,23 @@ func createProposal(tb testing.TB, app core.App, matchID, authorID, status, prop
 	msg.Set("author", authorID)
 	msg.Set("proposal_status", status)
 	msg.Set("proposal_data", proposalData)
+	require.NoError(tb, app.Save(msg))
+}
+
+// createResultProposal creates a pending result_submission proposal — the
+// live, not-yet-accepted state provisional standings must count.
+func createResultProposal(tb testing.TB, app core.App, matchID, authorID, scores string) {
+	tb.Helper()
+	col, err := app.FindCollectionByNameOrId("match_messages")
+	require.NoError(tb, err)
+	msg := core.NewRecord(col)
+	msg.Set("match", matchID)
+	msg.Set("type", "result_submission")
+	msg.Set("author", authorID)
+	msg.Set("proposal_status", "pending")
+	msg.Set("content", scores)
+	pd, _ := json.Marshal(map[string]string{"scores": scores})
+	msg.Set("proposal_data", string(pd))
 	require.NoError(tb, app.Save(msg))
 }
 

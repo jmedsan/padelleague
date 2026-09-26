@@ -27,10 +27,31 @@ type StandingRowFull struct {
 	// Form holds up to the last standingFormLimit results, most recent
 	// first: true = win, false = loss.
 	Form []bool
+	// HasProvisional is true when this row's stats include at least one
+	// pending (not yet accepted) result proposal — the standingsTable
+	// component shows a tooltip on such rows.
+	HasProvisional bool
 }
 
-// ComputeStandings calculates ranked standings for a competition.
+// ComputeStandings calculates ranked standings for a competition, counting a
+// pending (submitted but not yet accepted) result proposal right away on
+// both sides — the owner's decision so a pair's rank reflects results in
+// flight, not just settled ones. A rejected (superseded) or a disputed
+// match's proposal does not count until it's resolved. Use
+// ComputeFinalStandings for a permanent, settled-only computation (awards).
 func (svc *Service) ComputeStandings(competitionID string) ([]StandingRowFull, error) {
+	return svc.computeStandings(competitionID, true)
+}
+
+// ComputeFinalStandings calculates standings from final matches only, with
+// no provisional proposals — for computations that must never change once
+// written (season-end awards), as opposed to ComputeStandings' current-state
+// view used by every Clasificación display.
+func (svc *Service) ComputeFinalStandings(competitionID string) ([]StandingRowFull, error) {
+	return svc.computeStandings(competitionID, false)
+}
+
+func (svc *Service) computeStandings(competitionID string, includeProvisional bool) ([]StandingRowFull, error) {
 	comp, err := svc.app.FindRecordById("competitions", competitionID)
 	if err != nil {
 		return nil, err
@@ -44,25 +65,92 @@ func (svc *Service) ComputeStandings(competitionID string) ([]StandingRowFull, e
 		"", 0, 0,
 		map[string]any{"cid": competitionID})
 
-	pairStats := tallyMatchStats(pairIDs, matches)
+	var provisional []*core.Record
+	if includeProvisional {
+		provisional, err = svc.provisionalMatches(competitionID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	allMatches := append(append([]*core.Record(nil), matches...), provisional...)
+
+	pairStats := tallyMatchStats(pairIDs, allMatches)
+	provisionalPairs := make(map[string]bool, len(provisional)*2)
+	for _, m := range provisional {
+		provisionalPairs[m.GetString("pair1")] = true
+		provisionalPairs[m.GetString("pair2")] = true
+	}
 	penaltyMap, err := PenaltyTotals(svc.app, competitionID)
 	if err != nil {
 		return nil, err
 	}
 	rows := buildStandingRows(standingRowInputs{
-		pairIDs:    pairIDs,
-		pairNames:  pairNames,
-		stats:      pairStats,
-		penaltyMap: penaltyMap,
-		matches:    matches,
+		pairIDs:          pairIDs,
+		pairNames:        pairNames,
+		stats:            pairStats,
+		penaltyMap:       penaltyMap,
+		matches:          allMatches,
+		provisionalPairs: provisionalPairs,
 	})
 
-	sortStandings(rows, matches)
+	sortStandings(rows, allMatches)
 
 	for i := range rows {
 		rows[i].Position = i + 1
 	}
 	return rows, nil
+}
+
+// provisionalMatches returns one synthetic, unsaved match record per
+// competition match that has a live pending result_submission proposal with
+// a determined winner — a match already final or disputed is excluded (an
+// admin-flagged dispute must not count until resolved), and a proposal
+// that's an open, undecided set (EvaluateScore.Won == false) doesn't count
+// either, matching the real accept path's own "not won yet" rule. The
+// synthetic record carries just what tallyMatchStats/pairForm read: pair1,
+// pair2, scores, winner, date (copied from the real match, for form
+// ordering).
+func (svc *Service) provisionalMatches(competitionID string) ([]*core.Record, error) {
+	matches, err := svc.app.FindRecordsByFilter("matches",
+		"competition = {:cid} && status != 'final' && status != 'disputed'",
+		"", 0, 0, map[string]any{"cid": competitionID})
+	if err != nil {
+		return nil, err
+	}
+	if len(matches) == 0 {
+		return nil, nil
+	}
+	col, err := svc.app.FindCollectionByNameOrId("matches")
+	if err != nil {
+		return nil, err
+	}
+
+	var out []*core.Record
+	for _, m := range matches {
+		proposals, err := svc.app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_submission' && proposal_status = 'pending'",
+			"-created", 1, 0, map[string]any{"mid": m.Id})
+		if err != nil || len(proposals) == 0 {
+			continue
+		}
+		scores := parseProposalScores(proposals[0].GetString("proposal_data"))
+		sc, err := ParseScoreMode(scores, AllowOpenSet)
+		if err != nil || !EvaluateScore(sc).Won {
+			continue
+		}
+		winner, err := DetermineWinner(m, scores)
+		if err != nil {
+			continue
+		}
+		synth := core.NewRecord(col)
+		synth.Set("pair1", m.GetString("pair1"))
+		synth.Set("pair2", m.GetString("pair2"))
+		synth.Set("scores", scores)
+		synth.Set("winner", winner)
+		synth.Set("date", m.GetString("date"))
+		out = append(out, synth)
+	}
+	return out, nil
 }
 
 type pairStats struct {
@@ -126,6 +214,10 @@ type standingRowInputs struct {
 	stats      map[string]*pairStats
 	penaltyMap map[string]float64
 	matches    []*core.Record
+	// provisionalPairs marks a pair whose stats include a pending result
+	// proposal, nil when ComputeFinalStandings is computing (no provisional
+	// data exists to mark).
+	provisionalPairs map[string]bool
 }
 
 func buildStandingRows(in standingRowInputs) []StandingRowFull {
@@ -134,18 +226,19 @@ func buildStandingRows(in standingRowInputs) []StandingRowFull {
 		s := in.stats[pid]
 		penalty := int(in.penaltyMap[pid])
 		rows = append(rows, StandingRowFull{
-			PairID:    pid,
-			PairName:  in.pairNames[pid],
-			Played:    s.wins + s.losses,
-			Wins:      s.wins,
-			Losses:    s.losses,
-			SetsWon:   s.setsWon,
-			SetsLost:  s.setsLost,
-			GamesWon:  s.gamesWon,
-			GamesLost: s.gamesLost,
-			Points:    s.wins*3 - penalty,
-			Penalty:   penalty,
-			Form:      pairForm(pid, in.matches),
+			PairID:         pid,
+			PairName:       in.pairNames[pid],
+			Played:         s.wins + s.losses,
+			Wins:           s.wins,
+			Losses:         s.losses,
+			SetsWon:        s.setsWon,
+			SetsLost:       s.setsLost,
+			GamesWon:       s.gamesWon,
+			GamesLost:      s.gamesLost,
+			Points:         s.wins*3 - penalty,
+			Penalty:        penalty,
+			Form:           pairForm(pid, in.matches),
+			HasProvisional: in.provisionalPairs[pid],
 		})
 	}
 	return rows

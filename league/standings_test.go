@@ -8,6 +8,126 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// -- Provisional results (a pending, not-yet-accepted proposal counts) -----
+
+func TestComputeStandings_PendingProposalCounts(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	p1 := makePair(t, app, "ProvA")
+	p2 := makePair(t, app, "ProvB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusScheduled)
+	makeProposal(t, app, m.Id, p1.GetString("player1"), "6-3 6-4")
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+
+	winner := rows[0]
+	loser := rows[1]
+	if winner.PairID != p1.Id {
+		winner, loser = loser, winner
+	}
+	assert.Equal(t, p1.Id, winner.PairID)
+	assert.Equal(t, 1, winner.Wins, "pending proposal must count as a win right away")
+	assert.Equal(t, 3, winner.Points)
+	assert.True(t, winner.HasProvisional, "winner's row must flag the provisional result")
+	assert.Equal(t, 1, loser.Losses)
+	assert.True(t, loser.HasProvisional, "loser's row must flag the provisional result too")
+}
+
+func TestComputeStandings_SupersededProposalDoesNotCount(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	p1 := makePair(t, app, "SupA")
+	p2 := makePair(t, app, "SupB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusScheduled)
+	old := makeProposal(t, app, m.Id, p1.GetString("player1"), "6-3 6-4")
+	old.Set("proposal_status", "superseded")
+	require.NoError(t, app.Save(old))
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	for _, r := range rows {
+		assert.Equal(t, 0, r.Played, "a superseded (rejected) proposal must not count")
+		assert.False(t, r.HasProvisional)
+	}
+}
+
+func TestComputeStandings_DisputedMatchProposalDoesNotCount(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	p1 := makePair(t, app, "DispA")
+	p2 := makePair(t, app, "DispB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusDisputed)
+	makeProposal(t, app, m.Id, p1.GetString("player1"), "6-3 6-4")
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	for _, r := range rows {
+		assert.Equal(t, 0, r.Played, "a disputed match's proposal must not count until resolved")
+		assert.False(t, r.HasProvisional)
+	}
+}
+
+func TestComputeStandings_ConfirmedResultReplacesProposed(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	p1 := makePair(t, app, "ConfA")
+	p2 := makePair(t, app, "ConfB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	// p2 actually won 4-6 3-6, contradicting the (now-accepted) earlier
+	// proposal that had p1 winning — the final match record is authoritative.
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusFinal)
+	m.Set("scores", "4-6 3-6")
+	m.Set("winner", p2.Id)
+	require.NoError(t, app.Save(m))
+	accepted := makeProposal(t, app, m.Id, p1.GetString("player1"), "4-6 3-6")
+	accepted.Set("proposal_status", "accepted")
+	require.NoError(t, app.Save(accepted))
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+	assert.Equal(t, p2.Id, rows[0].PairID)
+	assert.Equal(t, 1, rows[0].Wins)
+	assert.Equal(t, 1, rows[0].Played, "an accepted proposal's match is final — must count exactly once, not doubled by the proposal too")
+	assert.False(t, rows[0].HasProvisional, "an already-accepted proposal is not provisional")
+}
+
+func TestComputeFinalStandings_IgnoresPendingProposal(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	p1 := makePair(t, app, "FinalOnlyA")
+	p2 := makePair(t, app, "FinalOnlyB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusScheduled)
+	makeProposal(t, app, m.Id, p1.GetString("player1"), "6-3 6-4")
+
+	rows, err := svc.ComputeFinalStandings(comp.Id)
+	require.NoError(t, err)
+	for _, r := range rows {
+		assert.Equal(t, 0, r.Played, "ComputeFinalStandings must ignore pending proposals entirely")
+	}
+}
+
 func TestComputeStandings_Basic(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
