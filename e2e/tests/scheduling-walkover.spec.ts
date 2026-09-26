@@ -28,6 +28,7 @@ test.describe('scheduling, walkover & bracket', () => {
       end_date: endDate,
       arrange_grace_days: 3,
       rounds: 1,
+      calendar_status: 'published',
     });
 
     await apiCreateRecord(page.request, 'matches', {
@@ -83,6 +84,7 @@ test.describe('scheduling, walkover & bracket', () => {
       walkover_score: '6-0 6-0',
       default_penalty: 5,
       rounds: 1,
+      calendar_status: 'published',
     });
 
     const matchId = await apiCreateRecord(page.request, 'matches', {
@@ -193,6 +195,11 @@ test.describe('scheduling, walkover & bracket', () => {
     await page.locator('button:has-text("Generar calendario")').click();
     await genNav;
     await page.waitForLoadState('domcontentloaded');
+    // The generated bracket is a draft until published; players see nothing before.
+    const pubNav = page.waitForEvent('framenavigated', { timeout: 15000 });
+    await page.locator('button:has-text("Publicar calendario")').click();
+    await pubNav;
+    await page.waitForLoadState('domcontentloaded');
 
     // Open at 375px mobile viewport
     const mobileContext = await browser.newContext({ viewport: { width: 375, height: 812 } });
@@ -200,7 +207,7 @@ test.describe('scheduling, walkover & bracket', () => {
     await loginAs(mobilePage, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await mobilePage.goto(`/competition/${compId}`);
 
-    await expect(mobilePage.getByText('Cuadro')).toBeVisible({ timeout: 10000 });
+    await expect(mobilePage.getByRole('heading', { name: 'Cuadro' })).toBeVisible({ timeout: 10000 });
     await expect(mobilePage.getByText('Semifinal')).toBeVisible();
     await expect(mobilePage.getByText('Final').first()).toBeVisible();
 
