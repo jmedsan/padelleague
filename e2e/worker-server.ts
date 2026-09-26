@@ -1,9 +1,17 @@
 import { test as base } from '@playwright/test';
 import { seedEnv, seedTestData } from './global-setup';
 import { setWorkerPort } from './run-dir';
-import { buildBinary, killServer, spawnServer, type ServerHandle } from './server';
-import { rmSync } from 'fs';
+import { buildBinary, cleanupServer, sweepStaleTestDirs, spawnServer, type ServerHandle } from './server';
+import { dirname } from 'path';
 import { createServer } from 'net';
+
+// Runs once per worker process (module load, before any fixture), which is
+// as close to "once per `make e2e` invocation" as this file gets — workers
+// are separate OS processes with no shared state to dedupe against, but the
+// sweep is idempotent (it only removes dirs whose owning PID is dead / that
+// are stale by age) so running it N times for N workers costs nothing beyond
+// a few extra readdir calls.
+sweepStaleTestDirs();
 
 interface WorkerServerFixtures {
   workerServer: ServerHandle;
@@ -46,12 +54,11 @@ export const test = base.extend<{}, WorkerServerFixtures>({
 
     await use(handle);
 
-    killServer(handle);
-    try {
-      rmSync(handle.dataDir, { recursive: true, force: true });
-    } catch {
-      // best effort cleanup
-    }
+    // Only this worker's own per-worker build (not a shared E2E_BINARY path,
+    // built once up front by `make e2e` and reused by every worker) is this
+    // teardown's to remove.
+    const binaryDir = process.env.E2E_BINARY ? undefined : dirname(binary);
+    await cleanupServer(handle, binaryDir);
   }, { scope: 'worker', auto: true }],
 
   // Overrides Playwright's built-in baseURL fixture (normally a static

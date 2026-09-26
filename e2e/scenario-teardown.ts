@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { runDataDir } from './run-dir';
-import { ServerHandle, killServer } from './server';
+import { ServerHandle, cleanupServer } from './server';
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from './global-setup';
 import { PLAYER_PASSWORD } from './scenario-helpers';
 
@@ -24,7 +24,12 @@ export default async function scenarioTeardown() {
     console.log(`Note: crons (quorum 5min, leveled top-up 00:30) keep running.`);
     return;
   }
-  killServer(handle);
+  // scenario-setup.ts always calls buildBinary() itself (no pre-built binary
+  // passed to spawnServer), so cleanupServer here only removes the data dir;
+  // the per-run binary dir is reclaimed by sweepStaleTestDirs() at the start
+  // of the next run instead of being threaded through ServerHandle for one
+  // caller.
+  await cleanupServer(handle);
 }
 
 // readPlayerRange reads the players array from scenario.json (written by

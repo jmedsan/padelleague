@@ -1,7 +1,7 @@
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { runDataDir } from './run-dir';
-import { spawnServer, superuserLogin } from './server';
+import { spawnServer, superuserLogin, sweepStaleTestDirs } from './server';
 
 // Port must match playwright.config.ts's resolution of E2E_PORT (see the
 // comment there) so the server we spawn and the baseURL tests navigate
@@ -24,7 +24,16 @@ export const PLAYER4_EMAIL = 'player4@test.com';
 export const PLAYER4_PASSWORD = 'testpass123456';
 export const PLAYER4_NAME = 'Test Player 4';
 
+// Not currently wired to any Playwright config (playwright.config.ts uses
+// worker-server.ts's per-worker fixture instead; playwright.scenario.config.ts
+// uses scenario-setup.ts) — this module's exported constants and
+// seedTestData are still imported directly by both. Kept correct rather than
+// removed in case a config wires it up again; __E2E_SERVER/__E2E_DATA_DIR
+// would need a matching global-teardown.ts to actually call cleanupServer,
+// same shape as scenario-teardown.ts.
 export default async function globalSetup() {
+  sweepStaleTestDirs();
+
   const handle = await spawnServer(PORT, { extraEnv: seedEnv() });
 
   (globalThis as any).__E2E_SERVER = handle.process;

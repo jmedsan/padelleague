@@ -1,7 +1,7 @@
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { runDataDir } from './run-dir';
-import { spawnServer, superuserLogin } from './server';
+import { spawnServer, superuserLogin, sweepStaleTestDirs } from './server';
 import { ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME } from './global-setup';
 import { buildToStage, ScenarioApi } from './scenario-helpers';
 import { SCENARIOS } from './scenario-registry';
@@ -10,6 +10,10 @@ const PORT = process.env.E2E_PORT ? Number(process.env.E2E_PORT) : 8098;
 const SCENARIO = process.env.SCENARIO ?? '';
 
 export default async function scenarioSetup() {
+  // Reclaims /tmp/pl-*/padelleague-test-* dirs orphaned by a run that never
+  // reached its own teardown (killed scenario-serve, crashed scenario-test).
+  sweepStaleTestDirs();
+
   const scenario = SCENARIOS[SCENARIO];
   if (!scenario) throw new Error(`Unknown scenario: ${SCENARIO}`);
 
