@@ -37,23 +37,45 @@ func (f *fakeNotifier) NotifyPlayers(playerUserIDs []string, n Notification) {
 // the test's own literal fixture text, not a second call to the constructor
 // under test — otherwise a wrong constructor call still passes because both
 // sides recompute the same string.
+// assertNotifyCall asserts EXACTLY ONE call in f.calls has the given title,
+// and that its type/body/matchID/playerIDs match want exactly. want's body
+// must be the test's own literal fixture text, not a second call to the
+// constructor under test — otherwise a wrong constructor call still passes
+// because both sides recompute the same string. Exactly-one (not "find one
+// matching, ignore the rest") catches a duplicate send that a first-match
+// search would silently let through.
 func assertNotifyCall(t testing.TB, f *fakeNotifier, want notifyCall) {
 	t.Helper()
-	for i := len(f.calls) - 1; i >= 0; i-- {
-		if f.calls[i].title != want.title {
+	var matches []notifyCall
+	for _, c := range f.calls {
+		if c.title == want.title {
+			matches = append(matches, c)
+		}
+	}
+	require.Lenf(t, matches, 1, "expected exactly 1 notify call titled %q, got %d (calls: %+v)", want.title, len(matches), f.calls)
+	got := matches[0]
+	assert.Equal(t, want.notifType, got.notifType, "notification type")
+	assert.Equal(t, want.body, got.body, "notification body")
+	if want.matchID != "" {
+		assert.Equal(t, want.matchID, got.matchID, "notification matchID")
+	}
+	if want.playerIDs != nil {
+		assert.ElementsMatch(t, want.playerIDs, got.playerIDs, "notification recipients")
+	}
+}
+
+// assertNotNotifyCallRecipient asserts that userID is not among the
+// recipients of any fakeNotifier call titled title — the counterpart to
+// assertNotifyCall, for players a flow must exclude (e.g. the submitter must
+// not get their own "result submitted").
+func assertNotNotifyCallRecipient(t testing.TB, f *fakeNotifier, title, userID string) {
+	t.Helper()
+	for _, c := range f.calls {
+		if c.title != title {
 			continue
 		}
-		assert.Equal(t, want.notifType, f.calls[i].notifType, "notification type")
-		assert.Equal(t, want.body, f.calls[i].body, "notification body")
-		if want.matchID != "" {
-			assert.Equal(t, want.matchID, f.calls[i].matchID, "notification matchID")
-		}
-		if want.playerIDs != nil {
-			assert.ElementsMatch(t, want.playerIDs, f.calls[i].playerIDs, "notification recipients")
-		}
-		return
+		assert.NotContainsf(t, c.playerIDs, userID, "expected %s not among recipients of %q", userID, title)
 	}
-	require.Failf(t, "no notify call found", "title %q (calls: %+v)", want.title, f.calls)
 }
 
 func TestConfirmStaleMatches_Finalizes(t *testing.T) {

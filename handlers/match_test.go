@@ -285,12 +285,15 @@ func TestMatchSubmitNotifiesRival(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var pair2Player1ID, matchID string
+	var pair2Player1ID, pair2Player2ID, pair1Player1ID, pair1Player2ID, matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Sub A")
 		p2 := makePairTB(tb, app, "Sub B")
+		pair1Player1ID = p1.GetString("player1")
+		pair1Player2ID = p1.GetString("player2")
 		pair2Player1ID = p2.GetString("player1")
+		pair2Player2ID = p2.GetString("player2")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		m.Set("date", "2026-09-01")
@@ -298,7 +301,7 @@ func TestMatchSubmitNotifiesRival(t *testing.T) {
 		require.NoError(tb, app.Save(m))
 		matchID = m.Id
 
-		submitter, err := app.FindRecordById("users", p1.GetString("player1"))
+		submitter, err := app.FindRecordById("users", pair1Player1ID)
 		require.NoError(tb, err)
 		s.URL = "/match/" + m.Id + "/submit"
 		s.Body = strings.NewReader("scores=6-3+6-4")
@@ -307,13 +310,17 @@ func TestMatchSubmitNotifiesRival(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		assertNotified(tb, app, pair2Player1ID, league.Notification{
+		want := league.Notification{
 			Type:     "quorum_request",
 			Title:    "Resultado enviado",
 			Body:     "Sub A P1 (Sub A) ha enviado 6-3 6-4. Confirma o contrapropón.",
 			MatchID:  matchID,
 			CompName: "Test Competition",
-		})
+		}
+		assertNotified(tb, app, pair2Player1ID, want)
+		assertNotified(tb, app, pair2Player2ID, want)
+		assertNotNotified(tb, app, pair1Player1ID, want.Title)
+		assertNotNotified(tb, app, pair1Player2ID, want.Title)
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)

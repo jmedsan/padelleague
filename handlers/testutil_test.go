@@ -185,13 +185,21 @@ func makeNotification(t *testing.T, app core.App, userID, title, body string, re
 // a handler that wires the wrong constructor, or drops a field before
 // calling notify.Notifier, still passes because both sides recompute the
 // same (possibly wrong) string.
+// assertNotified asserts that userID received EXACTLY ONE notification titled
+// want.Title, and that it matches want's type/body/comp_name/related_match/
+// link exactly. want's literal fields must come from the test's own fixture
+// data, never from calling the constructor again — otherwise a handler that
+// wires the wrong constructor, or drops a field before calling
+// notify.Notifier, still passes because both sides recompute the same
+// (possibly wrong) string. Exactly-one (not "at least one, take the newest")
+// catches a duplicate send that a >=1 check would silently let through.
 func assertNotified(t testing.TB, app core.App, userID string, want league.Notification) *core.Record {
 	t.Helper()
 	recs, err := app.FindRecordsByFilter("notifications",
-		"user = {:user} && title = {:title}", "-created", 1, 0,
+		"user = {:user} && title = {:title}", "-created", 0, 0,
 		map[string]any{"user": userID, "title": want.Title})
 	require.NoError(t, err)
-	require.NotEmptyf(t, recs, "no notification titled %q for user %s", want.Title, userID)
+	require.Lenf(t, recs, 1, "expected exactly 1 notification titled %q for user %s, got %d", want.Title, userID, len(recs))
 	rec := recs[0]
 	assert.Equal(t, want.Type, rec.GetString("type"), "notification type")
 	assert.Equal(t, want.Body, rec.GetString("body"), "notification body")
@@ -203,6 +211,18 @@ func assertNotified(t testing.TB, app core.App, userID string, want league.Notif
 		assert.Equal(t, "/match/"+want.MatchID, rec.GetString("link"), "notification link (derived from MatchID)")
 	}
 	return rec
+}
+
+// assertNotNotified asserts that userID received NO notification titled
+// title — the counterpart to assertNotified, for recipients a flow must
+// exclude (e.g. the submitter must not get their own "result submitted").
+func assertNotNotified(t testing.TB, app core.App, userID, title string) {
+	t.Helper()
+	recs, err := app.FindRecordsByFilter("notifications",
+		"user = {:user} && title = {:title}", "", 0, 0,
+		map[string]any{"user": userID, "title": title})
+	require.NoError(t, err)
+	assert.Emptyf(t, recs, "expected no notification titled %q for user %s, got %d", title, userID, len(recs))
 }
 
 func authToken(t testing.TB, user *core.Record) string {

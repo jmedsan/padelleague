@@ -134,7 +134,7 @@ func TestReportUnplayed(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID, userID, rivalUserID string
+	var matchID, userID, rivalUserID, rivalUser2ID, partnerID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "RptA")
@@ -147,7 +147,9 @@ func TestReportUnplayed(t *testing.T) {
 		matchID = match.Id
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		userID = user.Id
+		partnerID = p1.GetString("player2")
 		rivalUserID = p2.GetString("player1")
+		rivalUser2ID = p2.GetString("player2")
 		s.URL = "/match/" + match.Id + "/report-unplayed"
 		s.Headers = authHeaders(tb, user)
 	}
@@ -160,13 +162,17 @@ func TestReportUnplayed(t *testing.T) {
 		assert.Contains(tb, m.GetString("dispute_notes"), "[No jugado]")
 		assert.Empty(tb, m.GetString("winner"), "reporting unplayed must not declare a winner")
 		assert.Empty(tb, m.GetString("scores"), "reporting unplayed must not set a score")
-		assertNotified(tb, app, rivalUserID, league.Notification{
+		want := league.Notification{
 			Type:     "general",
 			Title:    "Partido reportado como no jugado",
 			Body:     "Tu rival ha reportado este partido como no jugado. Un administrador lo revisará.",
 			MatchID:  matchID,
 			CompName: "Test Competition",
-		})
+		}
+		assertNotified(tb, app, rivalUserID, want)
+		assertNotified(tb, app, rivalUser2ID, want)
+		assertNotNotified(tb, app, userID, want.Title)
+		assertNotNotified(tb, app, partnerID, want.Title)
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
