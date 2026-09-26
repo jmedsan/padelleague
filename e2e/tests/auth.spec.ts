@@ -25,7 +25,7 @@ test('unauthenticated access redirects to login', async ({ page }) => {
   await expect(page).toHaveURL(/\/login/);
 });
 
-test('login with valid credentials via form', async ({ page }) => {
+test('login with valid credentials via form', { tag: '@smoke' }, async ({ page }) => {
   await loginViaForm(page, ADMIN_EMAIL, ADMIN_PASSWORD);
   // Admin GET / redirects to /admin/competitions, the single admin landing page.
   await expect(page).toHaveURL(/\/admin\/competitions$/);

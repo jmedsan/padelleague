@@ -7,7 +7,7 @@ let suToken = '';
 test.describe('end-of-league recovery window', () => {
   test.describe.configure({ retries: 0 });
 
-  test('pending match shows the recovery badge during the recovery window', async ({ page }) => {
+  test('pending match shows the recovery badge during the recovery window', { tag: '@smoke' }, async ({ page }) => {
     test.setTimeout(120000);
     await getSuperuserToken(page);
     const data = loadTestData();

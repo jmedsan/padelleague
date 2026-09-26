@@ -33,7 +33,7 @@ async function createFreshPlayer(label: string): Promise<{ email: string; passwo
 }
 
 test.describe('player profile and stats', () => {
-  test('player can view own profile with stats', async ({ page }) => {
+  test('player can view own profile with stats', { tag: '@smoke' }, async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.locator('a[href^="/competition/"]', { hasText: 'Liga E2E Test' }).first().click();
     await page.waitForLoadState('domcontentloaded');

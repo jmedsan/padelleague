@@ -29,7 +29,7 @@ async function suPost(path: string, data: Record<string, unknown>): Promise<any>
 
 
 test.describe('match thread', () => {
-  test('player can view match thread', async ({ page }) => {
+  test('player can view match thread', { tag: '@smoke' }, async ({ page }) => {
     const data = loadTestData();
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${data.matchIds[0]}`);

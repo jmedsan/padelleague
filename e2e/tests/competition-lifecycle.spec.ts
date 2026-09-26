@@ -60,7 +60,7 @@ test.describe('competition lifecycle', () => {
     await expect(page.getByRole('heading', { name })).toBeVisible({ timeout: 10000 });
   });
 
-  test('player can view competition standings', async ({ page }, testInfo) => {
+  test('player can view competition standings', { tag: '@smoke' }, async ({ page }, testInfo) => {
     // Self-contained competition + pairs + one played match: the shared seed
     // (data.competitionId / Pareja Alpha) accumulates matches across the
     // whole suite (mobile tour plays some before this runs), so its Forma

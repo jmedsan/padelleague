@@ -39,7 +39,7 @@ async function suGet(path: string): Promise<any> {
 }
 
 test.describe('match lifecycle', () => {
-  test('player can view match detail', async ({ page }) => {
+  test('player can view match detail', { tag: '@smoke' }, async ({ page }) => {
     const data = loadTestData();
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${data.matchIds[0]}`);

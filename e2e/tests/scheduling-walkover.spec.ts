@@ -73,7 +73,7 @@ test.describe('scheduling, walkover & bracket', () => {
     await apiDeleteRecord(page.request, 'competitions', compId);
   });
 
-  test('walkover: report unplayed → admin approves → final with penalty', async ({ page }) => {
+  test('walkover: report unplayed → admin approves → final with penalty', { tag: '@smoke' }, async ({ page }) => {
     test.setTimeout(120000);
     await getSuperuserToken(page);
     const data = loadTestData();
