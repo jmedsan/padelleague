@@ -16,7 +16,7 @@ async function goToPage(page: import('@playwright/test').Page, href: string, lab
 
 async function switchView(page: import('@playwright/test').Page, target: 'admin' | 'player'): Promise<void> {
   if (isMobile(page)) {
-    const btn = page.locator('[aria-label="cambiar vista"]');
+    const btn = page.locator('[aria-label^="cambiar vista"]');
     await btn.click();
     await page.locator(`.dropdown-content a[href="/view/${target}"]`).click();
   } else {
@@ -43,7 +43,7 @@ test.describe('R-178: presentation quality guards', () => {
 
     // Admin mode indicator (top-bar pill/dropdown) should be visible
     if (isMobile(page)) {
-      await expect(page.locator('[aria-label="cambiar vista"]')).toBeVisible();
+      await expect(page.locator('[aria-label^="cambiar vista"]')).toBeVisible();
     } else {
       await expect(page.locator('details:has(a[href="/view/player"]) summary')).toBeVisible();
     }
@@ -804,11 +804,26 @@ test.describe('R-178: presentation quality guards', () => {
   });
 });
 
+// Cached across calls in this file: PocketBase's default rate limit is
+// 2 auth requests per 3 seconds (label "*:auth", core/settings_model.go),
+// and this file's tests mint a superuser token back-to-back in the same
+// worker — re-authenticating every test tripped that limit and returned a
+// 429 with no token, which getSuToken swallowed (no resp.ok() check),
+// silently downgrading the next apiCreate to an anonymous 403. A superuser
+// token's default TTL is hours, so minting it once per file and reusing it
+// is correct, not just a workaround for the rate limit.
+let cachedSuToken: string | null = null;
+
 async function getSuToken(request: APIRequestContext): Promise<string> {
+  if (cachedSuToken) return cachedSuToken;
   const resp = await request.post('/api/collections/_superusers/auth-with-password', {
     data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
   });
-  return (await resp.json()).token;
+  if (!resp.ok()) throw new Error(`getSuToken failed: ${resp.status()} ${await resp.text()}`);
+  const body = await resp.json();
+  const token: string = body.token;
+  cachedSuToken = token;
+  return token;
 }
 
 async function apiCreate(request: APIRequestContext, token: string, collection: string, data: Record<string, any>): Promise<string> {

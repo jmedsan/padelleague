@@ -416,7 +416,7 @@ test.describe('responsive - no horizontal overflow', () => {
 
     // Admin mode indicator (top-bar pill/dropdown) should be visible
     if (isMobile(page)) {
-      await expect(page.locator('[aria-label="cambiar vista"]')).toBeVisible();
+      await expect(page.locator('[aria-label^="cambiar vista"]')).toBeVisible();
     } else {
       await expect(page.locator('details:has(a[href="/view/player"]) summary')).toBeVisible();
     }

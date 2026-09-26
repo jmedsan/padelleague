@@ -499,7 +499,7 @@ test.describe('reference navigation tour', () => {
 
     if (isMobile(page)) {
       // Mobile: admin pill button visible
-      const pill = page.locator('[aria-label="cambiar vista"]');
+      const pill = page.locator('[aria-label^="cambiar vista"]');
       await expect(pill).toBeVisible();
 
       // Switch to player view
@@ -509,7 +509,7 @@ test.describe('reference navigation tour', () => {
       await expect(page.locator('h1, h2').first()).toBeVisible();
 
       // Switch back to admin view
-      const pillPlayer = page.locator('[aria-label="cambiar vista"]');
+      const pillPlayer = page.locator('[aria-label^="cambiar vista"]');
       await pillPlayer.click();
       await page.locator('.dropdown-content a[href="/view/admin"]').click();
       await page.waitForLoadState('domcontentloaded');
