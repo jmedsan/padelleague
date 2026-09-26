@@ -850,28 +850,56 @@ func matchReminderNotifs(t *testing.T, app core.App) []*core.Record {
 }
 
 func TestMatchReminders_Fires26h(t *testing.T) {
-	app, notifier, _, now := setupMatchReminder(t, 26*time.Hour, "18:00")
+	app, notifier, m, now := setupMatchReminder(t, 26*time.Hour, "18:00")
 	checkMatchReminders(app, notifier, now)
 
-	notifs := matchReminderNotifs(t, app)
-	require.Len(t, notifs, 4, "4 players (2 pairs × 2) get the 26h reminder")
-	for _, n := range notifs {
-		assert.Equal(t, "Próximo partido", n.GetString("title"))
-		assert.Contains(t, n.GetString("body"), "18:00")
-		assert.Contains(t, n.GetString("body"), "Padel 360")
-		assert.Contains(t, n.GetString("body"), "vs")
+	pairNames := league.PairNames(app, []string{m.GetString("pair1"), m.GetString("pair2")})
+	wantForP1 := league.Notification{
+		Type:     "match_reminder",
+		Title:    "Próximo partido",
+		Body:     fmt.Sprintf("Tu partido vs %s es el 15/06 a las 18:00 en Padel 360.", pairNames[m.GetString("pair2")]),
+		MatchID:  m.Id,
+		CompName: "Sched Test League",
+	}
+	wantForP2 := league.Notification{
+		Type:     "match_reminder",
+		Title:    "Próximo partido",
+		Body:     fmt.Sprintf("Tu partido vs %s es el 15/06 a las 18:00 en Padel 360.", pairNames[m.GetString("pair1")]),
+		MatchID:  m.Id,
+		CompName: "Sched Test League",
+	}
+	for _, uid := range league.PlayersForPair(app, m.GetString("pair1")) {
+		assertNotified(t, app, uid, wantForP1)
+	}
+	for _, uid := range league.PlayersForPair(app, m.GetString("pair2")) {
+		assertNotified(t, app, uid, wantForP2)
 	}
 }
 
 func TestMatchReminders_Fires1h(t *testing.T) {
-	app, notifier, _, now := setupMatchReminder(t, 1*time.Hour, "18:00")
+	app, notifier, m, now := setupMatchReminder(t, 1*time.Hour, "18:00")
 	checkMatchReminders(app, notifier, now)
 
-	notifs := matchReminderNotifs(t, app)
-	require.Len(t, notifs, 4)
-	for _, n := range notifs {
-		assert.Equal(t, "Tu partido empieza pronto", n.GetString("title"))
-		assert.Contains(t, n.GetString("body"), "en 1 hora")
+	pairNames := league.PairNames(app, []string{m.GetString("pair1"), m.GetString("pair2")})
+	wantForP1 := league.Notification{
+		Type:     "match_reminder",
+		Title:    "Tu partido empieza pronto",
+		Body:     fmt.Sprintf("Tu partido vs %s empieza en 1 hora · 18:00 en Padel 360.", pairNames[m.GetString("pair2")]),
+		MatchID:  m.Id,
+		CompName: "Sched Test League",
+	}
+	wantForP2 := league.Notification{
+		Type:     "match_reminder",
+		Title:    "Tu partido empieza pronto",
+		Body:     fmt.Sprintf("Tu partido vs %s empieza en 1 hora · 18:00 en Padel 360.", pairNames[m.GetString("pair1")]),
+		MatchID:  m.Id,
+		CompName: "Sched Test League",
+	}
+	for _, uid := range league.PlayersForPair(app, m.GetString("pair1")) {
+		assertNotified(t, app, uid, wantForP1)
+	}
+	for _, uid := range league.PlayersForPair(app, m.GetString("pair2")) {
+		assertNotified(t, app, uid, wantForP2)
 	}
 }
 
