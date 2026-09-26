@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../overflow-guard';
 import { loginAs, loginViaForm, isMobile, loadTestData, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 const BASE = `http://localhost:${process.env.E2E_PORT || 8099}`;

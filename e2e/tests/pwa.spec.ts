@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../overflow-guard';
 import { loginAs, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 test.describe('PWA offline support', () => {

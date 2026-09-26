@@ -1,4 +1,5 @@
-import { test, expect, Page, TestInfo } from '@playwright/test';
+import type { Page, TestInfo } from '@playwright/test';
+import { test, expect } from '../overflow-guard';
 import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 async function openSearchAndType(page: Page, testInfo: TestInfo, query: string) {

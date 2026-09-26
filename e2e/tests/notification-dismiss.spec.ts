@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../overflow-guard';
 import { loginAs, loadTestData, isMobile, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 async function createNotification(page: import('@playwright/test').Page, userId: string, adminToken: string, title: string) {

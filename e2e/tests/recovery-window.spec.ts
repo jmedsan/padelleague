@@ -1,4 +1,5 @@
-import { test, expect, Page, APIRequestContext } from '@playwright/test';
+import type { Page, APIRequestContext } from '@playwright/test';
+import { test, expect } from '../overflow-guard';
 import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, loadTestData } from '../helpers';
 
 let suToken = '';

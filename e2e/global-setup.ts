@@ -77,6 +77,20 @@ async function seedTestData() {
   await generateFixtures(compId, adminToken);
   await publishCalendar(compId);
 
+  // Realistic worst-case content so every player/admin page test exercises
+  // the competition page's maximum UI by default — an announcement (Avisos
+  // tab), a document (Documentos tab; Jornadas and Clasificación already
+  // render from the fixtures/standings above, so this seeds all 4 tabs), and
+  // a penalty (admin standings' penalty column) — rather than each test
+  // building its own fixture ad hoc, which let a real overflow (the S23
+  // competition-tabs bug) through undetected because the seeded competition
+  // never showed all 4 tabs at once.
+  const docId = await createDocument('Reglamento E2E', adminToken);
+  await attachDocument(compId, docId, adminToken);
+  const adminId = (await getUser(ADMIN_EMAIL, adminToken)).id;
+  await createAnnouncement(compId, 'Aviso de la liga', 'Recordatorio de horarios y normas.', adminId, adminToken);
+  await createPenalty(compId, pair2Id, 3, 'Incomparecencia (seed E2E)', adminToken);
+
   // Get match IDs
   const matchesResp = await fetch(`${BASE_URL}/api/collections/matches/records?filter=competition='${compId}'`, {
     headers: { 'Authorization': adminToken },
@@ -238,6 +252,44 @@ async function publishCalendar(compId: string) {
       'HX-Request': 'true',
     },
   });
+}
+
+async function createDocument(title: string, token: string): Promise<string> {
+  const resp = await fetch(`${BASE_URL}/api/collections/documents/records`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': token },
+    body: JSON.stringify({ title, url: 'https://example.com/reglamento' }),
+  });
+  if (!resp.ok) throw new Error(`createDocument: ${resp.status} ${await resp.text()}`);
+  const data = await resp.json();
+  return data.id;
+}
+
+async function attachDocument(compId: string, docId: string, token: string) {
+  const resp = await fetch(`${BASE_URL}/api/collections/competitions/records/${compId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'Authorization': token },
+    body: JSON.stringify({ documents: [docId] }),
+  });
+  if (!resp.ok) throw new Error(`attachDocument: ${resp.status} ${await resp.text()}`);
+}
+
+async function createAnnouncement(compId: string, title: string, body: string, createdBy: string, token: string) {
+  const resp = await fetch(`${BASE_URL}/api/collections/announcements/records`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': token },
+    body: JSON.stringify({ competition: compId, title, body, created_by: createdBy }),
+  });
+  if (!resp.ok) throw new Error(`createAnnouncement: ${resp.status} ${await resp.text()}`);
+}
+
+async function createPenalty(compId: string, pairId: string, amount: number, reason: string, token: string) {
+  const resp = await fetch(`${BASE_URL}/api/collections/penalties/records`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': token },
+    body: JSON.stringify({ competition: compId, pair: pairId, amount, reason, voided: false }),
+  });
+  if (!resp.ok) throw new Error(`createPenalty: ${resp.status} ${await resp.text()}`);
 }
 
 async function createVenue(name: string, token: string): Promise<string> {

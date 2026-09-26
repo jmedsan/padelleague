@@ -29,7 +29,14 @@ export default defineConfig({
       name: 'mobile',
       testIgnore: /z-admin-settings/,
       use: {
-        viewport: { width: 375, height: 812 },
+        // Samsung Galaxy S23 (owner's real device): 360×780 CSS px, DPR 3,
+        // touch. Previously a generic 375×812 iPhone-ish viewport, which
+        // missed a real overflow (competition tabs, scrollWidth 482 > 360)
+        // that only showed up at the S23's narrower width.
+        viewport: { width: 360, height: 780 },
+        deviceScaleFactor: 3,
+        isMobile: true,
+        hasTouch: true,
       },
     },
     {
