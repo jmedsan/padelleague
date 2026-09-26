@@ -4,7 +4,7 @@ Padel league management — competitions, matches, rankings and scheduling.
 
 ## What it does
 
-A web app for organizing padel leagues. An admin creates competitions, assigns pairs, and generates fixtures (round-robin or leveled). Players log in, negotiate match schedules through an in-app thread, submit scores, and confirm results. The system computes standings with proper padel rules (3 points per win, set/game diff, head-to-head tiebreakers, schedule-strength adjustment for leveled leagues).
+A web app for organizing padel leagues. An admin creates competitions, assigns pairs, and generates fixtures (round-robin or leveled). Players log in, negotiate match schedules through an in-app thread, submit scores, and confirm results. The system computes standings with proper padel rules (3 points per win, set/game diff, head-to-head tiebreakers).
 
 ### For players
 
@@ -23,7 +23,7 @@ A web app for organizing padel leagues. An admin creates competitions, assigns p
 ### For admins
 
 - **Competition management** — create leagues/playoffs, assign pairs, generate fixtures (round-robin for standard leagues, rolling opponent assignment for leveled leagues)
-- **Leveled leagues** — each pair plays opponents closest to them in skill; opponent assignments are rolling (configurable `target_matches` open at a time); standings include a schedule-strength adjustment so pairs with tougher opponents are ranked fairly
+- **Leveled leagues** — each pair plays opponents closest to them in skill; opponent assignments are rolling (configurable `target_matches` open at a time); standings use the same 3-points-per-win rules as any league
 - **League scheduling** — set start/end dates; the app computes and **stores a recommended arrange-by date per round** (admin-editable on the competition page, with a "regenerate" option), sends escalating reminders, and flags overdue matches
 - **End-of-league recovery window** — a per-competition grace period after the end date (default 14 days, editable) during which still-pending matches show an "En recuperación" state and stay organizable; the admin can finalize a league early
 - **Admin-approved walkovers** — when a team reports a match unplayed, the admin approves a walkover with a configurable default score (6-0 6-0) and points penalty; nothing is ever penalized automatically
@@ -138,7 +138,7 @@ e2e/                 # Playwright end-to-end tests (includes full-season simulat
 
 `make ci` runs the full gate — six checks: format check (`fmt-check`), lint, dead-code (`dead`), invariants, tests, and vulnerability scan (`vuln`). Any CI provider (GitHub Actions, GitLab CI, Northflank, etc.) just calls `make ci`.
 
-`make e2e` runs the Playwright end-to-end suite, which includes a full-season simulation: an admin creates a competition, players, and pairs through the UI; a complete double round-robin league is played (12 matches with scheduling, disputes, and penalties); standings are asserted against an independent computation covering all tiebreakers (points, set diff, game diff, head-to-head); and a playoff bracket is seeded, played, and resolved to a champion. Leveled leagues use rolling assignments instead of Berger round-robin — the admin sets `target_matches` and `open_assignments`; the system assigns opponents by skill proximity and adjusts standings for schedule strength.
+`make e2e` runs the Playwright end-to-end suite, which includes a full-season simulation: an admin creates a competition, players, and pairs through the UI; a complete double round-robin league is played (12 matches with scheduling, disputes, and penalties); standings are asserted against an independent computation covering all tiebreakers (points, set diff, game diff, head-to-head); and a playoff bracket is seeded, played, and resolved to a champion. Leveled leagues use rolling assignments instead of Berger round-robin — the admin sets `target_matches` and `open_assignments`; the system assigns opponents by skill proximity.
 
 ## UI language
 
