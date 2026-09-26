@@ -144,6 +144,45 @@ func freshMatch(t *testing.T, app core.App, id string) *core.Record {
 	return r
 }
 
+// assertNotified asserts that userID received EXACTLY ONE notification titled
+// want.Title, and that it matches want's type/body/comp_name/related_match/
+// link exactly. want's literal fields must come from the test's own fixture
+// data, never from calling the constructor again — otherwise a cron that
+// wires the wrong constructor, or drops a field before calling
+// notify.Notifier, still passes because both sides recompute the same
+// (possibly wrong) string.
+func assertNotified(t testing.TB, app core.App, userID string, want league.Notification) *core.Record {
+	t.Helper()
+	recs, err := app.FindRecordsByFilter("notifications",
+		"user = {:user} && title = {:title}", "-created", 0, 0,
+		map[string]any{"user": userID, "title": want.Title})
+	require.NoError(t, err)
+	require.Lenf(t, recs, 1, "expected exactly 1 notification titled %q for user %s, got %d", want.Title, userID, len(recs))
+	rec := recs[0]
+	assert.Equal(t, want.Type, rec.GetString("type"), "notification type")
+	assert.Equal(t, want.Body, rec.GetString("body"), "notification body")
+	assert.Equal(t, want.CompName, rec.GetString("comp_name"), "notification comp_name")
+	if want.Link != "" {
+		assert.Equal(t, want.Link, rec.GetString("link"), "notification link")
+	} else if want.MatchID != "" {
+		assert.Equal(t, want.MatchID, rec.GetString("related_match"), "notification related_match")
+		assert.Equal(t, "/match/"+want.MatchID, rec.GetString("link"), "notification link (derived from MatchID)")
+	}
+	return rec
+}
+
+// assertNotNotified asserts that userID received NO notification titled
+// title — the counterpart to assertNotified, for recipients a flow must
+// exclude.
+func assertNotNotified(t testing.TB, app core.App, userID, title string) {
+	t.Helper()
+	recs, err := app.FindRecordsByFilter("notifications",
+		"user = {:user} && title = {:title}", "", 0, 0,
+		map[string]any{"user": userID, "title": title})
+	require.NoError(t, err)
+	assert.Emptyf(t, recs, "expected no notification titled %q for user %s, got %d", title, userID, len(recs))
+}
+
 // transitionMatch is a helper that re-reads, sets status (and optional fields), saves.
 func transitionMatch(t *testing.T, app core.App, id, newStatus string, extra map[string]any) error {
 	t.Helper()
@@ -548,19 +587,27 @@ func TestSchedulingReminder_SendsAndEscalates(t *testing.T) {
 		"type = 'scheduling'", "", 0, 0, nil)
 	require.NoError(t, err)
 	require.Len(t, notifs, 4, "should send one scheduling reminder per player (2 pairs × 2)")
-	for _, n := range notifs {
-		assert.Equal(t, "Recordatorio: organiza tu partido", n.GetString("title"))
-		assert.Contains(t, n.GetString("body"), "El plazo ha vencido")
+
+	deadline, ok := league.MatchArrangeDate(compRec, freshMatch(t, app, m.Id))
+	require.True(t, ok, "match must have a resolvable arrange deadline")
+	deadlineStr := deadline.In(league.Madrid).Format("02/01")
+
+	wantForP1 := league.Notification{
+		Type:  "scheduling",
+		Title: "Recordatorio: organiza tu partido",
+		Body:  fmt.Sprintf("Tu partido vs ScB · Sched Test League vence el %s. El plazo ha vencido.", deadlineStr),
 	}
-	allPlayerIDs := append(
-		league.PlayersForPair(app, p1.Id),
-		league.PlayersForPair(app, p2.Id)...,
-	)
-	notifUserIDs := make([]string, len(notifs))
-	for i, n := range notifs {
-		notifUserIDs[i] = n.GetString("user")
+	wantForP2 := league.Notification{
+		Type:  "scheduling",
+		Title: "Recordatorio: organiza tu partido",
+		Body:  fmt.Sprintf("Tu partido vs ScA · Sched Test League vence el %s. El plazo ha vencido.", deadlineStr),
 	}
-	assert.ElementsMatch(t, allPlayerIDs, notifUserIDs, "all 4 players must be notified")
+	for _, uid := range league.PlayersForPair(app, p1.Id) {
+		assertNotified(t, app, uid, wantForP1)
+	}
+	for _, uid := range league.PlayersForPair(app, p2.Id) {
+		assertNotified(t, app, uid, wantForP2)
+	}
 
 	// Check last_warn_level was bumped
 	updated := freshMatch(t, app, m.Id)
