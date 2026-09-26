@@ -408,6 +408,12 @@ test.describe('reference navigation tour', () => {
     }
     await generateFixtures(page);
 
+    // Same as the league's calendar above: draft-only until published, and
+    // matchVisibleTo (handlers/respond.go) rejects every non-admin viewer
+    // (the players in playPlayoffMatch below) until then.
+    await page.locator('button:has-text("Publicar calendario")').click();
+    await page.waitForLoadState('domcontentloaded');
+
     // --- Step 10: Play playoff ---
     // Semis: A beats D, B beats C
     const r1 = await getRoundMatches(page.request, suToken, playoffId, 1);
@@ -475,9 +481,9 @@ test.describe('reference navigation tour', () => {
     expect(levelText).toMatch(/^\d+(\.\d+)?$/);
     await expect(page.locator('body')).not.toContainText('Sin nivel');
 
-    // Stats tiles heading distinguishes the aggregate stats from the
-    // per-competition breakdown table below it.
-    await expect(page.getByText('Todas las competiciones')).toBeVisible();
+    // "Competiciones" heading distinguishes the per-competition breakdown
+    // table from the aggregate stats tiles above it.
+    await expect(page.getByRole('heading', { name: 'Competiciones' })).toBeVisible();
 
     // Match history table shows a "Competición" column so a player with
     // matches across multiple competitions can tell them apart (the
