@@ -111,6 +111,20 @@ export function isMobile(page: Page): boolean {
   return !!vp && vp.width < 1024;
 }
 
+// clickAction clicks a per-row action that the desktop table renders icon-only
+// (aria-label, no text) and the mobile card list hides inside a "Más acciones"
+// dropdown. target is a selector matching the action in both markups (e.g.
+// `label[for="penalty-modal-abc"]`), label the desktop aria-label prefix.
+export async function clickAction(page: Page, target: string, label: string): Promise<void> {
+  if (isMobile(page)) {
+    const dropdown = page.locator(`.dropdown:has(${target})`).first();
+    await dropdown.locator('button[aria-label^="Más acciones"]').click();
+    await dropdown.locator(target).click();
+    return;
+  }
+  await page.locator(`${target}[aria-label^="${label}"]:visible`).first().click();
+}
+
 export async function openDrawer(page: Page): Promise<void> {
   const toggle = page.locator('label[for="main-drawer"]').first();
   if (!await toggle.isVisible().catch(() => false)) {

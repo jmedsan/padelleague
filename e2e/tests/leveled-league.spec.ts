@@ -189,8 +189,8 @@ test.describe('leveled league', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // Tab is "Partidos" (not "Jornadas")
-    await expect(page.locator('input[aria-label="Partidos"]')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('input[aria-label="Jornadas"]')).toHaveCount(0);
+    await expect(page.locator('input[aria-label^="Partidos"]')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('input[aria-label^="Jornadas"]')).toHaveCount(0);
 
     // "Jornada 1" group is present
     await expect(page.locator('.collapse-title:has-text("Jornada 1")')).toBeVisible({ timeout: 5000 });
@@ -230,7 +230,7 @@ test.describe('leveled league', () => {
     await page.goto(`/competition/${competitionId}`);
     await page.waitForLoadState('domcontentloaded');
 
-    await expect(page.locator('input[aria-label="Partidos"]')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('input[aria-label^="Partidos"]')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('.collapse-title:has-text("Jornada 1")')).toBeVisible({ timeout: 5000 });
   });
 });

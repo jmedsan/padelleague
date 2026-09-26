@@ -89,8 +89,8 @@ test.describe('responsive - no horizontal overflow', () => {
     await page.waitForLoadState('domcontentloaded');
     await checkNoOverflow(page);
     await expect(page.getByText('Liga E2E Test').first()).toBeVisible();
-    await expect(page.locator('input[aria-label="Jornadas"]')).toBeVisible();
-    await page.locator('input[aria-label="Jornadas"]').click();
+    await expect(page.locator('input[aria-label^="Jornadas"]')).toBeVisible();
+    await page.locator('input[aria-label^="Jornadas"]').click();
     // getByText also matches the pair-filter <select>'s <option> (never
     // "visible" per Playwright) — scope to the visible match-row text.
     await expect(page.getByText('Pareja Alpha').locator('visible=true').first()).toBeVisible();
@@ -251,7 +251,7 @@ test.describe('responsive - no horizontal overflow', () => {
     expect(box?.width, 'tablist must not exceed the 360px viewport').toBeLessThanOrEqual(360);
 
     for (const label of ['Jornadas', 'Avisos', 'Documentos', 'Clasificación']) {
-      await expect(page.locator(`input[aria-label="${label}"]`)).toBeVisible();
+      await expect(page.locator(`input[aria-label^="${label}"]`)).toBeVisible();
     }
 
     await apiDeleteRecord(page.request, 'competitions', compId);

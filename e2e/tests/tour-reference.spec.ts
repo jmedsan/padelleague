@@ -1,6 +1,6 @@
 import type { Page, APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, isMobile, navViaDrawer, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, isMobile, clickAction, navViaDrawer, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import {
   setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,
   computeExpected, PlannedMatch, PairId,
@@ -269,7 +269,7 @@ test.describe('reference navigation tour', () => {
     await page.goto(`/competition/${competitionId}`);
     await page.waitForLoadState('domcontentloaded');
     await acceptDocsGate(page);
-    await expect(page.locator('input[aria-label="Jornadas"]')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('input[aria-label^="Jornadas"]')).toBeVisible({ timeout: 5000 });
 
     // Back to admin for the rest
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
@@ -302,7 +302,7 @@ test.describe('reference navigation tour', () => {
     await page.waitForLoadState('domcontentloaded');
     // Both mobile and desktop bell buttons exist in the DOM (breakpoint
     // classes just hide one); :visible picks whichever this viewport shows.
-    await page.locator('button[aria-label="notificaciones"]:visible').click();
+    await page.locator('button[aria-label^="notificaciones"]:visible').click();
     await page.locator('a:has-text("Ver todas"):visible').click();
     await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('/notifications/history');
@@ -374,17 +374,8 @@ test.describe('reference navigation tour', () => {
       await parejasCheckbox.check({ force: true });
       await page.waitForTimeout(300);
     }
-    // The desktop table's Penalizar trigger is icon-only (aria-label, no text
-    // node) and lives in the "Más acciones" dropdown on mobile with visible
-    // text instead — one selector can't match both markups.
     const penaltyModal = page.locator(`#penalty-modal-${pairIds[0]} + .modal`);
-    if (isMobile(page)) {
-      const dropdown = page.locator(`.dropdown:has(label[for="penalty-modal-${pairIds[0]}"])`);
-      await dropdown.locator('button[aria-label="Más acciones"]').click();
-      await dropdown.locator(`label[for="penalty-modal-${pairIds[0]}"]`).click();
-    } else {
-      await page.locator(`label[for="penalty-modal-${pairIds[0]}"][aria-label="Penalizar"]`).click();
-    }
+    await clickAction(page, `label[for="penalty-modal-${pairIds[0]}"]`, 'Penalizar');
     await penaltyModal.locator('textarea[name="reason"]').fill('Ajuste de clasificación');
     await clickAndWaitForHxRedirect(page, penaltyModal.locator('button:has-text("Confirmar penalización")'));
 
@@ -451,7 +442,7 @@ test.describe('reference navigation tour', () => {
     // table.table-sm, each hidden at the other breakpoint via CSS — scope
     // to whichever one is visible so `.first()` doesn't resolve to the
     // hidden table's copy of the same link.
-    await page.locator('input[aria-label="Clasificación"]').click();
+    await page.locator('input[aria-label^="Clasificación"]').click();
     const standingsTableClass = isMobile(page) ? 'table.table-sm' : 'table.table-zebra';
     const pairLink = page.locator(`${standingsTableClass} a[href="/pair/${pairIds[0]}"]`).first();
     await expect(pairLink).toBeVisible();

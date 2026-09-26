@@ -101,7 +101,7 @@ test.describe('competition lifecycle', () => {
     await page.goto(`/competition/${comp.id}`);
     await page.waitForLoadState('domcontentloaded');
     await expect(page.getByText(compName).first()).toBeVisible();
-    await page.locator('input[aria-label="Clasificación"]').click();
+    await page.locator('input[aria-label^="Clasificación"]').click();
     // standingsTable.html renders two <table>s (a desktop table.table-zebra
     // and a mobile table.table-sm), each hidden at the other breakpoint via
     // CSS — assert on whichever one is actually visible for this viewport.
@@ -123,8 +123,8 @@ test.describe('competition lifecycle', () => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.locator('a[href^="/competition/"]', { hasText: 'Liga E2E Test' }).first().click();
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.locator('input[aria-label="Jornadas"]')).toBeVisible();
-    await page.locator('input[aria-label="Jornadas"]').click();
+    await expect(page.locator('input[aria-label^="Jornadas"]')).toBeVisible();
+    await page.locator('input[aria-label^="Jornadas"]').click();
     await expect(page.getByText(/Jornada \d/).first()).toBeVisible();
     // Default: every pair's matches are visible, including the player's own.
     const matchLinks = page.locator('a[href^="/match/"]');
@@ -192,7 +192,7 @@ test.describe('competition lifecycle', () => {
     // since matchMine involves pairMine and pairThird, not pairOther.
     await page.goto(`/competition/${comp.id}`);
     await page.waitForLoadState('domcontentloaded');
-    await page.locator('input[aria-label="Jornadas"]').click();
+    await page.locator('input[aria-label^="Jornadas"]').click();
 
     const filter = page.locator('select[name="pair"]');
     await expect(filter).toBeVisible();
@@ -205,7 +205,7 @@ test.describe('competition lifecycle', () => {
 
     await expect(page.locator(`a[href="/match/${matchOther.id}"]`)).toBeVisible();
     await expect(page.locator(`a[href="/match/${matchMine.id}"]`)).toHaveCount(0);
-    await expect(page.locator('input[aria-label="Jornadas"]')).toBeChecked();
+    await expect(page.locator('input[aria-label^="Jornadas"]')).toBeChecked();
     await expect(page.locator('select[name="pair"]')).toHaveValue(pairOther.id);
   });
 
@@ -271,8 +271,8 @@ test.describe('competition lifecycle', () => {
 
     const mobile = isMobile(page);
     const bellButton = mobile
-      ? page.locator('.lg\\:hidden .dropdown button[aria-label="notificaciones"]')
-      : page.locator('.dropdown:has(#notif-dropdown) button[aria-label="notificaciones"]');
+      ? page.locator('.lg\\:hidden .dropdown button[aria-label^="notificaciones"]')
+      : page.locator('.dropdown:has(#notif-dropdown) button[aria-label^="notificaciones"]');
     await bellButton.click();
 
     const dropdown = mobile
@@ -284,8 +284,8 @@ test.describe('competition lifecycle', () => {
 
     await page.waitForLoadState('domcontentloaded');
     await expect(page).toHaveURL(new RegExp(`/competition/${comp.id}$`));
-    await expect(page.locator('input[aria-label="Jornadas"]')).toBeVisible();
-    await page.locator('input[aria-label="Jornadas"]').click();
+    await expect(page.locator('input[aria-label^="Jornadas"]')).toBeVisible();
+    await page.locator('input[aria-label^="Jornadas"]').click();
     await expect(page.getByText(/Jornada \d/).first()).toBeVisible();
   });
 });

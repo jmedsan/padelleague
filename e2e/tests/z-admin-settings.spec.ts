@@ -112,8 +112,8 @@ test.describe('admin dev tools: database reset', () => {
     await page.waitForLoadState('domcontentloaded');
 
     const bellButton = isMobile(page)
-      ? page.locator('.dropdown:has(#notif-badge-mobile) button[aria-label="notificaciones"]')
-      : page.locator('.dropdown:has(#notif-dropdown) button[aria-label="notificaciones"]');
+      ? page.locator('.dropdown:has(#notif-badge-mobile) button[aria-label^="notificaciones"]')
+      : page.locator('.dropdown:has(#notif-dropdown) button[aria-label^="notificaciones"]');
     await bellButton.click();
 
     const dropdown = isMobile(page)

@@ -1,6 +1,6 @@
 import type { Page, APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, clickAction, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import {
   setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,
   computeExpected, PlannedMatch, PairId,
@@ -272,7 +272,7 @@ test.describe('guided navigation tour', () => {
     await acceptDocsGate(page);
 
     // After accepting, player sees normal competition page
-    await expect(page.locator('input[aria-label="Jornadas"]')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('input[aria-label^="Jornadas"]')).toBeVisible({ timeout: 5000 });
 
     // =======================================================================
     // Phase 2: Play all 12 league matches via home affordances
@@ -377,16 +377,7 @@ test.describe('guided navigation tour', () => {
       await page.waitForTimeout(300);
     }
     const penaltyModal = page.locator(`#penalty-modal-${pairIds[0]} + .modal`);
-    // Desktop table's trigger is icon-only (aria-label, no text node) and
-    // always visible; on mobile it lives inside the "Más acciones" dropdown,
-    // closed by default (same pattern as tour-reference.spec.ts).
-    if (isMobile(page)) {
-      const dropdown = parejasSection.locator(`.dropdown:has(label[for="penalty-modal-${pairIds[0]}"])`);
-      await dropdown.locator('button[aria-label="Más acciones"]').click();
-      await dropdown.locator(`label[for="penalty-modal-${pairIds[0]}"]`).click();
-    } else {
-      await page.locator(`label[for="penalty-modal-${pairIds[0]}"][aria-label="Penalizar"]`).click();
-    }
+    await clickAction(page, `label[for="penalty-modal-${pairIds[0]}"]`, 'Penalizar');
     await penaltyModal.locator('textarea[name="reason"]').fill('Ajuste de clasificación');
     await clickAndWaitForHxRedirect(page, penaltyModal.locator('button:has-text("Confirmar penalización")'));
 
@@ -628,7 +619,7 @@ test.describe('guided navigation tour', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // Must show "Partidos" tab (not "Jornadas")
-    await expect(page.locator('input[aria-label="Partidos"]')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('input[aria-label^="Partidos"]')).toBeVisible({ timeout: 5000 });
 
     // Must show "Jornada 1" group
     await expect(page.locator('.collapse-title:has-text("Jornada 1")')).toBeVisible({ timeout: 5000 });

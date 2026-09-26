@@ -153,7 +153,7 @@ test.describe('scheduling, walkover & bracket', () => {
     // Check standings show penalty
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/competition/${compId}`);
-    const standingsTab = page.locator('input[aria-label="Clasificación"]');
+    const standingsTab = page.locator('input[aria-label^="Clasificación"]');
     await standingsTab.click();
     // standingsTable.html renders a desktop table.table-zebra and a mobile
     // table.table-sm, each hidden at the other breakpoint via CSS.

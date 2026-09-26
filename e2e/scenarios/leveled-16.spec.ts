@@ -98,7 +98,7 @@ test.describe('leveled-16 scenario', () => {
     // The initial batch renders exactly `open` Jornada groups (1..open),
     // never a stray "Jornada 0" — the round-robin fallback title. Admin has
     // no own pair, so resolvePairFilter already defaults to "all".
-    await page.locator('input[aria-label="Partidos"]').click();
+    await page.locator('input[aria-label^="Partidos"]').click();
     await page.waitForLoadState('domcontentloaded');
     for (let s = 1; s <= ctx.open; s++) {
       await expect(page.locator(`.collapse-title:has-text("Jornada ${s}")`).first()).toBeVisible({ timeout: 10000 });
@@ -115,7 +115,7 @@ test.describe('leveled-16 scenario', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // Click "Partidos" tab (leveled competitions use "Partidos", not "Jornadas")
-    await page.locator('input[aria-label="Partidos"]').click();
+    await page.locator('input[aria-label^="Partidos"]').click();
     await page.waitForLoadState('domcontentloaded');
 
     // "Jornada 1" group is present
@@ -168,7 +168,7 @@ test.describe('leveled-16 scenario', () => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto(`/competition/${ctx.competitionId}`);
     await page.waitForLoadState('domcontentloaded');
-    await page.locator('input[aria-label="Partidos"]').click();
+    await page.locator('input[aria-label^="Partidos"]').click();
     await page.waitForLoadState('domcontentloaded');
     const jornada4Title = jornadaTitle(startDate, endDate, ctx.target, 4);
     await expect(page.locator(`.collapse-title:has-text("${jornada4Title}")`).first()).toBeVisible({ timeout: 10000 });
@@ -210,7 +210,7 @@ test.describe('leveled-16 scenario', () => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto(`/competition/${ctx.competitionId}`);
     await page.waitForLoadState('domcontentloaded');
-    await page.locator('input[aria-label="Partidos"]').click();
+    await page.locator('input[aria-label^="Partidos"]').click();
     await page.waitForLoadState('domcontentloaded');
     const jornada5Title = jornadaTitle(startDate, endDate, ctx.target, 5);
     await expect(page.locator(`.collapse-title:has-text("${jornada5Title}")`).first()).toBeVisible({ timeout: 10000 });

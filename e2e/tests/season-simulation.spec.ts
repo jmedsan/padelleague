@@ -1,6 +1,6 @@
 import type { Page, APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, isMobile, clickAction, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { enterScore, fillFlatpickrDate, clickConfirmAndWaitForHxRedirect } from '../tour-helpers';
 import {
   setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,
@@ -342,7 +342,7 @@ async function createPair(page: Page, name: string, player1Id: string, player2Id
 async function addPairToCompetition(page: Page, compId: string, pairId: string, seed?: number) {
   await page.goto(`/admin/competitions/${compId}`);
   // aria-label disambiguates from the leveled-league "Filtrar por pareja" select.
-  await page.selectOption('select[aria-label="Pareja"]', pairId);
+  await page.selectOption('select[aria-label^="Pareja"]', pairId);
   if (seed !== undefined) {
     await page.fill('input[name="seed"]', String(seed));
   }
@@ -614,7 +614,7 @@ async function assertStandings(
   await loginAs(page, PLAYERS[0].email, PLAYER_PASSWORD);
   await page.goto(`/competition/${competitionId}`);
   // Click the Clasificación tab
-  await page.locator('input[aria-label="Clasificación"]').click();
+  await page.locator('input[aria-label^="Clasificación"]').click();
   // standingsTable.html renders a desktop table.table-zebra and a mobile
   // table.table-sm, each hidden at the other breakpoint via CSS — the two
   // tables also order columns differently (mobile puts Pts third so it's
@@ -672,9 +672,7 @@ async function assertStandings(
 async function applyPenalty(page: Page, compId: string, pairId: string) {
 	await page.goto(`/admin/competitions/${compId}`);
 	const modal = page.locator(`#penalty-modal-${pairId} + .modal`);
-	// The Penalizar trigger is an icon-only label (aria-label, no text); the
-	// desktop table and the mobile cards each render one, so click the visible one.
-	await page.locator(`label[for="penalty-modal-${pairId}"][aria-label="Penalizar"]:visible`).first().click();
+	await clickAction(page, `label[for="penalty-modal-${pairId}"]`, 'Penalizar');
 	await modal.locator('textarea[name="reason"]').fill('Ajuste de clasificación');
 	await clickAndWaitForHxRedirect(page, modal.locator('button:has-text("Confirmar penalización")'));
 }
