@@ -285,9 +285,11 @@ func TestMatchSubmitNotifiesRival(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var pair2Player1ID, pair2Player2ID, pair1Player1ID, pair1Player2ID, matchID string
+	var pair2Player1ID, pair2Player2ID, pair1Player1ID, pair1Player2ID, matchID, adminID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		adminID = admin.Id
 		p1 := makePairTB(tb, app, "Sub A")
 		p2 := makePairTB(tb, app, "Sub B")
 		pair1Player1ID = p1.GetString("player1")
@@ -321,6 +323,14 @@ func TestMatchSubmitNotifiesRival(t *testing.T) {
 		assertNotified(tb, app, pair2Player2ID, want)
 		assertNotNotified(tb, app, pair1Player1ID, want.Title)
 		assertNotNotified(tb, app, pair1Player2ID, want.Title)
+
+		adminWant := league.Notification{
+			Type:    "match_progress",
+			Title:   "Progreso de partido",
+			Body:    "Resultado propuesto: 6-3 6-4",
+			MatchID: matchID,
+		}
+		assertNotified(tb, app, adminID, adminWant)
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
