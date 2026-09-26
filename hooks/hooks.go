@@ -46,8 +46,20 @@ func stampFinalized(rec *core.Record, now time.Time) {
 	rec.Set("finalized_at", now.UTC().Format("2006-01-02 15:04:05.000Z"))
 }
 
+// transitionedToFinal reports whether rec's save just moved it into final
+// status, as opposed to a save that leaves an already-final match untouched
+// (e.g. editing an unrelated field) or one that isn't final at all.
+func transitionedToFinal(rec *core.Record) bool {
+	return rec.GetString("status") == league.StatusFinal &&
+		rec.Original().GetString("status") != league.StatusFinal
+}
+
+// handleAdvance runs playoff-advance and leveled-league top-up when a match
+// reaches final status. Only fires on the transition into final — a save
+// that leaves an already-final match untouched must not re-run
+// TopUpAssignments for a match that never actually finalized just now.
 func handleAdvance(svc *league.Service, rec *core.Record) {
-	if rec.GetString("status") != league.StatusFinal {
+	if !transitionedToFinal(rec) {
 		return
 	}
 	if err := svc.AdvancePlayoff(rec); err != nil {
