@@ -604,12 +604,12 @@ func matchCompetitionID(app core.App, url string) string {
 	return m.GetString("competition")
 }
 
-// newestRecordID returns the id of the most recently created record, for
-// redirects to a page the handler itself just created.
-func newestRecordID(app core.App, collection string) string {
-	recs, err := app.FindAllRecords(collection)
+// newestCompetitionID returns the id of the most recently created
+// competition, for redirects to the page the handler itself just created.
+func newestCompetitionID(app core.App) string {
+	recs, err := app.FindAllRecords("competitions")
 	if err != nil || len(recs) == 0 {
-		return "(no " + collection + ")"
+		return "(no competitions)"
 	}
 	newest := recs[0]
 	for _, r := range recs[1:] {

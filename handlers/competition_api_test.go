@@ -118,7 +118,7 @@ func TestCompCreateSchedulingFields(t *testing.T) {
 		assert.Equal(tb, "6-1 6-1", c.GetString("walkover_score"))
 		assert.Equal(tb, 7.0, c.GetFloat("default_penalty"))
 	}
-	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestRecordID(app, "competitions") })
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
 	s.Test(t)
 }
 
@@ -148,7 +148,7 @@ func TestCompCreateSchedulingDefaults(t *testing.T) {
 		assert.Equal(tb, "6-0 6-0", c.GetString("walkover_score"))
 		assert.Equal(tb, 3.0, c.GetFloat("default_penalty"))
 	}
-	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestRecordID(app, "competitions") })
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
 	s.Test(t)
 }
 
@@ -1065,7 +1065,7 @@ func TestLeveledFieldsPersistOnCreate(t *testing.T) {
 		assert.Equal(tb, 4, comps[0].GetInt("target_matches"))
 		assert.Equal(tb, 2, comps[0].GetInt("open_assignments"))
 	}
-	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestRecordID(app, "competitions") })
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
 	s.Test(t)
 }
 
@@ -1168,7 +1168,7 @@ func TestLeveledFieldsEmptyDefaultsToZero(t *testing.T) {
 		assert.Equal(tb, 0, comps[0].GetInt("target_matches"))
 		assert.Equal(tb, 0, comps[0].GetInt("open_assignments"))
 	}
-	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestRecordID(app, "competitions") })
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
 	s.Test(t)
 }
 

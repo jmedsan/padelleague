@@ -212,7 +212,7 @@ func TestAdminCreateCompetition(t *testing.T) {
 		require.Equal(tb, 1, len(comps))
 		assert.Equal(tb, "league", comps[0].GetString("type"))
 	}
-	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestRecordID(app, "competitions") })
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
 	s.Test(t)
 }
 
