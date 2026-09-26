@@ -457,7 +457,7 @@ func TestCreateCompetition(t *testing.T) {
 		assert.Equal(tb, "league", c.GetString("type"))
 		assert.Equal(tb, float64(48), c.GetFloat("quorum_timeout_hours"))
 	}
-	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestRecordID(app, "competitions") })
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
 	s.Test(t)
 }
 
@@ -486,7 +486,7 @@ func TestCreateCompetitionInactive(t *testing.T) {
 		assert.False(tb, comps[0].GetBool("active"), "active must be false when not sent")
 		assert.False(tb, comps[0].GetBool("play_twice"), "play_twice must be false when not sent")
 	}
-	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestRecordID(app, "competitions") })
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
 	s.Test(t)
 }
 

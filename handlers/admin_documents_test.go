@@ -336,7 +336,7 @@ func TestCompetitionCreatePreloadsDefaultDocs(t *testing.T) {
 		}
 		assert.Len(tb, attached, 2)
 	}
-	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestRecordID(app, "competitions") })
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
 	s.Test(t)
 }
 
