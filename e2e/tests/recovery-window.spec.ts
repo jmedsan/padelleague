@@ -23,6 +23,7 @@ test.describe('end-of-league recovery window', () => {
       start_date: startDate,
       end_date: endDate,
       rounds: 1,
+      calendar_status: 'published',
     });
 
     await apiCreateRecord(page.request, 'matches', {
@@ -59,6 +60,7 @@ test.describe('end-of-league recovery window', () => {
       start_date: startDate,
       end_date: endDate,
       rounds: 1,
+      calendar_status: 'published',
     });
 
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
