@@ -96,16 +96,18 @@
         {{end}}
     </div>
 
-    {{if .Announcements}}
     <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Anuncios" id="tab-anuncios">
     <div role="tabpanel" class="tab-content pt-6 basis-full min-w-0">
+        {{if .Announcements}}
         <div class="space-y-3">
             {{range .Announcements}}
             {{template "announcementCard" (dict "Record" . "Mode" $.Mode)}}
             {{end}}
         </div>
+        {{else}}
+        {{template "emptyState" "No hay anuncios todavía"}}
+        {{end}}
     </div>
-    {{end}}
 
     <input type="radio" name="comp_tabs" role="tab" class="tab font-medium" aria-label="Documentos" id="tab-documentos">
     <div role="tabpanel" class="tab-content pt-6 basis-full min-w-0">

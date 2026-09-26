@@ -403,6 +403,34 @@ func TestCompetitionGen2_PublishedNoPlayShowsStandingsEmptyState(t *testing.T) {
 	s.Test(t)
 }
 
+// TestCompetitionGen2_NoAnnouncementsShowsEmptyState verifies the Anuncios
+// tab always shows for a player, even with zero announcements — matching
+// admin's always-shown card, same class as Clasificación/Documentos.
+func TestCompetitionGen2_NoAnnouncementsShowsEmptyState(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "no announcements shows Anuncios tab + empty state",
+		Method:         http.MethodGet,
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			`aria-label="Anuncios"`,
+			"No hay anuncios todavía",
+		},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupPublicRoutes(tb, app, e)
+		p1 := makePairTB(tb, app, "NoAnnA")
+		p2 := makePairTB(tb, app, "NoAnnB")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		s.URL = "/competition/" + comp.Id
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = authHeaders(tb, user)
+	}
+	s.Test(t)
+}
+
 // TestCompetitionGen2_DraftCalendarHidesStandingsTab verifies a draft
 // calendar hides the Clasificación tab entirely from a non-admin viewer —
 // players must not see anything before the admin publishes.
