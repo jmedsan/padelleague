@@ -206,6 +206,23 @@ test.describe('player profile and stats', () => {
   });
 
   test('player can toggle match reminder preference and see custom hours', async ({ page }) => {
+    // Earlier tests share this player; start from the league defaults. Read
+    // the record as superuser — a password login here would count against
+    // the 10-per-5-minutes login limit that loginAs already draws on.
+    const userId = loadTestData().player1.id;
+    const readPrefs = async () => {
+      const resp = await page.request.get(`/api/collections/users/records/${userId}`, {
+        headers: { Authorization: loadTestData().adminToken },
+      });
+      return { ...((await resp.json()).notification_prefs || {}) };
+    };
+    const startPrefs = await readPrefs();
+    delete (startPrefs as any).match_reminder_hours;
+    await page.request.patch(`/api/collections/users/records/${userId}`, {
+      headers: { Authorization: loadTestData().adminToken },
+      data: { notification_prefs: startPrefs },
+    });
+
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto('/profile/notifications');
     await page.waitForLoadState('domcontentloaded');
@@ -222,12 +239,7 @@ test.describe('player profile and stats', () => {
     await expect(page.getByText('Por defecto de la liga')).toBeVisible();
 
     // Set custom hours via API, then verify UI reflects them
-    const userResp = await page.request.post('/api/collections/users/auth-with-password', {
-      data: { identity: PLAYER1_EMAIL, password: PLAYER1_PASSWORD },
-    });
-    const userBody = await userResp.json();
-    const userId = userBody.record.id;
-    const currentPrefs = userBody.record.notification_prefs || {};
+    const currentPrefs = await readPrefs();
 
     await page.request.patch(`/api/collections/users/records/${userId}`, {
       headers: { Authorization: loadTestData().adminToken },
@@ -236,8 +248,9 @@ test.describe('player profile and stats', () => {
 
     await page.goto('/profile/notifications');
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.locator('.badge', { hasText: '12h' })).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.badge', { hasText: '2h' })).toBeVisible({ timeout: 5000 });
+    // Anchored: '2h' as a substring also matches the '12h' badge.
+    await expect(page.locator('.badge', { hasText: /^\s*12h/ })).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.badge', { hasText: /^\s*2h/ })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('Personalizado')).toBeVisible();
 
     // Restore defaults
