@@ -854,14 +854,16 @@ func TestDisputeResolve(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID, p1ID string
+	var matchID, p1ID, p2ID, compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupCompRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		p1 := makePairTB(tb, app, "DispA")
 		p2 := makePairTB(tb, app, "DispB")
 		p1ID = p1.Id
+		p2ID = p2.Id
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		compID = comp.Id
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
 		matchID = match.Id
 		s.URL = "/admin/disputes/" + match.Id + "/resolve"
@@ -876,6 +878,22 @@ func TestDisputeResolve(t *testing.T) {
 		assert.Equal(tb, "final", m.GetString("status"))
 		assert.Equal(tb, "6-3 6-4", m.GetString("scores"))
 		assert.Equal(tb, p1ID, m.GetString("winner"))
+
+		compRec, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		want := league.Notification{
+			Type:     "dispute",
+			Title:    "Disputa resuelta",
+			Body:     "El administrador ha resuelto la disputa",
+			MatchID:  matchID,
+			CompName: compRec.GetString("name"),
+		}
+		for _, uid := range league.PlayersForPair(app, p1ID) {
+			assertNotified(tb, app, uid, want)
+		}
+		for _, uid := range league.PlayersForPair(app, p2ID) {
+			assertNotified(tb, app, uid, want)
+		}
 	}
 	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + matchCompetitionID(app, s.URL) })
 	s.Test(t)
