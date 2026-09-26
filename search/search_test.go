@@ -2,14 +2,15 @@ package search
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/internal/testapp"
 	_ "padelleague/migrations"
 )
 
@@ -288,12 +289,13 @@ func TestLabelMatchOutranksKeyword(t *testing.T) {
 // Leveled-league matches have round_number=0; their search entry label and
 // keywords must never contain "J0" or "jornada 0".
 
+func TestMain(m *testing.M) {
+	os.Exit(testapp.Run(m))
+}
+
 func newSearchTestApp(t *testing.T) core.App {
 	t.Helper()
-	app, err := tests.NewTestApp()
-	require.NoError(t, err)
-	t.Cleanup(app.Cleanup)
-	return app
+	return testapp.New(t)
 }
 
 func makeSearchPair(t *testing.T, app core.App, name string) *core.Record {
