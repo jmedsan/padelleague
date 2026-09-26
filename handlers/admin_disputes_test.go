@@ -134,9 +134,11 @@ func TestReportUnplayed(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID, userID, rivalUserID, rivalUser2ID, partnerID string
+	var matchID, userID, rivalUserID, rivalUser2ID, partnerID, adminID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		adminID = admin.Id
 		p1 := makePairTB(tb, app, "RptA")
 		p2 := makePairTB(tb, app, "RptB")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
@@ -173,6 +175,15 @@ func TestReportUnplayed(t *testing.T) {
 		assertNotified(tb, app, rivalUser2ID, want)
 		assertNotNotified(tb, app, userID, want.Title)
 		assertNotNotified(tb, app, partnerID, want.Title)
+
+		adminWant := league.Notification{
+			Type:     "dispute",
+			Title:    "Partido no jugado",
+			Body:     "Un jugador ha reportado un partido como no jugado.",
+			MatchID:  matchID,
+			CompName: "Test Competition",
+		}
+		assertNotified(tb, app, adminID, adminWant)
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
