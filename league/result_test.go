@@ -61,7 +61,15 @@ func TestApplyAcceptedResult_Won(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "superseded", updatedSibling.GetString("proposal_status"))
 
-	require.True(t, len(notifier.calls) > 0)
+	assertNotifyCall(t, notifier, notifyCall{
+		title:     "Resultado confirmado",
+		notifType: "general",
+		body:      "Pareja B P1 (Pareja B) ha confirmado el resultado",
+		matchID:   match.Id,
+		playerIDs: []string{p1.GetString("player1"), p1.GetString("player2")},
+	})
+	assertNotNotifyCallRecipient(t, notifier, "Resultado confirmado", p2.GetString("player1"))
+	assertNotNotifyCallRecipient(t, notifier, "Resultado confirmado", p2.GetString("player2"))
 
 	entries, err := app.FindRecordsByFilter("match_messages",
 		"match = {:mid} && type = 'result_response'", "", 0, 0, map[string]any{"mid": match.Id})
