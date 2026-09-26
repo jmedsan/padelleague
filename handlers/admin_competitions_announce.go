@@ -34,7 +34,7 @@ func (h *CompetitionHandler) AdminBroadcast(e *core.RequestEvent) error {
 	ann.Set("created_by", e.Auth.Id)
 	if err := h.app.Save(ann); err != nil {
 		slog.Error("save announcement failed", "competition", comp.Id, "err", err)
-		return alertError(e, "Error al guardar el anuncio")
+		return alertError(e, "Error al guardar el aviso")
 	}
 
 	seen := make(map[string]struct{})
@@ -57,7 +57,7 @@ func (h *CompetitionHandler) AdminBroadcast(e *core.RequestEvent) error {
 	})
 
 	slog.Info("broadcast sent", "competition", comp.Id, "players", len(players))
-	flash(e, "Anuncio enviado a "+strconv.Itoa(len(players))+" jugadores")
+	flash(e, "Aviso enviado a "+strconv.Itoa(len(players))+" jugadores")
 	return redirectHX(e, "/admin/competitions/"+comp.Id)
 }
 
@@ -69,11 +69,11 @@ func (h *CompetitionHandler) AdminDeleteAnnouncement(e *core.RequestEvent) error
 	}
 	ann, err := h.app.FindRecordById("announcements", e.Request.PathValue("annId"))
 	if err != nil || ann.GetString("competition") != comp.Id {
-		return alertError(e, "Anuncio no encontrado")
+		return alertError(e, "Aviso no encontrado")
 	}
 	if err := h.app.Delete(ann); err != nil {
-		return alertError(e, "Error al eliminar el anuncio")
+		return alertError(e, "Error al eliminar el aviso")
 	}
-	flash(e, "Anuncio eliminado")
+	flash(e, "Aviso eliminado")
 	return redirectHX(e, "/admin/competitions/"+comp.Id)
 }
