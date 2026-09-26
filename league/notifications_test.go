@@ -1,10 +1,17 @@
 package league
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"io/fs"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNotificationConstructors(t *testing.T) {
@@ -113,15 +120,190 @@ func TestNotificationConstructors(t *testing.T) {
 			got:  NotifMatchUpcoming(MatchUpcomingParams{MatchID: "m1", Start: time.Date(2026, 6, 15, 18, 0, 0, 0, Madrid), Until: 45 * time.Minute, Venue: "Padel 360", CompName: "Liga Primavera", Opponent: "Pareja B"}),
 			want: Notification{Type: "match_reminder", Title: "Tu partido empieza pronto", Body: "Tu partido vs Pareja B empieza en 45 minutos · 18:00 en Padel 360.", MatchID: "m1", CompName: "Liga Primavera"},
 		},
+		{
+			name: "ProposalWithdrawn",
+			got:  NotifProposalWithdrawn("m1", "Carlos", "Liga Primavera"),
+			want: Notification{Type: "scheduling", Title: "Propuesta retirada", Body: "Carlos ha retirado su propuesta de fecha", MatchID: "m1", CompName: "Liga Primavera"},
+		},
+		{
+			name: "MatchAssigned",
+			got:  NotifMatchAssigned("m1", "Pareja B", "Liga Primavera"),
+			want: Notification{Type: "match_assigned", Title: "Nuevo partido asignado", Body: "Tu próximo rival es Pareja B.", MatchID: "m1", CompName: "Liga Primavera"},
+		},
+		{
+			name: "CalendarPublished",
+			got:  NotifCalendarPublished("c1", "Liga Primavera"),
+			want: Notification{Type: "calendar_published", Title: "Calendario publicado", Body: "El calendario ha sido publicado.", Link: "/competition/c1", CompName: "Liga Primavera"},
+		},
+		{
+			name: "OpponentWithdrawn",
+			got:  NotifOpponentWithdrawn("m1", "Pareja B", "Liga Primavera", "6-0 6-0"),
+			want: Notification{Type: "general", Title: "Pareja retirada", Body: "La pareja Pareja B se ha retirado. El partido se registra como 6-0 6-0 a tu favor.", MatchID: "m1", CompName: "Liga Primavera"},
+		},
+		{
+			name: "PairWithdrawn",
+			got:  NotifPairWithdrawn("Liga Primavera"),
+			want: Notification{Type: "general", Title: "Retirada de la competición", Body: "Tu pareja ha sido retirada de Liga Primavera.", CompName: "Liga Primavera"},
+		},
+		{
+			name: "ResultAutoConfirmed",
+			got:  NotifResultAutoConfirmed("m1", "Liga Primavera"),
+			want: Notification{Type: "general", Title: "Resultado confirmado automáticamente", Body: "El resultado ha sido confirmado por tiempo de espera · Liga Primavera.", MatchID: "m1"},
+		},
+		{
+			name: "ProposalResponsePending",
+			got:  NotifProposalResponsePending("m1", "Pareja A", "Liga Primavera", 48),
+			want: Notification{Type: "quorum_request", Title: "Resultado pendiente de respuesta", Body: "Pareja A propuso un resultado hace más de 48 horas · Liga Primavera. Acepta o contrapropón.", MatchID: "m1"},
+		},
+		{
+			name: "ResultConfirmationPending",
+			got:  NotifResultConfirmationPending("m1", "Pareja A", "Liga Primavera", 48),
+			want: Notification{Type: "quorum_request", Title: "Resultado pendiente de confirmar", Body: "Pareja A envió un resultado hace más de 48 horas · Liga Primavera. Confirma o contrapropón.", MatchID: "m1"},
+		},
+		{
+			name: "MatchResumes",
+			got:  NotifMatchResumes("m1", "6-4", "Liga Primavera"),
+			want: Notification{Type: "scheduling", Title: "Partido por reanudar", Body: "Se reanuda desde 6-4 0-0. Acordad una nueva fecha · Liga Primavera.", MatchID: "m1"},
+		},
+		{
+			name: "PenaltyApplied",
+			got:  NotifPenaltyApplied("c1", 3, "Incomparecencia"),
+			want: Notification{Type: "penalty", Title: "Penalización aplicada", Body: "3 puntos — Incomparecencia", Link: "/competition/c1"},
+		},
+		{
+			name: "PenaltyVoided",
+			got:  NotifPenaltyVoided("c1", 3),
+			want: Notification{Type: "penalty", Title: "Penalización anulada", Body: "3 puntos anulados", Link: "/competition/c1"},
+		},
+		{
+			name: "AdminPenaltiesApplied",
+			got:  NotifAdminPenaltiesApplied("c1", "Liga Primavera", 4),
+			want: Notification{Type: "penalty", Title: "Penalizaciones automáticas aplicadas", Body: "4 penalizaciones aplicadas en Liga Primavera", Link: "/admin/competitions/c1"},
+		},
+		{
+			name: "AdminLeagueClosed",
+			got:  NotifAdminLeagueClosed("c1", "Liga Primavera", 2),
+			want: Notification{Type: "penalty", Title: "Liga cerrada automáticamente", Body: "Liga Primavera ha terminado su semana extraordinaria: 2 penalizaciones por partidos no disputados. Revísalas y corrige las que correspondan a una sola pareja.", Link: "/admin/competitions/c1"},
+		},
+		{
+			name: "RoleChanged",
+			got:  NotifRoleChanged([]string{"player", "admin"}),
+			want: Notification{Type: "admin_message", Title: "Cambio de rol", Body: "Tu rol ha sido actualizado a player, admin", Link: "/profile"},
+		},
+		{
+			name: "PasswordResetRequested",
+			got:  NotifPasswordResetRequested(),
+			want: Notification{Type: "admin_message", Title: "Restablecimiento de contraseña", Body: "Un administrador ha solicitado restablecer tu contraseña"},
+		},
+		{
+			name: "PaymentReminder",
+			got:  NotifPaymentReminder("c1", "Liga Primavera"),
+			want: Notification{Type: "payment", Title: "Recordatorio de pago", Body: "Recuerda realizar el pago para Liga Primavera", Link: "/competition/c1", CompName: "Liga Primavera"},
+		},
+		{
+			name: "AdminCorrection",
+			got:  NotifAdminCorrection("m1", []string{"Resultado: 6-3 6-4", "Fecha: 15/03"}, "Liga Primavera"),
+			want: Notification{Type: "general", Title: "Corrección de administrador", Body: "Resultado: 6-3 6-4. Fecha: 15/03", MatchID: "m1", CompName: "Liga Primavera"},
+		},
+		{
+			name: "DateCancelled",
+			got:  NotifDateCancelled(DateCancelledParams{MatchID: "m1", PlayerName: "Ana (Pareja A)", Reason: "lesión", CompName: "Liga Primavera"}),
+			want: Notification{Type: "scheduling", Title: "Partido cancelado", Body: "Ana (Pareja A) ha cancelado la fecha: lesión", MatchID: "m1", CompName: "Liga Primavera"},
+		},
+		{
+			name: "AdminDateCancelled",
+			got:  NotifAdminDateCancelled(DateCancelledParams{MatchID: "m1", PlayerName: "Ana (Pareja A)", Reason: "lesión", CompName: "Liga Primavera", Pair1Name: "Pareja A", Pair2Name: "Pareja B", Urgency: " Quedan pocos días."}),
+			want: Notification{Type: "dispute", Title: "Cancelación de partido", Body: "Pareja A vs Pareja B: Ana (Pareja A) ha cancelado la fecha. Motivo: lesión Quedan pocos días.", MatchID: "m1", CompName: "Liga Primavera"},
+		},
+		{
+			name: "Announcement",
+			got:  NotifAnnouncement("c1", "Liga Primavera", "Aviso", "Cambio de pista"),
+			want: Notification{Type: "announcement", Title: "Aviso", Body: "Cambio de pista", CompName: "Liga Primavera", Link: "/competition/c1#avisos"},
+		},
+		{
+			name: "TestPush",
+			got:  NotifTestPush(),
+			want: Notification{Type: "general", Title: "Notificación de prueba", Body: "Si ves esto, las notificaciones funcionan correctamente.", Link: "/admin/dev-tools"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.got != tt.want {
-				t.Errorf("got %+v, want %+v", tt.got, tt.want)
-			}
+			assert.Equal(t, tt.want, tt.got)
 		})
 	}
+}
+
+// TestNotificationConstructors_CoversEveryConstructor fails when a Notif*
+// constructor gains no row in TestNotificationConstructors: the table is the
+// one place every notification's exact text is pinned.
+func TestNotificationConstructors_CoversEveryConstructor(t *testing.T) {
+	t.Parallel()
+	fset := token.NewFileSet()
+	src, err := parser.ParseFile(fset, "notifications.go", nil, 0)
+	require.NoError(t, err)
+	tst, err := parser.ParseFile(fset, "notifications_test.go", nil, 0)
+	require.NoError(t, err)
+
+	var covered []string
+	ast.Inspect(tst, func(n ast.Node) bool {
+		if call, ok := n.(*ast.CallExpr); ok {
+			if fn, ok := call.Fun.(*ast.Ident); ok && strings.HasPrefix(fn.Name, "Notif") {
+				covered = append(covered, fn.Name)
+			}
+		}
+		return true
+	})
+	for _, d := range src.Decls {
+		fn, ok := d.(*ast.FuncDecl)
+		if !ok || fn.Recv != nil || !strings.HasPrefix(fn.Name.Name, "Notif") {
+			continue
+		}
+		assert.Contains(t, covered, fn.Name.Name, "add a TestNotificationConstructors row for %s", fn.Name.Name)
+	}
+}
+
+// TestNotificationLiteralsLiveInConstructors fails when a package builds a
+// Notification literal outside notifications.go, which is how the bare
+// "Player" instead of "Player (Pair)" bodies slipped past the sweep.
+func TestNotificationLiteralsLiveInConstructors(t *testing.T) {
+	t.Parallel()
+	var offenders []string
+	err := filepath.WalkDir("..", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() && (d.Name() == "node_modules" || d.Name() == "e2e" || d.Name() == "frontend") {
+			return filepath.SkipDir
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || strings.HasSuffix(path, "league/notifications.go") {
+			return nil
+		}
+		f, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+		if err != nil {
+			return err
+		}
+		ast.Inspect(f, func(n ast.Node) bool {
+			lit, ok := n.(*ast.CompositeLit)
+			if ok && isNotificationType(lit.Type) {
+				offenders = append(offenders, path)
+			}
+			return true
+		})
+		return nil
+	})
+	require.NoError(t, err)
+	assert.Empty(t, offenders, "build notifications through a league.Notif* constructor")
+}
+
+func isNotificationType(expr ast.Expr) bool {
+	switch tt := expr.(type) {
+	case *ast.Ident:
+		return tt.Name == "Notification"
+	case *ast.SelectorExpr:
+		return tt.Sel.Name == "Notification"
+	}
+	return false
 }
 
 func TestFmtNotifDate(t *testing.T) {

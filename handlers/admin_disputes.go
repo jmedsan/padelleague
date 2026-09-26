@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -95,8 +94,7 @@ func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 		return err
 	}
 
-	n := league.NotifWalkoverApproved(match.Id, comp.GetString("name"))
-	h.notifyMatchPlayers(match, n.Type, n.Title, n.Body)
+	h.notifyMatchPlayers(match, league.NotifWalkoverApproved(match.Id, comp.GetString("name")))
 
 	flash(e, "Incomparecencia aprobada")
 	return redirectHX(e, "/admin/competitions/"+compID)
@@ -113,11 +111,7 @@ func (h *DisputeHandler) applyWalkoverPenalty(e *core.RequestEvent, comp *core.R
 		return alertError(e, "Incomparecencia aprobada, pero no se pudo aplicar la penalización. Aplícala manualmente.")
 	}
 	players := league.PlayersForPair(h.app, loserID)
-	h.notifier.NotifyPlayers(players, league.Notification{
-		Type: "penalty", Title: "Penalización aplicada",
-		Body: fmt.Sprintf("%.0f puntos — %s", penalty, rec.GetString("reason")),
-		Link: "/competition/" + comp.Id,
-	})
+	h.notifier.NotifyPlayers(players, league.NotifPenaltyApplied(comp.Id, penalty, rec.GetString("reason")))
 	return nil
 }
 
@@ -157,17 +151,14 @@ func (h *DisputeHandler) DisputesResolve(e *core.RequestEvent) error {
 		Detail: "resolvió la disputa: " + score,
 	})
 	compID := match.GetString("competition")
-	n := league.NotifDisputeResolved(match.Id, league.CompetitionName(h.app, compID))
-	h.notifyMatchPlayers(match, n.Type, n.Title, n.Body)
+	h.notifyMatchPlayers(match, league.NotifDisputeResolved(match.Id, league.CompetitionName(h.app, compID)))
 
 	flash(e, "Disputa resuelta")
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
-func (h *DisputeHandler) notifyMatchPlayers(match *core.Record, notifType, title, body string) {
+func (h *DisputeHandler) notifyMatchPlayers(match *core.Record, n league.Notification) {
 	allPlayers := append(league.PlayersForPair(h.app, match.GetString("pair1")),
 		league.PlayersForPair(h.app, match.GetString("pair2"))...)
-	h.notifier.NotifyPlayers(allPlayers, league.Notification{
-		Type: notifType, Title: title, Body: body, MatchID: match.Id,
-	})
+	h.notifier.NotifyPlayers(allPlayers, n)
 }

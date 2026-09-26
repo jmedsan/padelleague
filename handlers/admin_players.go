@@ -112,12 +112,7 @@ func (h *AdminPlayerHandler) PlayerUpdate(e *core.RequestEvent) error {
 	slices.Sort(sortedNew)
 	if !slices.Equal(sortedPrev, sortedNew) {
 		slog.Info("role changed", "actor", e.Auth.Id, "target", user.Id, "role", roles)
-		h.notifier.NotifyPlayers([]string{user.Id}, league.Notification{
-			Type:  "admin_message",
-			Title: "Cambio de rol",
-			Body:  "Tu rol ha sido actualizado a " + strings.Join(roles, ", "),
-			Link:  "/profile",
-		})
+		h.notifier.NotifyPlayers([]string{user.Id}, league.NotifRoleChanged(roles))
 	}
 
 	return redirectHX(e, "/admin/players")
@@ -200,11 +195,7 @@ func (h *AdminPlayerHandler) RegenerateLink(e *core.RequestEvent) error {
 	}
 
 	slog.Info("admin password reset", "actor", e.Auth.Id, "target", user.Id)
-	h.notifier.NotifyPlayers([]string{user.Id}, league.Notification{
-		Type:  "admin_message",
-		Title: "Restablecimiento de contraseña",
-		Body:  "Un administrador ha solicitado restablecer tu contraseña",
-	})
+	h.notifier.NotifyPlayers([]string{user.Id}, league.NotifPasswordResetRequested())
 
 	return renderResetLinkPanel(e, name, resetURL, false)
 }

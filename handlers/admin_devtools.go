@@ -36,12 +36,7 @@ func (h *AdminDevToolsHandler) DevTools(e *core.RequestEvent) error {
 
 // TestPush sends a test notification through the real pipeline to the current admin.
 func (h *AdminDevToolsHandler) TestPush(e *core.RequestEvent) error {
-	h.notifier.NotifyPlayers([]string{e.Auth.Id}, league.Notification{
-		Type:  "general",
-		Title: "Notificación de prueba",
-		Body:  "Si ves esto, las notificaciones funcionan correctamente.",
-		Link:  "/admin/dev-tools",
-	})
+	h.notifier.NotifyPlayers([]string{e.Auth.Id}, league.NotifTestPush())
 	flash(e, "Notificación de prueba enviada")
 	return redirectHX(e, "/admin/dev-tools")
 }

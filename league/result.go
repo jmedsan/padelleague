@@ -306,24 +306,13 @@ func (svc *Service) notifyAccepted(fresh *core.Record, in AcceptedResult, compNa
 
 	for _, pid := range []string{pair1ID, pair2ID} {
 		players := PlayersForPair(svc.app, pid)
-		svc.notifier.NotifyPlayers(players, Notification{
-			Type:    "general",
-			Title:   "Resultado confirmado automáticamente",
-			Body:    fmt.Sprintf("El resultado ha sido confirmado por tiempo de espera · %s.", compName),
-			MatchID: fresh.Id,
-		})
+		svc.notifier.NotifyPlayers(players, NotifResultAutoConfirmed(fresh.Id, compName))
 	}
 }
 
 func (svc *Service) notifyNotWon(fresh *core.Record, out Outcome, compName string) {
-	body := fmt.Sprintf("Se reanuda desde %s 0-0. Acordad una nueva fecha · %s.", out.Carried, compName)
 	for _, pid := range []string{fresh.GetString("pair1"), fresh.GetString("pair2")} {
 		players := PlayersForPair(svc.app, pid)
-		svc.notifier.NotifyPlayers(players, Notification{
-			Type:    "scheduling",
-			Title:   "Partido por reanudar",
-			Body:    body,
-			MatchID: fresh.Id,
-		})
+		svc.notifier.NotifyPlayers(players, NotifMatchResumes(fresh.Id, out.Carried, compName))
 	}
 }

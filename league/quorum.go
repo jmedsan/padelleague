@@ -2,7 +2,6 @@ package league
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -175,12 +174,7 @@ func (svc *Service) confirmIfExpired(m *core.Record, comp *core.Record) {
 	compName := comp.GetString("name")
 	for _, pid := range []string{fresh.GetString("pair1"), fresh.GetString("pair2")} {
 		players := PlayersForPair(svc.app, pid)
-		svc.notifier.NotifyPlayers(players, Notification{
-			Type:    "general",
-			Title:   "Resultado confirmado automáticamente",
-			Body:    fmt.Sprintf("El resultado ha sido confirmado por tiempo de espera · %s.", compName),
-			MatchID: fresh.Id,
-		})
+		svc.notifier.NotifyPlayers(players, NotifResultAutoConfirmed(fresh.Id, compName))
 	}
 }
 
@@ -292,12 +286,7 @@ func (svc *Service) remindProposalIfDue(m, comp *core.Record, now time.Time) {
 	}
 	submitterName := PairNames(svc.app, []string{submitterPairID})[submitterPairID]
 
-	title := "Resultado pendiente de respuesta"
-	body := fmt.Sprintf("%s propuso un resultado hace más de %d horas · %s. Acepta o contrapropón.", submitterName, threshold, comp.GetString("name"))
-
-	svc.notifier.NotifyPlayers(players, Notification{
-		Type: "quorum_request", Title: title, Body: body, MatchID: m.Id,
-	})
+	svc.notifier.NotifyPlayers(players, NotifProposalResponsePending(m.Id, submitterName, comp.GetString("name"), threshold))
 
 	m.Set("confirm_reminded", true)
 	if err := svc.app.Save(m); err != nil {
@@ -351,12 +340,7 @@ func (svc *Service) remindIfDue(m *core.Record, comp *core.Record, now time.Time
 	}
 	submitterName := PairNames(svc.app, []string{submitterPairID})[submitterPairID]
 
-	title := "Resultado pendiente de confirmar"
-	body := fmt.Sprintf("%s envió un resultado hace más de %d horas · %s. Confirma o contrapropón.", submitterName, threshold, comp.GetString("name"))
-
-	svc.notifier.NotifyPlayers(players, Notification{
-		Type: "quorum_request", Title: title, Body: body, MatchID: fresh.Id,
-	})
+	svc.notifier.NotifyPlayers(players, NotifResultConfirmationPending(fresh.Id, submitterName, comp.GetString("name"), threshold))
 
 	fresh.Set("confirm_reminded", true)
 	if err := svc.app.Save(fresh); err != nil {

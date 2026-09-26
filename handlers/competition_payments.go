@@ -100,11 +100,7 @@ func (h *CompetitionPaymentsHandler) SendPaymentReminder(e *core.RequestEvent) e
 		return alertWarning(e, "Todas las parejas están al día")
 	}
 
-	h.notifier.NotifyPlayers(players, league.Notification{
-		Type: "payment", Title: "Recordatorio de pago",
-		Body: "Recuerda realizar el pago para " + comp.GetString("name"),
-		Link: "/competition/" + comp.Id, CompName: comp.GetString("name"),
-	})
+	h.notifier.NotifyPlayers(players, league.NotifPaymentReminder(comp.Id, comp.GetString("name")))
 	return alertSuccess(e, "Recordatorio enviado a "+strconv.Itoa(len(players))+" jugadores")
 }
 

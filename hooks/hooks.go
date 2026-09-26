@@ -404,12 +404,7 @@ func autoCloseCompetition(app core.App, notifier *notify.Notifier, c closeCandid
 	}
 	slog.Info("pending-match-penalties: competition closed automatically",
 		"competition", comp.Id, "name", comp.GetString("name"), "penalties", penalties)
-	_ = notifier.NotifyAdmins(league.Notification{
-		Type:  "penalty",
-		Title: "Liga cerrada automáticamente",
-		Body:  fmt.Sprintf("%s ha terminado su semana extraordinaria: %d penalizaciones por partidos no disputados. Revísalas y corrige las que correspondan a una sola pareja.", comp.GetString("name"), penalties),
-		Link:  "/admin/competitions/" + comp.Id,
-	})
+	_ = notifier.NotifyAdmins(league.NotifAdminLeagueClosed(comp.Id, comp.GetString("name"), penalties))
 }
 
 func registerSearch(app core.App, idx *search.Index) {
@@ -468,18 +463,8 @@ func applyPendingMatchPenalties(app core.App, notifier *notify.Notifier) {
 		compID := comp.Id
 		for _, pen := range applied {
 			players := league.PlayersForPair(app, pen.GetString("pair"))
-			notifier.NotifyPlayers(players, league.Notification{
-				Type:  "penalty",
-				Title: "Penalización aplicada",
-				Body:  fmt.Sprintf("%.0f puntos — %s", pen.GetFloat("amount"), pen.GetString("reason")),
-				Link:  "/competition/" + compID,
-			})
+			notifier.NotifyPlayers(players, league.NotifPenaltyApplied(compID, pen.GetFloat("amount"), pen.GetString("reason")))
 		}
-		_ = notifier.NotifyAdmins(league.Notification{
-			Type:  "penalty",
-			Title: "Penalizaciones automáticas aplicadas",
-			Body:  fmt.Sprintf("%d penalizaciones aplicadas en %s", len(applied), comp.GetString("name")),
-			Link:  "/admin/competitions/" + compID,
-		})
+		_ = notifier.NotifyAdmins(league.NotifAdminPenaltiesApplied(compID, comp.GetString("name"), len(applied)))
 	}
 }
