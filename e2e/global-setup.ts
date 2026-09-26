@@ -1,5 +1,6 @@
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync } from 'fs';
 import { join } from 'path';
+import { runDataDir } from './run-dir';
 import { spawnServer, superuserLogin } from './server';
 
 // Port must match playwright.config.ts's resolution of E2E_PORT (see the
@@ -145,8 +146,7 @@ async function seedTestData() {
     venueId,
   };
 
-  mkdirSync(join(__dirname, '.test-data'), { recursive: true });
-  writeFileSync(join(__dirname, '.test-data/seed.json'), JSON.stringify(testData, null, 2));
+  writeFileSync(join(runDataDir(PORT), 'seed.json'), JSON.stringify(testData, null, 2));
 }
 
 async function getUser(email: string, token: string) {

@@ -128,19 +128,28 @@ scenario-serve: ## boot a scenario and keep server alive: make scenario-serve SC
 	cd e2e && E2E_KEEP=1 SCENARIO=$(SCENARIO) E2E_PORT=$$E2E_PORT npx playwright test \
 	  --config playwright.scenario.config.ts --project="$$FIRST_PROJECT" --grep "00 "
 
-scenario-stop: ## stop a kept scenario server and delete its data
-	@if [ -f e2e/.test-data/scenario.pid ]; then \
-		pid=$$(cat e2e/.test-data/scenario.pid); \
+scenario-stop: ## stop a kept scenario server and delete its data: make scenario-stop PORT=<port>
+	@port="$(PORT)"; \
+	if [ -z "$$port" ]; then \
+		runs=$$(ls -d e2e/.test-data/*/scenario.pid 2>/dev/null | sed 's|e2e/.test-data/\([0-9]*\)/scenario.pid|\1|'); \
+		n=$$(echo "$$runs" | grep -c . || true); \
+		if [ "$$n" -eq 1 ]; then port=$$runs; \
+		elif [ "$$n" -eq 0 ]; then echo "no scenario server running"; exit 0; \
+		else echo "several scenario servers running, pick one: make scenario-stop PORT=<port>"; echo "$$runs"; exit 1; fi; \
+	fi; \
+	d=e2e/.test-data/$$port; \
+	if [ -f $$d/scenario.pid ]; then \
+		pid=$$(cat $$d/scenario.pid); \
 		kill $$pid 2>/dev/null || true; \
 		timeout=50; while kill -0 $$pid 2>/dev/null && [ $$timeout -gt 0 ]; do \
 			sleep 0.2; timeout=$$((timeout - 1)); done; \
-		rm -f e2e/.test-data/scenario.pid; \
-		if [ -f e2e/.test-data/scenario.dir ]; then \
-			d=$$(cat e2e/.test-data/scenario.dir); \
-			case "$$d" in /tmp/padelleague-test-*) \
-				[ -d "$$d" ] && rm -rf -- "$$d" && echo "deleted $$d";; \
-			*) echo "refusing to delete: $$d";; esac; \
-			rm -f e2e/.test-data/scenario.dir; \
+		rm -f $$d/scenario.pid; \
+		if [ -f $$d/scenario.dir ]; then \
+			dd=$$(cat $$d/scenario.dir); \
+			case "$$dd" in /tmp/padelleague-test-*) \
+				[ -d "$$dd" ] && rm -rf -- "$$dd" && echo "deleted $$dd";; \
+			*) echo "refusing to delete: $$dd";; esac; \
+			rm -f $$d/scenario.dir; \
 		fi; \
-		echo "scenario server stopped"; \
-	else echo "no scenario server running"; fi
+		echo "scenario server on port $$port stopped"; \
+	else echo "no scenario server running on port $$port"; fi

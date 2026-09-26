@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { runDataDir } from './run-dir';
 import { ServerHandle, killServer } from './server';
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from './global-setup';
 import { PLAYER_PASSWORD } from './scenario-helpers';
@@ -7,8 +8,9 @@ import { PLAYER_PASSWORD } from './scenario-helpers';
 export default async function scenarioTeardown() {
   const handle = (globalThis as any).__SCENARIO_SERVER as ServerHandle;
   if (process.env.E2E_KEEP === '1') {
-    writeFileSync(join(__dirname, '.test-data/scenario.pid'), String(handle.process.pid));
-    writeFileSync(join(__dirname, '.test-data/scenario.dir'), handle.dataDir);
+    const dir = runDataDir(8098);
+    writeFileSync(join(dir, 'scenario.pid'), String(handle.process.pid));
+    writeFileSync(join(dir, 'scenario.dir'), handle.dataDir);
     console.log(`\n=== Scenario server kept alive ===`);
     console.log(`URL:       ${handle.baseURL}`);
     console.log(`Admin:     ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
@@ -18,7 +20,7 @@ export default async function scenarioTeardown() {
     }
     console.log(`Data dir:  ${handle.dataDir}`);
     console.log(`PID:       ${handle.process.pid}`);
-    console.log(`Stop with: make scenario-stop`);
+    console.log(`Stop with: make scenario-stop PORT=${handle.port}`);
     console.log(`Note: crons (quorum 5min, leveled top-up 00:30) keep running.`);
     return;
   }
@@ -31,7 +33,7 @@ export default async function scenarioTeardown() {
 // shares PLAYER_PASSWORD, so this line is enough to log in as any of them.
 function readPlayerRange(): string | undefined {
   try {
-    const ctx = JSON.parse(readFileSync(join(__dirname, '.test-data/scenario.json'), 'utf8'));
+    const ctx = JSON.parse(readFileSync(join(runDataDir(8098), 'scenario.json'), 'utf8'));
     const players: Array<{ email: string }> = ctx.players ?? [];
     if (players.length === 0) return undefined;
     if (players.length === 1) return players[0].email;
