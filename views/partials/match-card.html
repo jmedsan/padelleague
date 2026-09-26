@@ -3,7 +3,12 @@
     <div class="card-body">
         <div class="flex items-center justify-between">
             {{if .Mode.Full}}<h1 class="card-title flex-wrap {{if not .Mode.Editable}}text-2xl font-bold{{else}}text-lg{{end}}">{{else}}<h2 class="card-title flex-wrap text-lg">{{end}}<span class="min-w-0 break-words">{{if .Pair1Name}}{{template "pairLink" (dict "ID" (.Match.GetString "pair1") "Name" .Pair1Name "IsMine" (eq .MyTeam 1))}}{{else}}Por definir{{end}}</span> <span class="text-sm opacity-60 flex-none">vs</span> <span class="min-w-0 break-words">{{if .Pair2Name}}{{template "pairLink" (dict "ID" (.Match.GetString "pair2") "Name" .Pair2Name "IsMine" (eq .MyTeam 2))}}{{else}}Por definir{{end}}</span>{{if .Mode.Full}}</h1>{{else}}</h2>{{end}}
-            {{if not (and .Mode.Full (not .Mode.Editable))}}<span class="badge {{.StatusClass}}">{{.StatusLabel}}</span>{{end}}
+            {{if not (and .Mode.Full (not .Mode.Editable))}}
+            <span class="flex items-center gap-1">
+                {{if .Match.GetBool "rematch"}}<span class="badge badge-info badge-sm" title="Repite rival por bajas en la liga">Revancha</span>{{end}}
+                <span class="badge {{.StatusClass}}">{{.StatusLabel}}</span>
+            </span>
+            {{end}}
         </div>
 
         {{if not .Mode.Full}}
@@ -186,6 +191,7 @@
     </div>
     <div class="flex flex-col items-end gap-1 shrink-0">
         {{if .Score}}<span class="text-sm font-bold sm:hidden">{{.Score}}</span>{{end}}
+        {{if .Match.GetBool "rematch"}}<span class="badge badge-info badge-sm whitespace-nowrap" title="Repite rival por bajas en la liga">Revancha</span>{{end}}
         <span class="badge {{.StatusClass}} badge-sm whitespace-nowrap">{{.StatusLabel}}</span>
     </div>
 </a>
