@@ -62,7 +62,8 @@ type leveledState struct {
 	met      map[string]map[string]struct{}
 	position map[string]int          // 0-based index in rating order
 	occupied map[string]map[int]bool // pair id -> set of slots it already has a match at
-	home     map[string]int          // pair id -> number of matches played/pending as home (pair1)
+	home     map[string]int          // pair id -> matches played/pending as home (pair1), walkovers excluded
+	walkover map[string]int          // pair id -> walkover results (never played; outside the home/away quota)
 	tieCoin  int                     // flips on every home/away tiebreak, so symmetric ties alternate
 	start    time.Time               // competition start_date, zero if unset
 	end      time.Time               // competition end_date, zero if unset
@@ -70,6 +71,7 @@ type leveledState struct {
 	loc      *time.Location                 // league display timezone; today's Jornada is computed in this zone
 	rematch  bool                           // no exact completion exists (after withdrawals): met pairs may play again
 	avoid    map[string]map[string]struct{} // pairings excluded for this run only (a just-released match)
+	orient   bool                           // an exact home/away split is still attainable: sides are chosen by lookahead
 }
 
 func (st *leveledState) load(p string) int {
@@ -166,21 +168,21 @@ type candidate struct {
 // random; candidates outside are sorted nearest-first, then by lower load,
 // then by better position. The first candidate that passes the completion
 // check wins.
-func (svc *Service) chooseOpponentForRound(st *leveledState, p string, k int) string {
+func (svc *Service) chooseOpponentForRound(st *leveledState, p string, k int) (id string, pHome bool) {
 	fs := buildFactorState(st)
 	inside, outside := svc.collectCandidatesForRound(st, p, k, false)
-	if id := firstFactorable(p, inside, fs); id != "" {
-		return id
+	if id, home := st.firstFactorable(p, inside, fs); id != "" {
+		return id, home
 	}
-	if id := firstFactorable(p, outside, fs); id != "" {
-		return id
+	if id, home := st.firstFactorable(p, outside, fs); id != "" {
+		return id, home
 	}
 	// Fallback: no opponent at or below open+1 — never leave p waiting while
 	// a completable assignment exists. Least-loaded first, target cap kept.
 	inside, outside = svc.collectCandidatesForRound(st, p, k, true)
 	relaxed := append(inside, outside...)
 	sort.SliceStable(relaxed, func(i, j int) bool { return relaxed[i].load < relaxed[j].load })
-	return firstFactorable(p, relaxed, fs)
+	return st.firstFactorable(p, relaxed, fs)
 }
 
 // collectCandidatesForRound builds the inside-zone (shuffled, then sorted by
@@ -232,7 +234,10 @@ type factorState struct {
 	need      []int
 	avail     []uint32
 	index     map[string]int
+	homeMin   []int // remaining home matches each vertex must still take (quota − home)
+	homeMax   []int
 	rematch   bool // completion test is the multigraph condition, avail ignores met
+	orient    bool // completion test also requires an attainable home/away split
 	shortfall int  // matches already unschedulable in rematch mode; a pairing may not add to it
 }
 
@@ -265,11 +270,25 @@ func buildFactorState(st *leveledState) factorState {
 		}
 		avail[i] = mask
 	}
-	fs := factorState{need: need, avail: avail, index: index, rematch: st.rematch}
+	fs := factorState{need: need, avail: avail, index: index, rematch: st.rematch, orient: st.orient}
+	// Walkovers were never played, so the quota covers only real matches.
+	fs.homeMin = make([]int, n)
+	fs.homeMax = make([]int, n)
+	for i, id := range st.pairs {
+		lo, hi := homeQuota(st.target - st.walkover[id])
+		fs.homeMin[i] = lo - st.home[id]
+		fs.homeMax[i] = hi - st.home[id]
+	}
 	if st.rematch {
 		fs.shortfall = shortfallMatches(need)
 	}
 	return fs
+}
+
+// splitAttainable reports whether every pair can still end on the exact
+// home/away quota with some exact completion of the schedule.
+func (fs factorState) splitAttainable() bool {
+	return hfactor(fs.need, fs.avail, fs.homeMin, fs.homeMax)
 }
 
 // completable reports whether the remaining need can still be met: exactly
@@ -282,11 +301,12 @@ func (fs factorState) completable(need []int, avail []uint32) bool {
 	return shortfallMatches(need) <= fs.shortfall
 }
 
-// firstFactorable returns the id of the first candidate for which pairing p
-// with it still leaves an exactly completable schedule (ffactor), or "" if
-// none do. fs is never mutated — each candidate is tried against a fresh
-// copy of fs.need/fs.avail.
-func firstFactorable(p string, candidates []candidate, fs factorState) string {
+// firstFactorable returns the first candidate for which pairing p with it
+// still leaves an exactly completable schedule, plus whether p plays at
+// home, or "" if none do. In orient mode both sides are tried (the
+// balance-preferred side first) against the home/away lookahead; otherwise
+// the side is the balance heuristic. fs is never mutated.
+func (st *leveledState) firstFactorable(p string, candidates []candidate, fs factorState) (id string, pHome bool) {
 	pv := fs.index[p]
 	for _, c := range candidates {
 		qv := fs.index[c.id]
@@ -296,11 +316,45 @@ func firstFactorable(p string, candidates []candidate, fs factorState) string {
 		need[qv]--
 		avail[pv] &^= 1 << uint(qv)
 		avail[qv] &^= 1 << uint(pv)
-		if fs.completable(need, avail) {
-			return c.id
+		home, _ := st.homeTeam(p, c.id)
+		preferHome := home == p
+		if !fs.orient {
+			if fs.completable(need, avail) {
+				return c.id, preferHome
+			}
+			continue
+		}
+		after := remaining{need: need, avail: avail}
+		for _, pAtHome := range []bool{preferHome, !preferHome} {
+			if fs.splitAfter(pv, qv, pAtHome, after) {
+				return c.id, pAtHome
+			}
 		}
 	}
-	return ""
+	return "", false
+}
+
+// remaining is a need/avail snapshot after a tentative pairing.
+type remaining struct {
+	need  []int
+	avail []uint32
+}
+
+// splitAfter reports whether, after p–q oriented as given, an exact
+// completion with an attainable home/away split still exists.
+func (fs factorState) splitAfter(pv, qv int, pAtHome bool, after remaining) bool {
+	homeMin := append([]int(nil), fs.homeMin...)
+	homeMax := append([]int(nil), fs.homeMax...)
+	hv := qv
+	if pAtHome {
+		hv = pv
+	}
+	if homeMax[hv] <= 0 {
+		return false
+	}
+	homeMin[hv]--
+	homeMax[hv]--
+	return hfactor(after.need, after.avail, homeMin, homeMax)
 }
 
 // ffactor reports whether the remaining schedule is EXACTLY completable:
@@ -413,8 +467,11 @@ func subsetsOfSize(mask uint32, size int) []uint32 {
 			members = append(members, v)
 		}
 	}
-	if size <= 0 || size > len(members) {
+	if size < 0 || size > len(members) {
 		return nil
+	}
+	if size == 0 {
+		return []uint32{0}
 	}
 	var out []uint32
 	combo := make([]int, size)
@@ -467,12 +524,15 @@ func plan(svc *Service, st *leveledState) []Pairing {
 			if p == "" {
 				break
 			}
-			q := svc.chooseOpponentForRound(st, p, k)
+			q, pHome := svc.chooseOpponentForRound(st, p, k)
 			if q == "" {
 				skipped[p] = true
 				continue
 			}
-			home, away := st.homeTeam(p, q)
+			home, away := q, p
+			if pHome {
+				home, away = p, q
+			}
 			result = append(result, Pairing{A: home, B: away, Slot: k, Rematch: st.hasMet(p, q)})
 			st.pending[p]++
 			st.pending[q]++
@@ -749,6 +809,7 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now tim
 		position: position,
 		occupied: tally.occupied,
 		home:     tally.home,
+		walkover: tally.walkover,
 		start:    comp.GetDateTime("start_date").Time(),
 		end:      comp.GetDateTime("end_date").Time(),
 		now:      now,
@@ -756,7 +817,18 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now tim
 		avoid:    avoidSet,
 	}
 	st.detectRematch()
+	st.detectOrient()
 	return st, nil
+}
+
+// detectOrient enables the home/away lookahead when an exact split is still
+// attainable for the roster; otherwise (legacy data, rematch mode) the
+// balance heuristic decides each side.
+func (st *leveledState) detectOrient() {
+	if st.rematch {
+		return
+	}
+	st.orient = buildFactorState(st).splitAttainable()
 }
 
 // detectRematch switches the run to rematch mode when no exact completion
@@ -919,6 +991,7 @@ type matchTally struct {
 	met      map[string]map[string]struct{}
 	occupied map[string]map[int]bool
 	home     map[string]int
+	walkover map[string]int
 }
 
 // tallyMatchState classifies existing matches into played/pending counts, the
@@ -931,6 +1004,7 @@ func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[strin
 		met:      make(map[string]map[string]struct{}, len(pairs)),
 		occupied: make(map[string]map[int]bool, len(pairs)),
 		home:     make(map[string]int, len(pairs)),
+		walkover: make(map[string]int, len(pairs)),
 	}
 	for _, id := range pairs {
 		t.met[id] = map[string]struct{}{}
@@ -948,7 +1022,12 @@ func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[strin
 			continue
 		}
 		addMet(t.met, p1, p2)
-		t.home[p1]++
+		if m.GetString("review_type") == "walkover" {
+			t.walkover[p1]++
+			t.walkover[p2]++
+		} else {
+			t.home[p1]++
+		}
 		if slot := m.GetInt("slot"); slot > 0 {
 			occupySlot(t.occupied, p1, slot)
 			occupySlot(t.occupied, p2, slot)
