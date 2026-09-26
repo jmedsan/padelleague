@@ -67,8 +67,9 @@ type leveledState struct {
 	start    time.Time               // competition start_date, zero if unset
 	end      time.Time               // competition end_date, zero if unset
 	now      time.Time
-	loc      *time.Location // league display timezone; today's Jornada is computed in this zone
-	rematch  bool           // no exact completion exists (after withdrawals): met pairs may play again
+	loc      *time.Location                 // league display timezone; today's Jornada is computed in this zone
+	rematch  bool                           // no exact completion exists (after withdrawals): met pairs may play again
+	avoid    map[string]map[string]struct{} // pairings excluded for this run only (a just-released match)
 }
 
 func (st *leveledState) load(p string) int {
@@ -117,6 +118,9 @@ func (st *leveledState) eligible(p, q string, relaxed bool) bool {
 		return false
 	}
 	if _, met := st.met[p][q]; met && !st.rematch {
+		return false
+	}
+	if _, avoided := st.avoid[p][q]; avoided {
 		return false
 	}
 	if st.load(q) >= st.target {
@@ -696,22 +700,13 @@ func notifyAssignments(svc *Service, comp *core.Record, created []*core.Record) 
 }
 
 // buildLeveledState constructs the in-memory state from the competition's
-// current matches and ratings, marking avoid pairs as met.
+// current matches and ratings. avoid pairings are excluded from this run only;
+// rematch detection ignores them, so a release never flips the mode by itself.
 func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now time.Time) (*leveledState, error) {
 	target := comp.GetInt("target_matches")
 	open := OpenAssignments(comp)
 
-	allPairIDs := comp.GetStringSlice("pairs")
-	withdrawnSet := make(map[string]bool)
-	for _, id := range comp.GetStringSlice("withdrawn_pairs") {
-		withdrawnSet[id] = true
-	}
-	var activePairIDs []string
-	for _, id := range allPairIDs {
-		if !withdrawnSet[id] {
-			activePairIDs = append(activePairIDs, id)
-		}
-	}
+	activePairIDs, withdrawnSet := activePairs(comp)
 
 	ratings, err := Ratings(app, comp)
 	if err != nil {
@@ -735,8 +730,9 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now tim
 
 	tally := tallyMatchState(sortedPairs, matches, withdrawnSet)
 
+	avoidSet := map[string]map[string]struct{}{}
 	for _, av := range avoid {
-		addMet(tally.met, av.A, av.B)
+		addMet(avoidSet, av.A, av.B)
 	}
 
 	st := &leveledState{
@@ -755,6 +751,7 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now tim
 		end:      comp.GetDateTime("end_date").Time(),
 		now:      now,
 		loc:      Timezone(app),
+		avoid:    avoidSet,
 	}
 	st.detectRematch(comp)
 	return st, nil
@@ -829,6 +826,21 @@ func shortfallMatches(need []int) int {
 		return excess
 	}
 	return total % 2
+}
+
+// activePairs splits comp's pairs into the active ids (configured order)
+// and the withdrawn set.
+func activePairs(comp *core.Record) (active []string, withdrawn map[string]bool) {
+	withdrawn = make(map[string]bool)
+	for _, id := range comp.GetStringSlice("withdrawn_pairs") {
+		withdrawn[id] = true
+	}
+	for _, id := range comp.GetStringSlice("pairs") {
+		if !withdrawn[id] {
+			active = append(active, id)
+		}
+	}
+	return active, withdrawn
 }
 
 // createMatchRecords writes one match record per pairing using txApp.

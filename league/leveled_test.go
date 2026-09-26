@@ -2013,3 +2013,29 @@ func TestTopUp_FallbackAboveOpenPlusOne(t *testing.T) {
 	assert.Contains(t, []string{pd.Id, pe.Id, pf.Id}, opp, "least-loaded opponents (load 2) are preferred over pb/pc (load 3)")
 	assert.False(t, m.GetBool("rematch"))
 }
+
+// TestTopUp_RematchNeverRecreatesAvoidedPairing: a released pairing is
+// excluded for the run even in rematch mode. 4 active pairs, target 4 and
+// open 3: no exact completion exists, so met pairs become eligible — the
+// just-released pa–pb pairing must still not be recreated by this run.
+func TestTopUp_RematchNeverRecreatesAvoidedPairing(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 6)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "Av")
+	}
+	comp := makeLeveledCompetition(t, app, pairs, 4, 3)
+	comp.Set("withdrawn_pairs", []string{pairs[4].Id, pairs[5].Id})
+	require.NoError(t, app.Save(comp))
+	pa, pb := pairs[0], pairs[1]
+
+	svc := newDeterministicSvc(app)
+	created, err := svc.TopUpAssignments(comp.Id, time.Now(), Pairing{A: pa.Id, B: pb.Id})
+	require.NoError(t, err)
+	require.NotEmpty(t, created, "other pairings are still assigned")
+	for _, m := range created {
+		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
+		isAvoided := (p1 == pa.Id && p2 == pb.Id) || (p1 == pb.Id && p2 == pa.Id)
+		assert.False(t, isAvoided, "released pairing recreated in the same run")
+	}
+}
