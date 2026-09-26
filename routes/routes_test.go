@@ -3,6 +3,7 @@ package routes
 import (
 	"io/fs"
 	"net/http"
+	"os"
 	"testing"
 	"testing/fstest"
 
@@ -15,8 +16,13 @@ import (
 	"padelleague/notify"
 	"padelleague/render"
 
+	"padelleague/internal/testapp"
 	_ "padelleague/migrations"
 )
+
+func TestMain(m *testing.M) {
+	os.Exit(testapp.Run(m))
+}
 
 func minimalFS() fs.FS {
 	return fstest.MapFS{
@@ -55,6 +61,7 @@ func TestAdminRoutes_RejectUnauthenticated(t *testing.T) {
 	for _, path := range adminGETPaths() {
 		t.Run(path, func(t *testing.T) {
 			s := &tests.ApiScenario{
+				TestAppFactory: testapp.Factory,
 				Name:           "GET " + path + " without auth redirects",
 				Method:         http.MethodGet,
 				URL:            path,
@@ -86,6 +93,7 @@ func TestAdminRoutes_RejectPlayer(t *testing.T) {
 	for _, path := range adminGETPaths() {
 		t.Run(path, func(t *testing.T) {
 			s := &tests.ApiScenario{
+				TestAppFactory: testapp.Factory,
 				Name:           "GET " + path + " as player redirects",
 				Method:         http.MethodGet,
 				URL:            path,
@@ -122,6 +130,7 @@ func TestAdminRoutes_RejectPlayer(t *testing.T) {
 
 func TestPublicRoutes_RejectUnauthenticated(t *testing.T) {
 	s := &tests.ApiScenario{
+		TestAppFactory: testapp.Factory,
 		Name:           "GET / without auth redirects to login",
 		Method:         http.MethodGet,
 		URL:            "/",
@@ -151,6 +160,7 @@ func TestAuthRoutes_NoAuthRequired(t *testing.T) {
 	for _, path := range paths {
 		t.Run(path, func(t *testing.T) {
 			s := &tests.ApiScenario{
+				TestAppFactory:  testapp.Factory,
 				Name:            "GET " + path + " without auth succeeds",
 				Method:          http.MethodGet,
 				URL:             path,
@@ -177,6 +187,7 @@ func TestAuthRoutes_NoAuthRequired(t *testing.T) {
 
 func TestRequireAuth_HXRequest_RedirectsViaHeader(t *testing.T) {
 	s := &tests.ApiScenario{
+		TestAppFactory: testapp.Factory,
 		Name:           "GET / as HX-Request without auth returns HX-Redirect",
 		Method:         http.MethodGet,
 		URL:            "/",
@@ -204,6 +215,7 @@ func TestRequireAuth_HXRequest_RedirectsViaHeader(t *testing.T) {
 
 func TestStaticRoutes_ManifestJSON(t *testing.T) {
 	s := &tests.ApiScenario{
+		TestAppFactory:  testapp.Factory,
 		Name:            "GET /manifest.json returns JSON",
 		Method:          http.MethodGet,
 		URL:             "/manifest.json",
@@ -231,6 +243,7 @@ func TestStaticRoutes_ManifestJSON(t *testing.T) {
 
 func TestStaticRoutes_ServiceWorker(t *testing.T) {
 	s := &tests.ApiScenario{
+		TestAppFactory: testapp.Factory,
 		Name:           "GET /sw.js returns JS with Service-Worker-Allowed header",
 		Method:         http.MethodGet,
 		URL:            "/sw.js",
@@ -257,6 +270,7 @@ func TestStaticRoutes_ServiceWorker(t *testing.T) {
 
 func TestStaticRoutes_HealthzOK(t *testing.T) {
 	s := &tests.ApiScenario{
+		TestAppFactory:  testapp.Factory,
 		Name:            "GET /healthz without auth returns ok when the DB is reachable",
 		Method:          http.MethodGet,
 		URL:             "/healthz",
