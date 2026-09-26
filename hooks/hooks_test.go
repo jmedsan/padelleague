@@ -625,6 +625,54 @@ func TestSchedulingReminder_SendsAndEscalates(t *testing.T) {
 	assert.Equal(t, firstCount, len(notifs2), "second run must not send duplicate reminders")
 }
 
+func TestSchedulingReminder_UrgentLevel(t *testing.T) {
+	app := newTestApp(t)
+	notifier := notify.NewNotifier(app, "", "")
+
+	p1 := makePair(t, app, "ScUA")
+	p2 := makePair(t, app, "ScUB")
+
+	// recommendedBy = end (round 1/1). Set end so "now" falls in the urgent
+	// window: [recommendedBy - 1 day, recommendedBy + graceDays).
+	end := time.Now().AddDate(0, 0, 1)
+	start := end.AddDate(0, -1, 0)
+	comp := makeLeagueComp(t, app, []*core.Record{p1, p2}, start, end, 1)
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+
+	compRec, err := app.FindRecordById("competitions", comp.Id)
+	require.NoError(t, err)
+	compRec.Set("recovery_days", 60)
+	require.NoError(t, app.Save(compRec))
+
+	checkSchedulingReminders(app, notifier)
+
+	deadline, ok := league.MatchArrangeDate(compRec, freshMatch(t, app, m.Id))
+	require.True(t, ok, "match must have a resolvable arrange deadline")
+	require.Equal(t, league.WarnUrgent, league.WarningLevel(deadline, compRec.GetInt("arrange_grace_days"), time.Now()),
+		"test fixture must land in the urgent window")
+	deadlineStr := deadline.In(league.Madrid).Format("02/01")
+
+	wantForP1 := league.Notification{
+		Type:  "scheduling",
+		Title: "Recordatorio: organiza tu partido",
+		Body:  fmt.Sprintf("Tu partido vs ScUB · Sched Test League vence el %s. Quedan pocos días.", deadlineStr),
+	}
+	wantForP2 := league.Notification{
+		Type:  "scheduling",
+		Title: "Recordatorio: organiza tu partido",
+		Body:  fmt.Sprintf("Tu partido vs ScUA · Sched Test League vence el %s. Quedan pocos días.", deadlineStr),
+	}
+	for _, uid := range league.PlayersForPair(app, p1.Id) {
+		assertNotified(t, app, uid, wantForP1)
+	}
+	for _, uid := range league.PlayersForPair(app, p2.Id) {
+		assertNotified(t, app, uid, wantForP2)
+	}
+
+	updated := freshMatch(t, app, m.Id)
+	assert.Equal(t, int(league.WarnUrgent), updated.GetInt("last_warn_level"))
+}
+
 func TestSchedulingReminder_SkipsDraftCalendar(t *testing.T) {
 	app := newTestApp(t)
 	notifier := notify.NewNotifier(app, "", "")

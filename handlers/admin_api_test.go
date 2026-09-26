@@ -289,13 +289,16 @@ func TestBroadcast_FanOut(t *testing.T) {
 		URL:            "/placeholder",
 		ExpectedStatus: 204,
 	}
+	var compID, p1p1ID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		enableSMTP(tb, app)
 		admin := makeAdminUser(tb, app)
 		p1 := makePair(tb, app, "BroadA")
 		p2 := makePair(tb, app, "BroadB")
+		p1p1ID = p1.GetString("player1")
 		comp := makeCompetition(tb, app, []*core.Record{p1, p2})
+		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
 
 		hdrs := authHeaders(tb, admin)
@@ -309,6 +312,15 @@ func TestBroadcast_FanOut(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, 4, len(notifs), "4 distinct players should get in-app notification")
 		assert.Equal(tb, 4, app.TestMailer.TotalSend(), "4 distinct players should get email")
+
+		want := league.Notification{
+			Type:     "announcement",
+			Title:    "Aviso importante",
+			Body:     "Se cambia la fecha",
+			Link:     "/competition/" + compID + "#avisos",
+			CompName: "Test Competition",
+		}
+		assertNotified(tb, app, p1p1ID, want)
 	}
 	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
