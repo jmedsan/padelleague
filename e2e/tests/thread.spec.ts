@@ -465,11 +465,10 @@ test.describe('match thread', () => {
     // After rejection: the schedule card resets to the open "Proponer
     // fecha" form (a rejected proposal is not shown as active state — see
     // component-modes.md's "hide rejected"), and the timeline entry carries
-    // the frozen "Rechazada" badge. timelineEntryText (handlers/thread_build.go)
-    // renders a value-free verb for scheduling_response entries — the
-    // rejection reason is stored (match_messages.content) but not currently
-    // surfaced anywhere in the UI; tracked separately, not asserted here.
+    // the frozen "Rechazada" badge plus the rejection reason as a Note,
+    // same pattern as resultBox's rejection note.
     await expect(page.locator('#thread-timeline').locator('.badge', { hasText: 'Rechazada' })).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#thread-timeline').getByText('No puedo ese día')).toBeVisible({ timeout: 5000 });
   });
 
   test('flatpickr date picker posts date in YYYY-MM-DD format', async ({ page }) => {

@@ -570,10 +570,14 @@ func (h *ThreadHandler) rejectAndCreateCounter(p counterProposalParams) error {
 		} else if p.reason != "" {
 			detail += ": " + p.reason
 		}
+		note := p.text
+		if note == "" {
+			note = p.reason
+		}
 		addTimelineEntry(txApp, timelineEntry{
 			MatchID: p.match.Id, ActorID: p.e.Auth.Id,
 			Kind: "scheduling_response", Detail: detail,
-			ParentID: p.msg.Id, Action: "reject",
+			ParentID: p.msg.Id, Action: "reject", Note: note,
 			Data: ParseProposalData(p.msg.Get("proposal_data")),
 		})
 		col, err := txApp.FindCollectionByNameOrId("match_messages")

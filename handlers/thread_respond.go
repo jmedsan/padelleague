@@ -85,10 +85,14 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 	} else if reason != "" {
 		detail += ": " + reason
 	}
+	note := text
+	if note == "" {
+		note = reason
+	}
 	addTimelineEntry(h.app, timelineEntry{
 		MatchID: match.Id, ActorID: e.Auth.Id,
 		Kind: "scheduling_response", Detail: detail,
-		ParentID: msg.Id, Action: "reject",
+		ParentID: msg.Id, Action: "reject", Note: note,
 		Data: ParseProposalData(msg.Get("proposal_data")),
 	})
 
