@@ -142,31 +142,28 @@ test.describe('leveled league', () => {
       await addPairToCompetition(page, pid);
     }
 
-    // Set seed order via "Nivel inicial" card (fill each pair's seed input and submit)
-    await page.waitForSelector('[data-testid="section-seed-order"]', { timeout: 5000 });
-    const seedSection = page.locator('[data-testid="section-seed-order"]');
+    // Assign each pair a skill level through the per-pair "Nivel" dropdown
+    // (saves on change and redirects back to the detail page).
+    const LEVELS = ['advanced', 'intermediate_high', 'intermediate', 'intermediate_low', 'beginner_high', 'beginner'];
     for (let i = 0; i < pairIds.length; i++) {
-      const seedInput = seedSection.locator(`input[name="seed_${pairIds[i]}"]`);
-      if (await seedInput.isVisible().catch(() => false)) {
-        await seedInput.fill(String(i + 1));
-      }
+      const levelSelect = page.locator(`form[hx-post="/admin/pairs/${pairIds[i]}/level"] select:visible`).first();
+      await expect(levelSelect).toBeEnabled({ timeout: 5000 });
+      const nav = page.waitForEvent('framenavigated', { timeout: 15000 });
+      await levelSelect.selectOption(LEVELS[i % LEVELS.length]);
+      await nav;
+      await page.waitForLoadState('domcontentloaded');
     }
-    const seedBtn = seedSection.locator('button:has-text("Guardar orden")');
-    if (await seedBtn.isVisible().catch(() => false)) {
-      await Promise.all([
-        page.waitForResponse(r => r.url().includes('/seed') && r.request().method() === 'POST', { timeout: 10000 }),
-        seedBtn.click(),
-      ]).catch(() => null);
-    }
+    await expect(
+      page.locator(`form[hx-post="/admin/pairs/${pairIds[0]}/level"] select:visible`).first(),
+    ).toHaveValue(LEVELS[0]);
 
     // Generate initial assignments
     await generateFixtures(page);
     await page.waitForLoadState('domcontentloaded');
 
-    // Assert "Nivel inicial" card is locked after generation:
-    // the collapse closes (checked=false) and the "Guardar orden" button disappears.
+    // Levels lock once matches exist: every pair's dropdown is disabled.
     await expect(
-      page.locator('[data-testid="section-seed-order"] button:has-text("Guardar orden")'),
+      page.locator('form[hx-post$="/level"] select:not([disabled])'),
     ).toHaveCount(0, { timeout: 5000 });
 
     // Publish
