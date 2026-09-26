@@ -432,6 +432,49 @@ func TestAdvancePlayoffSuccess_NoNotification(t *testing.T) {
 	assert.Equal(t, p4.Id, updated.GetString("pair2"))
 }
 
+// TestAdvancePlayoff_CorrectedWinnerRepropagates pins the fix new-leader
+// flagged for winnerChangedOnFinal: an admin correcting the winner of an
+// already-final playoff match (MatchHandler.detectScoreChange's "Resultado
+// corregido" path, which never changes status away from final) must still
+// repropagate into the next round — transitionedToFinal alone would miss it
+// since status stays "final" on both sides of that save.
+func TestAdvancePlayoff_CorrectedWinnerRepropagates(t *testing.T) {
+	app := newTestApp(t)
+	makeAdminUser(t, app)
+	registerHooksWithNotifier(t, app)
+
+	p1 := makePair(t, app, "CorrA")
+	p2 := makePair(t, app, "CorrB")
+	p3 := makePair(t, app, "CorrC")
+	p4 := makePair(t, app, "CorrD")
+	comp := makePlayoffComp(t, app, []*core.Record{p1, p2, p3, p4})
+
+	m1 := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+	m2 := makeMatch(t, app, comp.Id, p3.Id, p4.Id, 1)
+	finalMatch := makeMatch(t, app, comp.Id, "", "", 2)
+
+	require.NoError(t, transitionMatch(t, app, m1.Id, league.StatusFinal,
+		map[string]any{"scores": "6-3 6-4", "winner": p1.Id}))
+	require.NoError(t, transitionMatch(t, app, m2.Id, league.StatusFinal,
+		map[string]any{"scores": "6-1 6-2", "winner": p4.Id}))
+
+	updated, err := app.FindRecordById("matches", finalMatch.Id)
+	require.NoError(t, err)
+	require.Equal(t, p1.Id, updated.GetString("pair1"), "sanity: p1 seeded before the correction")
+
+	// Admin corrects m1's result: p2 actually won, not p1 — status stays
+	// final on both sides of this save (mirrors detectScoreChange's guard).
+	m1Resaved := freshMatch(t, app, m1.Id)
+	m1Resaved.Set("scores", "3-6 4-6")
+	m1Resaved.Set("winner", p2.Id)
+	require.NoError(t, app.Save(m1Resaved))
+
+	corrected, err := app.FindRecordById("matches", finalMatch.Id)
+	require.NoError(t, err)
+	assert.Equal(t, p2.Id, corrected.GetString("pair1"), "corrected winner must repropagate into the next round's slot")
+	assert.Equal(t, p4.Id, corrected.GetString("pair2"), "the untouched slot must be unaffected")
+}
+
 // Scheduling reminder cron tests
 
 func makeLeagueComp(t *testing.T, app core.App, pairs []*core.Record, start, end time.Time, rounds int) *core.Record {
