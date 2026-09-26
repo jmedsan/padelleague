@@ -165,6 +165,20 @@ export async function setDates(page: Page, startDate: string, endDate: string): 
   await clickAndWaitForHxRedirect(page, page.locator('.modal button:has-text("Guardar")'));
 }
 
+// fillFlatpickrDate sets a flatpickr-backed date input's value directly, the
+// same way setDates does for the competition edit form: flatpickr hides the
+// real <input> (type="hidden") and shows a separate visible alt-input, so
+// Playwright's .fill()/waitForSelector (both visibility-gated by default)
+// never see it — set .value and dispatch 'change' instead, and wait for the
+// element with { state: 'attached' } rather than the default 'visible'.
+export async function fillFlatpickrDate(page: Page, selector: string, value: string): Promise<void> {
+  await page.waitForSelector(selector, { state: 'attached', timeout: 10000 });
+  await page.locator(selector).evaluate((el: HTMLInputElement, v: string) => {
+    el.value = v;
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }, value);
+}
+
 export async function activate(page: Page): Promise<void> {
   await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Activar")'));
 }
