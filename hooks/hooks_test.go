@@ -2,6 +2,7 @@ package hooks
 
 import (
 	"fmt"
+	"os"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/internal/testapp"
 	"padelleague/league"
 	"padelleague/notify"
 	"padelleague/search"
@@ -21,12 +23,13 @@ import (
 
 var userSeq atomic.Int64
 
+func TestMain(m *testing.M) {
+	os.Exit(testapp.Run(m))
+}
+
 func newTestApp(t *testing.T) *tests.TestApp {
 	t.Helper()
-	app, err := tests.NewTestApp()
-	require.NoError(t, err)
-	t.Cleanup(app.Cleanup)
-	return app
+	return testapp.New(t)
 }
 
 func registerHooks(t *testing.T, app *tests.TestApp) {
