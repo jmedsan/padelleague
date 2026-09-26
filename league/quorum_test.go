@@ -187,6 +187,8 @@ func TestRemindPendingConfirmations_SendsReminder(t *testing.T) {
 	p2Players := PlayersForPair(app, p2.Id)
 	assert.ElementsMatch(t, p2Players, notifier.calls[0].playerIDs)
 	assert.Equal(t, "quorum_request", notifier.calls[0].notifType)
+	assert.Equal(t, "Resultado pendiente de confirmar", notifier.calls[0].title)
+	assert.Equal(t, "Remind A envió un resultado hace más de 6 horas · Test Competition. Confirma o contrapropón.", notifier.calls[0].body)
 
 	// Submitting pair (p1) gets zero
 	p1Players := PlayersForPair(app, p1.Id)
@@ -594,7 +596,14 @@ func TestRemindPendingConfirmations_Proposal(t *testing.T) {
 	svc := New(app, notifier)
 	svc.RemindPendingConfirmations(time.Now())
 
-	require.True(t, len(notifier.calls) > 0, "must send reminder for proposal-based match")
+	want := notifyCall{
+		notifType: "quorum_request",
+		title:     "Resultado pendiente de respuesta",
+		body:      "PropRm A propuso un resultado hace más de 6 horas · Test Competition. Acepta o contrapropón.",
+		matchID:   match.Id,
+		playerIDs: []string{p2.GetString("player1"), p2.GetString("player2")},
+	}
+	assertNotifyCall(t, notifier, want)
 
 	updated, err := app.FindRecordById("matches", match.Id)
 	require.NoError(t, err)

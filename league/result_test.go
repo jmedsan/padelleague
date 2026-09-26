@@ -134,10 +134,18 @@ func TestApplyAcceptedResult_NotWon(t *testing.T) {
 	assert.Equal(t, 0, int(updated.GetFloat("last_warn_level")))
 	assert.Equal(t, "", updated.GetString("submitted_by"))
 
-	// Notification: "Partido por reanudar" to both pairs
+	// Notification: "Partido por reanudar" to both pairs (same title on both
+	// calls, so assert both directly rather than via assertNotifyCall).
 	require.Len(t, notifier.calls, 2)
-	assert.Equal(t, "scheduling", notifier.calls[0].notifType)
-	assert.Equal(t, "Partido por reanudar", notifier.calls[0].title)
+	wantBody := "Se reanuda desde 6-3 0-0. Acordad una nueva fecha · Test Competition."
+	for _, c := range notifier.calls {
+		assert.Equal(t, "scheduling", c.notifType)
+		assert.Equal(t, "Partido por reanudar", c.title)
+		assert.Equal(t, wantBody, c.body)
+		assert.Equal(t, match.Id, c.matchID)
+	}
+	allPlayers := append(append([]string{}, notifier.calls[0].playerIDs...), notifier.calls[1].playerIDs...)
+	assert.ElementsMatch(t, []string{p1.GetString("player1"), p1.GetString("player2"), p2.GetString("player1"), p2.GetString("player2")}, allPlayers)
 
 	// System result_event entry
 	events, err := app.FindRecordsByFilter("match_messages",
@@ -168,10 +176,20 @@ func TestApplyAcceptedResult_QuorumTimeout(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, updated.GetString("dispute_notes"), "Auto-confirmado")
 
-	// Both pairs notified
+	// Both pairs notified with identical auto-confirmed bodies (same title on
+	// both calls, so assertNotifyCall's exactly-one-per-title precondition
+	// doesn't apply here — assert both calls directly instead).
 	require.Len(t, notifier.calls, 2)
-	assert.Equal(t, "general", notifier.calls[0].notifType)
-	assert.Equal(t, "Resultado confirmado automáticamente", notifier.calls[0].title)
+	wantTitle := "Resultado confirmado automáticamente"
+	wantBody := "El resultado ha sido confirmado por tiempo de espera · Test Competition."
+	for _, c := range notifier.calls {
+		assert.Equal(t, "general", c.notifType)
+		assert.Equal(t, wantTitle, c.title)
+		assert.Equal(t, wantBody, c.body)
+		assert.Equal(t, match.Id, c.matchID)
+	}
+	allPlayers := append(append([]string{}, notifier.calls[0].playerIDs...), notifier.calls[1].playerIDs...)
+	assert.ElementsMatch(t, []string{p1.GetString("player1"), p1.GetString("player2"), p2.GetString("player1"), p2.GetString("player2")}, allPlayers)
 }
 
 func TestApplyAcceptedResult_StaleStatus(t *testing.T) {
