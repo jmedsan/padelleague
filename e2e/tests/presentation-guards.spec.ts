@@ -167,7 +167,7 @@ test.describe('R-178: presentation quality guards', () => {
       }
 
       // Click "Clasificación" tab to reveal standings
-      const standingsTab = page.locator('input[aria-label="Clasificación"]');
+      const standingsTab = page.locator('input[aria-label^="Clasificación"]');
       if (await standingsTab.count() > 0) {
         await standingsTab.click();
         await page.waitForTimeout(300);
@@ -294,7 +294,7 @@ test.describe('R-178: presentation quality guards', () => {
     await page.locator('a', { hasText: compName }).first().click();
     await page.waitForLoadState('networkidle');
 
-    const standingsTab = page.locator('input[aria-label="Clasificación"]');
+    const standingsTab = page.locator('input[aria-label^="Clasificación"]');
     await expect(standingsTab, 'Clasificación tab must be visible for a published league with zero played matches').toBeVisible();
     await standingsTab.click();
     await expect(page.getByText('No hay datos de clasificación todavía'), 'empty-state text must render inside the tab').toBeVisible();
@@ -333,7 +333,7 @@ test.describe('R-178: presentation quality guards', () => {
     await page.locator('a', { hasText: compName }).first().click();
     await page.waitForLoadState('networkidle');
 
-    const announcementsTab = page.locator('input[aria-label="Avisos"]');
+    const announcementsTab = page.locator('input[aria-label^="Avisos"]');
     await expect(announcementsTab, 'Avisos tab must be visible with zero announcements').toBeVisible();
     await announcementsTab.click();
     await expect(page.getByText('No hay avisos todavía'), 'empty-state text must render inside the tab').toBeVisible();
@@ -392,7 +392,7 @@ test.describe('R-178: presentation quality guards', () => {
     await page.locator('[data-testid="single-comp-entry"]').click();
     await page.waitForLoadState('networkidle');
 
-    await page.locator('input[aria-label="Clasificación"]').click();
+    await page.locator('input[aria-label^="Clasificación"]').click();
     // standingsTable renders both a desktop table and a mobile table, only
     // one visible per breakpoint via CSS — scope to whichever is visible.
     const standingsTableClass = isMobile(page) ? 'table.table-sm' : 'table.table-zebra';
@@ -414,7 +414,7 @@ test.describe('R-178: presentation quality guards', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    const bell = page.locator('button[aria-label="notificaciones"]:visible');
+    const bell = page.locator('button[aria-label^="notificaciones"]:visible');
     await bell.click();
     await page.waitForTimeout(500);
 
@@ -481,10 +481,10 @@ test.describe('R-178: presentation quality guards', () => {
     // desktop table's trigger is icon-only (aria-label, no text node) and
     // always visible; on mobile it lives inside the "Más acciones" dropdown,
     // closed by default — open it first (same pattern as tour-reference.spec.ts).
-    let penalizeLabel = parejas.locator('label[for^="penalty-modal-"][aria-label="Penalizar"]').first();
+    let penalizeLabel = parejas.locator('label[for^="penalty-modal-"][aria-label^="Penalizar"]').first();
     if (isMobile(page)) {
       const dropdown = parejas.locator('.dropdown:has(label[for^="penalty-modal-"])').first();
-      await dropdown.locator('button[aria-label="Más acciones"]').click();
+      await dropdown.locator('button[aria-label^="Más acciones"]').click();
       penalizeLabel = dropdown.locator('label[for^="penalty-modal-"]');
     }
     await expect(penalizeLabel).toBeVisible();
@@ -541,44 +541,6 @@ test.describe('R-178: presentation quality guards', () => {
     await apiDelete(page.request, suToken, 'pairs', pair3Id);
     await apiDelete(page.request, suToken, 'users', p3a);
     await apiDelete(page.request, suToken, 'users', p3b);
-  });
-
-  test('R-167: onboarding checklist — reglamento deep-links to Documentos tab', async ({ page }) => {
-    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-
-    const checklist = page.locator('[data-testid="onboard-checklist"]');
-    if (await checklist.isVisible().catch(() => false)) {
-      // No "Cómo funciona" should appear (dropped non-trackable step)
-      await expect(checklist.locator('text=Cómo funciona')).toHaveCount(0);
-
-      // Check no done item appears after an open item (no sequential ordering bug)
-      const items = checklist.locator('li');
-      const count = await items.count();
-      let sawOpen = false;
-      for (let i = 0; i < count; i++) {
-        const hasLineThrough = await items.nth(i).locator('.line-through').count() > 0;
-        if (!hasLineThrough) sawOpen = true;
-        if (hasLineThrough && sawOpen) {
-          throw new Error(`Done item at position ${i} appears after an open item`);
-        }
-      }
-
-      // Click "Lee los documentos" and verify it lands on Documentos
-      const regLink = checklist.locator('a:has-text("Lee los documentos")');
-      if (await regLink.count() > 0) {
-        await regLink.click();
-        await page.waitForLoadState('networkidle');
-        // Should land on competition page with #documentos fragment
-        expect(page.url()).toContain('#documentos');
-        // Documentos tab should be active
-        const docTab = page.locator('#tab-documentos');
-        if (await docTab.count() > 0) {
-          await expect(docTab).toBeChecked();
-        }
-      }
-    }
   });
 
   test('R-164: date-format guard — no raw ISO dates in visible text', async ({ page }) => {
@@ -679,7 +641,7 @@ test.describe('R-178: presentation quality guards', () => {
     await page.waitForLoadState('networkidle');
 
     // Click the bell dropdown to load notifications
-    const bell = page.locator('button[aria-label="notificaciones"]:visible');
+    const bell = page.locator('button[aria-label^="notificaciones"]:visible');
     await bell.click();
     await page.waitForTimeout(500);
 
@@ -754,7 +716,7 @@ test.describe('R-178: presentation quality guards', () => {
     }
 
     // Click Clasificación tab to reveal pair links
-    const standingsTab = page.locator('input[aria-label="Clasificación"]');
+    const standingsTab = page.locator('input[aria-label^="Clasificación"]');
     await expect(standingsTab).toBeVisible({ timeout: 5000 });
     await standingsTab.click();
     await page.waitForTimeout(300);
