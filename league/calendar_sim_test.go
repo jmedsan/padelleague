@@ -279,12 +279,21 @@ func runCalendarSeason(t *testing.T, app core.App, svc *Service, pairs []*core.R
 	}
 	res.unplayed = len(pendingCalendarMatches(t, app, comp.Id))
 	if *calAdmin && *calRules {
-		// Rulebook: at end_date, every pending match above 2 per pair costs -1
-		// (oldest first); after the extra week, every unplayed match costs -1
-		// to each pair. Unplayed matches stay unplayed (no result awarded).
-		for _, m := range pendingCalendarMatches(t, app, comp.Id) {
-			res.penalty[m.GetString("pair1")]++
-			res.penalty[m.GetString("pair2")]++
+		// Rulebook close as implemented (ApplyPendingMatchPenalties): -1 per
+		// pending match above 2 per pair at end_date, then -1 per match short
+		// of the target (target − played, assigned or not) for every active
+		// pair. Unplayed matches stay unplayed (no result awarded).
+		for _, p := range pairs {
+			if behavior[p.Id].withdrawn {
+				continue
+			}
+			played := 0
+			for _, m := range allMatchesFor(t, app, comp.Id, p.Id) {
+				if m.GetString("status") == "final" {
+					played++
+				}
+			}
+			res.penalty[p.Id] += max(0, simTarget-played)
 		}
 		for p, n := range pendingAtEnd {
 			if n > 2 {

@@ -383,6 +383,35 @@ func runLeveledAssignments(app core.App, svc *league.Service) {
 	}
 }
 
+// closeCandidate is a competition the daily cron may close automatically.
+type closeCandidate struct {
+	comp      *core.Record
+	now       time.Time
+	penalties int // close penalties applied in this run
+}
+
+// autoCloseCompetition closes a league whose extra week has ended and asks
+// the admin to review the automatic close penalties.
+func autoCloseCompetition(app core.App, notifier *notify.Notifier, c closeCandidate) {
+	comp, now, penalties := c.comp, c.now, c.penalties
+	closed, err := league.AutoCloseCompetition(app, comp, now)
+	if err != nil {
+		slog.Error("pending-match-penalties: auto-close", "competition", comp.Id, "err", err)
+		return
+	}
+	if !closed {
+		return
+	}
+	slog.Info("pending-match-penalties: competition closed automatically",
+		"competition", comp.Id, "name", comp.GetString("name"), "penalties", penalties)
+	_ = notifier.NotifyAdmins(league.Notification{
+		Type:  "penalty",
+		Title: "Liga cerrada automáticamente",
+		Body:  fmt.Sprintf("%s ha terminado su semana extraordinaria: %d penalizaciones por partidos no disputados. Revísalas y corrige las que correspondan a una sola pareja.", comp.GetString("name"), penalties),
+		Link:  "/admin/competitions/" + comp.Id,
+	})
+}
+
 func registerSearch(app core.App, idx *search.Index) {
 	if idx == nil {
 		return
@@ -431,6 +460,7 @@ func applyPendingMatchPenalties(app core.App, notifier *notify.Notifier) {
 			slog.Error("pending-match-penalties: apply", "competition", comp.Id, "err", err)
 			continue
 		}
+		autoCloseCompetition(app, notifier, closeCandidate{comp: comp, now: now, penalties: len(applied)})
 		if len(applied) == 0 {
 			continue
 		}

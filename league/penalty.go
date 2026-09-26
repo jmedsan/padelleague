@@ -97,17 +97,9 @@ func ApplyPendingMatchPenalties(app core.App, comp *core.Record) ([]*core.Record
 
 	pairIDs := comp.GetStringSlice("pairs")
 
-	// Count unplayed matches per pair (status != 'final' = pending/scheduled/confirmed/disputed).
-	unplayed, err := app.FindRecordsByFilter("matches",
-		"competition = {:c} && status != 'final'",
-		"", 0, 0, map[string]any{"c": comp.Id})
+	counts, err := unplayedCounts(app, comp, phase)
 	if err != nil {
-		return nil, fmt.Errorf("pending match penalties: list matches: %w", err)
-	}
-	counts := make(map[string]int, len(pairIDs))
-	for _, m := range unplayed {
-		counts[m.GetString("pair1")]++
-		counts[m.GetString("pair2")]++
+		return nil, err
 	}
 
 	// Count total auto-penalties (active + voided) per pair.
@@ -140,6 +132,63 @@ func ApplyPendingMatchPenalties(app core.App, comp *core.Record) ([]*core.Record
 	return applied, nil
 }
 
+// unplayedCounts returns the per-pair count the penalty rule is based on:
+// assigned matches not yet final, except at the close of a leveled league,
+// where it is the projected shortfall target − played (matches never
+// assigned count too; a withdrawn pair counts nothing).
+func unplayedCounts(app core.App, comp *core.Record, phase Phase) (map[string]int, error) {
+	matches, err := app.FindRecordsByFilter("matches",
+		"competition = {:c}", "", 0, 0, map[string]any{"c": comp.Id})
+	if err != nil {
+		return nil, fmt.Errorf("pending match penalties: list matches: %w", err)
+	}
+	if phase == PhaseFinished && IsLeveled(comp) {
+		return projectedShortfall(comp, matches), nil
+	}
+	counts := make(map[string]int)
+	for _, m := range matches {
+		if m.GetString("status") != StatusFinal {
+			counts[m.GetString("pair1")]++
+			counts[m.GetString("pair2")]++
+		}
+	}
+	return counts, nil
+}
+
+// projectedShortfall returns target − played per active pair.
+func projectedShortfall(comp *core.Record, matches []*core.Record) map[string]int {
+	played := make(map[string]int)
+	for _, m := range matches {
+		if m.GetString("status") == StatusFinal {
+			played[m.GetString("pair1")]++
+			played[m.GetString("pair2")]++
+		}
+	}
+	active, _ := activePairs(comp)
+	target := comp.GetInt("target_matches")
+	counts := make(map[string]int, len(active))
+	for _, id := range active {
+		counts[id] = max(0, target-played[id])
+	}
+	return counts
+}
+
+// AutoCloseCompetition finalizes comp once its recovery window has ended:
+// the rulebook's extra week is over, so the league closes by itself. The
+// event is logged as system-originated. Returns true when it closed now.
+func AutoCloseCompetition(app core.App, comp *core.Record, now time.Time) (bool, error) {
+	if comp.GetBool("finalized") || CompetitionPhase(comp, now) != PhaseFinished {
+		return false, nil
+	}
+	comp.Set("finalized", true)
+	if err := app.Save(comp); err != nil {
+		return false, fmt.Errorf("auto-close competition %s: %w", comp.Id, err)
+	}
+	LogCompetitionEvent(app, CompetitionEvent{CompetitionID: comp.Id, Kind: "finalized",
+		Detail: "cierre automático al terminar la semana extraordinaria"})
+	return true, nil
+}
+
 type pairPenaltyParams struct {
 	compID         string
 	pairID         string
@@ -158,7 +207,7 @@ func applyPairPenalties(app core.App, p pairPenaltyParams) ([]*core.Record, erro
 	reason := fmt.Sprintf("Partidos pendientes por encima del límite (%d pendientes, máximo %d)",
 		p.pendingCount, p.threshold)
 	if p.phase == PhaseFinished {
-		reason = fmt.Sprintf("Partido pendiente al cierre de la competición (%d pendientes)",
+		reason = fmt.Sprintf("Partido no disputado al cierre de la competición (%d sin jugar)",
 			p.pendingCount)
 	}
 	recs := make([]*core.Record, 0, toCreate)
