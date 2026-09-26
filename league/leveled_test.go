@@ -55,8 +55,7 @@ func TestIsLeveled(t *testing.T) {
 		{"5 of 6 is boundary (pairs-1), not leveled", 5, pairs, "", 0, false},
 		{"7 of 6 exceeds pairs-1, not leveled", 7, pairs, "", 0, false},
 		{"playoff is never leveled", 3, pairs, "playoff", 0, false},
-		{"4 of 6, 1 withdrawn: 4 >= active(5)-1=4, no longer leveled", 4, pairs, "", 1, false},
-		{"3 of 6, 1 withdrawn: active count (5) governs, still leveled", 3, pairs, "", 1, true},
+		{"4 of 6, 1 withdrawn: target(4) >= active(5)-1=4 would flip a naive active-count check, but classification stays on the configured 6 and remains leveled", 4, pairs, "", 1, true},
 	}
 
 	for _, tc := range cases {

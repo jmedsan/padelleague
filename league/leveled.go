@@ -25,28 +25,18 @@ type Pairing struct {
 }
 
 // IsLeveled reports whether the competition assigns opponents by rating
-// proximity instead of generating a full round-robin.
+// proximity instead of generating a full round-robin. Deliberately computed
+// against the competition's full (configured) pairs list, not the active
+// (non-withdrawn) count: this classification drives Jornada grouping, the
+// Aj. standings column, and top-up eligibility for the competition's whole
+// lifetime, and must never flip mid-season just because a pair withdraws —
+// a withdrawal shrinking the active count below the leveled threshold is a
+// completability problem for the assignment engine (activePairCount),
+// not a reason to reclassify the competition as round-robin.
 func IsLeveled(comp *core.Record) bool {
 	target := comp.GetInt("target_matches")
-	return !IsPlayoff(comp) && target > 0 && target < activePairCount(comp)-1
-}
-
-// activePairCount returns the number of pairs still competing in comp — its
-// pairs list minus any withdrawn_pairs, so a withdrawal can't silently push
-// target_matches past the classification threshold for what counts as a
-// leveled league.
-func activePairCount(comp *core.Record) int {
-	withdrawn := make(map[string]bool)
-	for _, id := range comp.GetStringSlice("withdrawn_pairs") {
-		withdrawn[id] = true
-	}
-	n := 0
-	for _, id := range comp.GetStringSlice("pairs") {
-		if !withdrawn[id] {
-			n++
-		}
-	}
-	return n
+	pairs := comp.GetStringSlice("pairs")
+	return !IsPlayoff(comp) && target > 0 && target < len(pairs)-1
 }
 
 // OpenAssignments returns the number of pending matches the system keeps each
