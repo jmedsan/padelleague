@@ -62,7 +62,7 @@ test('smtp sink receives email on match finalization', async ({ page }) => {
     await page.goto(`/match/${match.id}`);
     await page.waitForLoadState('domcontentloaded');
     await enterScore(page, '6-3 6-4');
-    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")').first());
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")').first(), `/match/${match.id}`);
 
     // Player 2 accepts — this fires NotifResultConfirmed to player 1
     // (league/result.go), unconditionally on finalization.
@@ -72,7 +72,7 @@ test('smtp sink receives email on match finalization', async ({ page }) => {
     await page.locator('#thread-details').waitFor({ timeout: 15000 });
     const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
     await acceptBtn.waitFor({ timeout: 10000 });
-    await clickAndWaitForHxRedirect(page, acceptBtn);
+    await clickAndWaitForHxRedirect(page, acceptBtn, `/match/${match.id}`);
 
     // emailNotification runs synchronously inside the handler, so no wait
     // needed — but allow a brief window for any OS-level TCP buffering.

@@ -49,7 +49,7 @@ test.describe('leveled-16 pre-generation', () => {
 
     const genBtn = page.locator('button:has-text("Generar calendario")');
     await expect(genBtn).toBeVisible({ timeout: 10000 });
-    await clickAndWaitForHxRedirect(page, genBtn);
+    await clickAndWaitForHxRedirect(page, genBtn, `/admin/competitions/${ctx.competitionId}`);
 
     await expect(page.locator('button:has-text("Publicar calendario")')).toBeVisible({ timeout: 10000 });
 
@@ -65,7 +65,7 @@ test.describe('leveled-16 pre-generation', () => {
 
     const pubBtn = page.locator('button:has-text("Publicar calendario")');
     await expect(pubBtn).toBeVisible({ timeout: 10000 });
-    await clickAndWaitForHxRedirect(page, pubBtn);
+    await clickAndWaitForHxRedirect(page, pubBtn, `/admin/competitions/${ctx.competitionId}`);
 
     await page.waitForLoadState('domcontentloaded');
     for (let s = 1; s <= ctx.open; s++) {
