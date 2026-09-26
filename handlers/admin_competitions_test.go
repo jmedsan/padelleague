@@ -2451,7 +2451,7 @@ func TestWithdrawPairNotifications(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Task 9: Leveled league admin display — group titles and standings Aj. column
+// Task 9: Leveled league admin display — group titles and plain-points standings
 
 func TestAdminDetail_LeveledGroups(t *testing.T) {
 	t.Parallel()
@@ -2503,11 +2503,11 @@ func TestAdminDetail_LeveledGroups(t *testing.T) {
 	s.Test(t)
 }
 
-func TestAdminDetail_LeveledStandings_AjColumn(t *testing.T) {
+func TestAdminDetail_LeveledStandings_NoAjColumn(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  testAppFactory,
-		Name:            "admin standings for leveled league shows Aj. column",
+		Name:            "admin standings for leveled league shows plain points, no Aj. column",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"AjPairA"},
@@ -2544,7 +2544,7 @@ func TestAdminDetail_LeveledStandings_AjColumn(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := readBody(tb, res)
-		assert.Contains(tb, body, "Aj.", "leveled standings must show Aj. column")
+		assert.NotContains(tb, body, "Aj.", "standings never show an adjustment column")
 	}
 	s.Test(t)
 }

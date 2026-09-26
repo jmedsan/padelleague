@@ -1,7 +1,6 @@
 package league
 
 import (
-	"math"
 	"sort"
 	"strings"
 
@@ -28,12 +27,6 @@ type StandingRowFull struct {
 	// Form holds up to the last standingFormLimit results, most recent
 	// first: true = win, false = loss.
 	Form []bool
-	// Adjustment is the schedule-strength correction for leveled leagues
-	// (recipe §4). Zero for round-robin leagues.
-	Adjustment float64
-	// Score is Points + Adjustment (rounded to 0.1). Equal to Points for
-	// round-robin leagues, so the sort is byte-identical.
-	Score float64
 }
 
 // ComputeStandings calculates ranked standings for a competition.
@@ -63,14 +56,6 @@ func (svc *Service) ComputeStandings(competitionID string) ([]StandingRowFull, e
 		penaltyMap: penaltyMap,
 		matches:    matches,
 	})
-
-	if IsLeveled(comp) {
-		applyScheduleStrengthAdjustment(rows, pairStats, matches)
-	} else {
-		for i := range rows {
-			rows[i].Score = float64(rows[i].Points)
-		}
-	}
 
 	sortStandings(rows, matches)
 
@@ -201,12 +186,12 @@ func pairForm(pid string, matches []*core.Record) []bool {
 // regardless of input order.
 func sortStandings(rows []StandingRowFull, matches []*core.Record) {
 	sort.Slice(rows, func(i, j int) bool {
-		return rows[i].Score > rows[j].Score
+		return rows[i].Points > rows[j].Points
 	})
 
 	for start := 0; start < len(rows); {
 		end := start + 1
-		for end < len(rows) && rows[end].Score == rows[start].Score {
+		for end < len(rows) && rows[end].Points == rows[start].Points {
 			end++
 		}
 		resolveTieGroup(rows[start:end], matches)
@@ -371,49 +356,6 @@ func lessByOverallThenName(a, b StandingRowFull) bool {
 		return gameDiffA > gameDiffB
 	}
 	return a.PairName < b.PairName
-}
-
-// applyScheduleStrengthAdjustment computes the SOS-based adjustment for each
-// row in a leveled league (recipe §4) and sets Adjustment and Score.
-//
-//	SOS(t)      = mean win_rate of t's played opponents
-//	Adjustment  = 3 × Played × 1.5 × (SOS − 0.5), rounded to 0.1
-//	Score       = Points + Adjustment
-func applyScheduleStrengthAdjustment(rows []StandingRowFull, stats map[string]*pairStats, matches []*core.Record) {
-	// win_rate per pair.
-	winRate := make(map[string]float64, len(rows))
-	for _, r := range rows {
-		s := stats[r.PairID]
-		played := s.wins + s.losses
-		if played > 0 {
-			winRate[r.PairID] = float64(s.wins) / float64(played)
-		}
-	}
-
-	// Opponents per pair from the final match records.
-	opponents := make(map[string][]string, len(rows))
-	for _, m := range matches {
-		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
-		opponents[p1] = append(opponents[p1], p2)
-		opponents[p2] = append(opponents[p2], p1)
-	}
-
-	for i := range rows {
-		r := &rows[i]
-		opps := opponents[r.PairID]
-		if len(opps) == 0 || r.Played == 0 {
-			r.Score = float64(r.Points)
-			continue
-		}
-		var sosSum float64
-		for _, opp := range opps {
-			sosSum += winRate[opp]
-		}
-		sos := sosSum / float64(len(opps))
-		adj := 3.0 * float64(r.Played) * 1.5 * (sos - 0.5)
-		r.Adjustment = math.Round(adj*10) / 10
-		r.Score = float64(r.Points) + r.Adjustment
-	}
 }
 
 // matchesBetween returns the final matches played between two or more of

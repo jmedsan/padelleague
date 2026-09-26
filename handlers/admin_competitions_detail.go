@@ -32,7 +32,7 @@ func (h *CompetitionHandler) addDetailExtras(data map[string]any, comp *core.Rec
 
 func (h *CompetitionHandler) addLeagueExtras(data map[string]any, comp *core.Record, matches []*core.Record) {
 	rows, _ := h.leagueSvc.ComputeStandings(comp.Id)
-	hasPlayed, hasAdjustment := false, false
+	hasPlayed := false
 	for _, s := range rows {
 		if s.Played > 0 {
 			hasPlayed = true
@@ -40,13 +40,9 @@ func (h *CompetitionHandler) addLeagueExtras(data map[string]any, comp *core.Rec
 		if s.Penalty > 0 {
 			data["HasPenalties"] = true
 		}
-		if s.Adjustment != 0 {
-			hasAdjustment = true
-		}
 	}
 	if len(rows) >= 2 && hasPlayed {
 		data["Standings"] = rows
-		data["HasAdjustment"] = hasAdjustment
 	}
 	if len(matches) > 0 {
 		data["RoundDates"] = h.buildRoundDates(comp)
