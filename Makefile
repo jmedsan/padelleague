@@ -124,8 +124,9 @@ scenario-test: ## run a scenario: make scenario-test SCENARIO=<name>
 scenario-serve: ## boot a scenario and keep server alive: make scenario-serve SCENARIO=<name>
 	@if [ -z "$(SCENARIO)" ]; then cd e2e && npx tsx list-scenarios.ts; exit 1; fi
 	@E2E_PORT=$$(node e2e/find-free-port.mjs) && \
+	FIRST_PROJECT=$$(cd e2e && npx tsx first-scenario-project.ts $(SCENARIO)) && \
 	cd e2e && E2E_KEEP=1 SCENARIO=$(SCENARIO) E2E_PORT=$$E2E_PORT npx playwright test \
-	  --config playwright.scenario.config.ts --grep "00 "
+	  --config playwright.scenario.config.ts --project="$$FIRST_PROJECT" --grep "00 "
 
 scenario-stop: ## stop a kept scenario server and delete its data
 	@if [ -f e2e/.test-data/scenario.pid ]; then \
