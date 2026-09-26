@@ -9,7 +9,7 @@ import {
   createPlayer, createCompetition, createPair, addPairToCompetition, markAllPairsPaid,
   generateFixtures, submitScore, confirmScore,
   createDocument, attachDocumentToCompetition, acceptDocsGate,
-  clickAndWaitForHxRedirect,
+  clickAndWaitForHxRedirect, expectRedirectedTo,
   assertFinalStandings, assertPlayoffChampion,
   lookupPlayerId, getRoundMatches, getMatchById, setMatchDateAndClub, acceptScheduleProposal,
 } from '../tour-helpers';
@@ -235,6 +235,7 @@ test.describe('reference navigation tour', () => {
     // Publish redirects via HX-Redirect; wait for that navigation to land or
     // the reload in markAllPairsPaid races it (net::ERR_ABORTED).
     await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'));
+    await expectRedirectedTo(page, new RegExp(`/admin/competitions/${competitionId}$`));
 
     // A pair can't play without paying — mark all pairs paid.
     await markAllPairsPaid(page);
@@ -378,6 +379,7 @@ test.describe('reference navigation tour', () => {
     await clickAction(page, `label[for="penalty-modal-${pairIds[0]}"]`, 'Penalizar');
     await penaltyModal.locator('textarea[name="reason"]').fill('Ajuste de clasificación');
     await clickAndWaitForHxRedirect(page, penaltyModal.locator('button:has-text("Confirmar penalización")'));
+    await expectRedirectedTo(page, new RegExp(`/admin/competitions/${competitionId}$`));
 
     // Assert standings with penalty
     const expectedWithPenalty = computeExpected(SCORE_MATRIX, PENALTIES);
