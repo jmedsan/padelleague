@@ -32,6 +32,18 @@
       min-width: 2.75rem;
     }
   }
+  /* Tab strips can carry up to 4 labels (Jornadas/Rondas/Partidos, Anuncios,
+     Documentos, Clasificación) — on a narrow phone the default 1rem
+     side-padding and text-sm size push 4 tabs past the viewport width
+     (scrollWidth > clientWidth, S23 at 360px). Tighten padding and type
+     size below the sm breakpoint so 4 tabs fit one row; min-height above
+     still guarantees the 44px tap target. */
+  @media (max-width: 639px) {
+    .tabs-boxed .tab {
+      --tab-padding: 0.25rem;
+      font-size: 0.7rem;
+    }
+  }
   .collapse-content {
     min-width: 0;
   }
