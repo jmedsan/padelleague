@@ -17,6 +17,7 @@ const NAV_LABELS: Record<string, string> = {
   '/admin/health': 'Salud',
   '/admin/players': 'Usuarios',
   '/admin/venues': 'Clubes',
+  '/admin/invitations': 'Invitaciones',
 };
 
 async function navToAdmin(page: Page, href: string): Promise<void> {
@@ -54,17 +55,17 @@ test.describe('admin management', () => {
   test('admin can view venues page', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await navToAdmin(page, '/admin/venues');
-    await expect(page.getByRole('cell', { name: 'Pista Central' })).toBeVisible();
+    // Mobile card list and desktop table both render every venue name; only
+    // one is visible per viewport (see the venue-creation test below).
+    await expect(page.getByText('Pista Central').locator('visible=true').first()).toBeVisible();
   });
 
-  test('admin can view invitations inline on competition detail', async ({ page }) => {
-    // Invitations moved from a standalone /admin/invitations page into the
-    // competition detail page (like Documentos) — reached via a real click
-    // on a competition card, not goto(url).
+  test('admin can view invitations page', async ({ page }) => {
+    // Invitations is a standalone global admin page (not competition-scoped
+    // — InvitationsList has no competition filter), reached via the
+    // "Invitaciones" nav link.
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto('/admin/competitions');
-    await page.locator('.card-title', { hasText: 'Liga E2E Test' }).first().click();
-    await page.waitForLoadState('domcontentloaded');
+    await navToAdmin(page, '/admin/invitations');
     await expect(page.getByRole('heading', { name: 'Invitaciones' })).toBeVisible();
     await expect(page.getByRole('button', { name: /nueva invitaci[oó]n/i })).toBeVisible();
   });
@@ -75,11 +76,9 @@ test.describe('admin management', () => {
     await expect(page.getByRole('heading', { name: 'Disputas' })).toBeVisible();
   });
 
-  test('admin can create invitation from competition detail', async ({ page }) => {
+  test('admin can create invitation', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto('/admin/competitions');
-    await page.locator('.card-title', { hasText: 'Liga E2E Test' }).first().click();
-    await page.waitForLoadState('domcontentloaded');
+    await navToAdmin(page, '/admin/invitations');
     await page.getByRole('button', { name: /nueva invitaci[oó]n/i }).click();
     const invEmail = `inv-${Date.now()}@test.com`;
     await page.locator('#modal-create-invite input[name="email"]').fill(invEmail);
@@ -90,7 +89,14 @@ test.describe('admin management', () => {
     await expect(page.getByText(invEmail).locator('visible=true').first()).toBeVisible({ timeout: 5000 });
   });
 
-  test('register hero shows competition name and logo from an invitation link', async ({ page }) => {
+  test('admin can upload a competition logo', async ({ page }) => {
+    // Competition-scoped invitations (and the register-hero-shows-logo path
+    // this test used to exercise end-to-end) were removed in fb675f6:
+    // invitations are global-only now, no admin UI sets invitations.competition
+    // — that branch in auth.go is only reachable via a raw API write or
+    // pre-refactor data, and is covered at the handler level by
+    // TestRegisterPage_ShowsCompetitionName/ShowsCompetitionLogo. This test
+    // keeps only the still-live part: the logo upload itself.
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin/competitions');
     await page.locator('.card-title', { hasText: 'Liga E2E Test' }).first().click();
@@ -122,38 +128,6 @@ test.describe('admin management', () => {
     ]);
     await page.locator('label[for="edit-modal"]', { hasText: 'Editar' }).click();
     await expect(page.locator('img[src*="/logo/competition/"]').first()).toBeVisible({ timeout: 10000 });
-
-    // Create an invitation and read its register link straight off the
-    // "Copiar" button's onclick attribute (copyInviteLink(token, this)) —
-    // no clipboard permission dance needed.
-    const invEmail = `inv-hero-${Date.now()}@test.com`;
-    await page.getByRole('button', { name: /nueva invitaci[oó]n/i }).click();
-    await page.locator('#modal-create-invite input[name="email"]').fill(invEmail);
-    await Promise.all([
-      page.waitForEvent('load', { timeout: 10000 }),
-      page.locator('#modal-create-invite button[type="submit"]').click(),
-    ]);
-    const inviteRow = page.locator('tr, div.py-3', { hasText: invEmail }).locator('visible=true').first();
-    await expect(inviteRow).toBeVisible({ timeout: 5000 });
-    const copyBtn = inviteRow.locator('button[title="Copiar enlace"]');
-    const onclick = await copyBtn.getAttribute('onclick');
-    const token = onclick?.match(/copyInviteLink\('([^']+)'/)?.[1];
-    expect(token).toBeTruthy();
-
-    // Open the actual register link, as an invited (logged-out) player would.
-    // Clear the session directly rather than clicking "Salir" — on mobile
-    // that button lives in the off-canvas drawer (not display:none, so
-    // :visible can't disambiguate it from the desktop navbar's copy), and
-    // this test only needs a logged-out browser, not to exercise logout UI.
-    await page.context().clearCookies();
-    await page.goto(`/register?token=${token}`);
-    await page.waitForLoadState('domcontentloaded');
-
-    await expect(page.getByText('Liga E2E Test te invita a')).toBeVisible();
-    // Scoped to main: the site footer now also renders this competition's
-    // logo (single active competition, out-of-context promotion), so the
-    // unscoped selector matches both and violates Playwright's strict mode.
-    await expect(page.locator('main img[src*="/logo/competition/"]')).toBeVisible();
   });
 
   test('admin can create venue', async ({ page }) => {
@@ -166,7 +140,10 @@ test.describe('admin management', () => {
       page.waitForEvent('load', { timeout: 10000 }),
       page.locator('#modal-create-venue button[type="submit"]').click(),
     ]);
-    await expect(page.getByText(name)).toBeVisible({ timeout: 5000 });
+    // Mobile card list and desktop table both render every venue name at
+    // once (CSS-toggled per breakpoint, both present in the DOM) — same
+    // dual-render pattern as the Penalizar trigger below.
+    await expect(page.getByText(name).locator('visible=true').first()).toBeVisible({ timeout: 5000 });
   });
 
   test('R-168: competition detail sections are collapsed accordions when started', async ({ page }) => {
@@ -190,10 +167,14 @@ test.describe('admin management', () => {
     const addPairsCheckbox = addPairs.locator('> input[type="checkbox"]');
     await expect(addPairsCheckbox).not.toBeChecked();
 
-    // Verify penalty modal is reachable from inside collapsed Parejas
+    // Verify penalty modal is reachable from inside collapsed Parejas. The
+    // desktop table's trigger is icon-only (aria-label, no text node); the
+    // mobile dropdown's copy of the same label has visible text instead —
+    // :visible picks whichever markup the current viewport actually shows
+    // (see R-178, e2e/tests/presentation-guards.spec.ts).
     await parejas.locator('> input[type="checkbox"]').check({ force: true });
     await page.waitForTimeout(300);
-    const penalizeBtn = parejas.locator('label:has-text("Penalizar")').first();
+    const penalizeBtn = parejas.locator('label[for^="penalty-modal-"]:visible').first();
     if (await penalizeBtn.count() > 0) {
       const modalId = await penalizeBtn.getAttribute('for');
       await penalizeBtn.click();
