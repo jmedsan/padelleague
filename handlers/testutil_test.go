@@ -13,6 +13,7 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/internal/testapp"
 	"padelleague/league"
 	"padelleague/middleware"
 	_ "padelleague/migrations"
@@ -25,41 +26,8 @@ var (
 	userSeq atomic.Int64
 )
 
-// tmplDataDir holds a data directory with all migrations already applied.
-// tests.NewTestApp() re-runs every migration on each call, which costs ~240ms
-// a test; copying an already-migrated directory costs ~10ms. With ~150 tests
-// in this package that is the difference between a 23s suite and a 3s one,
-// and mutation testing multiplies it by the mutant count.
-var tmplDataDir string
-
 func TestMain(m *testing.M) {
-	seed, err := tests.NewTestApp()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "build test template:", err)
-		os.Exit(1)
-	}
-	dir, err := os.MkdirTemp("", "pbtmpl-*")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "temp dir:", err)
-		os.Exit(1)
-	}
-	// CopyFS needs the destination absent; MkdirTemp already created it.
-	if err := os.RemoveAll(dir); err != nil {
-		fmt.Fprintln(os.Stderr, "clear temp dir:", err)
-		os.Exit(1)
-	}
-	if err := os.CopyFS(dir, os.DirFS(seed.DataDir())); err != nil {
-		fmt.Fprintln(os.Stderr, "copy template:", err)
-		os.Exit(1)
-	}
-	seed.Cleanup()
-	tmplDataDir = dir
-
-	code := m.Run()
-	if err := os.RemoveAll(dir); err != nil {
-		fmt.Fprintln(os.Stderr, "remove template:", err)
-	}
-	os.Exit(code)
+	os.Exit(testapp.Run(m))
 }
 
 func makeUserTB(t testing.TB, app core.App, displayName, email string) *core.Record {
@@ -104,17 +72,12 @@ func makeUser(t *testing.T, app core.App, displayName, email string) *core.Recor
 // template. Without it ApiScenario calls tests.NewTestApp() itself and pays
 // the full migration cost on every scenario.
 func testAppFactory(t testing.TB) *tests.TestApp {
-	app, err := tests.NewTestApp(tmplDataDir)
-	require.NoError(t, err)
-	return app
+	return testapp.Factory(t)
 }
 
 func newTestApp(t *testing.T) core.App {
 	t.Helper()
-	app, err := tests.NewTestApp(tmplDataDir)
-	require.NoError(t, err)
-	t.Cleanup(app.Cleanup)
-	return app
+	return testapp.New(t)
 }
 
 func makePair(t *testing.T, app core.App, name string) *core.Record {

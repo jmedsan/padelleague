@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"padelleague/internal/testapp"
 	"padelleague/league"
 	"padelleague/notify"
 	"strings"
@@ -236,9 +237,7 @@ func TestProposalFromPairTwoNotifiesPairOne(t *testing.T) {
 
 func TestProposalSendsEmail(t *testing.T) {
 	t.Parallel()
-	testApp, err := tests.NewTestApp(tmplDataDir)
-	require.NoError(t, err)
-	t.Cleanup(testApp.Cleanup)
+	testApp := testapp.New(t)
 
 	testApp.Settings().SMTP.Enabled = true
 	testApp.Settings().SMTP.Host = "smtp.test.local"

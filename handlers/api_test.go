@@ -14,6 +14,7 @@ import (
 func TestLoginPage(t *testing.T) {
 	t.Parallel()
 	scenario := tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /login returns login page",
 		Method:          http.MethodGet,
 		URL:             "/login",
@@ -27,6 +28,7 @@ func TestLoginPage(t *testing.T) {
 func TestLoginWrongCreds(t *testing.T) {
 	t.Parallel()
 	scenario := tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "POST /login with wrong creds shows error",
 		Method:          http.MethodPost,
 		URL:             "/login",
@@ -42,6 +44,7 @@ func TestLoginWrongCreds(t *testing.T) {
 func TestRegisterPage(t *testing.T) {
 	t.Parallel()
 	scenario := tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /register returns register page",
 		Method:          http.MethodGet,
 		URL:             "/register",
@@ -55,10 +58,11 @@ func TestRegisterPage(t *testing.T) {
 func TestLoginValidCreds(t *testing.T) {
 	t.Parallel()
 	scenario := tests.ApiScenario{
-		Name:   "POST /login with valid creds redirects to home",
-		Method: http.MethodPost,
-		URL:    "/login",
-		Body:   strings.NewReader("email=testlogin@test.local&password=testpass123456"),
+		TestAppFactory: testAppFactory,
+		Name:           "POST /login with valid creds redirects to home",
+		Method:         http.MethodPost,
+		URL:            "/login",
+		Body:           strings.NewReader("email=testlogin@test.local&password=testpass123456"),
 		Headers: map[string]string{
 			"Content-Type": "application/x-www-form-urlencoded",
 		},
@@ -77,6 +81,7 @@ func TestLoginValidCreds(t *testing.T) {
 func TestHomeWithoutAuth(t *testing.T) {
 	t.Parallel()
 	scenario := tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "GET / without auth redirects to login",
 		Method:         http.MethodGet,
 		URL:            "/",
