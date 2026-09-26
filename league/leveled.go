@@ -604,6 +604,7 @@ func (svc *Service) GenerateInitialAssignments(txApp core.App, comp *core.Record
 		return 0, err
 	}
 
+	st.warnRematch(comp)
 	pairings := plan(svc, st)
 	if err := createMatchRecords(txApp, comp, pairings, now); err != nil {
 		return 0, err
@@ -650,6 +651,7 @@ func (svc *Service) TopUpAssignments(compID string, now time.Time, avoid ...Pair
 		return nil, err
 	}
 
+	st.warnRematch(comp)
 	pairings := plan(svc, st)
 	if len(pairings) == 0 {
 		return nil, nil
@@ -753,21 +755,27 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now tim
 		loc:      Timezone(app),
 		avoid:    avoidSet,
 	}
-	st.detectRematch(comp)
+	st.detectRematch()
 	return st, nil
 }
 
 // detectRematch switches the run to rematch mode when no exact completion
 // exists for the active roster.
-func (st *leveledState) detectRematch(comp *core.Record) {
+func (st *leveledState) detectRematch() {
 	fs := buildFactorState(st)
-	if ffactor(fs.need, fs.avail) {
+	st.rematch = !ffactor(fs.need, fs.avail)
+}
+
+// warnRematch logs once per assignment run that rematch mode is active.
+// Kept out of buildLeveledState so read-only callers (LeveledShortfall on
+// every admin page view) do not spam the log.
+func (st *leveledState) warnRematch(comp *core.Record) {
+	if !st.rematch {
 		return
 	}
-	st.rematch = true
 	slog.Warn("leveled: no exact completion left, rematch mode",
 		"competition", comp.Id, "name", comp.GetString("name"),
-		"shortfall_matches", shortfallMatches(fs.need))
+		"shortfall_matches", shortfallMatches(buildFactorState(st).need))
 }
 
 // Shortfall describes matches a leveled competition can no longer schedule
