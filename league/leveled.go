@@ -469,10 +469,19 @@ func (svc *Service) GenerateInitialAssignments(txApp core.App, comp *core.Record
 
 // TopUpAssignments creates new pending matches for pairs that need them. Called
 // after a match becomes final, after a pending match is deleted, and by the
-// daily cron. avoid marks pairs as met for this run only (so a just-deleted
-// pairing is not immediately recreated). Returns nil, nil for a missing
-// competition (not an error — the competition may have been deleted).
+// daily cron — so concurrent calls for the same competition are expected
+// (two matches finalizing at once each trigger their own call); the whole
+// read-plan-save sequence is serialized per competition to prevent two
+// calls from independently reading the same stale state and each topping a
+// pair up past `open`, or creating the same pairing twice. avoid marks
+// pairs as met for this run only (so a just-deleted pairing is not
+// immediately recreated). Returns nil, nil for a missing competition (not
+// an error — the competition may have been deleted).
 func (svc *Service) TopUpAssignments(compID string, now time.Time, avoid ...Pairing) ([]*core.Record, error) {
+	lock := svc.lockTopUp(compID)
+	lock.Lock()
+	defer lock.Unlock()
+
 	comp, err := svc.app.FindRecordById("competitions", compID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
