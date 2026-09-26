@@ -58,6 +58,7 @@ type leveledState struct {
 	start    time.Time               // competition start_date, zero if unset
 	end      time.Time               // competition end_date, zero if unset
 	now      time.Time
+	loc      *time.Location // league display timezone; today's Jornada is computed in this zone
 }
 
 func (st *leveledState) load(p string) int {
@@ -371,36 +372,54 @@ func (st *leveledState) markHome(p string) {
 
 // currentWindow returns the calendar Jornada the competition is in right now.
 func (st *leveledState) currentWindow() int {
-	return currentWindowFor(st.start, st.end, st.target, st.now)
+	return currentWindowFor(season{st.start, st.end, st.target}, st.now, st.loc)
 }
 
 // CurrentWindow returns the calendar Jornada a leveled competition is in
-// right now: floor((now−start)/u)+1, clamped to [1, target_matches]. Returns
-// 1 when there is no usable window (missing dates, zero target, or now
-// before start) — the ordinary case where the season hasn't started yet.
-func CurrentWindow(comp *core.Record, now time.Time) int {
-	return currentWindowFor(
-		comp.GetDateTime("start_date").Time(),
-		comp.GetDateTime("end_date").Time(),
-		comp.GetInt("target_matches"),
-		now,
-	)
+// right now: floor(i·T/D)+1 where i is the day offset of today (in the
+// league's display timezone) from start_date, clamped to [1,
+// target_matches]. Returns 1 when there is no usable window (missing dates,
+// zero target, or today before start) — the ordinary case where the season
+// hasn't started yet.
+func CurrentWindow(comp *core.Record, now time.Time, app core.App) int {
+	s := season{
+		start:  comp.GetDateTime("start_date").Time(),
+		end:    comp.GetDateTime("end_date").Time(),
+		target: comp.GetInt("target_matches"),
+	}
+	return currentWindowFor(s, now, Timezone(app))
+}
+
+// season is a leveled competition's play window and Jornada count — the
+// three inputs JornadaWindow's day-offset partition is computed from.
+type season struct {
+	start, end time.Time
+	target     int
 }
 
 // currentWindowFor returns the Jornada containing now, using the same
 // whole-day partition as JornadaWindow: with i the calendar-day offset of
-// now from start and D the inclusive day count, window = floor(i·T/D)+1.
-// Returns 1 when there is no usable window (missing dates, zero target, or
-// now before start); clamps to target once now reaches or passes end.
-func currentWindowFor(start, end time.Time, target int, now time.Time) int {
-	if start.IsZero() || end.IsZero() || target <= 0 || !now.After(start) {
+// today (now, read in loc) from s.start and D the inclusive day count,
+// window = floor(i·T/D)+1. now is converted to loc's calendar date before
+// any comparison, so a moment past midnight UTC but still "yesterday" in loc
+// (e.g. 00:30 in a timezone east of UTC) is not miscounted into the next
+// Jornada. Returns 1 when there is no usable window (missing dates, zero
+// target, or today before start); clamps to target once today reaches or
+// passes end.
+func currentWindowFor(s season, now time.Time, loc *time.Location) int {
+	start, end, target := s.start, s.end, s.target
+	if start.IsZero() || end.IsZero() || target <= 0 {
+		return 1
+	}
+	today := calendarDay(now, loc)
+	if !today.After(start) {
 		return 1
 	}
 	days := SeasonDays(start, end)
 	if days <= 0 {
 		return 1
 	}
-	i := clampInt(daysBetween(start, now), 0, days-1)
+	i := clampInt(daysBetween(start, today), 0, days-1)
 	cur := i*target/days + 1
 	return clampInt(cur, 1, target)
 }
@@ -586,6 +605,7 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now tim
 		start:    comp.GetDateTime("start_date").Time(),
 		end:      comp.GetDateTime("end_date").Time(),
 		now:      now,
+		loc:      Timezone(app),
 	}, nil
 }
 

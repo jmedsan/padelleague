@@ -399,7 +399,7 @@ func TestGenerateFlashMessage(t *testing.T) {
 
 	t.Run("round-robin: plain message", func(t *testing.T) {
 		comp := makeCompetitionTB(t, app, "league", pairs[:2])
-		assert.Equal(t, "Calendario generado", generateFlashMessage(comp))
+		assert.Equal(t, "Calendario generado", generateFlashMessage(comp, app))
 	})
 
 	t.Run("leveled, generated before the season starts: plain message", func(t *testing.T) {
@@ -408,21 +408,23 @@ func TestGenerateFlashMessage(t *testing.T) {
 		comp.Set("start_date", time.Now().Add(24*time.Hour).Format(time.RFC3339))
 		comp.Set("end_date", time.Now().Add(80*24*time.Hour).Format(time.RFC3339))
 		require.NoError(t, app.Save(comp))
-		assert.Equal(t, "Calendario generado", generateFlashMessage(comp))
+		assert.Equal(t, "Calendario generado", generateFlashMessage(comp, app))
 	})
 
 	t.Run("leveled, generated after Jornada 1 closed: appends the Jornada note", func(t *testing.T) {
 		comp := makeCompetitionTB(t, app, "league", pairs) // 12 pairs, target 10 < 11 → leveled
 		comp.Set("target_matches", 10)
-		start := time.Now().Add(-8 * 24 * time.Hour)
+		// day-aligned: start=day0, end=day69 (70 inclusive days) → 10 even
+		// 7-day Jornadas; today=day8 opens J2 ([7,13]) → cur=2.
+		start := time.Now().AddDate(0, 0, -8)
+		sy, sm, sd := start.UTC().Date()
+		start = time.Date(sy, sm, sd, 0, 0, 0, 0, time.UTC)
 		comp.Set("start_date", start.Format(time.RFC3339))
-		// end_date is inclusive, so a 70-day-later end is a 71-day window:
-		// u = 71/10 = 7.1d. now is 8 real days past start → cur=2.
-		comp.Set("end_date", start.Add(70*24*time.Hour).Format(time.RFC3339))
+		comp.Set("end_date", start.AddDate(0, 0, 69).Format(time.RFC3339))
 		require.NoError(t, app.Save(comp))
 		assert.Equal(t,
 			"Calendario generado. La jornada 1 ya ha terminado; los partidos se asignan desde la jornada 2.",
-			generateFlashMessage(comp))
+			generateFlashMessage(comp, app))
 	})
 }
 

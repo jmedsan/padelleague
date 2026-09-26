@@ -1423,14 +1423,38 @@ func TestCurrentWindowFor_NonMultipleSeason(t *testing.T) {
 	start := time.Date(2036, 9, 29, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2036, 12, 10, 0, 0, 0, 0, time.UTC)
 	target := 10
+	s := season{start, end, target}
 	for n := 1; n <= target; n++ {
 		lo, hi := JornadaWindow(start, end, target, n)
-		assert.Equal(t, n, currentWindowFor(start, end, target, lo),
+		assert.Equal(t, n, currentWindowFor(s, lo, time.UTC),
 			"Jornada %d's first day must resolve to window %d", n, n)
-		assert.Equal(t, n, currentWindowFor(start, end, target, hi),
+		assert.Equal(t, n, currentWindowFor(s, hi, time.UTC),
 			"Jornada %d's last day (its deadline) must still resolve to window %d, not %d",
 			n, n, n+1)
 	}
+}
+
+// TestCurrentWindowFor_TimezoneBoundary pins the exact regression the owner
+// flagged: at 00:30 Europe/Madrid the UTC calendar date is still "yesterday"
+// (CET is UTC+1), so a naive UTC-only day count would place a Jornada's very
+// first moment in the *previous* Jornada — reporting a brand-new match as
+// already overdue. 70-day/target=10 season → 7-day Jornadas; Jornada 2
+// starts Jan 8. 00:30 Madrid on Jan 8 is 23:30 UTC on Jan 7, so the naive
+// (UTC) day offset is 6 (still J1) while the Madrid-aware day offset is 7
+// (correctly J2).
+func TestCurrentWindowFor_TimezoneBoundary(t *testing.T) {
+	madrid, err := time.LoadLocation("Europe/Madrid")
+	require.NoError(t, err)
+
+	start := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(0, 0, 69) // 70 inclusive days
+	s := season{start, end, 10}
+	now := time.Date(2027, 1, 8, 0, 30, 0, 0, madrid) // Jornada 2's first day, 00:30 local
+
+	assert.Equal(t, 1, currentWindowFor(s, now, time.UTC),
+		"naive UTC day count sees 23:30 on Jan 7 → still Jornada 1 (the bug)")
+	assert.Equal(t, 2, currentWindowFor(s, now, madrid),
+		"Madrid-aware day count sees 00:30 on Jan 8 → correctly Jornada 2")
 }
 
 func TestSlotCap(t *testing.T) {

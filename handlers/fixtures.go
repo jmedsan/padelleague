@@ -82,7 +82,7 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 		CompetitionID: compID, ActorID: e.Auth.Id, Kind: "fixtures_generated", Detail: "generó el calendario",
 	})
 
-	flash(e, generateFlashMessage(comp))
+	flash(e, generateFlashMessage(comp, h.app))
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
@@ -90,12 +90,12 @@ func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 // league generated after its season already started, it appends a note
 // telling the admin which Jornada the initial batch actually landed in —
 // otherwise a late admin would see "Jornada 1" missing with no explanation.
-func generateFlashMessage(comp *core.Record) string {
+func generateFlashMessage(comp *core.Record, app core.App) string {
 	msg := "Calendario generado"
 	if !league.IsLeveled(comp) {
 		return msg
 	}
-	if cur := league.CurrentWindow(comp, time.Now()); cur > 1 {
+	if cur := league.CurrentWindow(comp, time.Now(), app); cur > 1 {
 		msg += fmt.Sprintf(". La jornada 1 ya ha terminado; los partidos se asignan desde la jornada %d.", cur)
 	}
 	return msg
