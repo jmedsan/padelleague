@@ -12,6 +12,8 @@ import (
 	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/league"
 )
 
 func TestIsInviteExpired_Expired(t *testing.T) {
@@ -233,10 +235,12 @@ func TestRegisterSubmit_SingleUse_Count0_Succeeds(t *testing.T) {
 		URL:            "/register",
 		ExpectedStatus: 302,
 	}
-	var invID string
+	var invID, adminID string
 	var usersBefore int
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		adminID = admin.Id
 		inv := makeInviteWithUses(tb, app, 1, 0)
 		invID = inv.Id
 		usersBefore = countUsers(tb, app)
@@ -252,6 +256,15 @@ func TestRegisterSubmit_SingleUse_Count0_Succeeds(t *testing.T) {
 		inv, err := app.FindRecordById("invitations", invID)
 		require.NoError(tb, err)
 		assert.Equal(tb, 1, int(inv.GetFloat("use_count")), "use_count must be exactly 1")
+
+		// Admin is notified of the new registration.
+		want := league.Notification{
+			Type:  "user_joined",
+			Title: "Nuevo jugador registrado",
+			Body:  "New User se ha registrado en la liga.",
+			Link:  "/admin/players",
+		}
+		assertNotified(tb, app, adminID, want)
 	}
 	s.Test(t)
 }
