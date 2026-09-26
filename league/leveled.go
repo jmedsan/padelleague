@@ -125,9 +125,11 @@ type candidate struct {
 
 // chooseOpponentForRound returns the best eligible opponent for p within
 // round k, or "" if none exists. Candidates inside the comfort zone are
-// shuffled (random order); candidates outside are sorted nearest-first, then
-// by lower load, then by better position. The first candidate that passes
-// the completion check wins.
+// shuffled for tie-breaking, then stably sorted by lower load first, so an
+// equal-Elo pair with fewer pending matches is preferred and ties are still
+// random; candidates outside are sorted nearest-first, then by lower load,
+// then by better position. The first candidate that passes the completion
+// check wins.
 func (svc *Service) chooseOpponentForRound(st *leveledState, p string, k int) string {
 	inside, outside := svc.collectCandidatesForRound(st, p, k)
 
@@ -143,13 +145,13 @@ func (svc *Service) chooseOpponentForRound(st *leveledState, p string, k int) st
 	return firstCompletable(p, outside, ctx)
 }
 
-// collectCandidatesForRound builds the inside-zone (shuffled) and
-// outside-zone (sorted) candidate lists for p, restricted to opponents that
-// have no existing match in round k. Below the last Jornada (k < target) a
-// pair with a match already in round k is excluded up front, before the
-// comfort-zone split — otherwise an occupied pair could dominate the zone
-// order and starve an available one. Distance is the absolute Elo gap
-// (rather than a rank-position difference), so pairs tied on Elo — most
+// collectCandidatesForRound builds the inside-zone (shuffled, then sorted by
+// load) and outside-zone (sorted) candidate lists for p, restricted to
+// opponents that have no existing match in round k. Below the last Jornada
+// (k < target) a pair with a match already in round k is excluded up front,
+// before the comfort-zone split — otherwise an occupied pair could dominate
+// the zone order and starve an available one. Distance is the absolute Elo
+// gap (rather than a rank-position difference), so pairs tied on Elo — most
 // visibly the four unranked pairs, all seeded at 0 — are genuinely
 // equidistant instead of ordered apart by name.
 func (svc *Service) collectCandidatesForRound(st *leveledState, p string, k int) (inside, outside []candidate) {
@@ -170,6 +172,7 @@ func (svc *Service) collectCandidatesForRound(st *leveledState, p string, k int)
 		}
 	}
 	svc.shuffle(len(inside), func(i, j int) { inside[i], inside[j] = inside[j], inside[i] })
+	sort.SliceStable(inside, func(i, j int) bool { return inside[i].load < inside[j].load })
 	sort.Slice(outside, func(i, j int) bool {
 		a, b := outside[i], outside[j]
 		if a.dist != b.dist {

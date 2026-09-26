@@ -202,6 +202,35 @@ func TestChooser_RandomInsideZone(t *testing.T) {
 	assert.Equal(t, "C", got2, "reversed shuffle should pick last in-zone candidate")
 }
 
+// TestChooser_InsideZonePrefersLowerLoad verifies the load tiebreak the
+// oracle's audit added: two equal-Elo in-zone candidates must be tried
+// least-loaded first, even when the shuffle order says otherwise — an
+// equal-Elo pair sitting at pending=3 should never be chosen ahead of one at
+// pending=1 just because the shuffle happened to put it first.
+func TestChooser_InsideZonePrefersLowerLoad(t *testing.T) {
+	// 4 pairs at Elo 0,1,2,3. Requester A (Elo 0). comfort=2 → zone: B(1), C(2).
+	// B is more loaded (pending=3) than C (pending=1).
+	st := &leveledState{
+		target:   10,
+		open:     4,
+		comfort:  2,
+		pairs:    []string{"A", "B", "C", "D"},
+		elo:      map[string]float64{"A": 0, "B": 1, "C": 2, "D": 3},
+		met:      map[string]map[string]struct{}{"A": {}, "B": {}, "C": {}, "D": {}},
+		played:   map[string]int{"A": 0, "B": 0, "C": 0, "D": 0},
+		pending:  map[string]int{"A": 0, "B": 3, "C": 1, "D": 0},
+		position: map[string]int{"A": 0, "B": 1, "C": 2, "D": 3},
+		occupied: map[string]map[int]bool{"A": {}, "B": {}, "C": {}, "D": {}},
+	}
+
+	// Identity shuffle keeps iteration order [B, C] — B (more loaded) would
+	// be tried first if load were not applied after the shuffle.
+	identityShuffle := func(_ int, _ func(int, int)) {}
+	svc := &Service{shuffle: identityShuffle}
+	got := svc.chooseOpponentForRound(st, "A", 1)
+	assert.Equal(t, "C", got, "least-loaded in-zone candidate (C, pending=1) must be tried before the more-loaded one (B, pending=3), regardless of shuffle order")
+}
+
 // -- TestChooser_NearestOutsideZone -----------------------------------------
 
 func TestChooser_NearestOutsideZone(t *testing.T) {
