@@ -232,8 +232,9 @@ test.describe('reference navigation tour', () => {
     // Calendars are draft-only until published — a player can't see or act
     // on any match before this (handlers/respond.go matchVisibleTo), and the
     // propose/accept flow below logs in as real players.
-    await page.locator('button:has-text("Publicar calendario")').click();
-    await page.waitForLoadState('domcontentloaded');
+    // Publish redirects via HX-Redirect; wait for that navigation to land or
+    // the reload in markAllPairsPaid races it (net::ERR_ABORTED).
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'));
 
     // A pair can't play without paying — mark all pairs paid.
     await markAllPairsPaid(page);
