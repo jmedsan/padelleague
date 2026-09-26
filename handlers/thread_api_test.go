@@ -137,6 +137,7 @@ func TestThreadPostProposal(t *testing.T) {
 		assert.Equal(tb, 1, len(msgs))
 		assert.Equal(tb, "pending", msgs[0].GetString("proposal_status"))
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
@@ -180,6 +181,7 @@ func TestThreadRespondProposal(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "accepted", msg.GetString("proposal_status"))
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
@@ -225,6 +227,7 @@ func TestThreadRespondProposalReject(t *testing.T) {
 		assert.Equal(tb, "No puedo", msg.GetString("rejection_reason"))
 		assert.Equal(tb, "Tengo trabajo", msg.GetString("rejection_text"))
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 

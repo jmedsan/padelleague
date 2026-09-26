@@ -45,6 +45,7 @@ func TestDisputeResolveAutoWinnerPair2(t *testing.T) {
 		assert.Equal(tb, "3-6 4-6", m.GetString("scores"))
 		assert.Equal(tb, p2ID, m.GetString("winner"))
 	}
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + matchCompetitionID(app, s.URL) })
 	s.Test(t)
 }
 
@@ -117,6 +118,7 @@ func TestDisputeResolveAutoWinner(t *testing.T) {
 		assert.Equal(tb, "final", m.GetString("status"))
 		assert.Equal(tb, p1ID, m.GetString("winner"))
 	}
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + matchCompetitionID(app, s.URL) })
 	s.Test(t)
 }
 
@@ -156,6 +158,7 @@ func TestReportUnplayed(t *testing.T) {
 		assert.Empty(tb, m.GetString("winner"), "reporting unplayed must not declare a winner")
 		assert.Empty(tb, m.GetString("scores"), "reporting unplayed must not set a score")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -180,6 +183,7 @@ func TestReportUnplayed_Idempotent(t *testing.T) {
 		s.URL = "/match/" + match.Id + "/report-unplayed"
 		s.Headers = authHeaders(tb, user)
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
@@ -277,6 +281,7 @@ func TestWalkoverApprove(t *testing.T) {
 		assert.Equal(tb, "Incomparecencia aprobada", rows[0].GetString("reason"))
 		assert.NotEmpty(tb, rows[0].GetString("applied_by"), "walkover penalty must record approving admin")
 	}
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + matchCompetitionID(app, s.URL) })
 	s.Test(t)
 }
 
@@ -321,6 +326,7 @@ func TestWalkoverApprove_ZeroPenalty_NoPenaltyApplied(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Empty(tb, rows, "no penalty entry must be recorded when default_penalty is 0")
 	}
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + matchCompetitionID(app, s.URL) })
 	s.Test(t)
 }
 

@@ -86,6 +86,7 @@ func TestCompUpdate(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "Updated", c.GetString("name"))
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -117,6 +118,7 @@ func TestCompCreateSchedulingFields(t *testing.T) {
 		assert.Equal(tb, "6-1 6-1", c.GetString("walkover_score"))
 		assert.Equal(tb, 7.0, c.GetFloat("default_penalty"))
 	}
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestRecordID(app, "competitions") })
 	s.Test(t)
 }
 
@@ -146,6 +148,7 @@ func TestCompCreateSchedulingDefaults(t *testing.T) {
 		assert.Equal(tb, "6-0 6-0", c.GetString("walkover_score"))
 		assert.Equal(tb, 3.0, c.GetFloat("default_penalty"))
 	}
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestRecordID(app, "competitions") })
 	s.Test(t)
 }
 
@@ -178,6 +181,7 @@ func TestCompUpdateSchedulingFields(t *testing.T) {
 		assert.Equal(tb, "6-2 6-2", c.GetString("walkover_score"))
 		assert.Equal(tb, 4.0, c.GetFloat("default_penalty"))
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -246,6 +250,7 @@ func TestCompToggle(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, false, c.GetBool("active"))
 	}
+	expectRedirect(s, redirectTo("/admin/competitions"))
 	s.Test(t)
 }
 
@@ -277,6 +282,7 @@ func TestCompAddPair(t *testing.T) {
 		pairs := c.GetStringSlice("pairs")
 		assert.Contains(tb, pairs, pairID)
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -308,6 +314,7 @@ func TestCompRemovePair(t *testing.T) {
 		pairs := c.GetStringSlice("pairs")
 		assert.NotContains(tb, pairs, pairID)
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -376,6 +383,7 @@ func TestCompTogglePayment(t *testing.T) {
 		require.NoError(tb, json.Unmarshal(b, &status))
 		assert.Equal(tb, true, status[pairID], "pair must be marked as paid")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -412,6 +420,7 @@ func TestCompTogglePaymentStampsActorAndDate(t *testing.T) {
 		assert.NotEmpty(tb, paidAt[pairID], "payment_paid_at must be stamped")
 		assert.Equal(tb, adminID, paidBy[pairID], "payment_paid_by must record the acting admin")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -461,6 +470,7 @@ func TestCompTogglePaymentUnpaidKeepsStaleStamp(t *testing.T) {
 		assert.Equal(tb, "2026-01-01T00:00:00Z", paidAt[pairID], "stamp is not cleared on unpaid (current behavior)")
 		assert.Equal(tb, priorAdminID, paidBy[pairID], "stamp is not cleared on unpaid (current behavior)")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -495,6 +505,7 @@ func TestCompApplyPenalty(t *testing.T) {
 		assert.Equal(tb, 3.0, rows[0].GetFloat("amount"), "default penalty must be 3")
 		assert.Equal(tb, "Prueba", rows[0].GetString("reason"))
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -616,6 +627,7 @@ func TestCompAddPairGenderAccepted(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Contains(tb, c.GetStringSlice("pairs"), pairID)
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -649,6 +661,7 @@ func TestCompRemovePairCleansUpMetadata(t *testing.T) {
 		assert.NotContains(tb, c.GetStringSlice("pairs"), pairID)
 		assert.Contains(tb, c.GetStringSlice("pairs"), p2ID, "other pair must remain")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -688,6 +701,7 @@ func TestCompGenerateFixtures(t *testing.T) {
 		assert.Greater(tb, comp.GetInt("rounds"), 0, "GenerateFixtures must persist rounds")
 		assert.NotEmpty(tb, comp.GetString("round_arrange_dates"), "GenerateFixtures must persist round schedule")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -728,6 +742,7 @@ func TestCompGenerateFixtures_DraftModeNoNotification(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Len(tb, events, 1, "generation must log a fixtures_generated competition_event")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -760,6 +775,7 @@ func TestCompRegenerateFixtures_PublishedGoesBackToDraft(t *testing.T) {
 		assert.Equal(tb, "draft", comp.GetString("calendar_status"),
 			"regenerating a published calendar must revert it to draft")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -826,6 +842,7 @@ func TestGeneratePlayoffWithByes(t *testing.T) {
 			}
 		}
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -860,6 +877,7 @@ func TestDisputeResolve(t *testing.T) {
 		assert.Equal(tb, "6-3 6-4", m.GetString("scores"))
 		assert.Equal(tb, p1ID, m.GetString("winner"))
 	}
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + matchCompetitionID(app, s.URL) })
 	s.Test(t)
 }
 
@@ -964,6 +982,7 @@ func TestPairsUpdateAllowsNonOverlapping(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
+	expectRedirect(s, redirectTo("/admin/pairs"))
 	s.Test(t)
 }
 
@@ -1016,6 +1035,7 @@ func TestWithdrawPairPreScoreOnly(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Contains(tb, comp.GetStringSlice("withdrawn_pairs"), pairID)
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -1045,6 +1065,7 @@ func TestLeveledFieldsPersistOnCreate(t *testing.T) {
 		assert.Equal(tb, 4, comps[0].GetInt("target_matches"))
 		assert.Equal(tb, 2, comps[0].GetInt("open_assignments"))
 	}
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestRecordID(app, "competitions") })
 	s.Test(t)
 }
 
@@ -1074,6 +1095,7 @@ func TestLeveledFieldsPersistOnUpdate(t *testing.T) {
 		assert.Equal(tb, 3, c.GetInt("target_matches"))
 		assert.Equal(tb, 2, c.GetInt("open_assignments"))
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -1118,6 +1140,7 @@ func TestUpdateCompetition_KeepsTargetMatchesWhenFixturesExist(t *testing.T) {
 		assert.Equal(tb, "RenamedWithFixtures", c.GetString("name"))
 		assert.Equal(tb, 10, c.GetInt("target_matches"), "target_matches must survive an edit once fixtures exist")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -1145,6 +1168,7 @@ func TestLeveledFieldsEmptyDefaultsToZero(t *testing.T) {
 		assert.Equal(tb, 0, comps[0].GetInt("target_matches"))
 		assert.Equal(tb, 0, comps[0].GetInt("open_assignments"))
 	}
+	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestRecordID(app, "competitions") })
 	s.Test(t)
 }
 
@@ -1292,6 +1316,7 @@ func TestRoundRobinDefaultMatchCount(t *testing.T) {
 		expected := n * (n - 1) / 2
 		assert.Equal(tb, expected, len(matches), "round-robin: n*(n-1)/2 matches")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -1322,6 +1347,7 @@ func TestSetPairLevel(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "advanced", p.GetString("level"))
 	}
+	expectRedirect(s, redirectTo("/admin/pairs"))
 	s.Test(t)
 }
 
@@ -1390,6 +1416,7 @@ func TestToggleBalls(t *testing.T) {
 		require.NoError(tb, c.UnmarshalJSONField("balls_delivered_by", &by))
 		assert.Equal(tb, adminID, by[pairID])
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -1424,6 +1451,7 @@ func TestToggleBallsAll(t *testing.T) {
 		assert.True(tb, status[p1ID])
 		assert.True(tb, status[p2ID])
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -1466,5 +1494,6 @@ func TestRemovePair_ClearsBolas(t *testing.T) {
 		_, atThere := at[p1ID]
 		assert.False(tb, atThere, "removed pair must not remain in balls_delivered_at")
 	}
+	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }

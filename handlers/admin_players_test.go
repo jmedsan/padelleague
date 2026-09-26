@@ -141,6 +141,7 @@ func TestPlayerUpdateEmptyRolesDefaultsToPlayer(t *testing.T) {
 		assert.Contains(tb, p.GetStringSlice("roles"), "player",
 			"roles must default to player when none submitted")
 	}
+	expectRedirect(s, redirectTo("/admin/players"))
 	s.Test(t)
 }
 
@@ -174,6 +175,7 @@ func TestPlayerUpdateRoleChangeNotifies(t *testing.T) {
 		require.Len(tb, notifs, 1, "role change must notify the player")
 		assert.Equal(tb, "Cambio de rol", notifs[0].GetString("title"))
 	}
+	expectRedirect(s, redirectTo("/admin/players"))
 	s.Test(t)
 }
 
@@ -205,6 +207,7 @@ func TestPlayerUpdateSameRolesNoNotification(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Empty(tb, notifs, "no notification when roles resubmitted unchanged")
 	}
+	expectRedirect(s, redirectTo("/admin/players"))
 	s.Test(t)
 }
 

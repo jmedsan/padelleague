@@ -245,6 +245,7 @@ func TestNotificationPrefsSave_NewTypesPersistOff(t *testing.T) {
 		assert.Equal(tb, false, prefs["penalty"])
 		assert.Equal(tb, false, prefs["payment"])
 	}
+	expectRedirect(s, redirectTo("/profile/notifications"))
 	s.Test(t)
 }
 
@@ -341,6 +342,7 @@ func TestNotificationPrefsSave_UnverifiedEmailTogglePreservesExistingValue(t *te
 		prefs := notify.NotificationPrefs(user)
 		assert.Equal(tb, false, prefs["email"], "the omitted disabled field must not be silently flipped to true")
 	}
+	expectRedirect(s, redirectTo("/profile/notifications"))
 	s.Test(t)
 }
 
@@ -369,6 +371,7 @@ func TestNotificationPrefsSave_VerifiedUserCanToggleEmailOff(t *testing.T) {
 		prefs := notify.NotificationPrefs(user)
 		assert.Equal(tb, false, prefs["email"], "verified user's unchecked email box must be honored")
 	}
+	expectRedirect(s, redirectTo("/profile/notifications"))
 	s.Test(t)
 }
 
@@ -403,6 +406,7 @@ func TestNotificationPrefsSave_NonAdminPreservesAdminPrefs(t *testing.T) {
 		assert.Equal(tb, true, prefs["user_joined"], "non-admin must not reset user_joined")
 		assert.Equal(tb, true, prefs["match_progress"], "non-admin must not reset match_progress")
 	}
+	expectRedirect(s, redirectTo("/profile/notifications"))
 	s.Test(t)
 }
 
@@ -435,6 +439,7 @@ func TestPushSubscribeHTTPS(t *testing.T) {
 		assert.Equal(tb, "key1", subs[0].GetString("p256dh"))
 		assert.Equal(tb, "key2", subs[0].GetString("auth"))
 	}
+	expectRedirect(s, redirectTo(""))
 	s.Test(t)
 }
 
@@ -494,5 +499,6 @@ func TestPushUnsubscribe(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, 0, len(subs), "subscription must be deleted")
 	}
+	expectRedirect(s, redirectTo(""))
 	s.Test(t)
 }

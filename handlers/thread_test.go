@@ -313,6 +313,7 @@ func TestPostMessageClampsType(t *testing.T) {
 				require.Len(tb, msgs, 1)
 				assert.Equal(tb, tc.want, msgs[0].GetString("type"))
 			}
+			expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "#mensajes" })
 			s.Test(t)
 		})
 	}
@@ -398,6 +399,7 @@ func TestAcceptProposalSupersedesOthers(t *testing.T) {
 				"no admin notification expected when supersede succeeds")
 		}
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
@@ -475,6 +477,7 @@ func TestAcceptProposalSupersedeFailureNotifiesAdmin(t *testing.T) {
 		assert.GreaterOrEqual(tb, len(adminNotifs), 1,
 			"admin must receive a notification about the supersede failure")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
@@ -527,6 +530,7 @@ func TestAcceptProposalOnlySupersedesPending(t *testing.T) {
 		assert.Equal(tb, "rejected", rejected.GetString("proposal_status"),
 			"already-rejected proposal must not change status")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
@@ -573,6 +577,7 @@ func TestRejectProposalCreatesSchedulingResponse(t *testing.T) {
 		assert.Equal(tb, "No puedo ese día", responses[0].GetString("rejection_text"),
 			"the response entry itself must carry the note shown in the timeline")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
@@ -656,6 +661,7 @@ func TestWithdrawProposal_AuthorWithdraws(t *testing.T) {
 		require.Len(tb, responses, 1, "withdraw must create a timeline entry")
 		assert.Contains(tb, responses[0].GetString("content"), "retiró su propuesta")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
@@ -774,6 +780,7 @@ func TestWithdrawProposal_PartnerWithdraws(t *testing.T) {
 		require.Len(tb, responses, 1, "withdraw must create a timeline entry")
 		assert.Contains(tb, responses[0].GetString("content"), "retiró su propuesta")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
@@ -1068,6 +1075,7 @@ func TestAcceptProposal_SetsStatusScheduled(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, league.StatusScheduled, match.GetString("status"))
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
@@ -1102,6 +1110,7 @@ func TestAcceptProposal_ClearsMatchReminders(t *testing.T) {
 		rows, _ := app.FindRecordsByFilter("match_reminders", "match = {:mid}", "", 0, 0, map[string]any{"mid": matchID})
 		assert.Empty(tb, rows, "accepting a new date must clear stale match reminders")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
@@ -1144,6 +1153,7 @@ func TestReschedule_SupersedesOldAccepted(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, league.StatusScheduled, match.GetString("status"))
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
@@ -1169,6 +1179,7 @@ func TestScheduledMatch_AllowsNewProposal(t *testing.T) {
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
@@ -1202,6 +1213,7 @@ func TestPostMessage_AdminNonParticipant_Succeeds(t *testing.T) {
 		require.Len(tb, msgs, 1)
 		assert.Equal(tb, "Mensaje del admin", msgs[0].GetString("content"))
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "#mensajes" })
 	s.Test(t)
 }
 
@@ -1295,6 +1307,7 @@ func TestPostMessage_AdminNotifiesBothPairs(t *testing.T) {
 		assert.True(tb, notifiedUsers[p2Player1], "pair2 player1 should be notified")
 		assert.True(tb, notifiedUsers[p2Player2], "pair2 player2 should be notified")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "#mensajes" })
 	s.Test(t)
 }
 
@@ -1353,6 +1366,7 @@ func TestFinalMatchThreadAcceptsPost(t *testing.T) {
 			hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 			s.Headers = hdrs
 		}
+		expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "#mensajes" })
 		s.Test(t)
 	})
 }
@@ -1570,6 +1584,7 @@ func TestAcceptResultProposalFinalizesMatch(t *testing.T) {
 		require.Len(tb, responses, 1, "one result_response must exist")
 		assert.Equal(tb, proposalID, responses[0].GetString("parent"), "response must reference the proposal")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
@@ -1624,6 +1639,7 @@ func TestAcceptResultSupersedesSiblings(t *testing.T) {
 			"", 0, 0, map[string]any{"mid": matchID})
 		assert.Empty(tb, remaining, "zero pending result proposals must remain after accept")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
@@ -1713,6 +1729,7 @@ func TestRejectResultProposalRequiresCounter(t *testing.T) {
 			assert.NotEmpty(tb, notifs, "proposer pair member %s must be notified of counter-proposal", uid)
 		}
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
 
@@ -2011,5 +2028,6 @@ func TestRejectAndCounterPropose_ValidDateRejectsAndCreatesNew(t *testing.T) {
 		require.Len(tb, newProps, 1, "one new pending proposal must be created")
 		assert.NotEqual(tb, propID, newProps[0].Id, "new proposal must be a different record")
 	}
+	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
 }
