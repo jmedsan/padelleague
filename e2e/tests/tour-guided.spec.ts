@@ -1,5 +1,5 @@
 import { test, expect, Page, APIRequestContext } from '@playwright/test';
-import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import {
   setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,
   computeExpected, PlannedMatch, PairId,
@@ -226,6 +226,14 @@ test.describe('guided navigation tour', () => {
       await addPairToCompetition(page, pairId);
     }
     await generateFixtures(page);
+
+    // Draft-only until published — matchVisibleTo (handlers/respond.go) and
+    // competitionStandings (handlers/public_competition.go) both reject any
+    // non-admin viewer of an unpublished calendar, and Phase 2 below logs in
+    // as real players.
+    await page.locator('button:has-text("Publicar calendario")').click();
+    await page.waitForLoadState('domcontentloaded');
+
     const startDate = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
     const endDate = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
     await setDates(page, startDate, endDate);
@@ -368,7 +376,16 @@ test.describe('guided navigation tour', () => {
       await page.waitForTimeout(300);
     }
     const penaltyModal = page.locator(`#penalty-modal-${pairIds[0]} + .modal`);
-    await page.locator(`label[for="penalty-modal-${pairIds[0]}"]:has-text("Penalizar")`).click();
+    // Desktop table's trigger is icon-only (aria-label, no text node) and
+    // always visible; on mobile it lives inside the "Más acciones" dropdown,
+    // closed by default (same pattern as tour-reference.spec.ts).
+    if (isMobile(page)) {
+      const dropdown = parejasSection.locator(`.dropdown:has(label[for="penalty-modal-${pairIds[0]}"])`);
+      await dropdown.locator('button[aria-label="Más acciones"]').click();
+      await dropdown.locator(`label[for="penalty-modal-${pairIds[0]}"]`).click();
+    } else {
+      await page.locator(`label[for="penalty-modal-${pairIds[0]}"][aria-label="Penalizar"]`).click();
+    }
     await penaltyModal.locator('textarea[name="reason"]').fill('Ajuste de clasificación');
     await clickAndWaitForHxRedirect(page, penaltyModal.locator('button:has-text("Confirmar penalización")'));
 
@@ -417,6 +434,11 @@ test.describe('guided navigation tour', () => {
       await addPairToCompetition(page, pairIds[i], i + 1);
     }
     await generateFixtures(page);
+
+    // Draft-only until published — Phase 7 below plays every match as real
+    // players, who can't see an unpublished competition's matches at all.
+    await page.locator('button:has-text("Publicar calendario")').click();
+    await page.waitForLoadState('domcontentloaded');
 
     // Activate playoff via toggle
     await clickConfirmAndWaitForHxRedirect(page, page.locator('.toggle.toggle-success'));
