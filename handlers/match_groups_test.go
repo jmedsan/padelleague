@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/internal/testapp"
 	"padelleague/league"
 )
 
@@ -55,9 +55,7 @@ func setSlot(t *testing.T, app core.App, m *core.Record, slot int) {
 
 func newTestAppForGroups(t *testing.T) core.App {
 	t.Helper()
-	app, err := tests.NewTestApp(tmplDataDir)
-	require.NoError(t, err)
-	t.Cleanup(app.Cleanup)
+	app := testapp.New(t)
 	return app
 }
 

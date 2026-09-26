@@ -84,6 +84,7 @@ func makeAdminUser(t testing.TB, app core.App) *core.Record {
 func TestAdminNoAuth(t *testing.T) {
 	t.Parallel()
 	scenario := tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "GET /admin without auth redirects to login",
 		Method:         http.MethodGet,
 		URL:            "/admin",

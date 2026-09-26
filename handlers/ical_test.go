@@ -52,6 +52,7 @@ func parseVEvents(body string) []map[string]string {
 func TestICalMatch_Duration2Hours(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /ical/match/{id} event spans 2 hours",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -88,6 +89,7 @@ func TestICalMatch_Duration2Hours(t *testing.T) {
 func TestICalMatch_DefaultTime1900(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /ical/match/{id} defaults to 19:00 when no time",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -121,6 +123,7 @@ func TestICalMatch_DefaultTime1900(t *testing.T) {
 func TestICalMatch_LocationFromClub(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /ical/match/{id} includes LOCATION with venue address",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -185,6 +188,7 @@ func TestIcsEscape(t *testing.T) {
 func TestICalMatch_LocationVenueWithoutAddress(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /ical/match/{id} falls back to club name when venue has no address",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -222,6 +226,7 @@ func TestICalMatch_LocationVenueWithoutAddress(t *testing.T) {
 func TestICalMatch_ContainsVTimezoneBlock(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
 		Name:           "GET /ical/match/{id} includes a VTIMEZONE block for Europe/Madrid",
 		Method:         http.MethodGet,
 		ExpectedStatus: 200,
@@ -252,6 +257,7 @@ func TestICalMatch_ContainsVTimezoneBlock(t *testing.T) {
 func TestICalMatch_LocationFallsBackWithoutVenue(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /ical/match/{id} falls back to club name when no venue record matches",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -285,6 +291,7 @@ func TestICalMatch_LocationFallsBackWithoutVenue(t *testing.T) {
 func TestICalMatch_NoLocationWhenNoClub(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /ical/match/{id} omits LOCATION when club is empty",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -316,6 +323,7 @@ func TestICalMatch_NoLocationWhenNoClub(t *testing.T) {
 func TestICalMatch_DescriptionIncludesCompName(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /ical/match/{id} DESCRIPTION has competition name",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -376,6 +384,7 @@ func TestICalMatch_DescriptionIncludesCompName(t *testing.T) {
 func TestICalCompetition_MatchAppearsOnceWhenPlayerInBothPairs(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /ical/competition/{id} match appears once when player is in both pairs",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -425,6 +434,7 @@ func TestICalCompetition_MatchAppearsOnceWhenPlayerInBothPairs(t *testing.T) {
 func TestICalCompetition_DatelessMatchExcluded(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /ical/competition/{id} excludes matches without date",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -463,6 +473,7 @@ func TestICalCompetition_DatelessMatchExcluded(t *testing.T) {
 func TestICalMatch_TruncatesLongDate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /ical/match/{id} handles datetime string by truncating to date",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -496,6 +507,7 @@ func TestICalMatch_TruncatesLongDate(t *testing.T) {
 func TestICalMatch_DTStampPresent(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /ical/match/{id} includes a DTSTAMP",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -530,6 +542,7 @@ func TestICalMatch_DTStampPresent(t *testing.T) {
 func TestICalMatch_SummaryEscapesComma(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
 		Name:            "GET /ical/match/{id} escapes commas in SUMMARY",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
@@ -563,6 +576,7 @@ func TestICalMatch_SummaryEscapesComma(t *testing.T) {
 func TestICalMatch_Round0_NoJornadaInDescription(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
+		TestAppFactory:     testAppFactory,
 		Name:               "GET /ical/match/{id} round-0 has no Jornada 0 in description",
 		Method:             http.MethodGet,
 		ExpectedStatus:     200,

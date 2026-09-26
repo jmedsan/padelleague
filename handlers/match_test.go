@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"padelleague/internal/testapp"
 	"padelleague/league"
 	"strings"
 	"testing"
@@ -229,9 +230,7 @@ func TestAdminOverrideNewDate(t *testing.T) {
 
 func TestBuildShareTextFinalMatch(t *testing.T) {
 	t.Parallel()
-	app, err := tests.NewTestApp(tmplDataDir)
-	require.NoError(t, err)
-	t.Cleanup(app.Cleanup)
+	app := testapp.New(t)
 
 	p1 := makePairTB(t, app, "Pair Alpha")
 	p2 := makePairTB(t, app, "Pair Beta")
@@ -509,9 +508,7 @@ func TestMatchDetailAdminShowsResolveForm(t *testing.T) {
 
 func TestPlayerNameIfSet(t *testing.T) {
 	t.Parallel()
-	app, err := tests.NewTestApp(tmplDataDir)
-	require.NoError(t, err)
-	t.Cleanup(app.Cleanup)
+	app := testapp.New(t)
 
 	t.Run("empty returns empty", func(t *testing.T) {
 		t.Parallel()
