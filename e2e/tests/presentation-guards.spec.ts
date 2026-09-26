@@ -347,6 +347,59 @@ test.describe('R-178: presentation quality guards', () => {
     await expect(penalizeLabel).toBeVisible();
   });
 
+  test('E: leveled league shows Revancha badge and admin shortfall notice', async ({ page }) => {
+    const suToken = await getSuToken(page.request);
+    const suffix = `e-shortfall-${Date.now()}`;
+
+    // A third pair beyond the shared data.pair1Id/pair2Id, so a 3-pair,
+    // target=1 competition has an odd total need (1) that no pairing can
+    // supply — league.LeveledShortfall must report it.
+    const p3a = await apiCreate(page.request, suToken, 'users', {
+      email: `${suffix}-a@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: 'Shortfall A', roles: ['player'], verified: true, gender: 'male',
+    });
+    const p3b = await apiCreate(page.request, suToken, 'users', {
+      email: `${suffix}-b@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: 'Shortfall B', roles: ['player'], verified: true, gender: 'male',
+    });
+    const pair3Id = await apiCreate(page.request, suToken, 'pairs', {
+      name: `Pareja Shortfall ${suffix}`, player1: p3a, player2: p3b,
+    });
+
+    const data = loadTestData();
+    const compName = `E Shortfall ${suffix}`;
+    const compId = await apiCreate(page.request, suToken, 'competitions', {
+      name: compName, type: 'league', active: true,
+      pairs: [data.pair1Id, data.pair2Id, pair3Id],
+      target_matches: 1, open_assignments: 1,
+    });
+    // pair1-pair2 already has their one match (rematch: true, exercising
+    // the shared matchCard/matchRow badge); pair3 has none, and neither of
+    // the others can supply it — the unavoidable shortfall.
+    const matchId = await apiCreate(page.request, suToken, 'matches', {
+      competition: compId, pair1: data.pair1Id, pair2: data.pair2Id,
+      status: 'pending', round_number: 0, rematch: true,
+    });
+
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto('/admin/competitions');
+    await page.waitForLoadState('domcontentloaded');
+    // Reached by clicking the competition's own card, not goto(url).
+    await page.getByRole('link', { name: compName }).first().click();
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.getByText('Revancha').first()).toBeVisible({ timeout: 5000 });
+    const notice = page.getByTestId('leveled-shortfall-notice');
+    await expect(notice).toBeVisible({ timeout: 5000 });
+    await expect(notice).toContainText('quedará con 0 partidos en vez de 1');
+
+    await apiDelete(page.request, suToken, 'matches', matchId);
+    await apiDelete(page.request, suToken, 'competitions', compId);
+    await apiDelete(page.request, suToken, 'pairs', pair3Id);
+    await apiDelete(page.request, suToken, 'users', p3a);
+    await apiDelete(page.request, suToken, 'users', p3b);
+  });
+
   test('R-167: onboarding checklist — reglamento deep-links to Documentos tab', async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto('/');

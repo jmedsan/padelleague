@@ -95,9 +95,68 @@ func (h *CompetitionHandler) buildDetailData(e *core.RequestEvent, id string, co
 	}
 	if isLeveled {
 		data["PairOptions"] = buildPairOptions(h.app, pairIDs, map[string]struct{}{}, pairFilter)
+		if shortfall := h.leveledShortfallView(comp, pairNameMap, len(matches) > 0); shortfall != nil {
+			data["Shortfall"] = shortfall
+		}
 	}
 	h.addDetailExtras(data, comp, matches, fileTokenFor(e))
 	return data
+}
+
+// leveledShortfallView reports the admin-facing shortfall notice for comp,
+// or nil when there are no fixtures yet or every pair can still reach
+// target. hasFixtures short-circuits before league.LeveledShortfall since
+// its computation is only meaningful once matches exist.
+func (h *CompetitionHandler) leveledShortfallView(comp *core.Record, pairNameMap map[string]string, hasFixtures bool) *shortfallView {
+	if !hasFixtures {
+		return nil
+	}
+	shortfall, err := league.LeveledShortfall(h.app, comp, time.Now())
+	if err != nil {
+		slog.Error("Detail: leveled shortfall", "competition", comp.Id, "err", err)
+		return nil
+	}
+	if shortfall.Matches == 0 {
+		return nil
+	}
+	v := buildShortfallView(shortfall, comp.GetInt("target_matches"), pairNameMap)
+	return &v
+}
+
+// shortfallView is the admin-facing rendering of league.Shortfall: how many
+// matches the leveled assignment run cannot realize even with rematches,
+// and which pairs will fall short of target_matches.
+type shortfallView struct {
+	PairNames []string
+	Message   string
+}
+
+// buildShortfallView turns a league.Shortfall into its admin-facing message.
+// A single named pair ends exactly target-Matches short; with several named
+// pairs (only possible when the total need is odd) any ONE of them takes the
+// single missing match, not all of them, so the message names the group
+// without claiming a specific count per pair.
+func buildShortfallView(s league.Shortfall, target int, pairNameMap map[string]string) shortfallView {
+	names := pairNamesFor(pairNameMap, s.PairIDs)
+	v := shortfallView{PairNames: names}
+	if len(names) == 1 {
+		v.Message = fmt.Sprintf("%s quedará con %d partidos en vez de %d", names[0], target-s.Matches, target)
+		return v
+	}
+	v.Message = fmt.Sprintf("Una de estas %d parejas quedará con un partido menos: %s", len(names), strings.Join(names, ", "))
+	return v
+}
+
+// pairNamesFor resolves a subset of pair IDs against an already-built name
+// map. Order follows ids, not map iteration order.
+func pairNamesFor(names map[string]string, ids []string) []string {
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if name, ok := names[id]; ok {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 // resolveAdminPairFilter reads the "pair" query param for the admin match

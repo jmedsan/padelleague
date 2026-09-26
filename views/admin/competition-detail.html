@@ -158,6 +158,12 @@
 
         <div id="generate-result" class="mb-2" aria-live="polite"></div>
 
+        {{if .Shortfall}}
+        <div class="alert alert-warning mb-3" data-testid="leveled-shortfall-notice">
+            <span>{{.Shortfall.Message}}</span>
+        </div>
+        {{end}}
+
         {{if .IsLeveled}}
         <form method="get" hx-boost="true" hx-trigger="change" class="mb-3">
             <select name="pair" aria-label="Filtrar por pareja" class="select select-bordered select-sm w-full sm:w-64">

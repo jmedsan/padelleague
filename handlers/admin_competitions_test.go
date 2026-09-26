@@ -243,6 +243,89 @@ func TestDetailPageHasFixtures(t *testing.T) {
 	s.Test(t)
 }
 
+// TestDetailPage_LeveledShortfallNotice verifies the admin sees a warning
+// when league.LeveledShortfall reports pairs that cannot reach target — the
+// three-pair, target=1, one-match-played setup used here leaves exactly one
+// pair (SfC) unable to get a match: an odd total need of 1.
+func TestDetailPage_LeveledShortfallNotice(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "admin sees the leveled shortfall notice when a pair can't reach target",
+		Method:         http.MethodGet,
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			`data-testid="leveled-shortfall-notice"`,
+			"SfC quedará con 0 partidos en vez de 1",
+		},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "SfA")
+		p2 := makePairTB(tb, app, "SfB")
+		p3 := makePairTB(tb, app, "SfC")
+
+		// target=1 < 3-1=2 → IsLeveled=true. p1-p2 already has their one
+		// match; p3 has none and none of the others can supply it.
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3})
+		comp.Set("target_matches", 1)
+		comp.Set("open_assignments", 1)
+		require.NoError(tb, app.Save(comp))
+		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+// TestMatchCard_RematchBadge verifies the shared matchCard/matchRow
+// components (views/partials/match-card.html) render a "Revancha" badge for
+// a match flagged rematch — and that a normal match does not.
+func TestMatchCard_RematchBadge(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "admin competition detail shows Revancha badge on a rematch-flagged match",
+		Method:         http.MethodGet,
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			"Revancha",
+		},
+	}
+	var normalMatchID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		p1 := makePairTB(tb, app, "RmA")
+		p2 := makePairTB(tb, app, "RmB")
+		p3 := makePairTB(tb, app, "RmC")
+		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3})
+		comp.Set("target_matches", 2)
+		comp.Set("open_assignments", 2)
+		require.NoError(tb, app.Save(comp))
+
+		rematchMatch := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		rematchMatch.Set("rematch", true)
+		require.NoError(tb, app.Save(rematchMatch))
+
+		normalMatch := makeMatchTB(tb, app, comp.Id, p1.Id, p3.Id, "pending")
+		normalMatchID = normalMatch.Id
+
+		s.URL = "/admin/competitions/" + comp.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		body := readBody(tb, res)
+		assert.Contains(tb, body, "Revancha", "the rematch-flagged match must show the badge")
+		normalMatch, err := app.FindRecordById("matches", normalMatchID)
+		require.NoError(tb, err)
+		assert.False(tb, normalMatch.GetBool("rematch"), "the non-rematch match must not be flagged")
+	}
+	s.Test(t)
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Group 5: dispute rendering via matchCard AdminFull
 // ═══════════════════════════════════════════════════════════════════════
