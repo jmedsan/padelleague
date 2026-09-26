@@ -285,7 +285,7 @@ func TestMatchSubmitNotifiesRival(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var pair2Player1ID string
+	var pair2Player1ID, matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Sub A")
@@ -296,6 +296,7 @@ func TestMatchSubmitNotifiesRival(t *testing.T) {
 		m.Set("date", "2026-09-01")
 		m.Set("club", "Padel 360")
 		require.NoError(tb, app.Save(m))
+		matchID = m.Id
 
 		submitter, err := app.FindRecordById("users", p1.GetString("player1"))
 		require.NoError(tb, err)
@@ -306,11 +307,13 @@ func TestMatchSubmitNotifiesRival(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		notifs, _ := app.FindRecordsByFilter("notifications",
-			"user = {:uid}", "", 0, 0,
-			map[string]any{"uid": pair2Player1ID})
-		assert.GreaterOrEqual(tb, len(notifs), 1,
-			"rival player must receive a notification")
+		assertNotified(tb, app, pair2Player1ID, league.Notification{
+			Type:     "quorum_request",
+			Title:    "Resultado enviado",
+			Body:     "Sub A P1 (Sub A) ha enviado 6-3 6-4. Confirma o contrapropón.",
+			MatchID:  matchID,
+			CompName: "Test Competition",
+		})
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)

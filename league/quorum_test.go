@@ -31,6 +31,31 @@ func (f *fakeNotifier) NotifyPlayers(playerUserIDs []string, n Notification) {
 	})
 }
 
+// assertNotifyCall finds the fakeNotifier call with the given title (the
+// last one, since a flow can notify more than once with distinct titles)
+// and asserts its type/body/matchID exactly match want. want's body must be
+// the test's own literal fixture text, not a second call to the constructor
+// under test — otherwise a wrong constructor call still passes because both
+// sides recompute the same string.
+func assertNotifyCall(t testing.TB, f *fakeNotifier, want notifyCall) {
+	t.Helper()
+	for i := len(f.calls) - 1; i >= 0; i-- {
+		if f.calls[i].title != want.title {
+			continue
+		}
+		assert.Equal(t, want.notifType, f.calls[i].notifType, "notification type")
+		assert.Equal(t, want.body, f.calls[i].body, "notification body")
+		if want.matchID != "" {
+			assert.Equal(t, want.matchID, f.calls[i].matchID, "notification matchID")
+		}
+		if want.playerIDs != nil {
+			assert.ElementsMatch(t, want.playerIDs, f.calls[i].playerIDs, "notification recipients")
+		}
+		return
+	}
+	require.Failf(t, "no notify call found", "title %q (calls: %+v)", want.title, f.calls)
+}
+
 func TestConfirmStaleMatches_Finalizes(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
