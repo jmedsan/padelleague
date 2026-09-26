@@ -646,7 +646,7 @@ func TestPaymentReminder_SendsToUnpaid(t *testing.T) {
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Recordatorio enviado"},
 	}
-	var paidPlayerID, unpaidPlayerID1, unpaidPlayerID2 string
+	var paidPlayerID, unpaidPlayerID1, unpaidPlayerID2, compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		enableSMTP(tb, app)
@@ -656,6 +656,7 @@ func TestPaymentReminder_SendsToUnpaid(t *testing.T) {
 		comp := makeCompetition(tb, app, []*core.Record{paidPair, unpaidPair})
 		comp.Set("payment_status", map[string]any{paidPair.Id: true, unpaidPair.Id: false})
 		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
 
 		paidPlayerID = paidPair.GetString("player1")
 		unpaidPlayerID1 = unpaidPair.GetString("player1")
@@ -665,13 +666,16 @@ func TestPaymentReminder_SendsToUnpaid(t *testing.T) {
 		s.Headers = authHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		notifs, err := app.FindRecordsByFilter("notifications",
-			"type = 'payment'", "", 0, 0, nil)
-		require.NoError(tb, err)
-		require.Len(tb, notifs, 2, "only the unpaid pair's two players are notified")
-		notifiedUsers := []string{notifs[0].GetString("user"), notifs[1].GetString("user")}
-		assert.ElementsMatch(tb, []string{unpaidPlayerID1, unpaidPlayerID2}, notifiedUsers)
-		assert.NotContains(tb, notifiedUsers, paidPlayerID)
+		want := league.Notification{
+			Type:     "payment",
+			Title:    "Recordatorio de pago",
+			Body:     "Recuerda realizar el pago para Test Competition",
+			Link:     "/competition/" + compID,
+			CompName: "Test Competition",
+		}
+		assertNotified(tb, app, unpaidPlayerID1, want)
+		assertNotified(tb, app, unpaidPlayerID2, want)
+		assertNotNotified(tb, app, paidPlayerID, want.Title)
 	}
 	s.Test(t)
 }

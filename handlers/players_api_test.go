@@ -12,6 +12,8 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/league"
 )
 
 func TestPlayerPreCreate(t *testing.T) {
@@ -44,12 +46,22 @@ func TestRegenerateLink(t *testing.T) {
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Enlace regenerado", "reset-password", "Volver a jugadores"},
 	}
+	var playerID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		player := makeUserTB(tb, app, "RegenTest", "")
+		playerID = player.Id
 		admin := makeAdminUser(tb, app)
 		s.URL = "/admin/players/" + player.Id + "/regenerate-link"
 		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		want := league.Notification{
+			Type:  "admin_message",
+			Title: "Restablecimiento de contraseña",
+			Body:  "Un administrador ha solicitado restablecer tu contraseña",
+		}
+		assertNotified(tb, app, playerID, want)
 	}
 	s.Test(t)
 }

@@ -11,6 +11,8 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/league"
 )
 
 // buildResetURL: X-Forwarded-Proto: https → https:// link
@@ -169,11 +171,13 @@ func TestPlayerUpdateRoleChangeNotifies(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		notifs, err := app.FindRecordsByFilter("notifications",
-			"user = {:uid} && type = 'admin_message'", "", 0, 0, map[string]any{"uid": playerID})
-		require.NoError(tb, err)
-		require.Len(tb, notifs, 1, "role change must notify the player")
-		assert.Equal(tb, "Cambio de rol", notifs[0].GetString("title"))
+		want := league.Notification{
+			Type:  "admin_message",
+			Title: "Cambio de rol",
+			Body:  "Tu rol ha sido actualizado a admin, player",
+			Link:  "/profile",
+		}
+		assertNotified(tb, app, playerID, want)
 	}
 	expectRedirect(s, redirectTo("/admin/players"))
 	s.Test(t)
