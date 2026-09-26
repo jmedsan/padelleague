@@ -36,8 +36,8 @@ test.describe('announcements', () => {
 
     const mobile = isMobile(page);
     const bellButton = mobile
-      ? page.locator('.lg\\:hidden .dropdown button[aria-label="notificaciones"]')
-      : page.locator('.dropdown:has(#notif-dropdown) button[aria-label="notificaciones"]');
+      ? page.locator('.lg\\:hidden .dropdown button[aria-label^="notificaciones"]')
+      : page.locator('.dropdown:has(#notif-dropdown) button[aria-label^="notificaciones"]');
     await bellButton.click();
 
     const dropdown = mobile

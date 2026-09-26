@@ -59,7 +59,7 @@ test('unverified-email banner can be dismissed and stays hidden for the session'
   const banner = page.locator('#verify-banner');
   await expect(banner).toBeVisible({ timeout: 10000 });
 
-  await banner.locator('button[aria-label="Descartar aviso"]').click();
+  await banner.locator('button[aria-label^="Descartar aviso"]').click();
   await expect(banner).toHaveCount(0);
 
   // Same session (sessionStorage persists) — a reload must not bring it back.

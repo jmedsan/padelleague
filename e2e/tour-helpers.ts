@@ -135,7 +135,7 @@ export async function createPair(
 
 export async function addPairToCompetition(page: Page, pairId: string, seed?: number): Promise<void> {
   // aria-label disambiguates from the leveled-league "Filtrar por pareja" select.
-  await page.selectOption('select[aria-label="Pareja"]', pairId);
+  await page.selectOption('select[aria-label^="Pareja"]', pairId);
   if (seed !== undefined) {
     await page.fill('input[name="seed"]', String(seed));
   }
@@ -327,7 +327,7 @@ export async function assertFinalStandings(
   hasPenalties: boolean,
 ): Promise<void> {
   await page.goto(`/competition/${compId}`);
-  await page.locator('input[aria-label="Clasificación"]').click();
+  await page.locator('input[aria-label^="Clasificación"]').click();
   // standings-table.html renders two separate <table> elements — table-zebra
   // (desktop) and table-sm (mobile) — CSS-hidden at the other breakpoint.
   const tableSelector = isMobile(page) ? 'table.table-sm' : 'table.table-zebra';

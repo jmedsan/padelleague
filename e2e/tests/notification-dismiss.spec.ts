@@ -55,7 +55,7 @@ test.describe('notification dismiss and history', () => {
       { timeout: 5000 }).toBeGreaterThanOrEqual(2);
 
     // Open bell dropdown
-    const bellButton = page.locator('.dropdown:has(#notif-dropdown) button[aria-label="notificaciones"]');
+    const bellButton = page.locator('.dropdown:has(#notif-dropdown) button[aria-label^="notificaciones"]');
     await bellButton.click();
 
     const dropdown = page.locator('#notif-dropdown');
@@ -63,7 +63,7 @@ test.describe('notification dismiss and history', () => {
     await expect(dismissRow).toBeVisible({ timeout: 5000 });
 
     // Dismiss via × button ("marcar leída")
-    await dismissRow.locator('button[aria-label="Descartar"]').click();
+    await dismissRow.locator('button[aria-label^="Descartar"]').click();
 
     // Row removed from the bell
     await expect(dismissRow).not.toBeAttached({ timeout: 5000 });
@@ -89,7 +89,7 @@ test.describe('notification dismiss and history', () => {
     await expect(page.getByRole('heading', { name: 'Historial de notificaciones' })).toBeVisible();
     await expect(page.getByText('E2E Dismiss Test')).toBeVisible();
     await expect(page.getByText('E2E Keep Test')).toBeVisible();
-    await expect(page.locator('button[aria-label="Descartar"]')).toHaveCount(0);
+    await expect(page.locator('button[aria-label^="Descartar"]')).toHaveCount(0);
   });
 
   test('mobile: dismiss via bell, badge decrements', async ({ page }) => {
@@ -114,7 +114,7 @@ test.describe('notification dismiss and history', () => {
 
     // Open mobile bell dropdown
     const mobileDropdownContainer = page.locator('.lg\\:hidden .dropdown');
-    const mobileBell = mobileDropdownContainer.locator('button[aria-label="notificaciones"]');
+    const mobileBell = mobileDropdownContainer.locator('button[aria-label^="notificaciones"]');
     await mobileBell.click();
 
     // Wait for dropdown to load
@@ -122,7 +122,7 @@ test.describe('notification dismiss and history', () => {
     await expect(dismissRow).toBeVisible({ timeout: 5000 });
 
     // Dismiss — click and wait for the HTMX request to complete
-    const dismissBtn = dismissRow.locator('button[aria-label="Descartar"]');
+    const dismissBtn = dismissRow.locator('button[aria-label^="Descartar"]');
     await Promise.all([
       page.waitForResponse(resp => resp.url().includes('/dismiss') && resp.status() === 200),
       dismissBtn.click(),

@@ -37,7 +37,7 @@ test.describe('player profile and stats', () => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.locator('a[href^="/competition/"]', { hasText: 'Liga E2E Test' }).first().click();
     await page.waitForLoadState('domcontentloaded');
-    await page.locator('input[aria-label="Clasificación"]').click();
+    await page.locator('input[aria-label^="Clasificación"]').click();
     // standingsTable.html renders a desktop table.table-zebra and a mobile
     // table.table-sm, each hidden at the other breakpoint via CSS.
     const standingsTableClass = isMobile(page) ? 'table.table-sm' : 'table.table-zebra';

@@ -48,7 +48,7 @@ test.describe('leveled-16 start', () => {
     await loginAs(page, player1Email, PLAYER_PASSWORD);
     await page.goto(`/competition/${ctx.competitionId}`);
     await page.waitForLoadState('domcontentloaded');
-    await page.locator('input[aria-label="Partidos"]').click();
+    await page.locator('input[aria-label^="Partidos"]').click();
     await page.waitForLoadState('domcontentloaded');
     for (let s = 1; s <= ctx.open; s++) {
       await expect(page.locator(`.collapse-title:has-text("Jornada ${s}")`).first()).toBeVisible({ timeout: 10000 });
