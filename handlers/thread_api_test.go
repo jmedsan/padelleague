@@ -10,6 +10,8 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/league"
 )
 
 func TestThreadMessages(t *testing.T) {
@@ -114,7 +116,7 @@ func TestThreadPostProposal(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID string
+	var matchID, proposerID, rival1, rival2 string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Prop A")
@@ -122,9 +124,12 @@ func TestThreadPostProposal(t *testing.T) {
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		matchID = match.Id
+		proposerID = p1.GetString("player1")
+		rival1 = p2.GetString("player1")
+		rival2 = p2.GetString("player2")
 		s.URL = "/match/" + match.Id + "/thread/proposal"
 		s.Body = strings.NewReader("date=2027-09-15&time=18:00&venue_text=Club+Test")
-		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		user, _ := app.FindRecordById("users", proposerID)
 		hdrs := authHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -136,6 +141,17 @@ func TestThreadPostProposal(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, 1, len(msgs))
 		assert.Equal(tb, "pending", msgs[0].GetString("proposal_status"))
+
+		want := league.Notification{
+			Type:     "scheduling",
+			Title:    "Propuesta de fecha",
+			Body:     "Prop A P1 (Prop A) propone jugar el 15/09 a las 18:00 en Club Test",
+			MatchID:  matchID,
+			CompName: "Test Competition",
+		}
+		assertNotified(tb, app, rival1, want)
+		assertNotified(tb, app, rival2, want)
+		assertNotNotified(tb, app, proposerID, want.Title)
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
@@ -149,20 +165,24 @@ func TestThreadRespondProposal(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var msgID string
+	var msgID, matchID, proposerID, proposerPartnerID, accepterID, accepterPartnerID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "Resp A")
 		p2 := makePairTB(tb, app, "Resp B")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
 
-		proposer := p1.GetString("player1")
+		proposerID = p1.GetString("player1")
+		proposerPartnerID = p1.GetString("player2")
+		accepterID = p2.GetString("player1")
+		accepterPartnerID = p2.GetString("player2")
 		col, err := app.FindCollectionByNameOrId("match_messages")
 		require.NoError(tb, err)
 		msg := core.NewRecord(col)
 		msg.Set("match", match.Id)
-		msg.Set("author", proposer)
+		msg.Set("author", proposerID)
 		msg.Set("type", "scheduling_proposal")
 		msg.Set("proposal_data", `{"date":"2027-09-15","time":"18:00","venue_name":"Club Test","venue_id":"","venue_text":""}`)
 		msg.Set("proposal_status", "pending")
@@ -171,7 +191,7 @@ func TestThreadRespondProposal(t *testing.T) {
 
 		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/respond", match.Id, msg.Id)
 		s.Body = strings.NewReader("action=accept")
-		opponent, _ := app.FindRecordById("users", p2.GetString("player1"))
+		opponent, _ := app.FindRecordById("users", accepterID)
 		hdrs := authHeaders(tb, opponent)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -180,6 +200,18 @@ func TestThreadRespondProposal(t *testing.T) {
 		msg, err := app.FindRecordById("match_messages", msgID)
 		require.NoError(tb, err)
 		assert.Equal(tb, "accepted", msg.GetString("proposal_status"))
+
+		want := league.Notification{
+			Type:     "scheduling",
+			Title:    "Propuesta aceptada",
+			Body:     "Resp B P1 (Resp B) aceptó tu propuesta para el 15/09 a las 18:00",
+			MatchID:  matchID,
+			CompName: "Test Competition",
+		}
+		assertNotified(tb, app, proposerID, want)
+		assertNotified(tb, app, proposerPartnerID, want)
+		assertNotified(tb, app, accepterPartnerID, want)
+		assertNotNotified(tb, app, accepterID, want.Title)
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
@@ -193,20 +225,23 @@ func TestThreadRespondProposalReject(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var msgID string
+	var msgID, matchID, proposerID, proposerPartnerID, responderID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "RejA")
 		p2 := makePairTB(tb, app, "RejB")
 		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = match.Id
 
-		proposer := p1.GetString("player1")
+		proposerID = p1.GetString("player1")
+		proposerPartnerID = p1.GetString("player2")
+		responderID = p2.GetString("player1")
 		col, err := app.FindCollectionByNameOrId("match_messages")
 		require.NoError(tb, err)
 		msg := core.NewRecord(col)
 		msg.Set("match", match.Id)
-		msg.Set("author", proposer)
+		msg.Set("author", proposerID)
 		msg.Set("type", "scheduling_proposal")
 		msg.Set("proposal_data", `{"date":"2027-09-15","time":"18:00","venue_name":"Club","venue_id":"","venue_text":""}`)
 		msg.Set("proposal_status", "pending")
@@ -215,7 +250,7 @@ func TestThreadRespondProposalReject(t *testing.T) {
 
 		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/respond", match.Id, msg.Id)
 		s.Body = strings.NewReader("action=reject&rejection_reason=No+puedo&rejection_text=Tengo+trabajo")
-		opponent, _ := app.FindRecordById("users", p2.GetString("player1"))
+		opponent, _ := app.FindRecordById("users", responderID)
 		hdrs := authHeaders(tb, opponent)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -226,6 +261,17 @@ func TestThreadRespondProposalReject(t *testing.T) {
 		assert.Equal(tb, "rejected", msg.GetString("proposal_status"))
 		assert.Equal(tb, "No puedo", msg.GetString("rejection_reason"))
 		assert.Equal(tb, "Tengo trabajo", msg.GetString("rejection_text"))
+
+		want := league.Notification{
+			Type:     "scheduling",
+			Title:    "Propuesta rechazada",
+			Body:     "RejB P1 (RejB) ha rechazado tu propuesta: No puedo",
+			MatchID:  matchID,
+			CompName: "Test Competition",
+		}
+		assertNotified(tb, app, proposerID, want)
+		assertNotified(tb, app, proposerPartnerID, want)
+		assertNotNotified(tb, app, responderID, want.Title)
 	}
 	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })
 	s.Test(t)
