@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/league"
 	"padelleague/middleware"
 	"padelleague/notify"
 	"padelleague/render"
@@ -32,6 +33,7 @@ func setupDevToolsRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	g.BindFunc(requireAuthTest)
 	g.BindFunc(requireAdminTest)
 	g.GET("/dev-tools", h.DevTools)
+	g.POST("/dev-tools/test-push", h.TestPush)
 	g.POST("/dev-tools/reset", h.Reset)
 }
 
@@ -50,6 +52,35 @@ func TestDevToolsGET(t *testing.T) {
 		admin := makeAdminUser(tb, app)
 		s.Headers = authHeaders(tb, admin)
 	}
+	s.Test(t)
+}
+
+func TestDevToolsTestPush(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/dev-tools/test-push notifies the current admin",
+		Method:         http.MethodPost,
+		URL:            "/admin/dev-tools/test-push",
+		ExpectedStatus: 204,
+	}
+	var adminID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupDevToolsRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		adminID = admin.Id
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		want := league.Notification{
+			Type:  "general",
+			Title: "Notificación de prueba",
+			Body:  "Si ves esto, las notificaciones funcionan correctamente.",
+			Link:  "/admin/dev-tools",
+		}
+		assertNotified(tb, app, adminID, want)
+	}
+	expectRedirect(s, redirectTo("/admin/dev-tools"))
 	s.Test(t)
 }
 
