@@ -51,7 +51,7 @@ func makeUserTB(t testing.TB, app core.App, displayName, email string) *core.Rec
 	return record
 }
 
-func makeUser(t *testing.T, app core.App, displayName, email string) *core.Record {
+func makeUser(t testing.TB, app core.App, displayName, email string) *core.Record {
 	t.Helper()
 	n := userSeq.Add(1)
 	col, err := app.FindCollectionByNameOrId("users")
@@ -82,7 +82,7 @@ func newTestApp(t *testing.T) core.App {
 	return testapp.New(t)
 }
 
-func makePair(t *testing.T, app core.App, name string) *core.Record {
+func makePair(t testing.TB, app core.App, name string) *core.Record {
 	t.Helper()
 	n := pairSeq.Add(1)
 	u1 := makeUser(t, app, name+" P1", fmt.Sprintf("pair%dp1@test.local", n))
@@ -97,7 +97,7 @@ func makePair(t *testing.T, app core.App, name string) *core.Record {
 	return record
 }
 
-func makeCompetition(t *testing.T, app core.App, pairs []*core.Record) *core.Record {
+func makeCompetition(t testing.TB, app core.App, pairs []*core.Record) *core.Record {
 	t.Helper()
 	col, err := app.FindCollectionByNameOrId("competitions")
 	require.NoError(t, err)
@@ -114,7 +114,7 @@ func makeCompetition(t *testing.T, app core.App, pairs []*core.Record) *core.Rec
 	return record
 }
 
-func makeMatch(t *testing.T, app core.App, compID, p1ID, p2ID, status string) *core.Record {
+func makeMatch(t testing.TB, app core.App, compID, p1ID, p2ID, status string) *core.Record {
 	t.Helper()
 	col, err := app.FindCollectionByNameOrId("matches")
 	require.NoError(t, err)
@@ -128,7 +128,7 @@ func makeMatch(t *testing.T, app core.App, compID, p1ID, p2ID, status string) *c
 	return record
 }
 
-func makeFinalMatch(t *testing.T, app core.App, compID, p1ID, p2ID, score, winnerID string) {
+func makeFinalMatch(t testing.TB, app core.App, compID, p1ID, p2ID, score, winnerID string) {
 	t.Helper()
 	col, err := app.FindCollectionByNameOrId("matches")
 	require.NoError(t, err)
@@ -143,7 +143,7 @@ func makeFinalMatch(t *testing.T, app core.App, compID, p1ID, p2ID, score, winne
 	require.NoError(t, app.Save(record))
 }
 
-func makeInvitation(t *testing.T, app core.App, expiresAt time.Time) *core.Record {
+func makeInvitation(t testing.TB, app core.App, expiresAt time.Time) *core.Record {
 	t.Helper()
 	creator := makeUser(t, app, "Inviter", "")
 	comp := makeCompetition(t, app, nil)
@@ -162,7 +162,7 @@ func makeInvitation(t *testing.T, app core.App, expiresAt time.Time) *core.Recor
 	return record
 }
 
-func makeNotification(t *testing.T, app core.App, userID, title, body string, read bool) *core.Record {
+func makeNotification(t testing.TB, app core.App, userID, title, body string, read bool) *core.Record {
 	t.Helper()
 	col, err := app.FindCollectionByNameOrId("notifications")
 	require.NoError(t, err)

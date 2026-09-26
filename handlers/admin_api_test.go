@@ -293,9 +293,9 @@ func TestBroadcast_FanOut(t *testing.T) {
 		setupAdminRoutes(tb, app, e)
 		enableSMTP(tb, app)
 		admin := makeAdminUser(tb, app)
-		p1 := makePair(t, app, "BroadA")
-		p2 := makePair(t, app, "BroadB")
-		comp := makeCompetition(t, app, []*core.Record{p1, p2})
+		p1 := makePair(tb, app, "BroadA")
+		p2 := makePair(tb, app, "BroadB")
+		comp := makeCompetition(tb, app, []*core.Record{p1, p2})
 		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
 
 		hdrs := authHeaders(tb, admin)
@@ -328,9 +328,9 @@ func TestBroadcast_NotificationLinksToCompetition(t *testing.T) {
 		setupAdminRoutes(tb, app, e)
 		enableSMTP(tb, app)
 		admin := makeAdminUser(tb, app)
-		p1 := makePair(t, app, "BroadLinkA")
-		p2 := makePair(t, app, "BroadLinkB")
-		comp := makeCompetition(t, app, []*core.Record{p1, p2})
+		p1 := makePair(tb, app, "BroadLinkA")
+		p2 := makePair(tb, app, "BroadLinkB")
+		comp := makeCompetition(tb, app, []*core.Record{p1, p2})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
 
@@ -365,8 +365,8 @@ func TestBroadcast_EmptyTitleRejected(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePair(t, app, "EmptyA")
-		comp := makeCompetition(t, app, []*core.Record{p1})
+		p1 := makePair(tb, app, "EmptyA")
+		comp := makeCompetition(tb, app, []*core.Record{p1})
 		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
 
 		hdrs := authHeaders(tb, admin)
@@ -393,9 +393,9 @@ func TestBroadcast_NonAdminDenied(t *testing.T) {
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
-		user := makeUser(t, app, "Regular", "regular@test.local")
-		p1 := makePair(t, app, "DenyA")
-		comp := makeCompetition(t, app, []*core.Record{p1})
+		user := makeUser(tb, app, "Regular", "regular@test.local")
+		p1 := makePair(tb, app, "DenyA")
+		comp := makeCompetition(tb, app, []*core.Record{p1})
 		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
 
 		hdrs := authHeaders(tb, user)
@@ -420,9 +420,9 @@ func TestBroadcast_DedupSharedPlayer(t *testing.T) {
 		enableSMTP(tb, app)
 		admin := makeAdminUser(tb, app)
 
-		u1 := makeUser(t, app, "SharedP1", fmt.Sprintf("shared%d@test.local", pairSeq.Add(1)))
-		u2 := makeUser(t, app, "SharedP2", fmt.Sprintf("shared%d@test.local", pairSeq.Add(1)))
-		u3 := makeUser(t, app, "SharedP3", fmt.Sprintf("shared%d@test.local", pairSeq.Add(1)))
+		u1 := makeUser(tb, app, "SharedP1", fmt.Sprintf("shared%d@test.local", pairSeq.Add(1)))
+		u2 := makeUser(tb, app, "SharedP2", fmt.Sprintf("shared%d@test.local", pairSeq.Add(1)))
+		u3 := makeUser(tb, app, "SharedP3", fmt.Sprintf("shared%d@test.local", pairSeq.Add(1)))
 
 		col, _ := app.FindCollectionByNameOrId("pairs")
 		p1 := core.NewRecord(col)
@@ -437,7 +437,7 @@ func TestBroadcast_DedupSharedPlayer(t *testing.T) {
 		p2.Set("player2", u3.Id)
 		require.NoError(tb, app.Save(p2))
 
-		comp := makeCompetition(t, app, []*core.Record{p1, p2})
+		comp := makeCompetition(tb, app, []*core.Record{p1, p2})
 		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
 
 		hdrs := authHeaders(tb, admin)
@@ -471,8 +471,8 @@ func TestBroadcast_CreatesAnnouncementRecord(t *testing.T) {
 		enableSMTP(tb, app)
 		admin := makeAdminUser(tb, app)
 		adminID = admin.Id
-		p1 := makePair(t, app, "AnnA")
-		comp := makeCompetition(t, app, []*core.Record{p1})
+		p1 := makePair(tb, app, "AnnA")
+		comp := makeCompetition(tb, app, []*core.Record{p1})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
 
@@ -507,8 +507,8 @@ func TestBroadcast_NotificationType(t *testing.T) {
 		setupAdminRoutes(tb, app, e)
 		enableSMTP(tb, app)
 		admin := makeAdminUser(tb, app)
-		p1 := makePair(t, app, "AnnTypeA")
-		comp := makeCompetition(t, app, []*core.Record{p1})
+		p1 := makePair(tb, app, "AnnTypeA")
+		comp := makeCompetition(tb, app, []*core.Record{p1})
 		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
 
 		hdrs := authHeaders(tb, admin)
@@ -543,8 +543,8 @@ func TestBroadcast_LinkIncludesHash(t *testing.T) {
 		setupAdminRoutes(tb, app, e)
 		enableSMTP(tb, app)
 		admin := makeAdminUser(tb, app)
-		p1 := makePair(t, app, "AnnHashA")
-		comp := makeCompetition(t, app, []*core.Record{p1})
+		p1 := makePair(tb, app, "AnnHashA")
+		comp := makeCompetition(tb, app, []*core.Record{p1})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
 
@@ -577,9 +577,9 @@ func TestDeleteAnnouncement_AdminOnly(t *testing.T) {
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
-		user := makeUser(t, app, "AnnDenyUser", "anndeny@test.local")
-		p1 := makePair(t, app, "AnnDenyA")
-		comp := makeCompetition(t, app, []*core.Record{p1})
+		user := makeUser(tb, app, "AnnDenyUser", "anndeny@test.local")
+		p1 := makePair(tb, app, "AnnDenyA")
+		comp := makeCompetition(tb, app, []*core.Record{p1})
 
 		col, err := app.FindCollectionByNameOrId("announcements")
 		require.NoError(tb, err)
@@ -611,8 +611,8 @@ func TestDeleteAnnouncement_Success(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePair(t, app, "AnnDelA")
-		comp := makeCompetition(t, app, []*core.Record{p1})
+		p1 := makePair(tb, app, "AnnDelA")
+		comp := makeCompetition(tb, app, []*core.Record{p1})
 		compID = comp.Id
 
 		col, err := app.FindCollectionByNameOrId("announcements")
@@ -651,9 +651,9 @@ func TestPaymentReminder_SendsToUnpaid(t *testing.T) {
 		setupAdminRoutes(tb, app, e)
 		enableSMTP(tb, app)
 		admin := makeAdminUser(tb, app)
-		paidPair := makePair(t, app, "ReminderPaid")
-		unpaidPair := makePair(t, app, "ReminderUnpaid")
-		comp := makeCompetition(t, app, []*core.Record{paidPair, unpaidPair})
+		paidPair := makePair(tb, app, "ReminderPaid")
+		unpaidPair := makePair(tb, app, "ReminderUnpaid")
+		comp := makeCompetition(tb, app, []*core.Record{paidPair, unpaidPair})
 		comp.Set("payment_status", map[string]any{paidPair.Id: true, unpaidPair.Id: false})
 		require.NoError(tb, app.Save(comp))
 
@@ -689,8 +689,8 @@ func TestPaymentReminder_AllPaid(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePair(t, app, "ReminderAllPaidA")
-		comp := makeCompetition(t, app, []*core.Record{p1})
+		p1 := makePair(tb, app, "ReminderAllPaidA")
+		comp := makeCompetition(tb, app, []*core.Record{p1})
 		comp.Set("payment_status", map[string]any{p1.Id: true})
 		require.NoError(tb, app.Save(comp))
 
@@ -716,9 +716,9 @@ func TestPaymentReminder_NonAdminDenied(t *testing.T) {
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAdminRoutes(tb, app, e)
-		user := makeUser(t, app, "Regular", "regular-payment-reminder@test.local")
-		p1 := makePair(t, app, "ReminderDenyA")
-		comp := makeCompetition(t, app, []*core.Record{p1})
+		user := makeUser(tb, app, "Regular", "regular-payment-reminder@test.local")
+		p1 := makePair(tb, app, "ReminderDenyA")
+		comp := makeCompetition(tb, app, []*core.Record{p1})
 
 		s.URL = "/admin/competitions/" + comp.Id + "/payment-reminder"
 		s.Headers = authHeaders(tb, user)
