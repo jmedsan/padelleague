@@ -17,6 +17,47 @@ func setupHealthRoute(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	r := render.New(os.DirFS(".."), "", true)
 	h := NewAdminHealthHandler(app, r.Page)
 	e.Router.GET("/admin/health", h.Health).BindFunc(requireAuthTest).BindFunc(requireAdminTest)
+	e.Router.POST("/admin/health/backup", h.BackupNow).BindFunc(requireAuthTest).BindFunc(requireAdminTest)
+}
+
+func TestBackupNow_Succeeds(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /admin/health/backup triggers an immediate backup",
+		Method:         http.MethodPost,
+		URL:            "/admin/health/backup",
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupHealthRoute(tb, app, e)
+		settings := app.Settings()
+		settings.Backups.Cron = "0 */6 * * *"
+		settings.Backups.CronMaxKeep = 2
+		require.NoError(tb, app.Save(settings))
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	expectRedirect(s, redirectTo("/admin/health"))
+	s.Test(t)
+}
+
+func TestBackupNow_RefusesWhenNotConfigured(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  testAppFactory,
+		Name:            "POST /admin/health/backup refuses when backups are not configured",
+		Method:          http.MethodPost,
+		URL:             "/admin/health/backup",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Backup no configurado"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupHealthRoute(tb, app, e)
+		admin := makeAdminUserTB(tb, app)
+		s.Headers = authHeaders(tb, admin)
+	}
+	s.Test(t)
 }
 
 func TestHealth_DisputeShowsLink(t *testing.T) {
