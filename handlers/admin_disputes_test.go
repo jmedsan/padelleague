@@ -323,6 +323,16 @@ func TestWalkoverApprove(t *testing.T) {
 		for _, uid := range league.PlayersForPair(app, p2ID) {
 			assertNotified(tb, app, uid, want)
 		}
+
+		penaltyWant := league.Notification{
+			Type:  "penalty",
+			Title: "Penalización aplicada",
+			Body:  "5 puntos — Incomparecencia aprobada",
+			Link:  "/competition/" + compID,
+		}
+		for _, uid := range league.PlayersForPair(app, p2ID) {
+			assertNotified(tb, app, uid, penaltyWant)
+		}
 	}
 	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + matchCompetitionID(app, s.URL) })
 	s.Test(t)

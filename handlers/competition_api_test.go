@@ -504,6 +504,16 @@ func TestCompApplyPenalty(t *testing.T) {
 		require.Len(tb, rows, 1, "must create exactly one penalty row")
 		assert.Equal(tb, 3.0, rows[0].GetFloat("amount"), "default penalty must be 3")
 		assert.Equal(tb, "Prueba", rows[0].GetString("reason"))
+
+		want := league.Notification{
+			Type:  "penalty",
+			Title: "Penalización aplicada",
+			Body:  "3 puntos — Prueba",
+			Link:  "/competition/" + compID,
+		}
+		for _, uid := range league.PlayersForPair(app, pairID) {
+			assertNotified(tb, app, uid, want)
+		}
 	}
 	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)

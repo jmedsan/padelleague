@@ -1444,3 +1444,91 @@ func TestLeveledCron_Registered(t *testing.T) {
 	}
 	assert.True(t, found, "leveled-assignments cron must be registered")
 }
+
+// -- TestApplyPendingMatchPenalties_RulebookClose ---------------------------
+
+// makeCompetition builds a standard (non-leveled, non-playoff) league
+// competition owning pairs, matching league/testutil_test.go's shape.
+func makeCompetition(t *testing.T, app core.App, pairs []*core.Record) *core.Record {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("competitions")
+	require.NoError(t, err)
+	r := core.NewRecord(col)
+	r.Set("name", "Hook Rulebook Close Test")
+	r.Set("type", "league")
+	r.Set("active", true)
+	pairIDs := make([]string, len(pairs))
+	for i, p := range pairs {
+		pairIDs[i] = p.Id
+	}
+	r.Set("pairs", pairIDs)
+	require.NoError(t, app.Save(r))
+	return r
+}
+
+// TestApplyPendingMatchPenalties_RulebookClose exercises the previously
+// uncovered "pending-match-penalties" cron path end-to-end: a competition
+// whose recovery window has fully elapsed (PhaseFinished) gets auto-closed,
+// its unplayed match earns the pair a penalty, and both the pair and the
+// admin are notified — pinning NotifPenaltyApplied's PhaseFinished reason
+// string, NotifAdminPenaltiesApplied, and NotifAdminLeagueClosed in one run.
+func TestApplyPendingMatchPenalties_RulebookClose(t *testing.T) {
+	app := newTestApp(t)
+	notifier := notify.NewNotifier(app, "", "")
+	makeAdminUser(t, app)
+
+	p1 := makePair(t, app, "Close A")
+	p2 := makePair(t, app, "Close B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	comp.Set("max_pending_matches", 2)
+	// end_date 20 days ago + 7-day recovery window (elapsed 13 days ago) puts
+	// the competition in PhaseFinished while finalized is still false, so
+	// AutoCloseCompetition actually flips it (it no-ops when already finalized).
+	comp.Set("end_date", time.Now().AddDate(0, 0, -20))
+	comp.Set("recovery_days", 7)
+	require.NoError(t, app.Save(comp))
+
+	makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+
+	applyPendingMatchPenalties(app, notifier)
+
+	updatedComp, err := app.FindRecordById("competitions", comp.Id)
+	require.NoError(t, err)
+	assert.True(t, updatedComp.GetBool("finalized"), "extra week elapsed: competition must auto-close")
+
+	// unplayedCounts credits BOTH pairs of an unplayed match at PhaseFinished
+	// (no fault attribution), so a single match between p1 and p2 penalizes
+	// both pairs — 2 penalties total, not 1.
+	penaltyWant := league.Notification{
+		Type:  "penalty",
+		Title: "Penalización aplicada",
+		Body:  "1 puntos — Partido no disputado al cierre de la competición (1 sin jugar)",
+		Link:  "/competition/" + comp.Id,
+	}
+	for _, uid := range league.PlayersForPair(app, p1.Id) {
+		assertNotified(t, app, uid, penaltyWant)
+	}
+	for _, uid := range league.PlayersForPair(app, p2.Id) {
+		assertNotified(t, app, uid, penaltyWant)
+	}
+
+	adminUsers, err := app.FindRecordsByFilter("users", "roles ~ 'admin'", "", 0, 0, nil)
+	require.NoError(t, err)
+	require.Len(t, adminUsers, 1)
+
+	adminPenaltiesWant := league.Notification{
+		Type:  "penalty",
+		Title: "Penalizaciones automáticas aplicadas",
+		Body:  "2 penalizaciones aplicadas en Hook Rulebook Close Test",
+		Link:  "/admin/competitions/" + comp.Id,
+	}
+	assertNotified(t, app, adminUsers[0].Id, adminPenaltiesWant)
+
+	adminClosedWant := league.Notification{
+		Type:  "penalty",
+		Title: "Liga cerrada automáticamente",
+		Body:  "Hook Rulebook Close Test ha terminado su semana extraordinaria: 2 penalizaciones por partidos no disputados. Revísalas y corrige las que correspondan a una sola pareja.",
+		Link:  "/admin/competitions/" + comp.Id,
+	}
+	assertNotified(t, app, adminUsers[0].Id, adminClosedWant)
+}
