@@ -1,9 +1,11 @@
 package league
 
 import (
+	"fmt"
 	"math/rand/v2"
 	"slices"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 
@@ -1115,6 +1117,76 @@ func findNotifyCallFor(t *testing.T, calls []notifyCall, matchID string, playerI
 	}
 	require.Fail(t, "no notify call found", "matchID=%s playerIDs=%v", matchID, playerIDs)
 	return notifyCall{}
+}
+
+// -- TestTopUp_ConcurrentFinalization ---------------------------------------
+
+// TestTopUp_ConcurrentFinalization reproduces the race hooks/hooks.go relies
+// on TopUpAssignments to handle safely: two matches for the same pair (C)
+// finalize at the same moment, each firing its own TopUpAssignments call
+// (handleAdvance does this on every OnRecordAfterUpdateSuccess). Each call
+// independently reads state (buildLeveledState), plans in memory, and saves
+// in its own transaction, with no serialization between calls for the same
+// competition — so both calls can read pending[C]=0 before either commits,
+// and each independently top C back up to `open`, overshooting the cap.
+// Repeated across many independent competitions (goroutine scheduling makes
+// any single run non-deterministic) so the assertion isn't a coin flip.
+func TestTopUp_ConcurrentFinalization(t *testing.T) {
+	app := newTestApp(t)
+	const iterations = 15
+
+	// One shared pool of pairs reused across every iteration's competition —
+	// makePair bcrypt-hashes two passwords per pair, so creating 10 pairs
+	// fresh per iteration would dominate the test's runtime for no benefit;
+	// a fresh competition per iteration is enough to reset all match state.
+	pairs := make([]*core.Record, 10)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, fmt.Sprintf("Race%d", i))
+	}
+	pc := pairs[0]
+
+	for iter := 0; iter < iterations; iter++ {
+		t.Run(fmt.Sprintf("iter%d", iter), func(t *testing.T) {
+			comp := makeLeveledCompetition(t, app, pairs, 8, 2)
+
+			m1 := makeLeveledMatch(t, app, comp.Id, pc.Id, pairs[1].Id, "", "", "pending", time.Time{})
+			m2 := makeLeveledMatch(t, app, comp.Id, pc.Id, pairs[2].Id, "", "", "pending", time.Time{})
+
+			svc := New(app, nil)
+			now := time.Now()
+
+			var wg sync.WaitGroup
+			wg.Add(2)
+			for _, m := range []*core.Record{m1, m2} {
+				m := m
+				go func() {
+					defer wg.Done()
+					m.Set("status", "final")
+					m.Set("scores", "6-3 6-4")
+					m.Set("winner", pc.Id)
+					require.NoError(t, app.Save(m))
+					avoid := Pairing{A: m.GetString("pair1"), B: m.GetString("pair2")}
+					_, err := svc.TopUpAssignments(comp.Id, now, avoid)
+					require.NoError(t, err)
+				}()
+			}
+			wg.Wait()
+
+			pending := pendingMatchesFor(t, app, comp.Id, pc.Id)
+			assert.LessOrEqual(t, len(pending), 2,
+				"pair %s must never exceed open=2 pending matches, got %d", pc.Id, len(pending))
+
+			seen := map[string]bool{}
+			for _, m := range pending {
+				opp := m.GetString("pair2")
+				if opp == pc.Id {
+					opp = m.GetString("pair1")
+				}
+				assert.False(t, seen[opp], "pair %s must not be paired with %s twice", pc.Id, opp)
+				seen[opp] = true
+			}
+		})
+	}
 }
 
 // -- TestLeveledSeason_Invariants ------------------------------------------
