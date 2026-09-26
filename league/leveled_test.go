@@ -139,7 +139,7 @@ func TestEligible(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want, st.eligible(tc.p, tc.q))
+			assert.Equal(t, tc.want, st.eligible(tc.p, tc.q, false))
 		})
 	}
 
@@ -153,7 +153,7 @@ func TestEligible(t *testing.T) {
 		position: map[string]int{"A": 0, "B": 1},
 	}
 	t.Run("pending == open+1 is not eligible", func(t *testing.T) {
-		assert.False(t, st2.eligible("A", "B"))
+		assert.False(t, st2.eligible("A", "B", false))
 	})
 
 	// pending == open is eligible — this is the deliberate "one above open"
@@ -170,7 +170,7 @@ func TestEligible(t *testing.T) {
 		position: map[string]int{"A": 0, "B": 1},
 	}
 	t.Run("pending == open exactly is eligible", func(t *testing.T) {
-		assert.True(t, st3.eligible("A", "B"))
+		assert.True(t, st3.eligible("A", "B", false))
 	})
 }
 
@@ -320,7 +320,7 @@ func TestCollectCandidates_OutsideSortOrder(t *testing.T) {
 	identityShuffle := func(_ int, _ func(int, int)) {}
 	svc := &Service{shuffle: identityShuffle}
 
-	_, outside := svc.collectCandidatesForRound(st, "A", 1)
+	_, outside := svc.collectCandidatesForRound(st, "A", 1, false)
 	require.Len(t, outside, 5)
 	got := []string{outside[0].id, outside[1].id, outside[2].id, outside[3].id, outside[4].id}
 	assert.Equal(t, []string{"C", "B", "D", "E", "F"}, got,
@@ -1492,19 +1492,34 @@ func TestLeveledSeason_Invariants(t *testing.T) {
 		// P1: no duplicate pairings.
 		assert.False(t, hasDuplicatePairing(t, app, comp.Id), "%s: P1 duplicate pairing", step)
 
-		// P2 + P3: per pair.
+		// P2 + P3: per pair. P3 is owner rule (a): a pair below open with
+		// target left is never left waiting while an unmet, unfilled
+		// opponent exists (the pending ≤ open+1 ceiling yields to it).
+		load := map[string]int{}
+		met := map[string]map[string]bool{}
+		pending := map[string]int{}
 		for _, p := range pairs {
-			allMs := allMatchesFor(t, app, comp.Id, p.Id)
-			pendMs := pendingMatchesFor(t, app, comp.Id, p.Id)
-			played := 0
-			for _, m := range allMs {
-				if m.GetString("status") == "final" {
-					played++
+			met[p.Id] = map[string]bool{}
+			for _, m := range allMatchesFor(t, app, comp.Id, p.Id) {
+				load[p.Id]++
+				met[p.Id][m.GetString("pair1")] = true
+				met[p.Id][m.GetString("pair2")] = true
+				if m.GetString("status") != "final" {
+					pending[p.Id]++
 				}
 			}
-			load := played + len(pendMs)
-			assert.LessOrEqual(t, load, 5, "%s: P2 pair %s load %d > target 5", step, p.Id, load)
-			assert.LessOrEqual(t, len(pendMs), 3, "%s: P3 pair %s pending %d > open+1=3", step, p.Id, len(pendMs))
+			assert.LessOrEqual(t, load[p.Id], 5, "%s: P2 pair %s load %d > target 5", step, p.Id, load[p.Id])
+		}
+		for _, p := range pairs {
+			if pending[p.Id] >= 2 || load[p.Id] >= 5 {
+				continue
+			}
+			for _, q := range pairs {
+				if q.Id == p.Id || met[p.Id][q.Id] || load[q.Id] >= 5 {
+					continue
+				}
+				assert.Failf(t, "P3 violated", "%s: pair %s waits at pending %d while %s is unmet and unfilled", step, p.Id, pending[p.Id], q.Id)
+			}
 		}
 	}
 
@@ -1831,4 +1846,170 @@ func TestSlotCap(t *testing.T) {
 	for _, m := range matches {
 		assert.LessOrEqual(t, m.GetInt("slot"), 2, "stored slot must never exceed target_matches")
 	}
+}
+
+// finalizePending marks m final with pair1 as winner.
+func finalizePending(t *testing.T, app core.App, m *core.Record, at time.Time) {
+	t.Helper()
+	m.Set("status", "final")
+	m.Set("scores", "6-3 6-4")
+	m.Set("winner", m.GetString("pair1"))
+	m.Set("finalized_at", at.Format("2006-01-02 15:04:05.000Z"))
+	require.NoError(t, app.Save(m))
+}
+
+// playSeason finalizes pending matches one at a time, topping up after each,
+// until nothing is pending. Returns the number of finalized matches.
+func playSeason(t *testing.T, app core.App, svc *Service, compID string, now time.Time) int {
+	t.Helper()
+	played := 0
+	for iter := range 200 {
+		pend, err := app.FindRecordsByFilter("matches",
+			"competition = {:c} && status = 'pending'", "id", 0, 0, map[string]any{"c": compID})
+		require.NoError(t, err)
+		if len(pend) == 0 {
+			return played
+		}
+		finalizePending(t, app, pend[0], now.Add(time.Duration(iter)*time.Minute))
+		played++
+		_, err = svc.TopUpAssignments(compID, now)
+		require.NoError(t, err)
+	}
+	require.Fail(t, "season did not finish in 200 iterations")
+	return played
+}
+
+// TestTopUp_RematchAfterWithdrawal: 6 pairs, target 4. Two withdraw before
+// any match, leaving 4 active pairs with only 3 unique opponents each — no
+// exact completion exists, so rematch mode engages: everyone still reaches
+// exactly target, repeats are flagged, and each pair repeats only once.
+func TestTopUp_RematchAfterWithdrawal(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 6)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "Rm")
+	}
+	comp := makeLeveledCompetition(t, app, pairs, 4, 2)
+	comp.Set("withdrawn_pairs", []string{pairs[4].Id, pairs[5].Id})
+	require.NoError(t, app.Save(comp))
+
+	svc := newDeterministicSvc(app)
+	now := time.Now()
+	sf, err := LeveledShortfall(app, comp, now)
+	require.NoError(t, err)
+	assert.Equal(t, Shortfall{}, sf, "rematches can complete the season, no shortfall")
+
+	_, err = svc.GenerateInitialAssignments(app, comp, now)
+	require.NoError(t, err)
+	assert.Equal(t, 8, playSeason(t, app, svc, comp.Id, now))
+
+	rematches := 0
+	for _, p := range pairs[:4] {
+		ms := allMatchesFor(t, app, comp.Id, p.Id)
+		assert.Len(t, ms, 4, "pair %s must reach exactly target", p.Id)
+		opp := map[string]int{}
+		for _, m := range ms {
+			assert.Equal(t, "final", m.GetString("status"))
+			o := m.GetString("pair1")
+			if o == p.Id {
+				o = m.GetString("pair2")
+			}
+			opp[o]++
+			if m.GetBool("rematch") {
+				rematches++
+			}
+		}
+		assert.Len(t, opp, 3, "pair %s plays every other active pair", p.Id)
+	}
+	// Each of the 8 matches is seen from both sides; 2 of them are repeats.
+	assert.Equal(t, 4, rematches, "exactly two rematch matches (counted twice)")
+}
+
+// TestTopUp_NoRematchWhileExactCompletionExists: the same roster without
+// withdrawals never repeats a pairing.
+func TestTopUp_NoRematchWhileExactCompletionExists(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 6)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "NoRm")
+	}
+	comp := makeLeveledCompetition(t, app, pairs, 4, 2)
+	svc := newDeterministicSvc(app)
+	now := time.Now()
+	_, err := svc.GenerateInitialAssignments(app, comp, now)
+	require.NoError(t, err)
+	assert.Equal(t, 12, playSeason(t, app, svc, comp.Id, now))
+	assert.False(t, hasDuplicatePairing(t, app, comp.Id))
+	n, err := app.FindRecordsByFilter("matches",
+		"competition = {:c} && rematch = true", "", 0, 0, map[string]any{"c": comp.Id})
+	require.NoError(t, err)
+	assert.Empty(t, n)
+}
+
+// TestLeveledShortfall_OddParity: 6 pairs, target 4; pa beat pf, then pf
+// withdraws. Total remaining need is 3+4+4+4+4 = 19 (odd), so one match can
+// never be scheduled under the cap: the shortfall is 1 and every needing
+// pair is a candidate to end short.
+func TestLeveledShortfall_OddParity(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 6)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "Odd")
+	}
+	comp := makeLeveledCompetition(t, app, pairs, 4, 2)
+	makeLeveledMatch(t, app, comp.Id, pairs[0].Id, pairs[5].Id, "6-0 6-0", pairs[0].Id, "final", time.Now().Add(-time.Hour))
+	comp.Set("withdrawn_pairs", []string{pairs[5].Id})
+	require.NoError(t, app.Save(comp))
+
+	sf, err := LeveledShortfall(app, comp, time.Now())
+	require.NoError(t, err)
+	assert.Equal(t, 1, sf.Matches)
+	assert.Len(t, sf.PairIDs, 5)
+
+	// Assignment still does what it can: everyone but one pair reaches target.
+	svc := newDeterministicSvc(app)
+	now := time.Now()
+	_, err = svc.TopUpAssignments(comp.Id, now)
+	require.NoError(t, err)
+	playSeason(t, app, svc, comp.Id, now)
+	short := 0
+	for _, p := range pairs[:5] {
+		if n := len(allMatchesFor(t, app, comp.Id, p.Id)); n < 4 {
+			short++
+			assert.Equal(t, 3, n, "the short pair ends exactly one below target")
+		} else {
+			assert.Equal(t, 4, n)
+		}
+	}
+	assert.Equal(t, 1, short, "exactly one pair ends short")
+}
+
+// TestTopUp_FallbackAboveOpenPlusOne: owner rule (a). open=1, target=4, 6
+// pairs. pa has nothing pending; every other pair already holds 2 or 3
+// pending matches (above open+1 = 2 for pb/pc), so the normal pass finds no
+// candidate at or below open+1 for pa. pa must still get a match — with a
+// least-loaded opponent (load 2), not one of the load-3 pairs.
+func TestTopUp_FallbackAboveOpenPlusOne(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 6)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "Fb")
+	}
+	pa, pb, pc, pd, pe, pf := pairs[0], pairs[1], pairs[2], pairs[3], pairs[4], pairs[5]
+	comp := makeLeveledCompetition(t, app, pairs, 4, 1)
+	for _, pr := range [][2]*core.Record{{pb, pc}, {pd, pe}, {pb, pd}, {pc, pe}, {pf, pb}, {pf, pc}} {
+		makeMatch(t, app, comp.Id, pr[0].Id, pr[1].Id, "pending")
+	}
+
+	svc := newDeterministicSvc(app)
+	created, err := svc.TopUpAssignments(comp.Id, time.Now())
+	require.NoError(t, err)
+	require.Len(t, created, 1, "pa must not be left waiting")
+	m := created[0]
+	opp := m.GetString("pair1")
+	if opp == pa.Id {
+		opp = m.GetString("pair2")
+	}
+	assert.Contains(t, []string{pd.Id, pe.Id, pf.Id}, opp, "least-loaded opponents (load 2) are preferred over pb/pc (load 3)")
+	assert.False(t, m.GetBool("rematch"))
 }

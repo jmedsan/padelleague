@@ -20,8 +20,9 @@ const eloComfortZone = 100
 
 // Pairing is an ordered pair of pair IDs assigned to play each other.
 type Pairing struct {
-	A, B string
-	Slot int // 0 for round-robin; 1+ for leveled-league display grouping
+	A, B    string
+	Slot    int  // 0 for round-robin; 1+ for leveled-league display grouping
+	Rematch bool // the pairing repeats an already-met opponent (rematch mode)
 }
 
 // IsLeveled reports whether the competition assigns opponents by rating
@@ -67,6 +68,7 @@ type leveledState struct {
 	end      time.Time               // competition end_date, zero if unset
 	now      time.Time
 	loc      *time.Location // league display timezone; today's Jornada is computed in this zone
+	rematch  bool           // no exact completion exists (after withdrawals): met pairs may play again
 }
 
 func (st *leveledState) load(p string) int {
@@ -107,21 +109,42 @@ func (st *leveledState) homeTeam(p, q string) (home, away string) {
 	}
 }
 
-// eligible reports whether q is a valid opponent candidate for p.
-func (st *leveledState) eligible(p, q string) bool {
+// eligible reports whether q is a valid opponent candidate for p. In rematch
+// mode an already-met q stays eligible; relaxed lifts the pending ≤ open cap
+// (the target cap always holds).
+func (st *leveledState) eligible(p, q string, relaxed bool) bool {
 	if q == p {
 		return false
 	}
-	if _, met := st.met[p][q]; met {
+	if _, met := st.met[p][q]; met && !st.rematch {
 		return false
 	}
 	if st.load(q) >= st.target {
 		return false
 	}
-	if st.pending[q] > st.open {
+	if !relaxed && st.pending[q] > st.open {
 		return false
 	}
 	return true
+}
+
+// candidateFor reports whether q can be offered to p in round k: eligible,
+// free in round k (below the last Jornada), and — in the relaxed pass — not
+// already tried in the normal pass.
+func (st *leveledState) candidateFor(p, q string, k int, relaxed bool) bool {
+	if !st.eligible(p, q, relaxed) {
+		return false
+	}
+	if k < st.target && st.occupied[q][k] {
+		return false
+	}
+	return !relaxed || st.pending[q] > st.open
+}
+
+// hasMet reports whether p and q already have a match together.
+func (st *leveledState) hasMet(p, q string) bool {
+	_, met := st.met[p][q]
+	return met
 }
 
 type candidate struct {
@@ -129,6 +152,7 @@ type candidate struct {
 	dist     float64
 	load     int
 	position int
+	met      bool
 }
 
 // chooseOpponentForRound returns the best eligible opponent for p within
@@ -139,13 +163,20 @@ type candidate struct {
 // then by better position. The first candidate that passes the completion
 // check wins.
 func (svc *Service) chooseOpponentForRound(st *leveledState, p string, k int) string {
-	inside, outside := svc.collectCandidatesForRound(st, p, k)
-
 	fs := buildFactorState(st)
+	inside, outside := svc.collectCandidatesForRound(st, p, k, false)
 	if id := firstFactorable(p, inside, fs); id != "" {
 		return id
 	}
-	return firstFactorable(p, outside, fs)
+	if id := firstFactorable(p, outside, fs); id != "" {
+		return id
+	}
+	// Fallback: no opponent at or below open+1 — never leave p waiting while
+	// a completable assignment exists. Least-loaded first, target cap kept.
+	inside, outside = svc.collectCandidatesForRound(st, p, k, true)
+	relaxed := append(inside, outside...)
+	sort.SliceStable(relaxed, func(i, j int) bool { return relaxed[i].load < relaxed[j].load })
+	return firstFactorable(p, relaxed, fs)
 }
 
 // collectCandidatesForRound builds the inside-zone (shuffled, then sorted by
@@ -157,18 +188,15 @@ func (svc *Service) chooseOpponentForRound(st *leveledState, p string, k int) st
 // gap (rather than a rank-position difference), so pairs tied on Elo — most
 // visibly the four unranked pairs, all seeded at 0 — are genuinely
 // equidistant instead of ordered apart by name.
-func (svc *Service) collectCandidatesForRound(st *leveledState, p string, k int) (inside, outside []candidate) {
+func (svc *Service) collectCandidatesForRound(st *leveledState, p string, k int, relaxed bool) (inside, outside []candidate) {
 	eloP := st.elo[p]
 	for _, q := range st.pairs {
-		if !st.eligible(p, q) {
-			continue
-		}
-		if k < st.target && st.occupied[q][k] {
+		if !st.candidateFor(p, q, k, relaxed) {
 			continue
 		}
 		d := math.Abs(st.elo[q] - eloP)
-		c := candidate{id: q, dist: d, load: st.load(q), position: st.position[q]}
-		if d <= float64(st.comfort) {
+		c := candidate{id: q, dist: d, load: st.load(q), position: st.position[q], met: st.hasMet(p, q)}
+		if d <= float64(st.comfort) && !st.rematch {
 			inside = append(inside, c)
 		} else {
 			outside = append(outside, c)
@@ -178,6 +206,9 @@ func (svc *Service) collectCandidatesForRound(st *leveledState, p string, k int)
 	sort.SliceStable(inside, func(i, j int) bool { return inside[i].load < inside[j].load })
 	sort.Slice(outside, func(i, j int) bool {
 		a, b := outside[i], outside[j]
+		if a.met != b.met {
+			return !a.met // rematch mode: unmet opponents first
+		}
 		if a.dist != b.dist {
 			return a.dist < b.dist
 		}
@@ -194,9 +225,11 @@ func (svc *Service) collectCandidatesForRound(st *leveledState, p string, k int)
 // Vertex i corresponds to st.pairs[i]; index maps a pair id back to its
 // vertex for callers working with string ids.
 type factorState struct {
-	need  []int
-	avail []uint32
-	index map[string]int
+	need      []int
+	avail     []uint32
+	index     map[string]int
+	rematch   bool // completion test is the multigraph condition, avail ignores met
+	shortfall int  // matches already unschedulable in rematch mode; a pairing may not add to it
 }
 
 // buildFactorState derives a factorState from st: need[v] is how many more
@@ -221,14 +254,28 @@ func buildFactorState(st *leveledState) factorState {
 			if j == i || need[j] <= 0 {
 				continue
 			}
-			if _, met := st.met[id][other]; met {
+			if _, met := st.met[id][other]; met && !st.rematch {
 				continue
 			}
 			mask |= 1 << uint(j)
 		}
 		avail[i] = mask
 	}
-	return factorState{need: need, avail: avail, index: index}
+	fs := factorState{need: need, avail: avail, index: index, rematch: st.rematch}
+	if st.rematch {
+		fs.shortfall = shortfallMatches(need)
+	}
+	return fs
+}
+
+// completable reports whether the remaining need can still be met: exactly
+// (ffactor) in normal mode; in rematch mode the pairing must not add to the
+// unavoidable shortfall (loopless-multigraph realizability, Hakimi 1962).
+func (fs factorState) completable(need []int, avail []uint32) bool {
+	if !fs.rematch {
+		return ffactor(need, avail)
+	}
+	return shortfallMatches(need) <= fs.shortfall
 }
 
 // firstFactorable returns the id of the first candidate for which pairing p
@@ -245,7 +292,7 @@ func firstFactorable(p string, candidates []candidate, fs factorState) string {
 		need[qv]--
 		avail[pv] &^= 1 << uint(qv)
 		avail[qv] &^= 1 << uint(pv)
-		if ffactor(need, avail) {
+		if fs.completable(need, avail) {
 			return c.id
 		}
 	}
@@ -422,7 +469,7 @@ func plan(svc *Service, st *leveledState) []Pairing {
 				continue
 			}
 			home, away := st.homeTeam(p, q)
-			result = append(result, Pairing{A: home, B: away, Slot: k})
+			result = append(result, Pairing{A: home, B: away, Slot: k, Rematch: st.hasMet(p, q)})
 			st.pending[p]++
 			st.pending[q]++
 			st.markHome(home)
@@ -692,7 +739,7 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now tim
 		addMet(tally.met, av.A, av.B)
 	}
 
-	return &leveledState{
+	st := &leveledState{
 		target:   target,
 		open:     open,
 		comfort:  eloComfortZone,
@@ -708,7 +755,80 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now tim
 		end:      comp.GetDateTime("end_date").Time(),
 		now:      now,
 		loc:      Timezone(app),
-	}, nil
+	}
+	st.detectRematch(comp)
+	return st, nil
+}
+
+// detectRematch switches the run to rematch mode when no exact completion
+// exists for the active roster.
+func (st *leveledState) detectRematch(comp *core.Record) {
+	fs := buildFactorState(st)
+	if ffactor(fs.need, fs.avail) {
+		return
+	}
+	st.rematch = true
+	slog.Warn("leveled: no exact completion left, rematch mode",
+		"competition", comp.Id, "name", comp.GetString("name"),
+		"shortfall_matches", shortfallMatches(fs.need))
+}
+
+// Shortfall describes matches a leveled competition can no longer schedule
+// under the target cap, even allowing rematches. Matches is how many are
+// missing; PairIDs lists the pairs that may end below target.
+type Shortfall struct {
+	Matches int
+	PairIDs []string
+}
+
+// LeveledShortfall reports the unavoidable shortfall for comp: zero Matches
+// when every active pair can still reach target (with rematches if needed).
+// With an odd total need any one of the listed pairs ends one match short;
+// otherwise the listed pairs need more matches than the rest can supply.
+func LeveledShortfall(app core.App, comp *core.Record, now time.Time) (Shortfall, error) {
+	st, err := buildLeveledState(app, comp, nil, now)
+	if err != nil {
+		return Shortfall{}, err
+	}
+	fs := buildFactorState(st)
+	missing := shortfallMatches(fs.need)
+	if missing == 0 {
+		return Shortfall{}, nil
+	}
+	total, maxNeed := 0, 0
+	for _, n := range fs.need {
+		if n > 0 {
+			total += n
+			maxNeed = max(maxNeed, n)
+		}
+	}
+	var ids []string
+	for v, n := range fs.need {
+		if n > 0 && (total%2 != 0 || n == maxNeed) {
+			ids = append(ids, st.pairs[v])
+		}
+	}
+	return Shortfall{Matches: missing, PairIDs: ids}, nil
+}
+
+// shortfallMatches returns how many matches a need vector cannot realize
+// even with rematches: the excess of the largest need over what the rest
+// can supply, or one when the total is odd.
+func shortfallMatches(need []int) int {
+	total, maxNeed := 0, 0
+	for _, n := range need {
+		if n > 0 {
+			total += n
+			maxNeed = max(maxNeed, n)
+		}
+	}
+	if total == 0 {
+		return 0
+	}
+	if excess := maxNeed - (total - maxNeed); excess > 0 {
+		return excess
+	}
+	return total % 2
 }
 
 // createMatchRecords writes one match record per pairing using txApp.
@@ -738,6 +858,7 @@ func setMatchFields(rec *core.Record, comp *core.Record, p Pairing, now time.Tim
 	rec.Set("pair1", p.A)
 	rec.Set("pair2", p.B)
 	rec.Set("status", "pending")
+	rec.Set("rematch", p.Rematch)
 
 	slot := p.Slot
 	if target := comp.GetInt("target_matches"); slot > target {
