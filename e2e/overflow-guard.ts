@@ -1,4 +1,4 @@
-import { test as base, expect } from '@playwright/test';
+import { test as base, expect } from './worker-server';
 import type { Page, Response, ConsoleMessage } from '@playwright/test';
 
 // Widest-offender detail for a horizontal-overflow failure: element,
@@ -69,7 +69,12 @@ function findClippedText(page: Page): Promise<string[]> {
     for (const el of all) {
       if (el.children.length > 0) continue;
       if (!el.textContent?.trim()) continue;
+      if (el.classList.contains('sr-only')) continue;
       const style = getComputedStyle(el);
+      // `clip`/`clip-path` (Tailwind's own sr-only utility, and any other
+      // visually-hidden-but-announced pattern) clips on purpose for screen
+      // readers — that's not the silent-truncation bug this guard hunts.
+      if (style.clipPath !== 'none' || style.clip !== 'auto') continue;
       if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
       const hidesOverflow = style.overflow === 'hidden' || style.overflow === 'clip'
         || style.overflowX === 'hidden' || style.overflowX === 'clip'
@@ -106,9 +111,7 @@ function findEmptyInteractive(page: Page): Promise<string[]> {
       const hasLabel = !!el.getAttribute('aria-label')?.trim() || !!el.getAttribute('title')?.trim();
       const hasImgAlt = !!el.querySelector('img[alt]:not([alt=""])');
       if (!hasText && !hasLabel && !hasImgAlt) {
-        const id = el.id ? `#${el.id}` : '';
-        const href = el.tagName === 'A' ? ` href="${el.getAttribute('href') ?? ''}"` : '';
-        offenders.push(`${el.tagName.toLowerCase()}${id}${href}`);
+        offenders.push(el.outerHTML.slice(0, 300));
       }
     }
     return offenders.slice(0, 5);
@@ -167,6 +170,12 @@ function findSmallTapTargets(page: Page): Promise<string[]> {
       if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
       if (el.tagName === 'A' && style.display === 'inline') continue;
       const rect = el.getBoundingClientRect();
+      // checkVisibility() doesn't account for a `transform` pushing the
+      // element off-canvas (DaisyUI's closed drawer-side: pointer-events:
+      // none + translateX(-100%)) — that leaves it "visible" by the DOM's
+      // own rules while a real user can neither see nor tap it. A rect
+      // entirely outside the viewport means exactly that: skip it.
+      if (rect.right <= 0 || rect.bottom <= 0 || rect.left >= window.innerWidth || rect.top >= window.innerHeight) continue;
       if (rect.width <= 4 || rect.height <= 4) continue;
       if (rect.width < 44 || rect.height < 44) {
         const id = el.id ? `#${el.id}` : '';
@@ -287,14 +296,44 @@ async function checkAll(page: Page, isMobileProject: boolean): Promise<string[]>
 // fixture's teardown — which DOES run on the test's stack — asserts the
 // accumulated list is empty, plus a final DOM snapshot of the page's end
 // state.
+// A test that deliberately navigates to a broken/missing URL (a 404 page
+// test) declares it via `testInfo.annotations.push({ type:
+// 'expected-http-error', description: '404 /match/' })` — status plus a URL
+// substring. Only a response matching BOTH is allowed through; anything
+// else (a different status, or a 404 on an unrelated URL) still fails the
+// test. This is scoped per-test (annotations are per-testInfo, never
+// shared), so it can't mask a real regression elsewhere.
+function parseExpectedHTTPErrors(testInfo: { annotations: { type: string; description?: string }[] }): { status: number; urlSubstring: string }[] {
+  return testInfo.annotations
+    .filter(a => a.type === 'expected-http-error' && a.description)
+    .map(a => {
+      const [status, ...rest] = a.description!.trim().split(/\s+/);
+      return { status: Number(status), urlSubstring: rest.join(' ') };
+    });
+}
+
 export const test = base.extend<{ pageGuards: void }>({
   pageGuards: [async ({ page }, use, testInfo) => {
     const isMobileProject = testInfo.project.name === 'mobile';
     const violations: string[] = [];
     const pending: Promise<void>[] = [];
+    // Read lazily (per event, not once here): this fixture's setup runs
+    // BEFORE the test body, so a test that pushes its annotation from
+    // inside the test (e.g. right before the goto it excuses) would
+    // otherwise be invisible — testInfo.annotations wouldn't have it yet.
+    const expectedHTTPErrors = () => parseExpectedHTTPErrors(testInfo);
 
     const recordDOMGuards = () => {
-      const check = checkAll(page, isMobileProject)
+      // `framenavigated` fires the instant navigation commits — well before
+      // the new document finishes parsing, so checking immediately can catch
+      // a `<button>` whose icon SVG child hasn't been inserted yet and
+      // misreport it as empty (flaky, not a real bug: e2e/tests/leveled-league.spec.ts
+      // intermittently failed on this before the wait was added). Settling
+      // on domcontentloaded first makes the check see the same DOM `load`
+      // would have seen.
+      const check = page.waitForLoadState('domcontentloaded', { timeout: 5000 })
+        .catch(() => {}) // navigation superseded before it settled — nothing to check
+        .then(() => checkAll(page, isMobileProject))
         .then(found => { violations.push(...found); })
         .catch(() => {}); // page mid-navigation/closed — nothing to record
       pending.push(check);
@@ -304,13 +343,26 @@ export const test = base.extend<{ pageGuards: void }>({
 
     const onConsole = (msg: ConsoleMessage) => {
       if (msg.type() === 'error') {
-        violations.push(`[console-error] ${page.url()}: ${msg.text().slice(0, 200)}`);
+        // A resource that 404s (an expected-http-error page) also logs a
+        // browser-native "Failed to load resource: ... 404" console error for
+        // that same request — same annotation, same status/URL pair, covers
+        // both. Anything else on the page still fails the test.
+        const text = msg.text();
+        const statusMatch = text.match(/status of (\d+)/);
+        if (statusMatch) {
+          const status = Number(statusMatch[1]);
+          const expected = expectedHTTPErrors().some(e => e.status === status && page.url().includes(e.urlSubstring));
+          if (expected) return;
+        }
+        violations.push(`[console-error] ${page.url()}: ${text.slice(0, 200)}`);
       }
     };
     page.on('console', onConsole);
 
     const onResponse = (response: Response) => {
       if (response.status() >= 400) {
+        const expected = expectedHTTPErrors().some(e => e.status === response.status() && response.url().includes(e.urlSubstring));
+        if (expected) return;
         violations.push(`[http-error] ${response.status()} ${response.request().method()} ${response.url()}`);
       }
     };

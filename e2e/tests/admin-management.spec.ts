@@ -264,6 +264,7 @@ test.describe('admin management', () => {
 
     // 7. A 404-style page (unmatched record) still renders the footer, but
     // without this competition's identity — the out-of-context shape.
+    test.info().annotations.push({ type: 'expected-http-error', description: '404 /match/' });
     await page.goto('/match/does-not-exist');
     await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('footer')).toBeVisible();

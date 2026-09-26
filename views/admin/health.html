@@ -1,7 +1,7 @@
 {{define "content"}}
 <div class="mb-6 flex items-end justify-between flex-wrap gap-2">
     <div>
-        <a href="/admin/competitions" class="link link-hover text-sm opacity-60">← Competiciones</a>
+        <a href="/admin/competitions" class="link link-hover text-sm opacity-60 breadcrumb-link">← Competiciones</a>
         <h1 class="text-2xl font-bold mt-1">Salud</h1>
     </div>
     {{if .BackupEnabled}}
@@ -23,7 +23,7 @@
     <div class="card bg-base-100 shadow-sm">
         <div class="card-body p-4">
             <h2 class="card-title text-lg">
-                {{if .ListURL}}<a href="{{.ListURL}}" class="link link-hover">{{.Title}}</a>{{else}}{{.Title}}{{end}}
+                {{if .ListURL}}<a href="{{.ListURL}}" class="link link-hover inline-flex items-center min-h-[44px]">{{.Title}}</a>{{else}}{{.Title}}{{end}}
                 <span class="badge {{if .Urgent}}badge-error{{else}}badge-warning{{end}} badge-sm">{{len .Items}}</span>
             </h2>
             <div class="space-y-1 mt-2">
