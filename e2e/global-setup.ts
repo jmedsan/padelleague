@@ -7,7 +7,6 @@ import { spawnServer, superuserLogin } from './server';
 // comment there) so the server we spawn and the baseURL tests navigate
 // against are the same value.
 const PORT = process.env.E2E_PORT ? Number(process.env.E2E_PORT) : 8099;
-const BASE_URL = `http://localhost:${PORT}`;
 
 export const ADMIN_EMAIL = 'admin@test.com';
 export const ADMIN_PASSWORD = 'testpass123456';
@@ -26,32 +25,174 @@ export const PLAYER4_PASSWORD = 'testpass123456';
 export const PLAYER4_NAME = 'Test Player 4';
 
 export default async function globalSetup() {
-  const handle = await spawnServer(PORT, {
-    extraEnv: {
-      PB_ADMIN_EMAIL: ADMIN_EMAIL,
-      PB_ADMIN_PASSWORD: ADMIN_PASSWORD,
-      APP_ADMIN1_EMAIL: ADMIN_EMAIL,
-      APP_ADMIN1_PASSWORD: ADMIN_PASSWORD,
-      APP_ADMIN1_NAME: ADMIN_NAME,
-      APP_PLAYER_EMAIL: PLAYER1_EMAIL,
-      APP_PLAYER_PASSWORD: PLAYER1_PASSWORD,
-      APP_PLAYER_NAME: PLAYER1_NAME,
-      APP_PLAYER2_EMAIL: PLAYER2_EMAIL,
-      APP_PLAYER2_PASSWORD: PLAYER2_PASSWORD,
-      APP_PLAYER2_NAME: PLAYER2_NAME,
-      APP_ENV: 'dev',
-      APP_DEV_TOOLS: 'true',
-    },
-  });
+  const handle = await spawnServer(PORT, { extraEnv: seedEnv() });
 
   (globalThis as any).__E2E_SERVER = handle.process;
   (globalThis as any).__E2E_DATA_DIR = handle.dataDir;
 
-  await seedTestData();
+  await seedTestData(`http://localhost:${PORT}`, PORT);
 }
 
-async function seedTestData() {
-  const adminToken = await superuserLogin(BASE_URL, ADMIN_EMAIL, ADMIN_PASSWORD);
+// seedEnv is the admin/player bootstrap env every spawned server needs —
+// shared by the single-server run (globalSetup) and the per-worker parallel
+// fixture (worker-server.ts), which both call spawnServer directly.
+export function seedEnv(): Record<string, string> {
+  return {
+    PB_ADMIN_EMAIL: ADMIN_EMAIL,
+    PB_ADMIN_PASSWORD: ADMIN_PASSWORD,
+    APP_ADMIN1_EMAIL: ADMIN_EMAIL,
+    APP_ADMIN1_PASSWORD: ADMIN_PASSWORD,
+    APP_ADMIN1_NAME: ADMIN_NAME,
+    APP_PLAYER_EMAIL: PLAYER1_EMAIL,
+    APP_PLAYER_PASSWORD: PLAYER1_PASSWORD,
+    APP_PLAYER_NAME: PLAYER1_NAME,
+    APP_PLAYER2_EMAIL: PLAYER2_EMAIL,
+    APP_PLAYER2_PASSWORD: PLAYER2_PASSWORD,
+    APP_PLAYER2_NAME: PLAYER2_NAME,
+    APP_ENV: 'dev',
+    APP_DEV_TOOLS: 'true',
+  };
+}
+
+// seedTestData seeds one server's database with the fixtures every spec
+// relies on (admin, players, pairs, a competition with published fixtures,
+// scratch matches) and writes seed.json to that server's runDataDir. Takes
+// baseURL/port explicitly (rather than a module-level constant) so the
+// per-worker parallel fixture can seed N independent servers, each on its
+// own port, by calling this once per worker.
+export async function seedTestData(baseURL: string, port: number) {
+  const fetchAuthed = (path: string, token: string, init?: RequestInit) =>
+    fetch(`${baseURL}${path}`, { ...init, headers: { ...init?.headers, 'Authorization': token } });
+
+  async function getUser(email: string, token: string) {
+    const resp = await fetchAuthed(`/api/collections/users/records?filter=email='${email}'`, token);
+    const data = await resp.json();
+    return data.items[0];
+  }
+
+  async function createPlayer(email: string, password: string, name: string, token: string): Promise<{ id: string; email: string }> {
+    const resp = await fetchAuthed('/api/collections/users/records', token, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, passwordConfirm: password, display_name: name, roles: ['player'], verified: true }),
+    });
+    if (!resp.ok) throw new Error(`createPlayer: ${resp.status} ${await resp.text()}`);
+    const data = await resp.json();
+    return { id: data.id, email };
+  }
+
+  async function createPair(name: string, player1Id: string, player2Id: string, token: string): Promise<string> {
+    const resp = await fetchAuthed('/api/collections/pairs/records', token, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, player1: player1Id, player2: player2Id, captain: player1Id }),
+    });
+    const data = await resp.json();
+    return data.id;
+  }
+
+  async function createCompetition(name: string, type: string, token: string): Promise<string> {
+    const resp = await fetchAuthed('/api/collections/competitions/records', token, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, type, active: true }),
+    });
+    const data = await resp.json();
+    return data.id;
+  }
+
+  async function addPairToCompetition(compId: string, pairId: string, token: string) {
+    const resp = await fetchAuthed(`/api/collections/competitions/records/${compId}`, token);
+    const comp = await resp.json();
+    const pairs = comp.pairs || [];
+    pairs.push(pairId);
+    await fetchAuthed(`/api/collections/competitions/records/${compId}`, token, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pairs }),
+    });
+  }
+
+  async function adminCookie(): Promise<string> {
+    const loginResp = await fetch(`${baseURL}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `email=${ADMIN_EMAIL}&password=${ADMIN_PASSWORD}`,
+      redirect: 'manual',
+    });
+    const cookies = loginResp.headers.getSetCookie?.() || [];
+    return cookies.join('; ');
+  }
+
+  async function generateFixtures(compId: string) {
+    // Use the admin HTML endpoint with cookie-based auth
+    const cookieStr = await adminCookie();
+    await fetch(`${baseURL}/admin/competitions/${compId}/generate`, {
+      method: 'POST',
+      headers: { 'Cookie': cookieStr, 'HX-Request': 'true' },
+    });
+  }
+
+  // publishCalendar makes a just-generated draft calendar visible to players
+  // — generateFixtures alone leaves it in draft (calendar_status), which
+  // hides matches/standings from every non-admin test fixture relies on.
+  async function publishCalendar(compId: string) {
+    const cookieStr = await adminCookie();
+    await fetch(`${baseURL}/admin/competitions/${compId}/publish`, {
+      method: 'POST',
+      headers: { 'Cookie': cookieStr, 'HX-Request': 'true' },
+    });
+  }
+
+  async function createDocument(title: string, token: string): Promise<string> {
+    const resp = await fetchAuthed('/api/collections/documents/records', token, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, url: 'https://example.com/reglamento' }),
+    });
+    if (!resp.ok) throw new Error(`createDocument: ${resp.status} ${await resp.text()}`);
+    const data = await resp.json();
+    return data.id;
+  }
+
+  async function attachDocument(compId: string, docId: string, token: string) {
+    const resp = await fetchAuthed(`/api/collections/competitions/records/${compId}`, token, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documents: [docId] }),
+    });
+    if (!resp.ok) throw new Error(`attachDocument: ${resp.status} ${await resp.text()}`);
+  }
+
+  async function createAnnouncement(compId: string, title: string, body: string, createdBy: string, token: string) {
+    const resp = await fetchAuthed('/api/collections/announcements/records', token, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ competition: compId, title, body, created_by: createdBy }),
+    });
+    if (!resp.ok) throw new Error(`createAnnouncement: ${resp.status} ${await resp.text()}`);
+  }
+
+  async function createPenalty(compId: string, pairId: string, amount: number, reason: string, token: string) {
+    const resp = await fetchAuthed('/api/collections/penalties/records', token, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ competition: compId, pair: pairId, amount, reason, voided: false }),
+    });
+    if (!resp.ok) throw new Error(`createPenalty: ${resp.status} ${await resp.text()}`);
+  }
+
+  async function createVenue(name: string, token: string): Promise<string> {
+    const resp = await fetchAuthed('/api/collections/venues/records', token, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, address: 'Calle Test 1' }),
+    });
+    const data = await resp.json();
+    return data.id;
+  }
+
+  const adminToken = await superuserLogin(baseURL, ADMIN_EMAIL, ADMIN_PASSWORD);
 
   // Get player IDs
   const player1 = await getUser(PLAYER1_EMAIL, adminToken);
@@ -74,7 +215,7 @@ async function seedTestData() {
   await addPairToCompetition(compId, pair2Id, adminToken);
 
   // Generate fixtures and publish so every test's player-facing view sees them
-  await generateFixtures(compId, adminToken);
+  await generateFixtures(compId);
   await publishCalendar(compId);
 
   // Realistic worst-case content so every player/admin page test exercises
@@ -92,18 +233,16 @@ async function seedTestData() {
   await createPenalty(compId, pair2Id, 3, 'Incomparecencia (seed E2E)', adminToken);
 
   // Get match IDs
-  const matchesResp = await fetch(`${BASE_URL}/api/collections/matches/records?filter=competition='${compId}'`, {
-    headers: { 'Authorization': adminToken },
-  });
+  const matchesResp = await fetchAuthed(`/api/collections/matches/records?filter=competition='${compId}'`, adminToken);
   const matchesData = await matchesResp.json();
   const matches = matchesData.items || [];
 
   // Pre-play a scratch match so standings data exists from the start of the
   // run — a test that opens the Clasificación tab shouldn't depend on some
   // other test having already submitted a score first.
-  const playedMatch = await fetch(`${BASE_URL}/api/collections/matches/records`, {
+  const playedMatch = await fetchAuthed('/api/collections/matches/records', adminToken, {
     method: 'POST',
-    headers: { 'Authorization': adminToken, 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       competition: compId,
       pair1: pair1Id,
@@ -131,9 +270,9 @@ async function seedTestData() {
   // pair3 is NOT added to the competition to avoid changing fixture generation.
   for (let i = 0; i < 12; i++) {
     const usePair3 = i >= 4 && i < 6; // slots 0-1 = indices 0-3, slot 2 = indices 4-5
-    const extra = await fetch(`${BASE_URL}/api/collections/matches/records`, {
+    const extra = await fetchAuthed('/api/collections/matches/records', adminToken, {
       method: 'POST',
-      headers: { 'Authorization': adminToken, 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         competition: compId,
         pair1: pair1Id,
@@ -161,144 +300,5 @@ async function seedTestData() {
     venueId,
   };
 
-  writeFileSync(join(runDataDir(PORT), 'seed.json'), JSON.stringify(testData, null, 2));
-}
-
-async function getUser(email: string, token: string) {
-  const resp = await fetch(`${BASE_URL}/api/collections/users/records?filter=email='${email}'`, {
-    headers: { 'Authorization': token },
-  });
-  const data = await resp.json();
-  return data.items[0];
-}
-
-async function createPlayer(email: string, password: string, name: string, token: string): Promise<{ id: string; email: string }> {
-  const resp = await fetch(`${BASE_URL}/api/collections/users/records`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': token },
-    body: JSON.stringify({ email, password, passwordConfirm: password, display_name: name, roles: ['player'], verified: true }),
-  });
-  if (!resp.ok) throw new Error(`createPlayer: ${resp.status} ${await resp.text()}`);
-  const data = await resp.json();
-  return { id: data.id, email };
-}
-
-async function createPair(name: string, player1Id: string, player2Id: string, token: string): Promise<string> {
-  const resp = await fetch(`${BASE_URL}/api/collections/pairs/records`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': token },
-    body: JSON.stringify({ name, player1: player1Id, player2: player2Id, captain: player1Id }),
-  });
-  const data = await resp.json();
-  return data.id;
-}
-
-async function createCompetition(name: string, type: string, token: string): Promise<string> {
-  const resp = await fetch(`${BASE_URL}/api/collections/competitions/records`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': token },
-    body: JSON.stringify({ name, type, active: true }),
-  });
-  const data = await resp.json();
-  return data.id;
-}
-
-async function addPairToCompetition(compId: string, pairId: string, token: string) {
-  const resp = await fetch(`${BASE_URL}/api/collections/competitions/records/${compId}`, {
-    headers: { 'Authorization': token },
-  });
-  const comp = await resp.json();
-  const pairs = comp.pairs || [];
-  pairs.push(pairId);
-  await fetch(`${BASE_URL}/api/collections/competitions/records/${compId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', 'Authorization': token },
-    body: JSON.stringify({ pairs }),
-  });
-}
-
-async function generateFixtures(compId: string, token: string) {
-  // Use the admin HTML endpoint with cookie-based auth
-  const cookieStr = await adminCookie();
-
-  await fetch(`${BASE_URL}/admin/competitions/${compId}/generate`, {
-    method: 'POST',
-    headers: {
-      'Cookie': cookieStr,
-      'HX-Request': 'true',
-    },
-  });
-}
-
-async function adminCookie(): Promise<string> {
-  const loginResp = await fetch(`${BASE_URL}/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `email=${ADMIN_EMAIL}&password=${ADMIN_PASSWORD}`,
-    redirect: 'manual',
-  });
-  const cookies = loginResp.headers.getSetCookie?.() || [];
-  return cookies.join('; ');
-}
-
-// publishCalendar makes a just-generated draft calendar visible to players —
-// generateFixtures alone leaves it in draft (calendar_status), which hides
-// matches/standings from every non-admin test fixture relies on.
-async function publishCalendar(compId: string) {
-  const cookieStr = await adminCookie();
-  await fetch(`${BASE_URL}/admin/competitions/${compId}/publish`, {
-    method: 'POST',
-    headers: {
-      'Cookie': cookieStr,
-      'HX-Request': 'true',
-    },
-  });
-}
-
-async function createDocument(title: string, token: string): Promise<string> {
-  const resp = await fetch(`${BASE_URL}/api/collections/documents/records`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': token },
-    body: JSON.stringify({ title, url: 'https://example.com/reglamento' }),
-  });
-  if (!resp.ok) throw new Error(`createDocument: ${resp.status} ${await resp.text()}`);
-  const data = await resp.json();
-  return data.id;
-}
-
-async function attachDocument(compId: string, docId: string, token: string) {
-  const resp = await fetch(`${BASE_URL}/api/collections/competitions/records/${compId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', 'Authorization': token },
-    body: JSON.stringify({ documents: [docId] }),
-  });
-  if (!resp.ok) throw new Error(`attachDocument: ${resp.status} ${await resp.text()}`);
-}
-
-async function createAnnouncement(compId: string, title: string, body: string, createdBy: string, token: string) {
-  const resp = await fetch(`${BASE_URL}/api/collections/announcements/records`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': token },
-    body: JSON.stringify({ competition: compId, title, body, created_by: createdBy }),
-  });
-  if (!resp.ok) throw new Error(`createAnnouncement: ${resp.status} ${await resp.text()}`);
-}
-
-async function createPenalty(compId: string, pairId: string, amount: number, reason: string, token: string) {
-  const resp = await fetch(`${BASE_URL}/api/collections/penalties/records`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': token },
-    body: JSON.stringify({ competition: compId, pair: pairId, amount, reason, voided: false }),
-  });
-  if (!resp.ok) throw new Error(`createPenalty: ${resp.status} ${await resp.text()}`);
-}
-
-async function createVenue(name: string, token: string): Promise<string> {
-  const resp = await fetch(`${BASE_URL}/api/collections/venues/records`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': token },
-    body: JSON.stringify({ name, address: 'Calle Test 1' }),
-  });
-  const data = await resp.json();
-  return data.id;
+  writeFileSync(join(runDataDir(port), 'seed.json'), JSON.stringify(testData, null, 2));
 }

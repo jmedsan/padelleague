@@ -1,22 +1,21 @@
+import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import { loginAs, loginViaForm, isMobile, loadTestData, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
-const BASE = `http://localhost:${process.env.E2E_PORT || 8099}`;
 const UNVERIFIED_PASSWORD = 'testpass123456';
 
-async function createUnverifiedPlayer(label: string): Promise<{ email: string; password: string }> {
+async function createUnverifiedPlayer(request: APIRequestContext, label: string): Promise<{ email: string; password: string }> {
   const email = `unverified-${label}-${Date.now()}@test.local`;
-  const resp = await fetch(`${BASE}/api/collections/users/records`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: loadTestData().adminToken },
-    body: JSON.stringify({
+  const resp = await request.post('/api/collections/users/records', {
+    headers: { Authorization: loadTestData().adminToken },
+    data: {
       email, display_name: `Sin Verificar ${label}`,
       gender: 'male', roles: ['player'],
       password: UNVERIFIED_PASSWORD, passwordConfirm: UNVERIFIED_PASSWORD,
       verified: false,
-    }),
+    },
   });
-  if (!resp.ok) throw new Error(`create unverified player: ${resp.status} ${await resp.text()}`);
+  if (!resp.ok()) throw new Error(`create unverified player: ${resp.status()} ${await resp.text()}`);
   return { email, password: UNVERIFIED_PASSWORD };
 }
 
@@ -51,8 +50,8 @@ test('player cannot access admin page', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Competiciones', exact: true })).not.toBeVisible({ timeout: 3000 });
 });
 
-test('unverified-email banner can be dismissed and stays hidden for the session', async ({ page }) => {
-  const player = await createUnverifiedPlayer(isMobile(page) ? 'mobile' : 'desktop');
+test('unverified-email banner can be dismissed and stays hidden for the session', async ({ page, request }) => {
+  const player = await createUnverifiedPlayer(request, isMobile(page) ? 'mobile' : 'desktop');
   await loginAs(page, player.email, player.password);
   await page.goto('/');
 

@@ -1,29 +1,25 @@
+import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import { loginAs, loadTestData, isMobile, openDrawer, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
-const BASE = `http://localhost:${process.env.E2E_PORT || 8099}`;
 const FRESH_PLAYER_PASSWORD = 'TestPass123456';
 
 function suToken(): string {
   return loadTestData().adminToken;
 }
 
-async function suPost(path: string, data: Record<string, unknown>): Promise<any> {
-  const resp = await fetch(`${BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: suToken() },
-    body: JSON.stringify(data),
-  });
-  if (!resp.ok) throw new Error(`suPost ${path}: ${resp.status} ${await resp.text()}`);
+async function suPost(request: APIRequestContext, path: string, data: Record<string, unknown>): Promise<any> {
+  const resp = await request.post(path, { headers: { Authorization: suToken() }, data });
+  if (!resp.ok()) throw new Error(`suPost ${path}: ${resp.status()} ${await resp.text()}`);
   return resp.json();
 }
 
 // createFreshPlayer makes a player who has never uploaded an avatar, so the
 // "placeholder" assertion below is not racing the mobile tour project (which
 // runs first in the shared suite and uploads an avatar for PLAYER1).
-async function createFreshPlayer(label: string): Promise<{ email: string; password: string }> {
+async function createFreshPlayer(request: APIRequestContext, label: string): Promise<{ email: string; password: string }> {
   const email = `avatar-${label}-${Date.now()}@test.local`;
-  await suPost('/api/collections/users/records', {
+  await suPost(request, '/api/collections/users/records', {
     email, display_name: `Foto Test ${label}`,
     gender: 'male', roles: ['player'],
     password: FRESH_PLAYER_PASSWORD, passwordConfirm: FRESH_PLAYER_PASSWORD,
@@ -89,13 +85,13 @@ test.describe('player profile and stats', () => {
     await expect(page.locator('[hx-get="/notifications/count"]').first()).toBeAttached({ timeout: 5000 });
   });
 
-  test('player can upload their own avatar photo', async ({ page }) => {
+  test('player can upload their own avatar photo', async ({ page, request }) => {
     // Fresh player: the shared seed's PLAYER1 already has an avatar by the
     // time mobile runs before desktop (mobile tour uploads one), so the
     // "starts as placeholder" assertion needs a player this test fully
     // controls, per season-simulation.spec.ts's pattern of not trusting
     // shared seed state.
-    const player = await createFreshPlayer('upload');
+    const player = await createFreshPlayer(request, 'upload');
     await loginAs(page, player.email, player.password);
     if (isMobile(page)) {
       await openDrawer(page);
@@ -139,8 +135,8 @@ test.describe('player profile and stats', () => {
     await expect(page.locator('#avatar-file-input')).toHaveCount(0);
   });
 
-  test('player can change their own display name from Mi cuenta', async ({ page }) => {
-    const player = await createFreshPlayer('rename');
+  test('player can change their own display name from Mi cuenta', async ({ page, request }) => {
+    const player = await createFreshPlayer(request, 'rename');
     await loginAs(page, player.email, player.password);
     if (isMobile(page)) {
       await openDrawer(page);
@@ -170,8 +166,8 @@ test.describe('player profile and stats', () => {
     await expect(page.locator('[data-testid="my-account"]')).toHaveCount(0);
   });
 
-  test('wrong current password shows an error and does not change the password', async ({ page }) => {
-    const player = await createFreshPlayer('badpass');
+  test('wrong current password shows an error and does not change the password', async ({ page, request }) => {
+    const player = await createFreshPlayer(request, 'badpass');
     await loginAs(page, player.email, player.password);
     if (isMobile(page)) {
       await openDrawer(page);

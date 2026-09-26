@@ -12,13 +12,12 @@ export interface ServerHandle {
 
 export async function spawnServer(
   port: number,
-  opts?: { extraEnv?: Record<string, string>; keepAlive?: boolean },
+  opts?: { extraEnv?: Record<string, string>; keepAlive?: boolean; binary?: string },
 ): Promise<ServerHandle> {
-  const binary = join(mkdtempSync(join(tmpdir(), 'pl-')), 'padelleague');
-  execSync(`go build -o ${binary} .`, {
-    cwd: join(__dirname, '..'),
-    stdio: 'inherit',
-  });
+  // A pre-built binary (buildBinary, called once from globalSetup) skips a
+  // ~6s go build per call — the difference between one build and N when N
+  // Playwright workers each spawn their own server.
+  const binary = opts?.binary ?? await buildBinary();
 
   const dataDir = mkdtempSync(join(tmpdir(), 'padelleague-test-'));
   const baseURL = `http://localhost:${port}`;
@@ -61,6 +60,19 @@ export async function superuserLogin(
   const data = await resp.json();
   if (!data.token) throw new Error(`Superuser auth failed: ${JSON.stringify(data)}`);
   return data.token;
+}
+
+// buildBinary compiles the server once into a fresh temp dir and returns its
+// path. Call once (e.g. from globalSetup) and pass the result as
+// spawnServer's `binary` option when spawning more than one server, so a
+// multi-worker run pays the build cost once instead of once per worker.
+export async function buildBinary(): Promise<string> {
+  const binary = join(mkdtempSync(join(tmpdir(), 'pl-')), 'padelleague');
+  execSync(`go build -o ${binary} .`, {
+    cwd: join(__dirname, '..'),
+    stdio: 'inherit',
+  });
+  return binary;
 }
 
 export function killServer(handle: ServerHandle): void {

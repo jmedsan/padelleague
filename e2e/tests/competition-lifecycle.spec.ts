@@ -1,29 +1,20 @@
+import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import { loginAs, loadTestData, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
-
-const BASE = `http://localhost:${process.env.E2E_PORT || 8099}`;
 
 function suToken(): string {
   return loadTestData().adminToken;
 }
 
-async function suPost(path: string, data: Record<string, unknown>): Promise<any> {
-  const resp = await fetch(`${BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: suToken() },
-    body: JSON.stringify(data),
-  });
-  if (!resp.ok) throw new Error(`suPost ${path}: ${resp.status} ${await resp.text()}`);
+async function suPost(request: APIRequestContext, path: string, data: Record<string, unknown>): Promise<any> {
+  const resp = await request.post(path, { headers: { Authorization: suToken() }, data });
+  if (!resp.ok()) throw new Error(`suPost ${path}: ${resp.status()} ${await resp.text()}`);
   return resp.json();
 }
 
-async function suPatch(path: string, data: Record<string, unknown>): Promise<void> {
-  const resp = await fetch(`${BASE}${path}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', Authorization: suToken() },
-    body: JSON.stringify(data),
-  });
-  if (!resp.ok) throw new Error(`suPatch ${path}: ${resp.status} ${await resp.text()}`);
+async function suPatch(request: APIRequestContext, path: string, data: Record<string, unknown>): Promise<void> {
+  const resp = await request.patch(path, { headers: { Authorization: suToken() }, data });
+  if (!resp.ok()) throw new Error(`suPatch ${path}: ${resp.status()} ${await resp.text()}`);
 }
 
 test.describe('competition lifecycle', () => {
@@ -60,7 +51,7 @@ test.describe('competition lifecycle', () => {
     await expect(page.getByRole('heading', { name })).toBeVisible({ timeout: 10000 });
   });
 
-  test('player can view competition standings', { tag: '@smoke' }, async ({ page }, testInfo) => {
+  test('player can view competition standings', { tag: '@smoke' }, async ({ page, request }, testInfo) => {
     // Self-contained competition + pairs + one played match: the shared seed
     // (data.competitionId / Pareja Alpha) accumulates matches across the
     // whole suite (mobile tour plays some before this runs), so its Forma
@@ -69,7 +60,7 @@ test.describe('competition lifecycle', () => {
     // pattern of building its own fixtures rather than trusting shared state.
     const suffix = `${testInfo.project.name.charAt(0)}${Date.now() % 100000}`;
     const compName = `Liga Clasif ${suffix}`;
-    const makePlayer = async (label: string) => suPost('/api/collections/users/records', {
+    const makePlayer = async (label: string) => suPost(request, '/api/collections/users/records', {
       email: `clasif-${label}-${suffix}@test.local`,
       display_name: `Clasif ${label} ${suffix}`,
       gender: 'male', roles: ['player'],
@@ -77,22 +68,22 @@ test.describe('competition lifecycle', () => {
       verified: true,
     });
     const [p1, p2, p3, p4] = await Promise.all(['1', '2', '3', '4'].map(makePlayer));
-    const comp = await suPost('/api/collections/competitions/records', {
+    const comp = await suPost(request, '/api/collections/competitions/records', {
       name: compName, type: 'league', active: true,
     });
-    const pairAlpha = await suPost('/api/collections/pairs/records', {
+    const pairAlpha = await suPost(request, '/api/collections/pairs/records', {
       name: `Pareja Clasif A ${suffix}`,
       player1: p1.id, player2: p2.id,
     });
-    const pairBeta = await suPost('/api/collections/pairs/records', {
+    const pairBeta = await suPost(request, '/api/collections/pairs/records', {
       name: `Pareja Clasif B ${suffix}`,
       player1: p3.id, player2: p4.id,
     });
-    await suPatch(`/api/collections/competitions/records/${comp.id}`, {
+    await suPatch(request, `/api/collections/competitions/records/${comp.id}`, {
       pairs: [pairAlpha.id, pairBeta.id],
       calendar_status: 'published',
     });
-    await suPost('/api/collections/matches/records', {
+    await suPost(request, '/api/collections/matches/records', {
       competition: comp.id, pair1: pairAlpha.id, pair2: pairBeta.id,
       status: 'final', round_number: 1, scores: '6-3 6-4', winner: pairAlpha.id,
     });
@@ -150,10 +141,10 @@ test.describe('competition lifecycle', () => {
     expect(body).toContain('Pareja Alpha');
   });
 
-  test('team filter select shows only the chosen pair and checks the Jornadas tab', async ({ page }, testInfo) => {
+  test('team filter select shows only the chosen pair and checks the Jornadas tab', async ({ page, request }, testInfo) => {
     const suffix = `${testInfo.project.name.charAt(0)}${Date.now() % 100000}`;
     const compName = `Liga Filter ${suffix}`;
-    const makePlayer = async (label: string) => suPost('/api/collections/users/records', {
+    const makePlayer = async (label: string) => suPost(request, '/api/collections/users/records', {
       email: `filter-${label}-${suffix}@test.local`,
       display_name: `Filter ${label} ${suffix}`,
       gender: 'male', roles: ['player'],
@@ -161,27 +152,27 @@ test.describe('competition lifecycle', () => {
       verified: true,
     });
     const [p1, p2, p3, p4, p5, p6] = await Promise.all(['1', '2', '3', '4', '5', '6'].map(makePlayer));
-    const comp = await suPost('/api/collections/competitions/records', {
+    const comp = await suPost(request, '/api/collections/competitions/records', {
       name: compName, type: 'league', active: true,
     });
-    const pairMine = await suPost('/api/collections/pairs/records', {
+    const pairMine = await suPost(request, '/api/collections/pairs/records', {
       name: `Pareja Mine ${suffix}`, player1: p1.id, player2: p2.id,
     });
-    const pairOther = await suPost('/api/collections/pairs/records', {
+    const pairOther = await suPost(request, '/api/collections/pairs/records', {
       name: `Pareja Other ${suffix}`, player1: p3.id, player2: p4.id,
     });
-    const pairThird = await suPost('/api/collections/pairs/records', {
+    const pairThird = await suPost(request, '/api/collections/pairs/records', {
       name: `Pareja Third ${suffix}`, player1: p5.id, player2: p6.id,
     });
-    await suPatch(`/api/collections/competitions/records/${comp.id}`, {
+    await suPatch(request, `/api/collections/competitions/records/${comp.id}`, {
       pairs: [pairMine.id, pairOther.id, pairThird.id],
       calendar_status: 'published',
     });
-    const matchMine = await suPost('/api/collections/matches/records', {
+    const matchMine = await suPost(request, '/api/collections/matches/records', {
       competition: comp.id, pair1: pairMine.id, pair2: pairThird.id,
       status: 'pending', round_number: 1,
     });
-    const matchOther = await suPost('/api/collections/matches/records', {
+    const matchOther = await suPost(request, '/api/collections/matches/records', {
       competition: comp.id, pair1: pairOther.id, pair2: pairThird.id,
       status: 'pending', round_number: 2,
     });
@@ -209,10 +200,10 @@ test.describe('competition lifecycle', () => {
     await expect(page.locator('select[name="pair"]')).toHaveValue(pairOther.id);
   });
 
-  test('draft calendar is hidden from players until published', async ({ page }, testInfo) => {
+  test('draft calendar is hidden from players until published', async ({ page, request }, testInfo) => {
     const suffix = `${testInfo.project.name.charAt(0)}${Date.now() % 100000}`;
     const compName = `Liga Publish ${suffix}`;
-    const makePlayer = async (label: string) => suPost('/api/collections/users/records', {
+    const makePlayer = async (label: string) => suPost(request, '/api/collections/users/records', {
       email: `publish-${label}-${suffix}@test.local`,
       display_name: `Publish ${label} ${suffix}`,
       gender: 'male', roles: ['player'],
@@ -220,16 +211,16 @@ test.describe('competition lifecycle', () => {
       verified: true,
     });
     const [p1, p2, p3, p4] = await Promise.all(['1', '2', '3', '4'].map(makePlayer));
-    const comp = await suPost('/api/collections/competitions/records', {
+    const comp = await suPost(request, '/api/collections/competitions/records', {
       name: compName, type: 'league', active: true,
     });
-    const pairAlpha = await suPost('/api/collections/pairs/records', {
+    const pairAlpha = await suPost(request, '/api/collections/pairs/records', {
       name: `Pareja Publish A ${suffix}`, player1: p1.id, player2: p2.id,
     });
-    const pairBeta = await suPost('/api/collections/pairs/records', {
+    const pairBeta = await suPost(request, '/api/collections/pairs/records', {
       name: `Pareja Publish B ${suffix}`, player1: p3.id, player2: p4.id,
     });
-    await suPatch(`/api/collections/competitions/records/${comp.id}`, {
+    await suPatch(request, `/api/collections/competitions/records/${comp.id}`, {
       pairs: [pairAlpha.id, pairBeta.id],
     });
 
