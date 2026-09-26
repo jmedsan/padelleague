@@ -305,6 +305,45 @@ test.describe('R-178: presentation quality guards', () => {
     await apiDelete(page.request, suToken, 'users', partnerId);
   });
 
+  test('bug: competition with zero announcements still shows the Anuncios tab with an empty state', async ({ page }, testInfo) => {
+    const suToken = await getSuToken(page.request);
+    const suffix = `${Date.now()}-${testInfo.project.name}`;
+    const email = `anuncios-empty-${suffix}@test.local`;
+    const playerId = await apiCreate(page.request, suToken, 'users', {
+      email, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: `Anuncios Player ${suffix}`, roles: ['player'], verified: true, gender: 'male',
+    });
+    const partnerId = await apiCreate(page.request, suToken, 'users', {
+      email: `anuncios-empty-partner-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: `Anuncios Partner ${suffix}`, roles: ['player'], verified: true, gender: 'male',
+    });
+    const pairId = await apiCreate(page.request, suToken, 'pairs', {
+      name: `Anuncios Pareja ${suffix}`, player1: playerId, player2: partnerId,
+    });
+    const compName = `Anuncios Empty Comp ${suffix}`;
+    const compId = await apiCreate(page.request, suToken, 'competitions', {
+      name: compName, type: 'league', active: true, pairs: [pairId], calendar_status: 'published',
+    });
+
+    await loginAs(page, email, 'testpass123456');
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    // Reach the competition by clicking its home card, not goto(url).
+    await page.locator('a', { hasText: compName }).first().click();
+    await page.waitForLoadState('networkidle');
+
+    const announcementsTab = page.locator('input[aria-label="Anuncios"]');
+    await expect(announcementsTab, 'Anuncios tab must be visible with zero announcements').toBeVisible();
+    await announcementsTab.click();
+    await expect(page.getByText('No hay anuncios todavía'), 'empty-state text must render inside the tab').toBeVisible();
+
+    await apiDelete(page.request, suToken, 'competitions', compId);
+    await apiDelete(page.request, suToken, 'pairs', pairId);
+    await apiDelete(page.request, suToken, 'users', playerId);
+    await apiDelete(page.request, suToken, 'users', partnerId);
+  });
+
   test('R-231: notifications dropdown shows entries when notifications exist', async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto('/');
