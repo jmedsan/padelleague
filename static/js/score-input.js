@@ -113,7 +113,7 @@
             var p = setPair(si, i);
             if (!p.a || !p.b || p.a.value === '' || p.b.value === '') continue;
             var a = parseInt(p.a.value, 10), b = parseInt(p.b.value, 10);
-            if (!isValidSet(a, b) && isOpenSet(a, b)) {
+            if (!isValidSet(a, b) && isOpenSet(a, b) && isLastVisibleSet(si, i)) {
                 return { a: a, b: b, set: i };
             }
         }
