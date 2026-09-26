@@ -1254,13 +1254,11 @@ func TestTopUp_NotifiesBothPairs(t *testing.T) {
 
 		call1 := findNotifyCallFor(t, notifier.calls, m.Id, p1Players)
 		assert.Equal(t, "match_assigned", call1.notifType)
-		assert.Contains(t, call1.body, pairNames[p2ID], "pair1's players should be told pair2's name")
-		assert.NotContains(t, call1.body, pairNames[p1ID], "pair1's players should not be told their own name")
+		assert.Equal(t, fmt.Sprintf("Tu próximo rival es %s.", pairNames[p2ID]), call1.body, "pair1's players should be told pair2's name, exactly")
 
 		call2 := findNotifyCallFor(t, notifier.calls, m.Id, p2Players)
 		assert.Equal(t, "match_assigned", call2.notifType)
-		assert.Contains(t, call2.body, pairNames[p1ID], "pair2's players should be told pair1's name")
-		assert.NotContains(t, call2.body, pairNames[p2ID], "pair2's players should not be told their own name")
+		assert.Equal(t, fmt.Sprintf("Tu próximo rival es %s.", pairNames[p1ID]), call2.body, "pair2's players should be told pair1's name, exactly")
 	}
 }
 
