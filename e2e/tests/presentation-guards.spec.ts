@@ -334,8 +334,17 @@ test.describe('R-178: presentation quality guards', () => {
 
     // No "Quitar" text button inside a penalty form (the old woven-in control).
     await expect(parejas.locator('form[hx-post*="/penalty"] button:has-text("Quitar")')).toHaveCount(0);
-    // "Penalizar" renders as a distinct action for each pair row.
-    await expect(parejas.locator('label:has-text("Penalizar")').first()).toBeVisible();
+    // "Penalizar" renders as a distinct action for each pair row. The
+    // desktop table's trigger is icon-only (aria-label, no text node) and
+    // always visible; on mobile it lives inside the "Más acciones" dropdown,
+    // closed by default — open it first (same pattern as tour-reference.spec.ts).
+    let penalizeLabel = parejas.locator('label[for^="penalty-modal-"][aria-label="Penalizar"]').first();
+    if (isMobile(page)) {
+      const dropdown = parejas.locator('.dropdown:has(label[for^="penalty-modal-"])').first();
+      await dropdown.locator('button[aria-label="Más acciones"]').click();
+      penalizeLabel = dropdown.locator('label[for^="penalty-modal-"]');
+    }
+    await expect(penalizeLabel).toBeVisible();
   });
 
   test('R-167: onboarding checklist — reglamento deep-links to Documentos tab', async ({ page }) => {
