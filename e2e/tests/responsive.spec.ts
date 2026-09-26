@@ -86,7 +86,9 @@ test.describe('responsive - no horizontal overflow', () => {
     await expect(page.getByText('Liga E2E Test').first()).toBeVisible();
     await expect(page.locator('input[aria-label="Jornadas"]')).toBeVisible();
     await page.locator('input[aria-label="Jornadas"]').click();
-    await expect(page.getByText('Pareja Alpha').first()).toBeVisible();
+    // getByText also matches the pair-filter <select>'s <option> (never
+    // "visible" per Playwright) — scope to the visible match-row text.
+    await expect(page.getByText('Pareja Alpha').locator('visible=true').first()).toBeVisible();
   });
 
   test('match detail', async ({ page }) => {
@@ -114,7 +116,9 @@ test.describe('responsive - no horizontal overflow', () => {
     await checkNoOverflow(page);
     const standingsCard = page.locator('.card', { has: page.getByRole('heading', { name: 'Clasificación' }) });
     await expect(standingsCard).toBeVisible();
-    await expect(standingsCard.getByText('Pareja Alpha').first()).toBeVisible();
+    // Mobile card list and desktop table both render every pair name (CSS-
+    // toggled per breakpoint, both in the DOM at once) — scope to visible.
+    await expect(standingsCard.getByText('Pareja Alpha').locator('visible=true').first()).toBeVisible();
   });
 
   test('W13: long pair names in a jornada match row wrap instead of overflowing at 390px', async ({ page }) => {
@@ -204,8 +208,13 @@ test.describe('responsive - no horizontal overflow', () => {
     });
     const compId = await apiCreateRecord(page.request, 'competitions', {
       name: `H1 Tabs Overflow ${suffix}`, type: 'league', active: true, pairs: [pairA, pairB],
+      calendar_status: 'published',
     });
     // A finalized match is required for Standings to populate (Clasificación tab).
+    // calendar_status must be published too — competitionStandings
+    // (handlers/public_competition.go) hides the Clasificación tab from any
+    // non-admin viewer of a draft calendar, same as matchVisibleTo does for
+    // match pages.
     await apiCreateRecord(page.request, 'matches', {
       competition: compId, pair1: pairA, pair2: pairB, status: 'final',
       round_number: 1, scores: '6-3 6-4', winner: pairA,
@@ -281,7 +290,8 @@ test.describe('responsive - no horizontal overflow', () => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await navViaDrawer(page, '/admin/venues');
     await checkNoOverflow(page);
-    await expect(page.getByRole('cell', { name: 'Pista Central' })).toBeVisible();
+    // Mobile card list and desktop table both render every venue name.
+    await expect(page.getByText('Pista Central').locator('visible=true').first()).toBeVisible();
   });
 
   test('admin invitations', async ({ page }) => {
@@ -302,9 +312,13 @@ test.describe('responsive - no horizontal overflow', () => {
 
     const table = page.locator('table').filter({ hasText: 'Destinatario' });
     await expect(table).toBeHidden();
-    const card = page.locator('.lg\\:hidden.divide-y > div').filter({ hasText: invEmail });
+    // Mobile card list: sm:hidden > ul.divide-y > li (not the stale
+    // .lg\:hidden div guess) — Copiar lives in the row's "Más acciones"
+    // dropdown, reachable with one tap, no sideways scroll.
+    const card = page.locator('.sm\\:hidden .divide-y > li').filter({ hasText: invEmail });
     await expect(card).toBeVisible();
-    await expect(card.getByText('Copiar')).toBeVisible();
+    await card.getByLabel('Más acciones').click();
+    await expect(card.getByText('Copiar enlace')).toBeVisible();
   });
 
   test('admin disputes', async ({ page }) => {
@@ -409,8 +423,10 @@ test.describe('responsive - no horizontal overflow', () => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto(`/admin/competitions/${compId}`);
     await page.waitForLoadState('domcontentloaded');
-    // Click through via a real affordance (the pair link on the competition page).
-    await page.locator(`a[href="/pair/${data.pair1Id}"]`).first().click();
+    // Click through via a real affordance (the pair link on the competition
+    // page). Mobile card list and desktop table both render this link —
+    // .first() alone could pick the CSS-hidden desktop one.
+    await page.locator(`a[href="/pair/${data.pair1Id}"]`).locator('visible=true').first().click();
     await page.waitForLoadState('domcontentloaded');
     await checkNoOverflow(page);
 

@@ -1,7 +1,7 @@
 {{define "content"}}
 <div class="card bg-base-100 shadow mb-6">
     <div class="card-body p-0">
-        <div class="flex items-center justify-between px-4 pt-4 pb-2">
+        <div class="flex items-center justify-between flex-wrap gap-2 px-4 pt-4 pb-2">
             <h2 class="card-title text-lg">Invitaciones <span class="badge badge-neutral badge-sm">{{len .Invitations}}</span></h2>
             <button class="btn btn-primary btn-sm" onclick="document.getElementById('modal-create-invite').showModal()">
                 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
