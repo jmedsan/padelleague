@@ -1630,7 +1630,8 @@ func TestAdminRelease_OK(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID string
+	var matchID, compID string
+	var pair1ID, pair2ID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupAllRoutes(tb, app, e)
 		p1 := makePairTB(tb, app, "RelA")
@@ -1638,6 +1639,8 @@ func TestAdminRelease_OK(t *testing.T) {
 		p3 := makePairTB(tb, app, "RelC")
 		// 3 pairs, target=1 < 3-1=2 → IsLeveled=true
 		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3})
+		compID = comp.Id
+		pair1ID, pair2ID = p1.Id, p2.Id
 		m := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		m.Set("round_number", 0)
 		require.NoError(tb, app.Save(m))
@@ -1659,6 +1662,13 @@ func TestAdminRelease_OK(t *testing.T) {
 		// competition event logged
 		events, _ := app.FindRecordsByFilter("competition_events", "kind = 'assignment_released'", "", 0, 0, nil)
 		assert.NotEmpty(tb, events, "assignment_released event must be logged")
+		// the released pairing must be persisted, so a later top-up run
+		// (with no in-memory avoid) still knows not to recreate it
+		comp, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		released := league.ReleasedPairings(comp)
+		require.Len(tb, released, 1)
+		assert.ElementsMatch(tb, []string{pair1ID, pair2ID}, []string{released[0].A, released[0].B})
 	}
 	s.Test(t)
 }

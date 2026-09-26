@@ -336,6 +336,8 @@ func (h *MatchHandler) AdminRelease(e *core.RequestEvent) error {
 		return alertError(e, "Solo se puede liberar un partido sin resultado de una liga nivelada")
 	}
 
+	pair1, pair2 := match.GetString("pair1"), match.GetString("pair2")
+
 	if err := h.app.RunInTransaction(func(txApp core.App) error {
 		notifs, err := txApp.FindRecordsByFilter("notifications", "related_match = {:m}", "", 0, 0, map[string]any{"m": id})
 		if err != nil {
@@ -346,7 +348,13 @@ func (h *MatchHandler) AdminRelease(e *core.RequestEvent) error {
 				return err
 			}
 		}
-		return txApp.Delete(match)
+		if err := txApp.Delete(match); err != nil {
+			return err
+		}
+		// Deleting the match only blocks re-pairing for the top-up run the
+		// delete hook fires immediately after (hooks/hooks.go); a later run
+		// (e.g. the daily cron) has no other record of the release.
+		return league.AppendReleasedPairing(txApp, comp, pair1, pair2)
 	}); err != nil {
 		return alertError(e, "Error al liberar el partido")
 	}
