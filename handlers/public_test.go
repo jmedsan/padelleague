@@ -434,19 +434,19 @@ func TestCompetitionGen2_ProvisionalResultShowsInStandingsWithTooltip(t *testing
 	s.Test(t)
 }
 
-// TestCompetitionGen2_NoAnnouncementsShowsEmptyState verifies the Anuncios
+// TestCompetitionGen2_NoAnnouncementsShowsEmptyState verifies the Avisos
 // tab always shows for a player, even with zero announcements — matching
 // admin's always-shown card, same class as Clasificación/Documentos.
 func TestCompetitionGen2_NoAnnouncementsShowsEmptyState(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: testAppFactory,
-		Name:           "no announcements shows Anuncios tab + empty state",
+		Name:           "no announcements shows Avisos tab + empty state",
 		Method:         http.MethodGet,
 		ExpectedStatus: 200,
 		ExpectedContent: []string{
-			`aria-label="Anuncios"`,
-			"No hay anuncios todavía",
+			`aria-label="Avisos"`,
+			"No hay avisos todavía",
 		},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
