@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, isMobile, openDrawer, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, isMobile, openDrawer, suDelete, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 
 let suToken = '';
 
@@ -333,9 +333,7 @@ test.describe('admin management', () => {
     const compId = page.url().split('/admin/competitions/')[1];
     if (compId) {
       await getSuperuserToken(page);
-      await page.request.delete(`/api/collections/competitions/records/${compId}`, {
-        headers: { Authorization: suToken },
-      });
+      await suDelete(page.request, suToken, `/api/collections/competitions/records/${compId}`);
     }
   });
 

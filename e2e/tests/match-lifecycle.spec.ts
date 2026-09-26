@@ -1,6 +1,10 @@
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, scratchMatchId, loadTestData, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import {
+  loginAs, scratchMatchId, loadTestData,
+  suGet as suGetBase, suPost as suPostBase, suPatch as suPatchBase,
+  PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD,
+} from '../helpers';
 import { enterScore } from '../tour-helpers';
 
 function suToken(): string {
@@ -8,23 +12,15 @@ function suToken(): string {
 }
 
 async function suPatch(request: APIRequestContext, path: string, data: Record<string, unknown>): Promise<void> {
-  const resp = await request.patch(path, { headers: { Authorization: suToken() }, data });
-  if (!resp.ok()) {
-    throw new Error(`suPatch ${path}: ${resp.status()} ${await resp.text()}`);
-  }
+  await suPatchBase(request, suToken(), path, data);
 }
 
 async function suPost(request: APIRequestContext, path: string, data: Record<string, unknown>): Promise<any> {
-  const resp = await request.post(path, { headers: { Authorization: suToken() }, data });
-  if (!resp.ok()) {
-    throw new Error(`suPost ${path}: ${resp.status()} ${await resp.text()}`);
-  }
-  return resp.json();
+  return suPostBase(request, suToken(), path, data);
 }
 
 async function suGet(request: APIRequestContext, path: string): Promise<any> {
-  const resp = await request.get(path, { headers: { Authorization: suToken() } });
-  return resp.json();
+  return suGetBase(request, suToken(), path);
 }
 
 test.describe('match lifecycle', () => {

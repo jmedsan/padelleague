@@ -1,7 +1,11 @@
 import type { Page, APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, loadTestData } from '../helpers';
-import { clickConfirmAndWaitForHxRedirect } from '../tour-helpers';
+import {
+  loginAs, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, loadTestData,
+  apiCreateRecord as apiCreateRecordBase, apiGetRecord as apiGetRecordBase,
+  apiListRecords as apiListRecordsBase, apiDeleteRecord as apiDeleteRecordBase,
+} from '../helpers';
+import { clickConfirmAndWaitForHxRedirect, expectRedirectedTo } from '../tour-helpers';
 
 let suToken = '';
 
@@ -121,6 +125,7 @@ test.describe('scheduling, walkover & bracket', () => {
     ]);
     await reportNav;
     await page.waitForLoadState('domcontentloaded');
+    await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
 
     const matchAfterReport = await apiGetRecord(page.request, 'matches', matchId);
     expect(matchAfterReport.status).toBe('disputed');
@@ -143,6 +148,7 @@ test.describe('scheduling, walkover & bracket', () => {
     // #confirm-ok button is clicked. WalkoverApprove also responds with
     // redirectHX — wait for the real navigation before the next loginAs.
     await clickConfirmAndWaitForHxRedirect(page, woForm.locator('button:has-text("Aprobar incomparecencia")'));
+    await expectRedirectedTo(page, new RegExp(`/admin/competitions/${compId}`));
 
     // Verify final state
     const matchFinal = await apiGetRecord(page.request, 'matches', matchId);
@@ -163,7 +169,10 @@ test.describe('scheduling, walkover & bracket', () => {
 
     await page.screenshot({ path: '/tmp/claude-1000/-mnt-data-Dev-PadelLeague/1bb535f8-6b3f-49b6-85d1-278927d6a279/scratchpad/walkover-standings.png', fullPage: true });
 
-    // Cleanup
+    // Cleanup — the walkover approval also created a penalty row referencing
+    // this competition (required relation), so it must go before the competition.
+    const penalties = await apiListRecords(page.request, 'penalties', `competition='${compId}'`);
+    for (const p of penalties) await apiDeleteRecord(page.request, 'penalties', p.id);
     await apiDeleteRecord(page.request, 'matches', matchId);
     await apiDeleteRecord(page.request, 'competitions', compId);
   });
@@ -257,32 +266,17 @@ async function getSuperuserToken(page: Page) {
 }
 
 async function apiCreateRecord(request: APIRequestContext, collection: string, data: Record<string, any>): Promise<string> {
-  const resp = await request.post(`/api/collections/${collection}/records`, {
-    headers: { Authorization: suToken, 'Content-Type': 'application/json' },
-    data,
-  });
-  if (!resp.ok()) throw new Error(`Create ${collection} failed: ${resp.status()} ${await resp.text()}`);
-  return (await resp.json()).id;
+  return apiCreateRecordBase(request, suToken, collection, data);
 }
 
 async function apiGetRecord(request: APIRequestContext, collection: string, id: string): Promise<any> {
-  const resp = await request.get(`/api/collections/${collection}/records/${id}`, {
-    headers: { Authorization: suToken },
-  });
-  if (!resp.ok()) throw new Error(`Get ${collection}/${id} failed: ${resp.status()}`);
-  return await resp.json();
+  return apiGetRecordBase(request, suToken, collection, id);
 }
 
 async function apiListRecords(request: APIRequestContext, collection: string, filter: string): Promise<any[]> {
-  const resp = await request.get(`/api/collections/${collection}/records?filter=${encodeURIComponent(filter)}&perPage=50`, {
-    headers: { Authorization: suToken },
-  });
-  if (!resp.ok()) throw new Error(`List ${collection} failed: ${resp.status()}`);
-  return (await resp.json()).items || [];
+  return apiListRecordsBase(request, suToken, collection, filter);
 }
 
-async function apiDeleteRecord(request: APIRequestContext, collection: string, id: string) {
-  await request.delete(`/api/collections/${collection}/records/${id}`, {
-    headers: { Authorization: suToken },
-  });
+async function apiDeleteRecord(request: APIRequestContext, collection: string, id: string): Promise<void> {
+  await apiDeleteRecordBase(request, suToken, collection, id);
 }

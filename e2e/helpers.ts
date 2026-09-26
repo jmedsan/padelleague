@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { Page, APIRequestContext, expect } from '@playwright/test';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { runDataDir } from './run-dir';
@@ -149,4 +149,69 @@ export async function loginViaForm(page: Page, email: string, password: string) 
   // Admins land on /admin/competitions (server-side redirect from /); players
   // stay on /.
   await page.waitForURL(/\/(admin\/competitions)?$/, { timeout: 10000 });
+}
+
+// ---------------------------------------------------------------------------
+// Authenticated API helpers
+// ---------------------------------------------------------------------------
+//
+// Specs used to hand-roll their own suPost/suPatch/apiCreateRecord/etc., each
+// repeating the same `if (!resp.ok()) throw` body — and a few (suGet in
+// thread.spec.ts and match-lifecycle.spec.ts, apiDeleteRecord everywhere)
+// dropped the check entirely, so a failed lookup or cleanup delete passed
+// silently instead of failing the test that depended on it. One core here,
+// named wrappers for the common verbs, so every spec gets the check for
+// free instead of re-deriving it.
+
+async function apiRequest(
+  request: APIRequestContext,
+  method: 'get' | 'post' | 'patch' | 'delete',
+  path: string,
+  token: string,
+  data?: Record<string, unknown>,
+): Promise<any> {
+  const resp = await request[method](path, {
+    headers: { Authorization: token, 'Content-Type': 'application/json' },
+    ...(data !== undefined ? { data } : {}),
+  });
+  if (!resp.ok()) {
+    throw new Error(`${method.toUpperCase()} ${path}: ${resp.status()} ${await resp.text()}`);
+  }
+  return resp;
+}
+
+export async function suGet(request: APIRequestContext, token: string, path: string): Promise<any> {
+  const resp = await apiRequest(request, 'get', path, token);
+  return resp.json();
+}
+
+export async function suPost(request: APIRequestContext, token: string, path: string, data: Record<string, unknown>): Promise<any> {
+  const resp = await apiRequest(request, 'post', path, token, data);
+  return resp.json();
+}
+
+export async function suPatch(request: APIRequestContext, token: string, path: string, data: Record<string, unknown>): Promise<void> {
+  await apiRequest(request, 'patch', path, token, data);
+}
+
+export async function suDelete(request: APIRequestContext, token: string, path: string): Promise<void> {
+  await apiRequest(request, 'delete', path, token);
+}
+
+export async function apiCreateRecord(request: APIRequestContext, token: string, collection: string, data: Record<string, unknown>): Promise<string> {
+  const body = await suPost(request, token, `/api/collections/${collection}/records`, data);
+  return body.id;
+}
+
+export async function apiGetRecord(request: APIRequestContext, token: string, collection: string, id: string): Promise<any> {
+  return suGet(request, token, `/api/collections/${collection}/records/${id}`);
+}
+
+export async function apiListRecords(request: APIRequestContext, token: string, collection: string, filter: string): Promise<any[]> {
+  const body = await suGet(request, token, `/api/collections/${collection}/records?filter=${encodeURIComponent(filter)}&perPage=50`);
+  return body.items || [];
+}
+
+export async function apiDeleteRecord(request: APIRequestContext, token: string, collection: string, id: string): Promise<void> {
+  await suDelete(request, token, `/api/collections/${collection}/records/${id}`);
 }

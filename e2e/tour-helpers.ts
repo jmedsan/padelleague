@@ -1,4 +1,4 @@
-import { Page, expect, APIRequestContext } from '@playwright/test';
+import { Page, expect, APIRequestContext, Locator } from '@playwright/test';
 import { ExpectedRow, PairId } from './season-helpers';
 import { loginAs, isMobile } from './helpers';
 
@@ -124,6 +124,7 @@ export async function createPair(
   await dialog.locator('select[name="player1"]').selectOption(player1Id);
   await dialog.locator('select[name="player2"]').selectOption(player2Id);
   await clickAndWaitForHxRedirect(page, dialog.locator('button[type="submit"]'));
+  await expectRedirectedTo(page, /\/admin\/pairs$/);
   const resp = await page.request.get(`/api/collections/pairs/records?filter=name='${name}'`, {
     headers: { Authorization: suToken },
   });
@@ -135,15 +136,19 @@ export async function createPair(
 
 export async function addPairToCompetition(page: Page, pairId: string, seed?: number): Promise<void> {
   // aria-label disambiguates from the leveled-league "Filtrar por pareja" select.
+  const compId = page.url().split('/admin/competitions/')[1];
   await page.selectOption('select[aria-label^="Pareja"]', pairId);
   if (seed !== undefined) {
     await page.fill('input[name="seed"]', String(seed));
   }
   await clickAndWaitForHxRedirect(page, page.getByTestId('section-add-pairs').locator('button:has-text("Añadir")'));
+  if (compId) await expectRedirectedTo(page, new RegExp(`/admin/competitions/${compId}$`));
 }
 
 export async function generateFixtures(page: Page): Promise<void> {
+  const compId = page.url().split('/admin/competitions/')[1];
   await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Generar calendario")'));
+  if (compId) await expectRedirectedTo(page, new RegExp(`/admin/competitions/${compId}$`));
 }
 
 export async function setDates(page: Page, startDate: string, endDate: string): Promise<void> {
@@ -307,16 +312,19 @@ export async function acceptDocsGate(page: Page): Promise<void> {
 // Assertion helpers
 // ---------------------------------------------------------------------------
 
-// standingsColumnIndex maps each visible header's text (trimmed) to its
-// column index, so column assertions survive standings-table.html adding or
-// reordering columns (e.g. Pen/Aj. only render when the competition has any
-// penalty/adjustment, and the mobile table orders columns differently from
-// the desktop one) instead of breaking on a hardcoded position.
-async function standingsColumnIndex(page: Page, tableSelector: string): Promise<Record<string, number>> {
-  const headers = await page.locator(`${tableSelector} thead th`).allInnerTexts();
-  const index: Record<string, number> = {};
-  headers.forEach((h, i) => { index[h.trim()] = i; });
-  return index;
+// cellByHeader resolves a row's cell by the table's header text (trimmed)
+// instead of a hardcoded column index, so assertions survive a table adding
+// or reordering columns (e.g. standings-table.html's Pen/Aj. only render
+// when the competition has any penalty/adjustment, and the mobile table
+// orders columns differently from the desktop one so it fits without
+// scrolling). `table` is the ancestor carrying `thead th`; `row` is the
+// `tr` (a descendant of `table`) whose `td` at that header's position is
+// returned.
+export async function cellByHeader(table: Locator, row: Locator, header: string): Promise<Locator> {
+  const headers = await table.locator('thead th').allInnerTexts();
+  const index = headers.findIndex(h => h.trim() === header);
+  if (index === -1) throw new Error(`header "${header}" not found among [${headers.map(h => h.trim()).join(', ')}]`);
+  return row.locator('td').nth(index);
 }
 
 export async function assertFinalStandings(
@@ -330,36 +338,52 @@ export async function assertFinalStandings(
   await page.locator('input[aria-label^="Clasificación"]').click();
   // standings-table.html renders two separate <table> elements — table-zebra
   // (desktop) and table-sm (mobile) — CSS-hidden at the other breakpoint.
-  const tableSelector = isMobile(page) ? 'table.table-sm' : 'table.table-zebra';
-  await page.waitForSelector(`${tableSelector} tbody tr`, { timeout: 5000 });
+  const table = isMobile(page) ? page.locator('table.table-sm') : page.locator('table.table-zebra');
+  await table.locator('tbody tr').first().waitFor({ timeout: 5000 });
 
-  const col = await standingsColumnIndex(page, tableSelector);
-  const rows = page.locator(`${tableSelector} tbody tr`);
+  const rows = table.locator('tbody tr');
   const count = await rows.count();
   expect(count).toBe(expected.length);
 
   for (let i = 0; i < expected.length; i++) {
     const row = rows.nth(i);
-    const cells = row.locator('td');
     const exp = expected[i];
     const name = pairNames[exp.pair];
 
     const setDiff = exp.setsWon - exp.setsLost;
     const gameDiff = exp.gamesWon - exp.gamesLost;
 
-    await expect(cells.nth(col['#'])).toContainText(String(exp.position));
-    await expect(cells.nth(col['Pareja'])).toContainText(name);
-    await expect(cells.nth(col['PJ'])).toContainText(String(exp.played));
-    await expect(cells.nth(col['PG'])).toContainText(String(exp.wins));
-    await expect(cells.nth(col['PP'])).toContainText(String(exp.losses));
-    await expect(cells.nth(col['DS'])).toContainText(setDiff >= 0 ? `+${setDiff}` : String(setDiff));
-    await expect(cells.nth(col['DJ'])).toContainText(gameDiff >= 0 ? `+${gameDiff}` : String(gameDiff));
-    await expect(cells.nth(col['Pts'])).toContainText(String(exp.points));
+    await expect(await cellByHeader(table, row, '#')).toContainText(String(exp.position));
+    await expect(await cellByHeader(table, row, 'Pareja')).toContainText(name);
+    await expect(await cellByHeader(table, row, 'PJ')).toContainText(String(exp.played));
+    await expect(await cellByHeader(table, row, 'PG')).toContainText(String(exp.wins));
+    await expect(await cellByHeader(table, row, 'PP')).toContainText(String(exp.losses));
+    await expect(await cellByHeader(table, row, 'DS')).toContainText(setDiff >= 0 ? `+${setDiff}` : String(setDiff));
+    await expect(await cellByHeader(table, row, 'DJ')).toContainText(gameDiff >= 0 ? `+${gameDiff}` : String(gameDiff));
+    await expect(await cellByHeader(table, row, 'Pts')).toContainText(String(exp.points));
 
     if (hasPenalties && exp.penalty > 0) {
-      await expect(cells.nth(col['Pen'])).toContainText(`-${exp.penalty}`);
+      await expect(await cellByHeader(table, row, 'Pen')).toContainText(`-${exp.penalty}`);
     }
   }
+}
+
+// expectSelected asserts a <select>'s chosen option by its visible label
+// rather than its value — needed for nullable selects like "Sin clasificar"
+// whose value is the empty string, which toHaveValue('') can't distinguish
+// from "no option selected yet".
+export async function expectSelected(select: Locator, label: string): Promise<void> {
+  const selected = select.locator('option:checked');
+  await expect(selected).toHaveText(label);
+}
+
+// expectRedirectedTo asserts the page ended up at `url` after an admin
+// mutation — HTMX mutations in this app redirect via hx-redirect/Location
+// on success, so landing anywhere else (the form re-rendered with an error,
+// a 404) is a real failure the caller's next assertions would otherwise
+// paper over by asserting only on page content.
+export async function expectRedirectedTo(page: Page, url: string | RegExp): Promise<void> {
+  await expect(page).toHaveURL(url);
 }
 
 export async function assertPlayoffChampion(

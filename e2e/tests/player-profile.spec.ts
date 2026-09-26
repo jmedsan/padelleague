@@ -1,6 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, loadTestData, isMobile, openDrawer, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
+import { loginAs, loadTestData, isMobile, openDrawer, suPost as suPostBase, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 const FRESH_PLAYER_PASSWORD = 'TestPass123456';
 
@@ -9,9 +9,7 @@ function suToken(): string {
 }
 
 async function suPost(request: APIRequestContext, path: string, data: Record<string, unknown>): Promise<any> {
-  const resp = await request.post(path, { headers: { Authorization: suToken() }, data });
-  if (!resp.ok()) throw new Error(`suPost ${path}: ${resp.status()} ${await resp.text()}`);
-  return resp.json();
+  return suPostBase(request, suToken(), path, data);
 }
 
 // createFreshPlayer makes a player who has never uploaded an avatar, so the
