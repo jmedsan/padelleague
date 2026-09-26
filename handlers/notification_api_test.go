@@ -31,7 +31,7 @@ func setupNotifRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 
 	e.Router.BindFunc(middleware.CookieAuth)
 
-	auth := NewAuthHandler(app, nil, r.Page)
+	auth := NewAuthHandler(app, notifier, r.Page)
 	e.Router.GET("/login", auth.Login)
 
 	notif := NewNotificationHandler(app, r.Page, r.Partial)
