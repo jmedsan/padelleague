@@ -135,6 +135,7 @@ test.describe('match lifecycle', () => {
     const suffix = `${Date.now()}-${testInfo.project.name}`;
     const comp = await suPost('/api/collections/competitions/records', {
       name: `Precedentes Test ${suffix}`, type: 'league', active: true,
+      calendar_status: 'published',
     });
     const pA1 = await suPost('/api/collections/users/records', {
       email: `prec-a1-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
