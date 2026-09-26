@@ -19,10 +19,13 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   timeout: 120000,
+  expect: { timeout: 5000 },
   globalSetup: './scenario-setup.ts',
   globalTeardown: './scenario-teardown.ts',
   use: {
     baseURL: `http://localhost:${PORT}`,
+    actionTimeout: 10000,
+    navigationTimeout: 15000,
   },
   projects: scenario.specs.map((file, i) => ({
     name: file.replace('.spec.ts', ''),

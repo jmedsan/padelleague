@@ -11,11 +11,14 @@ export default defineConfig({
   testDir: './tests',
   retries: 1,
   workers: 1,
-  timeout: 60000,
+  timeout: 30000,
+  expect: { timeout: 5000 },
   globalSetup: './global-setup.ts',
   globalTeardown: './global-teardown.ts',
   use: {
     baseURL: `http://localhost:${PORT}`,
+    actionTimeout: 10000,
+    navigationTimeout: 15000,
   },
   projects: [
     {
