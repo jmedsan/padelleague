@@ -22,7 +22,7 @@ test.describe('announcements', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // Clear toast confirms the broadcast was sent.
-    await expect(page.locator('#flash-msg')).toContainText('Anuncio enviado');
+    await expect(page.locator('#flash-msg')).toContainText('Aviso enviado');
 
     // Admin sees it listed in the Avisos card.
     const adminCard = page.locator('[data-testid="announcement-card"]', { hasText: title });
@@ -49,7 +49,7 @@ test.describe('announcements', () => {
 
     // Player lands on the competition page with the Avisos tab checked.
     await page.waitForLoadState('domcontentloaded');
-    await expect(page).toHaveURL(new RegExp(`/competition/${data.competitionId}#anuncios$`));
+    await expect(page).toHaveURL(new RegExp(`/competition/${data.competitionId}#avisos$`));
     const anunciosTab = page.locator('#tab-anuncios');
     await expect(anunciosTab).toBeChecked();
 

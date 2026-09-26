@@ -31,7 +31,7 @@ test('login with valid credentials via form', async ({ page }) => {
   await expect(page).toHaveURL(/\/admin\/competitions$/);
   await expect(page.locator('.navbar')).toBeVisible();
   if (isMobile(page)) {
-    await expect(page.locator('[aria-label="cambiar vista"]')).toBeVisible();
+    await expect(page.locator('[aria-label^="cambiar vista"]')).toBeVisible();
   } else {
     await expect(page.locator('details:has(a[href="/view/player"]) summary')).toBeVisible();
   }
