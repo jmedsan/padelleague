@@ -1,7 +1,11 @@
 import { test, expect } from '../overflow-guard';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { loginAs, scratchMatchId, isMobile, navViaDrawer, loadTestData, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER3_EMAIL, PLAYER3_PASSWORD } from '../helpers';
+import {
+  loginAs, scratchMatchId, isMobile, navViaDrawer, loadTestData,
+  apiCreateRecord as apiCreateRecordBase, apiDeleteRecord as apiDeleteRecordBase,
+  ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER3_EMAIL, PLAYER3_PASSWORD,
+} from '../helpers';
 import { submitScore, confirmScore } from '../tour-helpers';
 import type { APIRequestContext } from '@playwright/test';
 
@@ -789,16 +793,9 @@ async function getSuToken(request: APIRequestContext): Promise<string> {
 }
 
 async function apiCreate(request: APIRequestContext, token: string, collection: string, data: Record<string, any>): Promise<string> {
-  const resp = await request.post(`/api/collections/${collection}/records`, {
-    headers: { Authorization: token, 'Content-Type': 'application/json' },
-    data,
-  });
-  if (!resp.ok()) throw new Error(`apiCreate ${collection} failed: ${resp.status()}`);
-  return (await resp.json()).id;
+  return apiCreateRecordBase(request, token, collection, data);
 }
 
-async function apiDelete(request: APIRequestContext, token: string, collection: string, id: string) {
-  await request.delete(`/api/collections/${collection}/records/${id}`, {
-    headers: { Authorization: token },
-  });
+async function apiDelete(request: APIRequestContext, token: string, collection: string, id: string): Promise<void> {
+  await apiDeleteRecordBase(request, token, collection, id);
 }

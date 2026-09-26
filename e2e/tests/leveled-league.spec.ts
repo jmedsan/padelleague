@@ -1,10 +1,10 @@
 import { test, expect } from '../overflow-guard';
-import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, suGet, suPatch, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { uniqueSuffix, setPlayerPassword } from '../season-helpers';
 import {
   createPlayer, createPair, addPairToCompetition,
   generateFixtures, clickAndWaitForHxRedirect,
-  lookupPlayerId,
+  lookupPlayerId, expectRedirectedTo,
 } from '../tour-helpers';
 
 const RUN_ID = uniqueSuffix();
@@ -109,29 +109,27 @@ test.describe('leveled league', () => {
     await dialog.locator('input#create-comp-open').fill(String(OPEN));
 
     await clickAndWaitForHxRedirect(page, dialog.locator('button[type="submit"]'));
+    await expectRedirectedTo(page, /\/admin\/competitions\/[^/]+$/);
 
     // Extract competition ID from URL
     const urlMatch = page.url().match(/\/admin\/competitions\/([^/]+)/);
     if (urlMatch) {
       competitionId = urlMatch[1];
     } else {
-      const resp = await page.request.get(
+      const body = await suGet(
+        page.request, suToken,
         `/api/collections/competitions/records?filter=name='${COMP_NAME}'&perPage=1`,
-        { headers: { Authorization: suToken } },
       );
-      competitionId = (await resp.json()).items?.[0]?.id;
+      competitionId = body.items?.[0]?.id;
       if (!competitionId) throw new Error('Competition not found after create');
     }
 
     // Leveled leagues require start_date/end_date before "Generar calendario"
     // will accept them — set via API since the create dialog has no date fields.
     const now = Date.now();
-    await page.request.patch(`/api/collections/competitions/records/${competitionId}`, {
-      headers: { Authorization: suToken },
-      data: {
-        start_date: new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        end_date: new Date(now + 60 * 24 * 60 * 60 * 1000).toISOString(),
-      },
+    await suPatch(page.request, suToken, `/api/collections/competitions/records/${competitionId}`, {
+      start_date: new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      end_date: new Date(now + 60 * 24 * 60 * 60 * 1000).toISOString(),
     });
 
     // Add pairs (no seed param — leveled leagues are type "league", seed input only

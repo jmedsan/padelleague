@@ -1,7 +1,7 @@
 import type { Page, APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import { loginAs, isMobile, clickAction, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
-import { enterScore, fillFlatpickrDate, clickConfirmAndWaitForHxRedirect } from '../tour-helpers';
+import { enterScore, fillFlatpickrDate, clickConfirmAndWaitForHxRedirect, cellByHeader, expectRedirectedTo } from '../tour-helpers';
 import {
   setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,
   computeExpected, PlannedMatch, PairId,
@@ -130,6 +130,7 @@ test.describe('season simulation', () => {
     await page.waitForSelector('#thread-details', { timeout: 20000 });
     await enterScore(page, '6-4 2-6 3-4');
     await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
+    await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
 
     // Step 2: Pair B accepts the partial score.
     await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
@@ -138,6 +139,7 @@ test.describe('season simulation', () => {
     const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
     await acceptBtn.waitFor({ timeout: 20000 });
     await clickAndWaitForHxRedirect(page, acceptBtn);
+    await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
 
     // Step 3: Verify the match shows the "Se reanuda desde" carried-sets badge.
     await page.goto(`/match/${matchId}`);
@@ -163,6 +165,7 @@ test.describe('season simulation', () => {
     // Submit the full score — the two locked sets are skipped, set 3 is filled.
     await enterScore(page, '6-4 2-6 6-3');
     await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
+    await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
 
     // Step 6: Pair B accepts the final score.
     await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
@@ -171,6 +174,7 @@ test.describe('season simulation', () => {
     const finalAcceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
     await finalAcceptBtn.waitFor({ timeout: 20000 });
     await clickAndWaitForHxRedirect(page, finalAcceptBtn);
+    await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
 
     // Step 7: Match finalized — Confirmado badge, full score visible, no reanuda badge.
     await page.goto(`/match/${matchId}`);
@@ -329,6 +333,7 @@ async function createPair(page: Page, name: string, player1Id: string, player2Id
   await dialog.locator('select[name="player2"]').selectOption(player2Id);
 
   await clickAndWaitForHxRedirect(page, dialog.locator('button[type="submit"]'));
+  await expectRedirectedTo(page, /\/admin\/pairs$/);
 
   const resp = await page.request.get(`/api/collections/pairs/records?filter=name='${name}'`, {
     headers: { Authorization: token },
@@ -349,6 +354,7 @@ async function addPairToCompetition(page: Page, compId: string, pairId: string, 
   // AddPair returns redirectHX (204 → window.location); await the redirect so it
   // does not race the next navigation.
   await clickAndWaitForHxRedirect(page, page.getByTestId('section-add-pairs').locator('button:has-text("Añadir")'));
+  await expectRedirectedTo(page, new RegExp(`/admin/competitions/${compId}$`));
 }
 
 async function createPlayoffCompetition(page: Page): Promise<string> {
@@ -416,7 +422,9 @@ async function playPlayoffMatch(page: Page, match: any, winnerLabel: PairId, win
 async function generateFixtures(page: Page, compId: string) {
   await page.goto(`/admin/competitions/${compId}`);
   await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Generar calendario")'));
+  await expectRedirectedTo(page, new RegExp(`/admin/competitions/${compId}$`));
   await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'));
+  await expectRedirectedTo(page, new RegExp(`/admin/competitions/${compId}$`));
 }
 
 // HTMX + redirectHX: click triggers XHR → 204 + HX-Redirect → window.location.href.
@@ -494,6 +502,7 @@ async function submitScore(page: Page, matchId: string, score: string) {
   await page.goto(`/match/${matchId}`);
   await enterScore(page, score);
   await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'));
+  await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
 }
 
 async function confirmScore(page: Page, matchId: string) {
@@ -502,6 +511,7 @@ async function confirmScore(page: Page, matchId: string) {
   const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
   await acceptBtn.waitFor({ timeout: 15000 });
   await clickAndWaitForHxRedirect(page, acceptBtn);
+  await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
 }
 
 // Thread actions must run on the FULL match page: the `/match/{id}/thread`
@@ -517,6 +527,7 @@ async function postProposal(page: Page, matchId: string) {
   await gotoMatchThread(page, matchId);
   await page.locator('form[hx-post$="/thread/message"] input[name="content"]').fill('Shall we play?');
   await clickAndWaitForHxRedirect(page, page.locator('form[hx-post$="/thread/message"] button[type="submit"]'));
+  await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
 
   await gotoMatchThread(page, matchId);
   // When no date+place is set, the form renders as an open card (no collapse).
@@ -531,6 +542,7 @@ async function postProposal(page: Page, matchId: string) {
   await page.selectOption('#proposal-form select[name="venue_id"]', 'otro');
   await page.fill('#proposal-form input[name="venue_text"]', 'Test Club');
   await clickAndWaitForHxRedirect(page, page.locator('#proposal-form button:has-text("Proponer fecha")'));
+  await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
 }
 
 async function acceptProposal(page: Page, matchId: string) {
@@ -538,6 +550,7 @@ async function acceptProposal(page: Page, matchId: string) {
   const acceptBtn = page.locator('button:has-text("Aceptar")').first();
   await acceptBtn.waitFor({ state: 'visible', timeout: 30000 });
   await clickAndWaitForHxRedirect(page, acceptBtn);
+  await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
 }
 
 async function rejectProposal(page: Page, matchId: string) {
@@ -547,6 +560,7 @@ async function rejectProposal(page: Page, matchId: string) {
   await rejectBtn.click();
   await page.locator('form.reject-form select[name="rejection_reason"]').selectOption({ index: 1 });
   await clickAndWaitForHxRedirect(page, page.locator('form.reject-form button[type="submit"]'));
+  await expectRedirectedTo(page, new RegExp(`/match/${matchId}`));
 }
 
 // playMatchRange plays fixtures[start..end] (inclusive) using the same varied
@@ -618,26 +632,10 @@ async function assertStandings(
   // standingsTable.html renders a desktop table.table-zebra and a mobile
   // table.table-sm, each hidden at the other breakpoint via CSS — the two
   // tables also order columns differently (mobile puts Pts third so it's
-  // visible without scrolling), so cells are looked up by header text
-  // rather than a fixed index.
+  // visible without scrolling), so cells are looked up by header text via
+  // cellByHeader rather than a fixed index.
   const table = isMobile(page) ? page.locator('table.table-sm') : page.locator('table.table-zebra');
   await table.locator('tbody tr').first().waitFor({ timeout: 15000 });
-
-  const headers = await table.locator('thead th').allTextContents();
-  const colIndex = (label: string) => {
-    const i = headers.findIndex(h => h.trim() === label);
-    if (i === -1) throw new Error(`standings header "${label}" not found among [${headers.join(', ')}]`);
-    return i;
-  };
-  const idxPosition = colIndex('#');
-  const idxPareja = colIndex('Pareja');
-  const idxPJ = colIndex('PJ');
-  const idxPG = colIndex('PG');
-  const idxPP = colIndex('PP');
-  const idxDS = colIndex('DS');
-  const idxDJ = colIndex('DJ');
-  const idxPts = colIndex('Pts');
-  const idxPen = hasPenalties ? colIndex('Pen') : -1;
 
   const rows = table.locator('tbody tr');
   const count = await rows.count();
@@ -645,24 +643,23 @@ async function assertStandings(
 
   for (let i = 0; i < expected.length; i++) {
     const row = rows.nth(i);
-    const cells = row.locator('td');
     const exp = expected[i];
     const pairName = PAIRS[LABEL_TO_INDEX[exp.pair]].name;
 
     const setDiff = exp.setsWon - exp.setsLost;
     const gameDiff = exp.gamesWon - exp.gamesLost;
 
-    await expect(cells.nth(idxPosition)).toContainText(String(exp.position));
-    await expect(cells.nth(idxPareja)).toContainText(pairName);
-    await expect(cells.nth(idxPJ)).toContainText(String(exp.played));
-    await expect(cells.nth(idxPG)).toContainText(String(exp.wins));
-    await expect(cells.nth(idxPP)).toContainText(String(exp.losses));
-    await expect(cells.nth(idxDS)).toContainText(setDiff >= 0 ? `+${setDiff}` : String(setDiff));
-    await expect(cells.nth(idxDJ)).toContainText(gameDiff >= 0 ? `+${gameDiff}` : String(gameDiff));
-    await expect(cells.nth(idxPts)).toContainText(String(exp.points));
+    await expect(await cellByHeader(table, row, '#')).toContainText(String(exp.position));
+    await expect(await cellByHeader(table, row, 'Pareja')).toContainText(pairName);
+    await expect(await cellByHeader(table, row, 'PJ')).toContainText(String(exp.played));
+    await expect(await cellByHeader(table, row, 'PG')).toContainText(String(exp.wins));
+    await expect(await cellByHeader(table, row, 'PP')).toContainText(String(exp.losses));
+    await expect(await cellByHeader(table, row, 'DS')).toContainText(setDiff >= 0 ? `+${setDiff}` : String(setDiff));
+    await expect(await cellByHeader(table, row, 'DJ')).toContainText(gameDiff >= 0 ? `+${gameDiff}` : String(gameDiff));
+    await expect(await cellByHeader(table, row, 'Pts')).toContainText(String(exp.points));
 
     if (hasPenalties && exp.penalty > 0) {
-      await expect(cells.nth(idxPen)).toContainText(`-${exp.penalty}`);
+      await expect(await cellByHeader(table, row, 'Pen')).toContainText(`-${exp.penalty}`);
     }
   }
 }
@@ -675,6 +672,7 @@ async function applyPenalty(page: Page, compId: string, pairId: string) {
 	await clickAction(page, `label[for="penalty-modal-${pairId}"]`, 'Penalizar');
 	await modal.locator('textarea[name="reason"]').fill('Ajuste de clasificación');
 	await clickAndWaitForHxRedirect(page, modal.locator('button:has-text("Confirmar penalización")'));
+	await expectRedirectedTo(page, new RegExp(`/admin/competitions/${compId}$`));
 }
 
 async function togglePayment(page: Page, compId: string, pairId: string) {
@@ -682,4 +680,5 @@ async function togglePayment(page: Page, compId: string, pairId: string) {
   // Payment is an icon toggle button behind the custom confirm modal.
   const toggle = page.locator(`form[hx-post$="/payment"]:has(input[value="${pairId}"]) button:visible`).first();
   await clickConfirmAndWaitForHxRedirect(page, toggle);
+  await expectRedirectedTo(page, new RegExp(`/admin/competitions/${compId}$`));
 }

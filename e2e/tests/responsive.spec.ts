@@ -1,6 +1,11 @@
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, loadTestData, isMobile, openDrawer, navViaDrawer, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
+import {
+  loginAs, loadTestData, isMobile, openDrawer, navViaDrawer,
+  apiCreateRecord as apiCreateRecordBase, apiListRecords as apiListRecordsBase,
+  apiDeleteRecord as apiDeleteRecordBase,
+  ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD,
+} from '../helpers';
 
 // Samsung Galaxy S23 (owner's real device) — matches the mobile project's
 // default viewport in playwright.config.ts. Kept as an explicit constant
@@ -20,26 +25,15 @@ async function getSuperuserToken(page: import('@playwright/test').Page) {
 }
 
 async function apiCreateRecord(request: APIRequestContext, collection: string, data: Record<string, any>): Promise<string> {
-  const resp = await request.post(`/api/collections/${collection}/records`, {
-    headers: { Authorization: suToken, 'Content-Type': 'application/json' },
-    data,
-  });
-  if (!resp.ok()) throw new Error(`Create ${collection} failed: ${resp.status()} ${await resp.text()}`);
-  return (await resp.json()).id;
+  return apiCreateRecordBase(request, suToken, collection, data);
 }
 
 async function apiListRecords(request: APIRequestContext, collection: string, filter: string): Promise<any[]> {
-  const resp = await request.get(`/api/collections/${collection}/records?filter=${encodeURIComponent(filter)}&perPage=50`, {
-    headers: { Authorization: suToken },
-  });
-  if (!resp.ok()) throw new Error(`List ${collection} failed: ${resp.status()}`);
-  return (await resp.json()).items || [];
+  return apiListRecordsBase(request, suToken, collection, filter);
 }
 
-async function apiDeleteRecord(request: APIRequestContext, collection: string, id: string) {
-  await request.delete(`/api/collections/${collection}/records/${id}`, {
-    headers: { Authorization: suToken },
-  });
+async function apiDeleteRecord(request: APIRequestContext, collection: string, id: string): Promise<void> {
+  await apiDeleteRecordBase(request, suToken, collection, id);
 }
 
 async function checkNoOverflow(page: import('@playwright/test').Page) {

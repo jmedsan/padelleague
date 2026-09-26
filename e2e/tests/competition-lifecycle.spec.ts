@@ -1,20 +1,21 @@
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, loadTestData, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
+import {
+  loginAs, loadTestData, isMobile,
+  suPost as suPostBase, suPatch as suPatchBase,
+  ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD,
+} from '../helpers';
 
 function suToken(): string {
   return loadTestData().adminToken;
 }
 
 async function suPost(request: APIRequestContext, path: string, data: Record<string, unknown>): Promise<any> {
-  const resp = await request.post(path, { headers: { Authorization: suToken() }, data });
-  if (!resp.ok()) throw new Error(`suPost ${path}: ${resp.status()} ${await resp.text()}`);
-  return resp.json();
+  return suPostBase(request, suToken(), path, data);
 }
 
 async function suPatch(request: APIRequestContext, path: string, data: Record<string, unknown>): Promise<void> {
-  const resp = await request.patch(path, { headers: { Authorization: suToken() }, data });
-  if (!resp.ok()) throw new Error(`suPatch ${path}: ${resp.status()} ${await resp.text()}`);
+  await suPatchBase(request, suToken(), path, data);
 }
 
 test.describe('competition lifecycle', () => {
