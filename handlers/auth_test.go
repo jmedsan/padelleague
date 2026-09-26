@@ -417,6 +417,52 @@ func TestLogout(t *testing.T) {
 	s.Test(t)
 }
 
+func TestLoginSubmit_HXRequest_Succeeds(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /login via HX-Request redirects with 204",
+		Method:         http.MethodPost,
+		URL:            "/login",
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		user := makeUserTB(tb, app, "Login User", "loginuser@test.local")
+		s.Body = strings.NewReader("email=" + user.GetString("email") + "&password=testpass123456")
+		s.Headers = map[string]string{
+			"Content-Type": "application/x-www-form-urlencoded",
+			"HX-Request":   "true",
+		}
+	}
+	expectRedirect(s, redirectTo("/"))
+	s.Test(t)
+}
+
+func TestRegisterSubmit_HXRequest_Succeeds(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: testAppFactory,
+		Name:           "POST /register via HX-Request redirects with 204",
+		Method:         http.MethodPost,
+		URL:            "/register",
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupAllRoutes(tb, app, e)
+		makeAdminUserTB(tb, app)
+		inv := makeInviteWithUses(tb, app, 1, 0)
+		s.Body = strings.NewReader("token=" + inv.GetString("token") +
+			"&email=hxregister@test.local&display_name=HX+User&password=testpass123456&password_confirm=testpass123456&gender=male&phone=612345678")
+		s.Headers = map[string]string{
+			"Content-Type": "application/x-www-form-urlencoded",
+			"HX-Request":   "true",
+		}
+	}
+	expectRedirect(s, redirectTo("/"))
+	s.Test(t)
+}
+
 func TestRegisterSubmitNoToken(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
