@@ -3,6 +3,7 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"sync/atomic"
 	"testing"
 
@@ -12,8 +13,13 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 
+	"padelleague/internal/testapp"
 	_ "padelleague/migrations"
 )
+
+func TestMain(m *testing.M) {
+	os.Exit(testapp.Run(m))
+}
 
 var userSeq atomic.Int64
 
@@ -43,6 +49,7 @@ func authToken(t testing.TB, user *core.Record) string {
 func TestRequireAppAdmin_NilAuth_Redirects(t *testing.T) {
 	handlerReached := false
 	s := tests.ApiScenario{
+		TestAppFactory: testapp.Factory,
 		Name:           "nil auth redirects to /",
 		Method:         http.MethodGet,
 		URL:            "/admin-test",
@@ -64,6 +71,7 @@ func TestRequireAppAdmin_NilAuth_Redirects(t *testing.T) {
 func TestRequireAppAdmin_PlayerRole_Redirects(t *testing.T) {
 	handlerReached := false
 	s := tests.ApiScenario{
+		TestAppFactory: testapp.Factory,
 		Name:           "player role redirects to /",
 		Method:         http.MethodGet,
 		URL:            "/admin-test",
@@ -87,6 +95,7 @@ func TestRequireAppAdmin_PlayerRole_Redirects(t *testing.T) {
 func TestRequireAppAdmin_AdminRole_Allowed(t *testing.T) {
 	handlerReached := false
 	s := tests.ApiScenario{
+		TestAppFactory:  testapp.Factory,
 		Name:            "admin role passes through",
 		Method:          http.MethodGet,
 		URL:             "/admin-test",
@@ -110,6 +119,7 @@ func TestRequireAppAdmin_AdminRole_Allowed(t *testing.T) {
 func TestRequireAppAdmin_EmptyRole_Redirects(t *testing.T) {
 	handlerReached := false
 	s := tests.ApiScenario{
+		TestAppFactory: testapp.Factory,
 		Name:           "empty role redirects to /",
 		Method:         http.MethodGet,
 		URL:            "/admin-test",
@@ -138,6 +148,7 @@ func TestRequireAppAdmin_EmptyRole_Redirects(t *testing.T) {
 func TestRequireAppAdmin_UnexpectedRole_Redirects(t *testing.T) {
 	handlerReached := false
 	s := tests.ApiScenario{
+		TestAppFactory: testapp.Factory,
 		Name:           "unexpected role 'superadmin' redirects to /",
 		Method:         http.MethodGet,
 		URL:            "/admin-test",
@@ -175,6 +186,7 @@ func makeUserNoName(t testing.TB, app core.App) *core.Record {
 func TestRequireAuth_Unauthenticated_RedirectsToLogin(t *testing.T) {
 	handlerReached := false
 	s := tests.ApiScenario{
+		TestAppFactory: testapp.Factory,
 		Name:           "unauthenticated redirects to /login",
 		Method:         http.MethodGet,
 		URL:            "/auth-test",
@@ -195,6 +207,7 @@ func TestRequireAuth_Unauthenticated_RedirectsToLogin(t *testing.T) {
 
 func TestRequireAuth_Unauthenticated_HXRedirect(t *testing.T) {
 	s := tests.ApiScenario{
+		TestAppFactory: testapp.Factory,
 		Name:           "unauthenticated HTMX request gets HX-Redirect",
 		Method:         http.MethodGet,
 		URL:            "/auth-test",
@@ -215,6 +228,7 @@ func TestRequireAuth_Unauthenticated_HXRedirect(t *testing.T) {
 func TestRequireAuth_MissingDisplayName_RedirectsToProfile(t *testing.T) {
 	handlerReached := false
 	s := tests.ApiScenario{
+		TestAppFactory: testapp.Factory,
 		Name:           "missing display_name redirects to /profile/complete",
 		Method:         http.MethodGet,
 		URL:            "/auth-test",
@@ -238,6 +252,7 @@ func TestRequireAuth_MissingDisplayName_RedirectsToProfile(t *testing.T) {
 func TestRequireAuth_MissingDisplayName_ProfileCompleteAllowed(t *testing.T) {
 	handlerReached := false
 	s := tests.ApiScenario{
+		TestAppFactory:  testapp.Factory,
 		Name:            "missing display_name can access /profile/complete",
 		Method:          http.MethodGet,
 		URL:             "/profile/complete",
@@ -261,6 +276,7 @@ func TestRequireAuth_MissingDisplayName_ProfileCompleteAllowed(t *testing.T) {
 func TestRequireAuth_AuthenticatedWithName_PassesThrough(t *testing.T) {
 	handlerReached := false
 	s := tests.ApiScenario{
+		TestAppFactory:  testapp.Factory,
 		Name:            "authenticated user with display_name passes through",
 		Method:          http.MethodGet,
 		URL:             "/auth-test",
@@ -284,6 +300,7 @@ func TestRequireAuth_AuthenticatedWithName_PassesThrough(t *testing.T) {
 func TestCookieAuth_CopiesCookieToHeader(t *testing.T) {
 	var gotHeader, wantToken string
 	s := tests.ApiScenario{
+		TestAppFactory:  testapp.Factory,
 		Name:            "cookie value copied to Authorization header",
 		Method:          http.MethodGet,
 		URL:             "/cookie-test",
@@ -309,6 +326,7 @@ func TestCookieAuth_CopiesCookieToHeader(t *testing.T) {
 func TestCookieAuth_NoCookie_PassesThrough(t *testing.T) {
 	handlerReached := false
 	s := tests.ApiScenario{
+		TestAppFactory:  testapp.Factory,
 		Name:            "no cookie still calls next",
 		Method:          http.MethodGet,
 		URL:             "/cookie-test",
@@ -331,6 +349,7 @@ func TestCookieAuth_NoCookie_PassesThrough(t *testing.T) {
 func TestCookieAuth_SkipsAPIPath(t *testing.T) {
 	var gotHeader string
 	s := &tests.ApiScenario{
+		TestAppFactory:  testapp.Factory,
 		Name:            "/api/ path skips cookie-to-header copy",
 		Method:          http.MethodGet,
 		URL:             "/api/test",
@@ -354,6 +373,7 @@ func TestCookieAuth_SkipsAPIPath(t *testing.T) {
 func TestCookieAuth_SkipsDashboardPath(t *testing.T) {
 	var gotHeader string
 	s := &tests.ApiScenario{
+		TestAppFactory:  testapp.Factory,
 		Name:            "/_/ path skips cookie-to-header copy",
 		Method:          http.MethodGet,
 		URL:             "/_/test",
@@ -376,6 +396,7 @@ func TestCookieAuth_SkipsDashboardPath(t *testing.T) {
 
 func TestCookieAuth_GarbageCookie_NoPanic(t *testing.T) {
 	s := &tests.ApiScenario{
+		TestAppFactory:  testapp.Factory,
 		Name:            "garbage cookie value does not panic",
 		Method:          http.MethodGet,
 		URL:             "/cookie-test",
@@ -395,6 +416,7 @@ func TestCookieAuth_GarbageCookie_NoPanic(t *testing.T) {
 func TestCookieAuth_EmptyCookieValue_PassesThrough(t *testing.T) {
 	var gotHeader string
 	s := &tests.ApiScenario{
+		TestAppFactory:  testapp.Factory,
 		Name:            "empty cookie value does not set Authorization",
 		Method:          http.MethodGet,
 		URL:             "/cookie-test",
@@ -417,6 +439,7 @@ func TestCookieAuth_EmptyCookieValue_PassesThrough(t *testing.T) {
 
 func TestClearAuthCookie(t *testing.T) {
 	s := tests.ApiScenario{
+		TestAppFactory:  testapp.Factory,
 		Name:            "ClearAuthCookie sets expired pb_auth cookie",
 		Method:          http.MethodGet,
 		URL:             "/clear-cookie-test",
