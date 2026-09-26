@@ -185,7 +185,12 @@ func resolveFlash(e *core.RequestEvent, data map[string]any) {
 }
 
 func resolveFooter(e *core.RequestEvent, data map[string]any) {
-	data["Contact"] = league.LoadContactInfo(e.App)
+	// Contact info is for registered users only; logged-out pages (login,
+	// register, legal pages) never show it.
+	data["Contact"] = league.ContactInfo{}
+	if e.Auth != nil {
+		data["Contact"] = league.LoadContactInfo(e.App)
+	}
 	compID, _ := data["FooterCompetitionID"].(string)
 	if strings.HasPrefix(e.Request.URL.Path, "/admin/") && compID == "" {
 		data["Footer"] = league.GlobalSponsorsOnlyFooter(e.App)
