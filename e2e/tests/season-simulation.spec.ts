@@ -1,7 +1,7 @@
 import type { Page, APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import { loginAs, isMobile, clickAction, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
-import { enterScore, fillFlatpickrDate, clickConfirmAndWaitForHxRedirect, cellByHeader, expectRedirectedTo } from '../tour-helpers';
+import { enterScore, fillFlatpickrDate, clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect, cellByHeader, expectRedirectedTo } from '../tour-helpers';
 import {
   setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,
   computeExpected, PlannedMatch, PairId,
@@ -425,15 +425,6 @@ async function generateFixtures(page: Page, compId: string) {
   await expectRedirectedTo(page, new RegExp(`/admin/competitions/${compId}$`));
   await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'));
   await expectRedirectedTo(page, new RegExp(`/admin/competitions/${compId}$`));
-}
-
-// HTMX + redirectHX: click triggers XHR → 204 + HX-Redirect → window.location.href.
-// Must wait for the full page load after the redirect completes.
-async function clickAndWaitForHxRedirect(page: Page, locator: ReturnType<Page['locator']>) {
-  const navPromise = page.waitForEvent('framenavigated', { timeout: 30000 });
-  await locator.click();
-  await navPromise;
-  await page.waitForLoadState('domcontentloaded');
 }
 
 // --- T3: Map fixtures to scores ---
