@@ -22,14 +22,14 @@
     {{if .LogoURL}}
     <img src="{{.LogoURL}}" alt="{{.Name}}" class="rounded" style="height:{{if .Small}}16{{else}}20{{end}}px;width:auto" loading="lazy">
     {{end}}
-    {{if and .ID (not .NoLink)}}<a href="{{competitionURL .ID}}" class="link link-hover">{{.Name}}</a>{{else}}{{.Name}}{{end}}
+    {{if and .ID (not .NoLink)}}<a href="{{competitionURL .ID}}" class="link link-hover inline-flex items-center min-h-[44px]">{{.Name}}</a>{{else}}{{.Name}}{{end}}
 </span>
 {{else}}
 <span class="inline-flex items-center gap-3">
     {{if .LogoURL}}
     <img src="{{.LogoURL}}" alt="{{.Name}}" class="rounded-lg" style="height:32px;width:auto" loading="lazy">
     {{end}}
-    {{if and .ID (not .NoLink)}}<a href="{{competitionURL .ID}}" class="link link-hover">{{.Name}}</a>{{else}}{{.Name}}{{end}}
+    {{if and .ID (not .NoLink)}}<a href="{{competitionURL .ID}}" class="link link-hover inline-flex items-center min-h-[44px]">{{.Name}}</a>{{else}}{{.Name}}{{end}}
 </span>
 {{end}}
 {{end}}

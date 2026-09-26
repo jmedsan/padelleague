@@ -18,7 +18,7 @@
                 <button type="button" hx-post="/admin/competitions/{{$.Competition.Id}}/logo/delete" hx-confirm="¿Eliminar el logo?" data-confirm-danger data-confirm-ok="Eliminar" hx-target="body" hx-disabled-elt="this" class="btn btn-ghost btn-sm text-error" aria-label="Eliminar logo">Eliminar</button>
                 {{end}}
                 <input type="file" id="comp-logo-input" name="logo" accept="image/jpeg,image/png,image/webp"
-                       class="file-input file-input-bordered file-input-sm flex-1"
+                       class="file-input file-input-bordered file-input-sm flex-1 min-w-0"
                        hx-post="/admin/competitions/{{.Competition.Id}}/logo" hx-trigger="change" hx-encoding="multipart/form-data" hx-disabled-elt="this">
             </div>
         </div>

@@ -24,12 +24,55 @@
   [data-theme="padel"] .link-primary {
     color: #4D7A0F;
   }
+  /* Touch-only 44px tap-target floor. DaisyUI's *-sm variants set an
+     explicit `height` (e.g. .btn-sm/.file-input-sm: height 2rem == 36px at
+     this project's 18px root), which a plain `min-height` override can't
+     beat — DaisyUI's
+     utility CSS isn't itself cascade-layered, so source order decides and
+     it comes after @layer base. Overriding to `height: auto` (not a fixed
+     px value) plus !important is required to actually win there, while
+     still letting the element grow past 44px for a wrapped label — a fixed
+     `height` would clip it, same risk as the unsuffixed rule below.
+     Unsuffixed .btn/.input/.select/.menu-link only need `min-height` raised
+     (their own default height already clears 44px; min-height just
+     protects against a shorter one-line render). `.menu li > a, .menu li >
+     button` covers the mobile drawer's nav links AND its plain-button rows
+     (theme toggle, logout) — both render as `<li><a>`/`<li><button>` with
+     no DaisyUI size class, so they get the same 41px-ish default. See
+     route-census pilot findings, e2e/tests/route-census.spec.ts. */
   @media (hover: none) {
-    .btn-sm, .input-sm, .select-sm, .tab {
+    .btn-sm, .input-sm, .select-sm, .tab, .file-input-sm {
+      height: auto !important;
+      min-height: 2.75rem !important;
+    }
+    .btn, .input, .select, .menu li > a, .menu li > button {
       min-height: 2.75rem;
     }
-    .btn-circle.btn-sm {
+    .btn-circle, .btn-circle.btn-sm {
+      min-width: 2.75rem !important;
+    }
+    /* DaisyUI's .breadcrumbs trail (Inicio > Competición > Ronda,
+       views/match.html) sets its own `display: flex` per <a>; min-height
+       alone is enough here since it doesn't fight a fixed height. But a
+       short label like "Inicio" is content-sized (~40px wide) with no
+       min-width, so it fails the 44px floor on width alone even though
+       height clears it — route-census caught this at 40x50. min-width
+       closes that without touching font size or the trail's own padding. */
+    .breadcrumbs a {
+      min-height: 2.75rem;
       min-width: 2.75rem;
+    }
+    /* Footer competition/league identity link (site-footer.html): renders
+       an <img> when a logo exists (already ≥44px via --footer-logo-h) but
+       falls back to a plain text span with no logo — a short competition
+       name like "L-Leveled" then collapses to its content box (~150x27px),
+       failing the tap-target floor on height. min-height + inline-flex
+       centering covers both branches without touching the logo's own
+       sizing or the text's font size. */
+    .footer-identity-link {
+      display: inline-flex;
+      align-items: center;
+      min-height: 2.75rem;
     }
   }
   .collapse-content {
@@ -38,6 +81,17 @@
 }
 
 @layer components {
+  /* Breadcrumb/back link — "← Competiciones" / "← Inicio" at the top of
+     every entity page. Standalone navigation (not a link inside running
+     text), so it needs the 44px touch floor like any other tap target;
+     text-sm/opacity-60 stay as-is (font size and visual weight unchanged).
+     inline-flex + items-center centers the shorter text within the taller
+     box instead of just padding it lopsided. */
+  .breadcrumb-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+  }
   .badge-soft-success {
     background-color: oklch(var(--su) / 0.15);
     color: oklch(var(--su));

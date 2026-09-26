@@ -205,6 +205,7 @@ test.describe('match lifecycle', () => {
   });
 
   test('player cannot access match of another competition', async ({ page }) => {
+    test.info().annotations.push({ type: 'expected-http-error', description: '404 /match/' });
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto('/match/nonexistent-id');
     await expect(page.getByText('no encontrado')).toBeVisible({ timeout: 5000 });

@@ -1,6 +1,6 @@
 {{define "content"}}
 <div class="mb-6">
-    <a href="/admin/competitions" class="link link-hover text-sm opacity-60">← Competiciones</a>
+    <a href="/admin/competitions" class="link link-hover text-sm opacity-60 breadcrumb-link">← Competiciones</a>
     <h1 class="text-2xl font-bold mt-1">Configuración</h1>
 </div>
 
@@ -20,7 +20,7 @@
                 <button type="button" hx-post="/admin/settings/logo/delete" hx-confirm="¿Eliminar el logo?" data-confirm-danger data-confirm-ok="Eliminar" hx-target="body" hx-disabled-elt="this" class="btn btn-ghost btn-sm text-error" aria-label="Eliminar logo">Eliminar</button>
                 {{end}}
                 <input type="file" id="league-logo-input" name="logo" accept="image/jpeg,image/png,image/webp"
-                       class="file-input file-input-bordered file-input-sm flex-1"
+                       class="file-input file-input-bordered file-input-sm flex-1 min-w-0"
                        hx-post="/admin/settings/logo" hx-trigger="change" hx-encoding="multipart/form-data" hx-disabled-elt="this">
             </div>
         </div>
