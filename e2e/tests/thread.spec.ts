@@ -1,29 +1,25 @@
+import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import { loginAs, scratchMatchId, loadTestData, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { enterScore, clickAndWaitForHxRedirect, fillFlatpickrDate } from '../tour-helpers';
-
-const BASE = `http://localhost:${process.env.E2E_PORT || 8099}`;
 
 function suToken(): string {
   return loadTestData().adminToken;
 }
 
-async function suPatch(path: string, data: Record<string, unknown>): Promise<void> {
-  const resp = await fetch(`${BASE}${path}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', Authorization: suToken() },
-    body: JSON.stringify(data),
-  });
-  if (!resp.ok) throw new Error(`suPatch ${path}: ${resp.status} ${await resp.text()}`);
+async function suPatch(request: APIRequestContext, path: string, data: Record<string, unknown>): Promise<void> {
+  const resp = await request.patch(path, { headers: { Authorization: suToken() }, data });
+  if (!resp.ok()) throw new Error(`suPatch ${path}: ${resp.status()} ${await resp.text()}`);
 }
 
-async function suPost(path: string, data: Record<string, unknown>): Promise<any> {
-  const resp = await fetch(`${BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: suToken() },
-    body: JSON.stringify(data),
-  });
-  if (!resp.ok) throw new Error(`suPost ${path}: ${resp.status} ${await resp.text()}`);
+async function suGet(request: APIRequestContext, path: string): Promise<any> {
+  const resp = await request.get(path, { headers: { Authorization: suToken() } });
+  return resp.json();
+}
+
+async function suPost(request: APIRequestContext, path: string, data: Record<string, unknown>): Promise<any> {
+  const resp = await request.post(path, { headers: { Authorization: suToken() }, data });
+  if (!resp.ok()) throw new Error(`suPost ${path}: ${resp.status()} ${await resp.text()}`);
   return resp.json();
 }
 
@@ -66,9 +62,9 @@ test.describe('match thread', () => {
     await expect(page.locator('select[name="time"]')).toBeVisible({ timeout: 3000 });
   });
 
-  test('W2: after proposing a date, the form collapses into "Proponer otra fecha"', async ({ page }) => {
+  test('W2: after proposing a date, the form collapses into "Proponer otra fecha"', async ({ page, request }) => {
     const data = loadTestData();
-    const match = await suPost('/api/collections/matches/records', {
+    const match = await suPost(request, '/api/collections/matches/records', {
       competition: data.competitionId, pair1: data.pair1Id, pair2: data.pair2Id,
       status: 'pending', round_number: 99,
     });
@@ -96,9 +92,9 @@ test.describe('match thread', () => {
     await expect(accordion.locator('input[type="checkbox"]')).not.toBeChecked();
   });
 
-  test('proposal form shows inline error instead of a native alert when "Otro" club has no name', async ({ page }) => {
+  test('proposal form shows inline error instead of a native alert when "Otro" club has no name', async ({ page, request }) => {
     const data = loadTestData();
-    const match = await suPost('/api/collections/matches/records', {
+    const match = await suPost(request, '/api/collections/matches/records', {
       competition: data.competitionId, pair1: data.pair1Id, pair2: data.pair2Id,
       status: 'pending', round_number: 99,
     });
@@ -139,14 +135,11 @@ test.describe('match thread', () => {
     await expect(page.locator('[name="content"]')).toBeVisible({ timeout: 5000 });
   });
 
-  test('thread split: timeline read-only, result flow, score once (P1, P4, P6)', async ({ page }, testInfo) => {
+  test('thread split: timeline read-only, result flow, score once (P1, P4, P6)', async ({ page, request }, testInfo) => {
     const data = loadTestData();
     // Create a fresh match for this run to avoid retry issues with state transitions
-    const adminResp = await fetch(`${BASE}/api/collections/users/records?filter=email='${ADMIN_EMAIL}'`, {
-      headers: { Authorization: suToken() },
-    });
-    const adminUser = (await adminResp.json()).items[0];
-    const freshMatch = await suPost('/api/collections/matches/records', {
+    const adminUser = (await suGet(request, `/api/collections/users/records?filter=email='${ADMIN_EMAIL}'`)).items[0];
+    const freshMatch = await suPost(request, '/api/collections/matches/records', {
       competition: data.competitionId,
       pair1: data.pair1Id,
       pair2: data.pair2Id,
@@ -156,7 +149,7 @@ test.describe('match thread', () => {
       club: 'Padel 360',
     });
     const matchId = freshMatch.id;
-    await suPost('/api/collections/match_messages/records', {
+    await suPost(request, '/api/collections/match_messages/records', {
       match: matchId, type: 'result_submission', proposal_status: 'pending',
       content: '6-3 6-4',
       proposal_data: JSON.stringify({ scores: '6-3 6-4' }),
@@ -188,7 +181,7 @@ test.describe('match thread', () => {
     await expect(resultCard.locator('.badge', { hasText: 'Propuesta' })).toBeVisible({ timeout: 5000 });
 
     // Transition to final via API
-    await suPatch(`/api/collections/matches/records/${matchId}`, {
+    await suPatch(request, `/api/collections/matches/records/${matchId}`, {
       status: 'final', scores: '6-3 6-4', winner: data.pair1Id,
     });
     await page.goto(`/match/${matchId}`);
@@ -203,13 +196,10 @@ test.describe('match thread', () => {
     await expect(page.locator('#thread-timeline form')).toHaveCount(0);
   });
 
-  test('thread split: deadlock shows both proposals (P5)', async ({ page }, testInfo) => {
+  test('thread split: deadlock shows both proposals (P5)', async ({ page, request }, testInfo) => {
     const data = loadTestData();
-    const adminResp = await fetch(`${BASE}/api/collections/users/records?filter=email='${ADMIN_EMAIL}'`, {
-      headers: { Authorization: suToken() },
-    });
-    const adminUser = (await adminResp.json()).items[0];
-    const freshMatch = await suPost('/api/collections/matches/records', {
+    const adminUser = (await suGet(request, `/api/collections/users/records?filter=email='${ADMIN_EMAIL}'`)).items[0];
+    const freshMatch = await suPost(request, '/api/collections/matches/records', {
       competition: data.competitionId,
       pair1: data.pair1Id,
       pair2: data.pair2Id,
@@ -221,13 +211,13 @@ test.describe('match thread', () => {
     const matchId = freshMatch.id;
     // Two pending result submissions from opposite pairs:
     // player2 (pair1) and admin (pair2)
-    await suPost('/api/collections/match_messages/records', {
+    await suPost(request, '/api/collections/match_messages/records', {
       match: matchId, type: 'result_submission', proposal_status: 'pending',
       content: '6-3 6-4',
       proposal_data: JSON.stringify({ scores: '6-3 6-4' }),
       author: data.player2.id,
     });
-    await suPost('/api/collections/match_messages/records', {
+    await suPost(request, '/api/collections/match_messages/records', {
       match: matchId, type: 'result_submission', proposal_status: 'pending',
       content: '4-6 6-3 7-5',
       proposal_data: JSON.stringify({ scores: '4-6 6-3 7-5' }),
@@ -254,13 +244,9 @@ test.describe('match thread', () => {
   // navigation, which does not re-fetch or re-render the page), the badge
   // assertions below would see stale content and fail — see the injected
   // regression check at the end of this test for a live demonstration.
-  test('proposing and accepting a schedule refreshes the card without a manual reload', async ({ page }) => {
+  test('proposing and accepting a schedule refreshes the card without a manual reload', async ({ page, request }) => {
     const data = loadTestData();
-    const adminResp = await fetch(`${BASE}/api/collections/users/records?filter=email='${ADMIN_EMAIL}'`, {
-      headers: { Authorization: suToken() },
-    });
-    const adminUser = (await adminResp.json()).items[0];
-    const freshMatch = await suPost('/api/collections/matches/records', {
+    const freshMatch = await suPost(request, '/api/collections/matches/records', {
       competition: data.competitionId,
       pair1: data.pair1Id,
       pair2: data.pair2Id,
@@ -305,11 +291,11 @@ test.describe('match thread', () => {
   // does NOT show the fresh state, proving the assertions above are
   // load-bearing rather than trivially always-green.
 
-  test('unfinished match: submit partial → accept → resume with carried sets → finish', async ({ page }) => {
+  test('unfinished match: submit partial → accept → resume with carried sets → finish', async ({ page, request }) => {
     test.setTimeout(60000);
     const data = loadTestData();
 
-    const freshMatch = await suPost('/api/collections/matches/records', {
+    const freshMatch = await suPost(request, '/api/collections/matches/records', {
       competition: data.competitionId,
       pair1: data.pair1Id,
       pair2: data.pair2Id,
@@ -345,7 +331,7 @@ test.describe('match thread', () => {
     await expect(page.locator('.badge', { hasText: 'Se reanuda desde 6-3' })).toBeVisible({ timeout: 10000 });
 
     // Schedule the resumed match via API
-    await suPatch(`/api/collections/matches/records/${matchId}`, {
+    await suPatch(request, `/api/collections/matches/records/${matchId}`, {
       status: 'scheduled', date: '2025-07-15', club: 'Wurko',
     });
 
@@ -377,9 +363,9 @@ test.describe('match thread', () => {
     await expect(page.locator('.badge', { hasText: 'Se reanuda' })).not.toBeVisible();
   });
 
-  test('player can withdraw own pending scheduling proposal', async ({ page }) => {
+  test('player can withdraw own pending scheduling proposal', async ({ page, request }) => {
     const data = loadTestData();
-    const freshMatch = await suPost('/api/collections/matches/records', {
+    const freshMatch = await suPost(request, '/api/collections/matches/records', {
       competition: data.competitionId, pair1: data.pair1Id, pair2: data.pair2Id,
       status: 'pending', round_number: 70,
     });
@@ -416,9 +402,9 @@ test.describe('match thread', () => {
     await expect(page.locator('#thread-timeline').getByText('retiró su propuesta')).toBeVisible({ timeout: 5000 });
   });
 
-  test('opponent can reject a scheduling proposal with a reason', async ({ page }) => {
+  test('opponent can reject a scheduling proposal with a reason', async ({ page, request }) => {
     const data = loadTestData();
-    const freshMatch = await suPost('/api/collections/matches/records', {
+    const freshMatch = await suPost(request, '/api/collections/matches/records', {
       competition: data.competitionId, pair1: data.pair1Id, pair2: data.pair2Id,
       status: 'pending', round_number: 71,
     });
@@ -471,9 +457,9 @@ test.describe('match thread', () => {
     await expect(page.locator('#thread-timeline').getByText('No puedo ese día')).toBeVisible({ timeout: 5000 });
   });
 
-  test('flatpickr date picker posts date in YYYY-MM-DD format', async ({ page }) => {
+  test('flatpickr date picker posts date in YYYY-MM-DD format', async ({ page, request }) => {
     const data = loadTestData();
-    const freshMatch = await suPost('/api/collections/matches/records', {
+    const freshMatch = await suPost(request, '/api/collections/matches/records', {
       competition: data.competitionId, pair1: data.pair1Id, pair2: data.pair2Id,
       status: 'pending', round_number: 72,
     });
@@ -506,11 +492,11 @@ test.describe('match thread', () => {
     await expect(page.locator('#thread-schedule .badge', { hasText: 'Propuesta' })).toBeVisible({ timeout: 5000 });
   });
 
-  test('rule win: 3-game lead with one completed set finalizes the match', async ({ page }) => {
+  test('rule win: 3-game lead with one completed set finalizes the match', async ({ page, request }) => {
     test.setTimeout(60000);
     const data = loadTestData();
 
-    const freshMatch = await suPost('/api/collections/matches/records', {
+    const freshMatch = await suPost(request, '/api/collections/matches/records', {
       competition: data.competitionId,
       pair1: data.pair1Id,
       pair2: data.pair2Id,

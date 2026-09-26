@@ -1,40 +1,29 @@
+import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import { loginAs, scratchMatchId, loadTestData, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { enterScore } from '../tour-helpers';
-
-const BASE = `http://localhost:${process.env.E2E_PORT || 8099}`;
 
 function suToken(): string {
   return loadTestData().adminToken;
 }
 
-async function suPatch(path: string, data: Record<string, unknown>): Promise<void> {
-  const resp = await fetch(`${BASE}${path}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', Authorization: suToken() },
-    body: JSON.stringify(data),
-  });
-  if (!resp.ok) {
-    throw new Error(`suPatch ${path}: ${resp.status} ${await resp.text()}`);
+async function suPatch(request: APIRequestContext, path: string, data: Record<string, unknown>): Promise<void> {
+  const resp = await request.patch(path, { headers: { Authorization: suToken() }, data });
+  if (!resp.ok()) {
+    throw new Error(`suPatch ${path}: ${resp.status()} ${await resp.text()}`);
   }
 }
 
-async function suPost(path: string, data: Record<string, unknown>): Promise<any> {
-  const resp = await fetch(`${BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: suToken() },
-    body: JSON.stringify(data),
-  });
-  if (!resp.ok) {
-    throw new Error(`suPost ${path}: ${resp.status} ${await resp.text()}`);
+async function suPost(request: APIRequestContext, path: string, data: Record<string, unknown>): Promise<any> {
+  const resp = await request.post(path, { headers: { Authorization: suToken() }, data });
+  if (!resp.ok()) {
+    throw new Error(`suPost ${path}: ${resp.status()} ${await resp.text()}`);
   }
   return resp.json();
 }
 
-async function suGet(path: string): Promise<any> {
-  const resp = await fetch(`${BASE}${path}`, {
-    headers: { Authorization: suToken() },
-  });
+async function suGet(request: APIRequestContext, path: string): Promise<any> {
+  const resp = await request.get(path, { headers: { Authorization: suToken() } });
   return resp.json();
 }
 
@@ -51,9 +40,9 @@ test.describe('match lifecycle', () => {
     await expect(page.locator('.card').getByText(/Jornada \d/)).toHaveCount(0);
   });
 
-  test('player can submit score', async ({ page }, testInfo) => {
+  test('player can submit score', async ({ page, request }, testInfo) => {
     const matchId = scratchMatchId("submit-score", testInfo.project.name);
-    await suPatch(`/api/collections/matches/records/${matchId}`, { date: '2025-03-15', club: 'Padel 360' });
+    await suPatch(request, `/api/collections/matches/records/${matchId}`, { date: '2025-03-15', club: 'Padel 360' });
 
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${matchId}`);
@@ -66,13 +55,13 @@ test.describe('match lifecycle', () => {
     await expect(page.getByText('6-3 6-4').first()).toBeVisible({ timeout: 5000 });
   });
 
-  test('score input rejects an invalid non-last set (0-4 4-6)', async ({ page }, testInfo) => {
+  test('score input rejects an invalid non-last set (0-4 4-6)', async ({ page, request }, testInfo) => {
     // Only the LAST set may be unfinished; every earlier set must be a
     // complete, valid padel set. "0-4" as set 1 is neither — it must never
     // be treated as an in-progress open set just because "4-6" (a valid,
     // complete set) follows it.
     const matchId = scratchMatchId('invalid-nonlast-set', testInfo.project.name);
-    await suPatch(`/api/collections/matches/records/${matchId}`, { date: '2025-03-15', club: 'Padel 360' });
+    await suPatch(request, `/api/collections/matches/records/${matchId}`, { date: '2025-03-15', club: 'Padel 360' });
 
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${matchId}`);
@@ -113,13 +102,13 @@ test.describe('match lifecycle', () => {
     await expect(overrideForm.locator('.score-cell').first()).toBeVisible();
   });
 
-  test('counter-propose uses masked score component', async ({ page }, testInfo) => {
+  test('counter-propose uses masked score component', async ({ page, request }, testInfo) => {
     const matchId = scratchMatchId('lifecycle-ui', testInfo.project.name);
-    const adminId = (await suGet(`/api/collections/users/records?filter=email='${ADMIN_EMAIL}'`)).items[0].id;
-    await suPatch(`/api/collections/matches/records/${matchId}`, {
+    const adminId = (await suGet(request, `/api/collections/users/records?filter=email='${ADMIN_EMAIL}'`)).items[0].id;
+    await suPatch(request, `/api/collections/matches/records/${matchId}`, {
       status: 'scheduled', submitted_by: adminId, date: '2025-03-15', club: 'Padel 360',
     });
-    await suPost('/api/collections/match_messages/records', {
+    await suPost(request, '/api/collections/match_messages/records', {
       match: matchId, type: 'result_submission', proposal_status: 'pending',
       proposal_data: JSON.stringify({ scores: '6-3 6-4' }),
       author: adminId,
@@ -134,9 +123,9 @@ test.describe('match lifecycle', () => {
     await expect(counterForm.locator('.score-cell').first()).toBeVisible();
   });
 
-  test('admin resolve uses masked score component', async ({ page }, testInfo) => {
+  test('admin resolve uses masked score component', async ({ page, request }, testInfo) => {
     const matchId = scratchMatchId('lifecycle-ui', testInfo.project.name);
-    await suPatch(`/api/collections/matches/records/${matchId}`, {
+    await suPatch(request, `/api/collections/matches/records/${matchId}`, {
       status: 'disputed', scores: '6-3 6-4', disputed_scores: '4-6 6-3 7-5', review_type: 'score',
     });
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
@@ -154,44 +143,44 @@ test.describe('match lifecycle', () => {
     await expect(si.locator('[name="s1b"]')).toHaveValue('3');
   });
 
-  test('match page shows precedentes strip from a prior meeting between the same pairs', async ({ page }, testInfo) => {
+  test('match page shows precedentes strip from a prior meeting between the same pairs', async ({ page, request }, testInfo) => {
     // Uses its own competition + pairs, not the shared seeded pair1/pair2 —
     // Precedents() picks the most recent 'final' meeting between two pairs,
     // so if another spec (e.g. the mobile tour) creates a later final match
     // between the shared pairs, it silently outranks this test's fixture.
     const suffix = `${Date.now()}-${testInfo.project.name}`;
-    const comp = await suPost('/api/collections/competitions/records', {
+    const comp = await suPost(request, '/api/collections/competitions/records', {
       name: `Precedentes Test ${suffix}`, type: 'league', active: true,
       calendar_status: 'published',
     });
-    const pA1 = await suPost('/api/collections/users/records', {
+    const pA1 = await suPost(request, '/api/collections/users/records', {
       email: `prec-a1-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
       display_name: `Prec A1 ${suffix}`, roles: ['player'], verified: true, gender: 'male',
     });
-    const pA2 = await suPost('/api/collections/users/records', {
+    const pA2 = await suPost(request, '/api/collections/users/records', {
       email: `prec-a2-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
       display_name: `Prec A2 ${suffix}`, roles: ['player'], verified: true, gender: 'male',
     });
-    const pB1 = await suPost('/api/collections/users/records', {
+    const pB1 = await suPost(request, '/api/collections/users/records', {
       email: `prec-b1-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
       display_name: `Prec B1 ${suffix}`, roles: ['player'], verified: true, gender: 'male',
     });
-    const pB2 = await suPost('/api/collections/users/records', {
+    const pB2 = await suPost(request, '/api/collections/users/records', {
       email: `prec-b2-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
       display_name: `Prec B2 ${suffix}`, roles: ['player'], verified: true, gender: 'male',
     });
-    const pairA = await suPost('/api/collections/pairs/records', {
+    const pairA = await suPost(request, '/api/collections/pairs/records', {
       name: `Prec Pareja A ${suffix}`, player1: pA1.id, player2: pA2.id,
     });
-    const pairB = await suPost('/api/collections/pairs/records', {
+    const pairB = await suPost(request, '/api/collections/pairs/records', {
       name: `Prec Pareja B ${suffix}`, player1: pB1.id, player2: pB2.id,
     });
-    await suPatch(`/api/collections/competitions/records/${comp.id}`, {
+    await suPatch(request, `/api/collections/competitions/records/${comp.id}`, {
       pairs: [pairA.id, pairB.id],
     });
 
     // Finalize a prior meeting between the two dedicated pairs.
-    const prior = await suPost('/api/collections/matches/records', {
+    const prior = await suPost(request, '/api/collections/matches/records', {
       competition: comp.id,
       pair1: pairA.id,
       pair2: pairB.id,
@@ -202,7 +191,7 @@ test.describe('match lifecycle', () => {
     });
 
     // A second, pending match between the same pairs — the one we view.
-    const current = await suPost('/api/collections/matches/records', {
+    const current = await suPost(request, '/api/collections/matches/records', {
       competition: comp.id,
       pair1: pairA.id,
       pair2: pairB.id,

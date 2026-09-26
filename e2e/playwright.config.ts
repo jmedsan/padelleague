@@ -5,6 +5,15 @@ import { defineConfig } from '@playwright/test';
 // value — Playwright reads this config synchronously before globalSetup
 // runs, so the port can't be resolved asynchronously here. Running
 // `npx playwright test` directly (bypassing make e2e) falls back to 8099.
+//
+// TEMPORARY: globalSetup/globalTeardown (one shared server) stay wired here
+// until every spec's `test` import resolves through worker-server.ts's
+// worker-scoped fixture (currently only navbar-360.spec.ts does — the rest
+// go through overflow-guard.ts, which worker2 owns and has uncommitted
+// changes to right now). Once overflow-guard.ts imports `test` from
+// worker-server.ts instead of '@playwright/test', delete this block and
+// switch to PLAYWRIGHT_WORKERS-controlled `workers` — see worker-server.ts's
+// docstring for the fixture that replaces it.
 const PORT = process.env.E2E_PORT ? Number(process.env.E2E_PORT) : 8099;
 
 export default defineConfig({
