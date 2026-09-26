@@ -1,4 +1,5 @@
-import { test, expect, Page, APIRequestContext } from '@playwright/test';
+import type { Page, APIRequestContext } from '@playwright/test';
+import { test, expect } from '../overflow-guard';
 import { loginAs, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import {
   setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,

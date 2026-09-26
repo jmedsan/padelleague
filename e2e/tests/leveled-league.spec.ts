@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../overflow-guard';
 import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { uniqueSuffix, setPlayerPassword } from '../season-helpers';
 import {

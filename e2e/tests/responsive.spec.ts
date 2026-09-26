@@ -1,7 +1,12 @@
-import { test, expect, APIRequestContext } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
+import { test, expect } from '../overflow-guard';
 import { loginAs, loadTestData, isMobile, openDrawer, navViaDrawer, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
-const MOBILE = { width: 375, height: 812 };
+// Samsung Galaxy S23 (owner's real device) — matches the mobile project's
+// default viewport in playwright.config.ts. Kept as an explicit constant
+// here (rather than relying on the project default) because these tests
+// also run on the desktop project and need to force the narrow viewport.
+const MOBILE = { width: 360, height: 780 };
 
 let suToken = '';
 
@@ -121,7 +126,7 @@ test.describe('responsive - no horizontal overflow', () => {
     await expect(standingsCard.getByText('Pareja Alpha').locator('visible=true').first()).toBeVisible();
   });
 
-  test('W13: long pair names in a jornada match row wrap instead of overflowing at 390px', async ({ page }) => {
+  test('W13: long pair names in a jornada match row wrap instead of overflowing at 360px', async ({ page }) => {
     await getSuperuserToken(page);
     const suffix = `w13-${Date.now()}`;
     const p1a = await apiCreateRecord(page.request, 'users', {
@@ -231,20 +236,21 @@ test.describe('responsive - no horizontal overflow', () => {
       competition: compId, title: `Aviso ${suffix}`, body: 'Aviso de prueba', created_by: adminID,
     });
 
-    await page.setViewportSize({ width: 360, height: 740 });
+    await page.setViewportSize(MOBILE);
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/competition/${compId}`);
     await page.waitForLoadState('domcontentloaded');
-    // Not checkNoOverflow here: the standings table has its own separate,
-    // pre-existing overflow at 360px (tracked independently) that would
-    // fail this test for a reason unrelated to the tab strip under test.
+    // No manual checkNoOverflow call here: the shared overflowGuard fixture
+    // (../overflow-guard.ts) now asserts no horizontal overflow on every
+    // mobile-project test automatically, including this page. This test's
+    // own assertions below stay scoped to the tab strip.
 
     const tablist = page.locator('div[role="tablist"]').first();
     await expect(tablist).toBeVisible();
     const box = await tablist.boundingBox();
     expect(box?.width, 'tablist must not exceed the 360px viewport').toBeLessThanOrEqual(360);
 
-    for (const label of ['Jornadas', 'Anuncios', 'Documentos', 'Clasificación']) {
+    for (const label of ['Jornadas', 'Avisos', 'Documentos', 'Clasificación']) {
       await expect(page.locator(`input[aria-label="${label}"]`)).toBeVisible();
     }
 
@@ -264,7 +270,7 @@ test.describe('responsive - no horizontal overflow', () => {
   // header have no adjacent button (title + count only) — not this class,
   // excluded here.
   test('H1-sweep: admin page headers wrap instead of overflowing at 360px', async ({ page }) => {
-    await page.setViewportSize({ width: 360, height: 740 });
+    await page.setViewportSize(MOBILE);
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 
     const pages: Array<{ url: string; header: string }> = [
@@ -299,7 +305,7 @@ test.describe('responsive - no horizontal overflow', () => {
     await navViaDrawer(page, '/admin/players');
     await checkNoOverflow(page);
     // R-review: the table's Email/Género/actions columns are off-screen at
-    // 390px — below sm the page must show a card per player instead, with
+    // 360px — below sm the page must show a card per player instead, with
     // the "Editar"/"Regenerar enlace" actions reachable without scrolling
     // sideways (see review-principles.md).
     await expect(page.locator('table#players-table')).toBeHidden();
@@ -329,7 +335,7 @@ test.describe('responsive - no horizontal overflow', () => {
     await checkNoOverflow(page);
     await expect(page.getByRole('heading', { name: 'Invitaciones' })).toBeVisible();
 
-    // R-review: Usos/Expira/Enlace/Revocar columns are off-screen at 390px,
+    // R-review: Usos/Expira/Enlace/Revocar columns are off-screen at 360px,
     // hiding the page's main action (Copiar). Below sm, a card per invitation
     // must keep "Copiar" reachable without a sideways scroll.
     const invEmail = `resp-mobile-${Date.now()}@example.com`;
@@ -424,7 +430,7 @@ test.describe('responsive - no horizontal overflow', () => {
     await expect(page.getByRole('heading', { name: 'Competiciones activas' })).toBeVisible();
   });
 
-  test('R-review: pair/player history renders as cards, not a table, at 390px', async ({ page }) => {
+  test('R-review: pair/player history renders as cards, not a table, at 360px', async ({ page }) => {
     test.setTimeout(60000);
     await getSuperuserToken(page);
     const data = loadTestData();
@@ -461,7 +467,7 @@ test.describe('responsive - no horizontal overflow', () => {
     await expect(page.getByRole('heading', { name: 'Últimos partidos' })).toBeVisible();
     // Below sm, resultHistoryRow's table must be hidden — the score wraps
     // onto multiple lines inside a <td> and clips the V/D column off-screen
-    // at 390px otherwise (see review-principles.md).
+    // at 360px otherwise (see review-principles.md).
     const table = page.locator('table.table-sm').filter({ hasText: '6-3' });
     await expect(table).toBeHidden();
     const card = page.locator('.sm\\:hidden.space-y-3 > a').first();
@@ -505,7 +511,7 @@ test.describe('responsive - no horizontal overflow', () => {
     const alertsCard = page.locator('div.card', { has: page.getByRole('heading', { level: 2, name: 'Alertas' }) });
     await expect(alertsCard).toBeVisible();
     // The competition name is already in the page header — repeating it on
-    // every alert row is redundant at any width, and wastes space at 390px.
+    // every alert row is redundant at any width, and wastes space at 360px.
     await expect(alertsCard.getByText('Alertas Sin Redundancia E2E')).toHaveCount(0);
 
     // Cleanup
@@ -514,7 +520,7 @@ test.describe('responsive - no horizontal overflow', () => {
     await apiDeleteRecord(page.request, 'competitions', compId);
   });
 
-  test('F1: bulk "marcar bolas entregadas" button label wraps inside the button at 375px, no spillover', async ({ page }) => {
+  test('F1: bulk "marcar bolas entregadas" button label wraps inside the button at 360px, no spillover', async ({ page }) => {
     await getSuperuserToken(page);
     const data = loadTestData();
 

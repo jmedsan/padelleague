@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../overflow-guard';
 import { loadTestData, loginAs, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 test.describe('announcements', () => {
@@ -24,7 +24,7 @@ test.describe('announcements', () => {
     // Clear toast confirms the broadcast was sent.
     await expect(page.locator('#flash-msg')).toContainText('Anuncio enviado');
 
-    // Admin sees it listed in the Anuncios card.
+    // Admin sees it listed in the Avisos card.
     const adminCard = page.locator('[data-testid="announcement-card"]', { hasText: title });
     await expect(adminCard).toBeVisible({ timeout: 5000 });
     await expect(adminCard).toContainText(body);
@@ -47,7 +47,7 @@ test.describe('announcements', () => {
     await expect(notifRow).toBeVisible({ timeout: 5000 });
     await notifRow.click();
 
-    // Player lands on the competition page with the Anuncios tab checked.
+    // Player lands on the competition page with the Avisos tab checked.
     await page.waitForLoadState('domcontentloaded');
     await expect(page).toHaveURL(new RegExp(`/competition/${data.competitionId}#anuncios$`));
     const anunciosTab = page.locator('#tab-anuncios');
