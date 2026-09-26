@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"bytes"
@@ -17,6 +17,8 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/handlers"
 )
 
 // tinyWebP is a small (442-byte) lossless WebP fixture, lifted verbatim from
@@ -139,21 +141,21 @@ func TestPlayerAvatarUpload_ValidImage(t *testing.T) {
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /player/{id}/avatar with a valid image sets the avatar",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"avatar-file-input"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Self Uploader", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Self Uploader", "")
 		userID = user.Id
 		s.URL = "/player/" + user.Id + "/avatar"
 
 		body, contentType := multipartAvatarBody(tb, testPNGBytes(tb, 800, 600))
 		s.Body = body
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = contentType
 		s.Headers = hdrs
 	}
@@ -169,22 +171,22 @@ func TestPlayerAvatarUpload_WrongUserRejected(t *testing.T) {
 	t.Parallel()
 	var targetID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /player/{id}/avatar as a different user is rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"No puedes cambiar la foto de otro jugador"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		target := makeUserTB(tb, app, "Target Player", "")
-		attacker := makeUserTB(tb, app, "Attacker Player", "")
+		setupProductionRoutes(tb, app, e)
+		target := handlers.MakeUserTB(tb, app, "Target Player", "")
+		attacker := handlers.MakeUserTB(tb, app, "Attacker Player", "")
 		targetID = target.Id
 		s.URL = "/player/" + target.Id + "/avatar"
 
 		body, contentType := multipartAvatarBody(tb, testPNGBytes(tb, 100, 100))
 		s.Body = body
-		hdrs := authHeaders(tb, attacker)
+		hdrs := handlers.AuthHeaders(tb, attacker)
 		hdrs["Content-Type"] = contentType
 		s.Headers = hdrs
 	}
@@ -200,15 +202,15 @@ func TestPlayerAvatarUpload_NonImageRejected(t *testing.T) {
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /player/{id}/avatar with a non-image file is rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"El archivo debe ser una imagen"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Self Uploader", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Self Uploader", "")
 		userID = user.Id
 		s.URL = "/player/" + user.Id + "/avatar"
 
@@ -221,7 +223,7 @@ func TestPlayerAvatarUpload_NonImageRejected(t *testing.T) {
 		require.NoError(tb, w.Close())
 
 		s.Body = &buf
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = w.FormDataContentType()
 		s.Headers = hdrs
 	}
@@ -237,22 +239,22 @@ func TestPlayerAvatarUpload_OversizedFileRejected(t *testing.T) {
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /player/{id}/avatar with a file over 5MB is rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"La imagen no puede superar los 5 MB"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Self Uploader", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Self Uploader", "")
 		userID = user.Id
 		s.URL = "/player/" + user.Id + "/avatar"
 
-		oversized := make([]byte, avatarMaxUploadSize+1)
+		oversized := make([]byte, handlers.AvatarMaxUploadSize+1)
 		body, contentType := multipartAvatarBody(tb, oversized)
 		s.Body = body
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = contentType
 		s.Headers = hdrs
 	}
@@ -290,21 +292,21 @@ func TestPlayerAvatarUpload_NonSquareImageIsCroppedToSquare(t *testing.T) {
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /player/{id}/avatar with a wide image crops it to a square",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"avatar-file-input"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Wide Photo Uploader", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Wide Photo Uploader", "")
 		userID = user.Id
 		s.URL = "/player/" + user.Id + "/avatar"
 
 		body, contentType := multipartAvatarBody(tb, testPNGBytes(tb, 800, 200))
 		s.Body = body
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = contentType
 		s.Headers = hdrs
 	}
@@ -320,21 +322,21 @@ func TestPlayerAvatarUpload_TransparencyFlattenedToWhite(t *testing.T) {
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /player/{id}/avatar with transparency flattens it opaque",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"avatar-file-input"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Transparent Photo Uploader", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Transparent Photo Uploader", "")
 		userID = user.Id
 		s.URL = "/player/" + user.Id + "/avatar"
 
 		body, contentType := multipartAvatarBody(tb, testPNGBytesWithAlpha(tb, 100, 100))
 		s.Body = body
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = contentType
 		s.Headers = hdrs
 	}
@@ -354,15 +356,15 @@ func TestPlayerAvatarUpload_ExifOrientationCorrected(t *testing.T) {
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /player/{id}/avatar with EXIF orientation 6 rotates the image upright",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"avatar-file-input"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Phone Photo Uploader", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Phone Photo Uploader", "")
 		userID = user.Id
 		s.URL = "/player/" + user.Id + "/avatar"
 
@@ -372,7 +374,7 @@ func TestPlayerAvatarUpload_ExifOrientationCorrected(t *testing.T) {
 		jpegBytes := testJPEGWithOrientation(tb, 200, 100, 6)
 		body, contentType := multipartAvatarBodyWithType(tb, jpegBytes, "phone.jpg", "image/jpeg")
 		s.Body = body
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = contentType
 		s.Headers = hdrs
 	}
@@ -391,22 +393,22 @@ func TestPlayerAvatarUpload_ImplausibleDimensionsRejected(t *testing.T) {
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /player/{id}/avatar with an image over the max pixel count is rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"La imagen es demasiado grande"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Huge Photo Uploader", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Huge Photo Uploader", "")
 		userID = user.Id
 		s.URL = "/player/" + user.Id + "/avatar"
 
 		// 5001x5001 exceeds the 25 Mpx cap (league.avatarMaxSourcePixels).
 		body, contentType := multipartAvatarBody(tb, testPNGBytes(tb, 5001, 5001))
 		s.Body = body
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = contentType
 		s.Headers = hdrs
 	}
@@ -422,21 +424,21 @@ func TestPlayerAvatarUpload_WebPImageAccepted(t *testing.T) {
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /player/{id}/avatar with a WebP image (Android) is accepted",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"avatar-file-input"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Android Uploader", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Android Uploader", "")
 		userID = user.Id
 		s.URL = "/player/" + user.Id + "/avatar"
 
 		body, contentType := multipartAvatarBodyWithType(tb, tinyWebPBytes(tb), "photo.webp", "image/webp")
 		s.Body = body
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = contentType
 		s.Headers = hdrs
 	}
@@ -452,21 +454,21 @@ func TestPlayerAvatarUpload_LargeImageIsResized(t *testing.T) {
 	t.Parallel()
 	var userID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /player/{id}/avatar with an oversized image resizes it down",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"avatar-file-input"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupPublicRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Big Photo Uploader", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Big Photo Uploader", "")
 		userID = user.Id
 		s.URL = "/player/" + user.Id + "/avatar"
 
 		body, contentType := multipartAvatarBody(tb, testPNGBytes(tb, 2000, 1500))
 		s.Body = body
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = contentType
 		s.Headers = hdrs
 	}

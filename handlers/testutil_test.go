@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"slices"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -143,87 +142,10 @@ func makeFinalMatch(t testing.TB, app core.App, compID, p1ID, p2ID, score, winne
 	require.NoError(t, app.Save(record))
 }
 
-func makeInvitation(t testing.TB, app core.App, expiresAt time.Time) *core.Record {
-	t.Helper()
-	creator := makeUser(t, app, "Inviter", "")
-	comp := makeCompetition(t, app, nil)
-	col, err := app.FindCollectionByNameOrId("invitations")
-	require.NoError(t, err)
-	n := userSeq.Add(1)
-	record := core.NewRecord(col)
-	record.Set("token", fmt.Sprintf("tok%d", n))
-	record.Set("created_by", creator.Id)
-	record.Set("competition", comp.Id)
-	record.Set("status", "pending")
-	if !expiresAt.IsZero() {
-		record.Set("expires_at", expiresAt.UTC().Format("2006-01-02 15:04:05.000Z"))
-	}
-	require.NoError(t, app.Save(record))
-	return record
-}
-
-func makeNotification(t testing.TB, app core.App, userID, title, body string, read bool) *core.Record {
-	t.Helper()
-	col, err := app.FindCollectionByNameOrId("notifications")
-	require.NoError(t, err)
-	record := core.NewRecord(col)
-	record.Set("user", userID)
-	record.Set("type", "general")
-	record.Set("title", title)
-	record.Set("body", body)
-	record.Set("read", read)
-	require.NoError(t, app.Save(record))
-	return record
-}
-
-// assertNotified finds the notification record for userID with the given
-// title (the most recently created one, since a flow can leave several
-// notifications on the same user) and asserts its type, body, comp_name, and
-// related_match/link exactly match want. want's literal fields must come
-// from the test's own fixture data (the same values the flow under test was
-// seeded/driven with), never from calling the constructor again — otherwise
-// a handler that wires the wrong constructor, or drops a field before
-// calling notify.Notifier, still passes because both sides recompute the
-// same (possibly wrong) string.
-// assertNotified asserts that userID received EXACTLY ONE notification titled
-// want.Title, and that it matches want's type/body/comp_name/related_match/
-// link exactly. want's literal fields must come from the test's own fixture
-// data, never from calling the constructor again — otherwise a handler that
-// wires the wrong constructor, or drops a field before calling
-// notify.Notifier, still passes because both sides recompute the same
-// (possibly wrong) string. Exactly-one (not "at least one, take the newest")
-// catches a duplicate send that a >=1 check would silently let through.
-func assertNotified(t testing.TB, app core.App, userID string, want league.Notification) *core.Record {
-	t.Helper()
-	recs, err := app.FindRecordsByFilter("notifications",
-		"user = {:user} && title = {:title}", "-created", 0, 0,
-		map[string]any{"user": userID, "title": want.Title})
-	require.NoError(t, err)
-	require.Lenf(t, recs, 1, "expected exactly 1 notification titled %q for user %s, got %d", want.Title, userID, len(recs))
-	rec := recs[0]
-	assert.Equal(t, want.Type, rec.GetString("type"), "notification type")
-	assert.Equal(t, want.Body, rec.GetString("body"), "notification body")
-	assert.Equal(t, want.CompName, rec.GetString("comp_name"), "notification comp_name")
-	if want.Link != "" {
-		assert.Equal(t, want.Link, rec.GetString("link"), "notification link")
-	} else if want.MatchID != "" {
-		assert.Equal(t, want.MatchID, rec.GetString("related_match"), "notification related_match")
-		assert.Equal(t, "/match/"+want.MatchID, rec.GetString("link"), "notification link (derived from MatchID)")
-	}
-	return rec
-}
-
-// assertNotNotified asserts that userID received NO notification titled
-// title — the counterpart to assertNotified, for recipients a flow must
-// exclude (e.g. the submitter must not get their own "result submitted").
-func assertNotNotified(t testing.TB, app core.App, userID, title string) {
-	t.Helper()
-	recs, err := app.FindRecordsByFilter("notifications",
-		"user = {:user} && title = {:title}", "", 0, 0,
-		map[string]any{"user": userID, "title": title})
-	require.NoError(t, err)
-	assert.Emptyf(t, recs, "expected no notification titled %q for user %s, got %d", title, userID, len(recs))
-}
+// makeInvitation, makeNotification, assertNotified, and assertNotNotified
+// moved to routing_test.go (package handlers_test) — they're only used by
+// route-driven tests. authToken stays here because authHeaders (below) calls
+// it and is itself shared/bridged.
 
 func authToken(t testing.TB, user *core.Record) string {
 	t.Helper()
@@ -371,28 +293,8 @@ func makePairTB(t testing.TB, app core.App, name string) *core.Record {
 	return record
 }
 
-func makePairWithGendersTB(t testing.TB, app core.App, name, g1, g2 string) *core.Record {
-	t.Helper()
-	n := pairSeq.Add(1)
-	u1 := makeUserTB(t, app, name+" P1", fmt.Sprintf("pair%dp1@test.local", n))
-	if g1 != "" {
-		u1.Set("gender", g1)
-		require.NoError(t, app.Save(u1))
-	}
-	u2 := makeUserTB(t, app, name+" P2", fmt.Sprintf("pair%dp2@test.local", n))
-	if g2 != "" {
-		u2.Set("gender", g2)
-		require.NoError(t, app.Save(u2))
-	}
-	col, err := app.FindCollectionByNameOrId("pairs")
-	require.NoError(t, err)
-	record := core.NewRecord(col)
-	record.Set("name", name)
-	record.Set("player1", u1.Id)
-	record.Set("player2", u2.Id)
-	require.NoError(t, app.Save(record))
-	return record
-}
+// makePairWithGendersTB moved to routing_test.go (package handlers_test) —
+// only used by route-driven tests.
 
 func makeCompetitionTB(t testing.TB, app core.App, compType string, pairs []*core.Record) *core.Record {
 	t.Helper()
@@ -429,16 +331,8 @@ func makeMatchTB(t testing.TB, app core.App, compID, p1ID, p2ID, status string) 
 	return record
 }
 
-func insertMatchReminder(t testing.TB, app core.App, matchID, userID string) {
-	t.Helper()
-	col, err := app.FindCollectionByNameOrId("match_reminders")
-	require.NoError(t, err)
-	rec := core.NewRecord(col)
-	rec.Set("match", matchID)
-	rec.Set("user", userID)
-	rec.Set("hours_before", 26)
-	require.NoError(t, app.Save(rec))
-}
+// insertMatchReminder moved to routing_test.go (package handlers_test) —
+// only used by route-driven tests.
 
 func makeAdminUserTB(t testing.TB, app core.App) *core.Record {
 	t.Helper()
@@ -619,53 +513,66 @@ func expectRedirect(s *tests.ApiScenario, want func(app core.App) string) {
 	}
 }
 
-// redirectTo is the expectRedirect want for a fixed target.
-func redirectTo(url string) func(core.App) string {
-	return func(core.App) string { return url }
+// redirectTo, competitionDetailURL, matchPageURL, adminEntityURL,
+// matchCompetitionID, and newestCompetitionID moved to routing_test.go
+// (package handlers_test) — only used by route-driven tests.
+
+// makeProposal creates a scheduling proposal on a match. Returns the message record.
+func makeProposal(tb testing.TB, app core.App, matchID, authorID string) *core.Record {
+	tb.Helper()
+	col, err := app.FindCollectionByNameOrId("match_messages")
+	require.NoError(tb, err)
+	msg := core.NewRecord(col)
+	msg.Set("match", matchID)
+	msg.Set("author", authorID)
+	msg.Set("type", "scheduling_proposal")
+	msg.Set("proposal_data", `{"date":"2027-09-20","time":"19:00","venue_name":"Club Test","venue_id":"","venue_text":""}`)
+	msg.Set("proposal_status", "pending")
+	require.NoError(tb, app.Save(msg))
+	return msg
 }
 
-// competitionDetailURL trims a /admin/competitions/{id}/... action URL to the
-// detail page every competition mutation redirects back to.
-func competitionDetailURL(url string) string {
-	return adminEntityURL(url, "/admin/competitions/")
+// makeProposalWithStatus creates a scheduling proposal already set to the
+// given proposal_status (e.g. "accepted", "rejected"), bypassing the normal
+// accept/reject flow for tests that need a pre-resolved proposal.
+func makeProposalWithStatus(tb testing.TB, app core.App, matchID, authorID, status string) *core.Record {
+	tb.Helper()
+	msg := makeProposal(tb, app, matchID, authorID)
+	msg.Set("proposal_status", status)
+	require.NoError(tb, app.Save(msg))
+	return msg
 }
 
-// matchPageURL trims a /match/{id}/... action URL to the match page.
-func matchPageURL(url string) string {
-	return adminEntityURL(url, "/match/")
+// makeSchedulingResponse creates a scheduling_response message replying to a
+// proposal (e.g. an acceptance note), linked via parent.
+func makeSchedulingResponse(tb testing.TB, app core.App, matchID, authorID, parentID, content string) *core.Record {
+	tb.Helper()
+	col, err := app.FindCollectionByNameOrId("match_messages")
+	require.NoError(tb, err)
+	msg := core.NewRecord(col)
+	msg.Set("match", matchID)
+	msg.Set("author", authorID)
+	msg.Set("type", "scheduling_response")
+	msg.Set("content", content)
+	msg.Set("proposal_data", `{"action":"accept"}`)
+	msg.Set("parent", parentID)
+	require.NoError(tb, app.Save(msg))
+	return msg
 }
 
-func adminEntityURL(url, prefix string) string {
-	rest := strings.TrimPrefix(url, prefix)
-	if i := strings.IndexAny(rest, "/?"); i >= 0 {
-		rest = rest[:i]
-	}
-	return prefix + rest
-}
-
-// matchCompetitionID resolves the competition of the match named in a
-// /match/{id}/... or /admin/disputes/{id}/... URL.
-func matchCompetitionID(app core.App, url string) string {
-	id := strings.Split(strings.TrimPrefix(strings.TrimPrefix(url, "/admin/disputes/"), "/match/"), "/")[0]
-	m, err := app.FindRecordById("matches", id)
-	if err != nil {
-		return "(match " + id + " not found)"
-	}
-	return m.GetString("competition")
-}
-
-// newestCompetitionID returns the id of the most recently created
-// competition, for redirects to the page the handler itself just created.
-func newestCompetitionID(app core.App) string {
-	recs, err := app.FindAllRecords("competitions")
-	if err != nil || len(recs) == 0 {
-		return "(no competitions)"
-	}
-	newest := recs[0]
-	for _, r := range recs[1:] {
-		if r.GetDateTime("created").After(newest.GetDateTime("created")) {
-			newest = r
-		}
-	}
-	return newest.Id
+// makeResultProposal creates a result_submission message proposing the given
+// score for a match.
+func makeResultProposal(tb testing.TB, app core.App, matchID, authorID, scores string) *core.Record { //nolint:unparam
+	tb.Helper()
+	col, err := app.FindCollectionByNameOrId("match_messages")
+	require.NoError(tb, err)
+	msg := core.NewRecord(col)
+	msg.Set("match", matchID)
+	msg.Set("author", authorID)
+	msg.Set("type", "result_submission")
+	msg.Set("proposal_data", `{"scores":"`+scores+`"}`)
+	msg.Set("proposal_status", "pending")
+	msg.Set("content", scores)
+	require.NoError(tb, app.Save(msg))
+	return msg
 }

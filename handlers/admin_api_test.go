@@ -1,9 +1,8 @@
-package handlers
+package handlers_test
 
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -13,62 +12,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/handlers"
 	"padelleague/league"
-	"padelleague/middleware"
-	"padelleague/notify"
-	"padelleague/render"
 )
-
-func setupAdminRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-	viewsFS := os.DirFS("..")
-	r := render.New(viewsFS, "", true)
-	notifier := notify.NewNotifier(app, "", "")
-	svc := league.New(app, notifier)
-
-	e.Router.BindFunc(middleware.CookieAuth)
-
-	auth := NewAuthHandler(app, notifier, r.Page)
-	e.Router.GET("/login", auth.Login)
-
-	comp := NewCompetitionHandler(app, svc, notifier, r.Page)
-	dash := NewCompetitionDashboardHandler(app, r.Page)
-	player := NewAdminPlayerHandler(app, notifier, r.Page, r.Partial)
-	pair := NewPairHandler(app, r.Page)
-	inv := NewInvitationHandler(app, r.Page)
-	venue := NewVenueHandler(app, r.Page, r.Partial)
-	payments := NewCompetitionPaymentsHandler(app, notifier)
-
-	g := e.Router.Group("/admin")
-	g.BindFunc(requireAuthTest)
-	g.BindFunc(requireAdminTest)
-	g.GET("", dash.AdminEntry)
-	g.GET("/competitions", dash.Dashboard)
-	g.GET("/competitions/{id}", comp.Detail)
-	g.POST("/competitions", comp.Create)
-	g.GET("/players", player.Players)
-	g.GET("/players/{id}/edit", player.PlayerEditForm)
-	g.POST("/players/pre-create", player.PlayerPreCreate)
-	g.POST("/players/{id}", player.PlayerUpdate)
-	g.POST("/players/{id}/regenerate-link", player.RegenerateLink)
-	g.GET("/pairs", pair.Pairs)
-	g.POST("/pairs", pair.PairsCreate)
-	g.POST("/pairs/{id}", pair.PairsUpdate)
-	g.GET("/invitations", inv.InvitationsList)
-	g.POST("/invitations", inv.InvitationsCreate)
-	g.POST("/invitations/{id}/revoke", inv.InvitationsRevoke)
-	g.GET("/venues", venue.Venues)
-	g.GET("/venues/{id}/edit", venue.VenueEditForm)
-	g.POST("/venues", venue.VenuesCreate)
-	g.POST("/venues/{id}", venue.VenuesUpdate)
-	g.POST("/venues/{id}/delete", venue.VenuesDelete)
-	g.POST("/competitions/{id}/broadcast", comp.AdminBroadcast)
-	g.POST("/competitions/{id}/announcements/{annId}/delete", comp.AdminDeleteAnnouncement)
-	g.POST("/competitions/{id}/payment-reminder", payments.SendPaymentReminder)
-}
 
 func makeAdminUser(t testing.TB, app core.App) *core.Record {
 	t.Helper()
-	n := userSeq.Add(1)
+	n := handlers.UserSeq.Add(1)
 	col, err := app.FindCollectionByNameOrId("users")
 	require.NoError(t, err)
 	record := core.NewRecord(col)
@@ -84,12 +34,14 @@ func makeAdminUser(t testing.TB, app core.App) *core.Record {
 func TestAdminNoAuth(t *testing.T) {
 	t.Parallel()
 	scenario := tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "GET /admin without auth redirects to login",
 		Method:         http.MethodGet,
 		URL:            "/admin",
 		ExpectedStatus: 302,
-		BeforeTestFunc: setupAdminRoutes,
+		BeforeTestFunc: func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+			setupProductionRoutes(tb, app, e)
+		},
 		AfterTestFunc: func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 			assert.Equal(tb, "/login", res.Header.Get("Location"))
 		},
@@ -100,19 +52,22 @@ func TestAdminNoAuth(t *testing.T) {
 func TestAdminPlayerAuth(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "GET /admin with player auth redirects to login",
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "GET /admin with player auth redirects home",
 		Method:         http.MethodGet,
 		URL:            "/admin",
 		ExpectedStatus: 302,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
-		player := makeUserTB(tb, app, "Player", "")
-		s.Headers = authHeaders(tb, player)
+		setupProductionRoutes(tb, app, e)
+		player := handlers.MakeUserTB(tb, app, "Player", "")
+		s.Headers = handlers.AuthHeaders(tb, player)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		assert.Equal(tb, "/login", res.Header.Get("Location"))
+		// Real middleware.RequireAppAdmin redirects an authenticated non-admin
+		// to "/" (home), not "/login" — the bespoke test router this replaced
+		// sent non-admins to /login, which production never did.
+		assert.Equal(tb, "/", res.Header.Get("Location"))
 	}
 	s.Test(t)
 }
@@ -120,7 +75,7 @@ func TestAdminPlayerAuth(t *testing.T) {
 func TestAdminWithAdminAuth(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /admin/competitions with admin auth returns dashboard",
 		Method:          http.MethodGet,
 		URL:             "/admin/competitions",
@@ -128,9 +83,9 @@ func TestAdminWithAdminAuth(t *testing.T) {
 		ExpectedContent: []string{"Competiciones"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -138,7 +93,7 @@ func TestAdminWithAdminAuth(t *testing.T) {
 func TestAdminPlayersPage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /admin/players returns player list",
 		Method:          http.MethodGet,
 		URL:             "/admin/players",
@@ -146,9 +101,9 @@ func TestAdminPlayersPage(t *testing.T) {
 		ExpectedContent: []string{"Usuarios"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -156,7 +111,7 @@ func TestAdminPlayersPage(t *testing.T) {
 func TestAdminInvitationsPage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /admin/invitations returns invitations list",
 		Method:          http.MethodGet,
 		URL:             "/admin/invitations",
@@ -164,9 +119,9 @@ func TestAdminInvitationsPage(t *testing.T) {
 		ExpectedContent: []string{"Invitaciones"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -174,7 +129,7 @@ func TestAdminInvitationsPage(t *testing.T) {
 func TestAdminVenuesPage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /admin/venues returns venue list",
 		Method:          http.MethodGet,
 		URL:             "/admin/venues",
@@ -182,9 +137,9 @@ func TestAdminVenuesPage(t *testing.T) {
 		ExpectedContent: []string{"Clubes"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -192,7 +147,7 @@ func TestAdminVenuesPage(t *testing.T) {
 func TestAdminCreateCompetition(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions creates and redirects",
 		Method:         http.MethodPost,
 		URL:            "/admin/competitions",
@@ -200,9 +155,9 @@ func TestAdminCreateCompetition(t *testing.T) {
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 		s.Headers["Content-Type"] = "application/x-www-form-urlencoded"
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
@@ -212,25 +167,25 @@ func TestAdminCreateCompetition(t *testing.T) {
 		require.Equal(tb, 1, len(comps))
 		assert.Equal(tb, "league", comps[0].GetString("type"))
 	}
-	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
+	handlers.ExpectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
 	s.Test(t)
 }
 
 func TestAdminCreateInvitation(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/invitations creates invite",
 		Method:         http.MethodPost,
 		URL:            "/admin/invitations",
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
+		comp := handlers.MakeCompetitionTB(tb, app, "league", nil)
 		s.Body = strings.NewReader("email=invite@test.com&competition=" + comp.Id)
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 		s.Headers["Content-Type"] = "application/x-www-form-urlencoded"
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
@@ -239,14 +194,14 @@ func TestAdminCreateInvitation(t *testing.T) {
 		require.NoError(tb, err)
 		assert.GreaterOrEqual(tb, len(invites), 1, "invitation must be created")
 	}
-	expectRedirect(s, redirectTo("/admin/invitations"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
 func TestDashboardWithIssues(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /admin dashboard exercises issue classification",
 		Method:          http.MethodGet,
 		URL:             "/admin/competitions",
@@ -254,28 +209,28 @@ func TestDashboardWithIssues(t *testing.T) {
 		ExpectedContent: []string{"Competiciones"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupFullAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "IssueA")
-		p2 := makePairTB(tb, app, "IssueB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		p1 := handlers.MakePairTB(tb, app, "IssueA")
+		p2 := handlers.MakePairTB(tb, app, "IssueB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("quorum_timeout_hours", 24)
 		require.NoError(tb, app.Save(comp))
 
 		// Disputed match → dispute issue
-		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
 
 		// Confirmed match with old submitted_at → quorum issue
-		qm := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
+		qm := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
 		qm.Set("submitted_at", time.Now().Add(-72*time.Hour).UTC().Format("2006-01-02 15:04:05.000Z"))
 		require.NoError(tb, app.Save(qm))
 
 		// Pending match with past date → overdue issue
-		om := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		om := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		om.Set("date", "2020-01-01")
 		require.NoError(tb, app.Save(om))
 
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -283,7 +238,7 @@ func TestDashboardWithIssues(t *testing.T) {
 func TestBroadcast_FanOut(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "broadcast notifies all distinct players",
 		Method:         http.MethodPost,
 		URL:            "/placeholder",
@@ -291,17 +246,17 @@ func TestBroadcast_FanOut(t *testing.T) {
 	}
 	var compID, p1p1ID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		enableSMTP(tb, app)
 		admin := makeAdminUser(tb, app)
-		p1 := makePair(tb, app, "BroadA")
-		p2 := makePair(tb, app, "BroadB")
+		p1 := handlers.MakePair(tb, app, "BroadA")
+		p2 := handlers.MakePair(tb, app, "BroadB")
 		p1p1ID = p1.GetString("player1")
-		comp := makeCompetition(tb, app, []*core.Record{p1, p2})
+		comp := handlers.MakeCompetition(tb, app, []*core.Record{p1, p2})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
 
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 		s.Body = strings.NewReader("title=Aviso+importante&body=Se+cambia+la+fecha")
@@ -322,14 +277,14 @@ func TestBroadcast_FanOut(t *testing.T) {
 		}
 		assertNotified(tb, app, p1p1ID, want)
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestBroadcast_NotificationLinksToCompetition(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "broadcast notification links to the competition page",
 		Method:         http.MethodPost,
 		URL:            "/placeholder",
@@ -337,16 +292,16 @@ func TestBroadcast_NotificationLinksToCompetition(t *testing.T) {
 	}
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		enableSMTP(tb, app)
 		admin := makeAdminUser(tb, app)
-		p1 := makePair(tb, app, "BroadLinkA")
-		p2 := makePair(tb, app, "BroadLinkB")
-		comp := makeCompetition(tb, app, []*core.Record{p1, p2})
+		p1 := handlers.MakePair(tb, app, "BroadLinkA")
+		p2 := handlers.MakePair(tb, app, "BroadLinkB")
+		comp := handlers.MakeCompetition(tb, app, []*core.Record{p1, p2})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
 
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 		s.Body = strings.NewReader("title=Aviso+con+link&body=Revisa+la+competicion")
@@ -360,14 +315,14 @@ func TestBroadcast_NotificationLinksToCompetition(t *testing.T) {
 			assert.Equal(tb, "/competition/"+compID+"#avisos", n.GetString("link"))
 		}
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestBroadcast_EmptyTitleRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "broadcast rejects empty title",
 		Method:          http.MethodPost,
 		URL:             "/placeholder",
@@ -375,13 +330,13 @@ func TestBroadcast_EmptyTitleRejected(t *testing.T) {
 		ExpectedContent: []string{"obligatorios"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePair(tb, app, "EmptyA")
-		comp := makeCompetition(tb, app, []*core.Record{p1})
+		p1 := handlers.MakePair(tb, app, "EmptyA")
+		comp := handlers.MakeCompetition(tb, app, []*core.Record{p1})
 		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
 
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 		s.Body = strings.NewReader("title=&body=Some+body")
@@ -397,20 +352,20 @@ func TestBroadcast_EmptyTitleRejected(t *testing.T) {
 func TestBroadcast_NonAdminDenied(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "non-admin cannot broadcast",
 		Method:         http.MethodPost,
 		URL:            "/placeholder",
 		ExpectedStatus: 302,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
-		user := makeUser(tb, app, "Regular", "regular@test.local")
-		p1 := makePair(tb, app, "DenyA")
-		comp := makeCompetition(tb, app, []*core.Record{p1})
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUser(tb, app, "Regular", "regular@test.local")
+		p1 := handlers.MakePair(tb, app, "DenyA")
+		comp := handlers.MakeCompetition(tb, app, []*core.Record{p1})
 		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
 
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 		s.Body = strings.NewReader("title=Hola&body=Test")
@@ -421,20 +376,20 @@ func TestBroadcast_NonAdminDenied(t *testing.T) {
 func TestBroadcast_DedupSharedPlayer(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "broadcast deduplicates shared player across pairs",
 		Method:         http.MethodPost,
 		URL:            "/placeholder",
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		enableSMTP(tb, app)
 		admin := makeAdminUser(tb, app)
 
-		u1 := makeUser(tb, app, "SharedP1", fmt.Sprintf("shared%d@test.local", pairSeq.Add(1)))
-		u2 := makeUser(tb, app, "SharedP2", fmt.Sprintf("shared%d@test.local", pairSeq.Add(1)))
-		u3 := makeUser(tb, app, "SharedP3", fmt.Sprintf("shared%d@test.local", pairSeq.Add(1)))
+		u1 := handlers.MakeUser(tb, app, "SharedP1", fmt.Sprintf("shared%d@test.local", handlers.PairSeq.Add(1)))
+		u2 := handlers.MakeUser(tb, app, "SharedP2", fmt.Sprintf("shared%d@test.local", handlers.PairSeq.Add(1)))
+		u3 := handlers.MakeUser(tb, app, "SharedP3", fmt.Sprintf("shared%d@test.local", handlers.PairSeq.Add(1)))
 
 		col, _ := app.FindCollectionByNameOrId("pairs")
 		p1 := core.NewRecord(col)
@@ -449,10 +404,10 @@ func TestBroadcast_DedupSharedPlayer(t *testing.T) {
 		p2.Set("player2", u3.Id)
 		require.NoError(tb, app.Save(p2))
 
-		comp := makeCompetition(tb, app, []*core.Record{p1, p2})
+		comp := handlers.MakeCompetition(tb, app, []*core.Record{p1, p2})
 		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
 
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 		s.Body = strings.NewReader("title=Dedup+test&body=Should+be+3+not+4")
@@ -464,14 +419,14 @@ func TestBroadcast_DedupSharedPlayer(t *testing.T) {
 		assert.Equal(tb, 3, len(notifs), "shared player u2 should receive only one notification")
 		assert.Equal(tb, 3, app.TestMailer.TotalSend(), "shared player u2 should receive only one email")
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestBroadcast_CreatesAnnouncementRecord(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "broadcast creates an announcement record",
 		Method:         http.MethodPost,
 		URL:            "/placeholder",
@@ -479,16 +434,16 @@ func TestBroadcast_CreatesAnnouncementRecord(t *testing.T) {
 	}
 	var compID, adminID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		enableSMTP(tb, app)
 		admin := makeAdminUser(tb, app)
 		adminID = admin.Id
-		p1 := makePair(tb, app, "AnnA")
-		comp := makeCompetition(tb, app, []*core.Record{p1})
+		p1 := handlers.MakePair(tb, app, "AnnA")
+		comp := handlers.MakeCompetition(tb, app, []*core.Record{p1})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
 
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 		s.Body = strings.NewReader("title=Aviso+guardado&body=Cuerpo+del+anuncio")
@@ -509,21 +464,21 @@ func TestBroadcast_CreatesAnnouncementRecord(t *testing.T) {
 func TestBroadcast_NotificationType(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "broadcast notification uses type announcement",
 		Method:         http.MethodPost,
 		URL:            "/placeholder",
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		enableSMTP(tb, app)
 		admin := makeAdminUser(tb, app)
-		p1 := makePair(tb, app, "AnnTypeA")
-		comp := makeCompetition(tb, app, []*core.Record{p1})
+		p1 := handlers.MakePair(tb, app, "AnnTypeA")
+		comp := handlers.MakeCompetition(tb, app, []*core.Record{p1})
 		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
 
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 		s.Body = strings.NewReader("title=Tipo+anuncio&body=Verifica+el+tipo")
@@ -537,14 +492,14 @@ func TestBroadcast_NotificationType(t *testing.T) {
 			assert.Equal(tb, "announcement", n.GetString("type"))
 		}
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestBroadcast_LinkIncludesHash(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "broadcast notification link includes #avisos hash",
 		Method:         http.MethodPost,
 		URL:            "/placeholder",
@@ -552,15 +507,15 @@ func TestBroadcast_LinkIncludesHash(t *testing.T) {
 	}
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		enableSMTP(tb, app)
 		admin := makeAdminUser(tb, app)
-		p1 := makePair(tb, app, "AnnHashA")
-		comp := makeCompetition(tb, app, []*core.Record{p1})
+		p1 := handlers.MakePair(tb, app, "AnnHashA")
+		comp := handlers.MakeCompetition(tb, app, []*core.Record{p1})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
 
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 		s.Body = strings.NewReader("title=Aviso+con+hash&body=Revisa+el+enlace")
@@ -574,24 +529,24 @@ func TestBroadcast_LinkIncludesHash(t *testing.T) {
 			assert.Equal(tb, "/competition/"+compID+"#avisos", n.GetString("link"))
 		}
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestDeleteAnnouncement_AdminOnly(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "non-admin cannot delete an announcement",
 		Method:         http.MethodPost,
 		URL:            "/placeholder",
 		ExpectedStatus: 302,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
-		user := makeUser(tb, app, "AnnDenyUser", "anndeny@test.local")
-		p1 := makePair(tb, app, "AnnDenyA")
-		comp := makeCompetition(tb, app, []*core.Record{p1})
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUser(tb, app, "AnnDenyUser", "anndeny@test.local")
+		p1 := handlers.MakePair(tb, app, "AnnDenyA")
+		comp := handlers.MakeCompetition(tb, app, []*core.Record{p1})
 
 		col, err := app.FindCollectionByNameOrId("announcements")
 		require.NoError(tb, err)
@@ -604,7 +559,7 @@ func TestDeleteAnnouncement_AdminOnly(t *testing.T) {
 
 		s.URL = "/admin/competitions/" + comp.Id + "/announcements/" + ann.Id + "/delete"
 
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		s.Headers = hdrs
 	}
 	s.Test(t)
@@ -613,7 +568,7 @@ func TestDeleteAnnouncement_AdminOnly(t *testing.T) {
 func TestDeleteAnnouncement_Success(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "admin can delete an announcement",
 		Method:         http.MethodPost,
 		URL:            "/placeholder",
@@ -621,10 +576,10 @@ func TestDeleteAnnouncement_Success(t *testing.T) {
 	}
 	var annID, compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePair(tb, app, "AnnDelA")
-		comp := makeCompetition(tb, app, []*core.Record{p1})
+		p1 := handlers.MakePair(tb, app, "AnnDelA")
+		comp := handlers.MakeCompetition(tb, app, []*core.Record{p1})
 		compID = comp.Id
 
 		col, err := app.FindCollectionByNameOrId("announcements")
@@ -638,7 +593,7 @@ func TestDeleteAnnouncement_Success(t *testing.T) {
 		annID = ann.Id
 
 		s.URL = "/admin/competitions/" + comp.Id + "/announcements/" + ann.Id + "/delete"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
 		assert.Equal(tb, "/admin/competitions/"+compID, res.Header.Get("HX-Redirect"))
@@ -651,7 +606,7 @@ func TestDeleteAnnouncement_Success(t *testing.T) {
 func TestPaymentReminder_SendsToUnpaid(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "payment reminder notifies only unpaid pairs",
 		Method:          http.MethodPost,
 		URL:             "/placeholder",
@@ -660,12 +615,12 @@ func TestPaymentReminder_SendsToUnpaid(t *testing.T) {
 	}
 	var paidPlayerID, unpaidPlayerID1, unpaidPlayerID2, compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		enableSMTP(tb, app)
 		admin := makeAdminUser(tb, app)
-		paidPair := makePair(tb, app, "ReminderPaid")
-		unpaidPair := makePair(tb, app, "ReminderUnpaid")
-		comp := makeCompetition(tb, app, []*core.Record{paidPair, unpaidPair})
+		paidPair := handlers.MakePair(tb, app, "ReminderPaid")
+		unpaidPair := handlers.MakePair(tb, app, "ReminderUnpaid")
+		comp := handlers.MakeCompetition(tb, app, []*core.Record{paidPair, unpaidPair})
 		comp.Set("payment_status", map[string]any{paidPair.Id: true, unpaidPair.Id: false})
 		require.NoError(tb, app.Save(comp))
 		compID = comp.Id
@@ -675,7 +630,7 @@ func TestPaymentReminder_SendsToUnpaid(t *testing.T) {
 		unpaidPlayerID2 = unpaidPair.GetString("player2")
 
 		s.URL = "/admin/competitions/" + comp.Id + "/payment-reminder"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		want := league.Notification{
@@ -695,7 +650,7 @@ func TestPaymentReminder_SendsToUnpaid(t *testing.T) {
 func TestPaymentReminder_AllPaid(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "payment reminder warns when all pairs are paid",
 		Method:          http.MethodPost,
 		URL:             "/placeholder",
@@ -703,15 +658,15 @@ func TestPaymentReminder_AllPaid(t *testing.T) {
 		ExpectedContent: []string{"al día"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePair(tb, app, "ReminderAllPaidA")
-		comp := makeCompetition(tb, app, []*core.Record{p1})
+		p1 := handlers.MakePair(tb, app, "ReminderAllPaidA")
+		comp := handlers.MakeCompetition(tb, app, []*core.Record{p1})
 		comp.Set("payment_status", map[string]any{p1.Id: true})
 		require.NoError(tb, app.Save(comp))
 
 		s.URL = "/admin/competitions/" + comp.Id + "/payment-reminder"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		notifs, err := app.FindRecordsByFilter("notifications", "type = 'payment'", "", 0, 0, nil)
@@ -724,20 +679,20 @@ func TestPaymentReminder_AllPaid(t *testing.T) {
 func TestPaymentReminder_NonAdminDenied(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "non-admin cannot send payment reminder",
 		Method:         http.MethodPost,
 		URL:            "/placeholder",
 		ExpectedStatus: 302,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
-		user := makeUser(tb, app, "Regular", "regular-payment-reminder@test.local")
-		p1 := makePair(tb, app, "ReminderDenyA")
-		comp := makeCompetition(tb, app, []*core.Record{p1})
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUser(tb, app, "Regular", "regular-payment-reminder@test.local")
+		p1 := handlers.MakePair(tb, app, "ReminderDenyA")
+		comp := handlers.MakeCompetition(tb, app, []*core.Record{p1})
 
 		s.URL = "/admin/competitions/" + comp.Id + "/payment-reminder"
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }

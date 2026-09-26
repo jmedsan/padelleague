@@ -1,8 +1,7 @@
-package handlers
+package handlers_test
 
 import (
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 
@@ -12,39 +11,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/handlers"
 	"padelleague/league"
-	"padelleague/middleware"
-	"padelleague/notify"
-	"padelleague/render"
 )
-
-func setupSettingsRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-	viewsFS := os.DirFS("..")
-	r := render.New(viewsFS, "", true)
-	notifier := notify.NewNotifier(app, "", "")
-
-	e.Router.BindFunc(middleware.CookieAuth)
-
-	auth := NewAuthHandler(app, notifier, r.Page)
-	e.Router.GET("/login", auth.Login)
-
-	settings := NewAdminSettingsHandler(app, r.Page)
-
-	g := e.Router.Group("/admin")
-	g.BindFunc(requireAuthTest)
-	g.BindFunc(requireAdminTest)
-	g.GET("/settings", settings.Settings)
-	g.POST("/settings/defaults", settings.SaveDefaults)
-	g.POST("/settings/branding", settings.SaveBranding)
-	g.POST("/settings/contact", settings.SaveContact)
-	g.POST("/settings/logo", settings.SettingsLogoUpload)
-	g.POST("/settings/logo/delete", settings.SettingsLogoDelete)
-}
 
 func TestSettingsGET_ShowsDefaultsForm(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /admin/settings prefills the defaults form from app_settings",
 		Method:          http.MethodGet,
 		URL:             "/admin/settings",
@@ -52,9 +26,9 @@ func TestSettingsGET_ShowsDefaultsForm(t *testing.T) {
 		ExpectedContent: []string{`name="quorum_timeout_hours" value="48"`, `name="walkover_score" value="6-0 6-0"`},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupSettingsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -62,7 +36,7 @@ func TestSettingsGET_ShowsDefaultsForm(t *testing.T) {
 func TestSaveDefaults_UpdatesAppSettings(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/settings/defaults updates the app_settings singleton",
 		Method:          http.MethodPost,
 		URL:             "/admin/settings/defaults",
@@ -70,10 +44,10 @@ func TestSaveDefaults_UpdatesAppSettings(t *testing.T) {
 		ExpectedContent: []string{"Configuración guardada"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupSettingsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("gender_type=mixed&quorum_timeout_hours=72&arrange_grace_days=5&walkover_score=6-1+6-1&default_penalty=4&recovery_days=20&invite_max_uses=15&invite_expiration_days=10")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -97,7 +71,7 @@ func TestSaveDefaults_UpdatesAppSettings(t *testing.T) {
 func TestSaveDefaults_InvalidWalkoverScoreRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/settings/defaults rejects an invalid walkover score",
 		Method:          http.MethodPost,
 		URL:             "/admin/settings/defaults",
@@ -105,10 +79,10 @@ func TestSaveDefaults_InvalidWalkoverScoreRejected(t *testing.T) {
 		ExpectedContent: []string{"no válido"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupSettingsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("gender_type=free&quorum_timeout_hours=48&arrange_grace_days=3&walkover_score=bogus&default_penalty=3&recovery_days=14&invite_max_uses=10&invite_expiration_days=7")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -124,14 +98,14 @@ func TestSaveDefaults_InvalidWalkoverScoreRejected(t *testing.T) {
 func TestSaveContact_UpdatesAppSettings(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/settings/contact saves WhatsApp and email",
 		Method:         http.MethodPost,
 		URL:            "/admin/settings/contact",
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupSettingsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		// Pre-populate LoadSettings' package-level cache, matching a real
 		// admin who viewed the settings page before saving — the cache must
@@ -139,7 +113,7 @@ func TestSaveContact_UpdatesAppSettings(t *testing.T) {
 		// else LoadSettings is read) serves stale contact info.
 		league.LoadSettings(app)
 		s.Body = strings.NewReader("contact_whatsapp=612345678&contact_email=Admin@Example.COM")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -161,14 +135,14 @@ func TestSaveContact_UpdatesAppSettings(t *testing.T) {
 func TestSaveContact_BothEmptyClearsSettings(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/settings/contact with both fields empty clears them",
 		Method:         http.MethodPost,
 		URL:            "/admin/settings/contact",
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupSettingsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		records, err := app.FindRecordsByFilter("app_settings", "", "", 1, 0)
 		require.NoError(tb, err)
@@ -177,7 +151,7 @@ func TestSaveContact_BothEmptyClearsSettings(t *testing.T) {
 		records[0].Set("contact_email", "admin@example.com")
 		require.NoError(tb, app.Save(records[0]))
 		s.Body = strings.NewReader("contact_whatsapp=&contact_email=")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -188,14 +162,14 @@ func TestSaveContact_BothEmptyClearsSettings(t *testing.T) {
 		assert.Empty(tb, records[0].GetString("contact_whatsapp"))
 		assert.Empty(tb, records[0].GetString("contact_email"))
 	}
-	expectRedirect(s, redirectTo("/admin/settings"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/settings"))
 	s.Test(t)
 }
 
 func TestSaveContact_InvalidPhoneRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/settings/contact rejects an invalid WhatsApp number",
 		Method:          http.MethodPost,
 		URL:             "/admin/settings/contact",
@@ -203,10 +177,10 @@ func TestSaveContact_InvalidPhoneRejected(t *testing.T) {
 		ExpectedContent: []string{"WhatsApp"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupSettingsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("contact_whatsapp=not-a-phone&contact_email=")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -222,7 +196,7 @@ func TestSaveContact_InvalidPhoneRejected(t *testing.T) {
 func TestSaveContact_InvalidEmailRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/settings/contact rejects an invalid email",
 		Method:          http.MethodPost,
 		URL:             "/admin/settings/contact",
@@ -230,10 +204,10 @@ func TestSaveContact_InvalidEmailRejected(t *testing.T) {
 		ExpectedContent: []string{"no válido"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupSettingsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("contact_whatsapp=&contact_email=not-an-email")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -249,16 +223,16 @@ func TestSaveContact_InvalidEmailRejected(t *testing.T) {
 func TestSettingsLogoDelete_ClearsLogoAndRedirects(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/settings/logo/delete clears the league logo and redirects",
 		Method:         http.MethodPost,
 		URL:            "/admin/settings/logo/delete",
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupSettingsRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 
 		records, err := app.FindRecordsByFilter("app_settings", "", "", 1, 0)
 		require.NoError(tb, err)

@@ -1,9 +1,8 @@
-package handlers
+package handlers_test
 
 import (
 	"encoding/json"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -13,71 +12,27 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/handlers"
 	"padelleague/league"
-	"padelleague/middleware"
-	"padelleague/notify"
-	"padelleague/render"
 )
-
-func setupCompRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-	viewsFS := os.DirFS("..")
-	r := render.New(viewsFS, "", true)
-	notifier := notify.NewNotifier(app, "", "")
-	svc := league.New(app, notifier)
-
-	e.Router.BindFunc(middleware.CookieAuth)
-
-	auth := NewAuthHandler(app, notifier, r.Page)
-	e.Router.GET("/login", auth.Login)
-
-	comp := NewCompetitionHandler(app, svc, notifier, r.Page)
-	dash := NewCompetitionDashboardHandler(app, r.Page)
-	cpairs := NewCompetitionPairsHandler(app)
-	cpayments := NewCompetitionPaymentsHandler(app, notifier)
-	fixture := NewFixtureHandler(app, svc, r.Page)
-	dispute := NewDisputeHandler(app, notifier, r.Page)
-
-	g := e.Router.Group("/admin")
-	g.BindFunc(requireAuthTest)
-	g.BindFunc(requireAdminTest)
-	g.GET("", dash.Dashboard)
-	g.GET("/competitions/{id}", comp.Detail)
-	g.POST("/competitions", comp.Create)
-	g.POST("/competitions/{id}", comp.Update)
-	g.POST("/competitions/{id}/toggle", comp.Toggle)
-	g.POST("/competitions/{id}/pairs", cpairs.AddPair)
-	g.POST("/competitions/{id}/remove-pair", cpairs.RemovePair)
-	g.POST("/competitions/{id}/payment", cpayments.TogglePayment)
-	g.POST("/competitions/{id}/penalty", comp.ApplyPenalty)
-	g.POST("/competitions/{id}/withdraw-pair", comp.WithdrawPair)
-	g.POST("/competitions/{id}/generate", fixture.GenerateFixtures)
-	g.POST("/competitions/{id}/balls", cpayments.ToggleBalls)
-	g.POST("/competitions/{id}/balls-all", cpayments.ToggleBallsAll)
-	g.POST("/disputes/{id}/resolve", dispute.DisputesResolve)
-	g.POST("/disputes/{id}/walkover-approve", dispute.WalkoverApprove)
-
-	pairs := NewPairHandler(app, r.Page)
-	g.POST("/pairs/{id}", pairs.PairsUpdate)
-	g.POST("/pairs/{id}/level", pairs.SetLevel)
-}
 
 func TestCompUpdate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id} updates competition",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
+		comp := handlers.MakeCompetitionTB(tb, app, "league", nil)
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id
 		s.Body = strings.NewReader("name=Updated&type=league")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -86,24 +41,24 @@ func TestCompUpdate(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "Updated", c.GetString("name"))
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestCompCreateSchedulingFields(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions persists scheduling fields",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.URL = "/admin/competitions"
 		s.Body = strings.NewReader("name=SchedTest&type=league&start_date=2026-09-01&end_date=2026-12-15&arrange_grace_days=5&walkover_score=6-1+6-1&default_penalty=7")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -118,24 +73,24 @@ func TestCompCreateSchedulingFields(t *testing.T) {
 		assert.Equal(tb, "6-1 6-1", c.GetString("walkover_score"))
 		assert.Equal(tb, 7.0, c.GetFloat("default_penalty"))
 	}
-	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
+	handlers.ExpectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
 	s.Test(t)
 }
 
 func TestCompCreateSchedulingDefaults(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions applies scheduling defaults",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.URL = "/admin/competitions"
 		s.Body = strings.NewReader("name=DefTest&type=league")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -148,27 +103,27 @@ func TestCompCreateSchedulingDefaults(t *testing.T) {
 		assert.Equal(tb, "6-0 6-0", c.GetString("walkover_score"))
 		assert.Equal(tb, 3.0, c.GetFloat("default_penalty"))
 	}
-	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
+	handlers.ExpectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
 	s.Test(t)
 }
 
 func TestCompUpdateSchedulingFields(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id} updates scheduling fields",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
+		comp := handlers.MakeCompetitionTB(tb, app, "league", nil)
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id
 		s.Body = strings.NewReader("name=Sched&type=league&start_date=2026-10-01&end_date=2026-11-30&arrange_grace_days=2&walkover_score=6-2+6-2&default_penalty=4")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -181,25 +136,25 @@ func TestCompUpdateSchedulingFields(t *testing.T) {
 		assert.Equal(tb, "6-2 6-2", c.GetString("walkover_score"))
 		assert.Equal(tb, 4.0, c.GetFloat("default_penalty"))
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestCompCreateInvalidWalkoverScore(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions rejects invalid walkover_score",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"incomparecencia inválido"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.URL = "/admin/competitions"
 		s.Body = strings.NewReader("name=BadWO&type=league&walkover_score=abc")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -209,19 +164,19 @@ func TestCompCreateInvalidWalkoverScore(t *testing.T) {
 func TestCompUpdateInvalidWalkoverScore(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions/{id} rejects invalid walkover_score",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"incomparecencia inválido"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
+		comp := handlers.MakeCompetitionTB(tb, app, "league", nil)
 		s.URL = "/admin/competitions/" + comp.Id
 		s.Body = strings.NewReader("name=Updated&type=league&walkover_score=invalid")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -231,48 +186,48 @@ func TestCompUpdateInvalidWalkoverScore(t *testing.T) {
 func TestCompToggle(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/toggle toggles active",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
+		comp := handlers.MakeCompetitionTB(tb, app, "league", nil)
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/toggle"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		c, err := app.FindRecordById("competitions", compID)
 		require.NoError(tb, err)
 		assert.Equal(tb, false, c.GetBool("active"))
 	}
-	expectRedirect(s, redirectTo("/admin/competitions"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/competitions"))
 	s.Test(t)
 }
 
 func TestCompAddPair(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/pairs adds pair",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID, pairID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
+		comp := handlers.MakeCompetitionTB(tb, app, "league", nil)
 		compID = comp.Id
-		pair := makePairTB(tb, app, "NewPair")
+		pair := handlers.MakePairTB(tb, app, "NewPair")
 		pairID = pair.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/pairs"
 		s.Body = strings.NewReader("pair=" + pair.Id)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -282,29 +237,29 @@ func TestCompAddPair(t *testing.T) {
 		pairs := c.GetStringSlice("pairs")
 		assert.Contains(tb, pairs, pairID)
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestCompRemovePair(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/remove-pair removes pair",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID, pairID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		pair := makePairTB(tb, app, "RemPair")
+		pair := handlers.MakePairTB(tb, app, "RemPair")
 		pairID = pair.Id
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair})
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{pair})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/remove-pair"
 		s.Body = strings.NewReader("pair_id=" + pair.Id)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -314,14 +269,14 @@ func TestCompRemovePair(t *testing.T) {
 		pairs := c.GetStringSlice("pairs")
 		assert.NotContains(tb, pairs, pairID)
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestCompRemovePairRefusedWithMatches(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions/{id}/remove-pair refuses when pair has matches",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
@@ -329,18 +284,18 @@ func TestCompRemovePairRefusedWithMatches(t *testing.T) {
 	}
 	var compID, pairID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "RemMatchA")
-		p2 := makePairTB(tb, app, "RemMatchB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		p1 := handlers.MakePairTB(tb, app, "RemMatchA")
+		p2 := handlers.MakePairTB(tb, app, "RemMatchB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
 		pairID = p1.Id
-		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 
 		s.URL = "/admin/competitions/" + comp.Id + "/remove-pair"
 		s.Body = strings.NewReader("pair_id=" + p1.Id)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -355,22 +310,22 @@ func TestCompRemovePairRefusedWithMatches(t *testing.T) {
 func TestCompTogglePayment(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/payment toggles payment",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID, pairID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		pair := makePairTB(tb, app, "PayPair")
+		pair := handlers.MakePairTB(tb, app, "PayPair")
 		pairID = pair.Id
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair})
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{pair})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/payment"
 		s.Body = strings.NewReader("pair_id=" + pair.Id)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -383,30 +338,30 @@ func TestCompTogglePayment(t *testing.T) {
 		require.NoError(tb, json.Unmarshal(b, &status))
 		assert.Equal(tb, true, status[pairID], "pair must be marked as paid")
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestCompTogglePaymentStampsActorAndDate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/payment records who and when",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID, pairID, adminID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		adminID = admin.Id
-		pair := makePairTB(tb, app, "StampPair")
+		pair := handlers.MakePairTB(tb, app, "StampPair")
 		pairID = pair.Id
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair})
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{pair})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/payment"
 		s.Body = strings.NewReader("pair_id=" + pair.Id)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -420,7 +375,7 @@ func TestCompTogglePaymentStampsActorAndDate(t *testing.T) {
 		assert.NotEmpty(tb, paidAt[pairID], "payment_paid_at must be stamped")
 		assert.Equal(tb, adminID, paidBy[pairID], "payment_paid_by must record the acting admin")
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -432,19 +387,19 @@ func TestCompTogglePaymentStampsActorAndDate(t *testing.T) {
 func TestCompTogglePaymentUnpaidKeepsStaleStamp(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/payment toggling to unpaid leaves prior stamp intact",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID, pairID, priorAdminID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		priorAdminID = admin.Id
-		pair := makePairTB(tb, app, "StaleStampPair")
+		pair := handlers.MakePairTB(tb, app, "StaleStampPair")
 		pairID = pair.Id
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair})
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{pair})
 		comp.Set("payment_status", map[string]any{pairID: true})
 		comp.Set("payment_paid_at", map[string]any{pairID: "2026-01-01T00:00:00Z"})
 		comp.Set("payment_paid_by", map[string]any{pairID: admin.Id})
@@ -452,7 +407,7 @@ func TestCompTogglePaymentUnpaidKeepsStaleStamp(t *testing.T) {
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/payment"
 		s.Body = strings.NewReader("pair_id=" + pair.Id)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -470,29 +425,29 @@ func TestCompTogglePaymentUnpaidKeepsStaleStamp(t *testing.T) {
 		assert.Equal(tb, "2026-01-01T00:00:00Z", paidAt[pairID], "stamp is not cleared on unpaid (current behavior)")
 		assert.Equal(tb, priorAdminID, paidBy[pairID], "stamp is not cleared on unpaid (current behavior)")
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestCompApplyPenalty(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/penalty applies penalty",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID, pairID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		pair := makePairTB(tb, app, "PenPair")
+		pair := handlers.MakePairTB(tb, app, "PenPair")
 		pairID = pair.Id
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair})
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{pair})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/penalty"
 		s.Body = strings.NewReader("pair_id=" + pair.Id + "&action=apply&amount=3&reason=Prueba")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -515,27 +470,27 @@ func TestCompApplyPenalty(t *testing.T) {
 			assertNotified(tb, app, uid, want)
 		}
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestCompAddPairDuplicateRejectedByUniqueness(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions/{id}/pairs rejects re-adding same pair",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"duplicados"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		pair := makePairTB(tb, app, "DupPair")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair})
+		pair := handlers.MakePairTB(tb, app, "DupPair")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{pair})
 		s.URL = "/admin/competitions/" + comp.Id + "/pairs"
 		s.Body = strings.NewReader("pair=" + pair.Id)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -545,19 +500,19 @@ func TestCompAddPairDuplicateRejectedByUniqueness(t *testing.T) {
 func TestCompAddPairOverlappingPlayer(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions/{id}/pairs rejects overlapping player",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"duplicados"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 
-		u1 := makeUserTB(tb, app, "Overlap1", "")
-		u2 := makeUserTB(tb, app, "Overlap2", "")
-		u3 := makeUserTB(tb, app, "Overlap3", "")
+		u1 := handlers.MakeUserTB(tb, app, "Overlap1", "")
+		u2 := handlers.MakeUserTB(tb, app, "Overlap2", "")
+		u3 := handlers.MakeUserTB(tb, app, "Overlap3", "")
 
 		col, err := app.FindCollectionByNameOrId("pairs")
 		require.NoError(tb, err)
@@ -573,10 +528,10 @@ func TestCompAddPairOverlappingPlayer(t *testing.T) {
 		pair2.Set("player2", u3.Id)
 		require.NoError(tb, app.Save(pair2))
 
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair1})
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{pair1})
 		s.URL = "/admin/competitions/" + comp.Id + "/pairs"
 		s.Body = strings.NewReader("pair=" + pair2.Id)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -586,22 +541,22 @@ func TestCompAddPairOverlappingPlayer(t *testing.T) {
 func TestCompAddPairGenderRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions/{id}/pairs rejects wrong gender",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"solo masculina"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		pair := makePairWithGendersTB(tb, app, "MixedPair", "male", "female")
-		comp := makeCompetitionTB(tb, app, "league", nil)
+		comp := handlers.MakeCompetitionTB(tb, app, "league", nil)
 		comp.Set("gender_type", "male")
 		require.NoError(tb, app.Save(comp))
 		s.URL = "/admin/competitions/" + comp.Id + "/pairs"
 		s.Body = strings.NewReader("pair=" + pair.Id)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -611,24 +566,24 @@ func TestCompAddPairGenderRejected(t *testing.T) {
 func TestCompAddPairGenderAccepted(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/pairs accepts matching gender",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID, pairID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		pair := makePairWithGendersTB(tb, app, "MixedOK", "male", "female")
 		pairID = pair.Id
-		comp := makeCompetitionTB(tb, app, "league", nil)
+		comp := handlers.MakeCompetitionTB(tb, app, "league", nil)
 		comp.Set("gender_type", "mixed")
 		require.NoError(tb, app.Save(comp))
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/pairs"
 		s.Body = strings.NewReader("pair=" + pair.Id)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -637,31 +592,31 @@ func TestCompAddPairGenderAccepted(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Contains(tb, c.GetStringSlice("pairs"), pairID)
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestCompRemovePairCleansUpMetadata(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/remove-pair cleans seeding and payment",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID, pairID, p2ID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "RemMetaA")
-		p2 := makePairTB(tb, app, "RemMetaB")
+		p1 := handlers.MakePairTB(tb, app, "RemMetaA")
+		p2 := handlers.MakePairTB(tb, app, "RemMetaB")
 		pairID = p1.Id
 		p2ID = p2.Id
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/remove-pair"
 		s.Body = strings.NewReader("pair_id=" + p1.Id)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -671,33 +626,33 @@ func TestCompRemovePairCleansUpMetadata(t *testing.T) {
 		assert.NotContains(tb, c.GetStringSlice("pairs"), pairID)
 		assert.Contains(tb, c.GetStringSlice("pairs"), p2ID, "other pair must remain")
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestCompGenerateFixtures(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/generate creates fixtures",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "GenA")
-		p2 := makePairTB(tb, app, "GenB")
-		p3 := makePairTB(tb, app, "GenC")
-		p4 := makePairTB(tb, app, "GenD")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3, p4})
+		p1 := handlers.MakePairTB(tb, app, "GenA")
+		p2 := handlers.MakePairTB(tb, app, "GenB")
+		p3 := handlers.MakePairTB(tb, app, "GenC")
+		p4 := handlers.MakePairTB(tb, app, "GenD")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3, p4})
 		comp.Set("start_date", "2026-06-01 00:00:00.000Z")
 		comp.Set("end_date", "2026-09-01 00:00:00.000Z")
 		require.NoError(tb, app.Save(comp))
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		matches, err := app.FindRecordsByFilter("matches",
@@ -711,31 +666,31 @@ func TestCompGenerateFixtures(t *testing.T) {
 		assert.Greater(tb, comp.GetInt("rounds"), 0, "GenerateFixtures must persist rounds")
 		assert.NotEmpty(tb, comp.GetString("round_arrange_dates"), "GenerateFixtures must persist round schedule")
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestCompGenerateFixtures_DraftModeNoNotification(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/generate sets calendar_status=draft and does not notify players",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "NotA")
-		p2 := makePairTB(tb, app, "NotB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		p1 := handlers.MakePairTB(tb, app, "NotA")
+		p2 := handlers.MakePairTB(tb, app, "NotB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("start_date", "2026-06-01 00:00:00.000Z")
 		comp.Set("end_date", "2026-09-01 00:00:00.000Z")
 		require.NoError(tb, app.Save(comp))
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		notifs, err := app.FindRecordsByFilter("notifications",
@@ -752,14 +707,14 @@ func TestCompGenerateFixtures_DraftModeNoNotification(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Len(tb, events, 1, "generation must log a fixtures_generated competition_event")
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestCompRegenerateFixtures_PublishedGoesBackToDraft(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/generate?confirm=true on a published competition reverts to draft",
 		Method:         http.MethodPost,
 		URL:            "?confirm=true",
@@ -767,17 +722,17 @@ func TestCompRegenerateFixtures_PublishedGoesBackToDraft(t *testing.T) {
 	}
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "RegenPubA")
-		p2 := makePairTB(tb, app, "RegenPubB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		p1 := handlers.MakePairTB(tb, app, "RegenPubA")
+		p2 := handlers.MakePairTB(tb, app, "RegenPubB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		comp.Set("calendar_status", "published")
 		require.NoError(tb, app.Save(comp))
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/generate?confirm=true"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		comp, err := app.FindRecordById("competitions", compID)
@@ -785,26 +740,26 @@ func TestCompRegenerateFixtures_PublishedGoesBackToDraft(t *testing.T) {
 		assert.Equal(tb, "draft", comp.GetString("calendar_status"),
 			"regenerating a published calendar must revert it to draft")
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestGenerateFixturesTooFewPairs(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions/{id}/generate with 1 pair rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"al menos 2"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "FewA")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1})
+		p1 := handlers.MakePairTB(tb, app, "FewA")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1})
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -812,22 +767,22 @@ func TestGenerateFixturesTooFewPairs(t *testing.T) {
 func TestGeneratePlayoffWithByes(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/generate playoff with 3 teams creates byes",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "ByeA")
-		p2 := makePairTB(tb, app, "ByeB")
-		p3 := makePairTB(tb, app, "ByeC")
-		comp := makeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2, p3})
+		p1 := handlers.MakePairTB(tb, app, "ByeA")
+		p2 := handlers.MakePairTB(tb, app, "ByeB")
+		p3 := handlers.MakePairTB(tb, app, "ByeC")
+		comp := handlers.MakeCompetitionTB(tb, app, "playoff", []*core.Record{p1, p2, p3})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id + "/generate"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		matches, err := app.FindRecordsByFilter("matches",
@@ -852,33 +807,33 @@ func TestGeneratePlayoffWithByes(t *testing.T) {
 			}
 		}
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestDisputeResolve(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/disputes/{id}/resolve resolves dispute",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var matchID, p1ID, p2ID, compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "DispA")
-		p2 := makePairTB(tb, app, "DispB")
+		p1 := handlers.MakePairTB(tb, app, "DispA")
+		p2 := handlers.MakePairTB(tb, app, "DispB")
 		p1ID = p1.Id
 		p2ID = p2.Id
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
 		matchID = match.Id
 		s.URL = "/admin/disputes/" + match.Id + "/resolve"
 		s.Body = strings.NewReader("score=6-3+6-4&winner=" + p1.Id)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -905,14 +860,14 @@ func TestDisputeResolve(t *testing.T) {
 			assertNotified(tb, app, uid, want)
 		}
 	}
-	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + matchCompetitionID(app, s.URL) })
+	handlers.ExpectRedirect(s, func(app core.App) string { return "/admin/competitions/" + matchCompetitionID(app, s.URL) })
 	s.Test(t)
 }
 
 func TestPairsUpdateRejectsOverlappingPlayer(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/pairs/{id} rejects overlapping player",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
@@ -920,13 +875,13 @@ func TestPairsUpdateRejectsOverlappingPlayer(t *testing.T) {
 	}
 	var pair2ID, playerCID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 
-		playerA := makeUserTB(tb, app, "PlayerA", "")
-		playerB := makeUserTB(tb, app, "PlayerB", "")
-		playerC := makeUserTB(tb, app, "PlayerC", "")
-		playerD := makeUserTB(tb, app, "PlayerD", "")
+		playerA := handlers.MakeUserTB(tb, app, "PlayerA", "")
+		playerB := handlers.MakeUserTB(tb, app, "PlayerB", "")
+		playerC := handlers.MakeUserTB(tb, app, "PlayerC", "")
+		playerD := handlers.MakeUserTB(tb, app, "PlayerD", "")
 
 		col, err := app.FindCollectionByNameOrId("pairs")
 		require.NoError(tb, err)
@@ -945,7 +900,7 @@ func TestPairsUpdateRejectsOverlappingPlayer(t *testing.T) {
 		pair2.Set("captain", playerC.Id)
 		require.NoError(tb, app.Save(pair2))
 
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair1, pair2})
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{pair1, pair2})
 		_ = comp
 
 		pair2ID = pair2.Id
@@ -955,7 +910,7 @@ func TestPairsUpdateRejectsOverlappingPlayer(t *testing.T) {
 		// Send playerD as captain (valid after player1 swap), so captain check passes
 		// and overlap check fires.
 		s.Body = strings.NewReader("player1=" + playerA.Id + "&captain=" + playerD.Id)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -970,19 +925,19 @@ func TestPairsUpdateRejectsOverlappingPlayer(t *testing.T) {
 func TestPairsUpdateAllowsNonOverlapping(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/pairs/{id} allows non-overlapping update",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 
-		playerA := makeUserTB(tb, app, "PlayerA", "")
-		playerB := makeUserTB(tb, app, "PlayerB", "")
-		playerC := makeUserTB(tb, app, "PlayerC", "")
-		playerD := makeUserTB(tb, app, "PlayerD", "")
+		playerA := handlers.MakeUserTB(tb, app, "PlayerA", "")
+		playerB := handlers.MakeUserTB(tb, app, "PlayerB", "")
+		playerC := handlers.MakeUserTB(tb, app, "PlayerC", "")
+		playerD := handlers.MakeUserTB(tb, app, "PlayerD", "")
 
 		col, err := app.FindCollectionByNameOrId("pairs")
 		require.NoError(tb, err)
@@ -1001,16 +956,16 @@ func TestPairsUpdateAllowsNonOverlapping(t *testing.T) {
 		pair2.Set("captain", playerC.Id)
 		require.NoError(tb, app.Save(pair2))
 
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair1, pair2})
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{pair1, pair2})
 		_ = comp
 
 		s.URL = "/admin/pairs/" + pair2.Id
 		s.Body = strings.NewReader("name=RenamedPair")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	expectRedirect(s, redirectTo("/admin/pairs"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/pairs"))
 	s.Test(t)
 }
 
@@ -1020,28 +975,28 @@ func TestPairsUpdateAllowsNonOverlapping(t *testing.T) {
 func TestWithdrawPairPreScoreOnly(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/withdraw-pair respects pre-score filter",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID, pairID, pendingID, confirmedID, disputedID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "WdrawA")
-		p2 := makePairTB(tb, app, "WdrawB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		p1 := handlers.MakePairTB(tb, app, "WdrawA")
+		p2 := handlers.MakePairTB(tb, app, "WdrawB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
 		pairID = p1.Id
 
-		pendingID = makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending").Id
-		confirmedID = makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed").Id
-		disputedID = makeMatchTB(tb, app, comp.Id, p2.Id, p1.Id, "disputed").Id
+		pendingID = handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending").Id
+		confirmedID = handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed").Id
+		disputedID = handlers.MakeMatchTB(tb, app, comp.Id, p2.Id, p1.Id, "disputed").Id
 
 		s.URL = "/admin/competitions/" + comp.Id + "/withdraw-pair"
 		s.Body = strings.NewReader("pair_id=" + p1.Id)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -1063,7 +1018,7 @@ func TestWithdrawPairPreScoreOnly(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Contains(tb, comp.GetStringSlice("withdrawn_pairs"), pairID)
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -1072,17 +1027,17 @@ func TestWithdrawPairPreScoreOnly(t *testing.T) {
 func TestLeveledFieldsPersistOnCreate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions persists target_matches and open_assignments",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.URL = "/admin/competitions"
 		s.Body = strings.NewReader("name=LeveledNew&type=league&target_matches=4&open_assignments=2")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -1093,27 +1048,27 @@ func TestLeveledFieldsPersistOnCreate(t *testing.T) {
 		assert.Equal(tb, 4, comps[0].GetInt("target_matches"))
 		assert.Equal(tb, 2, comps[0].GetInt("open_assignments"))
 	}
-	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
+	handlers.ExpectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
 	s.Test(t)
 }
 
 func TestLeveledFieldsPersistOnUpdate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id} persists target_matches and open_assignments",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
+		comp := handlers.MakeCompetitionTB(tb, app, "league", nil)
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id
 		s.Body = strings.NewReader("name=LeveledUpd&type=league&target_matches=3&open_assignments=2")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -1123,7 +1078,7 @@ func TestLeveledFieldsPersistOnUpdate(t *testing.T) {
 		assert.Equal(tb, 3, c.GetInt("target_matches"))
 		assert.Equal(tb, 2, c.GetInt("open_assignments"))
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -1137,28 +1092,28 @@ func TestLeveledFieldsPersistOnUpdate(t *testing.T) {
 func TestUpdateCompetition_KeepsTargetMatchesWhenFixturesExist(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id} with fixtures keeps target_matches unchanged",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		pair1 := makePairTB(tb, app, "TM A")
-		pair2 := makePairTB(tb, app, "TM B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{pair1, pair2})
+		pair1 := handlers.MakePairTB(tb, app, "TM A")
+		pair2 := handlers.MakePairTB(tb, app, "TM B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{pair1, pair2})
 		comp.Set("target_matches", 10)
 		require.NoError(tb, app.Save(comp))
-		makeMatchTB(tb, app, comp.Id, pair1.Id, pair2.Id, "pending")
+		handlers.MakeMatchTB(tb, app, comp.Id, pair1.Id, pair2.Id, "pending")
 		compID = comp.Id
 
 		s.URL = "/admin/competitions/" + comp.Id
 		// No target_matches field — matches the disabled-input form the
 		// browser actually submits once fixtures exist.
 		s.Body = strings.NewReader("name=RenamedWithFixtures&type=league")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -1168,24 +1123,24 @@ func TestUpdateCompetition_KeepsTargetMatchesWhenFixturesExist(t *testing.T) {
 		assert.Equal(tb, "RenamedWithFixtures", c.GetString("name"))
 		assert.Equal(tb, 10, c.GetInt("target_matches"), "target_matches must survive an edit once fixtures exist")
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestLeveledFieldsEmptyDefaultsToZero(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions — empty leveled fields default to 0",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.URL = "/admin/competitions"
 		s.Body = strings.NewReader("name=LeveledZero&type=league")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -1196,25 +1151,25 @@ func TestLeveledFieldsEmptyDefaultsToZero(t *testing.T) {
 		assert.Equal(tb, 0, comps[0].GetInt("target_matches"))
 		assert.Equal(tb, 0, comps[0].GetInt("open_assignments"))
 	}
-	expectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
+	handlers.ExpectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
 	s.Test(t)
 }
 
 func TestLeveledFieldsInvalidRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions — non-numeric target_matches rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"debe ser un número"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.URL = "/admin/competitions"
 		s.Body = strings.NewReader("name=BadTarget&type=league&target_matches=abc")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -1224,18 +1179,18 @@ func TestLeveledFieldsInvalidRejected(t *testing.T) {
 func TestLeveledFieldsNegativeRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions — negative target_matches rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"no puede ser negativo"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.URL = "/admin/competitions"
 		s.Body = strings.NewReader("name=NegTarget&type=league&target_matches=-1")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -1245,18 +1200,18 @@ func TestLeveledFieldsNegativeRejected(t *testing.T) {
 func TestLeveledPlayTwiceRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions — play_twice with target_matches>0 rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Una liga nivelada no puede ser a doble vuelta"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.URL = "/admin/competitions"
 		s.Body = strings.NewReader("name=PlayTwiceLvl&type=league&target_matches=4&play_twice=on")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -1266,18 +1221,18 @@ func TestLeveledPlayTwiceRejected(t *testing.T) {
 func TestLeveledOpenGTTargetRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions — open_assignments > target_matches rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Partidos abiertos"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.URL = "/admin/competitions"
 		s.Body = strings.NewReader("name=OpenGTTarget&type=league&target_matches=2&open_assignments=5")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -1287,7 +1242,7 @@ func TestLeveledOpenGTTargetRejected(t *testing.T) {
 func TestLeveledChangedWithMatchesRejected(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/competitions/{id} — changing target_matches with existing matches rejected",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
@@ -1295,19 +1250,19 @@ func TestLeveledChangedWithMatchesRejected(t *testing.T) {
 	}
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "LkA")
-		p2 := makePairTB(tb, app, "LkB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		p1 := handlers.MakePairTB(tb, app, "LkA")
+		p2 := handlers.MakePairTB(tb, app, "LkB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("target_matches", 3)
 		require.NoError(tb, app.Save(comp))
 		compID = comp.Id
 		// Create a match so HasFixtures = true
-		makeMatchTB(tb, app, compID, p1.Id, p2.Id, "pending")
+		handlers.MakeMatchTB(tb, app, compID, p1.Id, p2.Id, "pending")
 		s.URL = "/admin/competitions/" + compID
 		s.Body = strings.NewReader("name=LkComp&type=league&target_matches=4")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -1317,7 +1272,7 @@ func TestLeveledChangedWithMatchesRejected(t *testing.T) {
 func TestRoundRobinDefaultMatchCount(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST generate — round-robin (no target_matches) produces n*(n-1)/2 matches",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -1325,17 +1280,17 @@ func TestRoundRobinDefaultMatchCount(t *testing.T) {
 	var compID string
 	var n int
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		n = 5
 		pairs := make([]*core.Record, n)
 		for i := range pairs {
-			pairs[i] = makePairTB(tb, app, "RR")
+			pairs[i] = handlers.MakePairTB(tb, app, "RR")
 		}
-		comp := makeCompetitionTB(tb, app, "league", pairs)
+		comp := handlers.MakeCompetitionTB(tb, app, "league", pairs)
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + compID + "/generate"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		matches, err := app.FindRecordsByFilter("matches",
@@ -1344,7 +1299,7 @@ func TestRoundRobinDefaultMatchCount(t *testing.T) {
 		expected := n * (n - 1) / 2
 		assert.Equal(tb, expected, len(matches), "round-robin: n*(n-1)/2 matches")
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
@@ -1353,20 +1308,20 @@ func TestRoundRobinDefaultMatchCount(t *testing.T) {
 func TestSetPairLevel(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/pairs/{id}/level saves the level",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var pairID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "LvA")
+		p1 := handlers.MakePairTB(tb, app, "LvA")
 		pairID = p1.Id
 		s.URL = "/admin/pairs/" + pairID + "/level"
 		s.Body = strings.NewReader("level=advanced")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -1375,14 +1330,14 @@ func TestSetPairLevel(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "advanced", p.GetString("level"))
 	}
-	expectRedirect(s, redirectTo("/admin/pairs"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/pairs"))
 	s.Test(t)
 }
 
 func TestSetPairLevel_Locked(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/pairs/{id}/level — locked when pair has leveled matches",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
@@ -1390,20 +1345,20 @@ func TestSetPairLevel_Locked(t *testing.T) {
 	}
 	var pairID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "LkLvA")
-		p2 := makePairTB(tb, app, "LkLvB")
-		p3 := makePairTB(tb, app, "LkLvC")
-		p4 := makePairTB(tb, app, "LkLvD")
+		p1 := handlers.MakePairTB(tb, app, "LkLvA")
+		p2 := handlers.MakePairTB(tb, app, "LkLvB")
+		p3 := handlers.MakePairTB(tb, app, "LkLvC")
+		p4 := handlers.MakePairTB(tb, app, "LkLvD")
 		pairID = p1.Id
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3, p4})
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3, p4})
 		comp.Set("target_matches", 2)
 		require.NoError(tb, app.Save(comp))
-		makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		s.URL = "/admin/pairs/" + pairID + "/level"
 		s.Body = strings.NewReader("level=advanced")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -1413,24 +1368,24 @@ func TestSetPairLevel_Locked(t *testing.T) {
 func TestToggleBalls(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/balls toggles balls_status",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID, pairID, adminID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		adminID = admin.Id
-		p1 := makePairTB(tb, app, "BlA")
-		p2 := makePairTB(tb, app, "BlB")
+		p1 := handlers.MakePairTB(tb, app, "BlA")
+		p2 := handlers.MakePairTB(tb, app, "BlB")
 		pairID = p1.Id
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + compID + "/balls"
 		s.Body = strings.NewReader("pair_id=" + pairID)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -1444,14 +1399,14 @@ func TestToggleBalls(t *testing.T) {
 		require.NoError(tb, c.UnmarshalJSONField("balls_delivered_by", &by))
 		assert.Equal(tb, adminID, by[pairID])
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestToggleBallsAll(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/balls-all sets every pair delivered",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
@@ -1459,15 +1414,15 @@ func TestToggleBallsAll(t *testing.T) {
 	var compID string
 	var p1ID, p2ID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "BlAllA")
-		p2 := makePairTB(tb, app, "BlAllB")
+		p1 := handlers.MakePairTB(tb, app, "BlAllA")
+		p2 := handlers.MakePairTB(tb, app, "BlAllB")
 		p1ID, p2ID = p1.Id, p2.Id
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + compID + "/balls-all"
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -1479,26 +1434,26 @@ func TestToggleBallsAll(t *testing.T) {
 		assert.True(tb, status[p1ID])
 		assert.True(tb, status[p2ID])
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }
 
 func TestRemovePair_ClearsBolas(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/competitions/{id}/remove-pair clears balls entries",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var compID, p1ID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupCompRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makePairTB(tb, app, "RmBlA")
-		p2 := makePairTB(tb, app, "RmBlB")
+		p1 := handlers.MakePairTB(tb, app, "RmBlA")
+		p2 := handlers.MakePairTB(tb, app, "RmBlB")
 		p1ID = p1.Id
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("balls_status", map[string]bool{p1.Id: true, p2.Id: true})
 		comp.Set("balls_delivered_at", map[string]string{p1.Id: time.Now().Format(time.RFC3339)})
 		comp.Set("balls_delivered_by", map[string]string{p1.Id: admin.Id})
@@ -1506,7 +1461,7 @@ func TestRemovePair_ClearsBolas(t *testing.T) {
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + compID + "/remove-pair"
 		s.Body = strings.NewReader("pair_id=" + p1ID)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -1522,6 +1477,6 @@ func TestRemovePair_ClearsBolas(t *testing.T) {
 		_, atThere := at[p1ID]
 		assert.False(tb, atThere, "removed pair must not remain in balls_delivered_at")
 	}
-	expectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
 }

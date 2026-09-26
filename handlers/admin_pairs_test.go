@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"net/http"
@@ -9,12 +9,14 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/handlers"
 )
 
 func TestAdminPairsPage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /admin/pairs returns pair list",
 		Method:          http.MethodGet,
 		URL:             "/admin/pairs",
@@ -22,9 +24,9 @@ func TestAdminPairsPage(t *testing.T) {
 		ExpectedContent: []string{"Parejas"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupFullAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -32,7 +34,7 @@ func TestAdminPairsPage(t *testing.T) {
 func TestAdminPairsSortedByName(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /admin/pairs renders pairs in alphabetical order",
 		Method:          http.MethodGet,
 		URL:             "/admin/pairs",
@@ -40,15 +42,15 @@ func TestAdminPairsSortedByName(t *testing.T) {
 		ExpectedContent: []string{"Parejas"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupFullAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		makePairTB(tb, app, "Zorros")
-		makePairTB(tb, app, "Aguilas")
-		makePairTB(tb, app, "Lobos")
-		s.Headers = authHeaders(tb, admin)
+		handlers.MakePairTB(tb, app, "Zorros")
+		handlers.MakePairTB(tb, app, "Aguilas")
+		handlers.MakePairTB(tb, app, "Lobos")
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		idxA := strings.Index(body, "Aguilas")
 		idxL := strings.Index(body, "Lobos")
 		idxZ := strings.Index(body, "Zorros")
@@ -64,7 +66,7 @@ func TestAdminPairsSortedByName(t *testing.T) {
 func TestAdminPairsCreate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/pairs creates pair",
 		Method:         http.MethodPost,
 		URL:            "/admin/pairs",
@@ -72,13 +74,13 @@ func TestAdminPairsCreate(t *testing.T) {
 	}
 	var u1ID, u2ID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupFullAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		u1 := makeUserTB(tb, app, "PairP1", "")
-		u2 := makeUserTB(tb, app, "PairP2", "")
+		u1 := handlers.MakeUserTB(tb, app, "PairP1", "")
+		u2 := handlers.MakeUserTB(tb, app, "PairP2", "")
 		u1ID, u2ID = u1.Id, u2.Id
 		s.Body = strings.NewReader("name=NuevaPair&player1=" + u1.Id + "&player2=" + u2.Id + "&captain=" + u1.Id)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -89,14 +91,14 @@ func TestAdminPairsCreate(t *testing.T) {
 		assert.Equal(tb, u1ID, pairs[0].GetString("player1"))
 		assert.Equal(tb, u2ID, pairs[0].GetString("player2"))
 	}
-	expectRedirect(s, redirectTo("/admin/pairs"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/pairs"))
 	s.Test(t)
 }
 
 func TestAdminPairsCreate_WithCompetition(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/pairs with competition_id creates and attaches pair",
 		Method:         http.MethodPost,
 		URL:            "/admin/pairs",
@@ -104,14 +106,14 @@ func TestAdminPairsCreate_WithCompetition(t *testing.T) {
 	}
 	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupFullAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		u1 := makeUserTB(tb, app, "CompPairP1", "")
-		u2 := makeUserTB(tb, app, "CompPairP2", "")
-		comp := makeCompetitionTB(tb, app, "league", nil)
+		u1 := handlers.MakeUserTB(tb, app, "CompPairP1", "")
+		u2 := handlers.MakeUserTB(tb, app, "CompPairP2", "")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", nil)
 		compID = comp.Id
 		s.Body = strings.NewReader("name=CompPair&player1=" + u1.Id + "&player2=" + u2.Id + "&captain=" + u1.Id + "&competition_id=" + comp.Id)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -133,20 +135,20 @@ func TestAdminPairsCreate_WithCompetition(t *testing.T) {
 func TestAdminPairsUpdate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/pairs/{id} updates pair name",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var pairID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupFullAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		pair := makePairTB(tb, app, "UpdPair")
+		pair := handlers.MakePairTB(tb, app, "UpdPair")
 		pairID = pair.Id
 		s.URL = "/admin/pairs/" + pair.Id
 		s.Body = strings.NewReader("name=Renamed")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -155,6 +157,6 @@ func TestAdminPairsUpdate(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "Renamed", p.GetString("name"))
 	}
-	expectRedirect(s, redirectTo("/admin/pairs"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/pairs"))
 	s.Test(t)
 }

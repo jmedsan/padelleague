@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"fmt"
@@ -13,13 +13,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"padelleague/handlers"
 	"padelleague/league"
 )
 
 func TestPlayerPreCreate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/players/pre-create creates player with password link",
 		Method:          http.MethodPost,
 		URL:             "/admin/players/pre-create",
@@ -27,9 +28,9 @@ func TestPlayerPreCreate(t *testing.T) {
 		ExpectedContent: []string{"Usuario creado", "reset-password", "Volver a jugadores"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 		s.Body = strings.NewReader("email=newplayer@test.local&display_name=New+Player&gender=male")
@@ -40,7 +41,7 @@ func TestPlayerPreCreate(t *testing.T) {
 func TestRegenerateLink(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /admin/players/{id}/regenerate-link returns reset link panel",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
@@ -48,12 +49,12 @@ func TestRegenerateLink(t *testing.T) {
 	}
 	var playerID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
-		player := makeUserTB(tb, app, "RegenTest", "")
+		setupProductionRoutes(tb, app, e)
+		player := handlers.MakeUserTB(tb, app, "RegenTest", "")
 		playerID = player.Id
 		admin := makeAdminUser(tb, app)
 		s.URL = "/admin/players/" + player.Id + "/regenerate-link"
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		want := league.Notification{
@@ -69,20 +70,20 @@ func TestRegenerateLink(t *testing.T) {
 func TestPlayerUpdate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/players/{id} updates player",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var playerID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		player := makeUserTB(tb, app, "Old Name", "")
+		player := handlers.MakeUserTB(tb, app, "Old Name", "")
 		playerID = player.Id
 		s.URL = "/admin/players/" + player.Id
 		s.Body = strings.NewReader("display_name=New+Name&gender=female&role=player")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -91,147 +92,147 @@ func TestPlayerUpdate(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "New Name", p.GetString("display_name"))
 	}
-	expectRedirect(s, redirectTo("/admin/players"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/players"))
 	s.Test(t)
 }
 
 func TestPairsCreate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/pairs creates pair",
 		Method:         http.MethodPost,
 		URL:            "/admin/pairs",
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		p1 := makeUserTB(tb, app, "Pair P1", "")
-		p2 := makeUserTB(tb, app, "Pair P2", "")
+		p1 := handlers.MakeUserTB(tb, app, "Pair P1", "")
+		p2 := handlers.MakeUserTB(tb, app, "Pair P2", "")
 		s.Body = strings.NewReader(fmt.Sprintf("name=Test+Pair&player1=%s&player2=%s&captain=%s", p1.Id, p2.Id, p1.Id))
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	expectRedirect(s, redirectTo("/admin/pairs"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/pairs"))
 	s.Test(t)
 }
 
 func TestPairsUpdate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/pairs/{id} updates pair",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		pair := makePairTB(tb, app, "Old Pair")
+		pair := handlers.MakePairTB(tb, app, "Old Pair")
 		s.URL = "/admin/pairs/" + pair.Id
 		s.Body = strings.NewReader("name=Updated+Pair")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	expectRedirect(s, redirectTo("/admin/pairs"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/pairs"))
 	s.Test(t)
 }
 
 func TestVenuesCreate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/venues creates venue",
 		Method:         http.MethodPost,
 		URL:            "/admin/venues",
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.Body = strings.NewReader("name=Club+Padel&address=Calle+Test+1&courts=4")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	expectRedirect(s, redirectTo("/admin/venues"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/venues"))
 	s.Test(t)
 }
 
 func TestVenuesUpdate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/venues/{id} updates venue",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		venue := makeVenueTB(tb, app, "Old Venue")
+		venue := handlers.MakeVenueTB(tb, app, "Old Venue")
 		s.URL = "/admin/venues/" + venue.Id
 		s.Body = strings.NewReader("name=New+Venue&address=New+Address&courts=6")
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
-	expectRedirect(s, redirectTo("/admin/venues"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/venues"))
 	s.Test(t)
 }
 
 func TestVenuesDelete(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/venues/{id}/delete removes venue",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var venueID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		venue := makeVenueTB(tb, app, "Delete Me")
+		venue := handlers.MakeVenueTB(tb, app, "Delete Me")
 		venueID = venue.Id
 		s.URL = "/admin/venues/" + venue.Id + "/delete"
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		_, err := app.FindRecordById("venues", venueID)
 		assert.Error(tb, err)
 	}
-	expectRedirect(s, redirectTo("/admin/venues"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/venues"))
 	s.Test(t)
 }
 
 func TestInvitationsRevoke(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /admin/invitations/{id}/revoke removes invitation",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var inviteID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAdminRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		invite := makeInvitationTB(tb, app, admin.Id, time.Now().Add(24*time.Hour))
+		invite := handlers.MakeInvitationTB(tb, app, admin.Id, time.Now().Add(24*time.Hour))
 		inviteID = invite.Id
 		s.URL = "/admin/invitations/" + invite.Id + "/revoke"
-		hdrs := authHeaders(tb, admin)
+		hdrs := handlers.AuthHeaders(tb, admin)
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		_, err := app.FindRecordById("invitations", inviteID)
 		assert.Error(tb, err)
 	}
-	expectRedirect(s, redirectTo("/admin/invitations"))
+	handlers.ExpectRedirect(s, redirectTo("/admin/invitations"))
 	s.Test(t)
 }
 
@@ -242,16 +243,16 @@ func TestPlayerProfileCompetitionStatsSortedDeterministic(t *testing.T) {
 
 	for iter := 0; iter < 20; iter++ {
 		s := &tests.ApiScenario{
-			TestAppFactory:  testAppFactory,
+			TestAppFactory:  handlers.TestAppFactory,
 			Name:            fmt.Sprintf("GET /player/{id} competition stats sorted (iter %d)", iter),
 			Method:          http.MethodGet,
 			ExpectedStatus:  200,
 			ExpectedContent: sorted,
 		}
 		s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-			setupPublicRoutes(tb, app, e)
-			user := makeUserTB(tb, app, "Sort Player", "")
-			partner := makeUserTB(tb, app, "Sort Partner", "")
+			setupProductionRoutes(tb, app, e)
+			user := handlers.MakeUserTB(tb, app, "Sort Player", "")
+			partner := handlers.MakeUserTB(tb, app, "Sort Partner", "")
 
 			pairCol, _ := app.FindCollectionByNameOrId("pairs")
 			matchCol, _ := app.FindCollectionByNameOrId("matches")
@@ -264,7 +265,7 @@ func TestPlayerProfileCompetitionStatsSortedDeterministic(t *testing.T) {
 				pair.Set("player2", partner.Id)
 				require.NoError(tb, app.Save(pair))
 
-				opponent := makePairTB(tb, app, fmt.Sprintf("SortOpp%d", i))
+				opponent := handlers.MakePairTB(tb, app, fmt.Sprintf("SortOpp%d", i))
 
 				comp := core.NewRecord(compCol)
 				comp.Set("name", name)
@@ -284,7 +285,7 @@ func TestPlayerProfileCompetitionStatsSortedDeterministic(t *testing.T) {
 				require.NoError(tb, app.Save(m))
 			}
 			s.URL = "/player/" + user.Id
-			s.Headers = authHeaders(tb, user)
+			s.Headers = handlers.AuthHeaders(tb, user)
 		}
 		s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 			body, err := io.ReadAll(res.Body)

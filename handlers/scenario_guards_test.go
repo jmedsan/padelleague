@@ -14,7 +14,7 @@ import (
 var (
 	testFuncRe    = regexp.MustCompile(`(?ms)^func (Test\w+)\(t \*testing\.T\) \{\n.*?^\}\n`)
 	noContentRe   = regexp.MustCompile(`ExpectedStatus:\s*204`)
-	redirectCheck = []string{"HX-Redirect", "expectRedirect("}
+	redirectCheck = []string{"HX-Redirect", "expectRedirect(", "ExpectRedirect("}
 )
 
 // TestNoContentScenariosPinTheRedirect fails when a scenario expecting 204
@@ -45,5 +45,5 @@ func TestNoContentScenariosPinTheRedirect(t *testing.T) {
 			}
 		}
 	}
-	assert.Empty(t, offenders, "add expectRedirect(s, …) before s.Test(t)")
+	assert.Empty(t, offenders, "add expectRedirect(s, …) or handlers.ExpectRedirect(s, …) before s.Test(t)")
 }

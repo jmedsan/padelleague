@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"io"
@@ -9,12 +9,14 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/handlers"
 )
 
 func TestNotificationCount_UnreadOnly(t *testing.T) {
 	t.Parallel()
-	app := newTestApp(t)
-	user := makeUser(t, app, "Notif User", "")
+	app := handlers.NewTestApp(t)
+	user := handlers.MakeUser(t, app, "Notif User", "")
 
 	makeNotification(t, app, user.Id, "Unread 1", "body1", false)
 	makeNotification(t, app, user.Id, "Unread 2", "body2", false)
@@ -30,8 +32,8 @@ func TestNotificationCount_UnreadOnly(t *testing.T) {
 
 func TestNotificationList_OrderAndLimit(t *testing.T) {
 	t.Parallel()
-	app := newTestApp(t)
-	user := makeUser(t, app, "List User", "")
+	app := handlers.NewTestApp(t)
+	user := handlers.MakeUser(t, app, "List User", "")
 
 	for i := 0; i < 12; i++ {
 		makeNotification(t, app, user.Id, "Notif", "body", false)
@@ -47,9 +49,9 @@ func TestNotificationList_OrderAndLimit(t *testing.T) {
 
 func TestNotificationCount_OtherUserExcluded(t *testing.T) {
 	t.Parallel()
-	app := newTestApp(t)
-	user1 := makeUser(t, app, "User 1", "")
-	user2 := makeUser(t, app, "User 2", "")
+	app := handlers.NewTestApp(t)
+	user1 := handlers.MakeUser(t, app, "User 1", "")
+	user2 := handlers.MakeUser(t, app, "User 2", "")
 
 	makeNotification(t, app, user1.Id, "For user1", "body", false)
 	makeNotification(t, app, user2.Id, "For user2", "body", false)
@@ -67,19 +69,19 @@ func TestNotificationCount_OtherUserExcluded(t *testing.T) {
 func TestMarkReadNotificationWithRelatedMatch(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /notifications/{id}/read with related_match redirects to match",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var notifID, matchID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Match Notif", "")
-		p1 := makePairTB(tb, app, "MNA")
-		p2 := makePairTB(tb, app, "MNB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Match Notif", "")
+		p1 := handlers.MakePairTB(tb, app, "MNA")
+		p2 := handlers.MakePairTB(tb, app, "MNB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		matchID = match.Id
 
 		n := makeNotification(t, app, user.Id, "Partido asignado", "", false)
@@ -88,7 +90,7 @@ func TestMarkReadNotificationWithRelatedMatch(t *testing.T) {
 		notifID = n.Id
 
 		s.URL = "/notifications/" + n.Id + "/read"
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
 		assert.Equal(tb, "/match/"+matchID, res.Header.Get("HX-Redirect"))
@@ -104,19 +106,19 @@ func TestMarkReadNotificationWithRelatedMatch(t *testing.T) {
 func TestMarkReadNotificationWithLink(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /notifications/{id}/read redirects to the link field when set",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var notifID, compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Link Notif", "")
-		p1 := makePairTB(tb, app, "LNA")
-		p2 := makePairTB(tb, app, "LNB")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Link Notif", "")
+		p1 := handlers.MakePairTB(tb, app, "LNA")
+		p2 := handlers.MakePairTB(tb, app, "LNB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 
 		n := makeNotification(t, app, user.Id, "Anuncio", "", false)
 		n.Set("related_match", match.Id)
@@ -126,7 +128,7 @@ func TestMarkReadNotificationWithLink(t *testing.T) {
 		compID = comp.Id
 
 		s.URL = "/notifications/" + n.Id + "/read"
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
 		assert.Equal(tb, "/competition/"+compID, res.Header.Get("HX-Redirect"), "link must win over related_match")
@@ -142,19 +144,19 @@ func TestMarkReadNotificationWithLink(t *testing.T) {
 func TestMarkReadNotificationNoRelatedMatch(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /notifications/{id}/read without related_match redirects to /",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var notifID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "No Match Notif", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "No Match Notif", "")
 		n := makeNotification(t, app, user.Id, "General", "Some body", false)
 		notifID = n.Id
 		s.URL = "/notifications/" + n.Id + "/read"
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
 		assert.Equal(tb, "/", res.Header.Get("HX-Redirect"))
@@ -170,19 +172,19 @@ func TestMarkReadNotificationNoRelatedMatch(t *testing.T) {
 func TestNotificationCountZero(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "GET /notifications/count with zero unread returns empty",
 		Method:         http.MethodGet,
 		URL:            "/notifications/count",
 		ExpectedStatus: 200,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Zero Count", "")
-		s.Headers = authHeaders(tb, user)
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Zero Count", "")
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		assert.Empty(tb, body, "zero unread should return empty body (no badge markup)")
 	}
 	s.Test(t)
@@ -193,7 +195,7 @@ func TestNotificationCountZero(t *testing.T) {
 func TestNotificationCountWithUnread(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /notifications/count with unread returns badge",
 		Method:          http.MethodGet,
 		URL:             "/notifications/count",
@@ -201,12 +203,12 @@ func TestNotificationCountWithUnread(t *testing.T) {
 		ExpectedContent: []string{"badge", "2"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Has Unread", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Has Unread", "")
 		makeNotification(t, app, user.Id, "N1", "", false)
 		makeNotification(t, app, user.Id, "N2", "", false)
 		makeNotification(t, app, user.Id, "N3", "", true) // read, should not count
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -216,7 +218,7 @@ func TestNotificationCountWithUnread(t *testing.T) {
 func TestNotificationListWithBody(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /notifications/list shows body text",
 		Method:          http.MethodGet,
 		URL:             "/notifications/list",
@@ -224,10 +226,10 @@ func TestNotificationListWithBody(t *testing.T) {
 		ExpectedContent: []string{"Título de prueba", "Cuerpo del mensaje"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Body Notif", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Body Notif", "")
 		makeNotification(t, app, user.Id, "Título de prueba", "Cuerpo del mensaje", false)
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -235,7 +237,7 @@ func TestNotificationListWithBody(t *testing.T) {
 func TestNotificationListRowStructureAndDismissTarget(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /notifications/list renders a dismissible row via the shared notification partial",
 		Method:          http.MethodGet,
 		URL:             "/notifications/list",
@@ -244,11 +246,11 @@ func TestNotificationListRowStructureAndDismissTarget(t *testing.T) {
 	}
 	var notifID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Row Struct", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Row Struct", "")
 		n := makeNotification(t, app, user.Id, "Row Test", "", false)
 		notifID = n.Id
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body, err := io.ReadAll(res.Body)
@@ -265,7 +267,7 @@ func TestNotificationListRowStructureAndDismissTarget(t *testing.T) {
 func TestNotificationListShowsCompName(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /notifications/list shows the competition name so multi-league players can tell notifications apart",
 		Method:          http.MethodGet,
 		URL:             "/notifications/list",
@@ -273,12 +275,12 @@ func TestNotificationListShowsCompName(t *testing.T) {
 		ExpectedContent: []string{"Liga de Verano"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "CompName Notif", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "CompName Notif", "")
 		n := makeNotification(t, app, user.Id, "Con competición", "", false)
 		n.Set("comp_name", "Liga de Verano")
 		require.NoError(tb, app.Save(n))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -288,7 +290,7 @@ func TestNotificationListShowsCompName(t *testing.T) {
 func TestNotificationListEmpty(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /notifications/list with no notifications shows empty message",
 		Method:          http.MethodGet,
 		URL:             "/notifications/list",
@@ -296,9 +298,9 @@ func TestNotificationListEmpty(t *testing.T) {
 		ExpectedContent: []string{"No hay notificaciones"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Empty List", "")
-		s.Headers = authHeaders(tb, user)
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Empty List", "")
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -308,7 +310,7 @@ func TestNotificationListEmpty(t *testing.T) {
 func TestMarkAllReadVerifyDB(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /notifications/read-all marks all read in DB",
 		Method:          http.MethodPost,
 		URL:             "/notifications/read-all",
@@ -318,14 +320,14 @@ func TestMarkAllReadVerifyDB(t *testing.T) {
 	var userID string
 	var notifIDs []string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Bulk Read DB", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Bulk Read DB", "")
 		userID = user.Id
 		n1 := makeNotification(t, app, user.Id, "B1", "", false)
 		n2 := makeNotification(t, app, user.Id, "B2", "", false)
 		n3 := makeNotification(t, app, user.Id, "B3", "", false)
 		notifIDs = []string{n1.Id, n2.Id, n3.Id}
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		for _, id := range notifIDs {
@@ -347,7 +349,7 @@ func TestMarkAllReadVerifyDB(t *testing.T) {
 func TestNotificationListReadVsUnread(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /notifications/list distinguishes read/unread",
 		Method:          http.MethodGet,
 		URL:             "/notifications/list",
@@ -355,11 +357,11 @@ func TestNotificationListReadVsUnread(t *testing.T) {
 		ExpectedContent: []string{"bg-neutral/5", "Unread Title"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Read Unread", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Read Unread", "")
 		makeNotification(t, app, user.Id, "Unread Title", "", false)
 		makeNotification(t, app, user.Id, "Read Title", "", true)
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -367,7 +369,7 @@ func TestNotificationListReadVsUnread(t *testing.T) {
 func TestDismissNotification(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /notifications/{id}/dismiss marks read and returns OOB badges",
 		Method:         http.MethodPost,
 		ExpectedStatus: 200,
@@ -379,13 +381,13 @@ func TestDismissNotification(t *testing.T) {
 	}
 	var notifID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Dismiss User", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Dismiss User", "")
 		n1 := makeNotification(t, app, user.Id, "To Dismiss", "", false)
 		makeNotification(t, app, user.Id, "Keep", "", false)
 		notifID = n1.Id
 		s.URL = "/notifications/" + n1.Id + "/dismiss"
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
 		n, err := app.FindRecordById("notifications", notifID)
@@ -401,18 +403,18 @@ func TestDismissNotification(t *testing.T) {
 func TestDismissNotificationOtherUser(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /notifications/{id}/dismiss by non-owner returns 204",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		owner := makeUserTB(tb, app, "Owner", "")
-		other := makeUserTB(tb, app, "Other", "")
+		setupProductionRoutes(tb, app, e)
+		owner := handlers.MakeUserTB(tb, app, "Owner", "")
+		other := handlers.MakeUserTB(tb, app, "Other", "")
 		n := makeNotification(t, app, owner.Id, "Private", "", false)
 		s.URL = "/notifications/" + n.Id + "/dismiss"
-		s.Headers = authHeaders(tb, other)
+		s.Headers = handlers.AuthHeaders(tb, other)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		recs, err := app.FindRecordsByFilter("notifications",
@@ -420,7 +422,7 @@ func TestDismissNotificationOtherUser(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, 0, len(recs), "non-owner dismiss must not modify anything")
 	}
-	expectRedirect(s, redirectTo(""))
+	handlers.ExpectRedirect(s, redirectTo(""))
 	s.Test(t)
 }
 
@@ -430,34 +432,34 @@ func TestDismissNotificationOtherUser(t *testing.T) {
 func TestMarkReadOtherUserBlocked(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /notifications/{id}/read by non-owner returns 204 without marking read",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var notifID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		owner := makeUserTB(tb, app, "Owner", "")
-		other := makeUserTB(tb, app, "Other", "")
+		setupProductionRoutes(tb, app, e)
+		owner := handlers.MakeUserTB(tb, app, "Owner", "")
+		other := handlers.MakeUserTB(tb, app, "Other", "")
 		n := makeNotification(t, app, owner.Id, "Private", "", false)
 		notifID = n.Id
 		s.URL = "/notifications/" + n.Id + "/read"
-		s.Headers = authHeaders(tb, other)
+		s.Headers = handlers.AuthHeaders(tb, other)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		n, err := app.FindRecordById("notifications", notifID)
 		require.NoError(tb, err)
 		assert.False(tb, n.GetBool("read"), "non-owner must not be able to mark another user's notification as read")
 	}
-	expectRedirect(s, redirectTo(""))
+	handlers.ExpectRedirect(s, redirectTo(""))
 	s.Test(t)
 }
 
 func TestNotificationHistory(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /notifications/history shows all including read",
 		Method:          http.MethodGet,
 		URL:             "/notifications/history",
@@ -465,11 +467,11 @@ func TestNotificationHistory(t *testing.T) {
 		ExpectedContent: []string{"Historial de notificaciones", "Active One", "Read One"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "History User", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "History User", "")
 		makeNotification(t, app, user.Id, "Active One", "", false)
 		makeNotification(t, app, user.Id, "Read One", "", true)
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -477,7 +479,7 @@ func TestNotificationHistory(t *testing.T) {
 func TestNotificationHistoryEmpty(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /notifications/history with no notifications shows empty",
 		Method:          http.MethodGet,
 		URL:             "/notifications/history",
@@ -485,9 +487,9 @@ func TestNotificationHistoryEmpty(t *testing.T) {
 		ExpectedContent: []string{"No hay notificaciones"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Empty History", "")
-		s.Headers = authHeaders(tb, user)
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Empty History", "")
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -495,7 +497,7 @@ func TestNotificationHistoryEmpty(t *testing.T) {
 func TestDismissMarksRead(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /notifications/{id}/dismiss marks read=true",
 		Method:         http.MethodPost,
 		ExpectedStatus: 200,
@@ -506,13 +508,13 @@ func TestDismissMarksRead(t *testing.T) {
 	}
 	var notifID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Dismiss Read", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Dismiss Read", "")
 		n1 := makeNotification(t, app, user.Id, "To Dismiss", "", false)
 		makeNotification(t, app, user.Id, "Keep Unread", "", false)
 		notifID = n1.Id
 		s.URL = "/notifications/" + n1.Id + "/dismiss"
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
 		n, err := app.FindRecordById("notifications", notifID)
@@ -528,7 +530,7 @@ func TestDismissMarksRead(t *testing.T) {
 func TestListShowsUnreadOnly(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /notifications/list excludes read notifications",
 		Method:          http.MethodGet,
 		URL:             "/notifications/list",
@@ -536,14 +538,14 @@ func TestListShowsUnreadOnly(t *testing.T) {
 		ExpectedContent: []string{"Still Unread"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupNotifRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "List Filter", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "List Filter", "")
 		makeNotification(t, app, user.Id, "Still Unread", "", false)
 		makeNotification(t, app, user.Id, "Already Read", "", true)
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		body := readBody(tb, res)
+		body := handlers.ReadBody(tb, res)
 		assert.NotContains(tb, body, "Already Read", "read notifications must not appear in bell list")
 	}
 	s.Test(t)

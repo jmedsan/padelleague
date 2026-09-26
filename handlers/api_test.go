@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"net/http"
@@ -9,18 +9,22 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"padelleague/handlers"
 )
 
 func TestLoginPage(t *testing.T) {
 	t.Parallel()
 	scenario := tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /login returns login page",
 		Method:          http.MethodGet,
 		URL:             "/login",
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Contraseña"},
-		BeforeTestFunc:  setupAuthRoutes,
+		BeforeTestFunc: func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+			setupProductionRoutes(tb, app, e)
+		},
 	}
 	scenario.Test(t)
 }
@@ -28,7 +32,7 @@ func TestLoginPage(t *testing.T) {
 func TestLoginWrongCreds(t *testing.T) {
 	t.Parallel()
 	scenario := tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "POST /login with wrong creds shows error",
 		Method:          http.MethodPost,
 		URL:             "/login",
@@ -36,7 +40,9 @@ func TestLoginWrongCreds(t *testing.T) {
 		Headers:         map[string]string{"Content-Type": "application/x-www-form-urlencoded"},
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"alert-error"},
-		BeforeTestFunc:  setupAuthRoutes,
+		BeforeTestFunc: func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+			setupProductionRoutes(tb, app, e)
+		},
 	}
 	scenario.Test(t)
 }
@@ -44,13 +50,15 @@ func TestLoginWrongCreds(t *testing.T) {
 func TestRegisterPage(t *testing.T) {
 	t.Parallel()
 	scenario := tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /register returns register page",
 		Method:          http.MethodGet,
 		URL:             "/register",
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Registro"},
-		BeforeTestFunc:  setupAuthRoutes,
+		BeforeTestFunc: func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+			setupProductionRoutes(tb, app, e)
+		},
 	}
 	scenario.Test(t)
 }
@@ -58,7 +66,7 @@ func TestRegisterPage(t *testing.T) {
 func TestLoginValidCreds(t *testing.T) {
 	t.Parallel()
 	scenario := tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /login with valid creds redirects to home",
 		Method:         http.MethodPost,
 		URL:            "/login",
@@ -68,8 +76,8 @@ func TestLoginValidCreds(t *testing.T) {
 		},
 		ExpectedStatus: 302,
 		BeforeTestFunc: func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-			setupAuthRoutes(tb, app, e)
-			makeUserTB(tb, app, "Login Test", "testlogin@test.local")
+			setupProductionRoutes(tb, app, e)
+			handlers.MakeUserTB(tb, app, "Login Test", "testlogin@test.local")
 		},
 		AfterTestFunc: func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 			assert.Equal(tb, "/", res.Header.Get("Location"))
@@ -81,13 +89,13 @@ func TestLoginValidCreds(t *testing.T) {
 func TestHomeWithoutAuth(t *testing.T) {
 	t.Parallel()
 	scenario := tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "GET / without auth redirects to login",
 		Method:         http.MethodGet,
 		URL:            "/",
 		ExpectedStatus: 302,
 		BeforeTestFunc: func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-			setupAllRoutes(tb, app, e)
+			setupProductionRoutes(tb, app, e)
 		},
 		AfterTestFunc: func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 			assert.Equal(tb, "/login", res.Header.Get("Location"))
@@ -99,7 +107,7 @@ func TestHomeWithoutAuth(t *testing.T) {
 func TestNotificationCount(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:     testAppFactory,
+		TestAppFactory:     handlers.TestAppFactory,
 		Name:               "GET /notifications/count returns 200",
 		Method:             http.MethodGet,
 		URL:                "/notifications/count",
@@ -107,9 +115,9 @@ func TestNotificationCount(t *testing.T) {
 		NotExpectedContent: []string{"error"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Player", "")
-		s.Headers = authHeaders(tb, user)
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Player", "")
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -117,7 +125,7 @@ func TestNotificationCount(t *testing.T) {
 func TestNotificationList(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /notifications/list returns page",
 		Method:          http.MethodGet,
 		URL:             "/notifications/list",
@@ -125,9 +133,9 @@ func TestNotificationList(t *testing.T) {
 		ExpectedContent: []string{"Notificaciones"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Notif User", "")
-		s.Headers = authHeaders(tb, user)
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Notif User", "")
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -136,22 +144,22 @@ func TestMatchDetail(t *testing.T) {
 	t.Parallel()
 	var matchID string
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /match/{id} with auth returns match page",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Equipo A", "Equipo B"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "Equipo A")
-		p2 := makePairTB(tb, app, "Equipo B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "Equipo A")
+		p2 := handlers.MakePairTB(tb, app, "Equipo B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		matchID = match.Id
 		s.URL = "/match/" + matchID
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -159,14 +167,14 @@ func TestMatchDetail(t *testing.T) {
 func TestMatchDetailWithoutAuth(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "GET /match/{id} without auth redirects to login",
 		Method:         http.MethodGet,
 		URL:            "/match/fakeid",
 		ExpectedStatus: 302,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
+		setupProductionRoutes(tb, app, e)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		assert.Equal(tb, "/login", res.Header.Get("Location"))
@@ -177,7 +185,7 @@ func TestMatchDetailWithoutAuth(t *testing.T) {
 func TestAdminDashboard(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /admin/competitions with admin auth returns dashboard",
 		Method:          http.MethodGet,
 		URL:             "/admin/competitions",
@@ -185,9 +193,9 @@ func TestAdminDashboard(t *testing.T) {
 		ExpectedContent: []string{"Competiciones"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		s.Headers = authHeaders(tb, admin)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -195,19 +203,21 @@ func TestAdminDashboard(t *testing.T) {
 func TestAdminDashboardNonAdmin(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
-		Name:           "GET /admin with non-admin redirects to login",
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "GET /admin with non-admin redirects home",
 		Method:         http.MethodGet,
 		URL:            "/admin",
 		ExpectedStatus: 302,
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Regular", "")
-		s.Headers = authHeaders(tb, user)
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Regular", "")
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		assert.Equal(tb, "/login", res.Header.Get("Location"))
+		// RequireAppAdmin redirects a non-admin to "/" (home), not "/login" —
+		// auth already succeeded, only the admin check failed.
+		assert.Equal(tb, "/", res.Header.Get("Location"))
 	}
 	s.Test(t)
 }
@@ -215,19 +225,19 @@ func TestAdminDashboardNonAdmin(t *testing.T) {
 func TestAdminCompetitionDetail(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /admin/competitions/{id} returns detail",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Liga Dale Fuerte"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		admin := makeAdminUserTB(tb, app)
-		comp := makeCompetitionTB(tb, app, "league", nil)
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		comp := handlers.MakeCompetitionTB(tb, app, "league", nil)
 		s.URL = "/admin/competitions/" + comp.Id
 		s.ExpectedContent = []string{"Test Competition"}
-		s.Headers = authHeaders(tb, admin)
+		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.Test(t)
 }
@@ -235,17 +245,17 @@ func TestAdminCompetitionDetail(t *testing.T) {
 func TestPlayerProfile(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  testAppFactory,
+		TestAppFactory:  handlers.TestAppFactory,
 		Name:            "GET /player/{id} returns profile with display name",
 		Method:          http.MethodGet,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"Profile Player"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		user := makeUserTB(tb, app, "Profile Player", "")
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Profile Player", "")
 		s.URL = "/player/" + user.Id
-		s.Headers = authHeaders(tb, user)
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }
@@ -253,18 +263,18 @@ func TestPlayerProfile(t *testing.T) {
 func TestMatchSubmitValidScore(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory: testAppFactory,
+		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /match/{id}/submit with valid score",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
 	var matchID, submitterID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupAllRoutes(tb, app, e)
-		p1 := makePairTB(tb, app, "Submit A")
-		p2 := makePairTB(tb, app, "Submit B")
-		comp := makeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		match := makeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "Submit A")
+		p2 := handlers.MakePairTB(tb, app, "Submit B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("date", "2026-09-01")
 		match.Set("club", "Padel 360")
 		require.NoError(tb, app.Save(match))
@@ -273,7 +283,7 @@ func TestMatchSubmitValidScore(t *testing.T) {
 		s.Body = strings.NewReader("scores=6-3+6-4")
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
 		submitterID = user.Id
-		hdrs := authHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
@@ -288,8 +298,8 @@ func TestMatchSubmitValidScore(t *testing.T) {
 			"", 0, 0, map[string]any{"mid": matchID})
 		require.NoError(tb, err)
 		require.Len(tb, proposals, 1)
-		assert.Equal(tb, "6-3 6-4", ParseProposalData(proposals[0].GetString("proposal_data")).Scores)
+		assert.Equal(tb, "6-3 6-4", handlers.ParseProposalData(proposals[0].GetString("proposal_data")).Scores)
 	}
-	expectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
+	handlers.ExpectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
