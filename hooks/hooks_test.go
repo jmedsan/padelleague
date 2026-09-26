@@ -49,8 +49,8 @@ func registerHooksDeterministic(t *testing.T, app *tests.TestApp) {
 
 func registerHooksWithNotifier(t *testing.T, app *tests.TestApp) {
 	t.Helper()
-	svc := league.New(app, nil)
 	notifier := notify.NewNotifier(app, "", "")
+	svc := league.New(app, notifier)
 	Register(app, Deps{Svc: svc, Notifier: notifier})
 }
 

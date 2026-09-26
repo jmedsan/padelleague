@@ -14,16 +14,18 @@ import (
 
 	"padelleague/league"
 	"padelleague/middleware"
+	"padelleague/notify"
 	"padelleague/render"
 )
 
 func setupSettingsRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	viewsFS := os.DirFS("..")
 	r := render.New(viewsFS, "", true)
+	notifier := notify.NewNotifier(app, "", "")
 
 	e.Router.BindFunc(middleware.CookieAuth)
 
-	auth := NewAuthHandler(app, nil, r.Page)
+	auth := NewAuthHandler(app, notifier, r.Page)
 	e.Router.GET("/login", auth.Login)
 
 	settings := NewAdminSettingsHandler(app, r.Page)

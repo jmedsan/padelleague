@@ -12,19 +12,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"padelleague/middleware"
+	"padelleague/notify"
 	"padelleague/render"
 )
 
 func setupDevToolsRoutes(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 	viewsFS := os.DirFS("..")
 	r := render.New(viewsFS, "", true)
+	notifier := notify.NewNotifier(app, "", "")
 
 	e.Router.BindFunc(middleware.CookieAuth)
 
-	auth := NewAuthHandler(app, nil, r.Page)
+	auth := NewAuthHandler(app, notifier, r.Page)
 	e.Router.GET("/login", auth.Login)
 
-	h := NewAdminDevToolsHandler(app, nil, viewsFS, r.Page)
+	h := NewAdminDevToolsHandler(app, notifier, viewsFS, r.Page)
 
 	g := e.Router.Group("/admin")
 	g.BindFunc(requireAuthTest)
