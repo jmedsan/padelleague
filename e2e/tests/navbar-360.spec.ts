@@ -44,7 +44,7 @@ test('navbar theme button flips the theme at 360px; drawer has no theme entry', 
 
   const html = page.locator('html');
   const before = await html.getAttribute('data-theme');
-  const toggle = page.locator('.navbar button[aria-label="cambiar tema"]');
+  const toggle = page.locator('.navbar').getByRole('button', { name: 'cambiar tema' });
   await expect(toggle).toBeVisible();
   await toggle.tap();
   await expect(html).toHaveAttribute('data-theme', before === 'dark' ? 'padel' : 'dark');
