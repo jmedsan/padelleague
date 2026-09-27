@@ -303,6 +303,29 @@ func Register(app core.App, deps Deps) {
 	registerBackup(app, deps.Backup)
 	registerSMTP(app, deps.SMTP)
 	registerMailerBranding(app)
+	registerNotifierShutdown(app, notifier)
+}
+
+// pushDrainTimeout bounds how long shutdown waits for in-flight push sends
+// (deliver fires them in an untracked goroutine) before giving up and
+// letting the process exit anyway.
+const pushDrainTimeout = 5 * time.Second
+
+// registerNotifierShutdown drains in-flight push notifications on shutdown.
+// Without this, a push goroutine started by notify.Notifier.deliver can
+// still be reading from the app's DB when OnTerminate closes it. notifier is
+// nil in some tests that only exercise hooks unrelated to notifications
+// (Deps{Svc: svc} with no Notifier), so guard before dereferencing.
+func registerNotifierShutdown(app core.App, notifier *notify.Notifier) {
+	if notifier == nil {
+		return
+	}
+	app.OnTerminate().BindFunc(func(e *core.TerminateEvent) error {
+		if remaining := notifier.WaitPushTimeout(pushDrainTimeout); remaining > 0 {
+			slog.Warn("shutdown: push notifications still in flight", "remaining", remaining, "timeout", pushDrainTimeout)
+		}
+		return e.Next()
+	})
 }
 
 func registerMatchHooks(app core.App, svc *league.Service) {

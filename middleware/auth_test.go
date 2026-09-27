@@ -92,6 +92,28 @@ func TestRequireAppAdmin_PlayerRole_Redirects(t *testing.T) {
 	s.Test(t)
 }
 
+func TestRequireAppAdmin_PlayerRole_HXRedirect(t *testing.T) {
+	s := tests.ApiScenario{
+		TestAppFactory: testapp.Factory,
+		Name:           "player role HTMX request gets HX-Redirect",
+		Method:         http.MethodGet,
+		URL:            "/admin-test",
+		Headers:        map[string]string{"HX-Request": "true"},
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		e.Router.GET("/admin-test", func(e *core.RequestEvent) error {
+			return e.String(200, "OK")
+		}).BindFunc(RequireAppAdmin)
+		player := makeUser(tb, app, "player")
+		s.Headers["Authorization"] = authToken(tb, player)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/", res.Header.Get("HX-Redirect"))
+	}
+	s.Test(t)
+}
+
 func TestRequireAppAdmin_AdminRole_Allowed(t *testing.T) {
 	handlerReached := false
 	s := tests.ApiScenario{

@@ -151,7 +151,7 @@ func freshMatch(t *testing.T, app core.App, id string) *core.Record {
 // wires the wrong constructor, or drops a field before calling
 // notify.Notifier, still passes because both sides recompute the same
 // (possibly wrong) string.
-func assertNotified(t testing.TB, app core.App, userID string, want league.Notification) *core.Record {
+func assertNotified(t testing.TB, app core.App, userID string, want league.Notification) {
 	t.Helper()
 	recs, err := app.FindRecordsByFilter("notifications",
 		"user = {:user} && title = {:title}", "-created", 0, 0,
@@ -168,19 +168,6 @@ func assertNotified(t testing.TB, app core.App, userID string, want league.Notif
 		assert.Equal(t, want.MatchID, rec.GetString("related_match"), "notification related_match")
 		assert.Equal(t, "/match/"+want.MatchID, rec.GetString("link"), "notification link (derived from MatchID)")
 	}
-	return rec
-}
-
-// assertNotNotified asserts that userID received NO notification titled
-// title — the counterpart to assertNotified, for recipients a flow must
-// exclude.
-func assertNotNotified(t testing.TB, app core.App, userID, title string) {
-	t.Helper()
-	recs, err := app.FindRecordsByFilter("notifications",
-		"user = {:user} && title = {:title}", "", 0, 0,
-		map[string]any{"user": userID, "title": title})
-	require.NoError(t, err)
-	assert.Emptyf(t, recs, "expected no notification titled %q for user %s, got %d", title, userID, len(recs))
 }
 
 // transitionMatch is a helper that re-reads, sets status (and optional fields), saves.
@@ -632,9 +619,15 @@ func TestSchedulingReminder_UrgentLevel(t *testing.T) {
 	p1 := makePair(t, app, "ScUA")
 	p2 := makePair(t, app, "ScUB")
 
-	// recommendedBy = end (round 1/1). Set end so "now" falls in the urgent
-	// window: [recommendedBy - 1 day, recommendedBy + graceDays).
-	end := time.Now().AddDate(0, 0, 1)
+	// recommendedBy = end (round 1/1), truncated to noon UTC. The urgent
+	// window starts at recommendedBy-1-day; pin end to noon UTC *today* so
+	// that start is noon UTC yesterday — always in the past relative to
+	// "now" regardless of the wall-clock time-of-day the test happens to
+	// run at. Deriving end from time.Now().AddDate(0,0,1) flaked before
+	// noon UTC, since truncateToNoonUTC could push recommendedBy-1-day into
+	// the future relative to a pre-noon "now" (b3db747 follow-up).
+	now := time.Now().UTC()
+	end := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, time.UTC)
 	start := end.AddDate(0, -1, 0)
 	comp := makeLeagueComp(t, app, []*core.Record{p1, p2}, start, end, 1)
 	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
