@@ -1,6 +1,6 @@
 import type { Page, APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, isMobile, clickAction, navViaDrawer, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, isMobile, clickAction, navViaDrawer, leagueDate, waitForHxRedirect, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import {
   setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,
   computeExpected, PlannedMatch, PairId,
@@ -182,14 +182,14 @@ test.describe('reference navigation tour', { tag: '@tour' }, () => {
     );
     await page.locator('label[for="edit-modal"]', { hasText: 'Editar' }).click();
     await page.waitForSelector('#comp-logo-input', { state: 'visible' });
-    await page.setInputFiles('#comp-logo-input', {
-      name: 'logo.jpg',
-      mimeType: 'image/jpeg',
-      buffer: logoJpeg,
-    });
     // The upload's HX-Redirect triggers a full page load (not a Playwright
     // "navigation" event in the SPA sense) — wait for the resulting img
     // directly instead of an intermediate load-state signal.
+    await waitForHxRedirect(page, `/admin/competitions/${competitionId}`, () => page.setInputFiles('#comp-logo-input', {
+      name: 'logo.jpg',
+      mimeType: 'image/jpeg',
+      buffer: logoJpeg,
+    }));
 
     // After upload: the competition header shows the logo image (green state).
     await expect(page.locator('img[src*="/logo/competition/"]').first()).toBeVisible({ timeout: 10000 });
@@ -199,8 +199,7 @@ test.describe('reference navigation tour', { tag: '@tour' }, () => {
     await page.locator('label[for="edit-modal"]', { hasText: 'Editar' }).click();
     await page.waitForSelector('#edit-comp-name', { state: 'visible' });
     await page.fill('#edit-comp-name', `${COMP_NAME} editado`);
-    await page.locator('button[type="submit"]', { hasText: 'Guardar' }).click();
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, page.locator('button[type="submit"]', { hasText: 'Guardar' }), `/admin/competitions/${competitionId}`);
     await expect(page.locator('h1, h2, h3').filter({ hasText: `${COMP_NAME} editado` }).first()).toBeVisible({ timeout: 10000 });
     expect(page.url()).toContain(`/admin/competitions/${competitionId}`);
     expect(page.url()).not.toBe(`${new URL(page.url()).origin}/admin/competitions`);
