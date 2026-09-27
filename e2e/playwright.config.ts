@@ -7,6 +7,23 @@ import { defineConfig } from '@playwright/test';
 // `npx playwright test` directly (bypassing make e2e) falls back to 8099.
 const PORT = process.env.E2E_PORT ? Number(process.env.E2E_PORT) : 8099;
 
+// Specs whose purpose is viewport/layout coverage — everything else runs
+// once, on desktop only. The overflow-guard fixture (tap-target sizing,
+// horizontal-overflow checks) is gated by isMobileProject and runs on every
+// test regardless of file, so this list is deliberately broad: any spec
+// whose *point* is layout/responsive/tour/route coverage, not just the
+// files with "mobile" in the name.
+const MOBILE_VIEWPORT_SPECS = [
+  'navbar-360.spec.ts',
+  'responsive.spec.ts',
+  'presentation-guards.spec.ts',
+  'tour-guided.spec.ts',
+  'tour-reference.spec.ts',
+  'route-census.spec.ts',
+  'mobile-lifecycle.spec.ts',
+];
+const mobileViewportMatch = MOBILE_VIEWPORT_SPECS.map(f => new RegExp(f.replace('.', '\\.') + '$'));
+
 export default defineConfig({
   testDir: './tests',
   retries: 1,
@@ -28,7 +45,7 @@ export default defineConfig({
     },
     {
       name: 'mobile',
-      testIgnore: /z-admin-settings/,
+      testMatch: mobileViewportMatch,
       use: {
         // Samsung Galaxy S23 (owner's real device): 360×780 CSS px, DPR 3,
         // touch. Previously a generic 375×812 iPhone-ish viewport, which

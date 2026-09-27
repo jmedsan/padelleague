@@ -2,7 +2,7 @@ import { test, expect } from '../overflow-guard';
 import { loginAs, scratchMatchId, clickAndWaitForHxRedirect, PLAYER1_EMAIL, PLAYER1_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { enterScore } from '../tour-helpers';
 
-test.describe('mobile match lifecycle', () => {
+test.describe('mobile match lifecycle', { tag: '@scoring' }, () => {
   test.beforeEach(({ }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile', 'mobile-only lifecycle test');
   });

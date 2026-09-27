@@ -43,7 +43,7 @@ async function checkNoOverflow(page: import('@playwright/test').Page) {
   expect(overflow, 'page should not have horizontal overflow').toBe(false);
 }
 
-test.describe('responsive - no horizontal overflow', () => {
+test.describe('responsive - no horizontal overflow', { tag: '@presentation' }, () => {
   test('login page', async ({ page }) => {
     await page.setViewportSize(MOBILE);
     await page.goto('/login');

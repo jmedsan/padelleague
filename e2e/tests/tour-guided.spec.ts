@@ -169,7 +169,7 @@ async function gotoMatchViaCompCard(page: Page, compId: string, matchId: string)
 // Test
 // ---------------------------------------------------------------------------
 
-test.describe('guided navigation tour', () => {
+test.describe('guided navigation tour', { tag: '@tour' }, () => {
   test.describe.configure({ retries: 0 });
 
   test('complete league + playoff via home affordances (P4, P6)', async ({ page }) => {

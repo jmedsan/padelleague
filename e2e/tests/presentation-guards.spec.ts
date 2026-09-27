@@ -31,7 +31,7 @@ async function switchView(page: import('@playwright/test').Page, target: 'admin'
   await page.waitForLoadState('networkidle');
 }
 
-test.describe('R-178: presentation quality guards', () => {
+test.describe('R-178: presentation quality guards', { tag: '@presentation' }, () => {
   test('dark-mode legibility: key containers and text are visible', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 

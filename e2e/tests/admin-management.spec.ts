@@ -39,7 +39,7 @@ async function navToAdmin(page: Page, href: string): Promise<void> {
   await page.waitForLoadState('domcontentloaded');
 }
 
-test.describe('admin management', () => {
+test.describe('admin management', { tag: '@admin' }, () => {
   test('admin can view pairs page', { tag: '@smoke' }, async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await navToAdmin(page, '/admin/pairs');

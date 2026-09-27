@@ -48,7 +48,7 @@ interface MatchFixture {
   orientedScore: string;
 }
 
-test.describe('season simulation', () => {
+test.describe('season simulation', { tag: '@standings' }, () => {
   test.beforeEach(({}, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop', 'season simulation is DB-mutating; runs desktop-only');
   });

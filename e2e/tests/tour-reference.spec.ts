@@ -115,7 +115,7 @@ interface MatchFixture {
 // Test
 // ---------------------------------------------------------------------------
 
-test.describe('reference navigation tour', () => {
+test.describe('reference navigation tour', { tag: '@tour' }, () => {
   test.describe.configure({ retries: 0 });
 
   test('complete league + playoff via nav-menu navigation', async ({ page }) => {

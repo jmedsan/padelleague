@@ -4,7 +4,7 @@ export
 LOCAL_URL ?= http://127.0.0.1:8090
 OPENER ?= xdg-open
 
-.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci check e2e e2e-smoke scenario-test scenario-serve scenario-stop
+.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci check e2e e2e-bg e2e-smoke scenario-test scenario-serve scenario-stop
 
 css:
 	cd frontend && npx tailwindcss -i ../static/css/input.css -o ../static/css/styles.css --minify
@@ -106,7 +106,15 @@ check:
 		golangci-lint run $$pkgs && \
 		go test -parallel 4 $$pkgs; \
 	fi
-	$(MAKE) e2e-smoke
+	@areas=$$(scripts/changed-areas.sh); \
+	if [ -n "$$areas" ]; then \
+		echo "e2e areas: $$areas"; \
+		E2E_PORT=$$(node e2e/find-free-port.mjs) && \
+		cd e2e && E2E_PORT=$$E2E_PORT npx playwright test --grep "$$areas" --workers 4 --project desktop --project mobile; \
+	else \
+		echo "no mapped e2e area changed, falling back to @smoke"; \
+		$(MAKE) e2e-smoke; \
+	fi
 
 simulate: ## leveled-league simulation (SEASONS=100)
 	go test ./league -run TestSimulation_LeveledLeague -count=1 -v -timeout 0 \
@@ -122,7 +130,35 @@ e2e-push:
 e2e:
 	@E2E_PORT=$$(node e2e/find-free-port.mjs) && \
 	echo "Using port $$E2E_PORT" && \
-	cd e2e && E2E_PORT=$$E2E_PORT npx playwright test
+	cd e2e && E2E_PORT=$$E2E_PORT npx playwright test $(if $(AREA),--grep "@$(AREA)")
+
+# Background milestone runner: snapshots HEAD (git archive) into a temp dir so
+# it never races an in-progress edit in the working tree, builds one shared
+# binary, runs the full suite at 2 workers, and writes a summary + full log
+# to e2e/.bg-runs/<timestamp>/. Fire-and-forget — check the summary file
+# whenever convenient, no need to wait on the shell. Not part of `make ci`;
+# the owner decides when a milestone run is due.
+e2e-bg:
+	@ts=$$(date +%Y%m%d-%H%M%S); \
+	outdir=e2e/.bg-runs/$$ts; mkdir -p $$outdir; \
+	snap=$$(mktemp -d /tmp/e2e-bg-XXXX); \
+	git archive HEAD | tar -x -C $$snap; \
+	echo "snapshot: $$snap -> $$outdir"; \
+	( \
+	  cd $$snap && \
+	  go build -o padelleague . && \
+	  E2E_PORT=$$(node e2e/find-free-port.mjs) && \
+	  cd e2e && \
+	  E2E_PORT=$$E2E_PORT E2E_BINARY=$$snap/padelleague npx playwright test --workers 2 \
+	    > $(CURDIR)/$$outdir/full.log 2>&1; \
+	  code=$$?; \
+	  tail -20 $(CURDIR)/$$outdir/full.log > $(CURDIR)/$$outdir/summary.txt; \
+	  echo "exit_code=$$code" >> $(CURDIR)/$$outdir/summary.txt; \
+	  rm -rf $$snap; \
+	  echo "done: $(CURDIR)/$$outdir/summary.txt (exit $$code)" \
+	) & \
+	disown; \
+	echo "started in background, pid group left running — see $$outdir/summary.txt when done"
 
 # ~15 tests tagged @smoke, one representative per area (auth, match, thread,
 # competition, admin, search, responsive, season sim, PWA, notifications,

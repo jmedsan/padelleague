@@ -4,7 +4,7 @@ import { loginAs, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 // The mobile navbar must never overlap its own blocks: at 360px the role
 // switch is icon-only so the "Liga Dale Fuerte" wordmark keeps its full
 // width next to the hamburger and the bell.
-test('navbar blocks do not overlap at 360px on admin pages', async ({ page }) => {
+test('navbar blocks do not overlap at 360px on admin pages', { tag: '@presentation' }, async ({ page }) => {
   test.skip(!isMobile(page), 'phone-only guard');
   await page.setViewportSize({ width: 360, height: 780 });
   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);

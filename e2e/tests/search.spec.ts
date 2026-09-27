@@ -23,7 +23,7 @@ async function openSearchAndType(page: Page, testInfo: TestInfo, query: string) 
   return results;
 }
 
-test.describe('global search', () => {
+test.describe('global search', { tag: '@search' }, () => {
   test('typo search finds correct result and screenshot', { tag: '@smoke' }, async ({ page }, testInfo) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     const results = await openSearchAndType(page, testInfo, 'clasif');

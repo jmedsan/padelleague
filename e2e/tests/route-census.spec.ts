@@ -144,7 +144,7 @@ async function visitAndAssert(page: Page, path: string): Promise<void> {
 
 const census = loadCensus();
 
-test.describe('route census', () => {
+test.describe('route census', { tag: '@routes' }, () => {
   for (const route of census) {
     if (route.auth === 'none') {
       test(`anonymous: ${route.path}`, async ({ page }) => {

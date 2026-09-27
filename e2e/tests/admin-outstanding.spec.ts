@@ -8,7 +8,7 @@ import {
 
 let suToken = '';
 
-test.describe('admin outstanding matches', () => {
+test.describe('admin outstanding matches', { tag: '@admin' }, () => {
   test.describe.configure({ retries: 0 });
 
   test('admin sees a seeded pending match on the outstanding-matches page', async ({ page }) => {

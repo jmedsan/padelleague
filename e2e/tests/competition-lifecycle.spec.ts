@@ -19,7 +19,7 @@ async function suPatch(request: APIRequestContext, path: string, data: Record<st
   await suPatchBase(request, suToken(), path, data);
 }
 
-test.describe('competition lifecycle', () => {
+test.describe('competition lifecycle', { tag: '@competitions' }, () => {
   test('admin entry always redirects to the competitions dashboard', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin');

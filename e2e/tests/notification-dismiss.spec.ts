@@ -33,7 +33,7 @@ async function deleteAllExisting(page: import('@playwright/test').Page, userId: 
   }
 }
 
-test.describe('notification dismiss and history', () => {
+test.describe('notification dismiss and history', { tag: '@notifications' }, () => {
   test('desktop: dismiss via bell, badge decrements, history shows all', { tag: '@smoke' }, async ({ page }) => {
     if (isMobile(page)) { test.skip(); return; }
     test.slow(); // multiple notification creates + polls; can exceed the 30s default under worker contention

@@ -14,7 +14,7 @@ async function navToAdmin(page: Page, href: string): Promise<void> {
   await page.waitForLoadState('domcontentloaded');
 }
 
-test.describe('admin dev tools: database reset', () => {
+test.describe('admin dev tools: database reset', { tag: '@admin' }, () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await navToAdmin(page, '/admin/dev-tools');

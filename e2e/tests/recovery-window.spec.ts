@@ -9,7 +9,7 @@ import {
 
 let suToken = '';
 
-test.describe('end-of-league recovery window', () => {
+test.describe('end-of-league recovery window', { tag: '@standings' }, () => {
   test.describe.configure({ retries: 0 });
 
   test('pending match shows the recovery badge during the recovery window', { tag: '@smoke' }, async ({ page }) => {
