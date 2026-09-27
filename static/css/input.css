@@ -135,6 +135,27 @@
     font-weight: 500;
   }
 
+  /* WhatsApp contact button — WhatsApp green outline, green fill on hover.
+     The brand green #25D366 is ~1.9:1 on the light theme's base-100, so the
+     light theme uses WhatsApp's darker #128C7E (~4:1); dark keeps #25D366
+     (~9.9:1). The hovered icon takes the theme's base-100, which also clears
+     3:1 on either fill. .btn.btn-whatsapp outranks DaisyUI's .btn-outline. */
+  .btn-whatsapp {
+    --whatsapp-green: #25D366;
+  }
+  [data-theme="padel"] .btn-whatsapp {
+    --whatsapp-green: #128C7E;
+  }
+  .btn.btn-whatsapp {
+    color: var(--whatsapp-green);
+    border-color: var(--whatsapp-green);
+  }
+  .btn.btn-whatsapp:hover {
+    background-color: var(--whatsapp-green);
+    border-color: var(--whatsapp-green);
+    color: oklch(var(--b1));
+  }
+
   /* Playoff bracket connector lines — pure CSS, no SVG/JS. Each round's
      matches sit in --slot-tall slots so that a round with half as many
      matches (--slot doubling each round) lines up its cards with the

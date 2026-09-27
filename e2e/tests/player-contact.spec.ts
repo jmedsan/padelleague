@@ -45,6 +45,11 @@ test.describe('player contact', { tag: '@profile' }, () => {
     await expect(whatsapp).toHaveText('');
     await expect(email).toHaveText('');
     await expect(whatsapp.locator('svg')).toBeVisible();
+    // Default (dark) theme: WhatsApp brand green.
+    await expect(whatsapp.locator('svg')).toHaveCSS('color', 'rgb(37, 211, 102)');
+    // Light theme swaps in WhatsApp's darker green so the icon keeps 3:1 contrast.
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'padel'));
+    await expect(whatsapp.locator('svg')).toHaveCSS('color', 'rgb(18, 140, 126)');
     await expect(email.locator('svg')).toBeVisible();
     await expect(whatsapp.locator('xpath=..')).toHaveClass(/\btooltip\b/);
     await expect(whatsapp.locator('xpath=..')).toHaveAttribute('data-tip', whatsappTip);
