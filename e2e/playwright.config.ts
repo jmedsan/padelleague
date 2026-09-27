@@ -22,6 +22,7 @@ const MOBILE_VIEWPORT_SPECS = [
   'route-census.spec.ts',
   'mobile-lifecycle.spec.ts',
   'search.spec.ts',
+  'admin-edit-forms.spec.ts',
 ];
 const mobileViewportMatch = MOBILE_VIEWPORT_SPECS.map(f => new RegExp(f.replace('.', '\\.') + '$'));
 
@@ -39,7 +40,12 @@ export default defineConfig({
   projects: [
     {
       name: 'desktop',
-      testIgnore: /z-admin-settings/,
+      // admin-edit-forms exists solely to verify the 44px touch-tap-target
+      // floor (static/css/input.css's `@media (hover: none)` rule) on the
+      // real mobile viewport — that floor deliberately never applies to a
+      // mouse-capable desktop context, so running it there only reproduces
+      // expected-non-compliant sizes, not a defect.
+      testIgnore: /z-admin-settings|admin-edit-forms/,
       use: {
         viewport: { width: 1280, height: 720 },
       },
