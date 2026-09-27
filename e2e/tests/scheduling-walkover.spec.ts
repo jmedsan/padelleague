@@ -3,7 +3,7 @@ import { test, expect, checkAll } from '../overflow-guard';
 import {
   loginAs, isMobile, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, loadTestData,
   apiCreateRecord as apiCreateRecordBase, apiGetRecord as apiGetRecordBase,
-  apiListRecords as apiListRecordsBase, apiDeleteRecord as apiDeleteRecordBase,
+  apiListRecords as apiListRecordsBase, apiDeleteRecord as apiDeleteRecordBase, suPatch,
 } from '../helpers';
 import { clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect, generateFixtures } from '../tour-helpers';
 
@@ -197,6 +197,13 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
       club: 'Padel 360',
     });
 
+    // KISS complement to the escalation: a plain contact link alongside the
+    // open-arbitration panel, not a prefilled WhatsApp message. app_settings
+    // has no seeded WhatsApp number, so set one here or the link never
+    // renders and the assertion below would be checking nothing.
+    const [settings] = await apiListRecords(page.request, 'app_settings', '');
+    await suPatch(page.request, suToken, `/api/collections/app_settings/records/${settings.id}`, { contact_whatsapp: '34600111222' });
+
     // scheduling/abandonment/other categories flag the match for admin review
     // without moving it to disputed, so pairs can keep negotiating.
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
@@ -212,6 +219,8 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     expect(matchAfterReport.status).toBe('pending');
     expect(matchAfterReport.arbitration).toBe('scheduling');
     await expect(page.getByText('Arbitraje solicitado por')).toBeVisible({ timeout: 5000 });
+    const arbitrationPanel = page.getByTestId('arbitration-open-panel');
+    await expect(arbitrationPanel.getByRole('link', { name: 'WhatsApp' })).toBeVisible();
 
     // Admin closes the request from the same match page.
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
@@ -225,6 +234,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
 
     await apiDeleteRecord(page.request, 'matches', matchId);
     await apiDeleteRecord(page.request, 'competitions', compId);
+    await suPatch(page.request, suToken, `/api/collections/app_settings/records/${settings.id}`, { contact_whatsapp: '' });
   });
 
   test('playoff bracket renders at mobile viewport with Spanish round names', async ({ page, browser }, testInfo) => {

@@ -48,7 +48,7 @@ type MatchCard struct {
 
 	CarriedSets string
 
-	WhatsAppMatchMessage string // prefilled "I have a problem with match X vs Y: <link>" text
+	Contact league.ContactInfo // admin contact links, shown next to the arbitration affordance
 
 	IsMyMatch bool
 	MyTeam    int // 1 or 2; 0 if viewer is not a participant
@@ -105,8 +105,11 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 		ArbitrationBy:     playerNameIfSet(app, match.GetString("arbitration_by")),
 		CarriedSets:       match.GetString("carried_sets"),
 	}
-	c.WhatsAppMatchMessage = fmt.Sprintf("Hola, tengo un problema con el partido %s vs %s: %s/match/%s",
-		c.Pair1Name, c.Pair2Name, app.Settings().Meta.AppURL, match.Id)
+	// NewMatchCard is only ever called for an authenticated match/thread page
+	// render (never a logged-out surface), so Contact is always populated here
+	// — same registered-users-only rule as everywhere else, enforced by the
+	// fact that this path requires auth in the first place.
+	c.Contact = league.LoadContactInfo(app)
 	if viewerID != "" && !mode.Admin {
 		team, _ := league.PlayerTeam(app, viewerID, match)
 		c.MyTeam = team
