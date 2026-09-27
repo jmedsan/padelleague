@@ -170,6 +170,13 @@ e2e-failed:
 	n=$$(jq '.failedTests | length' $$last); \
 	[ "$$n" -gt 0 ] || { echo "no failures in $$last"; exit 0; }; \
 	echo "re-running $$n failures from $$last"; \
+	err=$$(mktemp); \
+	ids=$$(cd e2e && npx playwright test --list --reporter=json 2>$$err | jq -r '[.. | objects | select(has("id") and has("title")) | .id] | unique[]'); \
+	[ -n "$$ids" ] || { echo "could not list current tests:"; cat $$err; rm -f $$err; exit 1; }; \
+	rm -f $$err; \
+	stale=$$(jq -r '.failedTests[]' $$last | grep -vxF "$$ids" || true); \
+	[ -z "$$stale" ] || { echo "$$(echo "$$stale" | wc -l) of $$n recorded failures match no current test: Playwright IDs hash the title, so a spec renamed or edited since that run drops out. Re-run those by area (make e2e AREA=...):"; echo "$$stale" | sed 's/^/  /'; }; \
+	[ "$$(echo "$$stale" | grep -c .)" -lt "$$n" ] || exit 1; \
 	E2E_PORT=$$(node e2e/find-free-port.mjs) && \
 	cd e2e && E2E_PORT=$$E2E_PORT npx playwright test --last-failed --last-failed-file $(CURDIR)/$$last
 

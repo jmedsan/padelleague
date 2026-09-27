@@ -16,6 +16,16 @@ add() { [[ " $areas " == *" $1 "* ]] || areas="$areas $1"; }
 
 while IFS= read -r f; do
 	case "$f" in
+		# views/partials/* that belong to one area; cross-cutting partials
+		# (empty-state, entity-links, badges, date-picker, ...) stay unmapped.
+		views/partials/contact-links.html|views/partials/avatar-upload.html|views/partials/stats-tiles.html|views/partials/competition-stats-table.html|views/partials/result-history-section.html) add profile ;;
+		views/partials/timeline.html|views/partials/time-picker.html) add thread ;;
+		views/partials/score-input.html|views/partials/match-card.html) add scoring ;;
+		views/partials/standings-table.html) add standings ;;
+		views/partials/competition-card.html|views/partials/competition-header.html|views/partials/announcement-card.html) add competitions ;;
+		views/partials/health-item-row.html|views/partials/outstanding-match.html|views/partials/pair-flag-toggle.html|views/partials/pair-level-select.html|views/partials/penalty-entry.html) add admin ;;
+		views/partials/password-set.html|handlers/auth.go|handlers/password_reset.go) add auth ;;
+		views/partials/simple-link-row.html) add search ;;
 		views/thread*|handlers/thread*.go|handlers/match_thread*.go) add thread ;;
 		league/standings*|league/tiebreak*|handlers/*standings*) add standings ;;
 		league/leveled.go|league/rating.go|handlers/admin_pairs.go) add leveled ;;
@@ -25,8 +35,8 @@ while IFS= read -r f; do
 		handlers/*competition*|views/competition*) add competitions ;;
 		search/*|handlers/search*.go|views/*search*) add search ;;
 		notify/*|handlers/notifications*.go|views/*notification*) add notifications ;;
-		handlers/documents*.go|views/*document*) add docs ;;
-		handlers/*profile*|views/player*) add profile ;;
+		handlers/document*.go|views/*document*) add docs ;;
+		handlers/*profile*|handlers/player*.go|views/player*) add profile ;;
 		routes/routes.go) add routes ;;
 	esac
 done <<< "$changed"
