@@ -1,4 +1,4 @@
-import { mkdirSync } from 'fs';
+import { mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 
 // Set once per worker process by worker-server.ts's fixture, before any test
@@ -23,4 +23,18 @@ export function runDataDir(defaultPort: number): string {
   const dir = join(__dirname, '.test-data', String(port));
   mkdirSync(dir, { recursive: true });
   return dir;
+}
+
+// removeWorkerDataDir deletes this worker's own e2e/.test-data/<port>/, once
+// its server has been torn down — a per-worker port is never reused, so
+// nothing else will ever read that dir again. Only called for the
+// worker-server.ts fixture's own ephemeral port; scenario runs use a fixed
+// port and keep their dir across invocations (E2E_KEEP), so they don't call
+// this.
+export function removeWorkerDataDir(port: number): void {
+  try {
+    rmSync(join(__dirname, '.test-data', String(port)), { recursive: true, force: true });
+  } catch {
+    // best effort cleanup
+  }
 }
