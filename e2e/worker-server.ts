@@ -1,6 +1,6 @@
 import { test as base } from '@playwright/test';
 import { seedEnv, seedTestData } from './global-setup';
-import { setWorkerPort } from './run-dir';
+import { setWorkerPort, removeWorkerDataDir } from './run-dir';
 import { buildBinary, cleanupServer, sweepStaleTestDirs, spawnServer, processDiedMessage, type ServerHandle } from './server';
 import { dirname } from 'path';
 import { createServer } from 'net';
@@ -66,12 +66,14 @@ export const test = base.extend<{}, WorkerServerFixtures>({
       // cleanupServer for this handle — clean it up here or it leaks an
       // orphan server process + dataDir.
       await cleanupServer(handle, binaryDir);
+      removeWorkerDataDir(port);
       throw new Error(`${detail}\ncaused by: ${err}`);
     }
 
     await use(handle);
 
     await cleanupServer(handle, binaryDir);
+    removeWorkerDataDir(port);
   }, { scope: 'worker', auto: true }],
 
   // Overrides Playwright's built-in baseURL fixture (normally a static

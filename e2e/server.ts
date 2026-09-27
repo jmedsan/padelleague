@@ -2,11 +2,14 @@ import { execSync, spawn, ChildProcess } from 'child_process';
 import { mkdtempSync, openSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { runDataDir } from './run-dir';
 
 // pidFileName is written into every spawned server's data dir so a later
 // process (this run's own startup sweep, or a one-off cleanup) can tell
-// whether the server that owned a given /tmp/padelleague-test-* dir is still
-// alive, without guessing from directory age.
+// whether the server that owned a given /tmp/padelleague-test-* dir or
+// e2e/.test-data/<port>/ dir is still alive, without guessing from directory
+// age. Same file name in both locations so sweepStaleTestDirs can reuse one
+// liveness check for either.
 const PID_FILE = '.server.pid';
 
 export interface ServerHandle {
@@ -22,8 +25,6 @@ export interface ServerHandle {
 // concurrent worker's own server into one stream, which is how a real crash
 // (panic, OOM) surfaced only as an unexplained `SocketError` on the client
 // side with no way to tell which process died or why.
-// stderrRingBuffer keeps the last lines of one server's stderr, so a crash is
-// attributed to that server instead of being interleaved with every worker's.
 function stderrRingBuffer(maxLines: number): { write: (chunk: Buffer) => void; tail: () => string } {
   const lines: string[] = [];
   let carry = '';
@@ -78,6 +79,19 @@ export async function spawnServer(
     } catch {
       // best effort: sweepStaleTestDirs falls back to treating this dir as
       // stale (no readable PID) rather than never cleaning it
+    }
+    // Every caller (globalSetup's single server, scenarioSetup, the
+    // per-worker fixture) reaches spawnServer with the port it's binding, so
+    // writing this here — rather than in each call site — is the one place
+    // that can never forget it. Without it, e2e/.test-data/<port>/ has no
+    // liveness marker of its own and a stale sweep there would have nothing
+    // but directory age to go on, which is wrong for a long-lived kept-alive
+    // server (make scenario-serve) or a run that legitimately takes over an
+    // hour.
+    try {
+      writeFileSync(join(runDataDir(port), PID_FILE), String(proc.pid));
+    } catch {
+      // best effort: same fallback as above
     }
   }
 
@@ -186,35 +200,72 @@ function pidIsAlive(pid: number): boolean {
   }
 }
 
-// sweepStaleTestDirs removes /tmp/pl-* (binary copies) and
-// /tmp/padelleague-test-* (data dirs) left behind by a previous run that
-// never reached its own teardown — a run killed with SIGKILL, a closed
-// terminal, or a crash between spawnServer and cleanupServer all skip the
-// normal cleanup path. Each such dir is orphaned forever otherwise, since
-// nothing else ever revisits it (the leak that grew to ~1100 dirs / ~30GB on
-// this machine). Safe to call at the start of any run — concurrent runs on
-// this machine are never touched, and neither is a `make scenario-serve`
-// server a user has deliberately left running for a long manual session
-// (E2E_KEEP=1, no time limit): a data dir's recorded PID (written by
-// spawnServer) is trusted whenever it parses and is alive, with no age cap —
-// capping it would delete a still-running kept-alive server's data dir out
-// from under it the moment a later scenario-test/scenario-serve invocation's
-// sweep ran more than the cap after it started.
-//   - a data dir with no readable/valid PID file (predates this fix, or the
-//     write raced a crash) falls back to age: one hour comfortably exceeds
-//     any run that was ever going to reach its own teardown normally, so a
-//     dir that old with no valid PID marker is orphaned.
+// isStaleTmpDataDir applies /tmp/padelleague-test-*'s liveness rule: trust a
+// readable, valid PID file over age (no cap, so a long-running kept-alive
+// server's dir is never swept out from under it); fall back to a one-hour
+// age cap when there's no valid PID file to check. That fallback stays
+// needed here because dirs from before PID-file tracking shipped can still
+// be on disk.
+function isStaleTmpDataDir(full: string, mtimeMs: number): boolean {
+  const pid = readPid(full);
+  if (pid !== undefined) return !pidIsAlive(pid);
+  return Date.now() - mtimeMs >= 60 * 60 * 1000;
+}
+
+// isStaleTestDataDir applies e2e/.test-data/<port>/'s liveness rule: every
+// writer (spawnServer, for every caller — globalSetup, scenarioSetup, the
+// per-worker fixture) now unconditionally records its PID, so age is never
+// consulted — a dir is stale only when its recorded PID names a dead
+// process. An age fallback here would delete a still-running
+// `make scenario-serve` server's scenario.json/pid after an hour (breaking
+// `make scenario-stop`), or a concurrent run's seed.json mid-run if it
+// happens to take over an hour. A dir with no PID file at all (legacy, from
+// before this fix) is left alone — not swept — since there's nothing to
+// prove it's dead.
+function isStaleTestDataDir(full: string): boolean {
+  const pid = readPid(full);
+  return pid !== undefined && !pidIsAlive(pid);
+}
+
+function readPid(dir: string): number | undefined {
+  try {
+    const raw = readFileSync(join(dir, PID_FILE), 'utf8').trim();
+    const parsed = Number(raw);
+    // pid 0 targets the current process's own group in kill(2), not a real
+    // server — reject it along with NaN/negative so a truncated or empty PID
+    // file (e.g. a write that raced a crash) can't read as permanently "alive".
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// sweepStaleTestDirs removes /tmp/pl-* (binary copies), /tmp/padelleague-test-*
+// (data dirs), and e2e/.test-data/<port>/ (per-worker artifact dirs) left
+// behind by a previous run that never reached its own teardown — a run
+// killed with SIGKILL, a closed terminal, or a crash between spawnServer and
+// cleanupServer all skip the normal cleanup path. Each such dir is orphaned
+// forever otherwise, since nothing else ever revisits it (the /tmp leak grew
+// to ~1100 dirs / ~30GB on this machine; e2e/.test-data/ separately grew to
+// ~745 dirs since worker-server.ts's per-worker ports never repeat and
+// nothing removed the old ones after normal teardown either). Safe to call
+// at the start of any run — concurrent runs on this machine are never
+// touched, and neither is a `make scenario-serve` server a user has
+// deliberately left running for a long manual session (E2E_KEEP=1, no time
+// limit): see isStaleTmpDataDir/isStaleTestDataDir above for each tree's
+// exact liveness rule.
 //   - a binary dir has no owning long-lived process to check at all — the
 //     `go build` that created it has already exited by the time spawnServer
 //     returns, and the binary itself may then be `spawn()`ed repeatedly
-//     across a whole run — so it relies on the same age window unconditionally.
+//     across a whole run — so it relies on the one-hour age window
+//     unconditionally.
 export function sweepStaleTestDirs(): void {
   const dir = tmpdir();
   let entries: string[];
   try {
     entries = readdirSync(dir);
   } catch {
-    return;
+    entries = [];
   }
   for (const name of entries) {
     const isBinaryDir = name.startsWith('pl-');
@@ -224,28 +275,27 @@ export function sweepStaleTestDirs(): void {
     try {
       const st = statSync(full);
       if (!st.isDirectory()) continue;
-      if (isDataDir) {
-        let pid: number | undefined;
-        try {
-          const raw = readFileSync(join(full, PID_FILE), 'utf8').trim();
-          const parsed = Number(raw);
-          // pid 0 targets the current process's own group in kill(2), not a
-          // real server — reject it along with NaN/negative so a truncated
-          // or empty PID file (e.g. a write that raced a crash) can't read
-          // as permanently "alive".
-          if (Number.isInteger(parsed) && parsed > 0) pid = parsed;
-        } catch {
-          // no PID file: either mid-spawn (about to get one) or from before
-          // this fix shipped. Fall back to age below instead of skipping.
-        }
-        if (pid !== undefined) {
-          if (pidIsAlive(pid)) continue;
-        } else if (Date.now() - st.mtimeMs < 60 * 60 * 1000) {
-          continue;
-        }
-      } else if (Date.now() - st.mtimeMs < 60 * 60 * 1000) {
-        continue;
-      }
+      const stale = isDataDir ? isStaleTmpDataDir(full, st.mtimeMs) : Date.now() - st.mtimeMs >= 60 * 60 * 1000;
+      if (!stale) continue;
+      rmSync(full, { recursive: true, force: true });
+    } catch {
+      // best effort: another process may be racing us to remove/use it
+    }
+  }
+
+  const testDataRoot = join(__dirname, '.test-data');
+  let ports: string[];
+  try {
+    ports = readdirSync(testDataRoot);
+  } catch {
+    return;
+  }
+  for (const name of ports) {
+    const full = join(testDataRoot, name);
+    try {
+      const st = statSync(full);
+      if (!st.isDirectory()) continue;
+      if (!isStaleTestDataDir(full)) continue;
       rmSync(full, { recursive: true, force: true });
     } catch {
       // best effort: another process may be racing us to remove/use it
@@ -275,8 +325,6 @@ async function waitForServer(url: string, timeoutMs: number, handle: ServerHandl
 // `fetch failed`/`SocketError` at the caller) slightly before Node delivers
 // 'exit' — checking exitCode/signalCode immediately after a failed fetch can
 // read as "still alive" for a process that is, in fact, already gone.
-// hasExited waits up to graceMs for the server process to exit: a socket
-// closed by a dying server can reach the client before Node sees 'exit'.
 async function hasExited(handle: ServerHandle, graceMs: number): Promise<boolean> {
   const { process: proc } = handle;
   if (proc.exitCode !== null || proc.signalCode !== null) return true;
@@ -296,9 +344,6 @@ async function hasExited(handle: ServerHandle, graceMs: number): Promise<boolean
 // crash surfaces as "server exited with X, stderr: Y" and a live-but-wedged
 // server as "server still alive", instead of an unattributed `fetch
 // failed`/`SocketError` at the call site that happened to be mid-request.
-// processDiedMessage reports whether the server died (exit code or signal +
-// stderr tail) or is still alive, which means the failed request did not
-// come from a crash of this server.
 export async function processDiedMessage(handle: ServerHandle, when: string): Promise<string> {
   if (!(await hasExited(handle, 2000))) {
     return `server (pid ${handle.process.pid}, port ${handle.port}) is still alive ${when}`;
