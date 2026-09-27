@@ -2,7 +2,6 @@ package league
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -38,11 +37,6 @@ func UserContactInfo(user *core.Record) ContactInfo {
 // WhatsAppURL returns a wa.me chat link for an E.164 number.
 func WhatsAppURL(e164 string) string {
 	return fmt.Sprintf(whatsAppURLFormat, strings.TrimPrefix(e164, "+"))
-}
-
-// WhatsAppURLWithText returns a wa.me chat link with a prefilled message.
-func WhatsAppURLWithText(e164, msg string) string {
-	return WhatsAppURL(e164) + "?text=" + url.QueryEscape(msg)
 }
 
 // MailtoURL returns a mailto: link for an email address.

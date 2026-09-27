@@ -1,22 +1,19 @@
 {{/* contactButtons — WhatsApp + Email buttons for one ContactInfo (the
-     league admin's or a player's). Optional WhatsAppMessage prefills the
-     WhatsApp chat. Renders nothing when both links are empty. */}}
+     league admin's or a player's). Renders nothing when both links are
+     empty. */}}
 {{define "contactButtons"}}
 {{if or .Contact.Phone .Contact.Email}}
 <div class="flex flex-wrap gap-2">
-    {{if .Contact.Phone}}<a href="{{if .WhatsAppMessage}}{{whatsappURLText .Contact.Phone .WhatsAppMessage}}{{else}}{{whatsappURL .Contact.Phone}}{{end}}" target="_blank" rel="noopener" class="btn btn-sm btn-outline">WhatsApp</a>{{end}}
+    {{if .Contact.Phone}}<a href="{{whatsappURL .Contact.Phone}}" target="_blank" rel="noopener" class="btn btn-sm btn-outline">WhatsApp</a>{{end}}
     {{if .Contact.Email}}<a href="{{mailtoURL .Contact.Email}}" class="btn btn-sm btn-outline">Email</a>{{end}}
 </div>
 {{end}}
 {{end}}
 
 {{/* contactLinksInline — bare "WhatsApp · email" links, no wrapping element.
-     Used inside a caller-owned <p>/<li> alongside other text. Optional
-     WhatsAppMessage prefills the WhatsApp link (problem-state surfaces). */}}
+     Used inside a caller-owned <p>/<li> alongside other text. */}}
 {{define "contactLinksInline"}}
-{{$waURL := ""}}
-{{if .Contact.Phone}}{{if .WhatsAppMessage}}{{$waURL = whatsappURLText .Contact.Phone .WhatsAppMessage}}{{else}}{{$waURL = whatsappURL .Contact.Phone}}{{end}}{{end}}
-{{if .Contact.Phone}}<a href="{{$waURL}}" target="_blank" rel="noopener" class="link link-hover">WhatsApp</a>{{end}}{{if and .Contact.Phone .Contact.Email}} ·{{end}}{{if .Contact.Email}} <a href="{{mailtoURL .Contact.Email}}" class="link link-hover">{{.Contact.Email}}</a>{{end}}
+{{if .Contact.Phone}}<a href="{{whatsappURL .Contact.Phone}}" target="_blank" rel="noopener" class="link link-hover">WhatsApp</a>{{end}}{{if and .Contact.Phone .Contact.Email}} ·{{end}}{{if .Contact.Email}} <a href="{{mailtoURL .Contact.Email}}" class="link link-hover">{{.Contact.Email}}</a>{{end}}
 {{end}}
 
 {{/* contactLinks — the ONE "contact the admin" component, fed by .Contact
