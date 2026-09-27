@@ -20,7 +20,7 @@ test.describe('player contact', { tag: '@profile' }, () => {
     await suPatch(request, `/api/collections/users/records/${data.player2.id}`, { phone: '' });
   });
 
-  test('player reaches another player\'s profile and sees icon contact links naming the number/address', async ({ page, request }) => {
+  test('player reaches another player\'s profile and sees icon contact links labeled with the number/address', async ({ page, request }) => {
     const data = loadTestData();
     await suPatch(request, `/api/collections/users/records/${data.player2.id}`, { phone: '+34612345678' });
 
@@ -35,10 +35,10 @@ test.describe('player contact', { tag: '@profile' }, () => {
     await page.waitForURL(`**/player/${data.player2.id}`);
 
     const contact = page.locator('[data-testid="player-contact"]');
-    const whatsappTip = 'WhatsApp: +34612345678';
-    const emailTip = `Email: ${data.player2.email}`;
-    const whatsapp = contact.getByRole('link', { name: whatsappTip, exact: true });
-    const email = contact.getByRole('link', { name: emailTip, exact: true });
+    const whatsappLabel = 'WhatsApp: +34612345678';
+    const emailLabel = `Email: ${data.player2.email}`;
+    const whatsapp = contact.getByRole('link', { name: whatsappLabel, exact: true });
+    const email = contact.getByRole('link', { name: emailLabel, exact: true });
     await expect(whatsapp).toHaveAttribute('href', 'https://wa.me/34612345678');
     await expect(email).toHaveAttribute('href', `mailto:${data.player2.email}`);
     // Icon-only: the SVG is the visible content, no text label.
@@ -51,10 +51,8 @@ test.describe('player contact', { tag: '@profile' }, () => {
     await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'padel'));
     await expect(whatsapp.locator('svg')).toHaveCSS('color', 'rgb(18, 140, 126)');
     await expect(email.locator('svg')).toBeVisible();
-    await expect(whatsapp.locator('xpath=..')).toHaveClass(/\btooltip\b/);
-    await expect(whatsapp.locator('xpath=..')).toHaveAttribute('data-tip', whatsappTip);
-    await expect(email.locator('xpath=..')).toHaveClass(/\btooltip\b/);
-    await expect(email.locator('xpath=..')).toHaveAttribute('data-tip', emailTip);
+    // The icons speak for themselves: no hover tooltip (owner, 2026-09-27).
+    await expect(contact.locator('.tooltip')).toHaveCount(0);
   });
 
   test('participant sees exactly the rival pair\'s contacts, never the partner\'s or their own', async ({ page, request }, testInfo) => {
