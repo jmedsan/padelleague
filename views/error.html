@@ -6,7 +6,7 @@
         <span>{{.ErrorMessage}}</span>
     </div>
     {{if or .Contact.Phone .Contact.Email}}
-    <p class="text-sm opacity-50 mt-3">¿Sigue el problema? {{template "contactLinksInline" (dict "Contact" .Contact)}}</p>
+    <p class="text-sm mt-3"><span class="opacity-50">¿Sigue el problema?</span> {{template "contactLinksInline" (dict "Contact" .Contact)}}</p>
     {{end}}
     <a href="/" class="btn btn-ghost mt-4">Volver al inicio</a>
 </div>

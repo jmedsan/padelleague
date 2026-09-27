@@ -83,7 +83,7 @@
         <span>Arbitraje solicitado por {{.ArbitrationBy}} — {{.ArbitrationLabel}}{{if .DisputeNotes}}: {{.DisputeNotes}}{{end}}</span>
     </div>
     {{if and (not .Mode.Admin) (or .Contact.Phone .Contact.Email)}}
-    <p class="text-sm opacity-60 mt-1">Mientras se resuelve, también puedes escribir a {{template "contactLinksInline" (dict "Contact" .Contact)}}</p>
+    <p class="text-sm mt-1"><span class="opacity-60">Mientras se resuelve, también puedes escribir a</span> {{template "contactLinksInline" (dict "Contact" .Contact)}}</p>
     {{end}}
     {{if and .Mode.Admin .Mode.Editable}}
     <form hx-post="/match/{{.Match.Id}}/arbitration/close" hx-target="body" hx-confirm="¿Cerrar este arbitraje?" data-confirm-ok="Cerrar" class="mt-2">
