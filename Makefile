@@ -162,10 +162,10 @@ e2e-bg:
 	echo "started in background, pid group left running — see $$outdir/summary.txt when done"
 
 # Re-run only the tests that failed in the most recent run (local `make e2e`
-# or the newest `make e2e-bg` milestone, whichever is newer). Fix every failure
+# or the newest `make e2e-bg` milestone, whichever is newer; LAST=<file> picks one). Fix every failure
 # first, then verify them all in this one run.
 e2e-failed:
-	@last=$$(ls -t e2e/test-results/.last-run.json e2e/.bg-runs/*/last-run.json 2>/dev/null | head -1); \
+	@last=$${LAST:-$$(ls -t e2e/test-results/.last-run.json e2e/.bg-runs/*/last-run.json 2>/dev/null | head -1)}; \
 	[ -n "$$last" ] || { echo "no previous e2e run recorded"; exit 1; }; \
 	n=$$(jq '.failedTests | length' $$last); \
 	[ "$$n" -gt 0 ] || { echo "no failures in $$last"; exit 0; }; \
