@@ -62,9 +62,44 @@ func TestLogoUpload_NonAdminRejected(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
-		// RequireAppAdmin always redirects non-admins to "/" — it has no
-		// HTMX-aware inline-message path (middleware/admin.go).
+		// RequireAppAdmin redirects non-admins to "/" — a plain 302 for a
+		// regular request (middleware.redirectOrHX); see
+		// TestLogoUpload_NonAdminRejected_HXRedirect for the HTMX case.
 		assert.Equal(tb, "/", res.Header.Get("Location"))
+		comp, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.Empty(tb, comp.GetString("logo"))
+	}
+	s.Test(t)
+}
+
+func TestLogoUpload_NonAdminRejected_HXRedirect(t *testing.T) {
+	t.Parallel()
+	var compID string
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "POST /admin/competitions/{id}/logo as a non-admin, HTMX request gets HX-Redirect",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "LogoHX A")
+		p2 := handlers.MakePairTB(tb, app, "LogoHX B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/logo"
+
+		user := handlers.MakeUserTB(tb, app, "Regular Player HX", "")
+		body, contentType := multipartLogoBody(tb, testPNGBytes(tb, 100, 100))
+		s.Body = body
+		hdrs := handlers.AuthHeaders(tb, user)
+		hdrs["Content-Type"] = contentType
+		hdrs["HX-Request"] = "true"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/", res.Header.Get("HX-Redirect"))
 		comp, err := app.FindRecordById("competitions", compID)
 		require.NoError(tb, err)
 		assert.Empty(tb, comp.GetString("logo"))

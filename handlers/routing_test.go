@@ -13,8 +13,11 @@ package handlers_test
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -33,26 +36,73 @@ import (
 	"padelleague/search"
 )
 
+// sentPush is one push request the fake transport recorded, captured after
+// webpush encrypts the payload — the same shape a real browser push service
+// would receive.
+type sentPush struct {
+	Endpoint string
+	Body     []byte
+}
+
+// fakePushTransport stands in for the network so handlers tests never dial a
+// subscription's real endpoint host (e.g. the fixture value
+// "https://push.example.com/sub", which resolves nowhere). It records every
+// request and answers 201, matching a healthy push service.
+type fakePushTransport struct {
+	mu   sync.Mutex
+	sent []sentPush
+}
+
+func (f *fakePushTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	body, _ := io.ReadAll(req.Body)
+	f.mu.Lock()
+	f.sent = append(f.sent, sentPush{Endpoint: req.URL.String(), Body: body})
+	f.mu.Unlock()
+	return &http.Response{
+		StatusCode: http.StatusCreated,
+		Body:       io.NopCloser(strings.NewReader("")),
+		Header:     make(http.Header),
+		Request:    req,
+	}, nil
+}
+
+// Sent returns the pushes recorded so far, safe to call once the request
+// round trip (and setupProductionRoutes' post-request WaitPush) has returned.
+func (f *fakePushTransport) Sent() []sentPush {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]sentPush(nil), f.sent...)
+}
+
+// productionRoutes is what setupProductionRoutes wires up, for tests that
+// need more than route registration: seeding the search index (SearchIndex)
+// or asserting on delivered web push requests (Push).
+type productionRoutes struct {
+	SearchIndex *search.Index
+	Push        *fakePushTransport
+}
+
 // setupProductionRoutes registers every route through routes.Register — the
 // real production entry point — with a test-constructed routes.Deps. Devtools
 // routes are enabled (AppDevTools: true, AppEnv: "test") so tests can exercise
 // them; individual tests that need devtools disabled construct their own Deps.
-// It returns the *search.Index wired into the routes, so tests that need to
-// seed search results (seedSearchIndex, ix.Replace) act on the same instance
-// the handler actually queries.
 //
 // The notifier is built with real VAPID keys, not empty strings: routes.Register
 // only wires /push/subscribe and /push/unsubscribe when push.Enabled() is true
 // (mirroring production, which skips them without configured VAPID keys), so
 // empty keys here would silently 404 every push test instead of exercising the
-// real route.
-func setupProductionRoutes(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) *search.Index {
+// real route. Because the keys are real, deliver() actually attempts to send
+// to a subscription's endpoint — routed through fakePushTransport instead of
+// the network, so a push-eligible notification never dials a real host.
+func setupProductionRoutes(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) *productionRoutes {
 	tb.Helper()
 	viewsFS := os.DirFS("..")
 	r := render.New(viewsFS, "", true)
 	vapidPrivate, vapidPublic, err := webpush.GenerateVAPIDKeys()
 	require.NoError(tb, err)
 	notifier := notify.NewNotifier(app, vapidPublic, vapidPrivate)
+	push := &fakePushTransport{}
+	notifier.SetHTTPClient(&http.Client{Transport: push})
 	svc := league.New(app, notifier)
 	ix := &search.Index{}
 	routes.Register(e, routes.Deps{
@@ -81,7 +131,7 @@ func setupProductionRoutes(tb testing.TB, app *tests.TestApp, e *core.ServeEvent
 		},
 		Priority: 9999,
 	})
-	return ix
+	return &productionRoutes{SearchIndex: ix, Push: push}
 }
 
 func makeInvitation(t testing.TB, app core.App, expiresAt time.Time) *core.Record {
@@ -125,7 +175,7 @@ func makeNotification(t testing.TB, app core.App, userID, title, body string, re
 // notify.Notifier, still passes because both sides recompute the same
 // (possibly wrong) string. Exactly-one (not "at least one, take the newest")
 // catches a duplicate send that a >=1 check would silently let through.
-func assertNotified(t testing.TB, app core.App, userID string, want league.Notification) *core.Record {
+func assertNotified(t testing.TB, app core.App, userID string, want league.Notification) {
 	t.Helper()
 	recs, err := app.FindRecordsByFilter("notifications",
 		"user = {:user} && title = {:title}", "-created", 0, 0,
@@ -142,7 +192,6 @@ func assertNotified(t testing.TB, app core.App, userID string, want league.Notif
 		assert.Equal(t, want.MatchID, rec.GetString("related_match"), "notification related_match")
 		assert.Equal(t, "/match/"+want.MatchID, rec.GetString("link"), "notification link (derived from MatchID)")
 	}
-	return rec
 }
 
 // assertNotNotified asserts that userID received NO notification titled

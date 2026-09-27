@@ -35,21 +35,26 @@ func SetAuthCookie(e *core.RequestEvent, token string) {
 // profiles to /profile/complete, handling both regular and HTMX requests.
 func RequireAuth(e *core.RequestEvent) error {
 	if e.Auth == nil {
-		if e.Request.Header.Get("HX-Request") == "true" {
-			e.Response.Header().Set("HX-Redirect", "/login")
-			return e.NoContent(http.StatusNoContent)
-		}
-		return e.Redirect(http.StatusFound, "/login")
+		return redirectOrHX(e, "/login")
 	}
 	if e.Auth.GetString("display_name") == "" &&
 		e.Request.URL.Path != "/profile/complete" {
-		if e.Request.Header.Get("HX-Request") == "true" {
-			e.Response.Header().Set("HX-Redirect", "/profile/complete")
-			return e.NoContent(http.StatusNoContent)
-		}
-		return e.Redirect(http.StatusFound, "/profile/complete")
+		return redirectOrHX(e, "/profile/complete")
 	}
 	return e.Next()
+}
+
+// redirectOrHX redirects e to url: a plain 302 for a regular request, or a
+// 204 + HX-Redirect for an HTMX one — htmx follows a 302 transparently and
+// swaps the target page's HTML into the current fragment slot instead of
+// navigating, so every guard that can reject an HTMX request must answer
+// this way instead of a bare e.Redirect.
+func redirectOrHX(e *core.RequestEvent, url string) error {
+	if e.Request.Header.Get("HX-Request") == "true" {
+		e.Response.Header().Set("HX-Redirect", url)
+		return e.NoContent(http.StatusNoContent)
+	}
+	return e.Redirect(http.StatusFound, url)
 }
 
 // ClearAuthCookie removes the pb_auth cookie.

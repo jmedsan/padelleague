@@ -919,8 +919,8 @@ func TestAdminOverrideNoChanges(t *testing.T) {
 
 func TestAdminOverrideNonAdmin(t *testing.T) {
 	t.Parallel()
-	// RequireAppAdmin always redirects non-admins to "/" — it has no
-	// HTMX-aware inline-message path (middleware/admin.go).
+	// RequireAppAdmin redirects non-admins to "/" — a plain 302 for a regular
+	// request, or 204 + HX-Redirect for HTMX (middleware.redirectOrHX).
 	s := &tests.ApiScenario{
 		TestAppFactory: handlers.TestAppFactory,
 		Name:           "POST /match/{id}/admin-override as player redirects home",
@@ -943,6 +943,35 @@ func TestAdminOverrideNonAdmin(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		assert.Equal(tb, "/", res.Header.Get("Location"))
+	}
+	s.Test(t)
+}
+
+func TestAdminOverrideNonAdmin_HXRedirect(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "POST /match/{id}/admin-override as player, HTMX request gets HX-Redirect",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "OvrNoAdmHX A")
+		p2 := handlers.MakePairTB(tb, app, "OvrNoAdmHX B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		s.URL = "/match/" + m.Id + "/admin-override"
+		s.Body = strings.NewReader("scores=6-3+6-4")
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		hdrs := handlers.AuthHeaders(tb, user)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		hdrs["HX-Request"] = "true"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/", res.Header.Get("HX-Redirect"))
 	}
 	s.Test(t)
 }

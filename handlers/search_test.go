@@ -34,7 +34,7 @@ func TestSearch_PlayerExcludesAdminEntry(t *testing.T) {
 		ExpectedContent: []string{"Public Player Page"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		ix = setupProductionRoutes(tb, app, e)
+		ix = setupProductionRoutes(tb, app, e).SearchIndex
 		user := handlers.MakeUserTB(tb, app, "Search Player", "")
 		seedSearchIndex(tb, app, ix)
 		s.URL = "/search?q=panel"
@@ -59,7 +59,7 @@ func TestSearch_AdminSeesAdminEntry(t *testing.T) {
 		ExpectedContent: []string{"Admin Secret Panel"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		ix = setupProductionRoutes(tb, app, e)
+		ix = setupProductionRoutes(tb, app, e).SearchIndex
 		user := handlers.MakeUserTB(tb, app, "Search Admin", "")
 		user.Set("roles", []string{"admin"})
 		require.NoError(tb, app.Save(user))
@@ -81,7 +81,7 @@ func TestSearch_AdminAsPlayerExcludesAdminEntry(t *testing.T) {
 		ExpectedContent: []string{"Public Player Page"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		ix = setupProductionRoutes(tb, app, e)
+		ix = setupProductionRoutes(tb, app, e).SearchIndex
 		user := handlers.MakeUserTB(tb, app, "Admin As Player", "")
 		user.Set("roles", []string{"admin"})
 		require.NoError(tb, app.Save(user))
@@ -111,7 +111,7 @@ func TestSearch_QueryRecordedInHistory(t *testing.T) {
 	}
 	var userID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		ix = setupProductionRoutes(tb, app, e)
+		ix = setupProductionRoutes(tb, app, e).SearchIndex
 		user := handlers.MakeUserTB(tb, app, "History User", "")
 		userID = user.Id
 		seedSearchIndex(tb, app, ix)
@@ -139,7 +139,7 @@ func TestSearch_RecentSearchesPerUser(t *testing.T) {
 		ExpectedContent: []string{"mi busqueda"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		ix = setupProductionRoutes(tb, app, e)
+		ix = setupProductionRoutes(tb, app, e).SearchIndex
 		user1 := handlers.MakeUserTB(tb, app, "Recent User 1", "")
 		user2 := handlers.MakeUserTB(tb, app, "Recent User 2", "")
 		seedSearchIndex(tb, app, ix)
@@ -180,7 +180,7 @@ func TestSearch_EmptyQueryReturnsSuggestions(t *testing.T) {
 		ExpectedContent: []string{"Búsquedas recientes"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		ix = setupProductionRoutes(tb, app, e)
+		ix = setupProductionRoutes(tb, app, e).SearchIndex
 		p1 := handlers.MakePairTB(tb, app, "SugA")
 		p2 := handlers.MakePairTB(tb, app, "SugB")
 		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
@@ -211,7 +211,7 @@ func TestSearch_PlayerExcludesForeignCompEntry(t *testing.T) {
 		ExpectedContent: []string{"My Thread Message"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		ix = setupProductionRoutes(tb, app, e)
+		ix = setupProductionRoutes(tb, app, e).SearchIndex
 		p1 := handlers.MakePairTB(tb, app, "MyComp Player")
 		p2 := handlers.MakePairTB(tb, app, "OtherComp Player")
 		comp1 := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1})
@@ -247,7 +247,7 @@ func TestSearch_DraftCalendarMatchExcludedForPlayer(t *testing.T) {
 		NotExpectedContent: []string{"DraftSearch A vs DraftSearch B"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		ix = setupProductionRoutes(tb, app, e)
+		ix = setupProductionRoutes(tb, app, e).SearchIndex
 		p1 := handlers.MakePairTB(tb, app, "DraftSearch A")
 		p2 := handlers.MakePairTB(tb, app, "DraftSearch B")
 		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
@@ -276,7 +276,7 @@ func TestSearch_PublishedCalendarMatchVisibleForParticipant(t *testing.T) {
 		ExpectedContent: []string{"PubSearch A vs PubSearch B"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		ix = setupProductionRoutes(tb, app, e)
+		ix = setupProductionRoutes(tb, app, e).SearchIndex
 		p1 := handlers.MakePairTB(tb, app, "PubSearch A")
 		p2 := handlers.MakePairTB(tb, app, "PubSearch B")
 		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
@@ -305,7 +305,7 @@ func TestSearch_NoResults(t *testing.T) {
 		ExpectedContent: []string{"No se encontraron resultados"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		ix = setupProductionRoutes(tb, app, e)
+		ix = setupProductionRoutes(tb, app, e).SearchIndex
 		user := handlers.MakeUserTB(tb, app, "NoResult User", "")
 		ix.Replace([]search.Entry{})
 		s.URL = "/search?q=xyznonexistent"

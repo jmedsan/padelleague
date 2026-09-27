@@ -281,6 +281,54 @@ func TestBroadcast_FanOut(t *testing.T) {
 	s.Test(t)
 }
 
+// TestBroadcast_SendsWebPush proves deliver() actually reaches webpush for a
+// subscribed player, end to end through the real route: it seeds a
+// push_subscriptions record, triggers a notification via broadcast, and
+// asserts on what setupProductionRoutes' fake transport recorded — endpoint
+// and a non-empty encrypted body — instead of only checking the DB write.
+func TestBroadcast_SendsWebPush(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "broadcast sends a web push to a subscribed player",
+		Method:         http.MethodPost,
+		URL:            "/placeholder",
+		ExpectedStatus: 204,
+	}
+	var push *fakePushTransport
+	var p1p1ID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		push = setupProductionRoutes(tb, app, e).Push
+		admin := makeAdminUser(tb, app)
+		p1 := handlers.MakePair(tb, app, "BroadPush")
+		p1p1ID = p1.GetString("player1")
+		comp := handlers.MakeCompetition(tb, app, []*core.Record{p1})
+		s.URL = "/admin/competitions/" + comp.Id + "/broadcast"
+
+		col, err := app.FindCollectionByNameOrId("push_subscriptions")
+		require.NoError(tb, err)
+		sub := core.NewRecord(col)
+		sub.Set("user", p1p1ID)
+		sub.Set("endpoint", "https://push.example.com/sub")
+		sub.Set("p256dh", "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM")
+		sub.Set("auth", "tBHItJI5svbpez7KI4CCXg")
+		require.NoError(tb, app.Save(sub))
+
+		hdrs := handlers.AuthHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+		s.Body = strings.NewReader("title=Push+test&body=Cuerpo")
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, _ *http.Response) {
+		sent := push.Sent()
+		require.Len(tb, sent, 1, "exactly one push should reach the fake transport")
+		assert.Equal(tb, "https://push.example.com/sub", sent[0].Endpoint)
+		assert.NotEmpty(tb, sent[0].Body, "webpush encrypts the payload; the request body must not be empty")
+	}
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	s.Test(t)
+}
+
 func TestBroadcast_NotificationLinksToCompetition(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

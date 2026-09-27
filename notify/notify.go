@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
@@ -25,10 +26,12 @@ type Notifier struct {
 	delete          func(*core.Record) error
 
 	// pushWG tracks in-flight sendPush goroutines fired from deliver, so
-	// tests can drain them (WaitPush) before tearing down the app. Without
+	// callers can drain them (WaitPush) before tearing down the app. Without
 	// this, a push goroutine can still be running FindRecordsByFilter
-	// against app after a test's TestApp has closed its DB, segfaulting.
-	pushWG sync.WaitGroup
+	// against app after the app has shut down (tests) or is shutting down
+	// (production OnTerminate), segfaulting or logging into a closed DB.
+	pushWG      sync.WaitGroup
+	pushPending atomic.Int64
 }
 
 // NewNotifier creates a Notifier with the given VAPID keys for web push.
@@ -43,12 +46,40 @@ func NewNotifier(app core.App, vapidPublicKey, vapidPrivateKey string) *Notifier
 	}
 }
 
+// SetHTTPClient overrides the HTTP client used to deliver web push requests.
+// Production never calls this (the constructor's 10s-timeout client is
+// correct); tests use it to route push sends through a fake RoundTripper
+// instead of dialing a subscription's real endpoint host.
+func (n *Notifier) SetHTTPClient(c *http.Client) {
+	n.httpClient = c
+}
+
 // WaitPush blocks until every in-flight push goroutine fired by deliver has
-// finished. Production has no caller for this (the process outlives its
-// pushes); tests call it before asserting or before the TestApp closes, so a
-// background sendPush can never observe a torn-down app.
+// finished. Tests call it before asserting or before the TestApp closes, so
+// a background sendPush can never observe a torn-down app.
 func (n *Notifier) WaitPush() {
 	n.pushWG.Wait()
+}
+
+// WaitPushTimeout blocks until every in-flight push goroutine fired by
+// deliver has finished, or timeout elapses, whichever comes first. It
+// returns the number of pushes still in flight when it returned (0 means
+// every push finished in time). Called from hooks.Register's OnTerminate so
+// shutdown doesn't hang forever on a stalled webpush.SendNotification call,
+// but still gives in-flight pushes a bounded chance to complete instead of
+// being cut off immediately.
+func (n *Notifier) WaitPushTimeout(timeout time.Duration) int {
+	done := make(chan struct{})
+	go func() {
+		n.pushWG.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return 0
+	case <-time.After(timeout):
+		return int(n.pushPending.Load())
+	}
 }
 
 // PushEnabled reports whether VAPID keys are configured for web push.
@@ -117,8 +148,10 @@ func (n *Notifier) deliver(notifCol *core.Collection, user *core.Record, notif l
 	}
 	if PushChannelEnabled(user) {
 		n.pushWG.Add(1)
+		n.pushPending.Add(1)
 		go func() {
 			defer n.pushWG.Done()
+			defer n.pushPending.Add(-1)
 			n.sendPush(user.Id, notif.Title, notif.Body, link)
 		}()
 	}
