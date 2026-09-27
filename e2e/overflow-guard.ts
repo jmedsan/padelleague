@@ -258,7 +258,15 @@ function findOverlappingNavbarSiblings(page: Page): Promise<string[]> {
 // which are recorded continuously — see below) and returns one combined
 // violation list, prefixed per navigation so a failure names which guard
 // and which page.
-async function checkAll(page: Page, isMobileProject: boolean): Promise<string[]> {
+//
+// Exported for specs that open a manually-created second `browser.newContext`
+// page instead of the fixture's own `page` (e.g. to compare two viewports
+// side by side in one test) — that page is never wrapped by the `pageGuards`
+// auto-fixture below, since the fixture only instruments the `page` it's
+// handed. Call this directly on such a page, with hasTouch true to match a
+// real phone, to get the same tap-target coverage a fixture page gets for
+// free (scheduling-walkover.spec.ts's playoff-bracket mobile check).
+export async function checkAll(page: Page, isMobileProject: boolean): Promise<string[]> {
   const url = page.url();
   const violations: string[] = [];
   const overflow = await findOverflowOffenders(page).catch(() => []);
