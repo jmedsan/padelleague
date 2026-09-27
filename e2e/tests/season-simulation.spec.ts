@@ -302,10 +302,8 @@ async function createLeagueCompetition(page: Page): Promise<string> {
   await dialog.locator('input[name="play_twice"]').check();
   await dialog.locator('input[name="active"]').check();
 
-  await Promise.all([
-    page.waitForResponse(resp => resp.url().includes('/admin/competitions') && resp.status() < 400),
-    dialog.locator('button[type="submit"]').click(),
-  ]);
+  // admin_competitions.go's create handler redirects to /admin/competitions/{id}.
+  await clickAndWaitForHxRedirect(page, dialog.locator('button[type="submit"]'), /^\/admin\/competitions\/[^/]+$/);
 
   await page.goto('/admin/competitions');
   await expect(page.getByText(COMP_NAME).first()).toBeVisible({ timeout: 10000 });
@@ -359,10 +357,8 @@ async function createPlayoffCompetition(page: Page): Promise<string> {
   await dialog.locator('input[name="name"]').fill(name);
   await dialog.locator('select[name="type"]').selectOption('playoff');
   await dialog.locator('input[name="active"]').check();
-  await Promise.all([
-    page.waitForResponse(resp => resp.url().includes('/admin/competitions') && resp.status() < 400),
-    dialog.locator('button[type="submit"]').click(),
-  ]);
+  // admin_competitions.go's create handler redirects to /admin/competitions/{id}.
+  await clickAndWaitForHxRedirect(page, dialog.locator('button[type="submit"]'), /^\/admin\/competitions\/[^/]+$/);
   await page.goto('/admin/competitions');
   await expect(page.getByText(name).first()).toBeVisible({ timeout: 10000 });
   const href = await page.locator(`a:has-text("${name}")`).first().getAttribute('href');

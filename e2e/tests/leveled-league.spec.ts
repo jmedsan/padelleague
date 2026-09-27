@@ -3,7 +3,7 @@ import { loginAs, suGet, suPatch, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD } from
 import { uniqueSuffix, setPlayerPassword } from '../season-helpers';
 import {
   createPlayer, createPair, addPairToCompetition,
-  generateFixtures, clickAndWaitForHxRedirect,
+  generateFixtures, clickAndWaitForHxRedirect, waitForHxRedirect,
   lookupPlayerId,
 } from '../tour-helpers';
 
@@ -144,10 +144,10 @@ test.describe('leveled league', () => {
     for (let i = 0; i < pairIds.length; i++) {
       const levelSelect = page.locator(`form[hx-post="/admin/pairs/${pairIds[i]}/level"] select:visible`).first();
       await expect(levelSelect).toBeEnabled({ timeout: 5000 });
-      const nav = page.waitForEvent('framenavigated', { timeout: 15000 });
-      await levelSelect.selectOption(LEVELS[i % LEVELS.length]);
-      await nav;
-      await page.waitForLoadState('domcontentloaded');
+      // admin_pairs.go's SetLevel redirects back to the competition detail page.
+      await waitForHxRedirect(page, `/admin/competitions/${competitionId}`, async () => {
+        await levelSelect.selectOption(LEVELS[i % LEVELS.length]);
+      });
     }
     await expect(
       page.locator(`form[hx-post="/admin/pairs/${pairIds[0]}/level"] select:visible`).first(),
