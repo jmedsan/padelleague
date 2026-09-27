@@ -39,13 +39,18 @@
      button` covers the mobile drawer's nav links AND its plain-button rows
      (theme toggle, logout) — both render as `<li><a>`/`<li><button>` with
      no DaisyUI size class, so they get the same 41px-ish default. See
-     route-census pilot findings, e2e/tests/route-census.spec.ts. */
+     route-census pilot findings, e2e/tests/route-census.spec.ts.
+     `.link-row` is the same floor for single-line nav rows that render
+     OUTSIDE a `.menu` list — simpleLinkRow (search zero-query panel),
+     the search-result rows, and the recent-search buttons in
+     search-results.html — one class instead of a per-element
+     min-h-[44px] utility repeated at every call site. */
   @media (hover: none) {
     .btn-sm, .input-sm, .select-sm, .tab, .file-input-sm {
       height: auto !important;
       min-height: 2.75rem !important;
     }
-    .btn, .input, .select, .menu li > a, .menu li > button {
+    .btn, .input, .select, .menu li > a, .menu li > button, .link-row {
       min-height: 2.75rem;
     }
     .btn-circle, .btn-circle.btn-sm {
