@@ -4,6 +4,7 @@ import {
   loginAs, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, loadTestData, leagueDate,
   apiCreateRecord as apiCreateRecordBase, apiGetRecord as apiGetRecordBase,
   apiListRecords as apiListRecordsBase, apiDeleteRecord as apiDeleteRecordBase,
+  clickConfirmAndWaitForHxRedirect,
 } from '../helpers';
 
 let suToken = '';
@@ -75,12 +76,7 @@ test.describe('end-of-league recovery window', () => {
     // hx-confirm is intercepted by static/js/confirm.js's custom
     // #confirm-modal, not the native window.confirm() — the request only
     // fires once #confirm-ok is clicked.
-    await page.locator('[data-testid="finalize-league"]').click();
-    await Promise.all([
-      page.waitForResponse(resp => resp.url().includes(`/admin/competitions/${compId}/finalize`)),
-      page.locator('#confirm-ok').click(),
-    ]);
-    await page.waitForLoadState('networkidle');
+    await clickConfirmAndWaitForHxRedirect(page, page.locator('[data-testid="finalize-league"]'), `/admin/competitions/${compId}`);
 
     const comp = await apiGetRecord(page.request, 'competitions', compId);
     expect(comp.finalized).toBe(true);

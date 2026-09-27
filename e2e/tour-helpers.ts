@@ -195,11 +195,13 @@ export async function markAllPairsPaid(page: Page): Promise<void> {
   // The button carries hx-confirm, intercepted by static/js/confirm.js's
   // custom #confirm-modal — the request only fires once #confirm-ok is
   // clicked (see scheduling-walkover.spec.ts for the same pattern).
-  await btn.first().click();
-  await Promise.all([
-    page.waitForResponse((r) => r.url().includes('/payment-all')),
-    page.locator('#confirm-ok').click(),
-  ]);
+  // competition_payments.go's TogglePaymentAll redirects to /admin/competitions/{id}.
+  const compId = page.url().split('/admin/competitions/')[1];
+  await clickConfirmAndWaitForHxRedirect(
+    page,
+    btn.first(),
+    compId ? `/admin/competitions/${compId}` : /^\/admin\/competitions\/[^/]+$/,
+  );
   await expect(btn).toHaveCount(0);
 }
 

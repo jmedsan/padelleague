@@ -263,9 +263,8 @@ test.describe('competition lifecycle', () => {
       : page.locator('#notif-dropdown');
     const notifRow = dropdown.locator('a', { hasText: 'Calendario publicado' });
     await expect(notifRow).toBeVisible({ timeout: 5000 });
-    await notifRow.click();
+    await clickAndWaitForHxRedirect(page, notifRow, `/competition/${comp.id}`);
 
-    await page.waitForLoadState('domcontentloaded');
     await expect(page).toHaveURL(new RegExp(`/competition/${comp.id}$`));
     await expect(page.locator('input[aria-label^="Jornadas"]')).toBeVisible();
     await page.locator('input[aria-label^="Jornadas"]').click();

@@ -5,7 +5,7 @@ import {
   apiCreateRecord as apiCreateRecordBase, apiGetRecord as apiGetRecordBase,
   apiListRecords as apiListRecordsBase, apiDeleteRecord as apiDeleteRecordBase,
 } from '../helpers';
-import { clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect } from '../tour-helpers';
+import { clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect, generateFixtures } from '../tour-helpers';
 
 let suToken = '';
 
@@ -198,10 +198,7 @@ test.describe('scheduling, walkover & bracket', () => {
     // Generate fixtures via admin UI
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto(`/admin/competitions/${compId}`);
-    const genNav = page.waitForEvent('framenavigated', { timeout: 15000 });
-    await page.locator('button:has-text("Generar calendario")').click();
-    await genNav;
-    await page.waitForLoadState('domcontentloaded');
+    await generateFixtures(page);
     // The generated bracket is a draft until published; players see nothing before.
     await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'), `/admin/competitions/${compId}`);
 
