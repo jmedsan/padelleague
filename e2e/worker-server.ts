@@ -1,7 +1,7 @@
 import { test as base } from '@playwright/test';
 import { seedEnv, seedTestData } from './global-setup';
 import { setWorkerPort } from './run-dir';
-import { buildBinary, cleanupServer, sweepStaleTestDirs, spawnServer, type ServerHandle } from './server';
+import { buildBinary, cleanupServer, sweepStaleTestDirs, spawnServer, processDiedMessage, type ServerHandle } from './server';
 import { dirname } from 'path';
 import { createServer } from 'net';
 
@@ -49,15 +49,28 @@ export const test = base.extend<{}, WorkerServerFixtures>({
     setWorkerPort(port);
 
     const binary = await sharedBinary();
-    const handle = await spawnServer(port, { extraEnv: seedEnv(), binary });
-    await seedTestData(handle.baseURL, port);
-
-    await use(handle);
-
     // Only this worker's own per-worker build (not a shared E2E_BINARY path,
     // built once up front by `make e2e` and reused by every worker) is this
     // teardown's to remove.
     const binaryDir = process.env.E2E_BINARY ? undefined : dirname(binary);
+    const handle = await spawnServer(port, { extraEnv: seedEnv(), binary });
+    try {
+      await seedTestData(handle.baseURL, port);
+    } catch (err) {
+      // Surface why the server is unreachable — dead (exit code/signal +
+      // stderr) or still alive (the signature of a *different* server having
+      // answered) — instead of letting the bare fetch error (e.g.
+      // `SocketError: other side closed`) stand unattributed.
+      const detail = await processDiedMessage(handle, 'during seedTestData');
+      // A failed seed never runs `use(handle)`, so nothing else will call
+      // cleanupServer for this handle — clean it up here or it leaks an
+      // orphan server process + dataDir.
+      await cleanupServer(handle, binaryDir);
+      throw new Error(`${detail}\ncaused by: ${err}`);
+    }
+
+    await use(handle);
+
     await cleanupServer(handle, binaryDir);
   }, { scope: 'worker', auto: true }],
 
