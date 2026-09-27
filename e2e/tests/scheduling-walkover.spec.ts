@@ -1,5 +1,5 @@
 import type { Page, APIRequestContext } from '@playwright/test';
-import { test, expect } from '../overflow-guard';
+import { test, expect, checkAll } from '../overflow-guard';
 import {
   loginAs, isMobile, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, loadTestData,
   apiCreateRecord as apiCreateRecordBase, apiGetRecord as apiGetRecordBase,
@@ -263,8 +263,12 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     // The generated bracket is a draft until published; players see nothing before.
     await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'), `/admin/competitions/${compId}`);
 
-    // Open at 375px mobile viewport
-    const mobileContext = await browser.newContext({ viewport: { width: 375, height: 812 } });
+    // Open at 375px mobile viewport. hasTouch matches the mobile project's
+    // own S23 emulation (playwright.config.ts) so `@media (hover: none)`
+    // engages here exactly as it would on a real phone — without it, this
+    // context renders as a touchless desktop regardless of its narrow
+    // viewport, and any tap-target regression on this page goes unnoticed.
+    const mobileContext = await browser.newContext({ viewport: { width: 375, height: 812 }, hasTouch: true });
     const mobilePage = await mobileContext.newPage();
     await loginAs(mobilePage, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await mobilePage.goto(`/competition/${compId}`);
@@ -277,6 +281,12 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     const bracketCards = mobilePage.locator('.card.shadow-sm.border');
     const cardCount = await bracketCards.count();
     expect(cardCount).toBeGreaterThanOrEqual(3);
+
+    // This page bypasses the pageGuards auto-fixture (it's a manually
+    // created context, not the fixture's own `page`), so run the same
+    // DOM-snapshot guards explicitly instead of losing coverage silently.
+    const violations = await checkAll(mobilePage, true);
+    expect(violations, 'page guard violations (mobile bracket context)').toEqual([]);
 
     await mobilePage.screenshot({ path: '/tmp/bracket-mobile-375.png', fullPage: true });
     await mobileContext.close();
