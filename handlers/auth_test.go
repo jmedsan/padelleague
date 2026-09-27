@@ -602,3 +602,42 @@ func TestRegisterSubmitPasswordMismatch(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestPrivacyPage_DescribesPhoneAndEmailVisibility(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "GET /privacy explains phone/email visibility to other players",
+		Method:         http.MethodGet,
+		URL:            "/privacy",
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			"Visibilidad del teléfono y el email",
+			"los jugadores registrados en la liga",
+		},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+	}
+	s.Test(t)
+}
+
+func TestRegisterPage_ExplainsPhoneVisibility(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "GET /register?token=valid explains who sees the phone number",
+		Method:         http.MethodGet,
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			"Lo verán los demás jugadores de la liga",
+		},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		invite := handlers.MakeInvitationTB(tb, app, admin.Id, time.Now().Add(24*time.Hour))
+		s.URL = "/register?token=" + invite.GetString("token")
+	}
+	s.Test(t)
+}
