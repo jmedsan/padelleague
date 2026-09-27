@@ -78,14 +78,19 @@
 {{/* arbitrationOpenPanel — shows an open arbitration request's category,
      reason, and requester, with a close affordance for admins. */}}
 {{define "arbitrationOpenPanel"}}
-<div class="alert alert-warning mt-3">
-    <span>Arbitraje solicitado por {{.ArbitrationBy}} — {{.ArbitrationLabel}}{{if .DisputeNotes}}: {{.DisputeNotes}}{{end}}</span>
+<div class="mt-3" data-testid="arbitration-open-panel">
+    <div class="alert alert-warning">
+        <span>Arbitraje solicitado por {{.ArbitrationBy}} — {{.ArbitrationLabel}}{{if .DisputeNotes}}: {{.DisputeNotes}}{{end}}</span>
+    </div>
+    {{if or .Contact.WhatsAppURL .Contact.EmailURL}}
+    <p class="text-sm opacity-60 mt-1">Mientras se resuelve, también puedes escribir a {{template "contactLinksInline" (dict "Contact" .Contact)}}</p>
+    {{end}}
+    {{if and .Mode.Admin .Mode.Editable}}
+    <form hx-post="/match/{{.Match.Id}}/arbitration/close" hx-target="body" hx-confirm="¿Cerrar este arbitraje?" data-confirm-ok="Cerrar" class="mt-2">
+        <button type="submit" hx-disabled-elt="this" class="btn btn-warning btn-sm">Cerrar arbitraje</button>
+    </form>
+    {{end}}
 </div>
-{{if and .Mode.Admin .Mode.Editable}}
-<form hx-post="/match/{{.Match.Id}}/arbitration/close" hx-target="body" hx-confirm="¿Cerrar este arbitraje?" data-confirm-ok="Cerrar" class="mt-2">
-    <button type="submit" hx-disabled-elt="this" class="btn btn-warning btn-sm">Cerrar arbitraje</button>
-</form>
-{{end}}
 {{end}}
 
 {{/* matchWalkoverApprove — admin approves an incomparecencia. */}}
