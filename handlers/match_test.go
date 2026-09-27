@@ -1868,3 +1868,111 @@ func TestAdminRelease_ButtonVisibility(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// Player-contact: "Contactar rivales" card on the match page (spec
+// player-contact, task 4)
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestMatchDetail_RivalContacts_Participant(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "GET /match/{id} shows rival contacts to a participant, not the partner's",
+		Method:         http.MethodGet,
+		ExpectedStatus: 200,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "RivalA")
+		p2 := handlers.MakePairTB(tb, app, "RivalB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		rival1, err := app.FindRecordById("users", p2.GetString("player1"))
+		require.NoError(tb, err)
+		rival1.Set("phone", "+34612345678")
+		require.NoError(tb, app.Save(rival1))
+		rival2, err := app.FindRecordById("users", p2.GetString("player2"))
+		require.NoError(tb, err)
+		require.NoError(tb, app.Save(rival2))
+
+		partner, err := app.FindRecordById("users", p1.GetString("player2"))
+		require.NoError(tb, err)
+
+		viewer, err := app.FindRecordById("users", p1.GetString("player1"))
+		require.NoError(tb, err)
+
+		s.URL = "/match/" + m.Id
+		s.Headers = handlers.AuthHeaders(tb, viewer)
+
+		s.ExpectedContent = []string{
+			`data-testid="rival-contacts"`,
+			"https://wa.me/34612345678",
+			"mailto:" + rival1.GetString("email"),
+			"mailto:" + rival2.GetString("email"),
+		}
+		s.NotExpectedContent = []string{"mailto:" + partner.GetString("email")}
+	}
+	s.Test(t)
+}
+
+// TestMatchDetail_RivalContacts_NonParticipant and
+// TestMatchDetail_RivalContacts_HiddenFromAdmin are regression guards, not
+// RED discriminators: the card doesn't exist yet, so "absent" already holds
+// before task 6's implementation. They stay green through task 4 and keep
+// asserting the negative once task 6 adds the card. See design Testing
+// Strategy / correctness property 4.
+func TestMatchDetail_RivalContacts_NonParticipant(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  handlers.TestAppFactory,
+		Name:            "GET /match/{id} hides the rival-contacts card from a non-participant player",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Liga Dale Fuerte"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "OutsideA")
+		p2 := handlers.MakePairTB(tb, app, "OutsideB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		outsider := handlers.MakeUserTB(tb, app, "Outsider", "")
+		s.URL = "/match/" + m.Id
+		s.Headers = handlers.AuthHeaders(tb, outsider)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := handlers.ReadBody(tb, res)
+		assert.NotContains(tb, body, `data-testid="rival-contacts"`)
+	}
+	s.Test(t)
+}
+
+func TestMatchDetail_RivalContacts_HiddenFromAdmin(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  handlers.TestAppFactory,
+		Name:            "GET /match/{id} hides the rival-contacts card in the admin view",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Liga Dale Fuerte"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "AdminViewA")
+		p2 := handlers.MakePairTB(tb, app, "AdminViewB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		admin := handlers.MakeAdminUserTB(tb, app)
+		s.URL = "/match/" + m.Id
+		s.Headers = handlers.AuthHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := handlers.ReadBody(tb, res)
+		assert.NotContains(tb, body, `data-testid="rival-contacts"`)
+	}
+	s.Test(t)
+}
