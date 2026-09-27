@@ -76,7 +76,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     await apiDeleteRecord(page.request, 'competitions', compId);
   });
 
-  test('walkover: request arbitration (no_show) → admin approves → final with penalty', { tag: '@smoke' }, async ({ page }) => {
+  test('walkover: request arbitration (no_show) → admin approves → final with penalty', { tag: '@smoke' }, async ({ page }, testInfo) => {
     test.setTimeout(120000);
     await getSuperuserToken(page);
     const data = loadTestData();
@@ -164,7 +164,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     await page.waitForSelector(`${standingsTableClass} tbody tr`, { timeout: 5000 });
     await expect(page.locator(`${standingsTableClass} .text-error`).filter({ hasText: '-5' })).toBeVisible();
 
-    await page.screenshot({ path: '/tmp/claude-1000/-mnt-data-Dev-PadelLeague/1bb535f8-6b3f-49b6-85d1-278927d6a279/scratchpad/walkover-standings.png', fullPage: true });
+    await page.screenshot({ path: testInfo.outputPath('walkover-standings.png'), fullPage: true });
 
     // Cleanup — the walkover approval also created a penalty row referencing
     // this competition (required relation), so it must go before the competition.
@@ -227,7 +227,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     await apiDeleteRecord(page.request, 'competitions', compId);
   });
 
-  test('playoff bracket renders at mobile viewport with Spanish round names', async ({ page, browser }) => {
+  test('playoff bracket renders at mobile viewport with Spanish round names', async ({ page, browser }, testInfo) => {
     test.setTimeout(120000);
     await getSuperuserToken(page);
     const data = loadTestData();
@@ -288,7 +288,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     const violations = await checkAll(mobilePage, true);
     expect(violations, 'page guard violations (mobile bracket context)').toEqual([]);
 
-    await mobilePage.screenshot({ path: '/tmp/claude-1000/-mnt-data-Dev-PadelLeague/1bb535f8-6b3f-49b6-85d1-278927d6a279/scratchpad/bracket-mobile-375.png', fullPage: true });
+    await mobilePage.screenshot({ path: testInfo.outputPath('bracket-mobile-375.png'), fullPage: true });
     await mobileContext.close();
 
     // Cleanup
