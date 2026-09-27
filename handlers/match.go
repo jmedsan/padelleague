@@ -140,7 +140,22 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		"OGImage":             mc.CompetitionLogo,
 		"FooterCompetitionID": compID,
 		"CanRelease":          canRelease,
+		"RivalContacts":       matchRivalContacts(h.app, match, mode, userID),
 	})
+}
+
+// matchRivalContacts resolves the opposing pair's contacts for the "Contactar
+// rivales" card, hidden from admins per design (they aren't a participant).
+func matchRivalContacts(app core.App, match *core.Record, mode Mode, userID string) []league.PlayerContact {
+	if mode.Admin {
+		return nil
+	}
+	rivals, err := league.RivalContacts(app, match, userID)
+	if err != nil {
+		slog.Error("match detail: rival contacts", "match", match.Id, "err", err)
+		return nil
+	}
+	return rivals
 }
 
 // PrecedentesView is the match-page view-model for the pair-vs-pair
