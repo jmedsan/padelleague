@@ -39,7 +39,7 @@
      progress on — it shows what's still needed to activate it). */}}
 <div class="card bg-base-100 shadow-sm border-l-4 border-base-300">
     <div class="card-body py-4 gap-2">
-        <a href="{{.URL}}" class="flex justify-between items-start hover:opacity-70 transition-opacity">
+        <a href="{{.URL}}" class="link-row flex justify-between items-start hover:opacity-70 transition-opacity">
             <h3 class="card-title text-lg">{{template "competitionIdentity" (dict "ID" .Competition.Id "Name" .Name "LogoURL" .CompetitionLogo "Mode" (dict) "NoLink" true)}}</h3>
             {{if eq (.Competition.GetString "type") "league"}}
             <span class="badge badge-primary badge-sm">Liga</span>
@@ -71,7 +71,7 @@
 {{/* PlayerRow: card with name link + pending details */}}
 <div class="card bg-base-100 shadow-md hover:shadow-xl transition-all duration-200 hover:-translate-y-1 border-l-4 overflow-hidden {{if eq (.Competition.GetString "type") "league"}}border-l-primary{{else}}border-l-secondary{{end}}">
     <div class="card-body">
-        <a href="{{.URL}}" class="flex items-start justify-between hover:opacity-80 transition-opacity">
+        <a href="{{.URL}}" class="link-row flex items-start justify-between hover:opacity-80 transition-opacity">
             <div>
                 <h2 class="card-title text-lg">
                     {{template "competitionIdentity" (dict "ID" .Competition.Id "Name" .Name "LogoURL" .CompetitionLogo "Mode" (dict) "NoLink" true)}}

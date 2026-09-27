@@ -40,6 +40,12 @@
      (theme toggle, logout) — both render as `<li><a>`/`<li><button>` with
      no DaisyUI size class, so they get the same 41px-ish default. See
      route-census pilot findings, e2e/tests/route-census.spec.ts.
+     `.menu li form.contents > button` covers the same rows when the button
+     is wrapped in an hx-post `<form class="contents">` (invitations
+     dropdown: Reenviar/Revocar) — `display: contents` collapses the form
+     out of the render tree so it LOOKS like a direct li>button to the eye,
+     but the CSS `>` combinator is DOM-structural and still sees the form
+     in between, so the plain selector above silently misses it.
      `.link-row` is the same floor for single-line nav rows that render
      OUTSIDE a `.menu` list — simpleLinkRow (search zero-query panel),
      the search-result rows, and the recent-search buttons in
@@ -50,7 +56,8 @@
       height: auto !important;
       min-height: 2.75rem !important;
     }
-    .btn, .input, .select, .menu li > a, .menu li > button, .link-row {
+    .btn, .input, .select, .menu li > a, .menu li > button,
+    .menu li form.contents > button, .link-row {
       min-height: 2.75rem;
     }
     .btn-circle, .btn-circle.btn-sm {
