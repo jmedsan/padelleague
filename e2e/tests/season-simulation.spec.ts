@@ -1,6 +1,6 @@
 import type { Page, APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, isMobile, clickAction, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, isMobile, clickAction, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { enterScore, fillFlatpickrDate, clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect, cellByHeader, expectRedirectedTo } from '../tour-helpers';
 import {
   setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,
@@ -516,7 +516,7 @@ async function postProposal(page: Page, matchId: string) {
   if (await collapse.count() > 0) {
     await collapse.locator('input[type="checkbox"]').check();
   }
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const tomorrow = leagueDate(1);
   await fillFlatpickrDate(page, '#proposal-date', tomorrow);
   await page.locator('#proposal-time').selectOption('18:00');
   await page.selectOption('#proposal-form select[name="venue_id"]', 'otro');

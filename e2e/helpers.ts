@@ -153,6 +153,44 @@ async function setAuthCookie(page: Page, token: string) {
   await expect(page).toHaveURL(/\/(admin\/competitions)?$/, { timeout: 5000 });
 }
 
+// LEAGUE_TIMEZONE must track league/scheduling.go's defaultTimezone — the
+// value app_settings.league_timezone is seeded to by
+// migrations/1734700000_league_timezone.go and nothing in seed/ or the e2e
+// setup ever overrides. It is not a second independent guess at the
+// timezone; it is the same default, copied here because a .ts test can't
+// import a Go constant.
+const LEAGUE_TIMEZONE = 'Atlantic/Canary';
+
+// leagueDate returns the calendar date (YYYY-MM-DD), in the league's display
+// timezone, offsetDays from today. Use this instead of
+// `new Date(Date.now() + N * 86400000).toISOString().slice(0, 10)`: that
+// idiom takes the offset in UTC milliseconds, then reads the date back out in
+// UTC — silently wrong for a league whose timezone is ahead of UTC (Atlantic/
+// Canary is UTC+1 in summer/WEST) during the hour(s) after local midnight,
+// when the UTC calendar day hasn't rolled over yet. "Tomorrow" computed in
+// UTC during that window is still "today" in the league, so a value meant to
+// be tomorrow's date is actually today's — every test asserting a
+// date-relative label (e.g. "mañana") against it fails, deterministically,
+// every night in that window.
+//
+// Compute in calendar days on the LOCAL date, not by adding milliseconds:
+// adding 24h in UTC always lands on the right UTC-calendar-day but the WRONG
+// league-calendar-day near a DST transition or near local midnight.
+export function leagueDate(offsetDays: number): string {
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: LEAGUE_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' });
+  const parts = fmt.formatToParts(new Date());
+  const y = Number(parts.find(p => p.type === 'year')!.value);
+  const m = Number(parts.find(p => p.type === 'month')!.value);
+  const d = Number(parts.find(p => p.type === 'day')!.value);
+  // Construct at UTC noon on the league's current calendar day, then add
+  // whole days — noon avoids any DST-edge wraparound when offsetDays crosses
+  // a transition, and the result is read back out as a calendar date only,
+  // never as an instant.
+  const base = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  base.setUTCDate(base.getUTCDate() + offsetDays);
+  return `${base.getUTCFullYear()}-${String(base.getUTCMonth() + 1).padStart(2, '0')}-${String(base.getUTCDate()).padStart(2, '0')}`;
+}
+
 export function isMobile(page: Page): boolean {
   const vp = page.viewportSize();
   return !!vp && vp.width < 1024;

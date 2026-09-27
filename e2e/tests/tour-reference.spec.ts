@@ -1,6 +1,6 @@
 import type { Page, APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, isMobile, clickAction, navViaDrawer, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, isMobile, clickAction, navViaDrawer, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import {
   setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,
   computeExpected, PlannedMatch, PairId,
@@ -287,7 +287,7 @@ test.describe('reference navigation tour', () => {
     const scheduledOtherId = await lookupPlayerId(page.request, suToken, scheduledOtherEmail);
     // Real propose+accept flow, so the date must be today or later
     // (parseProposalForm in handlers/thread.go rejects past dates).
-    const scheduleDate = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const scheduleDate = leagueDate(1);
     const scheduleDateDisplay = scheduleDate.split('-').reverse().join('/');
     await acceptScheduleProposal(page, suToken, scheduledFixture.id, scheduledOtherId, scheduleDate, '18:00', 'Padel 360');
 
@@ -319,7 +319,13 @@ test.describe('reference navigation tour', () => {
     await expect(upcomingSection).toBeVisible();
     const upcomingRow = upcomingSection.locator('[data-testid="upcoming-match"]').first();
     await expect(upcomingRow).toBeVisible();
-    await expect(upcomingRow).toContainText('mañana');
+    // Re-derive the expected relative label right before asserting it: a real
+    // midnight crossing between scheduling the match (leagueDate(1) above)
+    // and this assertion would otherwise flip scheduleDate from tomorrow to
+    // today in the league's own calendar, and a hardcoded "mañana" would fail
+    // for the right date shown under the wrong label.
+    const expectedLabel = scheduleDate === leagueDate(1) ? 'mañana' : 'hoy';
+    await expect(upcomingRow).toContainText(expectedLabel);
     await expect(upcomingRow.locator(`[title*="${scheduleDateDisplay}"]`)).toBeVisible();
     // The competition logo uploaded above must also render on the player's
     // home upcoming-match card, not just the admin competition header.

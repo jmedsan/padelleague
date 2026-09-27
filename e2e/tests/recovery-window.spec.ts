@@ -1,7 +1,7 @@
 import type { Page, APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import {
-  loginAs, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, loadTestData,
+  loginAs, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, loadTestData, leagueDate,
   apiCreateRecord as apiCreateRecordBase, apiGetRecord as apiGetRecordBase,
   apiListRecords as apiListRecordsBase, apiDeleteRecord as apiDeleteRecordBase,
 } from '../helpers';
@@ -17,8 +17,8 @@ test.describe('end-of-league recovery window', () => {
     const data = loadTestData();
 
     // end_date 5 days ago, default recovery_days (14) -> still in recovery.
-    const endDate = new Date(Date.now() - 5 * 86400000).toISOString().slice(0, 10);
-    const startDate = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    const endDate = leagueDate(-5);
+    const startDate = leagueDate(-30);
 
     const compId = await apiCreateRecord(page.request, 'competitions', {
       name: 'Recovery Badge E2E',
@@ -54,8 +54,8 @@ test.describe('end-of-league recovery window', () => {
     await getSuperuserToken(page);
     const data = loadTestData();
 
-    const endDate = new Date(Date.now() - 5 * 86400000).toISOString().slice(0, 10);
-    const startDate = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    const endDate = leagueDate(-5);
+    const startDate = leagueDate(-30);
 
     const compId = await apiCreateRecord(page.request, 'competitions', {
       name: 'Finalize E2E',
