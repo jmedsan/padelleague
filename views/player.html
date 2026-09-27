@@ -16,6 +16,15 @@
     </div>
 </div>
 
+{{if or .Data.Contact.Phone .Data.Contact.Email}}
+<div class="card bg-base-100 shadow-sm mb-6" data-testid="player-contact">
+    <div class="card-body">
+        <h2 class="card-title text-lg">Contacto</h2>
+        {{template "contactButtons" (dict "Contact" .Data.Contact)}}
+    </div>
+</div>
+{{end}}
+
 {{if .Data.CanEditAvatar}}
 <div class="card bg-base-100 shadow-sm mb-6" data-testid="my-account">
     <div class="card-body">

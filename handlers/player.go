@@ -42,6 +42,7 @@ type PlayerData struct {
 	Stats         league.StatsSummary
 	AvatarURL     string
 	CanEditAvatar bool
+	Contact       league.ContactInfo
 }
 
 // Player renders the player profile page with stats and recent matches.
@@ -76,6 +77,9 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 		Stats:         h.leagueSvc.Summarize(pairIDs),
 		AvatarURL:     league.AvatarURL(user.Id, user.GetString("avatar")),
 		CanEditAvatar: e.Auth != nil && e.Auth.Id == user.Id,
+	}
+	if !data.CanEditAvatar {
+		data.Contact = league.UserContactInfo(user)
 	}
 
 	return h.render.Page(e, "player.html", map[string]any{
