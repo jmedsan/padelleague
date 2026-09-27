@@ -114,6 +114,8 @@ export async function createPlayers(
       password: PLAYER_PASSWORD,
       passwordConfirm: PLAYER_PASSWORD,
       display_name: `Player ${i}`,
+      // Odd players have a phone (WhatsApp link), even ones email only.
+      phone: i % 2 ? `+34600000${String(i).padStart(3, '0')}` : '',
       roles: ['player'],
       verified: true,
       gender: 'male',
