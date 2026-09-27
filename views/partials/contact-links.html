@@ -16,8 +16,8 @@
 {{if .Contact.Phone}}<a href="{{whatsappURL .Contact.Phone}}" target="_blank" rel="noopener" class="link link-hover">WhatsApp</a>{{end}}{{if and .Contact.Phone .Contact.Email}} ·{{end}}{{if .Contact.Email}} <a href="{{mailtoURL .Contact.Email}}" class="link link-hover">{{.Contact.Email}}</a>{{end}}
 {{end}}
 
-{{/* contactLinks — the ONE "contact the admin" component, fed by .Contact
-     (league.ContactInfo). Two shapes:
+{{/* contactLinks — the ONE contact component, fed by .Contact
+     (league.ContactInfo, the league admin's or a player's). Two shapes:
        Full: false (default) → row: "Contacto: WhatsApp · email" inline text.
        Full: true             → card-body block with a lead line + buttons.
      Hidden entirely when both WhatsApp and email are unset. */}}
