@@ -261,7 +261,7 @@ test.describe('match thread', { tag: '@thread' }, () => {
     await fillFlatpickrDate(page, '#proposal-date', tomorrow);
     await proposalForm.locator('select[name="time"]').selectOption('18:00');
     await proposalForm.locator('select[name="venue_id"]').selectOption(data.venueId);
-    await proposalForm.locator('button[type="submit"]').click();
+    await clickAndWaitForHxRedirect(page, proposalForm.locator('button[type="submit"]'), `/match/${matchId}`);
 
     // No manual reload — assert directly. If the redirect used a
     // same-document hash nav, this card would still show "Pendiente"/the
@@ -273,7 +273,7 @@ test.describe('match thread', { tag: '@thread' }, () => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto(`/match/${matchId}`);
     const acceptForm = page.locator('form[hx-post*="/respond"]').filter({ has: page.locator('input[value="accept"]') }).first();
-    await acceptForm.locator('button[type="submit"]').click();
+    await clickAndWaitForHxRedirect(page, acceptForm.locator('button[type="submit"]'), `/match/${matchId}`);
 
     await expect(page.locator('#thread-schedule').locator('.badge', { hasText: 'Confirmada' })).toBeVisible({ timeout: 10000 });
     expect(new URL(page.url()).search).toBe('');

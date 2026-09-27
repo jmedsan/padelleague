@@ -3,7 +3,7 @@ import { test, expect } from '../overflow-guard';
 import {
   loginAs, loadTestData, isMobile, openDrawer, navViaDrawer, leagueDate,
   apiCreateRecord as apiCreateRecordBase, apiListRecords as apiListRecordsBase,
-  apiDeleteRecord as apiDeleteRecordBase,
+  apiDeleteRecord as apiDeleteRecordBase, clickAndWaitForHxRedirect,
   ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD,
 } from '../helpers';
 
@@ -335,8 +335,7 @@ test.describe('responsive - no horizontal overflow', { tag: '@presentation' }, (
     const invEmail = `resp-mobile-${Date.now()}@example.com`;
     await page.locator('button:has-text("Nueva invitación")').click();
     await page.locator('#modal-create-invite input[name="email"]').fill(invEmail);
-    await page.locator('#modal-create-invite button[type="submit"]').click();
-    await page.waitForLoadState('networkidle');
+    await clickAndWaitForHxRedirect(page, page.locator('#modal-create-invite button[type="submit"]'), '/admin/invitations');
 
     const table = page.locator('table').filter({ hasText: 'Destinatario' });
     await expect(table).toBeHidden();
