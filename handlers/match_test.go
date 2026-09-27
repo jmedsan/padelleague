@@ -563,79 +563,80 @@ func TestPlayerNameIfSet(t *testing.T) {
 
 // HTML markers rendered when each flag is true.
 const (
-	markerCanSubmit   = "Registrar resultado"
-	markerCanWalkover = "Reportar partido no jugado"
-	markerCanCorrect  = "Corregir resultado"
-	markerDateGate    = "Primero propón una fecha y lugar"
+	markerCanSubmit             = "Registrar resultado"
+	markerCanRequestArbitration = "Solicitar arbitraje"
+	markerCanCorrect            = "Corregir resultado"
+	markerDateGate              = "Primero propón una fecha y lugar"
 )
 
 type matchViewCase struct {
-	name         string
-	status       string
-	viewer       string // "submitter", "opponent", "outsider", "admin"
-	submitted    bool
-	recentSubmit bool
-	hasDate      bool
-	httpStatus   int // 0 means 200
-	want         []string
-	deny         []string
+	name            string
+	status          string
+	viewer          string // "submitter", "opponent", "outsider", "admin"
+	submitted       bool
+	recentSubmit    bool
+	hasDate         bool
+	openArbitration bool
+	httpStatus      int // 0 means 200
+	want            []string
+	deny            []string
 }
 
 func TestBuildMatchViewFlags(t *testing.T) {
 	t.Parallel()
 	cases := []matchViewCase{
-		// Pending without date → submit gated; no date also means no
-		// walkover affordance (can't report "not played" with no date set).
+		// Pending without date → submit gated; arbitration doesn't need a
+		// date (it also covers "we never agreed a date" scenarios).
 		{
 			name: "pending/no-date/submitter", status: "pending", viewer: "submitter",
-			want: []string{markerDateGate},
-			deny: []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
+			want: []string{markerDateGate, markerCanRequestArbitration},
+			deny: []string{markerCanSubmit, markerCanCorrect},
 		},
 		// Pending with date+place → submit visible
 		{
 			name: "pending/with-date/submitter", status: "pending", viewer: "submitter",
 			hasDate: true,
-			want:    []string{markerCanSubmit, markerCanWalkover},
+			want:    []string{markerCanSubmit, markerCanRequestArbitration},
 			deny:    []string{markerCanCorrect, markerDateGate},
 		},
 		{
 			name: "pending/with-date/opponent", status: "pending", viewer: "opponent",
 			hasDate: true,
-			want:    []string{markerCanSubmit, markerCanWalkover},
+			want:    []string{markerCanSubmit, markerCanRequestArbitration},
 			deny:    []string{markerCanCorrect, markerDateGate},
 		},
 		{
 			name: "scheduled/submitter-team", status: "scheduled", viewer: "submitter",
 			hasDate: true,
-			want:    []string{markerCanSubmit, markerCanWalkover},
+			want:    []string{markerCanSubmit, markerCanRequestArbitration},
 			deny:    []string{markerCanCorrect},
 		},
 		{
 			name: "pending/outsider", status: "pending", viewer: "outsider",
-			deny: []string{markerCanSubmit, markerCanWalkover, markerCanCorrect},
+			deny: []string{markerCanSubmit, markerCanRequestArbitration, markerCanCorrect},
 		},
 		{
 			name: "pending/admin", status: "pending", viewer: "admin",
-			deny: []string{markerCanSubmit, markerCanWalkover, markerCanCorrect},
+			deny: []string{markerCanSubmit, markerCanRequestArbitration, markerCanCorrect},
 		},
 
 		// Confirmed with submitter set (legacy status — no confirm/dispute buttons)
 		{
 			name: "confirmed/submitter/recent", status: "confirmed", viewer: "submitter",
 			submitted: true, recentSubmit: true, hasDate: true,
-			want: []string{markerCanCorrect, markerCanWalkover},
+			want: []string{markerCanCorrect, markerCanRequestArbitration},
 			deny: []string{markerCanSubmit},
 		},
 		{
 			name: "confirmed/submitter/expired", status: "confirmed", viewer: "submitter",
 			submitted: true, recentSubmit: false, hasDate: true,
-			want: []string{markerCanWalkover},
+			want: []string{markerCanRequestArbitration},
 			deny: []string{markerCanSubmit, markerCanCorrect},
 		},
 		{
 			name: "confirmed/opponent", status: "confirmed", viewer: "opponent",
 			submitted: true, hasDate: true,
-			want: []string{markerCanWalkover},
+			want: []string{markerCanRequestArbitration},
 			deny: []string{markerCanSubmit, markerCanCorrect},
 		},
 		{
@@ -646,42 +647,45 @@ func TestBuildMatchViewFlags(t *testing.T) {
 		{
 			name: "confirmed/admin-nonparticipant", status: "confirmed", viewer: "admin",
 			submitted: true, hasDate: true,
-			deny: []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
+			deny: []string{markerCanSubmit, markerCanCorrect, markerCanRequestArbitration},
 		},
 		{
 			name: "confirmed/no-submitter/opponent", status: "confirmed", viewer: "opponent",
 			submitted: false, hasDate: true,
-			want: []string{markerCanWalkover},
+			want: []string{markerCanRequestArbitration},
 			deny: []string{markerCanSubmit, markerCanCorrect},
 		},
 		{
 			name: "confirmed/no-date/opponent", status: "confirmed", viewer: "opponent",
 			submitted: true,
-			deny:      []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
+			want:      []string{markerCanRequestArbitration},
+			deny:      []string{markerCanSubmit, markerCanCorrect},
 		},
 
-		// Disputed
+		// Disputed — arbitration is already open (that's how the match got
+		// here), so the request button is gone; only the admin/deadlock
+		// resolution UI shows, not a fresh arbitration request.
 		{
 			name: "disputed/submitter", status: "disputed", viewer: "submitter",
-			submitted: true,
-			deny:      []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
+			submitted: true, openArbitration: true,
+			deny: []string{markerCanSubmit, markerCanCorrect, markerCanRequestArbitration},
 		},
 		{
 			name: "disputed/opponent", status: "disputed", viewer: "opponent",
-			submitted: true,
-			deny:      []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
+			submitted: true, openArbitration: true,
+			deny: []string{markerCanSubmit, markerCanCorrect, markerCanRequestArbitration},
 		},
 
 		// Final
 		{
 			name: "final/submitter", status: "final", viewer: "submitter",
 			submitted: true,
-			deny:      []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
+			deny:      []string{markerCanSubmit, markerCanCorrect, markerCanRequestArbitration},
 		},
 		{
 			name: "final/opponent", status: "final", viewer: "opponent",
 			submitted: true,
-			deny:      []string{markerCanSubmit, markerCanCorrect, markerCanWalkover},
+			deny:      []string{markerCanSubmit, markerCanCorrect, markerCanRequestArbitration},
 		},
 	}
 
@@ -729,6 +733,11 @@ func TestBuildMatchViewFlags(t *testing.T) {
 				if tc.status == "final" {
 					match.Set("winner", p1.Id)
 					match.Set("scores", "6-3 6-4")
+				}
+
+				if tc.openArbitration {
+					match.Set("arbitration", "result")
+					match.Set("arbitration_by", submitterUserID)
 				}
 
 				require.NoError(tb, app.Save(match))
@@ -1183,7 +1192,7 @@ func TestReadOnlyCompGuard_AllHandlers(t *testing.T) {
 		body   string
 	}{
 		{"correct", "scheduled", "/correct", "scores=6-4+6-3"},
-		{"report-unplayed", "pending", "/report-unplayed", "reason=test"},
+		{"arbitration", "pending", "/arbitration", "category=other&notes=test"},
 	}
 
 	for _, tc := range cases {

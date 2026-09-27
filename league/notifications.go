@@ -17,16 +17,6 @@ func NotifResultSubmitted(matchID, opponent, compName, score string) Notificatio
 	}
 }
 
-// NotifMatchReportedUnplayed notifies the rival that the match was reported unplayed.
-func NotifMatchReportedUnplayed(matchID, compName string) Notification {
-	return Notification{
-		Type: "general", Title: "Partido reportado como no jugado",
-		Body:     "Tu rival ha reportado este partido como no jugado. Un administrador lo revisará.",
-		MatchID:  matchID,
-		CompName: compName,
-	}
-}
-
 // NotifResultConfirmed notifies the submitter that the rival confirmed the score.
 func NotifResultConfirmed(matchID, opponent, compName string) Notification {
 	return Notification{
@@ -184,11 +174,11 @@ func NotifAdminMatchProgress(matchID, summary string) Notification {
 	}
 }
 
-// NotifAdminMatchUnplayed alerts admins that a player reported a match unplayed.
-func NotifAdminMatchUnplayed(matchID, compName string) Notification {
+// NotifArbitrationRequested alerts admins that a player requested arbitration.
+func NotifArbitrationRequested(matchID, categoryLabel, compName string) Notification {
 	return Notification{
-		Type: "dispute", Title: "Partido no jugado",
-		Body:     "Un jugador ha reportado un partido como no jugado.",
+		Type: "dispute", Title: "Arbitraje solicitado",
+		Body:     "Un jugador ha solicitado arbitraje: " + categoryLabel,
 		MatchID:  matchID,
 		CompName: compName,
 	}

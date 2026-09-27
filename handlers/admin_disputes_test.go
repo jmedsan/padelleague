@@ -125,17 +125,17 @@ func TestDisputeResolveAutoWinner(t *testing.T) {
 	s.Test(t)
 }
 
-// Report unplayed (walkover request)
+// Request arbitration (replaces the old walkover-only "report unplayed" flow)
 
-func TestReportUnplayed(t *testing.T) {
+func TestRequestArbitrationNoShow(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: handlers.TestAppFactory,
-		Name:           "POST /match/{id}/report-unplayed sets walkover review",
+		Name:           "POST /match/{id}/arbitration category=no_show sets walkover review",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID, userID, rivalUserID, rivalUser2ID, partnerID, adminID string
+	var matchID, userID, rivalUserID, partnerID, adminID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupProductionRoutes(tb, app, e)
 		admin := handlers.MakeAdminUserTB(tb, app)
@@ -152,35 +152,30 @@ func TestReportUnplayed(t *testing.T) {
 		userID = user.Id
 		partnerID = p1.GetString("player2")
 		rivalUserID = p2.GetString("player1")
-		rivalUser2ID = p2.GetString("player2")
-		s.URL = "/match/" + match.Id + "/report-unplayed"
-		s.Headers = handlers.AuthHeaders(tb, user)
+		s.URL = "/match/" + match.Id + "/arbitration"
+		s.Body = strings.NewReader("category=no_show&notes=rival+no+se+presento")
+		hdrs := handlers.AuthHeaders(tb, user)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		m, err := app.FindRecordById("matches", matchID)
 		require.NoError(tb, err)
 		assert.Equal(tb, "disputed", m.GetString("status"))
 		assert.Equal(tb, "walkover", m.GetString("review_type"))
+		assert.Equal(tb, "no_show", m.GetString("arbitration"))
+		assert.Equal(tb, userID, m.GetString("arbitration_by"))
 		assert.Equal(tb, userID, m.GetString("walkover_requested_by"))
-		assert.Contains(tb, m.GetString("dispute_notes"), "[No jugado]")
-		assert.Empty(tb, m.GetString("winner"), "reporting unplayed must not declare a winner")
-		assert.Empty(tb, m.GetString("scores"), "reporting unplayed must not set a score")
-		want := league.Notification{
-			Type:     "general",
-			Title:    "Partido reportado como no jugado",
-			Body:     "Tu rival ha reportado este partido como no jugado. Un administrador lo revisará.",
-			MatchID:  matchID,
-			CompName: "Test Competition",
-		}
-		assertNotified(tb, app, rivalUserID, want)
-		assertNotified(tb, app, rivalUser2ID, want)
-		assertNotNotified(tb, app, userID, want.Title)
-		assertNotNotified(tb, app, partnerID, want.Title)
+		assert.Contains(tb, m.GetString("dispute_notes"), "no se presento")
+		assert.Empty(tb, m.GetString("winner"), "requesting arbitration must not declare a winner")
+		assert.Empty(tb, m.GetString("scores"), "requesting arbitration must not set a score")
+		assertNotNotified(tb, app, rivalUserID, "Disputa resuelta")
+		assertNotNotified(tb, app, partnerID, "Disputa resuelta")
 
 		adminWant := league.Notification{
 			Type:     "dispute",
-			Title:    "Partido no jugado",
-			Body:     "Un jugador ha reportado un partido como no jugado.",
+			Title:    "Arbitraje solicitado",
+			Body:     "Un jugador ha solicitado arbitraje: " + league.ArbitrationLabel("no_show"),
 			MatchID:  matchID,
 			CompName: "Test Competition",
 		}
@@ -190,11 +185,11 @@ func TestReportUnplayed(t *testing.T) {
 	s.Test(t)
 }
 
-func TestReportUnplayed_Idempotent(t *testing.T) {
+func TestRequestArbitration_Idempotent(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: handlers.TestAppFactory,
-		Name:           "POST /match/{id}/report-unplayed is idempotent",
+		Name:           "POST /match/{id}/arbitration is a no-op once one is already open",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
@@ -206,23 +201,27 @@ func TestReportUnplayed_Idempotent(t *testing.T) {
 		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("review_type", "walkover")
 		match.Set("status", "disputed")
+		match.Set("arbitration", "no_show")
 		require.NoError(tb, app.Save(match))
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.URL = "/match/" + match.Id + "/report-unplayed"
-		s.Headers = handlers.AuthHeaders(tb, user)
+		s.URL = "/match/" + match.Id + "/arbitration"
+		s.Body = strings.NewReader("category=no_show&notes=de+nuevo")
+		hdrs := handlers.AuthHeaders(tb, user)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
 	}
 	handlers.ExpectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
 }
 
-func TestReportUnplayedWrongStatus_Refused(t *testing.T) {
+func TestRequestArbitrationWrongStatus_Refused(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  handlers.TestAppFactory,
-		Name:            "POST /match/{id}/report-unplayed on final fails",
+		Name:            "POST /match/{id}/arbitration on final fails",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"no puede reportarse"},
+		ExpectedContent: []string{"ya está resuelto"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupProductionRoutes(tb, app, e)
@@ -231,18 +230,21 @@ func TestReportUnplayedWrongStatus_Refused(t *testing.T) {
 		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		m := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
 
-		s.URL = "/match/" + m.Id + "/report-unplayed"
+		s.URL = "/match/" + m.Id + "/arbitration"
+		s.Body = strings.NewReader("category=other&notes=test")
 		user, _ := app.FindRecordById("users", p1.GetString("player1"))
-		s.Headers = handlers.AuthHeaders(tb, user)
+		hdrs := handlers.AuthHeaders(tb, user)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
 	}
 	s.Test(t)
 }
 
-func TestReportUnplayedNonParticipant_Refused(t *testing.T) {
+func TestRequestArbitrationNonParticipant_Refused(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory:  handlers.TestAppFactory,
-		Name:            "non-participant cannot report unplayed",
+		Name:            "non-participant cannot request arbitration",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
 		ExpectedContent: []string{"No eres participante"},
@@ -254,8 +256,141 @@ func TestReportUnplayedNonParticipant_Refused(t *testing.T) {
 		p2 := handlers.MakePairTB(tb, app, "ORptB")
 		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		s.URL = "/match/" + match.Id + "/report-unplayed"
-		s.Headers = handlers.AuthHeaders(tb, outsider)
+		s.URL = "/match/" + match.Id + "/arbitration"
+		s.Body = strings.NewReader("category=other&notes=test")
+		hdrs := handlers.AuthHeaders(tb, outsider)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestRequestArbitrationMissingCategory_Refused(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  handlers.TestAppFactory,
+		Name:            "arbitration request without a valid category is refused",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Selecciona un motivo válido"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "NoCatA")
+		p2 := handlers.MakePairTB(tb, app, "NoCatB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.URL = "/match/" + match.Id + "/arbitration"
+		s.Body = strings.NewReader("category=bogus&notes=test")
+		hdrs := handlers.AuthHeaders(tb, user)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestRequestArbitrationMissingNotes_Refused(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  handlers.TestAppFactory,
+		Name:            "arbitration request without notes is refused",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Explica el motivo"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "NoNotesA")
+		p2 := handlers.MakePairTB(tb, app, "NoNotesB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.URL = "/match/" + match.Id + "/arbitration"
+		s.Body = strings.NewReader("category=other&notes=")
+		hdrs := handlers.AuthHeaders(tb, user)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+func TestCloseArbitration(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "POST /match/{id}/arbitration/close clears the open request",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "CloseArbA")
+		p2 := handlers.MakePairTB(tb, app, "CloseArbB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match.Set("arbitration", "scheduling")
+		match.Set("arbitration_by", p1.GetString("player1"))
+		match.Set("dispute_notes", "no acordamos fecha")
+		require.NoError(tb, app.Save(match))
+		matchID = match.Id
+		s.URL = "/match/" + match.Id + "/arbitration/close"
+		s.Headers = handlers.AuthHeaders(tb, admin)
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Empty(tb, m.GetString("arbitration"))
+		assert.Empty(tb, m.GetString("arbitration_by"))
+		assert.Equal(tb, "pending", m.GetString("status"), "closing must not otherwise change match status")
+	}
+	handlers.ExpectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
+	s.Test(t)
+}
+
+func TestCloseArbitration_NoneOpen_Refused(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  handlers.TestAppFactory,
+		Name:            "POST /match/{id}/arbitration/close with none open is refused",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"no tiene arbitraje abierto"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "NoArbA")
+		p2 := handlers.MakePairTB(tb, app, "NoArbB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		s.URL = "/match/" + match.Id + "/arbitration/close"
+		s.Headers = handlers.AuthHeaders(tb, admin)
+	}
+	s.Test(t)
+}
+
+func TestCloseArbitrationNonAdmin_Refused(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "non-admin cannot close an arbitration request",
+		Method:         http.MethodPost,
+		ExpectedStatus: 302,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "NonAdmA")
+		p2 := handlers.MakePairTB(tb, app, "NonAdmB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		match.Set("arbitration", "scheduling")
+		require.NoError(tb, app.Save(match))
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.URL = "/match/" + match.Id + "/arbitration/close"
+		s.Headers = handlers.AuthHeaders(tb, user)
 	}
 	s.Test(t)
 }

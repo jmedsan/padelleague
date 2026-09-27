@@ -27,7 +27,7 @@ func IsPreScore(status string) bool {
 
 // StatusLabel returns the Spanish display label for a match status,
 // following the standard status vocabulary (Pendiente/Propuesta/
-// Confirmada(o)/Rechazada(o)/En disputa).
+// Confirmada(o)/Rechazada(o)/En disputa/Arbitraje solicitado).
 func StatusLabel(status string) string {
 	switch status {
 	case StatusPending:
@@ -42,4 +42,32 @@ func StatusLabel(status string) string {
 		return "Confirmado"
 	}
 	return status
+}
+
+// Arbitration category constants — a participant's open request for admin
+// review (matches.arbitration). Empty means no request is open.
+const (
+	ArbitrationResult      = "result"
+	ArbitrationScheduling  = "scheduling"
+	ArbitrationAbandonment = "abandonment"
+	ArbitrationNoShow      = "no_show"
+	ArbitrationOther       = "other"
+)
+
+// ArbitrationLabel returns the Spanish display label for an arbitration
+// category, "" when category is "" (no request open).
+func ArbitrationLabel(category string) string {
+	switch category {
+	case ArbitrationResult:
+		return "Resultado"
+	case ArbitrationScheduling:
+		return "Fecha y hora"
+	case ArbitrationAbandonment:
+		return "Abandono del rival"
+	case ArbitrationNoShow:
+		return "Incomparecencia"
+	case ArbitrationOther:
+		return "Otro"
+	}
+	return ""
 }

@@ -280,6 +280,16 @@ func TestSampleLeague(t *testing.T) {
 	assert.Equal(t, 1, scheduledCount, "one arranged-but-unplayed match")
 	assert.Equal(t, 1, walkoverCount, "one walkover match")
 
+	disputedCount := 0
+	for _, m := range matches {
+		if m.GetString("status") == league.StatusDisputed {
+			disputedCount++
+			assert.NotEmpty(t, m.GetString("arbitration"), "a disputed sample match must carry the arbitration category, matching the only live path that sets status=disputed")
+			assert.NotEmpty(t, m.GetString("arbitration_by"), "a disputed sample match must record who requested arbitration")
+		}
+	}
+	assert.Equal(t, 1, disputedCount, "one disputed match")
+
 	// One pair should be unpaid
 	comp := mainComp
 	ps := comp.Get("payment_status")

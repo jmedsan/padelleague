@@ -26,7 +26,11 @@
         {{template "resultBox" (dict "Score" .Score "Pair1Name" .Pair1Name "Pair2Name" .Pair2Name)}}
         {{end}}
         {{end}}
+        {{if and .Arbitration (ne (.Match.GetString "status") "disputed")}}
+        {{template "arbitrationOpenPanel" .}}
+        {{end}}
         {{if eq (.Match.GetString "status") "disputed"}}
+        {{if and .Arbitration (ne .Arbitration "no_show")}}{{template "arbitrationOpenPanel" .}}{{end}}
         {{if eq .ReviewType "walkover"}}
         <div class="alert alert-warning mt-3">
             <span>Solicitud de partido no jugado por {{.RequestedBy}}{{if .DisputeNotes}}: {{.DisputeNotes}}{{end}}</span>
@@ -69,6 +73,19 @@
     </div>
     {{end}}
 {{else}}{{template "adminOverride" .}}{{end}}
+{{end}}
+
+{{/* arbitrationOpenPanel — shows an open arbitration request's category,
+     reason, and requester, with a close affordance for admins. */}}
+{{define "arbitrationOpenPanel"}}
+<div class="alert alert-warning mt-3">
+    <span>Arbitraje solicitado por {{.ArbitrationBy}} — {{.ArbitrationLabel}}{{if .DisputeNotes}}: {{.DisputeNotes}}{{end}}</span>
+</div>
+{{if and .Mode.Admin .Mode.Editable}}
+<form hx-post="/match/{{.Match.Id}}/arbitration/close" hx-target="body" hx-confirm="¿Cerrar este arbitraje?" data-confirm-ok="Cerrar" class="mt-2">
+    <button type="submit" hx-disabled-elt="this" class="btn btn-warning btn-sm">Cerrar arbitraje</button>
+</form>
+{{end}}
 {{end}}
 
 {{/* matchWalkoverApprove — admin approves an incomparecencia. */}}
@@ -128,20 +145,31 @@
 </div>
 {{end}}
 
-{{/* walkoverModal — player reports a match unplayed (used by resultPanel). */}}
-{{define "walkoverModal"}}
-<dialog id="walkover-modal-{{.Match.Id}}" class="modal">
+{{/* arbitrationModal — player requests admin arbitration (used by resultPanel). */}}
+{{define "arbitrationModal"}}
+<dialog id="arbitration-modal-{{.Match.Id}}" class="modal">
     <div class="modal-box">
-        <h3 class="font-bold text-lg mb-2">Reportar partido no jugado</h3>
-        <p class="text-sm opacity-70 mb-4">Pasará a revisión del administrador. Si se aprueba, se registrará el resultado por defecto y podría aplicarse una penalización de puntos al equipo responsable.</p>
-        <form hx-post="/match/{{.Match.Id}}/report-unplayed" hx-target="body">
+        <h3 class="font-bold text-lg mb-2">Solicitar arbitraje</h3>
+        <p class="text-sm opacity-70 mb-4">Un administrador revisará el partido. Si el motivo es incomparecencia, podría registrarse el resultado por defecto y aplicarse una penalización de puntos al equipo responsable.</p>
+        <form hx-post="/match/{{.Match.Id}}/arbitration" hx-target="body">
             <div class="form-control">
-                <label class="label py-1" for="walkover-reason-{{.Match.Id}}"><span class="label-text text-sm">Motivo</span></label>
-                <textarea id="walkover-reason-{{.Match.Id}}" name="reason" class="textarea textarea-bordered w-full" placeholder="¿Por qué no se jugó? (p. ej. el rival no se presentó)" required></textarea>
+                <label class="label py-1" for="arbitration-category-{{.Match.Id}}"><span class="label-text text-sm">Motivo</span></label>
+                <select id="arbitration-category-{{.Match.Id}}" name="category" class="select select-bordered w-full" required>
+                    <option value="" disabled selected>Selecciona un motivo</option>
+                    <option value="result">Resultado</option>
+                    <option value="scheduling">Fecha y hora</option>
+                    <option value="abandonment">Abandono del rival</option>
+                    <option value="no_show">Incomparecencia (no se presentó)</option>
+                    <option value="other">Otro</option>
+                </select>
+            </div>
+            <div class="form-control mt-3">
+                <label class="label py-1" for="arbitration-notes-{{.Match.Id}}"><span class="label-text text-sm">Explica el motivo</span></label>
+                <textarea id="arbitration-notes-{{.Match.Id}}" name="notes" class="textarea textarea-bordered w-full" placeholder="Cuéntale al administrador qué ha pasado" required></textarea>
             </div>
             <div class="modal-action">
                 <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
-                <button type="submit" hx-disabled-elt="this" class="btn btn-warning">Reportar no jugado</button>
+                <button type="submit" hx-disabled-elt="this" class="btn btn-warning">Solicitar arbitraje</button>
             </div>
         </form>
     </div>
@@ -326,6 +354,12 @@
 {{$c := .Card}}
 {{$status := $c.Match.GetString "status"}}
 <div id="result-panel">
+    {{if and $c.Arbitration (ne $status "disputed")}}
+    {{/* Open arbitration that doesn't touch status (scheduling/abandonment/
+         other) — result/no_show already show their own alert below, inside
+         the "disputed" branch. */}}
+    {{template "arbitrationOpenPanel" $c}}
+    {{end}}
     {{if .ResultPanel.HasFinal}}
     {{/* State: FINAL / accepted */}}
     <div class="card bg-success/10 border border-success/20 rounded-xl">
@@ -336,6 +370,7 @@
 
     {{else if eq $status "disputed"}}
     {{/* State: DISPUTED — the two proposals; admin gets clickable-to-fill + resolve */}}
+    {{if and $c.Arbitration (ne $c.Arbitration "no_show")}}{{template "arbitrationOpenPanel" $c}}{{end}}
     {{if eq $c.ReviewType "walkover"}}
     <div class="alert alert-warning">
         <span>Solicitud de partido no jugado por {{$c.RequestedBy}}{{if $c.DisputeNotes}}: {{$c.DisputeNotes}}{{end}}</span>
@@ -421,11 +456,11 @@
     </div>
     {{end}}
 
-    {{if $c.CanWalkover}}
+    {{if $c.CanRequestArbitration}}
     <div class="text-center mt-3">
-        <button type="button" class="btn btn-sm btn-outline btn-warning" onclick="document.getElementById('walkover-modal-{{$c.Match.Id}}').showModal()">Reportar partido no jugado</button>
+        <button type="button" class="btn btn-sm btn-outline btn-warning" onclick="document.getElementById('arbitration-modal-{{$c.Match.Id}}').showModal()">Solicitar arbitraje</button>
     </div>
-    {{template "walkoverModal" $c}}
+    {{template "arbitrationModal" $c}}
     {{end}}
 
     {{/* Admin override — always available to an admin (except while disputed, which

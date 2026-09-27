@@ -52,11 +52,22 @@ func statusClass(status string) string {
 	return "badge-ghost"
 }
 
-// canReportUnplayed mirrors the status precondition ReportUnplayed enforces.
-// A match with no date set at all can't have been "not played" — the walkover
-// affordance only makes sense once a date exists (proposed or confirmed).
-func canReportUnplayed(status string, team int, date string) bool {
-	return team > 0 && date != "" && (league.IsPreScore(status) || status == league.StatusConfirmed)
+// effectiveStatusBadge overrides the plain status label/class with "Arbitraje
+// solicitado" (badge-warning) while a request is open — unless status is
+// already disputed or final, which keep their own badge ("En disputa" wins
+// over an open request; a final match can't have one open anyway).
+func effectiveStatusBadge(status, arbitration string) (label, class string) {
+	if arbitration != "" && status != league.StatusDisputed && status != league.StatusFinal {
+		return "Arbitraje solicitado", "badge-warning"
+	}
+	return league.StatusLabel(status), statusClass(status)
+}
+
+// canRequestArbitration mirrors the status precondition RequestArbitration
+// enforces: shown to a participant while the match isn't final and no
+// arbitration request is already open.
+func canRequestArbitration(status string, team int, openArbitration string) bool {
+	return team > 0 && status != league.StatusFinal && openArbitration == ""
 }
 
 // matchRoundLabel returns the breadcrumb label for a match's round: the
@@ -102,7 +113,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		if !isAdmin && !league.PlayerCanModify(comp, time.Now()) {
 			mc.CanSubmit = false
 			mc.CanEdit = false
-			mc.CanWalkover = false
+			mc.CanRequestArbitration = false
 			mc.CanCorrect = false
 		}
 		roundLabel = matchRoundLabel(h.app, comp, mc.RoundNum)
@@ -518,9 +529,23 @@ func (h *MatchHandler) detectVenueChange(match *core.Record, venueID string) []s
 	return []string{"Club cambiado: " + old + " → " + venueName}
 }
 
-// ReportUnplayed lets a participant report a match as unplayed (walkover request).
-// The match moves to disputed with review_type=walkover for admin approval.
-func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
+// arbitrationCategories are the valid values for the "category" form field,
+// matched against league.Arbitration* constants.
+var arbitrationCategories = map[string]bool{
+	league.ArbitrationResult:      true,
+	league.ArbitrationScheduling:  true,
+	league.ArbitrationAbandonment: true,
+	league.ArbitrationNoShow:      true,
+	league.ArbitrationOther:       true,
+}
+
+// RequestArbitration lets a participant flag a match for admin review, with a
+// category and a required explanation. Category no_show additionally sets
+// review_type=walkover (so the existing WalkoverApprove flow keeps working)
+// and moves the match to disputed, exactly as the walkover report used to;
+// result does the same. scheduling/abandonment/other leave status untouched
+// so the pairs can keep negotiating while the admin looks into it.
+func (h *MatchHandler) RequestArbitration(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := findMatchOr404(h.app, e, id)
 	if err != nil {
@@ -528,67 +553,108 @@ func (h *MatchHandler) ReportUnplayed(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
-	reporterTeam, err := league.PlayerTeam(h.app, userID, match)
+	requesterTeam, err := league.PlayerTeam(h.app, userID, match)
 	if err != nil {
 		return alertError(e, "No eres participante de este partido")
 	}
-	if err := checkNotWithdrawn(h.app, e, match, reporterTeam); err != nil {
+	if err := checkNotWithdrawn(h.app, e, match, requesterTeam); err != nil {
 		return err
 	}
-
 	if err := checkDocGate(h.app, e, match); err != nil {
 		return err
 	}
-
 	if err := checkCompModifiable(h.app, e, match); err != nil {
 		return err
 	}
 
-	if match.GetString("review_type") == "walkover" {
+	if match.GetString("arbitration") != "" {
 		return redirectHX(e, "/match/"+id)
 	}
-
-	status := match.GetString("status")
-	if !league.IsPreScore(status) && status != league.StatusConfirmed {
-		return alertError(e, "Este partido no puede reportarse como no jugado")
-	}
-	if match.GetString("date") == "" {
-		return alertError(e, "Este partido aún no tiene fecha; no se puede reportar como no jugado")
+	if match.GetString("status") == league.StatusFinal {
+		return alertError(e, "Este partido ya está resuelto")
 	}
 
-	reason := e.Request.FormValue("reason")
-	match.Set("review_type", "walkover")
-	match.Set("walkover_requested_by", userID)
-	match.Set("status", league.StatusDisputed)
-	match.Set("dispute_notes", "[No jugado] "+reason)
+	category := e.Request.FormValue("category")
+	if !arbitrationCategories[category] {
+		return alertError(e, "Selecciona un motivo válido")
+	}
+	notes := strings.TrimSpace(e.Request.FormValue("notes"))
+	if notes == "" {
+		return alertError(e, "Explica el motivo")
+	}
 
+	applyArbitrationFields(match, category, notes, userID)
 	if err := h.app.Save(match); err != nil {
-		return alertError(e, "Error al reportar")
+		return alertError(e, "Error al solicitar arbitraje")
 	}
 
 	addTimelineEntry(h.app, timelineEntry{
-		MatchID: match.Id, ActorID: userID,
-		Kind: "result_event", Detail: "reportó el partido como no jugado",
+		MatchID: match.Id, ActorID: userID, Kind: "result_event",
+		Detail: "solicitó arbitraje: " + league.ArbitrationLabel(category) + " — " + notes,
 	})
+	h.notifyArbitrationRequested(match, category)
 
-	h.notifyUnplayed(match, reporterTeam)
 	return redirectHX(e, "/match/"+id)
 }
 
-func (h *MatchHandler) notifyUnplayed(match *core.Record, reporterTeam int) {
-	id := match.Id
+// applyArbitrationFields sets the fields RequestArbitration writes on match.
+// category no_show additionally sets review_type=walkover (so the existing
+// WalkoverApprove flow keeps working) and moves the match to disputed,
+// exactly as the walkover report used to; result does the same.
+// scheduling/abandonment/other leave status untouched so the pairs can keep
+// negotiating while the admin looks into it.
+func applyArbitrationFields(match *core.Record, category, notes, userID string) {
+	match.Set("arbitration", category)
+	match.Set("arbitration_by", userID)
+	match.Set("dispute_notes", notes)
+	if category == league.ArbitrationNoShow {
+		match.Set("review_type", "walkover")
+		match.Set("walkover_requested_by", userID)
+	}
+	if category == league.ArbitrationNoShow || category == league.ArbitrationResult {
+		match.Set("status", league.StatusDisputed)
+	}
+}
+
+func (h *MatchHandler) notifyArbitrationRequested(match *core.Record, category string) {
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
-	an := league.NotifAdminMatchUnplayed(id, compName)
+	an := league.NotifArbitrationRequested(match.Id, league.ArbitrationLabel(category), compName)
 	if err := h.notifier.NotifyAdmins(an); err != nil {
-		slog.Error("notify admins walkover report", "match", id, "err", err)
+		slog.Error("notify admins arbitration requested", "match", match.Id, "err", err)
 	}
-	rivalPairID := match.GetString("pair2")
-	if reporterTeam == 2 {
-		rivalPairID = match.GetString("pair1")
+}
+
+// CloseArbitration lets an admin close an open arbitration request without
+// otherwise changing the match, for categories that don't need a status
+// change (scheduling/abandonment/other) or once the admin has already
+// resolved it another way (walkover approval, dispute resolution).
+func (h *MatchHandler) CloseArbitration(e *core.RequestEvent) error {
+	id := e.Request.PathValue("id")
+	match, err := findMatchOr404(h.app, e, id)
+	if err != nil {
+		return err
 	}
-	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	n := league.NotifMatchReportedUnplayed(id, compName)
-	h.notifier.NotifyPlayers(rivalPlayers, n)
+	if match.GetString("arbitration") == "" {
+		return alertError(e, "Este partido no tiene arbitraje abierto")
+	}
+
+	match.Set("arbitration", "")
+	match.Set("arbitration_by", "")
+	if err := h.app.Save(match); err != nil {
+		return alertError(e, "Error al cerrar el arbitraje")
+	}
+
+	addTimelineEntry(h.app, timelineEntry{
+		MatchID: match.Id, ActorID: e.Auth.Id, Kind: "admin_action",
+		Detail: "cerró el arbitraje",
+	})
+
+	compName := league.CompetitionName(h.app, match.GetString("competition"))
+	n := league.NotifDisputeResolved(id, compName)
+	h.notifier.NotifyPlayers(matchParticipantUserIDs(h.app, match), n)
+
+	flash(e, "Arbitraje cerrado")
+	return redirectHX(e, "/match/"+id)
 }
 
 func playerNameIfSet(app core.App, userID string) string {

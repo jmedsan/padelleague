@@ -26,11 +26,6 @@ func TestNotificationConstructors(t *testing.T) {
 			want: Notification{Type: "quorum_request", Title: "Resultado enviado", Body: "Pareja A ha enviado 6-2 6-2. Confirma o contrapropón.", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
-			name: "MatchReportedUnplayed",
-			got:  NotifMatchReportedUnplayed("m1", "Liga Primavera"),
-			want: Notification{Type: "general", Title: "Partido reportado como no jugado", Body: "Tu rival ha reportado este partido como no jugado. Un administrador lo revisará.", MatchID: "m1", CompName: "Liga Primavera"},
-		},
-		{
 			name: "ResultConfirmed",
 			got:  NotifResultConfirmed("m1", "Pareja A", "Liga Primavera"),
 			want: Notification{Type: "general", Title: "Resultado confirmado", Body: "Pareja A ha confirmado el resultado", MatchID: "m1", CompName: "Liga Primavera"},
@@ -91,9 +86,9 @@ func TestNotificationConstructors(t *testing.T) {
 			want: Notification{Type: "dispute", Title: "Disputa resuelta", Body: "El administrador ha resuelto la disputa", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
-			name: "AdminMatchUnplayed",
-			got:  NotifAdminMatchUnplayed("m1", "Liga Primavera"),
-			want: Notification{Type: "dispute", Title: "Partido no jugado", Body: "Un jugador ha reportado un partido como no jugado.", MatchID: "m1", CompName: "Liga Primavera"},
+			name: "ArbitrationRequested",
+			got:  NotifArbitrationRequested("m1", "Incomparecencia", "Liga Primavera"),
+			want: Notification{Type: "dispute", Title: "Arbitraje solicitado", Body: "Un jugador ha solicitado arbitraje: Incomparecencia", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "AdminSupersedeFailed",

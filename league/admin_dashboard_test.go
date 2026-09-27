@@ -430,6 +430,32 @@ func TestHealthReport_DisputedWalkoverGoesToWalkovers(t *testing.T) {
 	assert.Empty(t, byKey["disputes"].Items, "a walkover must not also be counted as a dispute")
 }
 
+func TestHealthReport_OpenArbitrationNotDisputedGoesToDisputes(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "HRArbA")
+	p2 := makePair(t, app, "HRArbB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	// scheduling/abandonment/other leave status untouched — this must still
+	// surface as a disputes incident, not silently disappear from health.
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusPending)
+	m.Set("arbitration", "scheduling")
+	m.Set("arbitration_by", p1.GetString("player1"))
+	require.NoError(t, app.Save(m))
+
+	report := HealthReport(app, time.Now())
+	byKey := make(map[string]HealthCategory, len(report))
+	for _, cat := range report {
+		byKey[cat.Key] = cat
+	}
+
+	require.Len(t, byKey["disputes"].Items, 1, "an open non-disputed arbitration must surface as a disputes incident")
+	assert.Equal(t, m.Id, byKey["disputes"].Items[0].MatchID)
+	assert.Equal(t, "Arbitraje: Fecha y hora", byKey["disputes"].Items[0].Detail)
+	assert.Empty(t, byKey["walkovers"].Items, "a non-walkover arbitration must not be counted as a walkover")
+}
+
 func TestHealthReport_UnscheduledMatchWithNoDate(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)

@@ -194,6 +194,18 @@ func addCompHealth(app core.App, c *core.Record, now time.Time, categories map[s
 			disputeHealthItem(app, m, compIdent{ctx.compName, ctx.compLogo}))
 	}
 
+	// An open arbitration for scheduling/abandonment/other leaves status
+	// untouched (result/no_show already surfaced above via status='disputed'),
+	// so it needs its own query to show up as a disputes incident.
+	arbitrating, _ := app.FindRecordsByFilter("matches",
+		"competition = {:cid} && status != 'disputed' && arbitration != ''",
+		"round_number", 0, 0,
+		map[string]any{"cid": c.Id})
+	for _, m := range arbitrating {
+		categories["disputes"].Items = append(categories["disputes"].Items,
+			arbitrationHealthItem(app, m, compIdent{ctx.compName, ctx.compLogo}))
+	}
+
 	pending, _ := app.FindRecordsByFilter("matches",
 		"competition = {:cid} && status = 'pending'",
 		"round_number", 0, 0,
@@ -251,6 +263,12 @@ func disputeHealthItem(app core.App, m *core.Record, ci compIdent) HealthItem {
 func walkoverHealthItem(app core.App, m *core.Record, ci compIdent) HealthItem {
 	item := healthItem(app, m, ci, m.GetInt("round_number"))
 	item.Detail = "Incomparecencia pendiente de aprobación"
+	return item
+}
+
+func arbitrationHealthItem(app core.App, m *core.Record, ci compIdent) HealthItem {
+	item := healthItem(app, m, ci, m.GetInt("round_number"))
+	item.Detail = "Arbitraje: " + ArbitrationLabel(m.GetString("arbitration"))
 	return item
 }
 

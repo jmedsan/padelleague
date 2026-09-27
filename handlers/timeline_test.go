@@ -108,11 +108,11 @@ func TestCorrectCreatesTimelineEntry(t *testing.T) {
 	s.Test(t)
 }
 
-func TestReportUnplayedCreatesTimelineEntry(t *testing.T) {
+func TestRequestArbitrationCreatesTimelineEntry(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: handlers.TestAppFactory,
-		Name:           "report unplayed writes result_event timeline entry",
+		Name:           "arbitration request writes result_event timeline entry",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
@@ -131,17 +131,17 @@ func TestReportUnplayedCreatesTimelineEntry(t *testing.T) {
 		reporterID = p1.GetString("player1")
 		player, err := app.FindRecordById("users", reporterID)
 		require.NoError(tb, err)
-		s.URL = "/match/" + m.Id + "/report-unplayed"
-		s.Body = strings.NewReader("reason=rival+no+show")
+		s.URL = "/match/" + m.Id + "/arbitration"
+		s.Body = strings.NewReader("category=no_show&notes=rival+no+show")
 		hdrs := handlers.AuthHeaders(tb, player)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		entries := findResultEvents(app, matchID)
-		require.Len(tb, entries, 1, "report-unplayed must write one result_event")
+		require.Len(tb, entries, 1, "arbitration request must write one result_event")
 		assert.Equal(tb, reporterID, entries[0].GetString("author"))
-		assert.Contains(tb, entries[0].GetString("content"), "reportó el partido como no jugado")
+		assert.Contains(tb, entries[0].GetString("content"), "solicitó arbitraje")
 	}
 	handlers.ExpectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)

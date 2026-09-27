@@ -42,7 +42,13 @@ type MatchCard struct {
 	ReviewType        string
 	RequestedBy       string
 
+	Arbitration      string // "" | result | scheduling | abandonment | no_show | other
+	ArbitrationLabel string // Spanish label for Arbitration, "" when none open
+	ArbitrationBy    string // requester's player name
+
 	CarriedSets string
+
+	WhatsAppMatchMessage string // prefilled "I have a problem with match X vs Y: <link>" text
 
 	IsMyMatch bool
 	MyTeam    int // 1 or 2; 0 if viewer is not a participant
@@ -51,7 +57,7 @@ type MatchCard struct {
 
 	CanSubmit                    bool
 	CanEdit                      bool
-	CanWalkover                  bool
+	CanRequestArbitration        bool
 	CanCorrect                   bool
 	HasDateAndPlace              bool
 	HasPendingSchedulingProposal bool
@@ -74,6 +80,8 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 		competitionName = competition.GetString("name")
 		competitionLogo = league.CompetitionLogoURL(competition.Id, competition.GetString("logo"))
 	}
+	arbitration := match.GetString("arbitration")
+	statusLabel, statusCls := effectiveStatusBadge(status, arbitration)
 	c := MatchCard{
 		Mode:              mode,
 		Match:             match,
@@ -82,8 +90,8 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 		CompetitionName:   competitionName,
 		CompetitionLogo:   competitionLogo,
 		RoundNum:          int(match.GetFloat("round_number")),
-		StatusLabel:       league.StatusLabel(status),
-		StatusClass:       statusClass(status),
+		StatusLabel:       statusLabel,
+		StatusClass:       statusCls,
 		Score:             match.GetString("scores"),
 		SubmittedScore:    match.GetString("scores"),
 		DisputedScore:     match.GetString("disputed_scores"),
@@ -92,8 +100,13 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 		SubmitterPairName: userPairName(app, match.GetString("submitted_by"), match, pairNames),
 		DisputerPairName:  userPairName(app, match.GetString("disputed_by"), match, pairNames),
 		RequestedBy:       playerNameIfSet(app, match.GetString("walkover_requested_by")),
+		Arbitration:       arbitration,
+		ArbitrationLabel:  league.ArbitrationLabel(arbitration),
+		ArbitrationBy:     playerNameIfSet(app, match.GetString("arbitration_by")),
 		CarriedSets:       match.GetString("carried_sets"),
 	}
+	c.WhatsAppMatchMessage = fmt.Sprintf("Hola, tengo un problema con el partido %s vs %s: %s/match/%s",
+		c.Pair1Name, c.Pair2Name, app.Settings().Meta.AppURL, match.Id)
 	if viewerID != "" && !mode.Admin {
 		team, _ := league.PlayerTeam(app, viewerID, match)
 		c.MyTeam = team
@@ -120,17 +133,20 @@ func NewMatchRow(match *core.Record, pairNames map[string]string, playerPairIDs 
 	} else if myP2 {
 		myTeam = 2
 	}
+	arbitration := match.GetString("arbitration")
+	statusLabel, statusCls := effectiveStatusBadge(status, arbitration)
 	return MatchCard{
 		Mode:        PlayerRow,
 		Match:       match,
 		Pair1Name:   pairNames[p1],
 		Pair2Name:   pairNames[p2],
 		RoundNum:    int(match.GetFloat("round_number")),
-		StatusLabel: league.StatusLabel(status),
-		StatusClass: statusClass(status),
+		StatusLabel: statusLabel,
+		StatusClass: statusCls,
 		Score:       match.GetString("scores"),
 		IsMyMatch:   myP1 || myP2,
 		MyTeam:      myTeam,
+		Arbitration: arbitration,
 		CarriedSets: match.GetString("carried_sets"),
 	}
 }
@@ -157,6 +173,9 @@ func enrichWithPendingResults(app core.App, cards []MatchCard) {
 			"", 1, 0, map[string]any{"mid": mid})
 		if len(msgs) > 0 {
 			for _, idx := range idxMap[mid] {
+				if cards[idx].Arbitration != "" {
+					continue
+				}
 				cards[idx].StatusLabel = "Propuesta"
 				cards[idx].StatusClass = "badge-soft-warning"
 			}
@@ -173,7 +192,7 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 	c.HasPendingSchedulingProposal = hasPendingSchedulingProposal(app, match.Id)
 	c.CanSubmit = league.IsPreScore(status) && team > 0
 	c.CanEdit = league.IsPreScore(status) && team > 0
-	c.CanWalkover = canReportUnplayed(status, team, match.GetString("date"))
+	c.CanRequestArbitration = canRequestArbitration(status, team, match.GetString("arbitration"))
 	c.CanCorrect = isSubmitter && canCorrectNow(match, status)
 	switch team {
 	case 1:
