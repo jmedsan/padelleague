@@ -93,6 +93,29 @@
 </div>
 {{end}}
 
+{{/* arbitrationSection — the match page's Arbitraje card: the open request
+     (with the admin close) and the player's request button + modal. A
+     disputed no_show is left to the result card's walkover alert. Renders
+     nothing when there is neither. */}}
+{{define "arbitrationSection"}}
+{{$open := and .Arbitration (not (and (eq (.Match.GetString "status") "disputed") (eq .Arbitration "no_show")))}}
+{{if or $open .CanRequestArbitration}}
+<div id="arbitration-section" data-testid="arbitration-section" class="card bg-base-100 shadow-lg rounded-2xl overflow-hidden mb-6">
+    <div class="card-body p-4 sm:p-6">
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="font-bold text-lg">Arbitraje</h3>
+            {{if $open}}<span class="badge badge-soft-warning">Arbitraje solicitado</span>{{end}}
+        </div>
+        {{if $open}}{{template "arbitrationOpenPanel" .}}{{end}}
+        {{if .CanRequestArbitration}}
+        <button type="button" data-testid="arbitration-request" class="btn btn-sm btn-outline btn-warning" onclick="document.getElementById('arbitration-modal-{{.Match.Id}}').showModal()">Solicitar arbitraje</button>
+        {{template "arbitrationModal" .}}
+        {{end}}
+    </div>
+</div>
+{{end}}
+{{end}}
+
 {{/* matchWalkoverApprove — admin approves an incomparecencia. */}}
 {{define "matchWalkoverApprove"}}
 <form hx-post="/admin/disputes/{{.Match.Id}}/walkover-approve" hx-target="closest .card" hx-swap="outerHTML" hx-confirm="¿Aprobar esta incomparecencia? Se aplicará el resultado y la penalización configurados." data-confirm-title="Aprobar incomparecencia" data-confirm-danger data-confirm-ok="Aprobar" class="mt-2">
@@ -150,7 +173,7 @@
 </div>
 {{end}}
 
-{{/* arbitrationModal — player requests admin arbitration (used by resultPanel). */}}
+{{/* arbitrationModal — player requests admin arbitration (used by arbitrationSection). */}}
 {{define "arbitrationModal"}}
 <dialog id="arbitration-modal-{{.Match.Id}}" class="modal">
     <div class="modal-box">
@@ -359,12 +382,6 @@
 {{$c := .Card}}
 {{$status := $c.Match.GetString "status"}}
 <div id="result-panel">
-    {{if and $c.Arbitration (ne $status "disputed")}}
-    {{/* Open arbitration that doesn't touch status (scheduling/abandonment/
-         other) — result/no_show already show their own alert below, inside
-         the "disputed" branch. */}}
-    {{template "arbitrationOpenPanel" $c}}
-    {{end}}
     {{if .ResultPanel.HasFinal}}
     {{/* State: FINAL / accepted */}}
     <div class="card bg-success/10 border border-success/20 rounded-xl">
@@ -375,7 +392,6 @@
 
     {{else if eq $status "disputed"}}
     {{/* State: DISPUTED — the two proposals; admin gets clickable-to-fill + resolve */}}
-    {{if and $c.Arbitration (ne $c.Arbitration "no_show")}}{{template "arbitrationOpenPanel" $c}}{{end}}
     {{if eq $c.ReviewType "walkover"}}
     <div class="alert alert-warning">
         <span>Solicitud de partido no jugado por {{$c.RequestedBy}}{{if $c.DisputeNotes}}: {{$c.DisputeNotes}}{{end}}</span>
@@ -459,13 +475,6 @@
             </details>
         </div>
     </div>
-    {{end}}
-
-    {{if $c.CanRequestArbitration}}
-    <div class="text-center mt-3">
-        <button type="button" class="btn btn-sm btn-outline btn-warning" onclick="document.getElementById('arbitration-modal-{{$c.Match.Id}}').showModal()">Solicitar arbitraje</button>
-    </div>
-    {{template "arbitrationModal" $c}}
     {{end}}
 
     {{/* Admin override — always available to an admin (except while disputed, which

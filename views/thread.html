@@ -108,7 +108,7 @@
 {{end}}
 
 <!-- Result section — its own top-level card, separate from date/place. -->
-{{if or .ResultPanel.Live .ResultPanel.HasFinal (eq (.Match.GetString "status") "disputed") .Card.CanSubmit .Card.CanCorrect .Card.CanRequestArbitration (and .Card.Mode.Admin .Card.Mode.Editable)}}
+{{if or .ResultPanel.Live .ResultPanel.HasFinal (eq (.Match.GetString "status") "disputed") .Card.CanSubmit .Card.CanCorrect (and .Card.Mode.Admin .Card.Mode.Editable)}}
 <div id="thread-details" class="card bg-base-100 shadow-lg rounded-2xl overflow-hidden mb-6">
     <div class="card-body p-4 sm:p-6">
         {{if .UnpaidWarning}}
@@ -127,6 +127,9 @@
     </div>
 </div>
 {{end}}
+
+<!-- Arbitration section — its own top-level card; arbitration is match-level, not a result concern. -->
+{{template "arbitrationSection" .Card}}
 
 <!-- Timeline — pure read-only chronological log + chat composer. Its own card. -->
 <div class="card bg-base-100 shadow-lg rounded-2xl overflow-hidden">
