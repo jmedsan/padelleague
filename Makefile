@@ -4,7 +4,7 @@ export
 LOCAL_URL ?= http://127.0.0.1:8090
 OPENER ?= xdg-open
 
-.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci check e2e e2e-bg e2e-smoke scenario-test scenario-serve scenario-stop
+.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci check e2e e2e-bg e2e-failed e2e-smoke scenario-test scenario-serve scenario-stop
 
 css:
 	cd frontend && npx tailwindcss -i ../static/css/input.css -o ../static/css/styles.css --minify
@@ -153,12 +153,25 @@ e2e-bg:
 	    > $(CURDIR)/$$outdir/full.log 2>&1; \
 	  code=$$?; \
 	  tail -20 $(CURDIR)/$$outdir/full.log > $(CURDIR)/$$outdir/summary.txt; \
+	  cp test-results/.last-run.json $(CURDIR)/$$outdir/last-run.json 2>/dev/null; \
 	  echo "exit_code=$$code" >> $(CURDIR)/$$outdir/summary.txt; \
 	  rm -rf $$snap; \
 	  echo "done: $(CURDIR)/$$outdir/summary.txt (exit $$code)" \
 	) & \
 	disown; \
 	echo "started in background, pid group left running — see $$outdir/summary.txt when done"
+
+# Re-run only the tests that failed in the most recent run (local `make e2e`
+# or the newest `make e2e-bg` milestone, whichever is newer). Fix every failure
+# first, then verify them all in this one run.
+e2e-failed:
+	@last=$$(ls -t e2e/test-results/.last-run.json e2e/.bg-runs/*/last-run.json 2>/dev/null | head -1); \
+	[ -n "$$last" ] || { echo "no previous e2e run recorded"; exit 1; }; \
+	n=$$(jq '.failedTests | length' $$last); \
+	[ "$$n" -gt 0 ] || { echo "no failures in $$last"; exit 0; }; \
+	echo "re-running $$n failures from $$last"; \
+	E2E_PORT=$$(node e2e/find-free-port.mjs) && \
+	cd e2e && E2E_PORT=$$E2E_PORT npx playwright test --last-failed --last-failed-file $(CURDIR)/$$last
 
 # ~15 tests tagged @smoke, one representative per area (auth, match, thread,
 # competition, admin, search, responsive, season sim, PWA, notifications,
