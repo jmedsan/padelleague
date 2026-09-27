@@ -10,6 +10,20 @@
 
     <div class="mb-6">{{template "matchCard" .Card}}</div>
 
+    {{if .RivalContacts}}
+    <div class="card bg-base-100 shadow-sm rounded-xl mb-6" data-testid="rival-contacts">
+        <div class="card-body">
+            <h2 class="card-title text-lg">Contactar rivales</h2>
+            {{range .RivalContacts}}
+            <div class="flex flex-wrap items-center gap-2">
+                {{template "playerLink" .}}
+                {{template "contactButtons" .}}
+            </div>
+            {{end}}
+        </div>
+    </div>
+    {{end}}
+
     {{if and (eq (.Card.Match.GetString "status") "final") .ShareText}}
     <div class="flex flex-wrap gap-2 mt-4">
         <button onclick="shareOrCopy('{{.ShareText}}', '{{.ShareURL}}')" class="btn btn-primary btn-sm gap-2 flex-1">
