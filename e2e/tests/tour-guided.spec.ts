@@ -232,8 +232,7 @@ test.describe('guided navigation tour', () => {
     // competitionStandings (handlers/public_competition.go) both reject any
     // non-admin viewer of an unpublished calendar, and Phase 2 below logs in
     // as real players.
-    await page.locator('button:has-text("Publicar calendario")').click();
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'), `/admin/competitions/${competitionId}`);
 
     const startDate = leagueDate(-30);
     const endDate = leagueDate(30);
@@ -429,8 +428,7 @@ test.describe('guided navigation tour', () => {
 
     // Draft-only until published — Phase 7 below plays every match as real
     // players, who can't see an unpublished competition's matches at all.
-    await page.locator('button:has-text("Publicar calendario")').click();
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'), `/admin/competitions/${playoffId}`);
 
     // Activate playoff via toggle
     await clickConfirmAndWaitForHxRedirect(page, page.locator('.toggle.toggle-success'), `/admin/competitions/${playoffId}`);
@@ -603,8 +601,7 @@ test.describe('guided navigation tour', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // Publish
-    await page.locator('button:has-text("Publicar calendario")').click();
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'), `/admin/competitions/${lvCompId}`);
 
     // Player navigates from home → competition card → sees "Jornada 1"
     await loginAs(page, emailA, pws);

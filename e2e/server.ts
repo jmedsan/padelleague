@@ -82,11 +82,21 @@ export async function superuserLogin(
 // spawnServer's `binary` option when spawning more than one server, so a
 // multi-worker run pays the build cost once instead of once per worker.
 export async function buildBinary(): Promise<string> {
-  const binary = join(mkdtempSync(join(tmpdir(), 'pl-')), 'padelleague');
-  execSync(`go build -o ${binary} .`, {
-    cwd: join(__dirname, '..'),
-    stdio: 'inherit',
-  });
+  const dir = mkdtempSync(join(tmpdir(), 'pl-'));
+  const binary = join(dir, 'padelleague');
+  try {
+    execSync(`go build -o ${binary} .`, {
+      cwd: join(__dirname, '..'),
+      stdio: 'inherit',
+    });
+  } catch (err) {
+    // A build failure leaves this mkdtemp'd dir with nothing in it to clean
+    // up — every retry against a broken tree leaked one more /tmp/pl-*
+    // (119 seen from one bad stretch). Remove it before rethrowing so a
+    // failed build costs one dir, not one forever.
+    rmSync(dir, { recursive: true, force: true });
+    throw err;
+  }
   return binary;
 }
 

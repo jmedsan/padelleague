@@ -76,11 +76,7 @@ test.describe('match thread', () => {
     await fillFlatpickrDate(page, '#proposal-date', '2026-12-01');
     await page.locator('#proposal-time').selectOption('10:00');
     await page.locator('#proposal-venue').selectOption({ index: 1 });
-    await Promise.all([
-      page.waitForEvent('load', { timeout: 10000 }),
-      page.locator('#proposal-form button:has-text("Proponer fecha")').click(),
-    ]);
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, page.locator('#proposal-form button:has-text("Proponer fecha")'), `/match/${match.id}`);
     await page.waitForSelector('#thread-schedule', { timeout: 10000 });
 
     // The open "Proponer fecha y lugar" card must be gone — a pending
@@ -377,11 +373,7 @@ test.describe('match thread', () => {
     await fillFlatpickrDate(page, '#proposal-date', '2027-01-15');
     await page.locator('#proposal-time').selectOption('10:00');
     await page.locator('#proposal-venue').selectOption({ index: 1 });
-    await Promise.all([
-      page.waitForEvent('load', { timeout: 10000 }),
-      page.locator('#proposal-form button:has-text("Proponer fecha")').click(),
-    ]);
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, page.locator('#proposal-form button:has-text("Proponer fecha")'), `/match/${matchId}`);
 
     // Withdraw button is visible — accept the confirm dialog. hx-confirm is
     // intercepted by static/js/confirm.js's custom #confirm-modal, not the
@@ -391,11 +383,7 @@ test.describe('match thread', () => {
 
     await withdrawBtn.click();
     await expect(page.locator('#confirm-message')).toContainText('Retirar');
-    await Promise.all([
-      page.waitForEvent('load', { timeout: 10000 }),
-      page.locator('#confirm-ok').click(),
-    ]);
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, page.locator('#confirm-ok'), `/match/${matchId}`);
 
     // After withdrawal: proposal gone (no "Retirar" button) and timeline shows the withdrawal
     await expect(page.locator('button:has-text("Retirar")')).toHaveCount(0);
@@ -416,11 +404,7 @@ test.describe('match thread', () => {
     await fillFlatpickrDate(page, '#proposal-date', '2027-01-20');
     await page.locator('#proposal-time').selectOption('11:00');
     await page.locator('#proposal-venue').selectOption({ index: 1 });
-    await Promise.all([
-      page.waitForEvent('load', { timeout: 10000 }),
-      page.locator('#proposal-form button:has-text("Proponer fecha")').click(),
-    ]);
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, page.locator('#proposal-form button:has-text("Proponer fecha")'), `/match/${matchId}`);
 
     // Admin (pair2 member — see global-setup.ts's pair2Id) logs in and
     // rejects with a reason. PLAYER1 is on BOTH pairs (pair1Id's Alpha and
@@ -442,11 +426,7 @@ test.describe('match thread', () => {
     await rejectForm.locator('select[name="rejection_reason"]').selectOption('No puedo ese día');
 
     // Submit the rejection
-    await Promise.all([
-      page.waitForEvent('load', { timeout: 10000 }),
-      rejectForm.locator('button:has-text("Enviar rechazo")').click(),
-    ]);
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, rejectForm.locator('button:has-text("Enviar rechazo")'), `/match/${matchId}`);
 
     // After rejection: the schedule card resets to the open "Proponer
     // fecha" form (a rejected proposal is not shown as active state — see
@@ -479,11 +459,7 @@ test.describe('match thread', () => {
     // Submit and verify the server receives and stores the correct date
     await page.locator('#proposal-time').selectOption('09:00');
     await page.locator('#proposal-venue').selectOption({ index: 1 });
-    await Promise.all([
-      page.waitForEvent('load', { timeout: 10000 }),
-      page.locator('#proposal-form button:has-text("Proponer fecha")').click(),
-    ]);
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, page.locator('#proposal-form button:has-text("Proponer fecha")'), `/match/${matchId}`);
 
     // The schedule card shows the confirmed/proposed date — if the date was
     // garbled (e.g. DD/MM/YYYY submitted) the server would reject or store

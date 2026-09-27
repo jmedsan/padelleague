@@ -203,10 +203,7 @@ test.describe('scheduling, walkover & bracket', () => {
     await genNav;
     await page.waitForLoadState('domcontentloaded');
     // The generated bracket is a draft until published; players see nothing before.
-    const pubNav = page.waitForEvent('framenavigated', { timeout: 15000 });
-    await page.locator('button:has-text("Publicar calendario")').click();
-    await pubNav;
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'), `/admin/competitions/${compId}`);
 
     // Open at 375px mobile viewport
     const mobileContext = await browser.newContext({ viewport: { width: 375, height: 812 } });

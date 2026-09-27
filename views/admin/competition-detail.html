@@ -302,7 +302,7 @@
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/withdraw-pair" hx-confirm="¿Retirar a {{.PairName}}? Se resolverán todos sus partidos pendientes como incomparecencia ({{or ($.Competition.GetString "walkover_score") "6-0 6-0"}})." data-confirm-danger data-confirm-ok="Retirar" class="inline">
                                 <input type="hidden" name="pair_id" value="{{.PairID}}">
                                 <span class="tooltip tooltip-left" data-tip="Retirar de la competición">
-                                    <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm btn-circle text-warning" aria-label="Retirar de la competición">
+                                    <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm btn-circle min-h-[44px] min-w-[44px] text-warning" aria-label="Retirar de la competición">
                                         <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" /></svg>
                                     </button>
                                 </span>
@@ -310,7 +310,7 @@
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja de la competición?" data-confirm-danger data-confirm-ok="Quitar" class="inline">
                                 <input type="hidden" name="pair_id" value="{{.PairID}}">
                                 <span class="tooltip tooltip-left" data-tip="Quitar de la competición">
-                                    <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm btn-circle text-error" aria-label="Quitar de la competición">
+                                    <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm btn-circle min-h-[44px] min-w-[44px] text-error" aria-label="Quitar de la competición">
                                         <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                                     </button>
                                 </span>

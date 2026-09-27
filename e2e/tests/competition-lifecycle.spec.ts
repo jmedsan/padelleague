@@ -5,6 +5,7 @@ import {
   suPost as suPostBase, suPatch as suPatchBase,
   ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD,
 } from '../helpers';
+import { clickAndWaitForHxRedirect } from '../tour-helpers';
 
 function suToken(): string {
   return loadTestData().adminToken;
@@ -43,9 +44,7 @@ test.describe('competition lifecycle', () => {
     await page.getByRole('button', { name: /crear competición/i }).first().click();
     await page.fill('input[name="name"]', name);
     await page.selectOption('select[name="type"]', 'league');
-    await page.locator('dialog button[type="submit"]').click();
-    await page.waitForURL(/\/admin/, { timeout: 10000 });
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, page.locator('dialog button[type="submit"]'), /^\/admin\/competitions\/[^/]+$/);
     // Scoped to the heading: the site footer also renders this competition's
     // name (single active competition, out-of-context promotion), so the
     // unscoped getByText matches both and violates Playwright's strict mode.
@@ -229,11 +228,7 @@ test.describe('competition lifecycle', () => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto(`/admin/competitions/${comp.id}`);
     await page.waitForLoadState('domcontentloaded');
-    await Promise.all([
-      page.waitForResponse(resp => resp.url().includes('/generate') && resp.status() === 204),
-      page.locator('button:has-text("Generar calendario")').click(),
-    ]);
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Generar calendario")'), `/admin/competitions/${comp.id}`);
     await expect(page.locator('.badge', { hasText: 'Borrador' })).toBeVisible();
     const publishButton = page.locator('button:has-text("Publicar calendario")');
     await expect(publishButton).toBeVisible();
@@ -248,11 +243,7 @@ test.describe('competition lifecycle', () => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto(`/admin/competitions/${comp.id}`);
     await page.waitForLoadState('domcontentloaded');
-    await Promise.all([
-      page.waitForResponse(resp => resp.url().includes('/publish') && resp.status() === 204),
-      page.locator('button:has-text("Publicar calendario")').click(),
-    ]);
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'), `/admin/competitions/${comp.id}`);
     await expect(page.locator('.badge', { hasText: 'Publicado' })).toBeVisible();
 
     // A participant (p1 is on Pareja A) clicks the bell notification and

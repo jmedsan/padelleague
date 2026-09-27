@@ -1,6 +1,12 @@
 import { Page, expect, APIRequestContext, Locator } from '@playwright/test';
 import { ExpectedRow, PairId } from './season-helpers';
-import { loginAs, isMobile } from './helpers';
+import { loginAs, isMobile, expectingHxRedirect, waitForHxRedirect, clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect } from './helpers';
+
+// Re-exported for backward compatibility: the HTMX redirect helpers live in
+// helpers.ts (a dependency-free file overflow-guard.ts and helpers.ts's own
+// loginViaForm both need) to avoid a circular import between this file and
+// helpers.ts. See helpers.ts for the implementation and design notes.
+export { expectingHxRedirect, waitForHxRedirect, clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect };
 
 // ---------------------------------------------------------------------------
 // referenceFallback — tracks non-affordance navigations for the guided spec
@@ -31,148 +37,6 @@ export function assertFallbacksMatch(actual: Fallback[], expected: string[]): vo
   expect(reasons.sort()).toEqual([...expected].sort());
 }
 
-// ---------------------------------------------------------------------------
-// HTMX redirect helper (shared by action helpers)
-// ---------------------------------------------------------------------------
-
-// Both helpers require the caller's expected redirect target (pathname match
-// against the server's own HX-Redirect header), then wait for the redirect to
-// actually land, then 'load' if it was a real document navigation. Earlier
-// signals were each racy or vacuous on their own:
-//   - 'framenavigated' has no frame filter, so it also fires for child-frame
-//     or same-document navigations unrelated to the HX-Redirect — it can
-//     resolve before the real target document request even starts.
-//   - a bare URL match (the old expectRedirectedTo-after-click pattern) is a
-//     no-op when the action redirects back to the SAME url the page was
-//     already on (e.g. the penalty-confirm step on /admin/competitions/{id}
-//     redirects to /admin/competitions/{id}) — toHaveURL is already
-//     satisfied, so it asserts nothing and returns immediately, before the
-//     navigation lands, AND proves nothing even if it later does: a server
-//     bug that redirected somewhere else first, then bounced back, would
-//     still pass.
-//   - registering the navigation waiter AFTER awaiting the htmx POST response
-//     is too late: htmx sets location.href the instant that response lands,
-//     so the target document request can arrive and be missed before the
-//     waiter is even registered, timing out. The listener has to be attached
-//     before act() fires the click.
-//   - matching on recorded main-frame navigation responses breaks for any
-//     HX-Redirect whose target differs from the current URL only by its hash
-//     (e.g. PostMessage's redirectHX(e, "/match/"+id+"#mensajes") from that
-//     same match page): per the HTML spec that's a same-document fragment
-//     navigation — no network request, no 'load' event — so nothing ever
-//     lands and the wait times out. A first fix special-cased "same
-//     pathname+search" as fragment-only, but that also wrongly covers a
-//     target that is BYTE-FOR-BYTE identical to the current URL (e.g.
-//     createPair's redirectHX(e, "/admin/pairs") called from a page already
-//     there, no query, no hash): the spec forces a full reload for an
-//     identical location.href assignment, same as any other cross-document
-//     navigation, so treating it as fragment-only returned before that reload
-//     even started and the caller's next page.goto raced it ("Navigation …
-//     is interrupted", season-simulation.spec.ts's addPairToCompetition right
-//     after createPair). Telling these apart by comparing URL strings needs a
-//     special case per shape; the browser already knows which one it did.
-// A document-identity marker asks the browser directly instead of inferring
-// it from URL comparisons: stamp `window.__hxNav` on the page before act()
-// runs. A same-document fragment navigation leaves the marker in place; any
-// actual document load — including a reload to the identical URL — tears
-// down the old window and the marker goes with it. That single signal covers
-// a real reload, a same-URL reload, and a fragment-only change without
-// naming any of them individually, and it drops the navigation-response
-// listener entirely.
-//   - even with the marker distinguishing same-document from a real reload
-//     correctly, polling page.url() for the target hash still hangs for
-//     #mensajes specifically: views/thread.html's onMensajesHash() strips the
-//     hash straight back off via history.replaceState the instant it sees
-//     #mensajes (on load AND on 'hashchange'), right after triggering the
-//     thread's own refresh. htmx's location.href assignment does fire a real
-//     hashchange, but the app's own listener consumes it and rewrites the URL
-//     before Playwright's page.url() is ever read — so the hash the caller is
-//     polling for can never be observed there, by design, regardless of poll
-//     frequency. Do NOT "fix" this by asserting on page.url() again; register
-//     a hashchange listener BEFORE act() runs instead, so it captures the
-//     hash from the event itself (event.newURL) rather than the URL bar
-//     after the app's own listener has already run.
-async function waitForHxRedirectTarget(page: Page, expectedTarget: string | RegExp, act: () => Promise<void>): Promise<void> {
-  await page.evaluate(() => {
-    (window as unknown as { __hxNav?: boolean }).__hxNav = true;
-    (window as unknown as { __hxHash?: string }).__hxHash = window.location.hash;
-    window.addEventListener('hashchange', (e: HashChangeEvent) => {
-      (window as unknown as { __hxHash?: string }).__hxHash = new URL(e.newURL).hash;
-    });
-  });
-  const beforeHash = new URL(page.url()).hash;
-  const [hxResponse] = await Promise.all([
-    page.waitForResponse(
-      r => r.request().method() !== 'GET' && r.frame() === page.mainFrame() && r.request().headers()['hx-request'] === 'true',
-      { timeout: 15000 },
-    ),
-    act(),
-  ]);
-  const target = await hxResponse.headerValue('hx-redirect');
-  if (!target) throw new Error(`expected HX-Redirect header, got ${hxResponse.status()} ${hxResponse.url()}`);
-  const targetUrl = new URL(target, page.url());
-  const targetPath = targetUrl.pathname;
-  const matches = typeof expectedTarget === 'string' ? targetPath === expectedTarget : expectedTarget.test(targetPath);
-  if (!matches) throw new Error(`HX-Redirect target "${targetPath}" did not match expected ${expectedTarget}`);
-  // htmx does `location.href = target` verbatim (static/js/htmx.min.js).
-  // Either the marker survives (same document — a fragment-only change; poll
-  // the hashchange listener's captured value, not page.url() — see above) or
-  // it's gone (a real document load; wait for 'load'). page.evaluate throws
-  // mid-navigation while the old document is torn down — that failure IS the
-  // "marker gone" signal, not an error.
-  const markerSurvived = async () => {
-    try {
-      return await page.evaluate(() => (window as unknown as { __hxNav?: boolean }).__hxNav === true);
-    } catch {
-      return false;
-    }
-  };
-  if (targetUrl.hash !== beforeHash && await markerSurvived()) {
-    await expect.poll(
-      () => page.evaluate(() => (window as unknown as { __hxHash?: string }).__hxHash).catch(() => undefined),
-      { timeout: 15000 },
-    ).toBe(targetUrl.hash);
-  } else {
-    await expect.poll(markerSurvived, { timeout: 15000 }).toBe(false);
-    await page.waitForLoadState('load');
-  }
-}
-
-export async function clickAndWaitForHxRedirect(page: Page, locator: ReturnType<Page['locator']>, expectedTarget: string | RegExp): Promise<void> {
-  return waitForHxRedirectTarget(page, expectedTarget, async () => {
-    await locator.click();
-    // Invariant: an hx-confirm element clicked through the plain (non-Confirm)
-    // variant opens #confirm-modal instead of ever submitting — act() above
-    // then hangs on the htmx-request wait until the 15s timeout produces an
-    // opaque failure, often surfacing at a later, unrelated call site instead
-    // of here. Name the real cause immediately instead.
-    if (await page.locator('#confirm-modal[open]').count() > 0) {
-      throw new Error(
-        `#confirm-modal opened after clicking ${await describeLocator(locator)} — this element carries hx-confirm; ` +
-        `use clickConfirmAndWaitForHxRedirect instead of clickAndWaitForHxRedirect`,
-      );
-    }
-  });
-}
-
-async function describeLocator(locator: ReturnType<Page['locator']>): Promise<string> {
-  try {
-    return await locator.evaluate((el: Element) => el.outerHTML.slice(0, 200));
-  } catch {
-    return String(locator);
-  }
-}
-
-// clickConfirmAndWaitForHxRedirect is clickAndWaitForHxRedirect for a target
-// that carries hx-confirm — intercepted by static/js/confirm.js's custom
-// #confirm-modal (not window.confirm), so the request only fires once
-// #confirm-ok is clicked.
-export async function clickConfirmAndWaitForHxRedirect(page: Page, locator: ReturnType<Page['locator']>, expectedTarget: string | RegExp): Promise<void> {
-  return waitForHxRedirectTarget(page, expectedTarget, async () => {
-    await locator.click();
-    await page.locator('#confirm-ok').click();
-  });
-}
 
 // ---------------------------------------------------------------------------
 // Action helpers — assume the page is already at the right place

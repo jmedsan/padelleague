@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import { loginAs, isMobile, openDrawer, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { clickAndWaitForHxRedirect } from '../tour-helpers';
 
 async function navToAdmin(page: Page): Promise<void> {
   if (isMobile(page)) {
@@ -28,10 +29,8 @@ test.describe('gender enforcement', () => {
     await expect(modal).toBeVisible();
     await modal.locator('input[name="name"]').fill(compName);
     await modal.locator('select[name="gender_type"]').selectOption('mixed');
-    await modal.locator('button[type="submit"]').click();
     // Create redirects straight to the new competition's detail page.
-    await page.waitForURL(/\/admin\/competitions\/[^/]+$/, { timeout: 10000 });
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, modal.locator('button[type="submit"]'), /^\/admin\/competitions\/[^/]+$/);
     await expect(page.getByRole('heading', { name: compName })).toBeVisible({ timeout: 5000 });
 
     // Expand "Añadir parejas" accordion

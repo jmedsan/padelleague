@@ -1,5 +1,6 @@
 import { test as base, expect } from './worker-server';
 import type { Page, Response, ConsoleMessage } from '@playwright/test';
+import { expectingHxRedirect } from './tour-helpers';
 
 // Widest-offender detail for a horizontal-overflow failure: element,
 // scrollWidth/clientWidth pair, so a red run tells you what to fix instead of
@@ -368,12 +369,36 @@ export const test = base.extend<{ pageGuards: void }>({
     };
     page.on('response', onResponse);
 
+    // Any response carrying HX-Redirect must have been triggered through
+    // clickAndWaitForHxRedirect/clickConfirmAndWaitForHxRedirect — those set
+    // expectingHxRedirect(page) before act() fires and clear it once the
+    // redirect has landed. A bare `.click()` on the same kind of button skips
+    // that wait, so the very next helper call on the page can race the
+    // still-in-flight navigation (tour-guided.spec.ts's playoff-publish
+    // button did exactly this — 100% reproducible "Execution context was
+    // destroyed"). Catching it here, at the response that proves the class
+    // of bug exists, finds every site — not just the one a grep for a
+    // specific button label happens to name.
+    const onHxRedirectResponse = (response: Response) => {
+      if (response.frame() !== page.mainFrame()) return;
+      response.headerValue('hx-redirect').then(target => {
+        if (!target) return;
+        if (expectingHxRedirect.get(page)) return;
+        violations.push(
+          `[unhelpered-hx-redirect] ${response.request().method()} ${response.url()} → ${target}: ` +
+          `wrap the click in clickAndWaitForHxRedirect`,
+        );
+      }).catch(() => {});
+    };
+    page.on('response', onHxRedirectResponse);
+
     await use();
 
     page.off('load', recordDOMGuards);
     page.off('framenavigated', recordDOMGuards);
     page.off('console', onConsole);
     page.off('response', onResponse);
+    page.off('response', onHxRedirectResponse);
     // Drain any check still in flight from the last navigation before
     // reading `violations` below — otherwise a late-resolving promise from
     // the test's final `goto` could land after the assertion already ran.

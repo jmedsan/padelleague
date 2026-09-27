@@ -1,5 +1,5 @@
 import { test, expect } from '../overflow-guard';
-import { loginAs, scratchMatchId, PLAYER1_EMAIL, PLAYER1_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, scratchMatchId, clickAndWaitForHxRedirect, PLAYER1_EMAIL, PLAYER1_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { enterScore } from '../tour-helpers';
 
 test.describe('mobile match lifecycle', () => {
@@ -26,8 +26,7 @@ test.describe('mobile match lifecycle', () => {
     await page.waitForLoadState('networkidle');
     await expect(page.locator('.score-cell').first()).toBeVisible({ timeout: 5000 });
     await enterScore(page, '6-2 7-5');
-    await page.getByRole('button', { name: 'Enviar resultado' }).click();
-    await page.waitForLoadState('networkidle');
+    await clickAndWaitForHxRedirect(page, page.getByRole('button', { name: 'Enviar resultado' }), `/match/${matchId}`);
     await expect(page.getByText('6-2 7-5').first()).toBeVisible({ timeout: 5000 });
 
     // Step 2: Admin (pair2 member, opponent) accepts the result proposal via thread.
@@ -38,8 +37,7 @@ test.describe('mobile match lifecycle', () => {
     await page.waitForSelector('#thread-details', { timeout: 5000 });
     const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
     await acceptBtn.waitFor({ timeout: 5000 });
-    await acceptBtn.click();
-    await page.waitForLoadState('networkidle');
+    await clickAndWaitForHxRedirect(page, acceptBtn, `/match/${matchId}`);
 
     // Step 3: Verify final state — score visible, no pending actions
     await expect(page.getByText('6-2 7-5').first()).toBeVisible({ timeout: 5000 });

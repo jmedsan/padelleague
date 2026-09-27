@@ -20,7 +20,7 @@
         {{if and .Mode.Admin .Mode.Editable}}
         <form hx-post="/admin/competitions/{{.CompetitionID}}/detach-doc/{{.Document.Id}}" hx-confirm="¿Quitar este documento de la competición?" data-confirm-danger data-confirm-ok="Quitar" class="inline">
             <span class="tooltip tooltip-left" data-tip="Quitar de la competición">
-                <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm btn-circle text-error" aria-label="Quitar de la competición">
+                <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm btn-circle min-h-[44px] min-w-[44px] text-error" aria-label="Quitar de la competición">
                     <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                 </button>
             </span>
@@ -92,7 +92,7 @@
     <div class="flex items-center gap-1 shrink-0">
         <span class="tooltip tooltip-left" data-tip="Quitar de la competición">
             <form hx-post="/admin/competitions/{{.CompetitionID}}/detach-doc/{{.Document.Id}}" hx-confirm="¿Quitar este documento de la competición?" data-confirm-danger data-confirm-ok="Quitar">
-                <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm btn-circle text-error" aria-label="Quitar de la competición">
+                <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm btn-circle min-h-[44px] min-w-[44px] text-error" aria-label="Quitar de la competición">
                     <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                 </button>
             </form>

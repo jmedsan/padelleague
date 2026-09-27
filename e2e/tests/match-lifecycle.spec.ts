@@ -1,7 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import {
-  loginAs, scratchMatchId, loadTestData,
+  loginAs, scratchMatchId, loadTestData, clickAndWaitForHxRedirect,
   suGet as suGetBase, suPost as suPostBase, suPatch as suPatchBase,
   PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD,
 } from '../helpers';
@@ -45,9 +45,7 @@ test.describe('match lifecycle', () => {
     await page.waitForLoadState('networkidle');
     await expect(page.locator('.score-cell').first()).toBeVisible({ timeout: 5000 });
     await enterScore(page, '6-3 6-4');
-    await page.getByRole('button', { name: 'Enviar resultado' }).click();
-    await page.waitForURL(`**/match/${matchId}`, { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
+    await clickAndWaitForHxRedirect(page, page.getByRole('button', { name: 'Enviar resultado' }), `/match/${matchId}`);
     await expect(page.getByText('6-3 6-4').first()).toBeVisible({ timeout: 5000 });
   });
 
