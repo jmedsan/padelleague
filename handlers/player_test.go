@@ -473,3 +473,77 @@ func TestPlayerHistoryRowsHavePairLinks(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestPlayerProfile_ContactCard_ViewerNotOwner_WithPhone(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "player profile shows WhatsApp and email links for another player with a phone",
+		Method:         http.MethodGet,
+		ExpectedContent: []string{
+			`data-testid="player-contact"`,
+			`href="https://wa.me/34612345678"`,
+			"mailto:contactable@test.local",
+		},
+		ExpectedStatus: 200,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		viewer := handlers.MakeUserTB(tb, app, "Viewer", "")
+		viewed := handlers.MakeUserTB(tb, app, "Contactable", "contactable@test.local")
+		viewed.Set("phone", "+34612345678")
+		require.NoError(tb, app.Save(viewed))
+
+		s.URL = "/player/" + viewed.Id
+		s.Headers = handlers.AuthHeaders(tb, viewer)
+	}
+	s.Test(t)
+}
+
+func TestPlayerProfile_ContactCard_ViewerNotOwner_NoPhone(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "player profile shows email-only link for another player with no phone",
+		Method:         http.MethodGet,
+		ExpectedContent: []string{
+			"mailto:",
+		},
+		NotExpectedContent: []string{
+			"wa.me/",
+		},
+		ExpectedStatus: 200,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		viewer := handlers.MakeUserTB(tb, app, "Viewer", "")
+		viewed := handlers.MakeUserTB(tb, app, "NoPhone", "nophone@test.local")
+
+		s.URL = "/player/" + viewed.Id
+		s.Headers = handlers.AuthHeaders(tb, viewer)
+	}
+	s.Test(t)
+}
+
+func TestPlayerProfile_ContactCard_Own_Hidden(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "own player profile has no contact card",
+		Method:         http.MethodGet,
+		NotExpectedContent: []string{
+			`data-testid="player-contact"`,
+		},
+		ExpectedStatus: 200,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		user := handlers.MakeUserTB(tb, app, "Own", "own@test.local")
+		user.Set("phone", "+34612345678")
+		require.NoError(tb, app.Save(user))
+
+		s.URL = "/player/" + user.Id
+		s.Headers = handlers.AuthHeaders(tb, user)
+	}
+	s.Test(t)
+}
