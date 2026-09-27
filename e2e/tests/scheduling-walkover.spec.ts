@@ -107,7 +107,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     // Player requests arbitration (category no_show) via the real UI form.
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${matchId}`);
-    await page.locator('button.btn-outline', { hasText: 'Solicitar arbitraje' }).click();
+    await page.getByTestId('arbitration-section').getByTestId('arbitration-request').click();
     const dialog = page.locator(`dialog#arbitration-modal-${matchId}`);
     await expect(dialog).toBeVisible({ timeout: 3000 });
     await dialog.locator('select[name="category"]').selectOption('no_show');
@@ -174,6 +174,46 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     await apiDeleteRecord(page.request, 'competitions', compId);
   });
 
+  test('the arbitration request lives in its own Arbitraje card, not in the Resultado card', async ({ page }) => {
+    await getSuperuserToken(page);
+    const data = loadTestData();
+    const compId = await apiCreateRecord(page.request, 'competitions', {
+      name: 'Arbitraje Sección E2E',
+      type: 'league',
+      active: true,
+      pairs: [data.pair1Id, data.pair2Id],
+      rounds: 1,
+      calendar_status: 'published',
+    });
+    const matchId = await apiCreateRecord(page.request, 'matches', {
+      competition: compId,
+      pair1: data.pair1Id,
+      pair2: data.pair2Id,
+      status: 'pending',
+      round_number: 1,
+      date: '2026-12-01',
+      club: 'Padel 360',
+    });
+
+    try {
+      await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+      await page.goto('/');
+      await page.locator(`a[href="/match/${matchId}"]`).first().click();
+      await page.waitForURL(`**/match/${matchId}`);
+
+      const section = page.getByTestId('arbitration-section');
+      await expect(section.getByRole('heading', { name: 'Arbitraje', exact: true })).toBeVisible();
+      await expect(section.getByTestId('arbitration-request')).toBeVisible();
+      // Nothing is open yet: no status badge on the section.
+      await expect(section.locator('.badge')).toHaveCount(0);
+      // Arbitration is match-level: nothing of it inside the result card.
+      await expect(page.locator('#thread-details button', { hasText: 'Solicitar arbitraje' })).toHaveCount(0);
+    } finally {
+      await apiDeleteRecord(page.request, 'matches', matchId);
+      await apiDeleteRecord(page.request, 'competitions', compId);
+    }
+  });
+
   test('arbitration (scheduling category) leaves match pending; admin closes it from the match page', async ({ page }) => {
     test.setTimeout(60000);
     await getSuperuserToken(page);
@@ -208,7 +248,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     // without moving it to disputed, so pairs can keep negotiating.
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${matchId}`);
-    await page.locator('button.btn-outline', { hasText: 'Solicitar arbitraje' }).click();
+    await page.getByTestId('arbitration-section').getByTestId('arbitration-request').click();
     const dialog = page.locator(`dialog#arbitration-modal-${matchId}`);
     await expect(dialog).toBeVisible({ timeout: 3000 });
     await dialog.locator('select[name="category"]').selectOption('scheduling');
@@ -219,7 +259,9 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     expect(matchAfterReport.status).toBe('pending');
     expect(matchAfterReport.arbitration).toBe('scheduling');
     await expect(page.getByText('Arbitraje solicitado por')).toBeVisible({ timeout: 5000 });
-    const arbitrationPanel = page.getByTestId('arbitration-open-panel');
+    const section = page.getByTestId('arbitration-section');
+    await expect(section.locator('.badge', { hasText: 'Arbitraje solicitado' })).toBeVisible();
+    const arbitrationPanel = section.getByTestId('arbitration-open-panel');
     await expect(arbitrationPanel.getByRole('link', { name: 'WhatsApp' })).toBeVisible();
 
     // Admin closes the request from the same match page. The contact line is
