@@ -186,16 +186,24 @@ func removeBuildDir(tmp string) {
 // lowerPasswordCost). Any change to one of these invalidates the cache
 // automatically; nothing here is a magic version number to remember to bump.
 func templateKey() (string, error) {
+	files, migrationsDir := keyInputs()
+	return hashInputs(files, migrationsDir)
+}
+
+// keyInputs lists the files and the migrations directory templateKey hashes.
+func keyInputs() (files []string, migrationsDir string) {
+	return []string{repoPath("go.mod"), repoPath("go.sum"), selfPath()}, repoPath("migrations")
+}
+
+// hashInputs hashes files in order, then every *.go file under migrationsDir.
+func hashInputs(files []string, migrationsDir string) (string, error) {
 	h := sha256.New()
-	for _, path := range []string{"go.mod", "go.sum"} {
-		if err := hashFile(h, repoPath(path)); err != nil {
+	for _, path := range files {
+		if err := hashFile(h, path); err != nil {
 			return "", err
 		}
 	}
-	if err := hashFile(h, selfPath()); err != nil {
-		return "", err
-	}
-	if err := hashDir(h, repoPath("migrations")); err != nil {
+	if err := hashDir(h, migrationsDir); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(h.Sum(nil))[:16], nil

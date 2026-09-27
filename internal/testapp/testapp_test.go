@@ -1,8 +1,10 @@
 package testapp
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -82,12 +84,14 @@ func TestIsValidTemplate_WithMarker(t *testing.T) {
 // proves the published template is actually bootable, and that no
 // build-in-progress sibling directory is left behind after a clean publish.
 func TestBuildTemplate_PublishesAtomically(t *testing.T) {
+	resetTemplateState(t)
 	dir := filepath.Join(t.TempDir(), "template")
 	require.False(t, isValidTemplate(dir), "fresh dir must start as a miss")
 
 	require.NoError(t, buildTemplate(dir))
 
 	require.True(t, isValidTemplate(dir), "buildTemplate must publish a dir isValidTemplate accepts")
+	require.Equal(t, dir, templateDir, "a successful publish must point templateDir at the published dir")
 
 	tmp := dir + ".build-" + strconv.Itoa(os.Getpid())
 	_, err := os.Stat(tmp)
@@ -100,18 +104,42 @@ func TestBuildTemplate_PublishesAtomically(t *testing.T) {
 	defer app.Cleanup()
 }
 
-// TestResolveTemplate_ReusesExistingCache proves resolveTemplate's actual
-// hit path: given a cache dir a prior process already published (this test
-// builds one directly, standing in for "another process built it"),
-// resolveTemplate must resolve to it WITHOUT rebuilding — the discriminator
-// is the readyMarker's mtime, which only a fresh buildTemplate call would
-// bump (buildTemplate always writes a brand new marker file as the last
-// step of a build). A resolveTemplate that ignored the cache and rebuilt
-// unconditionally would still pass every other assertion in this file, so
-// this mtime check is what actually catches that regression.
+// TestBuildTemplate_LostRaceReusesWinner proves the lost-race branch: a
+// second build for a dir that is already published cannot rename over it,
+// so it must discard its own build and adopt the existing valid dir.
+func TestBuildTemplate_LostRaceReusesWinner(t *testing.T) {
+	resetTemplateState(t)
+	dir := filepath.Join(t.TempDir(), "template")
+	require.NoError(t, buildTemplate(dir))
+	templateDir = ""
+
+	require.NoError(t, buildTemplate(dir), "losing the race to a valid dir is not an error")
+
+	require.Equal(t, dir, templateDir, "the loser must adopt the winner's dir")
+	_, err := os.Stat(dir + ".build-" + strconv.Itoa(os.Getpid()))
+	require.True(t, os.IsNotExist(err), "the loser must remove its own build-in-progress dir")
+}
+
+// TestBuildTemplate_RenameBlockedByInvalidDir proves the lost-race branch
+// only adopts a VALID dir: a non-empty dir without readyMarker (a crashed
+// build) blocks the rename and must surface as an error.
+func TestBuildTemplate_RenameBlockedByInvalidDir(t *testing.T) {
+	resetTemplateState(t)
+	dir := filepath.Join(t.TempDir(), "template")
+	writeGoFile(t, mkdir(t, dir), "leftover.go", "package x\n")
+
+	require.ErrorContains(t, buildTemplate(dir), "rename template into place")
+	require.Empty(t, templateDir)
+}
+
+// TestResolveTemplate_ReusesExistingCache proves resolveTemplate takes the
+// hit path for a cache dir another process already published. The log line
+// is the discriminator: a rebuild on a valid dir also ends with the same
+// templateDir (through buildTemplate's lost-race branch), so only the hit
+// log tells the two apart.
 func TestResolveTemplate_ReusesExistingCache(t *testing.T) {
-	fakeHome := t.TempDir()
-	t.Setenv("HOME", fakeHome)
+	resetTemplateState(t)
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv("XDG_CACHE_HOME", "")
 
 	key, err := templateKey()
@@ -119,28 +147,70 @@ func TestResolveTemplate_ReusesExistingCache(t *testing.T) {
 	prebuilt, err := cacheDir(key)
 	require.NoError(t, err)
 	require.NoError(t, buildTemplate(prebuilt))
-	require.True(t, isValidTemplate(prebuilt))
-
-	markerPath := filepath.Join(prebuilt, readyMarker)
-	before, err := os.Stat(markerPath)
-	require.NoError(t, err)
-	// Sleep past typical filesystem mtime resolution so a rebuild (which
-	// would rewrite the marker) is unambiguously detectable.
-	require.NoError(t, os.Chtimes(markerPath, before.ModTime(), before.ModTime()))
-
-	// Reset the package-level once so this test drives resolveTemplate from
-	// a clean state instead of whatever another test in this process left
-	// behind — resolveTemplate is only ever meant to run once per process
-	// in production; the reset here is test-only.
-	templateOnce = sync.Once{}
 	templateDir = ""
-	templateErr = nil
+
+	var logs bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
 
 	templateOnce.Do(resolveTemplate)
-	require.NoError(t, templateErr)
-	require.Equal(t, prebuilt, templateDir, "resolveTemplate must resolve to the already-published cache dir, not build a new one")
 
-	after, err := os.Stat(markerPath)
+	require.NoError(t, templateErr)
+	require.Equal(t, prebuilt, templateDir)
+	require.Contains(t, logs.String(), "template cache hit")
+	require.NotContains(t, logs.String(), "template cache miss")
+}
+
+// TestKeyInputs_CoversEveryTemplateInput pins the exact input list, so
+// dropping go.mod, go.sum, this file, or migrations/ from the key fails.
+func TestKeyInputs_CoversEveryTemplateInput(t *testing.T) {
+	files, migrationsDir := keyInputs()
+	require.Equal(t, []string{repoPath("go.mod"), repoPath("go.sum"), selfPath()}, files)
+	require.Equal(t, repoPath("migrations"), migrationsDir)
+	require.Equal(t, "testapp.go", filepath.Base(selfPath()))
+	for _, f := range append(files, migrationsDir) {
+		_, err := os.Stat(f)
+		require.NoError(t, err, "key input %s must exist", f)
+	}
+}
+
+// TestHashInputs_ChangesWithEachFile proves every listed file feeds the key:
+// changing any one of them changes it.
+func TestHashInputs_ChangesWithEachFile(t *testing.T) {
+	root := t.TempDir()
+	migrations := mkdir(t, filepath.Join(root, "migrations"))
+	writeGoFile(t, migrations, "0001_init.go", "package migrations\n")
+	names := []string{"go.mod", "go.sum", "testapp.go"}
+	var files []string
+	for _, n := range names {
+		writeGoFile(t, root, n, n+" v1\n")
+		files = append(files, filepath.Join(root, n))
+	}
+	base, err := hashInputs(files, migrations)
 	require.NoError(t, err)
-	require.Equal(t, before.ModTime(), after.ModTime(), "the marker must not be rewritten on a hit — a rewrite means resolveTemplate rebuilt instead of reusing the cache")
+
+	for _, n := range names {
+		writeGoFile(t, root, n, n+" v2\n")
+		changed, err := hashInputs(files, migrations)
+		require.NoError(t, err)
+		require.NotEqual(t, base, changed, "changing %s must change the key", n)
+		writeGoFile(t, root, n, n+" v1\n")
+	}
+}
+
+func mkdir(t *testing.T, dir string) string {
+	t.Helper()
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	return dir
+}
+
+// resetTemplateState clears the package-level template state before a test
+// and again after, so tests that drive buildTemplate/resolveTemplate
+// directly don't leak into each other. sync.Once can't be copied, so the
+// cleanup leaves a fresh Once: the next New re-resolves (a cache hit).
+func resetTemplateState(t *testing.T) {
+	t.Helper()
+	templateOnce, templateDir, templateErr = sync.Once{}, "", nil
+	t.Cleanup(func() { templateOnce, templateDir, templateErr = sync.Once{}, "", nil })
 }
