@@ -163,22 +163,41 @@ e2e-bg:
 
 # Re-run only the tests that failed in the most recent run (local `make e2e`
 # or the newest `make e2e-bg` milestone, whichever is newer; LAST=<file> picks one). Fix every failure
-# first, then verify them all in this one run.
+# first, then verify them all in this one run. Two phases, because the
+# `destructive` project depends on desktop + mobile (it changes shared admin
+# settings, so it must run after them): phase 1 re-runs desktop + mobile
+# failures, phase 2 re-runs destructive failures with --no-deps. A single
+# `--last-failed` over all projects reports "No tests found": Playwright
+# filters only the top-level project (`destructive`), empties it, and drops
+# its dependencies with it. A phase with no recorded failure is skipped; the
+# target fails if either phase fails.
 e2e-failed:
 	@last=$${LAST:-$$(ls -t e2e/test-results/.last-run.json e2e/.bg-runs/*/last-run.json 2>/dev/null | head -1)}; \
 	[ -n "$$last" ] || { echo "no previous e2e run recorded"; exit 1; }; \
+	last=$$(realpath $$last); \
 	n=$$(jq '.failedTests | length' $$last); \
 	[ "$$n" -gt 0 ] || { echo "no failures in $$last"; exit 0; }; \
 	echo "re-running $$n failures from $$last"; \
 	err=$$(mktemp); \
-	ids=$$(cd e2e && npx playwright test --list --reporter=json 2>$$err | jq -r '[.. | objects | select(has("id") and has("title")) | .id] | unique[]'); \
-	[ -n "$$ids" ] || { echo "could not list current tests:"; cat $$err; rm -f $$err; exit 1; }; \
+	list() { (cd e2e && npx playwright test --list --reporter=json "$$@" 2>>$$err) | jq -r '[.. | objects | select(has("id") and has("title")) | .id] | unique[]'; }; \
+	main_ids=$$(list --project desktop --project mobile); \
+	destr_ids=$$(list --project destructive --no-deps); \
+	[ -n "$$main_ids" ] && [ -n "$$destr_ids" ] || { echo "could not list current tests:"; cat $$err; rm -f $$err; exit 1; }; \
 	rm -f $$err; \
-	stale=$$(jq -r '.failedTests[]' $$last | grep -vxF "$$ids" || true); \
+	failed=$$(jq -r '.failedTests[]' $$last); \
+	stale=$$(echo "$$failed" | grep -vxF -e "$$main_ids" -e "$$destr_ids" || true); \
 	[ -z "$$stale" ] || { echo "$$(echo "$$stale" | wc -l) of $$n recorded failures match no current test: Playwright IDs hash the title, so a spec renamed or edited since that run drops out. Re-run those by area (make e2e AREA=...):"; echo "$$stale" | sed 's/^/  /'; }; \
 	[ "$$(echo "$$stale" | grep -c .)" -lt "$$n" ] || exit 1; \
-	E2E_PORT=$$(node e2e/find-free-port.mjs) && \
-	cd e2e && E2E_PORT=$$E2E_PORT npx playwright test --last-failed --last-failed-file $(CURDIR)/$$last
+	lf="--last-failed --last-failed-file $$last"; rc=0; \
+	if echo "$$failed" | grep -qxF "$$main_ids"; then \
+	  echo "phase 1: desktop + mobile"; \
+	  (cd e2e && E2E_PORT=$$(node find-free-port.mjs) npx playwright test $$lf --project desktop --project mobile) || rc=1; \
+	fi; \
+	if echo "$$failed" | grep -qxF "$$destr_ids"; then \
+	  echo "phase 2: destructive"; \
+	  (cd e2e && E2E_PORT=$$(node find-free-port.mjs) npx playwright test $$lf --project destructive --no-deps) || rc=1; \
+	fi; \
+	exit $$rc
 
 # ~15 tests tagged @smoke, one representative per area (auth, match, thread,
 # competition, admin, search, responsive, season sim, PWA, notifications,
