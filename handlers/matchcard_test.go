@@ -15,10 +15,10 @@ import (
 )
 
 type cardActions struct {
-	submit   bool
-	edit     bool
-	walkover bool
-	correct  bool
+	submit      bool
+	edit        bool
+	arbitration bool
+	correct     bool
 }
 
 func TestNewMatchCardActions(t *testing.T) {
@@ -43,28 +43,28 @@ func TestNewMatchCardActions(t *testing.T) {
 		want      cardActions
 	}{
 		{
-			name:     "player pending participant can submit edit and report walkover",
+			name:     "player pending participant can submit edit and request arbitration",
 			mode:     handlers.PlayerFull,
 			status:   "pending",
 			viewerID: p1.GetString("player1"),
-			want:     cardActions{submit: true, edit: true, walkover: true},
+			want:     cardActions{submit: true, edit: true, arbitration: true},
 		},
 		{
-			name:      "player confirmed submitter can correct and report walkover",
+			name:      "player confirmed submitter can correct and request arbitration",
 			mode:      handlers.PlayerFull,
 			status:    "confirmed",
 			viewerID:  p1.GetString("player1"),
 			submitted: true,
 			recent:    true,
-			want:      cardActions{walkover: true, correct: true},
+			want:      cardActions{arbitration: true, correct: true},
 		},
 		{
-			name:      "player confirmed opponent can report walkover",
+			name:      "player confirmed opponent can request arbitration",
 			mode:      handlers.PlayerFull,
 			status:    "confirmed",
 			viewerID:  p2.GetString("player1"),
 			submitted: true,
-			want:      cardActions{walkover: true},
+			want:      cardActions{arbitration: true},
 		},
 		{
 			name:     "admin summary has no player actions",
@@ -117,10 +117,10 @@ func TestNewMatchCardActions(t *testing.T) {
 
 			card := handlers.NewMatchCard(app, match, tc.mode, tc.viewerID)
 			assert.Equal(t, tc.want, cardActions{
-				submit:   card.CanSubmit,
-				edit:     card.CanEdit,
-				walkover: card.CanWalkover,
-				correct:  card.CanCorrect,
+				submit:      card.CanSubmit,
+				edit:        card.CanEdit,
+				arbitration: card.CanRequestArbitration,
+				correct:     card.CanCorrect,
 			})
 		})
 	}

@@ -352,9 +352,11 @@ func submitSampleScore(txApp core.App, match *core.Record, status, scores string
 	return nil
 }
 
-// disputeSampleMatch models a full dispute: pair1 submitted a score and pair2
-// disputed it with a note, so the admin sees both the submitted result and the
-// opponent's objection to resolve.
+// disputeSampleMatch models a full dispute: pair1 submitted a score, pair2
+// requested arbitration over the result with a counter-score, so the admin
+// sees both the submitted result and the opponent's objection to resolve —
+// matching the live RequestArbitration(category=result) flow, the only path
+// that sets status=disputed.
 func disputeSampleMatch(txApp core.App, match *core.Record) error {
 	if err := submitSampleScore(txApp, match, league.StatusDisputed, "6-4 4-6 7-5"); err != nil {
 		return err
@@ -366,6 +368,8 @@ func disputeSampleMatch(txApp core.App, match *core.Record) error {
 	match.Set("disputed_by", disputer)
 	match.Set("disputed_scores", "6-4 4-6 5-7")
 	match.Set("dispute_notes", "No estoy de acuerdo: el tercer set fue 5-7, no 7-5.")
+	match.Set("arbitration", league.ArbitrationResult)
+	match.Set("arbitration_by", disputer)
 	return nil
 }
 

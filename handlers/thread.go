@@ -159,7 +159,7 @@ func (h *ThreadHandler) buildResultCard(match *core.Record, viewerID string, isA
 	if !compModifiable {
 		c.CanSubmit = false
 		c.CanCorrect = false
-		c.CanWalkover = false
+		c.CanRequestArbitration = false
 	}
 	return c
 }

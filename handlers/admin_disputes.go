@@ -64,14 +64,10 @@ func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 		return alertError(e, "Competición no encontrada")
 	}
 
-	woScore := comp.GetString("walkover_score")
-	if woScore == "" {
-		woScore = "6-0 6-0"
+	woScore, errMsg := walkoverScoreFor(comp)
+	if errMsg != "" {
+		return alertError(e, errMsg)
 	}
-	if _, err := league.ParseScore(woScore); err != nil {
-		return alertError(e, "El marcador de incomparecencia configurado no es válido:"+woScore)
-	}
-
 	loserID := match.GetString("pair2")
 	if winnerID == loserID {
 		loserID = match.GetString("pair1")
@@ -81,6 +77,8 @@ func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 	match.Set("winner", winnerID)
 	match.Set("status", league.StatusFinal)
 	match.Set("carried_sets", "")
+	match.Set("arbitration", "")
+	match.Set("arbitration_by", "")
 
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al aprobar la incomparecencia")
@@ -98,6 +96,20 @@ func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 
 	flash(e, "Incomparecencia aprobada")
 	return redirectHX(e, "/admin/competitions/"+compID)
+}
+
+// walkoverScoreFor validates and returns comp's configured walkover score,
+// falling back to "6-0 6-0"; errMsg is non-empty (and score empty) on an
+// invalid configured score.
+func walkoverScoreFor(comp *core.Record) (score, errMsg string) {
+	woScore := comp.GetString("walkover_score")
+	if woScore == "" {
+		woScore = "6-0 6-0"
+	}
+	if _, err := league.ParseScore(woScore); err != nil {
+		return "", "El marcador de incomparecencia configurado no es válido:" + woScore
+	}
+	return woScore, ""
 }
 
 func (h *DisputeHandler) applyWalkoverPenalty(e *core.RequestEvent, comp *core.Record, loserID string) error {
@@ -141,6 +153,8 @@ func (h *DisputeHandler) DisputesResolve(e *core.RequestEvent) error {
 	match.Set("scores", score)
 	match.Set("winner", winnerID)
 	match.Set("status", league.StatusFinal)
+	match.Set("arbitration", "")
+	match.Set("arbitration_by", "")
 
 	if err := h.app.Save(match); err != nil {
 		return alertError(e, "Error al resolver la disputa")

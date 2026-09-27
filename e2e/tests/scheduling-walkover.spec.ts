@@ -76,7 +76,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     await apiDeleteRecord(page.request, 'competitions', compId);
   });
 
-  test('walkover: report unplayed → admin approves → final with penalty', { tag: '@smoke' }, async ({ page }) => {
+  test('walkover: request arbitration (no_show) → admin approves → final with penalty', { tag: '@smoke' }, async ({ page }) => {
     test.setTimeout(120000);
     await getSuperuserToken(page);
     const data = loadTestData();
@@ -98,29 +98,37 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
       pair2: data.pair2Id,
       status: 'pending',
       round_number: 1,
-      // A date is required for the walkover affordance to show (W5: can't
-      // report "not played" on a match with no scheduled date at all).
+      // A date is required for the arbitration affordance to show (W5: can't
+      // request arbitration on a match with no scheduled date at all).
       date: '2026-12-01',
       club: 'Padel 360',
     });
 
-    // Player reports the match as unplayed via the real UI form.
+    // Player requests arbitration (category no_show) via the real UI form.
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${matchId}`);
-    await page.getByRole('button', { name: 'Reportar partido no jugado' }).click();
-    const dialog = page.locator(`dialog#walkover-modal-${matchId}`);
+    await page.locator('button.btn-outline', { hasText: 'Solicitar arbitraje' }).click();
+    const dialog = page.locator(`dialog#arbitration-modal-${matchId}`);
     await expect(dialog).toBeVisible({ timeout: 3000 });
-    await dialog.locator('textarea[name="reason"]').fill('El rival no se presentó.');
-    // ReportUnplayed responds with redirectHX (HX-Redirect) to /match/{id} —
-    // same match page it's already on. clickAndWaitForHxRedirect asserts the
-    // header target and waits for the real document navigation, so the next
-    // loginAs's page.goto('/') never races an in-flight redirect.
-    await clickAndWaitForHxRedirect(page, dialog.locator('button:has-text("Reportar no jugado")'), `/match/${matchId}`);
+    await dialog.locator('select[name="category"]').selectOption('no_show');
+    await dialog.locator('textarea[name="notes"]').fill('El rival no se presentó.');
+    // RequestArbitration responds with redirectHX (HX-Redirect) to /match/{id}
+    // — same match page it's already on. clickAndWaitForHxRedirect asserts
+    // the header target and waits for the real document navigation, so the
+    // next loginAs's page.goto('/') never races an in-flight redirect.
+    await clickAndWaitForHxRedirect(page, dialog.locator('button:has-text("Solicitar arbitraje")'), `/match/${matchId}`);
 
     const matchAfterReport = await apiGetRecord(page.request, 'matches', matchId);
     expect(matchAfterReport.status).toBe('disputed');
     expect(matchAfterReport.review_type).toBe('walkover');
+    expect(matchAfterReport.arbitration).toBe('no_show');
     expect(matchAfterReport.walkover_requested_by).toBe(data.player1.id);
+
+    // no_show sets status=disputed directly, so the walkover-specific alert
+    // shows on the match page instead of the generic "Arbitraje solicitado"
+    // badge (that badge is reserved for categories that don't change status —
+    // see the scheduling-category test below).
+    await expect(page.getByText('Solicitud de partido no jugado')).toBeVisible({ timeout: 5000 });
 
     // Admin approves from the match page — /admin/disputes is now a compact
     // link list (healthItemRow), the walkover-approve form lives on the
@@ -162,6 +170,59 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     // this competition (required relation), so it must go before the competition.
     const penalties = await apiListRecords(page.request, 'penalties', `competition='${compId}'`);
     for (const p of penalties) await apiDeleteRecord(page.request, 'penalties', p.id);
+    await apiDeleteRecord(page.request, 'matches', matchId);
+    await apiDeleteRecord(page.request, 'competitions', compId);
+  });
+
+  test('arbitration (scheduling category) leaves match pending; admin closes it from the match page', async ({ page }) => {
+    test.setTimeout(60000);
+    await getSuperuserToken(page);
+    const data = loadTestData();
+
+    const compId = await apiCreateRecord(page.request, 'competitions', {
+      name: 'Arbitraje Scheduling E2E',
+      type: 'league',
+      active: true,
+      pairs: [data.pair1Id, data.pair2Id],
+      rounds: 1,
+      calendar_status: 'published',
+    });
+    const matchId = await apiCreateRecord(page.request, 'matches', {
+      competition: compId,
+      pair1: data.pair1Id,
+      pair2: data.pair2Id,
+      status: 'pending',
+      round_number: 1,
+      date: '2026-12-01',
+      club: 'Padel 360',
+    });
+
+    // scheduling/abandonment/other categories flag the match for admin review
+    // without moving it to disputed, so pairs can keep negotiating.
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.locator('button.btn-outline', { hasText: 'Solicitar arbitraje' }).click();
+    const dialog = page.locator(`dialog#arbitration-modal-${matchId}`);
+    await expect(dialog).toBeVisible({ timeout: 3000 });
+    await dialog.locator('select[name="category"]').selectOption('scheduling');
+    await dialog.locator('textarea[name="notes"]').fill('No conseguimos acordar fecha.');
+    await clickAndWaitForHxRedirect(page, dialog.locator('button:has-text("Solicitar arbitraje")'), `/match/${matchId}`);
+
+    const matchAfterReport = await apiGetRecord(page.request, 'matches', matchId);
+    expect(matchAfterReport.status).toBe('pending');
+    expect(matchAfterReport.arbitration).toBe('scheduling');
+    await expect(page.getByText('Arbitraje solicitado por')).toBeVisible({ timeout: 5000 });
+
+    // Admin closes the request from the same match page.
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await expect(page.getByText('Arbitraje solicitado por')).toBeVisible({ timeout: 5000 });
+    await clickConfirmAndWaitForHxRedirect(page, page.getByRole('button', { name: 'Cerrar arbitraje' }), `/match/${matchId}`);
+
+    const matchAfterClose = await apiGetRecord(page.request, 'matches', matchId);
+    expect(matchAfterClose.arbitration).toBe('');
+    expect(matchAfterClose.status).toBe('pending');
+
     await apiDeleteRecord(page.request, 'matches', matchId);
     await apiDeleteRecord(page.request, 'competitions', compId);
   });
