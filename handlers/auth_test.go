@@ -57,6 +57,30 @@ func countUsers(tb testing.TB, app core.App) int {
 	return len(users)
 }
 
+// GET /login never shows contact links, even when configured — contact is
+// for registered users only, and login is always a logged-out page.
+func TestLoginPage_NeverShowsContactEvenWhenConfigured(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:     handlers.TestAppFactory,
+		Name:               "GET /login omits contact links regardless of configuration",
+		Method:             http.MethodGet,
+		URL:                "/login",
+		ExpectedStatus:     200,
+		NotExpectedContent: []string{"¿No puedes entrar?", `href="https://wa.me/34612345678"`, `href="mailto:admin@example.com"`},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		records, err := app.FindRecordsByFilter("app_settings", "", "", 1, 0, nil)
+		require.NoError(tb, err)
+		require.Len(tb, records, 1)
+		records[0].Set("contact_whatsapp", "+34612345678")
+		records[0].Set("contact_email", "admin@example.com")
+		require.NoError(tb, app.Save(records[0]))
+	}
+	s.Test(t)
+}
+
 // GET /register boundary
 
 // Single-use invite, use_count=0 → page renders the registration form (Token present)

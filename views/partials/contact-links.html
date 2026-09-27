@@ -1,0 +1,31 @@
+{{/* contactLinksInline — bare "WhatsApp · email" links, no wrapping element.
+     Used inside a caller-owned <p>/<li> alongside other text. Optional
+     WhatsAppMessage prefills the WhatsApp link (problem-state surfaces). */}}
+{{define "contactLinksInline"}}
+{{$waURL := .Contact.WhatsAppURL}}
+{{if .WhatsAppMessage}}{{$waURL = .Contact.WhatsAppURLWithText .WhatsAppMessage}}{{end}}
+{{if .Contact.WhatsAppURL}}<a href="{{$waURL}}" target="_blank" rel="noopener" class="link link-hover">WhatsApp</a>{{end}}{{if and .Contact.WhatsAppURL .Contact.EmailURL}} ·{{end}}{{if .Contact.EmailURL}} <a href="{{.Contact.EmailURL}}" class="link link-hover">{{.Contact.Email}}</a>{{end}}
+{{end}}
+
+{{/* contactLinks — the ONE "contact the admin" component, fed by .Contact
+     (league.ContactInfo). Two shapes:
+       Full: false (default) → row: "Contacto: WhatsApp · email" inline text.
+       Full: true             → card-body block with a lead line + buttons.
+     Hidden entirely when both WhatsApp and email are unset. */}}
+{{define "contactLinks"}}
+{{if or .Contact.WhatsAppURL .Contact.EmailURL}}
+{{if .Full}}
+{{$waURL := .Contact.WhatsAppURL}}
+{{if .WhatsAppMessage}}{{$waURL = .Contact.WhatsAppURLWithText .WhatsAppMessage}}{{end}}
+<div class="card-body p-4 sm:p-6">
+    <p class="text-sm opacity-70">{{or .Lead "¿Problemas? Escribe a la administración"}}</p>
+    <div class="flex flex-wrap gap-2 mt-2">
+        {{if .Contact.WhatsAppURL}}<a href="{{$waURL}}" target="_blank" rel="noopener" class="btn btn-sm btn-outline">WhatsApp</a>{{end}}
+        {{if .Contact.EmailURL}}<a href="{{.Contact.EmailURL}}" class="btn btn-sm btn-outline">Email</a>{{end}}
+    </div>
+</div>
+{{else}}
+<p class="text-sm opacity-60">Contacto: {{template "contactLinksInline" .}}</p>
+{{end}}
+{{end}}
+{{end}}

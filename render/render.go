@@ -393,6 +393,7 @@ func (r *Renderer) Partial(e *core.RequestEvent, page string, data map[string]an
 		data = map[string]any{}
 	}
 	r.withAuth(e, data)
+	data["Contact"] = league.LoadContactInfo(e.App)
 	files := append([]string{"views/" + page}, r.partialFiles()...)
 	html, err := r.registry.LoadFS(r.viewsFS, files...).Render(data)
 	if err != nil {
