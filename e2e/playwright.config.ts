@@ -23,6 +23,7 @@ const MOBILE_VIEWPORT_SPECS = [
   'mobile-lifecycle.spec.ts',
   'search.spec.ts',
   'admin-edit-forms.spec.ts',
+  'player-contact.spec.ts',
 ];
 const mobileViewportMatch = MOBILE_VIEWPORT_SPECS.map(f => new RegExp(f.replace('.', '\\.') + '$'));
 
