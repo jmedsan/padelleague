@@ -201,28 +201,6 @@ func TestRivalContacts_ViewerInBothPairs(t *testing.T) {
 	assert.Equal(t, pair2.GetString("player2"), rivals[0].ID)
 }
 
-func TestUserContactInfo_WithPhoneAndEmail(t *testing.T) {
-	t.Parallel()
-	app := newTestApp(t)
-	user := makeUser(t, app, "Contactable", "contactable@test.local")
-	setPhone(t, app, user.Id, "+34612345678")
-
-	info := UserContactInfo(user)
-	assert.Equal(t, "https://wa.me/34612345678", info.WhatsAppURL)
-	assert.NotEmpty(t, info.WhatsAppURLWithText("x"))
-	assert.Equal(t, "mailto:contactable@test.local", info.EmailURL)
-}
-
-func TestUserContactInfo_NoPhone(t *testing.T) {
-	t.Parallel()
-	app := newTestApp(t)
-	user := makeUser(t, app, "NoPhone", "")
-
-	info := UserContactInfo(user)
-	assert.Empty(t, info.WhatsAppURL)
-	assert.Empty(t, info.WhatsAppURLWithText("x"))
-}
-
 // setPhone sets a user's E.164 phone directly, bypassing NormalizePhone
 // since these tests already supply normalized values.
 func setPhone(t *testing.T, app core.App, userID, e164 string) {

@@ -2,7 +2,6 @@ package league
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
 	"unicode"
 )
@@ -60,18 +59,6 @@ func MaskPhone(e164 string) string {
 		return "***"
 	}
 	return e164[:4] + strings.Repeat("*", len(e164)-6) + e164[len(e164)-2:]
-}
-
-// WhatsAppURL returns a wa.me link for the given E.164 number.
-func WhatsAppURL(e164 string) string {
-	digits := strings.TrimPrefix(e164, "+")
-	return "https://wa.me/" + digits
-}
-
-// WhatsAppURLWithText returns a wa.me link for the given E.164 number with a
-// prefilled, URL-encoded message.
-func WhatsAppURLWithText(e164, msg string) string {
-	return WhatsAppURL(e164) + "?text=" + url.QueryEscape(msg)
 }
 
 func stripPhoneFormatting(s string) string {

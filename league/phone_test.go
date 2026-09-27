@@ -59,8 +59,3 @@ func TestMaskPhone(t *testing.T) {
 	assert.Equal(t, "+346******78", MaskPhone("+34612345678"))
 	assert.Equal(t, "***", MaskPhone("+34"))
 }
-
-func TestWhatsAppURL(t *testing.T) {
-	t.Parallel()
-	assert.Equal(t, "https://wa.me/34612345678", WhatsAppURL("+34612345678"))
-}

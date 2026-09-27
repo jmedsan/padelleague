@@ -174,15 +174,15 @@ func emailHeaderAssets(baseURL string, branding league.BrandingData) (logoURL, c
 // contactLineHTML renders the "Contacto: WhatsApp · email" footer line,
 // matching the style of the line above it. Empty when both are unset.
 func contactLineHTML(contact league.ContactInfo) string {
-	if contact.WhatsAppURL == "" && contact.EmailURL == "" {
+	if contact.Phone == "" && contact.Email == "" {
 		return ""
 	}
 	var links []string
-	if contact.WhatsAppURL != "" {
-		links = append(links, fmt.Sprintf(`<a href="%s" style="color:#666666;">WhatsApp</a>`, contact.WhatsAppURL))
+	if contact.Phone != "" {
+		links = append(links, fmt.Sprintf(`<a href="%s" style="color:#666666;">WhatsApp</a>`, league.WhatsAppURL(contact.Phone)))
 	}
-	if contact.EmailURL != "" {
-		links = append(links, fmt.Sprintf(`<a href="%s" style="color:#666666;">%s</a>`, contact.EmailURL, html.EscapeString(contact.Email)))
+	if contact.Email != "" {
+		links = append(links, fmt.Sprintf(`<a href="%s" style="color:#666666;">%s</a>`, league.MailtoURL(contact.Email), html.EscapeString(contact.Email)))
 	}
 	return fmt.Sprintf(`<p style="margin:0 0 6px;">Contacto: %s</p>`, strings.Join(links, " · "))
 }

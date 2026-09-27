@@ -189,6 +189,45 @@ func PlayersForPair(app core.App, pairID string) []string {
 	return userIDs
 }
 
+// PlayerContact is one player's display name and contact links.
+type PlayerContact struct {
+	ID      string
+	Name    string
+	Contact ContactInfo
+}
+
+// RivalContacts returns the contact links of the players on the opposing
+// pair when viewerID plays in match, or nil when viewerID plays in neither
+// pair. A viewer listed in both pairs counts as pair 1, as in PlayerTeam, and
+// is never listed as a viewer's own rival.
+func RivalContacts(app core.App, match *core.Record, viewerID string) ([]PlayerContact, error) {
+	pair1 := PlayersForPair(app, match.GetString("pair1"))
+	pair2 := PlayersForPair(app, match.GetString("pair2"))
+	var rivalIDs []string
+	switch {
+	case slices.Contains(pair1, viewerID):
+		rivalIDs = pair2
+	case slices.Contains(pair2, viewerID):
+		rivalIDs = pair1
+	default:
+		return nil, nil
+	}
+	rivalIDs = slices.DeleteFunc(slices.Clone(rivalIDs), func(id string) bool { return id == viewerID })
+	if len(rivalIDs) == 0 {
+		return nil, nil
+	}
+	users, err := app.FindRecordsByIds("users", rivalIDs)
+	if err != nil {
+		return nil, fmt.Errorf("load rival players: %w", err)
+	}
+	out := make([]PlayerContact, 0, len(users))
+	for _, u := range users {
+		out = append(out, PlayerContact{ID: u.Id, Name: u.GetString("display_name"), Contact: UserContactInfo(u)})
+	}
+	slices.SortFunc(out, func(a, b PlayerContact) int { return strings.Compare(a.Name, b.Name) })
+	return out, nil
+}
+
 // PairsForPlayer returns all pairs that include the given user.
 func PairsForPlayer(app core.App, userID string) ([]*core.Record, error) {
 	return app.FindRecordsByFilter("pairs",
