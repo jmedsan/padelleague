@@ -137,6 +137,25 @@ test.describe('global search', { tag: '@search' }, () => {
     await expect(results.locator('a', { hasText: 'Mi perfil' })).toBeVisible();
   });
 
+  test('results dropdown does not overflow the viewport at 360px', { tag: '@smoke' }, async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile', 'targets the 360px mobile viewport specifically');
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+
+    // Zero-query panel renders three grouped sections at once (Tu próxima
+    // acción / Tus competiciones / Ir a) — the densest dropdown state a
+    // player can reach, and the one most likely to overflow a 360px
+    // viewport if a row's content ever stops truncating. pageGuards
+    // (auto-attached by ../overflow-guard) asserts no horizontal overflow
+    // at teardown; this test just drives the dropdown into that dense
+    // state via a real click so the guard actually inspects it.
+    const results = await openSearchAndType(page, testInfo, '');
+
+    await expect(results.getByText('Ir a')).toBeVisible();
+    const box = await results.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x + box!.width).toBeLessThanOrEqual(360);
+  });
+
   test('zero-query admin panel shows admin nav links', async ({ page }, testInfo) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     const isMobile = testInfo.project.name === 'mobile';

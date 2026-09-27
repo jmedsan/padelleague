@@ -268,25 +268,25 @@
                 </div>
                 {{end}}
                 <ul class="menu p-4 gap-1">
-                    <li><a href="/" class="rounded-lg font-medium{{if eq .RequestPath "/"}} active{{end}}">Inicio</a></li>
+                    <li><a href="/" class="rounded-lg font-medium min-h-[44px]{{if eq .RequestPath "/"}} active{{end}}">Inicio</a></li>
                     {{if .Footer.Competition}}
-                    <li><a href="/competition/{{.Footer.Competition.ID}}" class="rounded-lg font-medium{{if hasPrefix .RequestPath (print "/competition/" .Footer.Competition.ID)}} active{{end}}">{{.Footer.Competition.Name}}</a></li>
+                    <li><a href="/competition/{{.Footer.Competition.ID}}" class="rounded-lg font-medium min-h-[44px]{{if hasPrefix .RequestPath (print "/competition/" .Footer.Competition.ID)}} active{{end}}">{{.Footer.Competition.Name}}</a></li>
                     {{end}}
                     {{if .AdminView}}
                     <li class="menu-title mt-4 text-sm uppercase tracking-wider opacity-60">Gestión</li>
-                    <li><a href="/admin/competitions" class="rounded-lg{{if hasPrefix .RequestPath "/admin/competitions"}} active{{end}}">Competiciones</a></li>
-                    <li><a href="/admin/health" class="rounded-lg{{if hasPrefix .RequestPath "/admin/health"}} active{{end}}">Salud</a></li>
-                    <li><a href="/admin/players" class="rounded-lg{{if hasPrefix .RequestPath "/admin/players"}} active{{end}}">Usuarios</a></li>
-                    <li><a href="/admin/invitations" class="rounded-lg{{if hasPrefix .RequestPath "/admin/invitations"}} active{{end}}">Invitaciones</a></li>
-                    <li><a href="/admin/pairs" class="rounded-lg{{if hasPrefix .RequestPath "/admin/pairs"}} active{{end}}">Parejas</a></li>
-                    <li><a href="/admin/venues" class="rounded-lg{{if hasPrefix .RequestPath "/admin/venues"}} active{{end}}">Clubes</a></li>
-                    <li><a href="/admin/documents" class="rounded-lg{{if hasPrefix .RequestPath "/admin/documents"}} active{{end}}">Documentos</a></li>
-                    <li><a href="/admin/sponsors" class="rounded-lg{{if hasPrefix .RequestPath "/admin/sponsors"}} active{{end}}">Patrocinadores</a></li>
-                    <li><a href="/admin/settings" class="rounded-lg{{if hasPrefix .RequestPath "/admin/settings"}} active{{end}}">Configuración</a></li>
-                    {{if .AppDevTools}}<li><a href="/admin/dev-tools" class="rounded-lg{{if hasPrefix .RequestPath "/admin/dev-tools"}} active{{end}}">Dev Tools</a></li>{{end}}
+                    <li><a href="/admin/competitions" class="rounded-lg min-h-[44px]{{if hasPrefix .RequestPath "/admin/competitions"}} active{{end}}">Competiciones</a></li>
+                    <li><a href="/admin/health" class="rounded-lg min-h-[44px]{{if hasPrefix .RequestPath "/admin/health"}} active{{end}}">Salud</a></li>
+                    <li><a href="/admin/players" class="rounded-lg min-h-[44px]{{if hasPrefix .RequestPath "/admin/players"}} active{{end}}">Usuarios</a></li>
+                    <li><a href="/admin/invitations" class="rounded-lg min-h-[44px]{{if hasPrefix .RequestPath "/admin/invitations"}} active{{end}}">Invitaciones</a></li>
+                    <li><a href="/admin/pairs" class="rounded-lg min-h-[44px]{{if hasPrefix .RequestPath "/admin/pairs"}} active{{end}}">Parejas</a></li>
+                    <li><a href="/admin/venues" class="rounded-lg min-h-[44px]{{if hasPrefix .RequestPath "/admin/venues"}} active{{end}}">Clubes</a></li>
+                    <li><a href="/admin/documents" class="rounded-lg min-h-[44px]{{if hasPrefix .RequestPath "/admin/documents"}} active{{end}}">Documentos</a></li>
+                    <li><a href="/admin/sponsors" class="rounded-lg min-h-[44px]{{if hasPrefix .RequestPath "/admin/sponsors"}} active{{end}}">Patrocinadores</a></li>
+                    <li><a href="/admin/settings" class="rounded-lg min-h-[44px]{{if hasPrefix .RequestPath "/admin/settings"}} active{{end}}">Configuración</a></li>
+                    {{if .AppDevTools}}<li><a href="/admin/dev-tools" class="rounded-lg min-h-[44px]{{if hasPrefix .RequestPath "/admin/dev-tools"}} active{{end}}">Dev Tools</a></li>{{end}}
                     {{end}}
                     <li class="mt-4">
-                        <button onclick="toggleTheme()" class="rounded-lg">Cambiar tema</button>
+                        <button onclick="toggleTheme()" class="rounded-lg min-h-[44px]">Cambiar tema</button>
                     </li>
                     <li data-testid="drawer-contact">{{template "contactLinks" (dict "Contact" .Contact)}}</li>
                     {{if .DisplayName}}
@@ -294,10 +294,10 @@
                     <li>
                         <span class="text-sm font-medium">{{.DisplayName}}</span>
                     </li>
-                    <li><a href="/player/{{.AuthID}}" class="rounded-lg">Mi perfil</a></li>
-                    <li><a href="/profile/notifications" class="rounded-lg">Preferencias</a></li>
+                    <li><a href="/player/{{.AuthID}}" class="rounded-lg min-h-[44px]">Mi perfil</a></li>
+                    <li><a href="/profile/notifications" class="rounded-lg min-h-[44px]">Preferencias</a></li>
                     <li>
-                        <button hx-post="/logout" class="rounded-lg text-error">Salir</button>
+                        <button hx-post="/logout" class="rounded-lg text-error min-h-[44px]">Salir</button>
                     </li>
                     {{end}}
                 </ul>

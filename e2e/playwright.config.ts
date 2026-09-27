@@ -21,6 +21,7 @@ const MOBILE_VIEWPORT_SPECS = [
   'tour-reference.spec.ts',
   'route-census.spec.ts',
   'mobile-lifecycle.spec.ts',
+  'search.spec.ts',
 ];
 const mobileViewportMatch = MOBILE_VIEWPORT_SPECS.map(f => new RegExp(f.replace('.', '\\.') + '$'));
 
