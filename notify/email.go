@@ -102,24 +102,16 @@ func BuildNotificationEmail(displayName, body, link string) string {
 func RenderEmail(app core.App, compID, bodyHTML string) string {
 	branding := league.Branding(app, compID)
 	baseURL := strings.TrimRight(app.Settings().Meta.AppURL, "/")
-
 	leagueName := branding.Name
-	logoURL := absoluteURL(baseURL, branding.LogoURL)
-
-	compLine := ""
-	if branding.Competition != nil {
-		compLine = fmt.Sprintf(`<p style="margin:6px 0 0;color:#e2e8f0;font-size:14px;">%s</p>`,
-			html.EscapeString(branding.Competition.Name))
-		if compLogo := absoluteURL(baseURL, branding.Competition.LogoURL); compLogo != "" {
-			logoURL = compLogo
-		}
-	}
+	logoURL, compLine := emailHeaderAssets(baseURL, branding)
 
 	testBanner := ""
 	if devEnv {
 		testBanner = `<tr><td style="background:#e53e3e;padding:8px;text-align:center;color:#ffffff;font-size:13px;font-weight:bold;letter-spacing:1px;">ENTORNO DE PRUEBAS — ESTE EMAIL NO ES REAL</td></tr>
 `
 	}
+
+	contactLine := contactLineHTML(league.LoadContactInfo(app))
 
 	return fmt.Sprintf(`<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="es">
@@ -144,6 +136,7 @@ func RenderEmail(app core.App, compID, bodyHTML string) string {
 %s
 <tr><td style="padding:16px 24px;background:#f2f2f2;text-align:center;color:#666666;font-size:12px;">
 <p style="margin:0 0 6px;">%s — <a href="%s" style="color:#666666;">%s</a></p>
+%s
 <p style="margin:0;font-size:11px;color:#999999;">Recibes este email porque tienes cuenta en %s</p>
 </td></tr>
 </table>
@@ -158,7 +151,40 @@ func RenderEmail(app core.App, compID, bodyHTML string) string {
 		bodyHTML,
 		sponsorSectionHTML(baseURL, branding.Sponsors),
 		html.EscapeString(leagueName), baseURL, baseURL,
+		contactLine,
 		html.EscapeString(leagueName))
+}
+
+// emailHeaderAssets resolves the header logo URL and competition name line
+// for RenderEmail, falling back to the league logo when the competition has
+// none.
+func emailHeaderAssets(baseURL string, branding league.BrandingData) (logoURL, compLine string) {
+	logoURL = absoluteURL(baseURL, branding.LogoURL)
+	if branding.Competition == nil {
+		return logoURL, ""
+	}
+	compLine = fmt.Sprintf(`<p style="margin:6px 0 0;color:#e2e8f0;font-size:14px;">%s</p>`,
+		html.EscapeString(branding.Competition.Name))
+	if compLogo := absoluteURL(baseURL, branding.Competition.LogoURL); compLogo != "" {
+		logoURL = compLogo
+	}
+	return logoURL, compLine
+}
+
+// contactLineHTML renders the "Contacto: WhatsApp · email" footer line,
+// matching the style of the line above it. Empty when both are unset.
+func contactLineHTML(contact league.ContactInfo) string {
+	if contact.WhatsAppURL == "" && contact.EmailURL == "" {
+		return ""
+	}
+	var links []string
+	if contact.WhatsAppURL != "" {
+		links = append(links, fmt.Sprintf(`<a href="%s" style="color:#666666;">WhatsApp</a>`, contact.WhatsAppURL))
+	}
+	if contact.EmailURL != "" {
+		links = append(links, fmt.Sprintf(`<a href="%s" style="color:#666666;">%s</a>`, contact.EmailURL, html.EscapeString(contact.Email)))
+	}
+	return fmt.Sprintf(`<p style="margin:0 0 6px;">Contacto: %s</p>`, strings.Join(links, " · "))
 }
 
 // wordmarkHTML renders the league name as the site wordmark: first word

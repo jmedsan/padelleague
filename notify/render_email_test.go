@@ -116,6 +116,32 @@ func TestRenderEmail_NoSponsors_OmitsSponsorSection(t *testing.T) {
 	assert.NotContains(t, got, "Patrocinado")
 }
 
+func TestRenderEmail_ContactConfigured_ShowsContactLine(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	setAppURL(t, app)
+	settings := leagueSettings(t, app)
+	settings.Set("contact_whatsapp", "+34612345678")
+	settings.Set("contact_email", "admin@example.com")
+	require.NoError(t, app.Save(settings))
+
+	got := RenderEmail(app, "", "<p>body</p>")
+
+	assert.Contains(t, got, "Contacto:")
+	assert.Contains(t, got, `href="https://wa.me/34612345678"`)
+	assert.Contains(t, got, `href="mailto:admin@example.com"`)
+}
+
+func TestRenderEmail_NoContact_OmitsContactLine(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	setAppURL(t, app)
+
+	got := RenderEmail(app, "", "<p>body</p>")
+
+	assert.NotContains(t, got, "Contacto:")
+}
+
 func TestRenderEmail_EscapesLeagueName(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)

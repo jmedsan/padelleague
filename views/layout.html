@@ -187,6 +187,18 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
                         </svg>
                     </button>
+                    {{if and .DisplayName (or .Contact.WhatsAppURL .Contact.EmailURL)}}
+                    <div class="dropdown dropdown-end" data-testid="navbar-contact">
+                        <button tabindex="0" class="btn btn-ghost btn-circle hover:bg-white/10" aria-label="contacto">
+                            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+                            </svg>
+                        </button>
+                        <ul tabindex="0" class="dropdown-content z-30 mt-3 menu bg-base-100 text-base-content rounded-box shadow-lg p-2 w-56">
+                            <li>{{template "contactLinks" (dict "Contact" .Contact "Full" true "Lead" "¿Necesitas ayuda?")}}</li>
+                        </ul>
+                    </div>
+                    {{end}}
                     {{if .DisplayName}}
                     <div class="dropdown dropdown-end">
                         <button tabindex="0" class="btn btn-ghost btn-circle" aria-label="notificaciones">
@@ -276,6 +288,7 @@
                     <li class="mt-4">
                         <button onclick="toggleTheme()" class="rounded-lg">Cambiar tema</button>
                     </li>
+                    <li data-testid="drawer-contact">{{template "contactLinks" (dict "Contact" .Contact)}}</li>
                     {{if .DisplayName}}
                     <div class="divider my-2"></div>
                     <li>

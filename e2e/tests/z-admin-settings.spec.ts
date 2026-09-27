@@ -172,11 +172,19 @@ test.describe('admin settings: league defaults', () => {
     await expect(whatsappInput).toHaveValue('+34 612 34 56 78');
     await expect(emailInput).toHaveValue('admin@example.com');
 
-    // Reached by clicking, not goto: drawer/nav to home, where the footer renders.
+    // Reached by clicking, not goto: drawer (mobile) or navbar dropdown (desktop).
     if (isMobile(page)) {
       await openDrawer(page);
+      const drawerContact = page.locator('[data-testid="drawer-contact"]');
+      await expect(drawerContact.locator('a[href="https://wa.me/34612345678"]')).toBeVisible();
+      await expect(drawerContact.locator('a[href="mailto:admin@example.com"]')).toBeVisible();
       await page.locator('.drawer-side a[href="/"]').click();
     } else {
+      const navbarContact = page.locator('[data-testid="navbar-contact"]');
+      await navbarContact.locator('button').click();
+      await expect(navbarContact.locator('a[href="https://wa.me/34612345678"]')).toBeVisible();
+      await expect(navbarContact.locator('a[href="mailto:admin@example.com"]')).toBeVisible();
+      await page.keyboard.press('Escape');
       await page.locator('a[href="/"]').first().click();
     }
     await page.waitForLoadState('domcontentloaded');
@@ -184,6 +192,19 @@ test.describe('admin settings: league defaults', () => {
     await expect(contactSection).toBeVisible();
     await expect(contactSection.locator('a[href="https://wa.me/34612345678"]')).toBeVisible();
     await expect(contactSection.locator('a[href="mailto:admin@example.com"]')).toBeVisible();
+
+    // Contact is for registered users only: once logged out, the login page
+    // must show neither the contact line nor any wa.me/mailto link, even
+    // though it's still configured. Reached by clicking "Salir" in the navbar
+    // (the drawer's own copy of the button is also in the DOM, just hidden).
+    await page.locator('.navbar button:has-text("Salir")').click();
+    await page.waitForURL('**/login');
+    await expect(page.getByText('¿No puedes entrar?')).toHaveCount(0);
+    await expect(page.locator('a[href="https://wa.me/34612345678"]')).toHaveCount(0);
+    await expect(page.locator('a[href="mailto:admin@example.com"]')).toHaveCount(0);
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
 
     // Clear both fields -> the whole section disappears, not just the links.
     await navToAdmin(page, '/admin/settings');

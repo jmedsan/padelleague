@@ -32,9 +32,19 @@ type FooterData struct {
 // unset. WhatsAppURL is a ready-to-use wa.me link; EmailURL is a mailto:
 // link. Both empty means the contact section has nothing to show.
 type ContactInfo struct {
-	WhatsAppURL string
-	Email       string
-	EmailURL    string
+	whatsAppNumber string // E.164, used by WhatsAppURLWithText
+	WhatsAppURL    string
+	Email          string
+	EmailURL       string
+}
+
+// WhatsAppURLWithText returns a wa.me link prefilled with msg, or "" when no
+// WhatsApp number is configured.
+func (c ContactInfo) WhatsAppURLWithText(msg string) string {
+	if c.whatsAppNumber == "" {
+		return ""
+	}
+	return WhatsAppURLWithText(c.whatsAppNumber, msg)
 }
 
 // LoadContactInfo resolves the app_settings singleton's contact fields into
@@ -46,6 +56,7 @@ func LoadContactInfo(app core.App) ContactInfo {
 	}
 	var info ContactInfo
 	if wa := settings.GetString("contact_whatsapp"); wa != "" {
+		info.whatsAppNumber = wa
 		info.WhatsAppURL = WhatsAppURL(wa)
 	}
 	if email := settings.GetString("contact_email"); email != "" {
