@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, isMobile, openDrawer, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, isMobile, openDrawer, clickAndWaitForHxRedirect, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 
 async function navToAdmin(page: Page, href: string): Promise<void> {
   if (isMobile(page)) {
@@ -167,8 +167,7 @@ test.describe('admin settings: league defaults', () => {
 
     await whatsappInput.fill('612345678');
     await emailInput.fill('admin@example.com');
-    await saveButton.click();
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, saveButton, '/admin/settings');
     await expect(whatsappInput).toHaveValue('+34 612 34 56 78');
     await expect(emailInput).toHaveValue('admin@example.com');
 
@@ -197,8 +196,7 @@ test.describe('admin settings: league defaults', () => {
     // must show neither the contact line nor any wa.me/mailto link, even
     // though it's still configured. Reached by clicking "Salir" in the navbar
     // (the drawer's own copy of the button is also in the DOM, just hidden).
-    await page.locator('.navbar button:has-text("Salir")').click();
-    await page.waitForURL('**/login');
+    await clickAndWaitForHxRedirect(page, page.locator('.navbar button:has-text("Salir")'), '/login');
     await expect(page.getByText('¿No puedes entrar?')).toHaveCount(0);
     await expect(page.locator('a[href="https://wa.me/34612345678"]')).toHaveCount(0);
     await expect(page.locator('a[href="mailto:admin@example.com"]')).toHaveCount(0);
@@ -210,8 +208,7 @@ test.describe('admin settings: league defaults', () => {
     await navToAdmin(page, '/admin/settings');
     await whatsappInput.fill('');
     await emailInput.fill('');
-    await saveButton.click();
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, saveButton, '/admin/settings');
 
     if (isMobile(page)) {
       await openDrawer(page);
@@ -226,7 +223,6 @@ test.describe('admin settings: league defaults', () => {
     await navToAdmin(page, '/admin/settings');
     await whatsappInput.fill(originalWhatsapp);
     await emailInput.fill(originalEmail);
-    await saveButton.click();
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, saveButton, '/admin/settings');
   });
 });
