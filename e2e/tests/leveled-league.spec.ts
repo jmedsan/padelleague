@@ -1,5 +1,5 @@
 import { test, expect } from '../overflow-guard';
-import { loginAs, suGet, suPatch, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, suGet, suPatch, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { uniqueSuffix, setPlayerPassword } from '../season-helpers';
 import {
   createPlayer, createPair, addPairToCompetition,
@@ -125,10 +125,9 @@ test.describe('leveled league', () => {
 
     // Leveled leagues require start_date/end_date before "Generar calendario"
     // will accept them — set via API since the create dialog has no date fields.
-    const now = Date.now();
     await suPatch(page.request, suToken, `/api/collections/competitions/records/${competitionId}`, {
-      start_date: new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      end_date: new Date(now + 60 * 24 * 60 * 60 * 1000).toISOString(),
+      start_date: leagueDate(-7),
+      end_date: leagueDate(60),
     });
 
     // Add pairs (no seed param — leveled leagues are type "league", seed input only

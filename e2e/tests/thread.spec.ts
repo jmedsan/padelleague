@@ -1,7 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import {
-  loginAs, scratchMatchId, loadTestData,
+  loginAs, scratchMatchId, loadTestData, leagueDate,
   suGet as suGetBase, suPost as suPostBase, suPatch as suPatchBase,
   PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD,
 } from '../helpers';
@@ -261,7 +261,7 @@ test.describe('match thread', () => {
     await expect(page.getByText('Proponer fecha y lugar')).toBeVisible({ timeout: 10000 });
 
     const proposalForm = page.locator('#proposal-form');
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const tomorrow = leagueDate(1);
     await fillFlatpickrDate(page, '#proposal-date', tomorrow);
     await proposalForm.locator('select[name="time"]').selectOption('18:00');
     await proposalForm.locator('select[name="venue_id"]').selectOption(data.venueId);

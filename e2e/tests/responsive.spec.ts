@@ -1,7 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import {
-  loginAs, loadTestData, isMobile, openDrawer, navViaDrawer,
+  loginAs, loadTestData, isMobile, openDrawer, navViaDrawer, leagueDate,
   apiCreateRecord as apiCreateRecordBase, apiListRecords as apiListRecordsBase,
   apiDeleteRecord as apiDeleteRecordBase,
   ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD,
@@ -444,7 +444,7 @@ test.describe('responsive - no horizontal overflow', () => {
       round_number: 1,
       scores: '6-3 6-4',
       winner: data.pair1Id,
-      date: new Date().toISOString().slice(0, 10),
+      date: leagueDate(0),
     });
 
     await page.setViewportSize(MOBILE);

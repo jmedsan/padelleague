@@ -63,4 +63,24 @@ if [ -n "$guarded" ]; then
 	fail=1
 fi
 
+
+# `new Date(Date.now() + N*86400000).toISOString().slice(0,10)` computes a
+# "today plus/minus N days" date in UTC, then reads it back as a calendar
+# date in UTC — wrong for the league (Atlantic/Canary, ahead of UTC) during
+# the hour(s) after local midnight, when the UTC calendar day hasn't rolled
+# over yet. Every night in that window, "tomorrow" computed this way is
+# still "today" in the league. Use helpers.ts's leagueDate(offsetDays)
+# instead, which reads the calendar date in the league's own timezone.
+# jornadaHiISO derives a date by adding whole days (via jornadaRange) to a
+# FIXED start/end date pair (competitionDates(), literal 2036 dates) — not to
+# Date.now() — so it isn't subject to the today-relative UTC bug and is
+# exempted by name.
+today_relative=$(grep -nE '86400000|24 ?\* ?60 ?\* ?60 ?\* ?1000|toISOString\(\)\.slice\(0, ?10\)|toISOString\(\)\.split\(.T.\)' $specs \
+	| grep -v 'e2e/helpers\.ts:' | grep -v 'e2e/scenario-helpers\.ts:.*MS_PER_DAY' | grep -v 'jornadaRange(startISO, endISO, target, n)\.hi\.toISOString' || true)
+if [ -n "$today_relative" ]; then
+	echo "FAIL: today-relative date computed via Date.now()+N*86400000/toISOString() (UTC) instead of leagueDate(offsetDays) from helpers.ts"
+	echo "$today_relative"
+	fail=1
+fi
+
 exit $fail

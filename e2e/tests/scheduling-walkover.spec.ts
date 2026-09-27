@@ -1,7 +1,7 @@
 import type { Page, APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import {
-  loginAs, isMobile, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, loadTestData,
+  loginAs, isMobile, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, loadTestData,
   apiCreateRecord as apiCreateRecordBase, apiGetRecord as apiGetRecordBase,
   apiListRecords as apiListRecordsBase, apiDeleteRecord as apiDeleteRecordBase,
 } from '../helpers';
@@ -21,9 +21,8 @@ test.describe('scheduling, walkover & bracket', () => {
     await getSuperuserToken(page);
     const data = loadTestData();
 
-    const now = new Date();
-    const startDate = new Date(now.getTime() - 14 * 86400000).toISOString().slice(0, 10);
-    const endDate = new Date(now.getTime() - 5 * 86400000).toISOString().slice(0, 10);
+    const startDate = leagueDate(-14);
+    const endDate = leagueDate(-5);
 
     const compId = await apiCreateRecord(page.request, 'competitions', {
       name: 'Urgentes E2E',

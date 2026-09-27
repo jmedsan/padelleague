@@ -1,6 +1,6 @@
 import type { Page, APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, clickAction, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, clickAction, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import {
   setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,
   computeExpected, PlannedMatch, PairId,
@@ -235,8 +235,8 @@ test.describe('guided navigation tour', () => {
     await page.locator('button:has-text("Publicar calendario")').click();
     await page.waitForLoadState('domcontentloaded');
 
-    const startDate = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
-    const endDate = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+    const startDate = leagueDate(-30);
+    const endDate = leagueDate(30);
     await setDates(page, startDate, endDate);
     // A pair can't play without paying — mark all pairs paid before activating.
     await markAllPairsPaid(page);
@@ -585,12 +585,11 @@ test.describe('guided navigation tour', () => {
 
     // Leveled leagues require start_date/end_date before "Generar calendario"
     // will accept them — set via API since the create dialog has no date fields.
-    const gtNow = Date.now();
     await page.request.patch(`/api/collections/competitions/records/${lvCompId}`, {
       headers: { Authorization: localSuToken },
       data: {
-        start_date: new Date(gtNow - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        end_date: new Date(gtNow + 60 * 24 * 60 * 60 * 1000).toISOString(),
+        start_date: leagueDate(-7),
+        end_date: leagueDate(60),
       },
     });
 
