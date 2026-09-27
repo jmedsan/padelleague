@@ -14,6 +14,28 @@ export interface ServerHandle {
   dataDir: string;
   port: number;
   baseURL: string;
+  stderr: { tail: () => string };
+}
+
+// stderrRingBuffer captures a server's stderr so a crash mid-test can be
+// attributed to it — plain `inherit` interleaves unlabeled output from every
+// concurrent worker's own server into one stream, which is how a real crash
+// (panic, OOM) surfaced only as an unexplained `SocketError` on the client
+// side with no way to tell which process died or why.
+// stderrRingBuffer keeps the last lines of one server's stderr, so a crash is
+// attributed to that server instead of being interleaved with every worker's.
+function stderrRingBuffer(maxLines: number): { write: (chunk: Buffer) => void; tail: () => string } {
+  const lines: string[] = [];
+  let carry = '';
+  return {
+    write(chunk: Buffer) {
+      const parts = (carry + chunk.toString('utf8')).split('\n');
+      carry = parts.pop() ?? '';
+      lines.push(...parts);
+      if (lines.length > maxLines) lines.splice(0, lines.length - maxLines);
+    },
+    tail: () => (carry ? [...lines, carry] : lines).join('\n'),
+  };
 }
 
 export async function spawnServer(
@@ -35,7 +57,7 @@ export async function spawnServer(
     const logFd = openSync(logFile, 'w');
     stdio = ['ignore', logFd, logFd];
   } else {
-    stdio = ['ignore', 'pipe', 'inherit'];
+    stdio = ['ignore', 'pipe', 'pipe'];
   }
 
   const proc = spawn(binary, ['serve', `--http=0.0.0.0:${port}`, `--dir=${dataDir}`], {
@@ -44,8 +66,10 @@ export async function spawnServer(
     detached: keepAlive,
   });
 
+  const stderr = stderrRingBuffer(200);
   if (!keepAlive) {
     proc.stdout?.resume();
+    proc.stderr?.on('data', chunk => stderr.write(chunk));
   }
 
   if (proc.pid !== undefined) {
@@ -57,9 +81,10 @@ export async function spawnServer(
     }
   }
 
-  await waitForServer(`${baseURL}/login`, 60_000);
+  const handle: ServerHandle = { process: proc, dataDir, port, baseURL, stderr };
+  await waitForServer(`${baseURL}/login`, 60_000, handle);
 
-  return { process: proc, dataDir, port, baseURL };
+  return handle;
 }
 
 export async function superuserLogin(
@@ -228,9 +253,12 @@ export function sweepStaleTestDirs(): void {
   }
 }
 
-async function waitForServer(url: string, timeoutMs: number): Promise<void> {
+async function waitForServer(url: string, timeoutMs: number, handle: ServerHandle): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
+    if (await hasExited(handle, 0)) {
+      throw new Error(await processDiedMessage(handle, 'before it became ready'));
+    }
     try {
       const res = await fetch(url);
       if (res.ok || res.status === 200) return;
@@ -240,4 +268,44 @@ async function waitForServer(url: string, timeoutMs: number): Promise<void> {
     await new Promise(r => setTimeout(r, 500));
   }
   throw new Error(`Server did not start within ${timeoutMs}ms`);
+}
+
+// hasExited waits up to graceMs for the process's 'exit' event before
+// answering, because a socket the server held can close (surfacing as
+// `fetch failed`/`SocketError` at the caller) slightly before Node delivers
+// 'exit' — checking exitCode/signalCode immediately after a failed fetch can
+// read as "still alive" for a process that is, in fact, already gone.
+// hasExited waits up to graceMs for the server process to exit: a socket
+// closed by a dying server can reach the client before Node sees 'exit'.
+async function hasExited(handle: ServerHandle, graceMs: number): Promise<boolean> {
+  const { process: proc } = handle;
+  if (proc.exitCode !== null || proc.signalCode !== null) return true;
+  if (graceMs === 0) return false;
+  return new Promise(resolve => {
+    const timer = setTimeout(() => resolve(false), graceMs);
+    proc.once('exit', () => {
+      clearTimeout(timer);
+      resolve(true);
+    });
+  });
+}
+
+// processDiedMessage attributes a server outcome to its actual exit
+// code/signal and stderr tail (dead), or reports it as still alive (the
+// signature of a *different* server having answered/failed a request) — a
+// crash surfaces as "server exited with X, stderr: Y" and a live-but-wedged
+// server as "server still alive", instead of an unattributed `fetch
+// failed`/`SocketError` at the call site that happened to be mid-request.
+// processDiedMessage reports whether the server died (exit code or signal +
+// stderr tail) or is still alive, which means the failed request did not
+// come from a crash of this server.
+export async function processDiedMessage(handle: ServerHandle, when: string): Promise<string> {
+  if (!(await hasExited(handle, 2000))) {
+    return `server (pid ${handle.process.pid}, port ${handle.port}) is still alive ${when}`;
+  }
+  const { exitCode, signalCode } = handle.process;
+  const reason = signalCode ? `signal ${signalCode}` : `exit code ${exitCode}`;
+  const tail = handle.stderr.tail();
+  return `server (pid ${handle.process.pid}, port ${handle.port}) died ${when}: ${reason}` +
+    (tail ? `\nstderr tail:\n${tail}` : '\n(no stderr captured)');
 }
