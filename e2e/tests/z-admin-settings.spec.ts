@@ -127,7 +127,7 @@ test.describe('admin dev tools: database reset', { tag: '@admin' }, () => {
   });
 });
 
-test.describe('admin settings: league defaults', () => {
+test.describe('admin settings: league defaults', { tag: '@admin' }, () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await navToAdmin(page, '/admin/settings');
