@@ -82,7 +82,7 @@
     <div class="alert alert-warning">
         <span>Arbitraje solicitado por {{.ArbitrationBy}} — {{.ArbitrationLabel}}{{if .DisputeNotes}}: {{.DisputeNotes}}{{end}}</span>
     </div>
-    {{if or .Contact.WhatsAppURL .Contact.EmailURL}}
+    {{if and (not .Mode.Admin) (or .Contact.WhatsAppURL .Contact.EmailURL)}}
     <p class="text-sm opacity-60 mt-1">Mientras se resuelve, también puedes escribir a {{template "contactLinksInline" (dict "Contact" .Contact)}}</p>
     {{end}}
     {{if and .Mode.Admin .Mode.Editable}}
