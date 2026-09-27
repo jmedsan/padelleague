@@ -26,7 +26,7 @@ async function createFreshPlayer(request: APIRequestContext, label: string): Pro
   return { email, password: FRESH_PLAYER_PASSWORD };
 }
 
-test.describe('player profile and stats', () => {
+test.describe('player profile and stats', { tag: '@profile' }, () => {
   test('player can view own profile with stats', { tag: '@smoke' }, async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.locator('a[href^="/competition/"]', { hasText: 'Liga E2E Test' }).first().click();

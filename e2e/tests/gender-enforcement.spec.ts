@@ -17,7 +17,7 @@ async function navToAdmin(page: Page): Promise<void> {
   await page.waitForLoadState('domcontentloaded');
 }
 
-test.describe('gender enforcement', () => {
+test.describe('gender enforcement', { tag: '@admin' }, () => {
   test('same-gender pair rejected from mixed competition', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await navToAdmin(page);

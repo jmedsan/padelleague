@@ -24,7 +24,7 @@ async function suPost(request: APIRequestContext, path: string, data: Record<str
 }
 
 
-test.describe('match thread', () => {
+test.describe('match thread', { tag: '@thread' }, () => {
   test('player can view match thread', { tag: '@smoke' }, async ({ page }) => {
     const data = loadTestData();
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);

@@ -23,7 +23,7 @@ async function suGet(request: APIRequestContext, path: string): Promise<any> {
   return suGetBase(request, suToken(), path);
 }
 
-test.describe('match lifecycle', () => {
+test.describe('match lifecycle', { tag: '@scoring' }, () => {
   test('player can view match detail', { tag: '@smoke' }, async ({ page }) => {
     const data = loadTestData();
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);

@@ -47,7 +47,7 @@ let suToken = '';
 // Shared setup — runs once in serial mode (workers: 1 in playwright.config)
 // ---------------------------------------------------------------------------
 
-test.describe('leveled league', () => {
+test.describe('leveled league', { tag: '@leveled' }, () => {
   test.describe.configure({ retries: 0 });
 
   test('leveled-league admin dialog + player view', { tag: '@smoke' }, async ({ page }) => {

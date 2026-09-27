@@ -1,7 +1,7 @@
 import { test, expect } from '../overflow-guard';
 import { loadTestData, loginAs, isMobile, waitForHxRedirect, clickAndWaitForHxRedirect, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
-test.describe('announcements', () => {
+test.describe('announcements', { tag: '@docs' }, () => {
   test('admin composes announcement, player reaches it via bell notification', async ({ page }) => {
     const data = loadTestData();
     const title = `E2E Anuncio ${Date.now()}`;

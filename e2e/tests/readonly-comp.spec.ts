@@ -1,7 +1,7 @@
 import { test, expect } from '../overflow-guard';
 import { loginAs, loadTestData, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
-test.describe('R-172: finalized competition is read-only for players', () => {
+test.describe('R-172: finalized competition is read-only for players', { tag: '@competitions' }, () => {
   test('player cannot see submit/propose controls on finalized comp match', async ({ page }) => {
     const data = loadTestData();
     const compId = data.competitionId;

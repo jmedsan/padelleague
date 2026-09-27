@@ -19,56 +19,58 @@ async function createUnverifiedPlayer(request: APIRequestContext, label: string)
   return { email, password: UNVERIFIED_PASSWORD };
 }
 
-test('unauthenticated access redirects to login', async ({ page }) => {
-  await page.goto('/');
-  await expect(page).toHaveURL(/\/login/);
-});
+test.describe('auth', { tag: '@auth' }, () => {
+  test('unauthenticated access redirects to login', async ({ page }) => {
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/login/);
+  });
 
-test('login with valid credentials via form', { tag: '@smoke' }, async ({ page }) => {
-  await loginViaForm(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-  // Admin GET / redirects to /admin/competitions, the single admin landing page.
-  await expect(page).toHaveURL(/\/admin\/competitions$/);
-  await expect(page.locator('.navbar')).toBeVisible();
-  if (isMobile(page)) {
-    await expect(page.locator('[aria-label^="cambiar vista"]')).toBeVisible();
-  } else {
-    await expect(page.locator('details:has(a[href="/view/player"]) summary')).toBeVisible();
-  }
-});
+  test('login with valid credentials via form', { tag: '@smoke' }, async ({ page }) => {
+    await loginViaForm(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    // Admin GET / redirects to /admin/competitions, the single admin landing page.
+    await expect(page).toHaveURL(/\/admin\/competitions$/);
+    await expect(page.locator('.navbar')).toBeVisible();
+    if (isMobile(page)) {
+      await expect(page.locator('[aria-label^="cambiar vista"]')).toBeVisible();
+    } else {
+      await expect(page.locator('details:has(a[href="/view/player"]) summary')).toBeVisible();
+    }
+  });
 
-test('login with invalid credentials shows error', async ({ page }) => {
-  await page.goto('/login');
-  await page.fill('#email', 'wrong@test.com');
-  await page.fill('#password', 'wrongpassword');
-  await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page.locator('.alert-error')).toBeVisible({ timeout: 5000 });
-});
+  test('login with invalid credentials shows error', async ({ page }) => {
+    await page.goto('/login');
+    await page.fill('#email', 'wrong@test.com');
+    await page.fill('#password', 'wrongpassword');
+    await page.getByRole('button', { name: 'Entrar' }).click();
+    await expect(page.locator('.alert-error')).toBeVisible({ timeout: 5000 });
+  });
 
-test('player cannot access admin page', async ({ page }) => {
-  await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-  await page.goto('/admin');
-  await expect(page.getByRole('heading', { name: 'Competiciones', exact: true })).not.toBeVisible({ timeout: 3000 });
-});
+  test('player cannot access admin page', async ({ page }) => {
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto('/admin');
+    await expect(page.getByRole('heading', { name: 'Competiciones', exact: true })).not.toBeVisible({ timeout: 3000 });
+  });
 
-test('unverified-email banner can be dismissed and stays hidden for the session', async ({ page, request }) => {
-  const player = await createUnverifiedPlayer(request, isMobile(page) ? 'mobile' : 'desktop');
-  await loginAs(page, player.email, player.password);
-  await page.goto('/');
+  test('unverified-email banner can be dismissed and stays hidden for the session', async ({ page, request }) => {
+    const player = await createUnverifiedPlayer(request, isMobile(page) ? 'mobile' : 'desktop');
+    await loginAs(page, player.email, player.password);
+    await page.goto('/');
 
-  const banner = page.locator('#verify-banner');
-  await expect(banner).toBeVisible({ timeout: 10000 });
+    const banner = page.locator('#verify-banner');
+    await expect(banner).toBeVisible({ timeout: 10000 });
 
-  await banner.locator('button[aria-label^="Descartar aviso"]').click();
-  await expect(banner).toHaveCount(0);
+    await banner.locator('button[aria-label^="Descartar aviso"]').click();
+    await expect(banner).toHaveCount(0);
 
-  // Same session (sessionStorage persists) — a reload must not bring it back.
-  await page.reload();
-  await expect(page.locator('#verify-banner')).toHaveCount(0);
-});
+    // Same session (sessionStorage persists) — a reload must not bring it back.
+    await page.reload();
+    await expect(page.locator('#verify-banner')).toHaveCount(0);
+  });
 
-test('logout redirects to login', async ({ page }) => {
-  await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-  await page.request.post('/logout');
-  await page.goto('/');
-  await expect(page).toHaveURL(/\/login/);
+  test('logout redirects to login', async ({ page }) => {
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.request.post('/logout');
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/login/);
+  });
 });

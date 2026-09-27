@@ -9,7 +9,7 @@ import { clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect, generateFi
 
 let suToken = '';
 
-test.describe('scheduling, walkover & bracket', () => {
+test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
   test.beforeEach(({}, testInfo) => {
     test.skip(testInfo.project.name === 'destructive', 'skip destructive project');
   });
