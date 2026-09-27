@@ -38,6 +38,13 @@ while IFS= read -r f; do
 		handlers/document*.go|views/*document*) add docs ;;
 		handlers/*profile*|handlers/player*.go|views/player*) add profile ;;
 		routes/routes.go) add routes ;;
+		# A changed spec runs its own area tags (@smoke is a cross-area
+		# sweep, not an area). A deleted spec has no tags left to read.
+		e2e/tests/*.spec.ts)
+			[ -f "$f" ] || continue
+			for tag in $(grep -o "['\"]@[a-z-]*['\"]" "$f" | tr -d "'\"" | sort -u); do
+				[ "$tag" = "@smoke" ] || add "${tag#@}"
+			done ;;
 	esac
 done <<< "$changed"
 
