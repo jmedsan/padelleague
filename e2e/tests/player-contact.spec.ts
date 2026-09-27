@@ -55,6 +55,54 @@ test.describe('player contact', { tag: '@profile' }, () => {
     await expect(contact.locator('.tooltip')).toHaveCount(0);
   });
 
+  test('match page rival contacts fit a 360px phone, for a long name and a short one, each with both icons', async ({ page, request }, testInfo) => {
+    test.skip(!isMobile(page), 'phone-width layout check');
+    const data = loadTestData();
+    const token = suToken();
+    const suffix = `${Date.now()}-${testInfo.project.name}`;
+    const longName = `Maximiliano Fernández-Villaverde ${suffix}`;
+    const rival1 = await apiCreateRecord(request, token, 'users', {
+      email: `maximiliano-fernandez-villaverde-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: longName, roles: ['player'], verified: true, phone: '+34612345678',
+    });
+    const rival2 = await apiCreateRecord(request, token, 'users', {
+      email: `ana-ruiz-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: 'Ana Ruiz', roles: ['player'], verified: true, phone: '+34699887766',
+    });
+    const rivalPairId = await apiCreateRecord(request, token, 'pairs', {
+      name: `Pareja Ancha E2E ${suffix}`, player1: rival1, player2: rival2, captain: rival1,
+    });
+    const matchId = await apiCreateRecord(request, token, 'matches', {
+      competition: data.competitionId, pair1: data.pair1Id, pair2: rivalPairId, status: 'pending',
+    });
+
+    try {
+      await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+      await page.goto('/');
+      await page.locator(`a[href="/match/${matchId}"]`).first().click();
+      await page.waitForURL(`**/match/${matchId}`);
+
+      const rivals = page.locator('[data-testid="rival-contacts"]');
+      await expect(rivals.getByText(longName)).toBeVisible();
+      await expect(rivals.getByRole('link', { name: 'WhatsApp: +34612345678', exact: true })).toBeVisible();
+      await expect(rivals.getByRole('link', { name: /^Email: maximiliano-/ })).toBeVisible();
+      // The short name keeps its icons on the name's line, mid-card: where a
+      // hidden hover tooltip carrying the full email address pushed the page
+      // sideways on 481a3d0. The long name wraps its icons below.
+      await expect(rivals.getByText('Ana Ruiz')).toBeVisible();
+      await expect(rivals.getByRole('link', { name: 'WhatsApp: +34699887766', exact: true })).toBeVisible();
+      const card = await rivals.evaluate(el => ({ scroll: el.scrollWidth, client: el.clientWidth }));
+      expect(card.scroll).toBeLessThanOrEqual(card.client);
+      const doc = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
+      expect(doc.scroll).toBeLessThanOrEqual(doc.client);
+    } finally {
+      await apiDeleteRecord(request, token, 'matches', matchId);
+      await apiDeleteRecord(request, token, 'pairs', rivalPairId);
+      await apiDeleteRecord(request, token, 'users', rival1);
+      await apiDeleteRecord(request, token, 'users', rival2);
+    }
+  });
+
   test('participant sees exactly the rival pair\'s contacts, never the partner\'s or their own', async ({ page, request }, testInfo) => {
     const data = loadTestData();
     const token = suToken();
