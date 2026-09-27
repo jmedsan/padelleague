@@ -143,6 +143,7 @@ e2e-bg:
 	outdir=e2e/.bg-runs/$$ts; mkdir -p $$outdir; \
 	snap=$$(mktemp -d /tmp/e2e-bg-XXXX); \
 	git archive HEAD | tar -x -C $$snap; \
+	ln -s $(CURDIR)/e2e/node_modules $$snap/e2e/node_modules; \
 	echo "snapshot: $$snap -> $$outdir"; \
 	( \
 	  cd $$snap && \
@@ -157,8 +158,7 @@ e2e-bg:
 	  echo "exit_code=$$code" >> $(CURDIR)/$$outdir/summary.txt; \
 	  rm -rf $$snap; \
 	  echo "done: $(CURDIR)/$$outdir/summary.txt (exit $$code)" \
-	) & \
-	disown; \
+	) </dev/null >$$outdir/runner.log 2>&1 & \
 	echo "started in background, pid group left running — see $$outdir/summary.txt when done"
 
 # Re-run only the tests that failed in the most recent run (local `make e2e`
