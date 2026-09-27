@@ -1,7 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import {
-  loginAs, loadTestData, suPatch as suPatchBase, apiCreateRecord, apiDeleteRecord,
+  loginAs, loadTestData, isMobile, suPatch as suPatchBase, apiCreateRecord, apiDeleteRecord,
   PLAYER1_EMAIL, PLAYER1_PASSWORD,
 } from '../helpers';
 import { PLAYER2_NAME } from '../global-setup';
@@ -20,20 +20,36 @@ test.describe('player contact', { tag: '@profile' }, () => {
     await suPatch(request, `/api/collections/users/records/${data.player2.id}`, { phone: '' });
   });
 
-  test('player sees WhatsApp and email links on another player\'s profile', async ({ page, request }) => {
+  test('player reaches another player\'s profile and sees icon contact links naming the number/address', async ({ page, request }) => {
     const data = loadTestData();
     await suPatch(request, `/api/collections/users/records/${data.player2.id}`, { phone: '+34612345678' });
 
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.goto(`/player/${data.player2.id}`);
+    await page.locator('a[href^="/competition/"]', { hasText: 'Liga E2E Test' }).first().click();
     await page.waitForLoadState('domcontentloaded');
+    await page.locator('input[aria-label^="Clasificación"]').click();
+    const standingsTableClass = isMobile(page) ? 'table.table-sm' : 'table.table-zebra';
+    await page.locator(`${standingsTableClass} a[href="/pair/${data.pair1Id}"]`).click();
+    await page.waitForURL(`**/pair/${data.pair1Id}`);
+    await page.locator(`table a[href="/player/${data.player2.id}"]`).click();
+    await page.waitForURL(`**/player/${data.player2.id}`);
 
     const contact = page.locator('[data-testid="player-contact"]');
-    await expect(contact).toBeVisible();
-    const whatsapp = contact.locator('a[href^="https://wa.me/"]');
-    await expect(whatsapp).toBeVisible();
-    const email = contact.locator('a[href^="mailto:"]');
-    await expect(email).toBeVisible();
+    const whatsappTip = 'WhatsApp: +34612345678';
+    const emailTip = `Email: ${data.player2.email}`;
+    const whatsapp = contact.getByRole('link', { name: whatsappTip, exact: true });
+    const email = contact.getByRole('link', { name: emailTip, exact: true });
+    await expect(whatsapp).toHaveAttribute('href', 'https://wa.me/34612345678');
+    await expect(email).toHaveAttribute('href', `mailto:${data.player2.email}`);
+    // Icon-only: the SVG is the visible content, no text label.
+    await expect(whatsapp).toHaveText('');
+    await expect(email).toHaveText('');
+    await expect(whatsapp.locator('svg')).toBeVisible();
+    await expect(email.locator('svg')).toBeVisible();
+    await expect(whatsapp.locator('xpath=..')).toHaveClass(/\btooltip\b/);
+    await expect(whatsapp.locator('xpath=..')).toHaveAttribute('data-tip', whatsappTip);
+    await expect(email.locator('xpath=..')).toHaveClass(/\btooltip\b/);
+    await expect(email.locator('xpath=..')).toHaveAttribute('data-tip', emailTip);
   });
 
   test('participant sees exactly the rival pair\'s contacts, never the partner\'s or their own', async ({ page, request }, testInfo) => {
