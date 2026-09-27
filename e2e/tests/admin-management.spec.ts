@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import { loginAs, isMobile, openDrawer, suDelete, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { clickAndWaitForHxRedirect, waitForHxRedirect } from '../tour-helpers';
 
 let suToken = '';
 
@@ -83,10 +84,7 @@ test.describe('admin management', () => {
     await page.getByRole('button', { name: /nueva invitaci[oó]n/i }).click();
     const invEmail = `inv-${Date.now()}@test.com`;
     await page.locator('#modal-create-invite input[name="email"]').fill(invEmail);
-    await Promise.all([
-      page.waitForEvent('load', { timeout: 10000 }),
-      page.locator('#modal-create-invite button[type="submit"]').click(),
-    ]);
+    await clickAndWaitForHxRedirect(page, page.locator('#modal-create-invite button[type="submit"]'), '/admin/invitations');
     await expect(page.getByText(invEmail).locator('visible=true').first()).toBeVisible({ timeout: 5000 });
   });
 
@@ -119,14 +117,11 @@ test.describe('admin management', () => {
     // toBeVisible before re-opening it would hang against a technically-
     // present-but-invisible element). Re-open the modal after the redirect
     // to see the uploaded logo.
-    await Promise.all([
-      page.waitForEvent('load', { timeout: 10000 }),
-      page.setInputFiles('#comp-logo-input', {
-        name: 'logo.jpg',
-        mimeType: 'image/jpeg',
-        buffer: logoJpeg,
-      }),
-    ]);
+    await waitForHxRedirect(page, /^\/admin\/competitions\/[^/]+$/, () => page.setInputFiles('#comp-logo-input', {
+      name: 'logo.jpg',
+      mimeType: 'image/jpeg',
+      buffer: logoJpeg,
+    }));
     await page.locator('label[for="edit-modal"]', { hasText: 'Editar' }).click();
     await expect(page.locator('img[src*="/logo/competition/"]').first()).toBeVisible({ timeout: 10000 });
   });
@@ -137,10 +132,7 @@ test.describe('admin management', () => {
     const name = `Club ${Date.now()}`;
     await page.getByRole('button', { name: /nuevo club/i }).click();
     await page.locator('#modal-create-venue input[name="name"]').fill(name);
-    await Promise.all([
-      page.waitForEvent('load', { timeout: 10000 }),
-      page.locator('#modal-create-venue button[type="submit"]').click(),
-    ]);
+    await clickAndWaitForHxRedirect(page, page.locator('#modal-create-venue button[type="submit"]'), '/admin/venues');
     // Mobile card list and desktop table both render every venue name at
     // once (CSS-toggled per breakpoint, both present in the DOM) — same
     // dual-render pattern as the Penalizar trigger below.
@@ -223,10 +215,7 @@ test.describe('admin management', () => {
       buffer: sponsorJpeg,
     });
     await page.locator('#modal-create-sponsor input[name="url"]').fill('https://example.com');
-    await Promise.all([
-      page.waitForEvent('load', { timeout: 10000 }),
-      page.locator('#modal-create-sponsor button[type="submit"]').click(),
-    ]);
+    await clickAndWaitForHxRedirect(page, page.locator('#modal-create-sponsor button[type="submit"]'), '/admin/sponsors');
 
     // 2. The sponsor row appears in the library list.
     const sponsorCard = page.locator('[data-testid="sponsor-card"]', { hasText: sponsorName });
@@ -238,10 +227,7 @@ test.describe('admin management', () => {
     await page.waitForLoadState('domcontentloaded');
     const attachSponsorForm = page.locator('form:has(select[name="sponsor"])');
     await attachSponsorForm.locator('select[name="sponsor"]').selectOption({ label: sponsorName });
-    await Promise.all([
-      page.waitForEvent('load', { timeout: 10000 }),
-      attachSponsorForm.getByRole('button', { name: /adjuntar/i }).click(),
-    ]);
+    await clickAndWaitForHxRedirect(page, attachSponsorForm.getByRole('button', { name: /adjuntar/i }), /^\/admin\/competitions\/[^/]+$/);
     await expect(
       page.locator('[data-testid="sponsor-attach-card"]', { hasText: sponsorName })
     ).toBeVisible({ timeout: 5000 });
@@ -293,19 +279,15 @@ test.describe('admin management', () => {
     const name = `F2 Activity Log ${Date.now()}`;
     await page.getByRole('button', { name: 'Crear competición' }).first().click();
     await page.locator('#create-comp-name').fill(name);
-    await Promise.all([
-      page.waitForEvent('load', { timeout: 10000 }),
-      page.locator('#modal-create button[type="submit"]').click(),
-    ]);
+    await clickAndWaitForHxRedirect(page, page.locator('#modal-create button[type="submit"]'), /^\/admin\/competitions\/[^/]+$/);
     await expect(page.locator('h1, h2', { hasText: name })).toBeVisible({ timeout: 10000 });
 
     await page.locator('label[for="edit-modal"]', { hasText: 'Editar' }).click();
     await page.waitForSelector('#edit-comp-gender', { state: 'visible' });
     await page.locator('#edit-comp-gender').selectOption('male');
-    await Promise.all([
-      page.waitForEvent('load', { timeout: 10000 }),
-      page.locator('.modal-action button[type="submit"]').click(),
-    ]);
+    // Redirect target may be the competition detail page or the list (see
+    // the comment below) — accept either shape.
+    await clickAndWaitForHxRedirect(page, page.locator('.modal-action button[type="submit"]'), /^\/admin\/competitions(\/[^/]+)?$/);
 
     // The redirect may land back on the competition detail page or on the
     // list (see the redirect-target bug tracked separately) — navigate to
@@ -345,10 +327,9 @@ test.describe('admin management', () => {
     const toggle = page.locator('input[name="user_joined"]');
     await expect(toggle).toBeChecked();
     await toggle.uncheck();
-    await page.click('button:has-text("Guardar")');
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Guardar")'), '/profile/notifications');
     await expect(page.locator('input[name="user_joined"]')).not.toBeChecked();
     await toggle.check();
-    await page.click('button:has-text("Guardar")');
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Guardar")'), '/profile/notifications');
   });
 });

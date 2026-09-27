@@ -163,8 +163,7 @@ test.describe('leveled league', () => {
     ).toHaveCount(0, { timeout: 5000 });
 
     // Publish
-    await page.locator('button:has-text("Publicar calendario")').click();
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Publicar calendario")'), `/admin/competitions/${competitionId}`);
 
     // Assert published badge
     await expect(page.locator('.badge-success:has-text("Publicado")')).toBeVisible({ timeout: 5000 });

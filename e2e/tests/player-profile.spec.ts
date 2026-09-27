@@ -1,6 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, loadTestData, isMobile, openDrawer, suPost as suPostBase, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
+import { loginAs, loadTestData, isMobile, openDrawer, suPost as suPostBase, clickAndWaitForHxRedirect, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 const FRESH_PLAYER_PASSWORD = 'TestPass123456';
 
@@ -71,11 +71,10 @@ test.describe('player profile and stats', () => {
     const toggle = page.locator('input[name="message"]');
     await expect(toggle).toBeChecked();
     await toggle.uncheck();
-    await page.click('button:has-text("Guardar")');
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Guardar")'), '/profile/notifications');
     await expect(page.locator('input[name="message"]')).not.toBeChecked();
     await toggle.check();
-    await page.click('button:has-text("Guardar")');
+    await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Guardar")'), '/profile/notifications');
   });
 
   test('notification count loads', async ({ page }) => {
@@ -147,9 +146,7 @@ test.describe('player profile and stats', () => {
     const account = page.locator('[data-testid="my-account"]');
     await expect(account).toBeVisible();
     await account.locator('#display_name').fill('Renombrado E2E');
-    await account.getByRole('button', { name: 'Guardar nombre' }).click();
-    await page.waitForURL(/\/player\//);
-    await page.waitForLoadState('domcontentloaded');
+    await clickAndWaitForHxRedirect(page, account.getByRole('button', { name: 'Guardar nombre' }), /^\/player\//);
 
     await expect(page.getByText('Nombre actualizado')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Renombrado E2E' })).toBeVisible();
