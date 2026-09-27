@@ -18,14 +18,22 @@ export interface ServerHandle {
   port: number;
   baseURL: string;
   stderr: { tail: () => string };
+  stdout: { tail: () => string };
+  // listening reports whether this process printed PocketBase's start
+  // banner, which serve prints only after its own net.Listen succeeded.
+  listening: () => boolean;
 }
 
-// stderrRingBuffer captures a server's stderr so a crash mid-test can be
+// PocketBase prints this once its listener is bound (apis/serve.go prints the
+// banner after net.Listen, and exits with the bind error before it).
+const START_BANNER = 'Server started at';
+
+// outputRingBuffer captures a server's stderr (and stdout tail) so a crash mid-test can be
 // attributed to it — plain `inherit` interleaves unlabeled output from every
 // concurrent worker's own server into one stream, which is how a real crash
 // (panic, OOM) surfaced only as an unexplained `SocketError` on the client
 // side with no way to tell which process died or why.
-function stderrRingBuffer(maxLines: number): { write: (chunk: Buffer) => void; tail: () => string } {
+function outputRingBuffer(maxLines: number): { write: (chunk: Buffer) => void; tail: () => string } {
   const lines: string[] = [];
   let carry = '';
   return {
@@ -67,11 +75,28 @@ export async function spawnServer(
     detached: keepAlive,
   });
 
-  const stderr = stderrRingBuffer(200);
+  const stderr = outputRingBuffer(200);
+  const stdout = outputRingBuffer(20);
+  let bannerSeen = false;
   if (!keepAlive) {
-    proc.stdout?.resume();
+    // Checked per chunk (plus the previous chunk's end, in case the banner
+    // straddles two), since dev-mode SQL logging scrolls it out of the tail.
+    let prevEnd = '';
+    proc.stdout?.on('data', (chunk: Buffer) => {
+      stdout.write(chunk);
+      const text = prevEnd + chunk.toString('utf8');
+      bannerSeen ||= text.includes(START_BANNER);
+      prevEnd = text.slice(-START_BANNER.length);
+    });
     proc.stderr?.on('data', chunk => stderr.write(chunk));
   }
+  // A kept-alive server writes to server.log instead of a pipe.
+  const listening = () => {
+    if (!bannerSeen && keepAlive) {
+      bannerSeen = readFileOrEmpty(join(dataDir, 'server.log')).includes(START_BANNER);
+    }
+    return bannerSeen;
+  };
 
   if (proc.pid !== undefined) {
     try {
@@ -95,8 +120,15 @@ export async function spawnServer(
     }
   }
 
-  const handle: ServerHandle = { process: proc, dataDir, port, baseURL, stderr };
-  await waitForServer(`${baseURL}/login`, 60_000, handle);
+  const handle: ServerHandle = { process: proc, dataDir, port, baseURL, stderr, stdout, listening };
+  try {
+    await waitForServer(`${baseURL}/login`, 60_000, handle);
+  } catch (err) {
+    // The caller never gets this handle, so nothing else would stop the
+    // process or remove its data dir.
+    await cleanupServer(handle);
+    throw err;
+  }
 
   return handle;
 }
@@ -303,11 +335,28 @@ export function sweepStaleTestDirs(): void {
   }
 }
 
+function readFileOrEmpty(path: string): string {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+// waitForServer returns once THIS process is listening and answers url. The
+// start banner comes first: a port is only free when findFreePort probes it,
+// so another server can hold it by the time this one binds. Its bind then
+// fails, but that other server would still answer url, and the caller would
+// seed a foreign database (seen as validation_not_unique on the second seed).
 async function waitForServer(url: string, timeoutMs: number, handle: ServerHandle): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     if (await hasExited(handle, 0)) {
       throw new Error(await processDiedMessage(handle, 'before it became ready'));
+    }
+    if (!handle.listening()) {
+      await new Promise(r => setTimeout(r, 100));
+      continue;
     }
     try {
       const res = await fetch(url);
@@ -350,7 +399,10 @@ export async function processDiedMessage(handle: ServerHandle, when: string): Pr
   }
   const { exitCode, signalCode } = handle.process;
   const reason = signalCode ? `signal ${signalCode}` : `exit code ${exitCode}`;
+  // PocketBase prints its own fatal errors (e.g. a bind failure) to stdout.
   const tail = handle.stderr.tail();
+  const out = handle.stdout.tail();
   return `server (pid ${handle.process.pid}, port ${handle.port}) died ${when}: ${reason}` +
-    (tail ? `\nstderr tail:\n${tail}` : '\n(no stderr captured)');
+    (tail ? `\nstderr tail:\n${tail}` : '\n(no stderr captured)') +
+    (out ? `\nstdout tail:\n${out}` : '');
 }

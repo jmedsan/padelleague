@@ -5,10 +5,13 @@ import (
 	"embed"
 	"log"
 	"log/slog"
+	"sync/atomic"
 	_ "time/tzdata"
 
 	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/cmd"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/spf13/cobra"
 
 	"padelleague/config"
 	"padelleague/hooks"
@@ -87,8 +90,52 @@ func main() {
 		return se.Next()
 	})
 
-	if err := app.Start(); err != nil {
+	if err := start(app); err != nil {
 		log.Fatal(err)
+	}
+}
+
+// start is app.Start that also returns the error of the command that ran.
+// pocketbase.Execute discards it, so a failed `serve` (e.g. "bind: address
+// already in use") exited 0 and looked like a clean stop.
+func start(app *pocketbase.PocketBase) error {
+	app.RootCmd.AddCommand(cmd.NewSuperuserCommand(app))
+	// true mirrors Start's !hideStartBanner under pocketbase.New()'s default config.
+	app.RootCmd.AddCommand(cmd.NewServeCommand(app, true))
+	return execute(app)
+}
+
+// execute runs app's root command and returns the first error a RunE
+// returned (Execute's own error wins: it means bootstrap failed).
+// Execute runs the command in its own goroutine and also returns on
+// SIGINT/SIGTERM while a RunE may still be running, so the error slot is
+// atomic, and a RunE that ends after that return is not seen. A graceful
+// shutdown is nil anyway: serve filters http.ErrServerClosed
+// (apis/serve.go and cmd/serve.go).
+func execute(app *pocketbase.PocketBase) error {
+	var runErr atomic.Pointer[error]
+	captureRunErrors(app.RootCmd, &runErr)
+	if err := app.Execute(); err != nil {
+		return err
+	}
+	if err := runErr.Load(); err != nil {
+		return *err
+	}
+	return nil
+}
+
+func captureRunErrors(c *cobra.Command, runErr *atomic.Pointer[error]) {
+	if run := c.RunE; run != nil {
+		c.RunE = func(c *cobra.Command, args []string) error {
+			err := run(c, args)
+			if err != nil {
+				runErr.CompareAndSwap(nil, &err)
+			}
+			return err
+		}
+	}
+	for _, sub := range c.Commands() {
+		captureRunErrors(sub, runErr)
 	}
 }
 

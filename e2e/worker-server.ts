@@ -38,6 +38,25 @@ async function findFreePort(): Promise<number> {
   });
 }
 
+// spawnOnFreePort spawns this worker's server on a fresh port, retrying on a
+// new one when the port was taken between findFreePort's probe and the
+// server's own bind (spawnServer then fails fast: the process exits with
+// "address already in use" before printing its start banner). Any other
+// failure is thrown as is.
+async function spawnOnFreePort(binary: string): Promise<{ handle: ServerHandle; port: number }> {
+  const attempts = 3;
+  for (let i = 1; ; i++) {
+    const port = await findFreePort();
+    setWorkerPort(port);
+    try {
+      return { handle: await spawnServer(port, { extraEnv: seedEnv(), binary }), port };
+    } catch (err) {
+      removeWorkerDataDir(port);
+      if (i === attempts || !String(err).includes('address already in use')) throw err;
+    }
+  }
+}
+
 // workerServer is a worker-scoped fixture: Playwright creates it once per
 // worker process (not once per test) and tears it down when the worker
 // exits. Each worker gets its own server + database + seed.json, so workers
@@ -45,15 +64,12 @@ async function findFreePort(): Promise<number> {
 // isolation `make e2e`'s single server previously got from workers=1.
 export const test = base.extend<{}, WorkerServerFixtures>({
   workerServer: [async ({}, use) => {
-    const port = await findFreePort();
-    setWorkerPort(port);
-
     const binary = await sharedBinary();
     // Only this worker's own per-worker build (not a shared E2E_BINARY path,
     // built once up front by `make e2e` and reused by every worker) is this
     // teardown's to remove.
     const binaryDir = process.env.E2E_BINARY ? undefined : dirname(binary);
-    const handle = await spawnServer(port, { extraEnv: seedEnv(), binary });
+    const { handle, port } = await spawnOnFreePort(binary);
     try {
       await seedTestData(handle.baseURL, port);
     } catch (err) {
