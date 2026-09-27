@@ -4,7 +4,7 @@ export
 LOCAL_URL ?= http://127.0.0.1:8090
 OPENER ?= xdg-open
 
-.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci check e2e e2e-bg e2e-failed e2e-smoke scenario-test scenario-serve scenario-stop
+.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci check e2e e2e-bg e2e-failed e2e-smoke scenario-test scenario-serve scenario-stop mutate
 
 css:
 	cd frontend && npx tailwindcss -i ../static/css/input.css -o ../static/css/styles.css --minify
@@ -189,6 +189,15 @@ stop:
 reset: stop
 	rm -rf pb_data
 	$(MAKE) run
+
+# A mutant can allocate without bound (one reached 3.9 GB and took the machine
+# down on 2026-09-27), so the whole run lives in a cgroup: past MUTATE_MEM the
+# kernel kills it instead of the desktop.
+MUTATE_MEM ?= 2500M
+mutate: ## mutation test one package under a memory cap: make mutate PKG=./league [ARGS="-E 'awards\.go'"]
+	@if [ -z "$(PKG)" ]; then echo "usage: make mutate PKG=./league [ARGS=...]"; exit 1; fi
+	systemd-run --user --scope -q -p MemoryMax=$(MUTATE_MEM) -p MemorySwapMax=0 \
+	  gremlins unleash --workers 1 --timeout-coefficient 100 --coverpkg=$(PKG) $(ARGS) $(PKG)
 
 scenario-test: ## run a scenario: make scenario-test SCENARIO=<name>
 	@if [ -z "$(SCENARIO)" ]; then cd e2e && npx tsx list-scenarios.ts; exit 1; fi
