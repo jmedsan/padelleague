@@ -222,10 +222,13 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     const arbitrationPanel = page.getByTestId('arbitration-open-panel');
     await expect(arbitrationPanel.getByRole('link', { name: 'WhatsApp' })).toBeVisible();
 
-    // Admin closes the request from the same match page.
+    // Admin closes the request from the same match page. The contact line is
+    // player-facing only — an admin viewing their own arbitration panel must
+    // not be told to contact "the admin".
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto(`/match/${matchId}`);
     await expect(page.getByText('Arbitraje solicitado por')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('arbitration-open-panel').getByRole('link', { name: 'WhatsApp' })).not.toBeVisible();
     await clickConfirmAndWaitForHxRedirect(page, page.getByRole('button', { name: 'Cerrar arbitraje' }), `/match/${matchId}`);
 
     const matchAfterClose = await apiGetRecord(page.request, 'matches', matchId);
