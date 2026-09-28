@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"slices"
 	"strings"
 	"time"
 
@@ -92,14 +91,15 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
-	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
+	// The view decides, not the role: an admin in player view is a pure player.
+	isAdmin := render.AdminView(e)
 
 	if err := checkDocGate(h.app, e, match); err != nil {
 		return err
 	}
 
 	mode := PlayerReadOnly
-	if render.AdminView(e) {
+	if isAdmin {
 		mode = AdminReadOnly
 	}
 	mc := NewMatchCard(h.app, match, mode, userID)
@@ -223,7 +223,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
-	isAdmin := isEffectiveAdmin(e)
+	isAdmin := render.AdminView(e)
 	if !isAdmin {
 		if _, err := playerActionGate(h.app, userID, match); err != nil {
 			return mapActionGateError(e, err)
@@ -396,7 +396,7 @@ func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 		return alertError(e, "Partido no encontrado")
 	}
 
-	if !slices.Contains(e.Auth.GetStringSlice("roles"), "admin") {
+	if !render.AdminView(e) {
 		return alertError(e, "Solo administradores")
 	}
 

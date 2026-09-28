@@ -9,6 +9,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 
 	"padelleague/league"
+	"padelleague/render"
 	"padelleague/search"
 )
 
@@ -82,7 +83,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		return err
 	}
 
-	isAdmin := isEffectiveAdmin(e)
+	isAdmin := render.AdminView(e)
 	published := comp.GetString("calendar_status") == "published"
 
 	var matches []*core.Record
@@ -262,7 +263,9 @@ func leveledInfoMessage(comp *core.Record, p competitionDataParams) string {
 // when the player has unacknowledged mandatory documents; the caller must
 // stop processing the request in that case regardless of err.
 func (h *PublicHandler) docsGate(e *core.RequestEvent, comp *core.Record, userID string, playerPairIDs map[string]struct{}) (gated bool, err error) {
-	if !league.IsParticipant(comp, playerPairIDs) {
+	// Same rule as checkDocGate: the admin view is never gated; an admin in
+	// player view is gated like any player.
+	if render.AdminView(e) || !league.IsParticipant(comp, playerPairIDs) {
 		return false, nil
 	}
 	pending := league.UnacknowledgedMandatory(h.app, comp, userID)

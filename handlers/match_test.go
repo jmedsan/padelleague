@@ -1869,6 +1869,35 @@ func TestAdminRelease_ButtonVisibility(t *testing.T) {
 	s.Test(t)
 }
 
+// An admin in player view is a pure player: no admin release affordance.
+func TestAdminRelease_ButtonHiddenInPlayerView(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:     handlers.TestAppFactory,
+		Name:               "GET /match/{id} release button hidden from an admin in player view",
+		Method:             http.MethodGet,
+		ExpectedStatus:     200,
+		ExpectedContent:    []string{"BtnPA"},
+		NotExpectedContent: []string{"Liberar partido"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "BtnPA")
+		p2 := handlers.MakePairTB(tb, app, "BtnPB")
+		p3 := handlers.MakePairTB(tb, app, "BtnPC")
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3})
+		m := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		m.Set("round_number", 0)
+		require.NoError(tb, app.Save(m))
+		s.URL = "/match/" + m.Id
+		admin := handlers.MakeAdminUserTB(tb, app)
+		hdrs := handlers.AuthHeaders(tb, admin)
+		hdrs["Cookie"] = "view_as=player"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Player-contact: "Contactar rivales" card on the match page (spec
 // player-contact, task 4)

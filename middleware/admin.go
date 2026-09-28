@@ -2,15 +2,17 @@
 package middleware
 
 import (
-	"slices"
-
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/render"
 )
 
-// RequireAppAdmin redirects non-admin users to the home page, handling both
-// regular and HTMX requests (see redirectOrHX).
+// RequireAppAdmin redirects to the home page every user who is not an admin in
+// the admin view: a non-admin, or an admin who switched to the player view (an
+// admin in player view is a pure player). Handles both regular and HTMX
+// requests (see redirectOrHX).
 func RequireAppAdmin(e *core.RequestEvent) error {
-	if e.Auth == nil || !slices.Contains(e.Auth.GetStringSlice("roles"), "admin") {
+	if e.Auth == nil || !render.AdminView(e) {
 		return redirectOrHX(e, "/")
 	}
 	return e.Next()

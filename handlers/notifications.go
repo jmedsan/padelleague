@@ -12,6 +12,7 @@ import (
 
 	"padelleague/league"
 	"padelleague/notify"
+	"padelleague/render"
 )
 
 // NotificationHandler handles notification listing, reading, and preferences.
@@ -170,7 +171,8 @@ func (h *NotificationHandler) PrefsSave(e *core.RequestEvent) error {
 
 	emailVerified := e.Auth.Verified()
 	hasPushSub := h.hasActivePushSubscription(e.Auth.Id)
-	isAdmin := slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
+	// In player view the form omits the admin-only toggles; keep their stored values.
+	isAdmin := render.AdminView(e)
 
 	adminOnly := map[string]bool{"match_progress": true, "admin_message": true, "user_joined": true}
 
