@@ -184,6 +184,17 @@ func NotifArbitrationRequested(matchID, categoryLabel, compName string) Notifica
 	}
 }
 
+// NotifArbitrationClosed tells a match's players the admin closed their
+// arbitration request without a dispute resolution.
+func NotifArbitrationClosed(matchID, categoryLabel, compName string) Notification {
+	return Notification{
+		Type: "dispute", Title: "Arbitraje cerrado",
+		Body:     "El administrador ha cerrado la solicitud de arbitraje: " + categoryLabel,
+		MatchID:  matchID,
+		CompName: compName,
+	}
+}
+
 // NotifAdminSupersedeFailed alerts admins that pending proposals could not be superseded.
 func NotifAdminSupersedeFailed(matchID, pair1Name, pair2Name, compName string) Notification {
 	return Notification{
