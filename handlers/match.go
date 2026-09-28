@@ -652,6 +652,7 @@ func (h *MatchHandler) CloseArbitration(e *core.RequestEvent) error {
 	if match.GetString("arbitration") == "" {
 		return alertError(e, "Este partido no tiene arbitraje abierto")
 	}
+	category := match.GetString("arbitration")
 
 	match.Set("arbitration", "")
 	match.Set("arbitration_by", "")
@@ -665,7 +666,7 @@ func (h *MatchHandler) CloseArbitration(e *core.RequestEvent) error {
 	})
 
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
-	n := league.NotifDisputeResolved(id, compName)
+	n := league.NotifArbitrationClosed(id, league.ArbitrationLabel(category), compName)
 	h.notifier.NotifyPlayers(matchParticipantUserIDs(h.app, match), n)
 
 	flash(e, "Arbitraje cerrado")

@@ -175,7 +175,7 @@ func TestRequestArbitrationNoShow(t *testing.T) {
 		adminWant := league.Notification{
 			Type:     "dispute",
 			Title:    "Arbitraje solicitado",
-			Body:     "Un jugador ha solicitado arbitraje: " + league.ArbitrationLabel("no_show"),
+			Body:     "Un jugador ha solicitado arbitraje: Incomparecencia",
 			MatchID:  matchID,
 			CompName: "Test Competition",
 		}
@@ -324,11 +324,13 @@ func TestCloseArbitration(t *testing.T) {
 		ExpectedStatus: 204,
 	}
 	var matchID string
+	var players []string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		p1 := handlers.MakePairTB(tb, app, "CloseArbA")
 		p2 := handlers.MakePairTB(tb, app, "CloseArbB")
+		players = []string{p1.GetString("player1"), p1.GetString("player2"), p2.GetString("player1"), p2.GetString("player2")}
 		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
 		match.Set("arbitration", "scheduling")
@@ -345,6 +347,17 @@ func TestCloseArbitration(t *testing.T) {
 		assert.Empty(tb, m.GetString("arbitration"))
 		assert.Empty(tb, m.GetString("arbitration_by"))
 		assert.Equal(tb, "pending", m.GetString("status"), "closing must not otherwise change match status")
+
+		want := league.Notification{
+			Type:     "dispute",
+			Title:    "Arbitraje cerrado",
+			Body:     "El administrador ha cerrado la solicitud de arbitraje: Fecha y hora",
+			MatchID:  matchID,
+			CompName: "Test Competition",
+		}
+		for _, uid := range players {
+			assertNotified(tb, app, uid, want)
+		}
 	}
 	handlers.ExpectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)

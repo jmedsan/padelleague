@@ -26,6 +26,11 @@ func TestNotificationConstructors(t *testing.T) {
 			want: Notification{Type: "quorum_request", Title: "Resultado enviado", Body: "Pareja A ha enviado 6-2 6-2. Confirma o contrapropón.", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
+			name: "ArbitrationClosed",
+			got:  NotifArbitrationClosed("m1", "Fecha y hora", "Liga Primavera"),
+			want: Notification{Type: "dispute", Title: "Arbitraje cerrado", Body: "El administrador ha cerrado la solicitud de arbitraje: Fecha y hora", MatchID: "m1", CompName: "Liga Primavera"},
+		},
+		{
 			name: "ResultConfirmed",
 			got:  NotifResultConfirmed("m1", "Pareja A", "Liga Primavera"),
 			want: Notification{Type: "general", Title: "Resultado confirmado", Body: "Pareja A ha confirmado el resultado", MatchID: "m1", CompName: "Liga Primavera"},
