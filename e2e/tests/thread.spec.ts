@@ -2,8 +2,9 @@ import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import {
   loginAs, scratchMatchId, loadTestData, leagueDate,
-  suGet as suGetBase, suPost as suPostBase, suPatch as suPatchBase,
-  PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD,
+  suPost as suPostBase, suPatch as suPatchBase,
+  PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, PLAYER5_EMAIL, PLAYER5_PASSWORD,
+  ADMIN_EMAIL, ADMIN_PASSWORD,
 } from '../helpers';
 import { enterScore, clickAndWaitForHxRedirect, fillFlatpickrDate } from '../tour-helpers';
 
@@ -13,10 +14,6 @@ function suToken(): string {
 
 async function suPatch(request: APIRequestContext, path: string, data: Record<string, unknown>): Promise<void> {
   await suPatchBase(request, suToken(), path, data);
-}
-
-async function suGet(request: APIRequestContext, path: string): Promise<any> {
-  return suGetBase(request, suToken(), path);
 }
 
 async function suPost(request: APIRequestContext, path: string, data: Record<string, unknown>): Promise<any> {
@@ -37,6 +34,7 @@ test.describe('match thread', { tag: '@thread' }, () => {
     const data = loadTestData();
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     const msg = `E2E msg ${Date.now()}`;
+    // raw-request: an app route, not the records API; the status is asserted.
     const resp = await page.request.post(`/match/${data.matchIds[0]}/thread/message`, {
       form: { content: msg },
     });
@@ -118,6 +116,7 @@ test.describe('match thread', { tag: '@thread' }, () => {
     const data = loadTestData();
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     const msg = `Admin msg ${Date.now()}`;
+    // raw-request: an app route, not the records API; the status is asserted.
     const resp = await page.request.post(`/match/${data.matchIds[0]}/thread/message`, {
       form: { content: msg, type: 'chat' },
     });
@@ -134,7 +133,6 @@ test.describe('match thread', { tag: '@thread' }, () => {
   test('thread split: timeline read-only, result flow, score once (P1, P4, P6)', async ({ page, request }, testInfo) => {
     const data = loadTestData();
     // Create a fresh match for this run to avoid retry issues with state transitions
-    const adminUser = (await suGet(request, `/api/collections/users/records?filter=email='${ADMIN_EMAIL}'`)).items[0];
     const freshMatch = await suPost(request, '/api/collections/matches/records', {
       competition: data.competitionId,
       pair1: data.pair1Id,
@@ -149,7 +147,7 @@ test.describe('match thread', { tag: '@thread' }, () => {
       match: matchId, type: 'result_submission', proposal_status: 'pending',
       content: '6-3 6-4',
       proposal_data: JSON.stringify({ scores: '6-3 6-4' }),
-      author: adminUser.id,
+      author: data.player5.id,
     });
 
     await loginAs(page, PLAYER2_EMAIL, PLAYER2_PASSWORD);
@@ -162,7 +160,7 @@ test.describe('match thread', { tag: '@thread' }, () => {
     await expect(page.locator('#thread-timeline form')).toHaveCount(0);
 
     // dateBox reuse: a scheduled match shows the "Confirmada" marker on its date.
-    await expect(page.getByText('Confirmada').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Confirmada').locator('visible=true').first()).toBeVisible({ timeout: 5000 });
     // Timeline is a flat list of read-only entries; each entry renders its
     // structured content (dateBox/resultBox) in a small card, but the cards
     // carry no actionable controls (asserted above and below).
@@ -185,7 +183,7 @@ test.describe('match thread', { tag: '@thread' }, () => {
 
     // P4: now the "Confirmado" result status badge appears
     await expect(page.locator('#thread-details').getByText('Confirmado')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('6-3 6-4').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('6-3 6-4').locator('visible=true').first()).toBeVisible({ timeout: 5000 });
 
     // P6: no actionable score button in timeline — score text is fine as read-only history
     await expect(page.locator('#thread-timeline button')).toHaveCount(0);
@@ -194,7 +192,6 @@ test.describe('match thread', { tag: '@thread' }, () => {
 
   test('thread split: deadlock shows both proposals (P5)', async ({ page, request }, testInfo) => {
     const data = loadTestData();
-    const adminUser = (await suGet(request, `/api/collections/users/records?filter=email='${ADMIN_EMAIL}'`)).items[0];
     const freshMatch = await suPost(request, '/api/collections/matches/records', {
       competition: data.competitionId,
       pair1: data.pair1Id,
@@ -206,7 +203,7 @@ test.describe('match thread', { tag: '@thread' }, () => {
     });
     const matchId = freshMatch.id;
     // Two pending result submissions from opposite pairs:
-    // player2 (pair1) and admin (pair2)
+    // player2 (pair1) and player5 (pair2)
     await suPost(request, '/api/collections/match_messages/records', {
       match: matchId, type: 'result_submission', proposal_status: 'pending',
       content: '6-3 6-4',
@@ -217,7 +214,7 @@ test.describe('match thread', { tag: '@thread' }, () => {
       match: matchId, type: 'result_submission', proposal_status: 'pending',
       content: '4-6 6-3 7-5',
       proposal_data: JSON.stringify({ scores: '4-6 6-3 7-5' }),
-      author: adminUser.id,
+      author: data.player5.id,
     });
 
     await loginAs(page, PLAYER2_EMAIL, PLAYER2_PASSWORD);
@@ -269,8 +266,8 @@ test.describe('match thread', { tag: '@thread' }, () => {
     await expect(page.locator('#thread-schedule').locator('.badge', { hasText: 'Propuesta' })).toBeVisible({ timeout: 10000 });
     expect(new URL(page.url()).search).toBe(''); // ?scroll=mensajes was stripped
 
-    // --- Accept as admin (pair2) ---
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    // --- Accept as player5 (pair2) ---
+    await loginAs(page, PLAYER5_EMAIL, PLAYER5_PASSWORD);
     await page.goto(`/match/${matchId}`);
     const acceptForm = page.locator('form[hx-post*="/respond"]').filter({ has: page.locator('input[value="accept"]') }).first();
     await clickAndWaitForHxRedirect(page, acceptForm.locator('button[type="submit"]'), `/match/${matchId}`);
@@ -313,8 +310,8 @@ test.describe('match thread', { tag: '@thread' }, () => {
     await page.waitForSelector('#thread-details', { timeout: 10000 });
     await expect(page.locator('#thread-details').getByText('6-3 2-1')).toBeVisible({ timeout: 5000 });
 
-    // Admin (pair2 member) accepts the partial score
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    // player5 (pair2) accepts the partial score
+    await loginAs(page, PLAYER5_EMAIL, PLAYER5_PASSWORD);
     await page.goto(`/match/${matchId}`);
     await page.waitForSelector('#thread-details', { timeout: 10000 });
     const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
@@ -343,8 +340,8 @@ test.describe('match thread', { tag: '@thread' }, () => {
     await enterScore(page, '6-3 3-6 6-4');
     await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'), `/match/${matchId}`);
 
-    // Admin (pair2) accepts the final score
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    // player5 (pair2) accepts the final score
+    await loginAs(page, PLAYER5_EMAIL, PLAYER5_PASSWORD);
     await page.goto(`/match/${matchId}`);
     await page.waitForSelector('#thread-details', { timeout: 10000 });
     const finalAccept = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
@@ -355,7 +352,7 @@ test.describe('match thread', { tag: '@thread' }, () => {
     await page.goto(`/match/${matchId}`);
     await page.waitForLoadState('networkidle');
     await expect(page.locator('#thread-details').getByText('Confirmado')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('6-3 3-6 6-4').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('6-3 3-6 6-4').locator('visible=true').first()).toBeVisible({ timeout: 5000 });
     await expect(page.locator('.badge', { hasText: 'Se reanuda' })).not.toBeVisible();
   });
 
@@ -406,12 +403,8 @@ test.describe('match thread', { tag: '@thread' }, () => {
     await page.locator('#proposal-venue').selectOption({ index: 1 });
     await clickAndWaitForHxRedirect(page, page.locator('#proposal-form button:has-text("Proponer fecha")'), `/match/${matchId}`);
 
-    // Admin (pair2 member — see global-setup.ts's pair2Id) logs in and
-    // rejects with a reason. PLAYER1 is on BOTH pairs (pair1Id's Alpha and
-    // pair2Id's Beta share player1), so logging in as PLAYER1 here would
-    // resolve to pair1 (PlayerTeam checks pair1 first) — the proposer's own
-    // side, showing "Retirar" instead of the opponent's Aceptar/Rechazar.
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    // player5 (pair2, the opponent) rejects with a reason.
+    await loginAs(page, PLAYER5_EMAIL, PLAYER5_PASSWORD);
     await page.goto(`/match/${matchId}`);
     await page.waitForSelector('#thread-details', { timeout: 10000 });
 
@@ -493,8 +486,8 @@ test.describe('match thread', { tag: '@thread' }, () => {
 
     await clickAndWaitForHxRedirect(page, page.locator('button:has-text("Enviar resultado")'), `/match/${matchId}`);
 
-    // Admin (pair2) accepts
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    // player5 (pair2) accepts
+    await loginAs(page, PLAYER5_EMAIL, PLAYER5_PASSWORD);
     await page.goto(`/match/${matchId}`);
     await page.waitForSelector('#thread-details', { timeout: 10000 });
     const acceptBtn = page.locator('#thread-details button:has-text("Aceptar resultado")').first();
@@ -505,6 +498,6 @@ test.describe('match thread', { tag: '@thread' }, () => {
     await page.goto(`/match/${matchId}`);
     await page.waitForLoadState('networkidle');
     await expect(page.locator('#thread-details').getByText('Confirmado')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('6-3 4-1').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('6-3 4-1').locator('visible=true').first()).toBeVisible({ timeout: 5000 });
   });
 });

@@ -64,6 +64,24 @@ if [ -n "$guarded" ]; then
 fi
 
 
+# Card + table surfaces render every row twice (one twin hidden per
+# viewport). getByText matches hidden elements, so `.first()` can pick the
+# hidden twin and fail on one viewport only. Scope with
+# `.locator('visible=true')` before picking. getByRole is exempt: it skips
+# hidden elements by default (includeHidden: false).
+twin_pick=$(perl -0777 -ne '
+	while (/getByText\((?:(?!;).)*?\.(?:first|last|nth)\(/sg) {
+		my $m = $&; next if $m =~ /visible=true/;
+		my $line = 1 + (() = substr($_, 0, $-[0]) =~ /\n/g);
+		print "$ARGV:$line\n";
+	}
+' $specs)
+if [ -n "$twin_pick" ]; then
+	echo "FAIL: getByText(...).first()/nth()/last() without .locator('visible=true') — may pick the hidden card/table twin"
+	echo "$twin_pick"
+	fail=1
+fi
+
 # `new Date(Date.now() + N*86400000).toISOString().slice(0,10)` computes a
 # "today plus/minus N days" date in UTC, then reads it back as a calendar
 # date in UTC — wrong for the league (Atlantic/Canary, ahead of UTC) during

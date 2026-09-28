@@ -1,13 +1,8 @@
 import { test, expect } from '../overflow-guard';
-import { loginAs, loadTestData, isMobile, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
+import { loginAs, loadTestData, apiCreateRecord, apiListRecords, apiDeleteRecord, isMobile, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 async function createNotification(page: import('@playwright/test').Page, userId: string, adminToken: string, title: string) {
-  const resp = await page.request.post('/api/collections/notifications/records', {
-    headers: { Authorization: adminToken },
-    data: { user: userId, title, type: 'general', read: false },
-  });
-  if (!resp.ok()) throw new Error(`create notification: ${resp.status()} ${await resp.text()}`);
-  return (await resp.json()).id as string;
+  return apiCreateRecord(page.request, adminToken, 'notifications', { user: userId, title, type: 'general', read: false });
 }
 
 // Delete every notification for the user, repeating until none remain. A
@@ -17,16 +12,10 @@ async function createNotification(page: import('@playwright/test').Page, userId:
 // test starts from a genuinely clean baseline and its absolute count holds.
 async function deleteAllExisting(page: import('@playwright/test').Page, userId: string, adminToken: string) {
   for (let attempt = 0; attempt < 6; attempt++) {
-    const resp = await page.request.get(`/api/collections/notifications/records?filter=user="${userId}"&perPage=200`, {
-      headers: { Authorization: adminToken },
-    });
-    if (!resp.ok()) return;
-    const items = (await resp.json()).items || [];
+    const items = await apiListRecords(page.request, adminToken, 'notifications', `user="${userId}"`);
     if (items.length === 0) return;
     for (const item of items) {
-      await page.request.delete(`/api/collections/notifications/records/${item.id}`, {
-        headers: { Authorization: adminToken },
-      });
+      await apiDeleteRecord(page.request, adminToken, 'notifications', item.id);
     }
     // brief wait so any in-flight cross-test notification settles before re-checking
     await page.waitForTimeout(300);
@@ -72,6 +61,7 @@ test.describe('notification dismiss and history', { tag: '@notifications' }, () 
     // The "×" marks the notification read (deterministic contract, immune to any
     // concurrent notification perturbing the global badge count).
     await expect.poll(async () => {
+      // raw-request: polled; a not-yet-visible record reads as null, not a failure.
       const r = await page.request.get(`/api/collections/notifications/records/${dismissId}`,
         { headers: { Authorization: data.adminToken } });
       return r.ok() ? (await r.json()).read : null;
@@ -132,6 +122,7 @@ test.describe('notification dismiss and history', { tag: '@notifications' }, () 
     // The "×" marks the notification read (deterministic contract, immune to a
     // concurrent notification perturbing the global badge count).
     await expect.poll(async () => {
+      // raw-request: polled; a not-yet-visible record reads as null, not a failure.
       const r = await page.request.get(`/api/collections/notifications/records/${dismissId}`,
         { headers: { Authorization: data.adminToken } });
       return r.ok() ? (await r.json()).read : null;

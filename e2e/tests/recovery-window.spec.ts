@@ -1,7 +1,7 @@
-import type { Page, APIRequestContext } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import {
-  loginAs, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, loadTestData, leagueDate,
+  loginAs, asPlayerOn, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, loadTestData, leagueDate,
   apiCreateRecord as apiCreateRecordBase, apiGetRecord as apiGetRecordBase,
   apiListRecords as apiListRecordsBase, apiDeleteRecord as apiDeleteRecordBase,
   clickConfirmAndWaitForHxRedirect,
@@ -14,7 +14,7 @@ test.describe('end-of-league recovery window', { tag: '@standings' }, () => {
 
   test('pending match shows the recovery badge during the recovery window', { tag: '@smoke' }, async ({ page }) => {
     test.setTimeout(120000);
-    await getSuperuserToken(page);
+    suToken = loadTestData().adminToken;
     const data = loadTestData();
 
     // end_date 5 days ago, default recovery_days (14) -> still in recovery.
@@ -29,7 +29,6 @@ test.describe('end-of-league recovery window', { tag: '@standings' }, () => {
       start_date: startDate,
       end_date: endDate,
       rounds: 1,
-      calendar_status: 'published',
     });
 
     await apiCreateRecord(page.request, 'matches', {
@@ -40,7 +39,7 @@ test.describe('end-of-league recovery window', { tag: '@standings' }, () => {
       round_number: 1,
     });
 
-    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await asPlayerOn(page, compId, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto('/');
     await expect(page.locator('[data-testid="recovery-badge"]').first()).toBeVisible({ timeout: 10000 });
 
@@ -52,7 +51,7 @@ test.describe('end-of-league recovery window', { tag: '@standings' }, () => {
 
   test('admin can finalize a league early, ending its recovery window', async ({ page }) => {
     test.setTimeout(120000);
-    await getSuperuserToken(page);
+    suToken = loadTestData().adminToken;
     const data = loadTestData();
 
     const endDate = leagueDate(-5);
@@ -89,23 +88,6 @@ test.describe('end-of-league recovery window', { tag: '@standings' }, () => {
 });
 
 // --- API helpers ---
-
-async function getSuperuserToken(page: Page) {
-  if (suToken) return;
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const resp = await page.request.post('/api/collections/_superusers/auth-with-password', {
-      data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-    });
-    if (resp.status() === 429) {
-      await new Promise(r => setTimeout(r, 15000));
-      continue;
-    }
-    if (!resp.ok()) throw new Error(`Superuser auth failed: ${resp.status()}`);
-    suToken = (await resp.json()).token;
-    return;
-  }
-  throw new Error('Superuser auth failed after 5 attempts (rate limited)');
-}
 
 async function apiCreateRecord(request: APIRequestContext, collection: string, data: Record<string, any>): Promise<string> {
   return apiCreateRecordBase(request, suToken, collection, data);

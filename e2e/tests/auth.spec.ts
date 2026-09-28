@@ -1,21 +1,17 @@
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, loginViaForm, isMobile, loadTestData, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
+import { loginAs, loginViaForm, isMobile, loadTestData, apiCreateRecord, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 const UNVERIFIED_PASSWORD = 'testpass123456';
 
 async function createUnverifiedPlayer(request: APIRequestContext, label: string): Promise<{ email: string; password: string }> {
   const email = `unverified-${label}-${Date.now()}@test.local`;
-  const resp = await request.post('/api/collections/users/records', {
-    headers: { Authorization: loadTestData().adminToken },
-    data: {
-      email, display_name: `Sin Verificar ${label}`,
-      gender: 'male', roles: ['player'],
-      password: UNVERIFIED_PASSWORD, passwordConfirm: UNVERIFIED_PASSWORD,
-      verified: false,
-    },
+  await apiCreateRecord(request, loadTestData().adminToken, 'users', {
+    email, display_name: `Sin Verificar ${label}`,
+    gender: 'male', roles: ['player'],
+    password: UNVERIFIED_PASSWORD, passwordConfirm: UNVERIFIED_PASSWORD,
+    verified: false,
   });
-  if (!resp.ok()) throw new Error(`create unverified player: ${resp.status()} ${await resp.text()}`);
   return { email, password: UNVERIFIED_PASSWORD };
 }
 
@@ -69,7 +65,9 @@ test.describe('auth', { tag: '@auth' }, () => {
 
   test('logout redirects to login', async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.request.post('/logout');
+    // raw-request: an app route, not the records API; the status is asserted.
+    const logout = await page.request.post('/logout');
+    expect(logout.ok()).toBe(true);
     await page.goto('/');
     await expect(page).toHaveURL(/\/login/);
   });

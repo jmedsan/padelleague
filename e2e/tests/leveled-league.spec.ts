@@ -1,5 +1,5 @@
 import { test, expect } from '../overflow-guard';
-import { loginAs, suGet, suPatch, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, loadTestData, suGet, suPatch, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { uniqueSuffix, setPlayerPassword } from '../season-helpers';
 import {
   createPlayer, createPair, addPairToCompetition,
@@ -50,18 +50,14 @@ let suToken = '';
 test.describe('leveled league', { tag: '@leveled' }, () => {
   test.describe.configure({ retries: 0 });
 
-  test('leveled-league admin dialog + player view', { tag: '@smoke' }, async ({ page }) => {
-    test.setTimeout(300000);
+  test('leveled-league admin dialog + player view', { tag: ['@smoke', '@slow'] }, async ({ page }) => {
+    test.slow(); // ~50 s observed; the 30 s default is too short
 
     page.on('dialog', d => d.accept());
 
     // --- Superuser token for API calls ---
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    const authResp = await page.request.post('/api/collections/_superusers/auth-with-password', {
-      data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-    });
-    if (!authResp.ok()) throw new Error(`Superuser auth failed: ${authResp.status()}`);
-    suToken = (await authResp.json()).token;
+    suToken = loadTestData().adminToken;
 
     // =========================================================================
     // Phase 1: Admin creates leveled competition with 6 pairs, target=3, open=2
@@ -213,7 +209,6 @@ test.describe('leveled league', { tag: '@leveled' }, () => {
       (page.viewportSize()?.width ?? 1280) >= 1024,
       'phone-only test',
     );
-    test.setTimeout(60000);
 
     if (!competitionId) {
       test.skip(true, 'competition not created (run in serial after main test)');

@@ -23,6 +23,15 @@ export const PLAYER3_NAME = 'Test Player 3';
 export const PLAYER4_EMAIL = 'player4@test.com';
 export const PLAYER4_PASSWORD = 'testpass123456';
 export const PLAYER4_NAME = 'Test Player 4';
+export const PLAYER5_EMAIL = 'player5@test.com';
+export const PLAYER5_PASSWORD = 'testpass123456';
+export const PLAYER5_NAME = 'Test Player 5';
+export const PLAYER6_EMAIL = 'player6@test.com';
+export const PLAYER6_PASSWORD = 'testpass123456';
+export const PLAYER6_NAME = 'Test Player 6';
+export const PLAYER7_EMAIL = 'player7@test.com';
+export const PLAYER7_PASSWORD = 'testpass123456';
+export const PLAYER7_NAME = 'Test Player 7';
 
 // Not currently wired to any Playwright config (playwright.config.ts uses
 // worker-server.ts's per-worker fixture instead; playwright.scenario.config.ts
@@ -83,7 +92,7 @@ export async function seedTestData(baseURL: string, port: number) {
     const resp = await fetchAuthed('/api/collections/users/records', token, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, passwordConfirm: password, display_name: name, roles: ['player'], verified: true }),
+      body: JSON.stringify({ email, password, passwordConfirm: password, display_name: name, gender: 'male', roles: ['player'], verified: true }),
     });
     if (!resp.ok) throw new Error(`createPlayer: ${resp.status} ${await resp.text()}`);
     const data = await resp.json();
@@ -201,6 +210,30 @@ export async function seedTestData(baseURL: string, port: number) {
     return data.id;
   }
 
+  // assertSeedRealistic fails the run loudly when the seed breaks what every
+  // spec assumes: no user on both sides of a seeded match, and every seeded
+  // user able to log in.
+  async function assertSeedRealistic(compId: string, logins: [string, string][]) {
+    const resp = await fetchAuthed(`/api/collections/matches/records?perPage=500&expand=pair1,pair2&filter=competition='${compId}'`, adminToken);
+    if (!resp.ok) throw new Error(`seed invariant: list matches: ${resp.status} ${await resp.text()}`);
+    for (const m of (await resp.json()).items) {
+      const side = (p: any) => (p ? [p.player1, p.player2] : []);
+      const a = side(m.expand?.pair1);
+      const shared = side(m.expand?.pair2).filter((u: string) => a.includes(u));
+      if (shared.length) throw new Error(`seed invariant: match ${m.id} has user(s) ${shared.join(',')} on both sides`);
+    }
+    for (const [email, password] of logins) {
+      // Sent as the superuser only to skip PocketBase's auth rate limit
+      // (2 per 3 s); the password check is the same as a player's login.
+      const r = await fetchAuthed('/api/collections/users/auth-with-password', adminToken, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identity: email, password }),
+      });
+      if (!r.ok) throw new Error(`seed invariant: ${email} cannot log in: ${r.status} ${await r.text()}`);
+    }
+  }
+
   const adminToken = await superuserLogin(baseURL, ADMIN_EMAIL, ADMIN_PASSWORD);
 
   // Get player IDs
@@ -208,13 +241,22 @@ export async function seedTestData(baseURL: string, port: number) {
   const player2 = await getUser(PLAYER2_EMAIL, adminToken);
   const player3 = await createPlayer(PLAYER3_EMAIL, PLAYER3_PASSWORD, PLAYER3_NAME, adminToken);
   const player4 = await createPlayer(PLAYER4_EMAIL, PLAYER4_PASSWORD, PLAYER4_NAME, adminToken);
+  const player5 = await createPlayer(PLAYER5_EMAIL, PLAYER5_PASSWORD, PLAYER5_NAME, adminToken);
+  const player6 = await createPlayer(PLAYER6_EMAIL, PLAYER6_PASSWORD, PLAYER6_NAME, adminToken);
+  const player7 = await createPlayer(PLAYER7_EMAIL, PLAYER7_PASSWORD, PLAYER7_NAME, adminToken);
+  const adminId = (await getUser(ADMIN_EMAIL, adminToken)).id;
 
-  // Create pair 1 (player1 + player2) and pair 2 (admin + player1) via admin form
+  // Every pair has its own players: a real league never puts one person on
+  // both sides of a match, and a fixture that does lets a test pass on
+  // behavior no player can reach.
   const pair1Id = await createPair('Pareja Alpha', player1.id, player2.id, adminToken);
-  const pair2Id = await createPair('Pareja Beta', player1.id, (await getUser(ADMIN_EMAIL, adminToken)).id, adminToken);
-  // pair3: no overlap with pair1/pair2 players — used for admin-notif scratch matches
-  // so the admin is NOT a participant and receives match-progress notifications
+  const pair2Id = await createPair('Pareja Beta', player5.id, player6.id, adminToken);
+  // pair3: the rival in the admin-notif scratch matches, where the admin is
+  // not a participant and so receives match-progress notifications.
   const pair3Id = await createPair('Pareja Gamma', player3.id, player4.id, adminToken);
+  // adminPair: the admin also plays (admin-as-player). Kept out of the
+  // competition's pairs, like pair3, so fixture generation is unchanged.
+  const adminPairId = await createPair('Pareja Admin', adminId, player7.id, adminToken);
 
   // Create competition
   const compId = await createCompetition('Liga E2E Test', 'league', adminToken);
@@ -237,7 +279,6 @@ export async function seedTestData(baseURL: string, port: number) {
   // never showed all 4 tabs at once.
   const docId = await createDocument('Reglamento E2E', adminToken);
   await attachDocument(compId, docId, adminToken);
-  const adminId = (await getUser(ADMIN_EMAIL, adminToken)).id;
   await createAnnouncement(compId, 'Aviso de la liga', 'Recordatorio de horarios y normas.', adminId, adminToken);
   await createPenalty(compId, pair2Id, 3, 'Incomparecencia (seed E2E)', adminToken);
 
@@ -274,10 +315,9 @@ export async function seedTestData(baseURL: string, port: number) {
   // the next one.
   // Slots 0-1 use pair1 vs pair2; slot 2 (admin-notif) uses pair1 vs pair3
   // so the admin is NOT a match participant and receives the notification;
-  // slots 3, 4, 5 (mobile-lifecycle, lifecycle-ui, invalid-nonlast-set) use
-  // pair1 vs pair2.
+  // slots 3, 4 (lifecycle-ui, invalid-nonlast-set) use pair1 vs pair2.
   // pair3 is NOT added to the competition to avoid changing fixture generation.
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 10; i++) {
     const usePair3 = i >= 4 && i < 6; // slots 0-1 = indices 0-3, slot 2 = indices 4-5
     const extra = await fetchAuthed('/api/collections/matches/records', adminToken, {
       method: 'POST',
@@ -294,6 +334,21 @@ export async function seedTestData(baseURL: string, port: number) {
     matches.push(await extra.json());
   }
 
+  // The admin-as-player match: the admin's own pair against pair3.
+  const adminMatch = await fetchAuthed('/api/collections/matches/records', adminToken, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ competition: compId, pair1: adminPairId, pair2: pair3Id, status: 'pending', round_number: 14 }),
+  });
+  if (!adminMatch.ok) throw new Error(`admin-as-player match: ${adminMatch.status} ${await adminMatch.text()}`);
+  const adminMatchId = (await adminMatch.json()).id;
+
+  await assertSeedRealistic(compId, [
+    [ADMIN_EMAIL, ADMIN_PASSWORD], [PLAYER1_EMAIL, PLAYER1_PASSWORD], [PLAYER2_EMAIL, PLAYER2_PASSWORD],
+    [PLAYER3_EMAIL, PLAYER3_PASSWORD], [PLAYER4_EMAIL, PLAYER4_PASSWORD], [PLAYER5_EMAIL, PLAYER5_PASSWORD],
+    [PLAYER6_EMAIL, PLAYER6_PASSWORD], [PLAYER7_EMAIL, PLAYER7_PASSWORD],
+  ]);
+
   // Create a venue
   const venueId = await createVenue('Pista Central', adminToken);
 
@@ -302,8 +357,14 @@ export async function seedTestData(baseURL: string, port: number) {
     adminToken,
     player1: { id: player1.id, email: PLAYER1_EMAIL },
     player2: { id: player2.id, email: PLAYER2_EMAIL },
+    player5: { id: player5.id, email: PLAYER5_EMAIL },
+    player6: { id: player6.id, email: PLAYER6_EMAIL },
+    player7: { id: player7.id, email: PLAYER7_EMAIL },
     pair1Id,
     pair2Id,
+    pair3Id,
+    adminPairId,
+    adminMatchId,
     competitionId: compId,
     matchIds: matches.map((m: any) => m.id),
     venueId,

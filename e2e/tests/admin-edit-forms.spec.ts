@@ -7,15 +7,6 @@ import {
 
 let suToken = '';
 
-async function getSuperuserToken(page: import('@playwright/test').Page) {
-  if (suToken) return;
-  const resp = await page.request.post('/api/collections/_superusers/auth-with-password', {
-    data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-  });
-  if (!resp.ok()) throw new Error(`Superuser auth failed: ${resp.status()}`);
-  suToken = (await resp.json()).token;
-}
-
 // Samsung Galaxy S23 (owner's real device) — the target mobile viewport for
 // every admin edit form. Each of these forms is opened via an HTMX/JS swap
 // into an existing modal, not a fresh page navigation, so the pageGuards
@@ -79,7 +70,7 @@ test.describe('admin edit forms at 360px', { tag: '@presentation' }, () => {
   });
 
   test('sponsor edit form', async ({ page }) => {
-    await getSuperuserToken(page);
+    suToken = loadTestData().adminToken;
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto('/admin/sponsors');
     await page.waitForLoadState('domcontentloaded');
@@ -115,7 +106,7 @@ test.describe('admin edit forms at 360px', { tag: '@presentation' }, () => {
     await page.goto(`/admin/competitions/${data.competitionId}`);
     await page.waitForLoadState('domcontentloaded');
 
-    await page.getByText('Editar', { exact: true }).first().click();
+    await page.getByText('Editar', { exact: true }).locator('visible=true').first().click();
     await expect(page.getByRole('heading', { name: 'Editar competición' })).toBeVisible();
     const violations = await checkAll(page, true);
     expect(violations, 'competition settings edit form guard violations').toEqual([]);

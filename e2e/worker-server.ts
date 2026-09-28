@@ -90,7 +90,12 @@ export const test = base.extend<{}, WorkerServerFixtures>({
 
     await cleanupServer(handle, binaryDir);
     removeWorkerDataDir(port);
-  }, { scope: 'worker', auto: true }],
+  // A worker fixture without its own timeout gets the 30 s test timeout.
+  // Under load, the per-worker go build + boot + seed goes past it ("Fixture
+  // workerServer timeout of 30000ms exceeded during setup"). 120 s covers
+  // that plus spawnOnFreePort's retries: a bind failure exits within one
+  // 100 ms poll, so only the last attempt can use waitForServer's 60 s.
+  }, { scope: 'worker', auto: true, timeout: 120_000 }],
 
   // Overrides Playwright's built-in baseURL fixture (normally a static
   // string from playwright.config.ts's `use`) with this worker's own
