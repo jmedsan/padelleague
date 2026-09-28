@@ -88,9 +88,9 @@
             <span class="badge badge-soft-primary badge-sm gap-1">{{.Standing.Position}}º · {{.Standing.Points}} pts</span>
             {{end}}
             {{if gt .PendingCount 0}}
-            <p class="text-sm opacity-70">{{.PendingCount}} partido{{if gt .PendingCount 1}}s{{end}} pendiente{{if gt .PendingCount 1}}s{{end}}</p>
+            <p class="text-sm opacity-70">{{.PendingCount}} partido{{if gt .PendingCount 1}}s{{end}} por jugar</p>
             {{else}}
-            <p class="text-sm opacity-50">Sin partidos pendientes</p>
+            <p class="text-sm opacity-50">Sin partidos por jugar</p>
             {{end}}
         </div>
     </div>

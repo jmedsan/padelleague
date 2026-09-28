@@ -39,7 +39,7 @@ func TestHome_DraftCalendarSuppressesMatchDerivedData(t *testing.T) {
 		Method:             http.MethodGet,
 		URL:                "/",
 		ExpectedStatus:     200,
-		ExpectedContent:    []string{"Draft Home League", "0 partidos pendientes"},
+		ExpectedContent:    []string{"Draft Home League", "Sin partidos por jugar"},
 		NotExpectedContent: []string{"Próximos partidos"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
