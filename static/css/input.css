@@ -93,6 +93,14 @@
 }
 
 @layer components {
+  /* A badge is one label: it never wraps ("1 alerta", "-3", "En
+     recuperación" broke over two lines in narrow flex rows). Its row
+     wraps or the badge's container gives way instead; the page guard's
+     [wrapped-badge] check fails any badge on more than one line. */
+  .badge {
+    white-space: nowrap;
+  }
+
   /* Breadcrumb/back link — "← Competiciones" / "← Inicio" at the top of
      every entity page. Standalone navigation (not a link inside running
      text), so it needs the 44px touch floor like any other tap target;
