@@ -1,7 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import {
-  loginAs, scratchMatchId, loadTestData, clickAndWaitForHxRedirect,
+  loginAs, asPlayerOn, scratchMatchId, loadTestData, clickAndWaitForHxRedirect,
   suGet as suGetBase, suPost as suPostBase, suPatch as suPatchBase,
   PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, ADMIN_EMAIL, ADMIN_PASSWORD,
 } from '../helpers';
@@ -28,8 +28,8 @@ test.describe('match lifecycle', { tag: '@scoring' }, () => {
     const data = loadTestData();
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${data.matchIds[0]}`);
-    await expect(page.getByText('Pareja Alpha').first()).toBeVisible();
-    await expect(page.getByText('Pareja Beta').first()).toBeVisible();
+    await expect(page.getByText('Pareja Alpha').locator('visible=true').first()).toBeVisible();
+    await expect(page.getByText('Pareja Beta').locator('visible=true').first()).toBeVisible();
     // Competition + round live in the breadcrumb; the match card must NOT repeat
     // them on the full match page (kills the .Mode.Full gate if reverted).
     await expect(page.locator('.breadcrumbs').getByText('Jornada', { exact: false })).toBeVisible();
@@ -46,7 +46,7 @@ test.describe('match lifecycle', { tag: '@scoring' }, () => {
     await expect(page.locator('.score-cell').first()).toBeVisible({ timeout: 5000 });
     await enterScore(page, '6-3 6-4');
     await clickAndWaitForHxRedirect(page, page.getByRole('button', { name: 'Enviar resultado' }), `/match/${matchId}`);
-    await expect(page.getByText('6-3 6-4').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('6-3 6-4').locator('visible=true').first()).toBeVisible({ timeout: 5000 });
   });
 
   test('score input rejects an invalid non-last set (0-4 4-6)', async ({ page, request }, testInfo) => {
@@ -145,7 +145,6 @@ test.describe('match lifecycle', { tag: '@scoring' }, () => {
     const suffix = `${Date.now()}-${testInfo.project.name}`;
     const comp = await suPost(request, '/api/collections/competitions/records', {
       name: `Precedentes Test ${suffix}`, type: 'league', active: true,
-      calendar_status: 'published',
     });
     const pA1 = await suPost(request, '/api/collections/users/records', {
       email: `prec-a1-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
@@ -193,7 +192,7 @@ test.describe('match lifecycle', { tag: '@scoring' }, () => {
       round_number: 97,
     });
 
-    await loginAs(page, pA1.email, 'testpass123456');
+    await asPlayerOn(page, comp.id, pA1.email, 'testpass123456');
     await page.goto(`/match/${current.id}`);
     await expect(page.getByRole('heading', { name: 'Precedentes' })).toBeVisible();
     const strip = page.locator('.card', { has: page.getByRole('heading', { name: 'Precedentes' }) });

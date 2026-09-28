@@ -166,6 +166,14 @@ function findSmallTapTargets(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const offenders: string[] = [];
     const selector = 'a, button, select, input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])';
+    // A test step can start a transition while this check runs (the tour
+    // opens the bell dropdown, which scales from 0.95 over 0.2 s), so the
+    // wait in sampleDOM can't cover it. An element inside a running finite
+    // animation is measured by its layout box, which transforms don't touch.
+    const moving = document.getAnimations()
+      .filter(a => a.playState === 'running' && a.effect?.getComputedTiming().endTime !== Infinity)
+      .map(a => (a.effect as KeyframeEffect | null)?.target)
+      .filter((t): t is Element => t instanceof Element);
     for (const el of document.body.querySelectorAll<HTMLElement>(selector)) {
       const style = getComputedStyle(el);
       if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
@@ -177,11 +185,14 @@ function findSmallTapTargets(page: Page): Promise<string[]> {
       // own rules while a real user can neither see nor tap it. A rect
       // entirely outside the viewport means exactly that: skip it.
       if (rect.right <= 0 || rect.bottom <= 0 || rect.left >= window.innerWidth || rect.top >= window.innerHeight) continue;
-      if (rect.width <= 4 || rect.height <= 4) continue;
-      if (rect.width < 44 || rect.height < 44) {
+      const animating = moving.some(t => t.contains(el));
+      const width = animating ? el.offsetWidth : rect.width;
+      const height = animating ? el.offsetHeight : rect.height;
+      if (width <= 4 || height <= 4) continue;
+      if (width < 44 || height < 44) {
         const id = el.id ? `#${el.id}` : '';
         const text = el.textContent?.trim().slice(0, 20) ?? '';
-        offenders.push(`${el.tagName.toLowerCase()}${id} "${text}" (${Math.round(rect.width)}x${Math.round(rect.height)})`);
+        offenders.push(`${el.tagName.toLowerCase()}${id} "${text}" (${Math.round(width)}x${Math.round(height)})`);
       }
     }
     return offenders.slice(0, 8);
@@ -218,6 +229,37 @@ function findEmptyBadges(page: Page): Promise<string[]> {
       if (!el.textContent?.trim()) {
         offenders.push(`.badge${el.id ? `#${el.id}` : ''} (empty)`);
       }
+    }
+    return offenders.slice(0, 5);
+  });
+}
+
+// findWrappedBadges flags a visible `.badge` whose text runs over more than
+// one line. A badge is a fixed-height pill, so a wrapped label spills out of
+// it (the admin card's "1 alerta" on 360px) without overflowing the page or
+// being clipped, which the other checks look for.
+function findWrappedBadges(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const offenders: string[] = [];
+    for (const el of document.body.querySelectorAll<HTMLElement>('.badge')) {
+      if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
+      // Text rects only, and a new line only where a rect starts below the
+      // previous line: a badge holding a taller child (the penalty badge's
+      // "×" button) centers its text at a different height on one line.
+      const rects: DOMRect[] = [];
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const range = document.createRange();
+        range.selectNodeContents(n);
+        rects.push(...Array.from(range.getClientRects()).filter(r => r.width > 0 && r.height > 0));
+      }
+      rects.sort((a, b) => a.top - b.top);
+      let lines = 0, bottom = -Infinity;
+      for (const r of rects) {
+        if (r.top >= bottom - 1) lines++;
+        bottom = Math.max(bottom, r.bottom);
+      }
+      if (lines > 1) offenders.push(`.badge "${el.textContent?.trim().replace(/\s+/g, ' ')}" (${lines} lines)`);
     }
     return offenders.slice(0, 5);
   });
@@ -266,29 +308,158 @@ function findOverlappingNavbarSiblings(page: Page): Promise<string[]> {
 // handed. Call this directly on such a page, with hasTouch true to match a
 // real phone, to get the same tap-target coverage a fixture page gets for
 // free (scheduling-walkover.spec.ts's playoff-bracket mobile check).
-export async function checkAll(page: Page, isMobileProject: boolean): Promise<string[]> {
+//
+// The checks are separate evaluates, so a navigation can land between them:
+// page.url() already names the new document while an evaluate still reads
+// the old one (the home page's cards were reported as empty under
+// /match/<id>). A sample only counts when one document, at the URL it is
+// reported under, answered every check: the first and the last evaluate
+// read a per-document id (assigned on the document's first sample) and the
+// href, and both must match. Otherwise the sample is dropped (see checkDOM).
+// A document still parsing (readyState 'loading') is never sampled: the
+// parser has inserted an <a> but not yet its text, so a link with text in
+// the template reads as empty (the layout's "Preferencias" link, sampled by
+// the teardown after a test failed mid-navigation). checkAll waits for its
+// domcontentloaded and samples again; a document that doesn't get there in
+// 5 s is a violation of its own, never a silent skip.
+export function checkAll(page: Page, isMobileProject: boolean): Promise<string[]> {
+  return checkDOM(page, isMobileProject, true);
+}
+
+// checkDOM samples the page, waiting out a document still parsing. A sample
+// a navigation interrupted is handled by followNavigations:
+//   - false (the pageGuards listeners): dropped. The navigation that
+//     interrupted it fired framenavigated (for a new document and for a
+//     same-document pushState alike), so the newer document has its own
+//     check queued. Chasing it here instead made each stale check report the
+//     test's own quick navigations as [unsettled].
+//   - true (the exported checkAll and the teardown's final sample): taken
+//     again on the newer document, since no listener stands behind them. A
+//     page still changing after SAMPLE_ATTEMPTS samples, with no test step
+//     driving it, is reported as [unsettled].
+async function checkDOM(page: Page, isMobileProject: boolean, followNavigations: boolean): Promise<string[]> {
+  for (let attempt = 0; attempt < SAMPLE_ATTEMPTS; attempt++) {
+    const found = await sampleDOM(page, isMobileProject);
+    if (Array.isArray(found)) return found;
+    if (found === null && !followNavigations) return [];
+    if (found === 'parsing') {
+      try {
+        await page.waitForLoadState('domcontentloaded', { timeout: PARSE_TIMEOUT_MS });
+      } catch (err) {
+        if (err instanceof Error && err.name === 'TimeoutError') {
+          return [`[never-parsed] ${page.url()}: page never finished parsing within ${PARSE_TIMEOUT_MS} ms`];
+        }
+        throw err;
+      }
+    }
+  }
+  return [`[unsettled] ${page.url()}: the document changed during each of ${SAMPLE_ATTEMPTS} samples`];
+}
+
+const SAMPLE_ATTEMPTS = 3;
+
+// guardError turns a check's error into a violation, so a broken guard
+// fails the test instead of silently turning itself off. Only a page that
+// closed under the check yields none: there is nothing left to record.
+function guardError(err: unknown): string[] {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (msg.includes('Target page, context or browser has been closed')) return [];
+  return [`[guard-error] ${msg.slice(0, 300)}`];
+}
+
+// onNavigation(value) answers an evaluate that a navigation cut off with
+// value (null: the sample is dropped). Any other error is thrown, and
+// guardError reports it.
+function onNavigation<T>(value: T): (err: unknown) => T {
+  return err => {
+    if (err instanceof Error && err.message.includes('Execution context was destroyed')) return value;
+    throw err;
+  };
+}
+const PARSE_TIMEOUT_MS = 5000;
+const ANIMATION_TIMEOUT_MS = 2000;
+
+// sampleDOM runs every check once. It returns null when a navigation
+// changed the document mid-sample, and 'parsing' when the document had not
+// finished parsing.
+async function sampleDOM(page: Page, isMobileProject: boolean): Promise<string[] | null | 'parsing'> {
   const url = page.url();
+  // The id is written once per document and only read after that, so
+  // concurrent samples of one document (load and framenavigated both fire
+  // per navigation) agree on it instead of overwriting each other.
+  const before = await page.evaluate(id => {
+    const w = window as unknown as { __guardDoc?: string };
+    w.__guardDoc ??= id;
+    return { doc: w.__guardDoc, href: location.href, parsing: document.readyState === 'loading' };
+  }, Math.random().toString(36).slice(2)).catch(onNavigation(null));
+  if (before === null || before.href !== url) return null;
+  if (before.parsing) return 'parsing';
   const violations: string[] = [];
-  const overflow = await findOverflowOffenders(page).catch(() => []);
+  // The geometry checks read an element's box mid-transition as its size:
+  // the bell dropdown opens with a 0.2 s scale from 0.95, so its 44 px
+  // links read 43 px while it plays. Finite animations and transitions
+  // finish first; infinite ones (a spinner) never do and don't resize.
+  const settled = await page.evaluate(async timeout => {
+    const deadline = performance.now() + timeout;
+    for (;;) {
+      const running = document.getAnimations().filter(a =>
+        a.playState === 'running' && a.effect?.getComputedTiming().endTime !== Infinity);
+      if (running.length === 0) return true;
+      const left = deadline - performance.now();
+      if (left <= 0) return false;
+      await Promise.race([
+        Promise.allSettled(running.map(a => a.finished)),
+        new Promise(resolve => setTimeout(resolve, left)),
+      ]);
+    }
+  }, ANIMATION_TIMEOUT_MS).catch(onNavigation(null));
+  if (settled === null) return null;
+  if (!settled) violations.push(`[animating] ${url}: animations still running after ${ANIMATION_TIMEOUT_MS} ms`);
+  // A check can fail because the document went away under it: the
+  // context was destroyed, or the next document had no <body> yet
+  // ("Cannot read properties of null"). Only the closing evaluate can tell
+  // that from a broken check, so errors are held until then: a changed
+  // document drops the sample, an unchanged one throws the first error.
+  const errors: unknown[] = [];
+  const held = (err: unknown): never[] => { errors.push(err); return []; };
+  const overflow = await findOverflowOffenders(page).catch(held);
   if (overflow.length > 0) violations.push(`[overflow] ${url}: ${describeOffenders(overflow)}`);
-  const clipped = await findClippedText(page).catch(() => []);
+  const clipped = await findClippedText(page).catch(held);
   if (clipped.length > 0) violations.push(`[clipped-text] ${url}: ${clipped.join('; ')}`);
-  const empty = await findEmptyInteractive(page).catch(() => []);
+  const empty = await findEmptyInteractive(page).catch(held);
   if (empty.length > 0) violations.push(`[empty-interactive] ${url}: ${empty.join('; ')}`);
-  const broken = await findBrokenImages(page).catch(() => []);
+  const broken = await findBrokenImages(page).catch(held);
   if (broken.length > 0) violations.push(`[broken-img] ${url}: ${broken.join('; ')}`);
-  const dupes = await findDuplicateIds(page).catch(() => []);
+  const dupes = await findDuplicateIds(page).catch(held);
   if (dupes.length > 0) violations.push(`[duplicate-id] ${url}: ${dupes.join('; ')}`);
-  const alerts = await findUnvariantedAlerts(page).catch(() => []);
+  const alerts = await findUnvariantedAlerts(page).catch(held);
   if (alerts.length > 0) violations.push(`[alert-no-variant] ${url}: ${alerts.join('; ')}`);
-  const badges = await findEmptyBadges(page).catch(() => []);
+  const badges = await findEmptyBadges(page).catch(held);
   if (badges.length > 0) violations.push(`[empty-badge] ${url}: ${badges.join('; ')}`);
-  const navOverlap = await findOverlappingNavbarSiblings(page).catch(() => []);
+  const wrapped = await findWrappedBadges(page).catch(held);
+  if (wrapped.length > 0) violations.push(`[wrapped-badge] ${url}: ${wrapped.join('; ')}`);
+  const navOverlap = await findOverlappingNavbarSiblings(page).catch(held);
   if (navOverlap.length > 0) violations.push(`[navbar-overlap] ${url}: ${navOverlap.join('; ')}`);
   if (isMobileProject) {
-    const small = await findSmallTapTargets(page).catch(() => []);
-    if (small.length > 0) violations.push(`[small-tap-target] ${url}: ${small.join('; ')}`);
+    // The 44px floor lives in input.css's `@media (hover: none)`, so sizes
+    // measured without touch emulation belong to a mouse device. Chromium
+    // drops that emulation for the page's life after any screenshot that
+    // captures beyond the viewport (fullPage, element): measuring on then
+    // would blame every compliant control. Report the lost emulation instead.
+    const touch = await page.evaluate(() => matchMedia('(hover: none)').matches).catch(held);
+    if (touch === false) {
+      violations.push(`[no-touch-emulation] ${url}: (hover: none) doesn't match, so the 44px floor isn't active; a screenshot beyond the viewport turns touch emulation off`);
+    } else {
+      const small = await findSmallTapTargets(page).catch(held);
+      if (small.length > 0) violations.push(`[small-tap-target] ${url}: ${small.join('; ')}`);
+    }
   }
+  const after = await page.evaluate(() => ({
+    doc: (window as unknown as { __guardDoc?: string }).__guardDoc,
+    href: location.href,
+  })).catch(onNavigation(null));
+  if (after === null || after.doc !== before.doc || after.href !== url || page.url() !== url) return null;
+  if (errors.length > 0) throw errors[0];
   return violations;
 }
 
@@ -337,14 +508,12 @@ export const test = base.extend<{ pageGuards: void }>({
       // the new document finishes parsing, so checking immediately can catch
       // a `<button>` whose icon SVG child hasn't been inserted yet and
       // misreport it as empty (flaky, not a real bug: e2e/tests/leveled-league.spec.ts
-      // intermittently failed on this before the wait was added). Settling
-      // on domcontentloaded first makes the check see the same DOM `load`
-      // would have seen.
-      const check = page.waitForLoadState('domcontentloaded', { timeout: 5000 })
-        .catch(() => {}) // navigation superseded before it settled — nothing to check
-        .then(() => checkAll(page, isMobileProject))
-        .then(found => { violations.push(...found); })
-        .catch(() => {}); // page mid-navigation/closed — nothing to record
+      // intermittently failed on this before the wait was added). checkAll
+      // waits for domcontentloaded itself and reports a document that never
+      // gets there.
+      const check = checkDOM(page, isMobileProject, false)
+        .catch(guardError)
+        .then(found => { violations.push(...found); });
       pending.push(check);
     };
     page.on('load', recordDOMGuards);
@@ -389,14 +558,15 @@ export const test = base.extend<{ pageGuards: void }>({
     // specific button label happens to name.
     const onHxRedirectResponse = (response: Response) => {
       if (response.frame() !== page.mainFrame()) return;
-      response.headerValue('hx-redirect').then(target => {
+      // In pending like the DOM checks, so the teardown's expect waits for it.
+      pending.push(response.headerValue('hx-redirect').then(target => {
         if (!target) return;
         if (expectingHxRedirect.get(page)) return;
         violations.push(
           `[unhelpered-hx-redirect] ${response.request().method()} ${response.url()} → ${target}: ` +
           `wrap the click in clickAndWaitForHxRedirect`,
         );
-      }).catch(() => {});
+      }).catch(err => { violations.push(...guardError(err)); }));
     };
     page.on('response', onHxRedirectResponse);
 
@@ -412,7 +582,7 @@ export const test = base.extend<{ pageGuards: void }>({
     // the test's final `goto` could land after the assertion already ran.
     await Promise.all(pending);
 
-    const finalViolations = await checkAll(page, isMobileProject).catch(() => []);
+    const finalViolations = await checkAll(page, isMobileProject).catch(guardError);
     violations.push(...finalViolations.map(v => v.replace(/^\[(\w[\w-]*)\]/, '[$1:end]')));
 
     expect(violations, 'page guard violations').toEqual([]);

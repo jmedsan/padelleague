@@ -1,6 +1,6 @@
 import type { Page, APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, isMobile, clickAction, navViaDrawer, leagueDate, waitForHxRedirect, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, loadTestData, suGet, isMobile, clickAction, navViaDrawer, leagueDate, waitForHxRedirect, openMatchFromHome, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import {
   setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,
   computeExpected, PlannedMatch, PairId,
@@ -8,7 +8,7 @@ import {
 import {
   createPlayer, createCompetition, createPair, addPairToCompetition, markAllPairsPaid,
   generateFixtures, submitScore, confirmScore,
-  createDocument, attachDocumentToCompetition, acceptDocsGate,
+  createDocument, attachDocumentToCompetition, acceptDocsGate, ackDocsOnce,
   clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect,
   assertFinalStandings, assertPlayoffChampion,
   lookupPlayerId, getRoundMatches, getMatchById, setMatchDateAndClub, acceptScheduleProposal,
@@ -130,11 +130,7 @@ test.describe('reference navigation tour', { tag: '@tour' }, () => {
 
     // --- Auth superuser ---
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    const authResp = await page.request.post('/api/collections/_superusers/auth-with-password', {
-      data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-    });
-    if (!authResp.ok()) throw new Error(`Superuser auth failed: ${authResp.status()}`);
-    suToken = (await authResp.json()).token;
+    suToken = loadTestData().adminToken;
 
     // --- Step 1: Create players via Usuarios nav link ---
     playerIds = [];
@@ -161,7 +157,7 @@ test.describe('reference navigation tour', { tag: '@tour' }, () => {
 
     // --- Step 3: Create league competition via Panel ---
     await navTo(page, 'Competiciones');
-    competitionId = await createCompetition(page, COMP_NAME, 'league', { playTwice: true, suToken });
+    competitionId = await createCompetition(page, COMP_NAME, 'league', { playTwice: true });
 
     // --- Step 4: Add pairs to competition ---
     // After createCompetition, navigate to the competition detail page.
@@ -268,6 +264,7 @@ test.describe('reference navigation tour', { tag: '@tour' }, () => {
     await page.goto(`/competition/${competitionId}`);
     await page.waitForLoadState('domcontentloaded');
     await acceptDocsGate(page);
+    docsAcked.add(PLAYERS[0].email);
     await expect(page.locator('input[aria-label^="Jornadas"]')).toBeVisible({ timeout: 5000 });
 
     // Back to admin for the rest
@@ -288,7 +285,7 @@ test.describe('reference navigation tour', { tag: '@tour' }, () => {
     // (parseProposalForm in handlers/thread.go rejects past dates).
     const scheduleDate = leagueDate(1);
     const scheduleDateDisplay = scheduleDate.split('-').reverse().join('/');
-    await acceptScheduleProposal(page, suToken, scheduledFixture.id, scheduledOtherId, scheduleDate, '18:00', 'Padel 360');
+    await acceptScheduleProposal(page, suToken, scheduledFixture.id, scheduledOtherId, scheduleDate, '18:00', 'Padel 360', docsAcked);
 
     // --- Notification shows the competition name ---
     // scheduledOtherEmail is the proposal author; after the accept above they
@@ -347,12 +344,14 @@ test.describe('reference navigation tour', { tag: '@tour' }, () => {
 
       // Submitter logs in, navigates to match page
       await loginAs(page, submitterEmail, PLAYER_PASSWORD);
-      await gotoMatchViaCompetition(page, f.id);
+      await ackDocsOnce(page, submitterEmail, competitionId, docsAcked);
+      await openMatchFromHome(page, f.id);
       await submitScore(page, f.orientedScore);
 
       // Opponent accepts the result proposal
       await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
-      await gotoMatchViaCompetition(page, f.id);
+      await ackDocsOnce(page, confirmerEmail, competitionId, docsAcked);
+      await openMatchFromHome(page, f.id);
       await confirmScore(page);
 
       // Verify final
@@ -392,7 +391,7 @@ test.describe('reference navigation tour', { tag: '@tour' }, () => {
     // --- Step 9: Create playoff via Panel ---
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await navTo(page, 'Competiciones');
-    const playoffId = await createCompetition(page, PLAYOFF_NAME, 'playoff', { suToken });
+    const playoffId = await createCompetition(page, PLAYOFF_NAME, 'playoff');
 
     // Navigate to playoff detail page
     await navTo(page, 'Competiciones');
@@ -538,24 +537,12 @@ test.describe('reference navigation tour', { tag: '@tour' }, () => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function gotoMatchViaCompetition(page: Page, matchId: string): Promise<void> {
-  const url = `/match/${matchId}`;
-  await page.goto(url);
-  await page.waitForLoadState('domcontentloaded');
-  // Doc gate may redirect to the competition page — accept and re-navigate
-  if (await page.getByRole('heading', { name: 'Documentos obligatorios' }).isVisible().catch(() => false)) {
-    await acceptDocsGate(page);
-    await page.goto(url);
-    await page.waitForLoadState('domcontentloaded');
-  }
-}
+// Players who acknowledged the league's mandatory document (step 5b). Only
+// the league has one, so the playoff never gates.
+const docsAcked = new Set<string>();
 
 async function mapFixturesToScores(request: APIRequestContext): Promise<MatchFixture[]> {
-  const resp = await request.get(
-    `/api/collections/matches/records?filter=competition='${competitionId}'&perPage=50&sort=round_number,created`,
-    { headers: { Authorization: suToken } },
-  );
-  const data = await resp.json();
+  const data = await suGet(request, suToken, `/api/collections/matches/records?filter=competition='${competitionId}'&perPage=50&sort=round_number,created`);
   if (data.items.length !== 12) {
     throw new Error(`Expected 12 matches, got ${data.items.length}`);
   }
@@ -591,10 +578,10 @@ async function playPlayoffMatch(page: Page, match: any, winnerLabel: PairId, win
   const confirmerEmail = playerEmailForPair(idToLabel(match.pair2), 0);
 
   await loginAs(page, submitterEmail, PLAYER_PASSWORD);
-  await gotoMatchViaCompetition(page, match.id);
+  await openMatchFromHome(page, match.id);
   await submitScore(page, oriented);
 
   await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
-  await gotoMatchViaCompetition(page, match.id);
+  await openMatchFromHome(page, match.id);
   await confirmScore(page);
 }

@@ -127,7 +127,7 @@ test.describe('leveled-16 scenario', () => {
 
     // Player info message: this pair hasn't reached target_matches yet, so
     // the "new matches get assigned after you finish" message is visible.
-    await expect(page.locator('text=partidos pendientes')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=partidos por jugar')).toBeVisible({ timeout: 5000 });
   });
 
   test('02 play match → top-up fires', async ({ page }) => {

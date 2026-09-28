@@ -2,7 +2,7 @@ import { test, expect } from '../overflow-guard';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
-  loginAs, scratchMatchId, isMobile, navViaDrawer, loadTestData,
+  loginAs, asPlayerOn, scratchMatchId, isMobile, navViaDrawer, loadTestData, suPatch, apiGetRecord, clickAndWaitForHxRedirect, switchView, openMatchFromHome,
   apiCreateRecord as apiCreateRecordBase, apiDeleteRecord as apiDeleteRecordBase,
   ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER3_EMAIL, PLAYER3_PASSWORD,
 } from '../helpers';
@@ -18,17 +18,17 @@ async function goToPage(page: import('@playwright/test').Page, href: string, lab
   }
 }
 
-async function switchView(page: import('@playwright/test').Page, target: 'admin' | 'player'): Promise<void> {
+// openAdminPage follows the admin menu: the drawer on mobile, the navbar's
+// "Gestión" dropdown on desktop.
+async function openAdminPage(page: import('@playwright/test').Page, href: string): Promise<void> {
   if (isMobile(page)) {
-    const btn = page.locator('[aria-label^="cambiar vista"]');
-    await btn.click();
-    await page.locator(`.dropdown-content a[href="/view/${target}"]`).click();
-  } else {
-    const switcher = page.locator(`details:has(a[href="/view/${target}"])`);
-    await switcher.locator('summary').click();
-    await switcher.locator(`a[href="/view/${target}"]`).click();
+    await navViaDrawer(page, href);
+    return;
   }
-  await page.waitForLoadState('networkidle');
+  const menu = page.locator(`.menu-horizontal details:has(a[href="${href}"])`);
+  await menu.locator('summary').click();
+  await menu.locator(`a[href="${href}"]`).click();
+  await page.waitForURL(`**${href}`);
 }
 
 test.describe('R-178: presentation quality guards', { tag: '@presentation' }, () => {
@@ -41,8 +41,8 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
       localStorage.setItem('theme', 'dark');
     });
 
-    // Navigate to home
-    await page.goto('/');
+    // Reload so the stored theme is applied by the page itself
+    await page.reload();
     await page.waitForLoadState('networkidle');
 
     // Admin mode indicator (top-bar pill/dropdown) should be visible
@@ -57,7 +57,7 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     expect(theme).toBe('dark');
 
     // Navigate to admin competitions
-    await page.goto('/admin/competitions');
+    await expect(page, 'admins land on the competitions list').toHaveURL(/\/admin\/competitions$/);
     await page.waitForLoadState('networkidle');
 
     // Key headings and text are visible
@@ -65,17 +65,13 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     await expect(page.getByRole('heading', { name: 'Competiciones activas' })).toBeVisible();
 
     // Click into a competition detail
-    const compLink = page.locator('a[href^="/admin/competitions/"]').first();
-    if (await compLink.count() > 0) {
-      await compLink.click();
-      await page.waitForLoadState('networkidle');
-      // Section headings should be visible in dark mode
-      const headings = page.locator('h2');
-      const count = await headings.count();
-      expect(count).toBeGreaterThan(0);
-      for (let i = 0; i < Math.min(count, 5); i++) {
-        await expect(headings.nth(i)).toBeVisible();
-      }
+    const compLink = page.locator(`a[href="/admin/competitions/${loadTestData().competitionId}"]`).first();
+    await expect(compLink).toBeVisible();
+    await compLink.click();
+    await page.waitForLoadState('networkidle');
+    // The league detail's section headings are visible in dark mode
+    for (const name of ['Calendario', 'Documentos', 'Patrocinadores', 'Clasificación', 'Avisos', 'Actividad']) {
+      await expect(page.getByRole('heading', { level: 2, name: new RegExp(`^${name}`) })).toBeVisible();
     }
   });
 
@@ -92,7 +88,6 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
 
     // Check as player (most common user)
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     const bodyText = await page.evaluate(() => document.body.innerText);
@@ -104,7 +99,7 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
 
     // Check admin page too
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto('/admin/competitions');
+    await expect(page, 'admins land on the competitions list').toHaveURL(/\/admin\/competitions$/);
     await page.waitForLoadState('networkidle');
 
     const adminText = await page.evaluate(() => document.body.innerText);
@@ -139,7 +134,6 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
   test('non-empty panels: urgent tasks and standings render content', { tag: '@smoke' }, async ({ page }) => {
     // Login as player who has match data in seed
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     // Check that "Mis competiciones" section has at least one card
@@ -147,56 +141,33 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     const cardCount = await compCards.count();
     expect(cardCount, 'player home should show at least one competition card').toBeGreaterThan(0);
 
-    // Navigate to a competition via click and check standings table is non-empty
-    const compLink = page.locator('a[href^="/competition/"]').first();
-    if (await compLink.count() > 0) {
-      await compLink.click();
-      await page.waitForLoadState('networkidle');
-
-      // If docs gate appears, accept it
-      const docsGate = page.getByRole('heading', { name: 'Documentos obligatorios' });
-      if (await docsGate.isVisible().catch(() => false)) {
-        // Accept all docs
-        const acceptBtns = page.locator('button:has-text("He leído")');
-        const btnCount = await acceptBtns.count();
-        for (let i = 0; i < btnCount; i++) {
-          await acceptBtns.nth(i).click();
-          await page.waitForTimeout(300);
-        }
-        const confirmBtn = page.locator('button:has-text("Confirmar")');
-        if (await confirmBtn.isVisible().catch(() => false)) {
-          await confirmBtn.click();
-          await page.waitForLoadState('networkidle');
-        }
-      }
-
-      // Click "Clasificación" tab to reveal standings
-      const standingsTab = page.locator('input[aria-label^="Clasificación"]');
-      if (await standingsTab.count() > 0) {
-        await standingsTab.click();
-        await page.waitForTimeout(300);
-        // standingsTable.html renders a desktop table.table-zebra and a
-        // mobile table.table-sm, each hidden at the other breakpoint via
-        // CSS — scope to whichever one is visible for this viewport.
-        const standingsTableClass = isMobile(page) ? 'table.table-sm' : 'table.table-zebra';
-        const standingsRows = page.locator(`${standingsTableClass} tbody tr`);
-        expect(await standingsRows.count(), 'standings table should have rows').toBeGreaterThan(0);
-        await expect(standingsRows.first()).toBeVisible();
-      }
-    }
-
-    // Admin: check competitions list is non-empty
-    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto('/admin/competitions');
+    // Enter the seeded competition (it has a played match, and no mandatory
+    // document, so no gate) and check the standings table is non-empty.
+    const data = loadTestData();
+    const compLink = page.locator(`a[href="/competition/${data.competitionId}"]`).first();
+    await expect(compLink).toBeVisible();
+    await compLink.click();
     await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { name: 'Documentos obligatorios' })).toHaveCount(0);
 
-    const adminCards = page.locator('a[href^="/admin/competitions/"]');
-    expect(await adminCards.count(), 'admin should see at least one competition').toBeGreaterThan(0);
+    await page.getByRole('tab', { name: 'Clasificación', exact: true }).click();
+    // standingsTable.html renders a desktop table.table-zebra and a
+    // mobile table.table-sm, each hidden at the other breakpoint via
+    // CSS — scope to whichever one is visible for this viewport.
+    const standingsTableClass = isMobile(page) ? 'table.table-sm' : 'table.table-zebra';
+    const standingsRows = page.locator(`${standingsTableClass} tbody tr`);
+    const comp = await apiGetRecord(page.request, data.adminToken, 'competitions', data.competitionId);
+    await expect(standingsRows, 'one standings row per pair').toHaveCount(comp.pairs.length);
+    await expect(standingsRows.first()).toBeVisible();
+
+    // Admin: the competitions list shows the seeded competition
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await expect(page, 'admins land on the competitions list').toHaveURL(/\/admin\/competitions$/);
+    await expect(page.locator(`a[href="/admin/competitions/${data.competitionId}"]`).first(), 'admin list shows the seeded competition').toBeVisible();
   });
 
   test('R-231: home pending-actions panel renders when player has actions', async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     const actions = page.locator('[data-testid="home-actions"]');
@@ -206,49 +177,62 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     await expect(actionLinks.first()).toBeVisible();
   });
 
-  test('R-231: home recent-results panel renders finalized matches', async ({ page }) => {
-    const data = loadTestData();
-    const suToken = await getSuToken(page.request);
-
+  test('R-231: home recent-results panel renders finalized matches', async ({ page }, testInfo) => {
+    const suToken = loadTestData().adminToken;
+    // Fresh players and pairs, so the panel's five-entry cap and the shared
+    // seed competition's finals can't show a result in place of this one.
+    const suffix = `${Date.now()}-${testInfo.project.name}`;
+    const makePlayer = (tag: string) => apiCreate(page.request, suToken, 'users', {
+      email: `r231-${tag}-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: `R231 ${tag} ${suffix}`, roles: ['player'], verified: true, gender: 'male',
+    });
+    const [a1, a2, b1, b2] = await Promise.all(['a1', 'a2', 'b1', 'b2'].map(makePlayer));
+    const pairA = await apiCreate(page.request, suToken, 'pairs', { name: `R231 Pareja A ${suffix}`, player1: a1, player2: a2 });
+    const pairBName = `R231 Pareja B ${suffix}`;
+    const pairB = await apiCreate(page.request, suToken, 'pairs', { name: pairBName, player1: b1, player2: b2 });
     const compId = await apiCreate(page.request, suToken, 'competitions', {
-      name: 'R231 Results', type: 'league', active: true,
-      pairs: [data.pair1Id, data.pair2Id], rounds: 1,
+      name: `R231 Results ${suffix}`, type: 'league', active: true,
+      pairs: [pairA, pairB], rounds: 1,
     });
     const matchId = await apiCreate(page.request, suToken, 'matches', {
-      competition: compId, pair1: data.pair1Id, pair2: data.pair2Id,
-      status: 'final', round_number: 1, scores: '6-3 6-4',
+      competition: compId, pair1: pairA, pair2: pairB,
+      status: 'final', round_number: 1, scores: '6-3 6-4', winner: pairA,
     });
 
-    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    try {
+      await asPlayerOn(page, compId, `r231-a1-${suffix}@test.local`, 'testpass123456');
+      await page.waitForLoadState('networkidle');
 
-    const heading = page.getByText('Mis últimos partidos');
-    await expect(heading, 'recent-results heading should be visible').toBeVisible({ timeout: 5000 });
-    const resultsSection = heading.locator('xpath=..');
-    const resultEntries = resultsSection.locator('a[href^="/match/"]');
-    expect(await resultEntries.count(), 'should show at least one recent result').toBeGreaterThan(0);
-
-    await apiDelete(page.request, suToken, 'matches', matchId);
-    await apiDelete(page.request, suToken, 'competitions', compId);
+      const heading = page.getByRole('heading', { name: 'Mis últimos partidos' });
+      await expect(heading, 'recent-results heading should be visible').toBeVisible({ timeout: 5000 });
+      // The list is the heading's next sibling (home.html); its parent is the
+      // whole page, which would also match links outside the panel.
+      const resultsList = heading.locator('xpath=following-sibling::div[1]');
+      const entry = resultsList.locator(`a[href="/match/${matchId}"]`);
+      await expect(entry, 'the finalized match must be listed').toHaveCount(1);
+      await expect(entry).toContainText(pairBName);
+      await expect(entry).toContainText('6-3 6-4');
+    } finally {
+      await apiDelete(page.request, suToken, 'matches', matchId);
+      await apiDelete(page.request, suToken, 'competitions', compId);
+      await apiDelete(page.request, suToken, 'pairs', pairA);
+      await apiDelete(page.request, suToken, 'pairs', pairB);
+      for (const uid of [a1, a2, b1, b2]) await apiDelete(page.request, suToken, 'users', uid);
+    }
   });
 
   test('W12: home keeps "Mis últimos partidos" heading and shows an empty-state message when there are no recent results', async ({ page }, testInfo) => {
-    const suToken = await getSuToken(page.request);
+    const suToken = loadTestData().adminToken;
     const suffix = `${Date.now()}-${testInfo.project.name}`;
     const email = `w12-${suffix}@test.local`;
-    await apiCreate(page.request, suToken, 'users', {
+    const playerId = await apiCreate(page.request, suToken, 'users', {
       email, password: 'testpass123456', passwordConfirm: 'testpass123456',
       display_name: `W12 Player ${suffix}`, roles: ['player'], verified: true, gender: 'male',
     });
-    const meResp = await page.request.get(`/api/collections/users/records?filter=email='${email}'`, {
-      headers: { Authorization: suToken },
+    const partnerId = await apiCreate(page.request, suToken, 'users', {
+      email: `w12-partner-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: `W12 Partner ${suffix}`, roles: ['player'], verified: true, gender: 'male',
     });
-    const playerId = (await meResp.json()).items[0].id;
-    const partnerId = (await page.request.post('/api/collections/users/records', {
-      headers: { Authorization: suToken, 'Content-Type': 'application/json' },
-      data: { email: `w12-partner-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456', display_name: `W12 Partner ${suffix}`, roles: ['player'], verified: true, gender: 'male' },
-    }).then(r => r.json())).id;
     const pairId = await apiCreate(page.request, suToken, 'pairs', {
       name: `W12 Pareja ${suffix}`, player1: playerId, player2: partnerId,
     });
@@ -256,22 +240,23 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
       name: `W12 Comp ${suffix}`, type: 'league', active: true, pairs: [pairId],
     });
 
-    await loginAs(page, email, 'testpass123456');
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    try {
+      await asPlayerOn(page, compId, email, 'testpass123456');
+      await page.waitForLoadState('networkidle');
 
-    const heading = page.getByRole('heading', { name: 'Mis últimos partidos' });
-    await expect(heading, 'heading must stay visible with zero recent results').toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('No hay resultados recientes'), 'empty-state message must show below the heading').toBeVisible();
-
-    await apiDelete(page.request, suToken, 'competitions', compId);
-    await apiDelete(page.request, suToken, 'pairs', pairId);
-    await apiDelete(page.request, suToken, 'users', playerId);
-    await apiDelete(page.request, suToken, 'users', partnerId);
+      const heading = page.getByRole('heading', { name: 'Mis últimos partidos' });
+      await expect(heading, 'heading must stay visible with zero recent results').toBeVisible({ timeout: 5000 });
+      await expect(page.getByText('No hay resultados recientes'), 'empty-state message must show below the heading').toBeVisible();
+    } finally {
+      await apiDelete(page.request, suToken, 'competitions', compId);
+      await apiDelete(page.request, suToken, 'pairs', pairId);
+      await apiDelete(page.request, suToken, 'users', playerId);
+      await apiDelete(page.request, suToken, 'users', partnerId);
+    }
   });
 
   test('bug: published league with zero played matches still shows the Clasificación tab with an empty state', async ({ page }, testInfo) => {
-    const suToken = await getSuToken(page.request);
+    const suToken = loadTestData().adminToken;
     const suffix = `${Date.now()}-${testInfo.project.name}`;
     const email = `clasif-empty-${suffix}@test.local`;
     const playerId = await apiCreate(page.request, suToken, 'users', {
@@ -287,11 +272,10 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     });
     const compName = `Clasif Empty Comp ${suffix}`;
     const compId = await apiCreate(page.request, suToken, 'competitions', {
-      name: compName, type: 'league', active: true, pairs: [pairId], calendar_status: 'published',
+      name: compName, type: 'league', active: true, pairs: [pairId],
     });
 
-    await loginAs(page, email, 'testpass123456');
-    await page.goto('/');
+    await asPlayerOn(page, compId, email, 'testpass123456');
     await page.waitForLoadState('networkidle');
 
     // Reach the competition by clicking its home card, not goto(url).
@@ -310,7 +294,7 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
   });
 
   test('bug: competition with zero announcements still shows the Avisos tab with an empty state', async ({ page }, testInfo) => {
-    const suToken = await getSuToken(page.request);
+    const suToken = loadTestData().adminToken;
     const suffix = `${Date.now()}-${testInfo.project.name}`;
     const email = `avisos-empty-${suffix}@test.local`;
     const playerId = await apiCreate(page.request, suToken, 'users', {
@@ -326,11 +310,10 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     });
     const compName = `Avisos Empty Comp ${suffix}`;
     const compId = await apiCreate(page.request, suToken, 'competitions', {
-      name: compName, type: 'league', active: true, pairs: [pairId], calendar_status: 'published',
+      name: compName, type: 'league', active: true, pairs: [pairId],
     });
 
-    await loginAs(page, email, 'testpass123456');
-    await page.goto('/');
+    await asPlayerOn(page, compId, email, 'testpass123456');
     await page.waitForLoadState('networkidle');
 
     // Reach the competition by clicking its home card, not goto(url).
@@ -349,7 +332,7 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
   });
 
   test('feature: a pending (unconfirmed) result proposal counts in the Clasificación with a tooltip', async ({ page }, testInfo) => {
-    const suToken = await getSuToken(page.request);
+    const suToken = loadTestData().adminToken;
     const suffix = `${Date.now()}-${testInfo.project.name}`;
     const p1u1 = await apiCreate(page.request, suToken, 'users', {
       email: `prov-a1-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
@@ -372,7 +355,7 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     const pairBId = await apiCreate(page.request, suToken, 'pairs', { name: `Prov Pareja B ${suffix}`, player1: p2u1, player2: p2u2 });
     const compName = `Prov Comp ${suffix}`;
     const compId = await apiCreate(page.request, suToken, 'competitions', {
-      name: compName, type: 'league', active: true, pairs: [pairAId, pairBId], calendar_status: 'published',
+      name: compName, type: 'league', active: true, pairs: [pairAId, pairBId],
     });
     const matchId = await apiCreate(page.request, suToken, 'matches', {
       competition: compId, pair1: pairAId, pair2: pairBId, status: 'scheduled', round_number: 1,
@@ -382,8 +365,7 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
       content: '6-3 6-4', proposal_data: JSON.stringify({ scores: '6-3 6-4' }),
     });
 
-    await loginAs(page, `prov-a1-${suffix}@test.local`, 'testpass123456');
-    await page.goto('/');
+    await asPlayerOn(page, compId, `prov-a1-${suffix}@test.local`, 'testpass123456');
     await page.waitForLoadState('networkidle');
 
     // Reach the competition by clicking its home card, not goto(url). This
@@ -415,7 +397,6 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
 
   test('R-231: notifications dropdown shows entries when notifications exist', async ({ page }) => {
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     const bell = page.locator('button[aria-label^="notificaciones"]:visible');
@@ -431,7 +412,7 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
 
   test('R-231: admin disputes page shows dispute rows when disputes exist', async ({ page }) => {
     const data = loadTestData();
-    const suToken = await getSuToken(page.request);
+    const suToken = loadTestData().adminToken;
 
     const compId = await apiCreate(page.request, suToken, 'competitions', {
       name: 'R231 Disputes', type: 'league', active: true,
@@ -444,7 +425,9 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     });
 
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto('/admin/disputes');
+    // Admins land on /admin/competitions; its dispute count links to the list.
+    await page.locator('a[href="/admin/disputes"]').click();
+    await page.waitForURL('**/admin/disputes');
     await page.waitForLoadState('networkidle');
 
     // /admin/disputes renders each item via the shared healthItemRow partial
@@ -471,7 +454,7 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     // T6 brings the "Quitar" text button back → this fails. "Penalizar" renders as
     // a distinct control. (Asserted on a seeded competition that renders pairs.)
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto('/admin/competitions');
+    await expect(page, 'admins land on the competitions list').toHaveURL(/\/admin\/competitions$/);
     await page.waitForLoadState('domcontentloaded');
     await page.locator('a[href^="/admin/competitions/"]').first().click();
     await page.waitForLoadState('networkidle');
@@ -495,7 +478,7 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
   });
 
   test('E: leveled league shows Revancha badge and admin shortfall notice', async ({ page }) => {
-    const suToken = await getSuToken(page.request);
+    const suToken = loadTestData().adminToken;
     const suffix = `e-shortfall-${Date.now()}`;
 
     // A third pair beyond the shared data.pair1Id/pair2Id, so a 3-pair,
@@ -529,13 +512,13 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     });
 
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto('/admin/competitions');
+    await expect(page, 'admins land on the competitions list').toHaveURL(/\/admin\/competitions$/);
     await page.waitForLoadState('domcontentloaded');
     // Reached by clicking the competition's own card, not goto(url).
     await page.getByRole('link', { name: compName }).first().click();
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('Revancha').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Revancha').locator('visible=true').first()).toBeVisible({ timeout: 5000 });
     const notice = page.getByTestId('leveled-shortfall-notice');
     await expect(notice).toBeVisible({ timeout: 5000 });
     await expect(notice).toContainText('quedará con 0 partidos en vez de 1');
@@ -559,7 +542,6 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
 
     // Check player home (has dates in next match, proposed dates, etc.)
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     let bodyText = await page.evaluate(() => document.body.innerText);
@@ -569,48 +551,31 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
       expect(match, `ISO date leak on player home: "${match?.[0]}"`).toBeNull();
     }
 
-    // Navigate to a competition and check dates there
-    const compLink = page.locator('a[href^="/competition/"]').first();
-    if (await compLink.count() > 0) {
-      await compLink.click();
-      await page.waitForLoadState('networkidle');
+    // Enter the seeded competition (no mandatory document, so no gate) and check dates there
+    const compLink = page.locator(`a[href="/competition/${loadTestData().competitionId}"]`).first();
+    await expect(compLink).toBeVisible();
+    await compLink.click();
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { name: 'Documentos obligatorios' })).toHaveCount(0);
 
-      // Accept docs gate if present
-      const docsGate = page.getByRole('heading', { name: 'Documentos obligatorios' });
-      if (await docsGate.isVisible().catch(() => false)) {
-        const acceptBtns = page.locator('button:has-text("He leído")');
-        const btnCount = await acceptBtns.count();
-        for (let i = 0; i < btnCount; i++) {
-          await acceptBtns.nth(i).click();
-          await page.waitForTimeout(300);
-        }
-        const confirmBtn = page.locator('button:has-text("Confirmar")');
-        if (await confirmBtn.isVisible().catch(() => false)) {
-          await confirmBtn.click();
-          await page.waitForLoadState('networkidle');
-        }
-      }
-
-      bodyText = await page.evaluate(() => document.body.innerText);
-      for (const pattern of isoLeaks) {
-        const match = bodyText.match(pattern);
-        expect(match, `ISO date leak on competition page: "${match?.[0]}"`).toBeNull();
-      }
+    bodyText = await page.evaluate(() => document.body.innerText);
+    for (const pattern of isoLeaks) {
+      const match = bodyText.match(pattern);
+      expect(match, `ISO date leak on competition page: "${match?.[0]}"`).toBeNull();
     }
 
     // Check admin competition detail (has round dates, match dates)
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto('/admin/competitions');
+    await expect(page, 'admins land on the competitions list').toHaveURL(/\/admin\/competitions$/);
     await page.waitForLoadState('networkidle');
-    const adminComp = page.locator('a[href^="/admin/competitions/"]').first();
-    if (await adminComp.count() > 0) {
-      await adminComp.click();
-      await page.waitForLoadState('networkidle');
-      bodyText = await page.evaluate(() => document.body.innerText);
-      for (const pattern of isoLeaks) {
-        const match = bodyText.match(pattern);
-        expect(match, `ISO date leak on admin detail: "${match?.[0]}"`).toBeNull();
-      }
+    const adminComp = page.locator(`a[href="/admin/competitions/${loadTestData().competitionId}"]`).first();
+    await expect(adminComp).toBeVisible();
+    await adminComp.click();
+    await page.waitForLoadState('networkidle');
+    bodyText = await page.evaluate(() => document.body.innerText);
+    for (const pattern of isoLeaks) {
+      const match = bodyText.match(pattern);
+      expect(match, `ISO date leak on admin detail: "${match?.[0]}"`).toBeNull();
     }
   });
 
@@ -618,30 +583,25 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     const matchId = scratchMatchId('admin-notif', testInfo.project.name);
 
     // Set date+club via superuser API so score submission is enabled
-    const suAuth = await page.request.post('/api/collections/_superusers/auth-with-password', {
-      data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-    });
-    const suToken = (await suAuth.json()).token;
-    await page.request.patch(`/api/collections/matches/records/${matchId}`, {
-      headers: { Authorization: suToken },
-      data: { date: '2025-03-15', club: 'Padel 360' },
-    });
+    await suPatch(page.request, loadTestData().adminToken, `/api/collections/matches/records/${matchId}`, { date: '2025-03-15', club: 'Padel 360' });
 
     // Player1 submits a score
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.goto(`/match/${matchId}`);
+    await openMatchFromHome(page, matchId);
     await page.waitForLoadState('networkidle');
     await submitScore(page, '6-3 6-4');
 
     // Player3 confirms (on pair3, opposite team — admin is not a participant)
     await loginAs(page, PLAYER3_EMAIL, PLAYER3_PASSWORD);
-    await page.goto(`/match/${matchId}`);
+    // pair3 is outside the competition (global-setup), so player3 has no
+    // competition card; they reach the match from the proposal notification.
+    await page.locator('button[aria-label^="notificaciones"]:visible').click();
+    await clickAndWaitForHxRedirect(page, page.locator(`a[href="/match/${matchId}"]:visible`).first(), `/match/${matchId}`);
     await page.waitForLoadState('networkidle');
     await confirmScore(page);
 
     // Admin clicks the notification bell and sees the match-progress entry
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     // Click the bell dropdown to load notifications
@@ -659,10 +619,7 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
   test('R-175: mode-driven home — admin GET / redirects to the admin dashboard, not player content; player view shows the opposite', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 
-    // Ensure admin view mode
-    await page.goto('/view/admin');
-    await page.waitForLoadState('networkidle');
-    await page.goto('/');
+    // A fresh context has no view_as cookie, so the admin is in the admin view.
     await page.waitForLoadState('networkidle');
 
     // Admin GET / redirects to /admin/competitions, the single admin landing
@@ -676,9 +633,7 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     // Flip to player view via the switcher
     await switchView(page, 'player');
 
-    // Now on home in player view
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    // Switching to the player view from an admin page lands on home (view.go).
 
     // Player view must stay on / (no redirect) and show no admin content.
     await expect(page).toHaveURL(/\/$/);
@@ -695,7 +650,6 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     // Navigate to the pair page from standings — click affordance, not goto(url).
     const data = loadTestData();
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await page.goto('/');
     await page.waitForLoadState('networkidle');
 
     // Enter the seeded competition
@@ -704,20 +658,8 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     await compLink.click();
     await page.waitForLoadState('domcontentloaded');
 
-    // Handle mandatory docs gate if present
-    const docsGate = page.getByRole('heading', { name: 'Documentos obligatorios' });
-    if (await docsGate.isVisible().catch(() => false)) {
-      const acceptBtns = page.locator('button:has-text("He leído")');
-      for (let i = 0; i < await acceptBtns.count(); i++) {
-        await acceptBtns.nth(i).click();
-        await page.waitForTimeout(200);
-      }
-      const confirmBtn = page.locator('button:has-text("Confirmar")');
-      if (await confirmBtn.isVisible().catch(() => false)) {
-        await confirmBtn.click();
-        await page.waitForLoadState('networkidle');
-      }
-    }
+    // The seeded competition has no mandatory document, so no gate.
+    await expect(page.getByRole('heading', { name: 'Documentos obligatorios' })).toHaveCount(0);
 
     // Click Clasificación tab to reveal pair links
     const standingsTab = page.locator('input[aria-label^="Clasificación"]');
@@ -748,7 +690,7 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
 
   test('R-209: pairs create form disables selected player in sibling dropdown', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto('/admin/pairs');
+    await openAdminPage(page, '/admin/pairs');
     await page.waitForLoadState('networkidle');
 
     await page.evaluate(() => {
@@ -769,28 +711,6 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     expect(disabled, 'selected player1 should be disabled in player2 dropdown').not.toBeNull();
   });
 });
-
-// Cached across calls in this file: PocketBase's default rate limit is
-// 2 auth requests per 3 seconds (label "*:auth", core/settings_model.go),
-// and this file's tests mint a superuser token back-to-back in the same
-// worker — re-authenticating every test tripped that limit and returned a
-// 429 with no token, which getSuToken swallowed (no resp.ok() check),
-// silently downgrading the next apiCreate to an anonymous 403. A superuser
-// token's default TTL is hours, so minting it once per file and reusing it
-// is correct, not just a workaround for the rate limit.
-let cachedSuToken: string | null = null;
-
-async function getSuToken(request: APIRequestContext): Promise<string> {
-  if (cachedSuToken) return cachedSuToken;
-  const resp = await request.post('/api/collections/_superusers/auth-with-password', {
-    data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-  });
-  if (!resp.ok()) throw new Error(`getSuToken failed: ${resp.status()} ${await resp.text()}`);
-  const body = await resp.json();
-  const token: string = body.token;
-  cachedSuToken = token;
-  return token;
-}
 
 async function apiCreate(request: APIRequestContext, token: string, collection: string, data: Record<string, any>): Promise<string> {
   return apiCreateRecordBase(request, token, collection, data);

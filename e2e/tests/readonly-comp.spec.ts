@@ -1,5 +1,5 @@
 import { test, expect } from '../overflow-guard';
-import { loginAs, loadTestData, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
+import { loginAs, loadTestData, suPatch, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 test.describe('R-172: finalized competition is read-only for players', { tag: '@competitions' }, () => {
   test('player cannot see submit/propose controls on finalized comp match', async ({ page }) => {
@@ -8,14 +8,7 @@ test.describe('R-172: finalized competition is read-only for players', { tag: '@
     const matchId = data.matchIds[0];
 
     // Finalize the competition via API
-    const resp = await page.request.patch(
-      `/api/collections/competitions/records/${compId}`,
-      {
-        headers: { Authorization: data.adminToken },
-        data: { finalized: true },
-      },
-    );
-    expect(resp.ok()).toBeTruthy();
+    await suPatch(page.request, data.adminToken, `/api/collections/competitions/records/${compId}`, { finalized: true });
 
     try {
       // Login as player and visit match
@@ -38,13 +31,7 @@ test.describe('R-172: finalized competition is read-only for players', { tag: '@
       await expect(page.getByText('Corrección de administrador')).toBeVisible();
     } finally {
       // Un-finalize to avoid breaking other tests
-      await page.request.patch(
-        `/api/collections/competitions/records/${compId}`,
-        {
-          headers: { Authorization: data.adminToken },
-          data: { finalized: false },
-        },
-      );
+      await suPatch(page.request, data.adminToken, `/api/collections/competitions/records/${compId}`, { finalized: false });
     }
   });
 });

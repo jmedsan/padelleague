@@ -1,6 +1,6 @@
 import { Page, expect, APIRequestContext, Locator } from '@playwright/test';
 import { ExpectedRow, PairId } from './season-helpers';
-import { loginAs, isMobile, expectingHxRedirect, waitForHxRedirect, clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect } from './helpers';
+import { loginAs, isMobile, suGet, suPatch, apiGetRecord, apiListRecords, expectingHxRedirect, waitForHxRedirect, clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect } from './helpers';
 
 // Re-exported for backward compatibility: the HTMX redirect helpers live in
 // helpers.ts (a dependency-free file overflow-guard.ts and helpers.ts's own
@@ -56,21 +56,17 @@ export async function createPlayer(page: Page, email: string, displayName: strin
   if (createResp.status() >= 300) {
     throw new Error(`Pre-create failed: ${createResp.status()} for ${email}`);
   }
-  await expect(page.getByText('Usuario creado').first()).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText('Usuario creado').locator('visible=true').first()).toBeVisible({ timeout: 5000 });
 }
 
 export async function createCompetition(
   page: Page,
   name: string,
   type: 'league' | 'playoff',
-  options?: { playTwice?: boolean; suToken?: string },
+  options?: { playTwice?: boolean },
 ): Promise<string> {
-  const btn = page.getByRole('button', { name: /crear competición/i }).first();
-  if (!await btn.isVisible().catch(() => false)) {
-    await page.goto('/admin/competitions');
-    await page.waitForLoadState('domcontentloaded');
-  }
-  await btn.click();
+  // Callers are on the Competiciones page (navTo) when they call this.
+  await page.getByRole('button', { name: /crear competición/i }).first().click();
   const dialog = page.locator('dialog#modal-create');
   await dialog.locator('input[name="name"]').fill(name);
   await dialog.locator('select[name="type"]').selectOption(type);
@@ -80,17 +76,9 @@ export async function createCompetition(
   await dialog.locator('input[name="active"]').check();
   // admin_competitions.go's create handler redirects to /admin/competitions/{id}.
   await clickAndWaitForHxRedirect(page, dialog.locator('button[type="submit"]'), /^\/admin\/competitions\/[^/]+$/);
-  const match = page.url().match(/\/admin\/competitions\/([^/]+)/);
-  if (match) return match[1];
-  const headers: Record<string, string> = {};
-  if (options?.suToken) headers['Authorization'] = options.suToken;
-  const resp = await page.request.get(
-    `/api/collections/competitions/records?filter=name='${name}'&perPage=1`,
-    { headers },
-  );
-  const data = await resp.json();
-  const id = data.items?.[0]?.id;
-  if (!id) throw new Error(`Competition not found after create: ${name}`);
+  // The redirect wait above has landed on /admin/competitions/{id}.
+  const id = new URL(page.url()).pathname.split('/')[3];
+  if (!id) throw new Error(`Competition id missing from ${page.url()} after creating ${name}`);
   return id;
 }
 
@@ -110,11 +98,7 @@ export async function createPair(
   await dialog.locator('select[name="player2"]').selectOption(player2Id);
   // admin_pairs.go's create handler redirects to /admin/pairs.
   await clickAndWaitForHxRedirect(page, dialog.locator('button[type="submit"]'), '/admin/pairs');
-  const resp = await page.request.get(`/api/collections/pairs/records?filter=name='${name}'`, {
-    headers: { Authorization: suToken },
-  });
-  const data = await resp.json();
-  const id = data.items?.[0]?.id;
+  const id = (await apiListRecords(page.request, suToken, 'pairs', `name='${name}'`))[0]?.id;
   if (!id) throw new Error(`Failed to find created pair: ${name}`);
   return id;
 }
@@ -190,7 +174,8 @@ export async function markAllPairsPaid(page: Page): Promise<void> {
   await page.reload();
   await page.waitForLoadState('domcontentloaded');
   const btn = page.getByRole('button', { name: /marcar todos como pagado/i });
-  if (await btn.count() === 0) return;
+  // Callers have just added unpaid pairs, so the control must be there.
+  await expect(btn).toBeVisible();
 
   // The button carries hx-confirm, intercepted by static/js/confirm.js's
   // custom #confirm-modal — the request only fires once #confirm-ok is
@@ -278,6 +263,20 @@ export async function attachDocumentToCompetition(
     form.locator('button:has-text("Adjuntar")'),
     compId ? `/admin/competitions/${compId}` : /^\/admin\/competitions\/[^/]+$/,
   );
+}
+
+// ackDocsOnce clears a mandatory-document gate the first time a player
+// meets it, as a real player does: open the competition, read the documents,
+// accept. `acked` records who already did, so the gate is expected exactly
+// once per player (handlers/respond.go checkDocGate blocks the match page and
+// every thread action until then).
+export async function ackDocsOnce(page: Page, email: string, compId: string, acked: Set<string>): Promise<void> {
+  if (acked.has(email)) return;
+  // Callers have just logged in, so the player is on home: enter by its card.
+  await page.locator(`a[href^="/competition/${compId}"]`).first().click();
+  await page.waitForURL(`**/competition/${compId}**`);
+  await acceptDocsGate(page);
+  acked.add(email);
 }
 
 export async function acceptDocsGate(page: Page): Promise<void> {
@@ -397,12 +396,7 @@ export async function lookupPlayerId(
   suToken: string,
   email: string,
 ): Promise<string> {
-  const resp = await request.get(
-    `/api/collections/users/records?filter=email='${email}'`,
-    { headers: { Authorization: suToken } },
-  );
-  const data = await resp.json();
-  const id = data.items?.[0]?.id;
+  const id = (await apiListRecords(request, suToken, 'users', `email='${email}'`))[0]?.id;
   if (!id) throw new Error(`Player not found: ${email}`);
   return id;
 }
@@ -413,11 +407,7 @@ export async function getRoundMatches(
   compId: string,
   round: number,
 ): Promise<any[]> {
-  const resp = await request.get(
-    `/api/collections/matches/records?filter=competition='${compId}'&sort=created&perPage=50`,
-    { headers: { Authorization: suToken } },
-  );
-  const items = (await resp.json()).items;
+  const { items } = await suGet(request, suToken, `/api/collections/matches/records?filter=competition='${compId}'&sort=created&perPage=50`);
   return items.filter((m: any) => Number(m.round_number) === round);
 }
 
@@ -426,11 +416,7 @@ export async function getMatchById(
   suToken: string,
   id: string,
 ): Promise<any> {
-  const resp = await request.get(
-    `/api/collections/matches/records/${id}`,
-    { headers: { Authorization: suToken } },
-  );
-  return await resp.json();
+  return apiGetRecord(request, suToken, 'matches', id);
 }
 
 export async function setMatchDateAndClub(
@@ -440,13 +426,7 @@ export async function setMatchDateAndClub(
   date: string,
   club: string,
 ): Promise<void> {
-  await request.patch(
-    `/api/collections/matches/records/${matchId}`,
-    {
-      headers: { Authorization: suToken },
-      data: { date, club },
-    },
-  );
+  await suPatch(request, suToken, `/api/collections/matches/records/${matchId}`, { date, club });
 }
 
 // acceptScheduleProposal drives the real propose+accept flow through the
@@ -458,7 +438,8 @@ export async function setMatchDateAndClub(
 // (handlers/public.go:applyProposalToNextMatch, via matches.status =
 // "scheduled" set by the accept handler), which is what makes the match
 // count as "upcoming" (home.html's Próximos partidos) instead of an
-// "organize" action needing a date proposed.
+// "organize" action needing a date proposed. Both players first clear the
+// competition's mandatory-document gate if they haven't (ackDocsOnce).
 //
 // Takes `page` (not a bare APIRequestContext, the prior signature) because
 // it needs two real logins — one per participant — which only a Page can
@@ -478,14 +459,9 @@ export async function acceptScheduleProposal(
   date: string,
   time: string,
   venueName: string,
+  docsAcked: Set<string>,
 ): Promise<void> {
-  const matchResp = await page.request.get(`/api/collections/matches/records/${matchId}`, {
-    headers: { Authorization: suToken },
-  });
-  if (!matchResp.ok()) {
-    throw new Error(`acceptScheduleProposal: match lookup failed: ${matchResp.status()} ${await matchResp.text()}`);
-  }
-  const match = await matchResp.json();
+  const match = await apiGetRecord(page.request, suToken, 'matches', matchId);
   const authorPairID = await pairIDForPlayer(page.request, suToken, authorUserId);
   const accepterPairID = match.pair1 === authorPairID ? match.pair2 : match.pair1;
   const accepterUserID = await firstPlayerOfPair(page.request, suToken, accepterPairID);
@@ -494,7 +470,8 @@ export async function acceptScheduleProposal(
   const accepterEmail = await emailForUser(page.request, suToken, accepterUserID);
 
   await loginAs(page, authorEmail, TOUR_PLAYER_PASSWORD);
-  await clearDocGateIfPresent(page, matchId);
+  await ackDocsOnce(page, authorEmail, match.competition, docsAcked);
+  // raw-request: a thread form POST (cookie auth); status, body and redirect are checked below.
   const proposeResp = await page.request.post(`/match/${matchId}/thread/proposal`, {
     form: { date, time, venue_id: '', venue_text: venueName },
     maxRedirects: 0,
@@ -505,24 +482,16 @@ export async function acceptScheduleProposal(
     throw new Error(`acceptScheduleProposal: propose failed for ${authorEmail}: ${proposeResp.status()} ${proposeBody} (redirect=${proposeRedirect})`);
   }
 
-  // page.request only carries the pb_auth cookie, which the app's
-  // CookieAuth middleware deliberately does not copy to an Authorization
-  // header for /api/ paths (see middleware/auth.go) — so a raw REST call
-  // here needs an explicit Authorization header. The superuser token
-  // already in scope is sufficient for this read-only lookup.
-  const filter = `match='${matchId}' && type='scheduling_proposal' && proposal_status='pending'`;
-  const listResp = await page.request.get(
-    `/api/collections/match_messages/records?filter=${encodeURIComponent(filter)}&sort=-created&perPage=1`,
-    { headers: { Authorization: suToken } },
-  );
-  const listBody = await listResp.json();
-  const proposalId = listBody.items?.[0]?.id;
-  if (!proposalId) {
-    throw new Error(`acceptScheduleProposal: no pending proposal found for match ${matchId} after posting (status=${listResp.status()}, body=${JSON.stringify(listBody)})`);
+  const pending = await apiListRecords(page.request, suToken, 'match_messages',
+    `match='${matchId}' && type='scheduling_proposal' && proposal_status='pending'`);
+  if (pending.length !== 1) {
+    throw new Error(`acceptScheduleProposal: expected 1 pending proposal for match ${matchId} after posting, got ${pending.length}`);
   }
+  const proposalId = pending[0].id;
 
   await loginAs(page, accepterEmail, TOUR_PLAYER_PASSWORD);
-  await clearDocGateIfPresent(page, matchId);
+  await ackDocsOnce(page, accepterEmail, match.competition, docsAcked);
+  // raw-request: a thread form POST (cookie auth); status and body are checked below.
   const acceptResp = await page.request.post(
     `/match/${matchId}/thread/proposal/${proposalId}/respond`,
     { form: { action: 'accept' } },
@@ -540,44 +509,19 @@ export async function acceptScheduleProposal(
 const TOUR_PLAYER_PASSWORD = 'TestPass123456';
 
 async function pairIDForPlayer(request: APIRequestContext, suToken: string, userID: string): Promise<string> {
-  const resp = await request.get(
-    `/api/collections/pairs/records?filter=${encodeURIComponent(`player1='${userID}' || player2='${userID}'`)}&perPage=1`,
-    { headers: { Authorization: suToken } },
-  );
-  const body = await resp.json();
-  const id = body.items?.[0]?.id;
+  const id = (await apiListRecords(request, suToken, 'pairs', `player1='${userID}' || player2='${userID}'`))[0]?.id;
   if (!id) throw new Error(`pairIDForPlayer: no pair found for user ${userID}`);
   return id;
 }
 
 async function firstPlayerOfPair(request: APIRequestContext, suToken: string, pairID: string): Promise<string> {
-  const resp = await request.get(`/api/collections/pairs/records/${pairID}`, {
-    headers: { Authorization: suToken },
-  });
-  const body = await resp.json();
+  const body = await apiGetRecord(request, suToken, 'pairs', pairID);
   if (!body.player1) throw new Error(`firstPlayerOfPair: pair ${pairID} has no player1`);
   return body.player1;
 }
 
 async function emailForUser(request: APIRequestContext, suToken: string, userID: string): Promise<string> {
-  const resp = await request.get(`/api/collections/users/records/${userID}`, {
-    headers: { Authorization: suToken },
-  });
-  const body = await resp.json();
+  const body = await apiGetRecord(request, suToken, 'users', userID);
   if (!body.email) throw new Error(`emailForUser: user ${userID} has no email`);
   return body.email;
-}
-
-// clearDocGateIfPresent navigates to the match page and accepts any pending
-// mandatory-document gate for the current session — a raw form POST to a
-// thread endpoint doesn't trigger the gate's own redirect handling the way
-// a real page navigation + submit does (see gotoMatchViaCompetition in the
-// tour specs), so callers driving handler endpoints directly must clear it
-// first or the POST silently redirects instead of performing the action.
-async function clearDocGateIfPresent(page: Page, matchId: string): Promise<void> {
-  await page.goto(`/match/${matchId}`);
-  await page.waitForLoadState('domcontentloaded');
-  if (await page.getByRole('heading', { name: 'Documentos obligatorios' }).isVisible().catch(() => false)) {
-    await acceptDocsGate(page);
-  }
 }

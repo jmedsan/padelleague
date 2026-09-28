@@ -11,13 +11,21 @@ export const PLAYER2_EMAIL = 'player2@test.com';
 export const PLAYER2_PASSWORD = 'testpass123456';
 export const PLAYER3_EMAIL = 'player3@test.com';
 export const PLAYER3_PASSWORD = 'testpass123456';
+export const PLAYER5_EMAIL = 'player5@test.com';
+export const PLAYER5_PASSWORD = 'testpass123456';
 
 export interface TestData {
   adminToken: string;
   player1: { id: string; email: string };
   player2: { id: string; email: string };
+  player5: { id: string; email: string };
+  player6: { id: string; email: string };
+  player7: { id: string; email: string };
   pair1Id: string;
   pair2Id: string;
+  pair3Id: string;
+  adminPairId: string;
+  adminMatchId: string;
   competitionId: string;
   matchIds: string[];
   venueId: string;
@@ -49,9 +57,8 @@ const SCRATCH_SLOTS: Record<string, number> = {
   'submit-score': 0,
   'propose-schedule': 1,
   'admin-notif': 2,
-  'mobile-lifecycle': 3,
-  'lifecycle-ui': 4,
-  'invalid-nonlast-set': 5,
+  'lifecycle-ui': 3,
+  'invalid-nonlast-set': 4,
 };
 
 export function scratchMatchId(purpose: keyof typeof SCRATCH_SLOTS | string, projectName: string): string {
@@ -73,6 +80,7 @@ export async function loginAs(page: Page, email: string, password: string) {
     return;
   }
   for (let attempt = 0; attempt < 5; attempt++) {
+    // raw-request: a 429 is retried below, which apiRequest would throw on.
     const resp = await page.request.post('/api/collections/users/auth-with-password', {
       data: { identity: email, password },
     });
@@ -266,6 +274,17 @@ export const expectingHxRedirect = new WeakMap<Page, boolean>();
 //     a hashchange listener BEFORE act() runs instead, so it captures the
 //     hash from the event itself (event.newURL) rather than the URL bar
 //     after the app's own listener has already run.
+//   - waitForLoadState('load') after the marker disappears is too early.
+//     The marker read fails as soon as the old document's context is
+//     destroyed, which Playwright reports before the new document commits,
+//     and until that commit the frame still carries the OLD document's
+//     'load' state, so waitForLoadState returns at once. The caller's next
+//     page.goto then races the reload still in flight ("Navigation …
+//     is interrupted", season-simulation's createPair after
+//     addPairToCompetition). A standalone same-URL reload loop showed it
+//     150/150 times, with 45 interrupted gotos. The waiter for the next
+//     page 'load' event is registered before act() instead; the old
+//     document's load already fired, so only the new one can satisfy it.
 // Exported directly (not just via the click wrappers below) for action sites
 // that trigger the htmx request some way other than a plain click — a file
 // input's change event, a select's change event, etc. — where the caller
@@ -285,6 +304,11 @@ async function waitForHxRedirectTarget(page: Page, expectedTarget: string | RegE
       });
     });
     const beforeHash = new URL(page.url()).hash;
+    // Only awaited for a real document load, where a timeout still throws; a
+    // fragment-only change fires no 'load', so the .catch keeps that unawaited
+    // rejection from being reported as unhandled.
+    const loaded = page.waitForEvent('load', { timeout: 15000 });
+    loaded.catch(() => {});
     const [hxResponse] = await Promise.all([
       page.waitForResponse(
         r => r.request().method() !== 'GET' && r.frame() === page.mainFrame() && r.request().headers()['hx-request'] === 'true',
@@ -307,8 +331,9 @@ async function waitForHxRedirectTarget(page: Page, expectedTarget: string | RegE
     const markerSurvived = async () => {
       try {
         return await page.evaluate(() => (window as unknown as { __hxNav?: boolean }).__hxNav === true);
-      } catch {
-        return false;
+      } catch (e) {
+        if (e instanceof Error && e.message.includes('Execution context was destroyed')) return false;
+        throw e;
       }
     };
     if (targetUrl.hash !== beforeHash && await markerSurvived()) {
@@ -317,8 +342,7 @@ async function waitForHxRedirectTarget(page: Page, expectedTarget: string | RegE
         { timeout: 15000 },
       ).toBe(targetUrl.hash);
     } else {
-      await expect.poll(markerSurvived, { timeout: 15000 }).toBe(false);
-      await page.waitForLoadState('load');
+      await loaded;
     }
   } finally {
     expectingHxRedirect.set(page, false);
@@ -424,6 +448,7 @@ async function apiRequest(
   token: string,
   data?: Record<string, unknown>,
 ): Promise<any> {
+  // raw-request: the one checked wrapper every su*/api* helper goes through.
   const resp = await request[method](path, {
     headers: { Authorization: token, 'Content-Type': 'application/json' },
     ...(data !== undefined ? { data } : {}),
@@ -468,4 +493,49 @@ export async function apiListRecords(request: APIRequestContext, token: string, 
 
 export async function apiDeleteRecord(request: APIRequestContext, token: string, collection: string, id: string): Promise<void> {
   await suDelete(request, token, `/api/collections/${collection}/records/${id}`);
+}
+
+// asPlayerOn publishes a test-created competition's calendar, then logs the
+// player in. A player sees nothing of a draft calendar, so a spec that builds
+// its own competition and forgets to publish it asserts against an empty page
+// (census #3, #6, #30). Every such test goes through here, and
+// scripts/check-e2e-player-setup.sh fails `make invariants` when one doesn't.
+// Publishing is idempotent, so a later player login in the same test can use
+// plain loginAs.
+export async function asPlayerOn(page: Page, compId: string, email: string, password: string): Promise<void> {
+  await suPatch(page.request, loadTestData().adminToken, `/api/collections/competitions/records/${compId}`, {
+    calendar_status: 'published',
+  });
+  await loginAs(page, email, password);
+}
+
+// switchView flips the admin/player view through the navbar switcher: the
+// dropdown on mobile, the navbar menu on desktop.
+export async function switchView(page: Page, target: 'admin' | 'player'): Promise<void> {
+  if (isMobile(page)) {
+    await page.locator('[aria-label^="cambiar vista"]').click();
+    await page.locator(`.dropdown-content a[href="/view/${target}"]`).click();
+  } else {
+    const switcher = page.locator(`.menu-horizontal details:has(a[href="/view/${target}"])`);
+    await switcher.locator('summary').click();
+    await switcher.locator(`a[href="/view/${target}"]`).click();
+  }
+  await page.waitForLoadState('networkidle');
+}
+
+// openMatchFromHome reaches a match as a player does: home through the navbar,
+// its competition card, then the match row (opening its round if collapsed).
+export async function openMatchFromHome(page: Page, matchId: string): Promise<void> {
+  const match = await apiGetRecord(page.request, loadTestData().adminToken, 'matches', matchId);
+  if (new URL(page.url()).pathname !== '/') {
+    await page.locator('.navbar a[href="/"]').first().click();
+    await page.waitForURL(/\/$/);
+  }
+  await page.locator(`a[href^="/competition/${match.competition}"]`).first().click();
+  await page.waitForURL(`**/competition/${match.competition}**`);
+  const link = page.locator(`a[href="/match/${matchId}"]`).first();
+  const round = page.locator('.collapse', { has: link }).locator('> input');
+  if (await round.count()) await round.check();
+  await link.click();
+  await page.waitForURL(`**/match/${matchId}`);
 }

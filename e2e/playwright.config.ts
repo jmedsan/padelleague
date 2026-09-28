@@ -17,6 +17,7 @@ const MOBILE_VIEWPORT_SPECS = [
   'navbar-360.spec.ts',
   'responsive.spec.ts',
   'presentation-guards.spec.ts',
+  'screens.spec.ts',
   'tour-guided.spec.ts',
   'tour-reference.spec.ts',
   'route-census.spec.ts',

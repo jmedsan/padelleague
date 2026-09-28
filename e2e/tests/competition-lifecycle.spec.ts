@@ -1,11 +1,13 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import {
-  loginAs, loadTestData, isMobile,
+  loginAs, asPlayerOn, loadTestData, isMobile, apiCreateRecord, apiDeleteRecord, apiListRecords,
   suPost as suPostBase, suPatch as suPatchBase,
   ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD,
 } from '../helpers';
-import { clickAndWaitForHxRedirect } from '../tour-helpers';
+import { clickAndWaitForHxRedirect, expectSelected } from '../tour-helpers';
 
 function suToken(): string {
   return loadTestData().adminToken;
@@ -33,7 +35,7 @@ test.describe('competition lifecycle', { tag: '@competitions' }, () => {
     await page.goto('/admin/competitions');
     await page.waitForLoadState('domcontentloaded');
     await expect(page.getByRole('heading', { name: 'Competiciones', exact: true })).toBeVisible();
-    await expect(page.getByText('Liga E2E Test').first()).toBeVisible();
+    await expect(page.getByText('Liga E2E Test').locator('visible=true').first()).toBeVisible();
   });
 
   test('admin can create a new competition', async ({ page, }, testInfo) => {
@@ -81,17 +83,16 @@ test.describe('competition lifecycle', { tag: '@competitions' }, () => {
     });
     await suPatch(request, `/api/collections/competitions/records/${comp.id}`, {
       pairs: [pairAlpha.id, pairBeta.id],
-      calendar_status: 'published',
     });
     await suPost(request, '/api/collections/matches/records', {
       competition: comp.id, pair1: pairAlpha.id, pair2: pairBeta.id,
       status: 'final', round_number: 1, scores: '6-3 6-4', winner: pairAlpha.id,
     });
 
-    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await asPlayerOn(page, comp.id, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/competition/${comp.id}`);
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.getByText(compName).first()).toBeVisible();
+    await expect(page.getByText(compName).locator('visible=true').first()).toBeVisible();
     await page.locator('input[aria-label^="Clasificación"]').click();
     // standingsTable.html renders two <table>s (a desktop table.table-zebra
     // and a mobile table.table-sm), each hidden at the other breakpoint via
@@ -116,7 +117,7 @@ test.describe('competition lifecycle', { tag: '@competitions' }, () => {
     await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('input[aria-label^="Jornadas"]')).toBeVisible();
     await page.locator('input[aria-label^="Jornadas"]').click();
-    await expect(page.getByText(/Jornada \d/).first()).toBeVisible();
+    await expect(page.getByText(/Jornada \d/).locator('visible=true').first()).toBeVisible();
     // Default: every pair's matches are visible, including the player's own.
     const matchLinks = page.locator('a[href^="/match/"]');
     const count = await matchLinks.count();
@@ -126,8 +127,7 @@ test.describe('competition lifecycle', { tag: '@competitions' }, () => {
     // Team filter select, defaulting to "Todas las parejas".
     const filter = page.locator('select[name="pair"]');
     await expect(filter).toBeVisible();
-    await expect(filter).toHaveValue('');
-    await expect(filter.locator('option', { hasText: 'Todas las parejas' })).toHaveCount(1);
+    await expectSelected(filter, 'Todas las parejas');
   });
 
   test('admin can view competition detail', async ({ page }) => {
@@ -136,7 +136,7 @@ test.describe('competition lifecycle', { tag: '@competitions' }, () => {
     await page.waitForLoadState('domcontentloaded');
     await page.locator('a.card', { hasText: 'Liga E2E Test' }).first().click();
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.getByText('Liga E2E Test').first()).toBeVisible();
+    await expect(page.getByText('Liga E2E Test').locator('visible=true').first()).toBeVisible();
     const body = await page.textContent('body');
     expect(body).toContain('Pareja Alpha');
   });
@@ -166,7 +166,6 @@ test.describe('competition lifecycle', { tag: '@competitions' }, () => {
     });
     await suPatch(request, `/api/collections/competitions/records/${comp.id}`, {
       pairs: [pairMine.id, pairOther.id, pairThird.id],
-      calendar_status: 'published',
     });
     const matchMine = await suPost(request, '/api/collections/matches/records', {
       competition: comp.id, pair1: pairMine.id, pair2: pairThird.id,
@@ -177,7 +176,7 @@ test.describe('competition lifecycle', { tag: '@competitions' }, () => {
       status: 'pending', round_number: 2,
     });
 
-    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await asPlayerOn(page, comp.id, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     // PLAYER1_EMAIL is not on any of these pairs, so all three show as
     // "other" — filtering by pairOther should show only matchOther's link,
     // since matchMine involves pairMine and pairThird, not pairOther.
@@ -249,7 +248,6 @@ test.describe('competition lifecycle', { tag: '@competitions' }, () => {
     // A participant (p1 is on Pareja A) clicks the bell notification and
     // lands on the competition with the Jornadas tab showing the rounds.
     await loginAs(page, p1.email, 'TestPass123456');
-    await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
     const mobile = isMobile(page);
@@ -268,6 +266,79 @@ test.describe('competition lifecycle', { tag: '@competitions' }, () => {
     await expect(page).toHaveURL(new RegExp(`/competition/${comp.id}$`));
     await expect(page.locator('input[aria-label^="Jornadas"]')).toBeVisible();
     await page.locator('input[aria-label^="Jornadas"]').click();
-    await expect(page.getByText(/Jornada \d/).first()).toBeVisible();
+    await expect(page.getByText(/Jornada \d/).locator('visible=true').first()).toBeVisible();
+  });
+
+  // Census #16: each tab's empty state was fixed on its own, one commit per
+  // tab. This loops every tab panel in views/competition.html, so a new tab
+  // without a row here fails the test instead of shipping unchecked.
+  test('every competition tab shows its empty state, and its content when there is some', async ({ page }, testInfo) => {
+    const template = readFileSync(join(__dirname, '../../views/competition.html'), 'utf8');
+    const panels = [...template.matchAll(/data-tabpanel="([^"]+)"/g)].map(m => m[1]);
+    const suffix = `${Date.now()}-${testInfo.project.name}`;
+    const tabs: Record<string, { label: string; empty: string; filled: string }> = {
+      jornadas: { label: 'Jornadas', empty: 'No hay jornadas generadas', filled: `Tabs B ${suffix}` },
+      anuncios: { label: 'Avisos', empty: 'No hay avisos todavía', filled: `Aviso ${suffix}` },
+      documentos: { label: 'Documentos', empty: 'No hay documentos adjuntos', filled: `Reglamento ${suffix}` },
+      clasificacion: { label: 'Clasificación', empty: 'No hay datos de clasificación todavía', filled: `Tabs B ${suffix}` },
+    };
+    expect(panels.sort(), 'every tab panel in competition.html needs a row here').toEqual(Object.keys(tabs).sort());
+
+    const token = suToken();
+    const req = page.request;
+    const adminId = (await apiListRecords(req, token, 'users', `email = "${ADMIN_EMAIL}"`))[0].id;
+    const makePlayer = (tag: string) => apiCreateRecord(req, token, 'users', {
+      email: `tabs-${tag}-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: `Tabs ${tag} ${suffix}`, roles: ['player'], verified: true, gender: 'male',
+    });
+    const [a1, a2, b1, b2] = await Promise.all(['a1', 'a2', 'b1', 'b2'].map(makePlayer));
+    const pairA = await apiCreateRecord(req, token, 'pairs', { name: `Tabs A ${suffix}`, player1: a1, player2: a2 });
+    const pairB = await apiCreateRecord(req, token, 'pairs', { name: `Tabs B ${suffix}`, player1: b1, player2: b2 });
+    const makeComp = (name: string) => apiCreateRecord(req, token, 'competitions', {
+      name: `${name} ${suffix}`, type: 'league', active: true, pairs: [pairA, pairB], rounds: 1,
+    });
+    const emptyComp = await makeComp('Tabs Vacía');
+    const fullComp = await makeComp('Tabs Llena');
+    const matchId = await apiCreateRecord(req, token, 'matches', {
+      competition: fullComp, pair1: pairA, pair2: pairB, status: 'final',
+      round_number: 1, scores: '6-3 6-4', winner: pairA,
+    });
+    const docId = await apiCreateRecord(req, token, 'documents', {
+      title: `Reglamento ${suffix}`, url: 'https://example.com/reglamento',
+    });
+    await suPatch(req, `/api/collections/competitions/records/${fullComp}`, { documents: [docId] });
+    const announcementId = await apiCreateRecord(req, token, 'announcements', {
+      competition: fullComp, title: `Aviso ${suffix}`, body: 'Aviso de prueba', created_by: adminId,
+    });
+
+    try {
+      for (const [compId, filled] of [[emptyComp, false], [fullComp, true]] as const) {
+        await asPlayerOn(page, compId, `tabs-a1-${suffix}@test.local`, 'testpass123456');
+        const compName = filled ? `Tabs Llena ${suffix}` : `Tabs Vacía ${suffix}`;
+        await page.locator('a[href^="/competition/"]', { hasText: compName }).first().click();
+        await page.waitForURL(`**/competition/${compId}**`);
+        for (const panel of panels) {
+          const { label, empty, filled: content } = tabs[panel];
+          const tab = page.getByRole('tab', { name: label, exact: true });
+          await expect(tab, `${label} tab (${filled ? 'filled' : 'empty'})`).toBeVisible();
+          await tab.click();
+          const body = page.locator(`[data-tabpanel="${panel}"]`);
+          await expect(body).toBeVisible();
+          if (filled) {
+            await expect(body, `${label} shows its content`).toContainText(content);
+            await expect(body.getByText(empty)).toHaveCount(0);
+          } else {
+            await expect(body.getByText(empty), `${label} shows its empty state`).toBeVisible();
+          }
+        }
+      }
+    } finally {
+      await apiDeleteRecord(req, token, 'announcements', announcementId);
+      await apiDeleteRecord(req, token, 'matches', matchId);
+      for (const c of [emptyComp, fullComp]) await apiDeleteRecord(req, token, 'competitions', c);
+      await apiDeleteRecord(req, token, 'documents', docId);
+      for (const p of [pairA, pairB]) await apiDeleteRecord(req, token, 'pairs', p);
+      for (const u of [a1, a2, b1, b2]) await apiDeleteRecord(req, token, 'users', u);
+    }
   });
 });

@@ -1,7 +1,7 @@
-import type { Page, APIRequestContext } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
 import { test, expect, checkAll } from '../overflow-guard';
 import {
-  loginAs, isMobile, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, loadTestData,
+  loginAs, asPlayerOn, isMobile, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, loadTestData,
   apiCreateRecord as apiCreateRecordBase, apiGetRecord as apiGetRecordBase,
   apiListRecords as apiListRecordsBase, apiDeleteRecord as apiDeleteRecordBase, suPatch,
 } from '../helpers';
@@ -17,8 +17,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
   test.describe.configure({ retries: 0 });
 
   test('urgent task cards show on player home with warning badges', async ({ page }) => {
-    test.setTimeout(120000);
-    await getSuperuserToken(page);
+    suToken = loadTestData().adminToken;
     const data = loadTestData();
 
     const startDate = leagueDate(-14);
@@ -33,7 +32,6 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
       end_date: endDate,
       arrange_grace_days: 3,
       rounds: 1,
-      calendar_status: 'published',
     });
 
     await apiCreateRecord(page.request, 'matches', {
@@ -54,7 +52,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
       dispute_notes: 'Test dispute',
     });
 
-    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await asPlayerOn(page, compId, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto('/');
 
     const actions = page.locator('[data-testid="home-actions"]');
@@ -77,8 +75,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
   });
 
   test('walkover: request arbitration (no_show) → admin approves → final with penalty', { tag: '@smoke' }, async ({ page }, testInfo) => {
-    test.setTimeout(120000);
-    await getSuperuserToken(page);
+    suToken = loadTestData().adminToken;
     const data = loadTestData();
 
     const compId = await apiCreateRecord(page.request, 'competitions', {
@@ -89,7 +86,6 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
       walkover_score: '6-0 6-0',
       default_penalty: 5,
       rounds: 1,
-      calendar_status: 'published',
     });
 
     const matchId = await apiCreateRecord(page.request, 'matches', {
@@ -105,7 +101,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     });
 
     // Player requests arbitration (category no_show) via the real UI form.
-    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await asPlayerOn(page, compId, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${matchId}`);
     await page.getByTestId('arbitration-section').getByTestId('arbitration-request').click();
     const dialog = page.locator(`dialog#arbitration-modal-${matchId}`);
@@ -175,7 +171,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
   });
 
   test('the arbitration request lives in its own Arbitraje card, not in the Resultado card', async ({ page }) => {
-    await getSuperuserToken(page);
+    suToken = loadTestData().adminToken;
     const data = loadTestData();
     const compId = await apiCreateRecord(page.request, 'competitions', {
       name: 'Arbitraje Sección E2E',
@@ -183,7 +179,6 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
       active: true,
       pairs: [data.pair1Id, data.pair2Id],
       rounds: 1,
-      calendar_status: 'published',
     });
     const matchId = await apiCreateRecord(page.request, 'matches', {
       competition: compId,
@@ -196,7 +191,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     });
 
     try {
-      await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+      await asPlayerOn(page, compId, PLAYER1_EMAIL, PLAYER1_PASSWORD);
       await page.goto('/');
       await page.locator(`a[href="/match/${matchId}"]`).first().click();
       await page.waitForURL(`**/match/${matchId}`);
@@ -215,8 +210,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
   });
 
   test('arbitration (scheduling category) leaves match pending; admin closes it from the match page', async ({ page }) => {
-    test.setTimeout(60000);
-    await getSuperuserToken(page);
+    suToken = loadTestData().adminToken;
     const data = loadTestData();
 
     const compId = await apiCreateRecord(page.request, 'competitions', {
@@ -225,7 +219,6 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
       active: true,
       pairs: [data.pair1Id, data.pair2Id],
       rounds: 1,
-      calendar_status: 'published',
     });
     const matchId = await apiCreateRecord(page.request, 'matches', {
       competition: compId,
@@ -246,7 +239,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
 
     // scheduling/abandonment/other categories flag the match for admin review
     // without moving it to disputed, so pairs can keep negotiating.
-    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await asPlayerOn(page, compId, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/match/${matchId}`);
     await page.getByTestId('arbitration-section').getByTestId('arbitration-request').click();
     const dialog = page.locator(`dialog#arbitration-modal-${matchId}`);
@@ -265,8 +258,8 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     await expect(arbitrationPanel.getByRole('link', { name: 'WhatsApp' })).toBeVisible();
 
     // Admin closes the request from the same match page. The contact line is
-    // player-facing only — an admin viewing their own arbitration panel must
-    // not be told to contact "the admin".
+    // player-facing only — the admin is the one players contact, so their
+    // view of the arbitration panel must not tell them to contact "the admin".
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto(`/match/${matchId}`);
     await expect(page.getByText('Arbitraje solicitado por')).toBeVisible({ timeout: 5000 });
@@ -283,19 +276,28 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
   });
 
   test('playoff bracket renders at mobile viewport with Spanish round names', async ({ page, browser }, testInfo) => {
-    test.setTimeout(120000);
-    await getSuperuserToken(page);
+    suToken = loadTestData().adminToken;
     const data = loadTestData();
 
+    // Four players of their own: no user plays in two pairs of the bracket.
+    const stamp = `${testInfo.project.name}-${Date.now()}`;
+    const playerIds: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      playerIds.push(await apiCreateRecord(page.request, 'users', {
+        email: `playoff-${i}-${stamp}@test.local`, display_name: `Jugador Playoff ${i + 1}`,
+        gender: 'male', roles: ['player'],
+        password: 'TestPass123456', passwordConfirm: 'TestPass123456', verified: true,
+      }));
+    }
     const pair3Id = await apiCreateRecord(page.request, 'pairs', {
       name: 'Pareja Gamma',
-      player1: data.player1.id,
-      player2: data.player2.id,
+      player1: playerIds[0],
+      player2: playerIds[1],
     });
     const pair4Id = await apiCreateRecord(page.request, 'pairs', {
       name: 'Pareja Delta',
-      player1: data.player1.id,
-      player2: data.player2.id,
+      player1: playerIds[2],
+      player2: playerIds[3],
     });
 
     // Create playoff via API with pairs and seeding
@@ -330,7 +332,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
 
     await expect(mobilePage.getByRole('heading', { name: 'Cuadro' })).toBeVisible({ timeout: 10000 });
     await expect(mobilePage.getByText('Semifinal')).toBeVisible();
-    await expect(mobilePage.getByText('Final').first()).toBeVisible();
+    await expect(mobilePage.getByText('Final').locator('visible=true').first()).toBeVisible();
 
     // Bracket cards: 2 semis + 1 final = 3 match cards
     const bracketCards = mobilePage.locator('.card.shadow-sm.border');
@@ -352,27 +354,11 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     await apiDeleteRecord(page.request, 'competitions', compId);
     await apiDeleteRecord(page.request, 'pairs', pair3Id);
     await apiDeleteRecord(page.request, 'pairs', pair4Id);
+    for (const id of playerIds) await apiDeleteRecord(page.request, 'users', id);
   });
 });
 
 // --- API helpers ---
-
-async function getSuperuserToken(page: Page) {
-  if (suToken) return;
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const resp = await page.request.post('/api/collections/_superusers/auth-with-password', {
-      data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-    });
-    if (resp.status() === 429) {
-      await new Promise(r => setTimeout(r, 15000));
-      continue;
-    }
-    if (!resp.ok()) throw new Error(`Superuser auth failed: ${resp.status()}`);
-    suToken = (await resp.json()).token;
-    return;
-  }
-  throw new Error('Superuser auth failed after 5 attempts (rate limited)');
-}
 
 async function apiCreateRecord(request: APIRequestContext, collection: string, data: Record<string, any>): Promise<string> {
   return apiCreateRecordBase(request, suToken, collection, data);

@@ -1,18 +1,9 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, isMobile, openDrawer, suDelete, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, loadTestData, isMobile, openDrawer, suDelete, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import { clickAndWaitForHxRedirect, waitForHxRedirect } from '../tour-helpers';
 
 let suToken = '';
-
-async function getSuperuserToken(page: Page) {
-  if (suToken) return;
-  const resp = await page.request.post('/api/collections/_superusers/auth-with-password', {
-    data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-  });
-  if (!resp.ok()) throw new Error(`Superuser auth failed: ${resp.status()}`);
-  suToken = (await resp.json()).token;
-}
 
 const NAV_LABELS: Record<string, string> = {
   '/admin/competitions': 'Competiciones',
@@ -141,10 +132,10 @@ test.describe('admin management', { tag: '@admin' }, () => {
 
   test('R-168: competition detail sections are collapsed accordions when started', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    // Navigate to dashboard, then click into the first competition
+    // Navigate to dashboard, then click into the seeded competition (started, with pairs)
     await page.goto('/admin/competitions');
     await page.waitForLoadState('domcontentloaded');
-    await page.locator('a[href^="/admin/competitions/"]').first().click();
+    await page.locator(`a[href="/admin/competitions/${loadTestData().competitionId}"]`).first().click();
     await page.waitForLoadState('networkidle');
 
     // Verify accordion sections exist with collapse class
@@ -168,13 +159,10 @@ test.describe('admin management', { tag: '@admin' }, () => {
     await parejas.locator('> input[type="checkbox"]').check({ force: true });
     await page.waitForTimeout(300);
     const penalizeBtn = parejas.locator('label[for^="penalty-modal-"]:visible').first();
-    if (await penalizeBtn.count() > 0) {
-      const modalId = await penalizeBtn.getAttribute('for');
-      await penalizeBtn.click();
-      await page.waitForTimeout(300);
-      const toggle = page.locator(`#${modalId}`);
-      await expect(toggle).toBeChecked();
-    }
+    await expect(penalizeBtn).toBeVisible();
+    const modalId = await penalizeBtn.getAttribute('for');
+    await penalizeBtn.click();
+    await expect(page.locator(`#${modalId}`)).toBeChecked();
   });
 
   test('R-226: gender_type field is a dropdown with Spanish labels', async ({ page }) => {
@@ -315,7 +303,7 @@ test.describe('admin management', { tag: '@admin' }, () => {
     // spec.ts uses for its own teardown.
     const compId = page.url().split('/admin/competitions/')[1];
     if (compId) {
-      await getSuperuserToken(page);
+      suToken = loadTestData().adminToken;
       await suDelete(page.request, suToken, `/api/collections/competitions/records/${compId}`);
     }
   });

@@ -1,6 +1,6 @@
 import type { Page, APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, clickAction, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, loadTestData, isMobile, suGet, suPatch, apiListRecords, clickAction, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import {
   setPlayerPassword, uniqueSuffix, SCORE_MATRIX, PENALTIES,
   computeExpected, PlannedMatch, PairId,
@@ -112,9 +112,9 @@ async function clickSetupConfigure(page: Page, competitionId: string): Promise<v
 // Gestión menu is the one place these links live now), so this is the real
 // affordance an admin uses, on desktop or via the drawer on mobile.
 async function clickAdminQuickLink(page: Page, label: string): Promise<void> {
-  const desktopSummary = page.locator('.hidden.lg\\:flex details summary', { hasText: 'Gestión' });
-  if (await desktopSummary.isVisible()) {
-    await desktopSummary.click();
+  // The desktop menu shows from Tailwind's lg breakpoint (1024px), the drawer below it.
+  if (!isMobile(page)) {
+    await page.locator('.hidden.lg\\:flex details summary', { hasText: 'Gestión' }).click();
     await page.locator('.hidden.lg\\:flex ul.bg-base-100').getByRole('link', { name: label, exact: true }).click();
   } else {
     await page.locator('label[for="main-drawer"]').first().click();
@@ -133,7 +133,7 @@ async function gotoMatchViaNextMatch(page: Page): Promise<string> {
   return match[1];
 }
 
-async function gotoMatchViaPendingAction(page: Page): Promise<void> {
+async function gotoMatchViaPendingAction(page: Page, email: string, compId: string): Promise<void> {
   await goHome(page);
   const action = page.locator('a[href^="/match/"]').filter({ hasText: 'Responder resultado' }).first();
   await action.waitFor({ state: 'visible', timeout: 10000 });
@@ -141,26 +141,34 @@ async function gotoMatchViaPendingAction(page: Page): Promise<void> {
   if (!href) throw new Error('Pending action link has no href');
   await page.goto(href);
   await page.waitForLoadState('domcontentloaded');
-  // Doc gate may redirect to the competition page — accept and re-navigate
-  if (await page.getByRole('heading', { name: 'Documentos obligatorios' }).isVisible().catch(() => false)) {
+  // The match page sends a player who hasn't acknowledged the league's
+  // mandatory document to its gate (handlers/respond.go checkDocGate).
+  if (compId === competitionId && !docsAcked.has(email)) {
     await acceptDocsGate(page);
+    docsAcked.add(email);
     await page.goto(href);
     await page.waitForLoadState('domcontentloaded');
   }
 }
 
-async function gotoMatchViaCompCard(page: Page, compId: string, matchId: string): Promise<void> {
+// Players who acknowledged the league's mandatory document. The competition
+// page and the match page both gate (public_competition.go docsGate,
+// respond.go checkDocGate); only the league has a mandatory document
+// (phase 1f), so the gate state is known per player.
+const docsAcked = new Set<string>();
+
+async function gotoMatchViaCompCard(page: Page, email: string, compId: string, matchId: string): Promise<void> {
   await goHome(page);
   await page.locator(`a[href="/competition/${compId}"]`).first().click();
   await page.waitForLoadState('domcontentloaded');
-  if (await page.getByRole('heading', { name: 'Documentos obligatorios' }).isVisible().catch(() => false)) {
+  if (compId === competitionId && !docsAcked.has(email)) {
     await acceptDocsGate(page);
+    docsAcked.add(email);
+  } else {
+    await expect(page.getByRole('heading', { name: 'Documentos obligatorios' })).toHaveCount(0);
   }
-  const jornadasTab = page.getByRole('tab', { name: 'Jornadas' });
-  if (await jornadasTab.isVisible().catch(() => false)) {
-    await jornadasTab.click();
-    await page.waitForTimeout(300);
-  }
+  // Jornadas is the league's matches tab; the playoff calls it Rondas.
+  await page.getByRole('tab', { name: compId === playoffId ? 'Rondas' : 'Jornadas', exact: true }).click();
   await page.locator(`a[href="/match/${matchId}"]`).first().click();
   await page.waitForLoadState('domcontentloaded');
 }
@@ -181,11 +189,7 @@ test.describe('guided navigation tour', { tag: '@tour' }, () => {
 
     // --- Auth superuser for API lookups ---
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    const authResp = await page.request.post('/api/collections/_superusers/auth-with-password', {
-      data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-    });
-    if (!authResp.ok()) throw new Error(`Superuser auth failed: ${authResp.status()}`);
-    suToken = (await authResp.json()).token;
+    suToken = loadTestData().adminToken;
 
     // =======================================================================
     // Phase 1: Admin setup via home affordances
@@ -269,6 +273,7 @@ test.describe('guided navigation tour', { tag: '@tour' }, () => {
     await page.goto(`/competition/${competitionId}`);
     await page.waitForLoadState('domcontentloaded');
     await acceptDocsGate(page);
+    docsAcked.add(PLAYERS[0].email);
 
     // After accepting, player sees normal competition page
     await expect(page.locator('input[aria-label^="Jornadas"]')).toBeVisible({ timeout: 5000 });
@@ -287,7 +292,7 @@ test.describe('guided navigation tour', { tag: '@tour' }, () => {
         if (i === 0) {
           // Check date/place gate BEFORE setting date+club
           await loginAs(page, submitterEmail, PLAYER_PASSWORD);
-          await gotoMatchViaCompCard(page, competitionId, f.id);
+          await gotoMatchViaCompCard(page, submitterEmail, competitionId, f.id);
 
           // Date/place gate: submit form hidden, prominent proposal card visible
           const dateGateMsg = page.locator('.alert-info:has-text("Primero propón una fecha")');
@@ -313,11 +318,11 @@ test.describe('guided navigation tour', { tag: '@tour' }, () => {
 
         // Standard flow: submit via home → accept via PendingActions
         await loginAs(page, submitterEmail, PLAYER_PASSWORD);
-        await gotoMatchViaCompCard(page, competitionId, f.id);
+        await gotoMatchViaCompCard(page, submitterEmail, competitionId, f.id);
         await submitScore(page, f.orientedScore);
 
         await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
-        await gotoMatchViaPendingAction(page);
+        await gotoMatchViaPendingAction(page, confirmerEmail, competitionId);
         await confirmScore(page);
 
         // R-169: after confirming, the share button must include the match URL
@@ -397,23 +402,15 @@ test.describe('guided navigation tour', { tag: '@tour' }, () => {
     await clickConfirmAndWaitForHxRedirect(page, page.getByTestId('finalize-league'), `/admin/competitions/${competitionId}`);
 
     // =======================================================================
-    // Phase 6: Playoff creation via playoff-prompt card
+    // Phase 6: Playoff creation
     // =======================================================================
 
     await goHome(page);
-    // Playoff-prompt card appears only when no other active playoff exists.
-    // In the full suite, other specs may have created one, so fall back to the
-    // Competiciones quick-link (still a home affordance). The card's own
-    // "Crear playoff" is a button (not a link) that opens the same
-    // #modal-create dialog as the page header's "Crear competición" —
-    // createCompInactive() below is safe to call either way, it only opens
-    // the modal itself when it isn't already open.
-    const promptVisible = await page.getByTestId('playoff-prompt').isVisible().catch(() => false);
-    if (promptVisible) {
-      await page.getByTestId('playoff-prompt').getByRole('button', { name: 'Crear playoff' }).click();
-    } else {
-      await clickAdminQuickLink(page, 'Competiciones');
-    }
+    // The playoff-prompt card is suppressed while ANY active playoff exists
+    // (league.PlayoffPrompts), and other specs share this DB, so its presence
+    // is not this tour's to decide. The Competiciones quick-link always is;
+    // PlayoffPrompts' rules are pinned by league/admin_dashboard_test.go.
+    await clickAdminQuickLink(page, 'Competiciones');
     await page.waitForLoadState('domcontentloaded');
     playoffId = await createCompInactive(page, PLAYOFF_NAME, 'playoff', false);
 
@@ -454,11 +451,11 @@ test.describe('guided navigation tour', { tag: '@tour' }, () => {
       const confirmerEmail = playerEmailForPair(idToLabel(m.pair2), 0);
 
       await loginAs(page, submitterEmail, PLAYER_PASSWORD);
-      await gotoMatchViaCompCard(page, playoffId, m.id);
+      await gotoMatchViaCompCard(page, submitterEmail, playoffId, m.id);
       await submitScore(page, oriented);
 
       await loginAs(page, confirmerEmail, PLAYER_PASSWORD);
-      await gotoMatchViaPendingAction(page);
+      await gotoMatchViaPendingAction(page, confirmerEmail, playoffId);
       await confirmScore(page);
     }
 
@@ -472,12 +469,14 @@ test.describe('guided navigation tour', { tag: '@tour' }, () => {
     await setMatchDateAndClub(page.request, suToken, final.id, '2025-04-05', 'Padel 360');
 
     const finalOriented = idToLabel(final.pair1) === 'A' ? '6-2 6-3' : orientScore('6-2 6-3', true);
-    await loginAs(page, playerEmailForPair(idToLabel(final.pair1), 0), PLAYER_PASSWORD);
-    await gotoMatchViaCompCard(page, playoffId, final.id);
+    const finalSubmitter = playerEmailForPair(idToLabel(final.pair1), 0);
+    await loginAs(page, finalSubmitter, PLAYER_PASSWORD);
+    await gotoMatchViaCompCard(page, finalSubmitter, playoffId, final.id);
     await submitScore(page, finalOriented);
 
-    await loginAs(page, playerEmailForPair(idToLabel(final.pair2), 0), PLAYER_PASSWORD);
-    await gotoMatchViaPendingAction(page);
+    const finalConfirmer = playerEmailForPair(idToLabel(final.pair2), 0);
+    await loginAs(page, finalConfirmer, PLAYER_PASSWORD);
+    await gotoMatchViaPendingAction(page, finalConfirmer, playoffId);
     await confirmScore(page);
 
     const finalDone = await getMatchById(page.request, suToken, final.id);
@@ -505,11 +504,7 @@ test.describe('guided navigation tour', { tag: '@tour' }, () => {
     page.on('dialog', d => d.accept());
 
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    const authResp = await page.request.post('/api/collections/_superusers/auth-with-password', {
-      data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-    });
-    if (!authResp.ok()) throw new Error(`Superuser auth failed: ${authResp.status()}`);
-    const localSuToken = (await authResp.json()).token;
+    const localSuToken = loadTestData().adminToken;
 
     // 4 pairs (8 players), target=2, open=1: 4 pairs × target 2 = 8 (even, passes
     // the pairs×target validation), and 2 < 4-1=3 keeps IsLeveled true.
@@ -573,22 +568,15 @@ test.describe('guided navigation tour', { tag: '@tour' }, () => {
     const urlM = page.url().match(/\/admin\/competitions\/([^/]+)/);
     let lvCompId = urlM ? urlM[1] : '';
     if (!lvCompId) {
-      const r = await page.request.get(
-        `/api/collections/competitions/records?filter=name='${compName}'&perPage=1`,
-        { headers: { Authorization: localSuToken } },
-      );
-      lvCompId = (await r.json()).items?.[0]?.id ?? '';
+      lvCompId = (await apiListRecords(page.request, localSuToken, 'competitions', `name='${compName}'`))[0]?.id ?? '';
     }
     if (!lvCompId) throw new Error('Leveled competition not found');
 
     // Leveled leagues require start_date/end_date before "Generar calendario"
     // will accept them — set via API since the create dialog has no date fields.
-    await page.request.patch(`/api/collections/competitions/records/${lvCompId}`, {
-      headers: { Authorization: localSuToken },
-      data: {
-        start_date: leagueDate(-7),
-        end_date: leagueDate(60),
-      },
+    await suPatch(page.request, localSuToken, `/api/collections/competitions/records/${lvCompId}`, {
+      start_date: leagueDate(-7),
+      end_date: leagueDate(60),
     });
 
     // Add 3 pairs and generate assignments
@@ -657,22 +645,13 @@ async function createCompInactive(
   await clickAndWaitForHxRedirect(page, dialog.locator('button[type="submit"]'), /^\/admin\/competitions\/[^/]+$/);
 
   // Look up the competition ID via API
-  const resp = await page.request.get(
-    `/api/collections/competitions/records?filter=name='${name}'&perPage=1`,
-    { headers: { Authorization: suToken } },
-  );
-  const data = await resp.json();
-  const id = data.items?.[0]?.id;
+  const id = (await apiListRecords(page.request, suToken, 'competitions', `name='${name}'`))[0]?.id;
   if (!id) throw new Error(`Competition not found after create: ${name}`);
   return id;
 }
 
 async function mapFixturesToScores(request: APIRequestContext): Promise<MatchFixture[]> {
-  const resp = await request.get(
-    `/api/collections/matches/records?filter=competition='${competitionId}'&perPage=50&sort=round_number,created`,
-    { headers: { Authorization: suToken } },
-  );
-  const data = await resp.json();
+  const data = await suGet(request, suToken, `/api/collections/matches/records?filter=competition='${competitionId}'&perPage=50&sort=round_number,created`);
   if (data.items.length !== 12) {
     throw new Error(`Expected 12 matches, got ${data.items.length}`);
   }

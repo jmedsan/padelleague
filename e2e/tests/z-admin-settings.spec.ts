@@ -141,16 +141,24 @@ test.describe('admin settings: league defaults', { tag: '@admin' }, () => {
 
     // Set custom reminder hours
     await page.locator('#settings-reminder-hours').fill('24, 2');
-    await saveButton.click();
-    await page.waitForLoadState('domcontentloaded');
+    // SaveDefaults answers with a #flash success alert, not an HX-Redirect.
+    // Waiting on the response keeps a previous save's alert from passing the check.
+    const save = async () => {
+      const resp = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith('/admin/settings/defaults'));
+      await saveButton.click();
+      expect((await resp).ok()).toBe(true);
+      await expect(page.locator('#flash .alert-success')).toHaveText('Configuración guardada');
+    };
+    await save();
 
-    // Verify the value persisted
+    // A reload proves the value persisted, not just that the input kept it.
+    await page.reload();
     await expect(page.locator('#settings-reminder-hours')).toHaveValue('24, 2');
 
     // Restore original value
     await page.locator('#settings-reminder-hours').fill(original);
-    await saveButton.click();
-    await page.waitForLoadState('domcontentloaded');
+    await save();
+    await page.reload();
     await expect(page.locator('#settings-reminder-hours')).toHaveValue(original);
   });
 

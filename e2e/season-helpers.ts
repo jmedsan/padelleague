@@ -1,5 +1,6 @@
 import { APIRequestContext } from '@playwright/test';
 import { randomUUID } from 'crypto';
+import { suPatch } from './helpers';
 
 export type PairId = 'A' | 'B' | 'C' | 'D';
 
@@ -60,16 +61,7 @@ export async function setPlayerPassword(
   userId: string,
   password: string,
 ): Promise<void> {
-  const resp = await request.patch(
-    `/api/collections/users/records/${userId}`,
-    {
-      headers: { Authorization: superuserToken },
-      data: { password, passwordConfirm: password },
-    },
-  );
-  if (!resp.ok()) {
-    throw new Error(`setPlayerPassword failed: ${resp.status()} ${await resp.text()}`);
-  }
+  await suPatch(request, superuserToken, `/api/collections/users/records/${userId}`, { password, passwordConfirm: password });
 }
 
 interface ParsedScore {

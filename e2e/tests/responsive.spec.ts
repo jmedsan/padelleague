@@ -1,9 +1,9 @@
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import {
-  loginAs, loadTestData, isMobile, openDrawer, navViaDrawer, leagueDate,
+  loginAs, asPlayerOn, loadTestData, isMobile, openDrawer, navViaDrawer, leagueDate,
   apiCreateRecord as apiCreateRecordBase, apiListRecords as apiListRecordsBase,
-  apiDeleteRecord as apiDeleteRecordBase, clickAndWaitForHxRedirect,
+  apiDeleteRecord as apiDeleteRecordBase, suPatch, clickAndWaitForHxRedirect,
   ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD,
 } from '../helpers';
 
@@ -14,15 +14,6 @@ import {
 const MOBILE = { width: 360, height: 780 };
 
 let suToken = '';
-
-async function getSuperuserToken(page: import('@playwright/test').Page) {
-  if (suToken) return;
-  const resp = await page.request.post('/api/collections/_superusers/auth-with-password', {
-    data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-  });
-  if (!resp.ok()) throw new Error(`Superuser auth failed: ${resp.status()}`);
-  suToken = (await resp.json()).token;
-}
 
 async function apiCreateRecord(request: APIRequestContext, collection: string, data: Record<string, any>): Promise<string> {
   return apiCreateRecordBase(request, suToken, collection, data);
@@ -63,7 +54,7 @@ test.describe('responsive - no horizontal overflow', { tag: '@presentation' }, (
     } else {
       await expect(multiHeading).toBeVisible();
     }
-    await expect(page.getByText('Liga E2E Test').first()).toBeVisible();
+    await expect(page.getByText('Liga E2E Test').locator('visible=true').first()).toBeVisible();
   });
 
   test('admin dashboard', async ({ page }) => {
@@ -82,7 +73,7 @@ test.describe('responsive - no horizontal overflow', { tag: '@presentation' }, (
     await page.locator(`a[href^="/competition/"]`, { hasText: 'Liga E2E Test' }).first().click();
     await page.waitForLoadState('domcontentloaded');
     await checkNoOverflow(page);
-    await expect(page.getByText('Liga E2E Test').first()).toBeVisible();
+    await expect(page.getByText('Liga E2E Test').locator('visible=true').first()).toBeVisible();
     await expect(page.locator('input[aria-label^="Jornadas"]')).toBeVisible();
     await page.locator('input[aria-label^="Jornadas"]').click();
     // getByText also matches the pair-filter <select>'s <option> (never
@@ -121,7 +112,7 @@ test.describe('responsive - no horizontal overflow', { tag: '@presentation' }, (
   });
 
   test('W13: long pair names in a jornada match row wrap instead of overflowing at 360px', async ({ page }) => {
-    await getSuperuserToken(page);
+    suToken = loadTestData().adminToken;
     const suffix = `w13-${Date.now()}`;
     const p1a = await apiCreateRecord(page.request, 'users', {
       email: `${suffix}-a1@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
@@ -181,7 +172,7 @@ test.describe('responsive - no horizontal overflow', { tag: '@presentation' }, (
   });
 
   test('H1: competition tab strip wraps instead of overflowing at 360px', async ({ page }) => {
-    await getSuperuserToken(page);
+    suToken = loadTestData().adminToken;
     const suffix = `h1-${Date.now()}`;
     const p1 = await apiCreateRecord(page.request, 'users', {
       email: `${suffix}-a1@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
@@ -207,12 +198,11 @@ test.describe('responsive - no horizontal overflow', { tag: '@presentation' }, (
     });
     const compId = await apiCreateRecord(page.request, 'competitions', {
       name: `H1 Tabs Overflow ${suffix}`, type: 'league', active: true, pairs: [pairA, pairB],
-      calendar_status: 'published',
     });
     // The Clasificación tab itself is always visible once the calendar is
     // published (an empty-state renders otherwise); a finalized match makes
-    // the standings table render here instead. calendar_status must be
-    // published — a draft calendar still hides the tab from any non-admin
+    // the standings table render here instead. asPlayerOn publishes the
+    // calendar — a draft calendar still hides the tab from any non-admin
     // viewer, same as matchVisibleTo does for match pages.
     await apiCreateRecord(page.request, 'matches', {
       competition: compId, pair1: pairA, pair2: pairB, status: 'final',
@@ -221,17 +211,14 @@ test.describe('responsive - no horizontal overflow', { tag: '@presentation' }, (
     const docId = await apiCreateRecord(page.request, 'documents', {
       title: `Reglamento ${suffix}`, url: 'https://example.com/reglamento',
     });
-    await page.request.patch(`/api/collections/competitions/records/${compId}`, {
-      headers: { Authorization: suToken, 'Content-Type': 'application/json' },
-      data: { documents: [docId] },
-    });
+    await suPatch(page.request, suToken, `/api/collections/competitions/records/${compId}`, { documents: [docId] });
     const adminID = (await apiListRecords(page.request, 'users', `email = "${ADMIN_EMAIL}"`))[0]?.id;
     await apiCreateRecord(page.request, 'announcements', {
       competition: compId, title: `Aviso ${suffix}`, body: 'Aviso de prueba', created_by: adminID,
     });
 
     await page.setViewportSize(MOBILE);
-    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await asPlayerOn(page, compId, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto(`/competition/${compId}`);
     await page.waitForLoadState('domcontentloaded');
     // No manual checkNoOverflow call here: the shared overflowGuard fixture
@@ -425,7 +412,7 @@ test.describe('responsive - no horizontal overflow', { tag: '@presentation' }, (
 
   test('R-review: pair/player history renders as cards, not a table, at 360px', async ({ page }) => {
     test.setTimeout(60000);
-    await getSuperuserToken(page);
+    suToken = loadTestData().adminToken;
     const data = loadTestData();
 
     const compId = await apiCreateRecord(page.request, 'competitions', {
@@ -476,7 +463,7 @@ test.describe('responsive - no horizontal overflow', { tag: '@presentation' }, (
 
   test('R-review: competition-detail alert row omits the redundant competition name', async ({ page }) => {
     test.setTimeout(60000);
-    await getSuperuserToken(page);
+    suToken = loadTestData().adminToken;
     const data = loadTestData();
 
     const compId = await apiCreateRecord(page.request, 'competitions', {
@@ -514,7 +501,7 @@ test.describe('responsive - no horizontal overflow', { tag: '@presentation' }, (
   });
 
   test('F1: bulk "marcar bolas entregadas" button label wraps inside the button at 360px, no spillover', async ({ page }) => {
-    await getSuperuserToken(page);
+    suToken = loadTestData().adminToken;
     const data = loadTestData();
 
     // A pair with balls unset (default) triggers HasNoBolas, which renders

@@ -1,6 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, loadTestData, isMobile, openDrawer, suPost as suPostBase, clickAndWaitForHxRedirect, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
+import { loginAs, loadTestData, isMobile, openDrawer, suPost as suPostBase, suGet, suPatch, clickAndWaitForHxRedirect, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 const FRESH_PLAYER_PASSWORD = 'TestPass123456';
 
@@ -47,7 +47,7 @@ test.describe('player profile and stats', { tag: '@profile' }, () => {
     await expect(page.locator('.stat-title', { hasText: 'Partidos' })).toBeVisible();
     await expect(page.locator('.stat-title', { hasText: '% Victorias' })).toBeVisible();
     await expect(page.getByText('Parejas')).toBeVisible();
-    await expect(page.getByText('Pareja Alpha').first()).toBeVisible();
+    await expect(page.getByText('Pareja Alpha').locator('visible=true').first()).toBeVisible();
   });
 
   test('player sees notification prefs with message toggle but no admin section', async ({ page }) => {
@@ -187,6 +187,7 @@ test.describe('player profile and stats', { tag: '@profile' }, () => {
     // and this suite logs in frequently.
     let authResp;
     for (let attempt = 0; attempt < 5; attempt++) {
+      // raw-request: probes the login itself; the status is asserted below.
       authResp = await page.request.post('/api/collections/users/auth-with-password', {
         data: { identity: player.email, password: player.password },
       });
@@ -202,17 +203,12 @@ test.describe('player profile and stats', { tag: '@profile' }, () => {
     // the 10-per-5-minutes login limit that loginAs already draws on.
     const userId = loadTestData().player1.id;
     const readPrefs = async () => {
-      const resp = await page.request.get(`/api/collections/users/records/${userId}`, {
-        headers: { Authorization: loadTestData().adminToken },
-      });
-      return { ...((await resp.json()).notification_prefs || {}) };
+      const user = await suGet(page.request, loadTestData().adminToken, `/api/collections/users/records/${userId}`);
+      return { ...(user.notification_prefs || {}) };
     };
     const startPrefs = await readPrefs();
     delete (startPrefs as any).match_reminder_hours;
-    await page.request.patch(`/api/collections/users/records/${userId}`, {
-      headers: { Authorization: loadTestData().adminToken },
-      data: { notification_prefs: startPrefs },
-    });
+    await suPatch(page.request, loadTestData().adminToken, `/api/collections/users/records/${userId}`, { notification_prefs: startPrefs });
 
     await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await page.goto('/profile/notifications');
@@ -224,7 +220,7 @@ test.describe('player profile and stats', { tag: '@profile' }, () => {
     await expect(reminderToggle).toBeChecked();
 
     // "Recordatorios de partido" section heading is visible
-    await expect(page.getByText('Recordatorios de partido', { exact: false }).first()).toBeVisible();
+    await expect(page.getByText('Recordatorios de partido', { exact: false }).locator('visible=true').first()).toBeVisible();
 
     // Default hours are shown (from global settings)
     await expect(page.getByText('Por defecto de la liga')).toBeVisible();
@@ -232,10 +228,7 @@ test.describe('player profile and stats', { tag: '@profile' }, () => {
     // Set custom hours via API, then verify UI reflects them
     const currentPrefs = await readPrefs();
 
-    await page.request.patch(`/api/collections/users/records/${userId}`, {
-      headers: { Authorization: loadTestData().adminToken },
-      data: { notification_prefs: { ...currentPrefs, match_reminder_hours: [12, 2] } },
-    });
+    await suPatch(page.request, loadTestData().adminToken, `/api/collections/users/records/${userId}`, { notification_prefs: { ...currentPrefs, match_reminder_hours: [12, 2] } });
 
     await page.goto('/profile/notifications');
     await page.waitForLoadState('domcontentloaded');
@@ -247,10 +240,7 @@ test.describe('player profile and stats', { tag: '@profile' }, () => {
     // Restore defaults
     const restored = { ...currentPrefs };
     delete (restored as any).match_reminder_hours;
-    await page.request.patch(`/api/collections/users/records/${userId}`, {
-      headers: { Authorization: loadTestData().adminToken },
-      data: { notification_prefs: restored },
-    });
+    await suPatch(page.request, loadTestData().adminToken, `/api/collections/users/records/${userId}`, { notification_prefs: restored });
 
     await page.goto('/profile/notifications');
     await page.waitForLoadState('domcontentloaded');

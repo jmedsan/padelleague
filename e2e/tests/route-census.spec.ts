@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { APIRequestContext, Page } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, loadTestData, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
+import { loginAs, loadTestData, suGet, apiCreateRecord, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 // route-census.json is the single source of truth shared with
 // routes/route_census_test.go (Go side asserts it matches the router's
@@ -25,45 +25,26 @@ function loadCensus(): CensusRoute[] {
 
 let suToken = '';
 
-async function getSuperuserToken(request: APIRequestContext): Promise<void> {
-  if (suToken) return;
-  const resp = await request.post('/api/collections/_superusers/auth-with-password', {
-    data: { identity: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-  });
-  if (!resp.ok()) throw new Error(`Superuser auth failed: ${resp.status()} ${await resp.text()}`);
-  suToken = (await resp.json()).token;
-}
-
 // ensureDocumentId returns an existing documents record id, creating one
 // (a link-type reference item — no file upload needed) if the seeded DB has
 // none yet.
 async function ensureDocumentId(request: APIRequestContext): Promise<string> {
-  await getSuperuserToken(request);
-  const list = await request.get('/api/collections/documents/records?perPage=1', {
-    headers: { Authorization: suToken },
-  });
-  const items = (await list.json()).items ?? [];
+  suToken = loadTestData().adminToken;
+  const { items } = await suGet(request, suToken, '/api/collections/documents/records?perPage=1');
   if (items.length > 0) return items[0].id;
 
-  const created = await request.post('/api/collections/documents/records', {
-    headers: { Authorization: suToken, 'Content-Type': 'application/json' },
-    data: { title: 'Reglamento (route-census)', url: 'https://example.com/reglamento.pdf' },
-  });
-  if (!created.ok()) throw new Error(`Create document failed: ${created.status()} ${await created.text()}`);
-  return (await created.json()).id;
+  return apiCreateRecord(request, suToken, 'documents', { title: 'Reglamento (route-census)', url: 'https://example.com/reglamento.pdf' });
 }
 
 // ensureSponsorId returns an existing sponsors record id, creating one via
 // multipart/form-data (the `logo` FileField is required — a plain JSON POST
 // can't satisfy that) if the seeded DB has none yet.
 async function ensureSponsorId(request: APIRequestContext): Promise<string> {
-  await getSuperuserToken(request);
-  const list = await request.get('/api/collections/sponsors/records?perPage=1', {
-    headers: { Authorization: suToken },
-  });
-  const items = (await list.json()).items ?? [];
+  suToken = loadTestData().adminToken;
+  const { items } = await suGet(request, suToken, '/api/collections/sponsors/records?perPage=1');
   if (items.length > 0) return items[0].id;
 
+  // raw-request: multipart upload, which the JSON helpers don't send; checked below.
   const created = await request.post('/api/collections/sponsors/records', {
     headers: { Authorization: suToken },
     multipart: {
@@ -136,9 +117,10 @@ async function visitAndAssert(page: Page, path: string): Promise<void> {
   // hx-trigger="load" into #match-thread) — wait for it to actually fill so
   // the tap-target/other DOM guards check the thread's real controls
   // (proposal form, chat input, etc.) instead of an empty placeholder div.
-  const threadPanel = page.locator('#match-thread');
-  if (await threadPanel.count() > 0) {
-    await expect(threadPanel).not.toBeEmpty({ timeout: 10000 });
+  // Only the /match/{id} page (views/match.html) has the panel; its
+  // /thread and /thread-messages fragments are what fills it.
+  if (/^\/match\/[^/]+$/.test(path)) {
+    await expect(page.locator('#match-thread')).not.toBeEmpty({ timeout: 10000 });
   }
 }
 
