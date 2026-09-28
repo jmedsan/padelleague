@@ -254,9 +254,12 @@ func leveledInfoMessage(comp *core.Record, p competitionDataParams) string {
 		return ""
 	}
 	if pending == 0 {
-		return "No tienes partidos pendientes. Se te asignará el siguiente en breve."
+		return "No tienes partidos por jugar. Se te asignará el siguiente en breve."
 	}
-	return fmt.Sprintf("Tienes %d partidos pendientes. Cuando termines uno se te asignará el siguiente.", pending)
+	if pending == 1 {
+		return "Tienes 1 partido por jugar. Cuando lo termines se te asignará el siguiente."
+	}
+	return fmt.Sprintf("Tienes %d partidos por jugar. Cuando termines uno se te asignará el siguiente.", pending)
 }
 
 // docsGate renders the mandatory-documents gate page and reports gated=true

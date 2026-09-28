@@ -164,7 +164,7 @@ func TestHomeGen2_PendingCount(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"7 partidos pendientes"},
+		ExpectedContent: []string{"7 partidos por jugar"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupProductionRoutes(tb, app, e)
@@ -183,7 +183,7 @@ func TestHomeGen2_PendingCount(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := handlers.ReadBody(tb, res)
-		assert.Contains(tb, body, "7 partidos pendientes")
+		assert.Contains(tb, body, "7 partidos por jugar")
 		assert.Contains(tb, body, "upcoming-matches", "upcoming section should render for pending matches")
 	}
 	s.Test(t)
@@ -1827,7 +1827,7 @@ func TestLeveledCompetitionPage_InfoMessage(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := handlers.ReadBody(tb, res)
-		assert.Contains(tb, body, "Tienes 1 partidos pendientes", "must show pending-count message")
+		assert.Contains(tb, body, "Tienes 1 partido por jugar. Cuando lo termines se te asignará el siguiente.", "must show pending-count message")
 	}
 	s.Test(t)
 }
@@ -1860,7 +1860,7 @@ func TestLeveledCompetitionPage_InfoMessage_ZeroPending(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := handlers.ReadBody(tb, res)
-		assert.Contains(tb, body, "No tienes partidos pendientes", "must show zero-pending message")
+		assert.Contains(tb, body, "No tienes partidos por jugar. Se te asignará el siguiente en breve.", "must show zero-pending message")
 	}
 	s.Test(t)
 }
@@ -1897,7 +1897,7 @@ func TestLeveledCompetitionPage_InfoMessage_HiddenWhenComplete(t *testing.T) {
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := handlers.ReadBody(tb, res)
-		assert.NotContains(tb, body, "partidos pendientes", "must not show info message when pair schedule is complete")
+		assert.NotContains(tb, body, "por jugar", "must not show info message when pair schedule is complete")
 	}
 	s.Test(t)
 }
@@ -1933,7 +1933,7 @@ func TestLeveledCompetitionPage_InfoMessage_HiddenForAllPairsView(t *testing.T) 
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		body := handlers.ReadBody(tb, res)
-		assert.NotContains(tb, body, "partidos pendientes", "must not show info message on all-pairs view")
+		assert.NotContains(tb, body, "por jugar", "must not show info message on all-pairs view")
 	}
 	s.Test(t)
 }
