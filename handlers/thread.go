@@ -12,6 +12,7 @@ import (
 
 	"padelleague/league"
 	"padelleague/notify"
+	"padelleague/render"
 )
 
 // ThreadHandler handles the match thread: messages, scheduling proposals, and responses.
@@ -90,7 +91,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		return e.HTML(http.StatusOK, `<div class="text-center py-6 opacity-60">Parejas pendientes de asignación</div>`)
 	}
 
-	isAdmin := isEffectiveAdmin(e)
+	isAdmin := render.AdminView(e)
 	myTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
 
 	if err := checkDocGate(h.app, e, match); err != nil {
@@ -185,7 +186,7 @@ func (h *ThreadHandler) ThreadMessages(e *core.RequestEvent) error {
 		return err
 	}
 
-	isAdmin := isEffectiveAdmin(e)
+	isAdmin := render.AdminView(e)
 	myTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
 
 	compModifiable := true

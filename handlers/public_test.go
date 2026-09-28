@@ -1181,6 +1181,95 @@ func TestCompetition_GateRendersForUnackedMandatory(t *testing.T) {
 	s.Test(t)
 }
 
+// gateAdminPlayerTB builds a league with one unacked mandatory document where
+// p1's first player also holds the admin role: an admin who plays.
+func gateAdminPlayerTB(tb testing.TB, app *tests.TestApp, prefix string) (comp, match, adminPlayer *core.Record) {
+	p1 := handlers.MakePairTB(tb, app, prefix+"A")
+	p2 := handlers.MakePairTB(tb, app, prefix+"B")
+	comp = handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+	doc := handlers.MakeDocumentTB(tb, app, "Reglamento", true, "https://example.com/regla")
+	comp.Set("documents", []string{doc.Id})
+	require.NoError(tb, app.Save(comp))
+	match = handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+	adminPlayer, err := app.FindRecordById("users", p1.GetString("player1"))
+	require.NoError(tb, err)
+	adminPlayer.Set("roles", []string{"player", "admin"})
+	require.NoError(tb, app.Save(adminPlayer))
+	return comp, match, adminPlayer
+}
+
+// Admin-as-player purity: in player view the admin is gated like any player.
+func TestCompetition_GateAppliesToAdminInPlayerView(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  handlers.TestAppFactory,
+		Name:            "competition page gates an admin who plays, in player view",
+		Method:          http.MethodGet,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Documentos obligatorios", "Reglamento"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		comp, _, adminPlayer := gateAdminPlayerTB(tb, app, "GateAPV")
+		s.URL = "/competition/" + comp.Id
+		hdrs := handlers.AuthHeaders(tb, adminPlayer)
+		hdrs["Cookie"] = "view_as=player"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
+// The admin view is never gated, even for an admin who plays in the league.
+func TestCompetition_NoGateInAdminView(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:     handlers.TestAppFactory,
+		Name:               "competition page does not gate the admin view",
+		Method:             http.MethodGet,
+		ExpectedStatus:     200,
+		ExpectedContent:    []string{"Jornadas"},
+		NotExpectedContent: []string{"Documentos obligatorios"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		comp, _, adminPlayer := gateAdminPlayerTB(tb, app, "GateAAV")
+		s.URL = "/competition/" + comp.Id
+		s.Headers = handlers.AuthHeaders(tb, adminPlayer)
+	}
+	s.Test(t)
+}
+
+// A match action by an admin in player view hits the same gate as a player's:
+// redirected to the competition, nothing written.
+func TestMatchAction_GateAppliesToAdminInPlayerView(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "thread message from an admin who plays, in player view, is doc-gated",
+		Method:         http.MethodPost,
+		ExpectedStatus: 302,
+	}
+	var matchID, compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		comp, match, adminPlayer := gateAdminPlayerTB(tb, app, "GateAPM")
+		matchID, compID = match.Id, comp.Id
+		s.URL = "/match/" + match.Id + "/thread/message"
+		s.Body = strings.NewReader("content=Hola&type=chat")
+		hdrs := handlers.AuthHeaders(tb, adminPlayer)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		hdrs["Cookie"] = "view_as=player"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "/competition/"+compID, res.Header.Get("Location"))
+		msgs, err := app.FindRecordsByFilter("match_messages", "match = {:mid} && type = 'chat'", "", 0, 0, map[string]any{"mid": matchID})
+		require.NoError(tb, err)
+		assert.Empty(tb, msgs)
+	}
+	s.Test(t)
+}
+
 func TestCompetition_AcceptDocsThenNoGate(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

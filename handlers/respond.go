@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"slices"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -36,7 +35,7 @@ func findMatchOr404(app core.App, e *core.RequestEvent, id string) (*core.Record
 // matchVisibleTo reports whether the requesting user may see match: admins
 // see every match, players only matches in a published calendar.
 func matchVisibleTo(app core.App, e *core.RequestEvent, match *core.Record) bool {
-	if isEffectiveAdmin(e) {
+	if render.AdminView(e) {
 		return true
 	}
 	comp, err := app.FindRecordById("competitions", match.GetString("competition"))
@@ -109,12 +108,9 @@ func flash(e *core.RequestEvent, msg string) {
 // (redirect, alert) so the caller knows to stop without returning nil.
 var errHandled = errors.New("response already written")
 
-func isEffectiveAdmin(e *core.RequestEvent) bool {
-	return render.AdminView(e)
-}
-
 func checkDocGate(app core.App, e *core.RequestEvent, match *core.Record) error {
-	if slices.Contains(e.Auth.GetStringSlice("roles"), "admin") {
+	// An admin in player view is gated like any player (admin-as-player purity).
+	if render.AdminView(e) {
 		return nil
 	}
 	compID := match.GetString("competition")
@@ -148,7 +144,7 @@ func checkDocGate(app core.App, e *core.RequestEvent, match *core.Record) error 
 }
 
 func checkCompModifiable(app core.App, e *core.RequestEvent, match *core.Record) error {
-	if isEffectiveAdmin(e) {
+	if render.AdminView(e) {
 		return nil
 	}
 	comp, err := app.FindRecordById("competitions", match.GetString("competition"))
@@ -170,7 +166,7 @@ func checkCompModifiable(app core.App, e *core.RequestEvent, match *core.Record)
 // checkParticipantOrAdmin rejects a thread action from a user who is neither
 // on either pair in the match nor an admin.
 func checkParticipantOrAdmin(e *core.RequestEvent, myTeam int) error {
-	if myTeam == 0 && !isEffectiveAdmin(e) {
+	if myTeam == 0 && !render.AdminView(e) {
 		return alertError(e, "No eres participante de este partido")
 	}
 	return nil

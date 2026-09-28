@@ -207,7 +207,7 @@ func resolveFooter(e *core.RequestEvent, data map[string]any) {
 	var isAdmin bool
 	if e.Auth != nil {
 		userID = e.Auth.Id
-		isAdmin = slices.Contains(e.Auth.GetStringSlice("roles"), "admin")
+		isAdmin = AdminView(e)
 	}
 	data["Footer"] = league.FooterContext(e.App, compID, userID, isAdmin)
 	data["Branding"] = league.Branding(e.App, compID)

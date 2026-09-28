@@ -9,6 +9,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/types"
 
 	"padelleague/league"
+	"padelleague/render"
 )
 
 const resultCorrectionWindow = 24 * time.Hour
@@ -79,7 +80,7 @@ func (h *MatchHandler) validateCorrectionAccess(e *core.RequestEvent, match *cor
 		return 0, alertError(e, "No hay propuesta de resultado pendiente para corregir")
 	}
 
-	isAdmin := isEffectiveAdmin(e)
+	isAdmin := render.AdminView(e)
 	submittedByID := pending[0].GetString("author")
 	var myTeam int
 	if !isAdmin {
