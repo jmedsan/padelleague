@@ -57,7 +57,7 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 		return alertError(e, "Error al crear la propuesta corregida")
 	}
 
-	match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
+	match.SetRaw("submitted_at", types.NowDateTime()) // autodate: Set is a no-op
 	match.Set("confirm_reminded", false)
 	if err := h.app.Save(match); err != nil {
 		slog.Error("save match after correction", "match", match.Id, "err", err)
