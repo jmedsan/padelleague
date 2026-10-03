@@ -125,7 +125,7 @@ func (h *ThreadHandler) acceptResultProposal(e *core.RequestEvent, match, msg *c
 
 func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
 	counterScores, err := readScoreForm(e, match.GetString("carried_sets"), "counter_scores")
-	if err != nil {
+	if err != nil || counterScores == "" {
 		return err
 	}
 

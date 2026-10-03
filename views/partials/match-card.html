@@ -426,7 +426,8 @@
             </form>
             <button type="button" class="btn btn-error btn-outline btn-sm flex-1" onclick="this.parentElement.nextElementSibling.classList.toggle('hidden')">Contraproponer</button>
         </div>
-        <form class="counter-form hidden mt-3" hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/respond" hx-target="body">
+        <form class="counter-form hidden mt-3" hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/respond" hx-target="body" data-error-target="#counter-error-{{.RecordID}}">
+            <div id="counter-error-{{.RecordID}}" aria-live="polite"></div>
             <input type="hidden" name="action" value="reject">
             <label class="label py-1"><span class="label-text text-sm">Tu marcador * <span class="tooltip tooltip-top" data-tip="Mejor de 3 sets. El tercer set solo se muestra si hay empate 1-1"><span class="text-info cursor-help">ⓘ</span></span></span></label>
             {{template "scoreInput" .ScoreCounter}}
