@@ -86,7 +86,7 @@ var healthCategoryDefs = []HealthCategory{
 // HealthReport merges every admin-facing match/payment issue across active
 // competitions into a fixed set of categories: disputes, walkovers, overdue
 // (round deadline + grace — the same definition the reminder cron uses),
-// unscheduled (no date set), and unpaid. Always returns all categories, even
+// unscheduled (no date set, once the round's recommended date has passed), and unpaid. Always returns all categories, even
 // when empty, so a surface rendering this list shows the full picture.
 func HealthReport(app core.App, now time.Time) []HealthCategory {
 	categories := make(map[string]*HealthCategory, len(healthCategoryDefs))
@@ -227,18 +227,19 @@ func addPendingHealth(app core.App, m *core.Record, ctx compHealthCtx, categorie
 	rn := m.GetInt("round_number")
 	item := healthItem(app, m, compIdent{ctx.compName, ctx.compLogo}, rn)
 
-	if m.GetString("date") == "" {
-		unscheduled := item
-		unscheduled.Detail = "Sin fecha propuesta"
-		categories["unscheduled"].Items = append(categories["unscheduled"].Items, unscheduled)
-	}
-
 	if ctx.phase == PhaseFinished {
 		return
 	}
 	deadline, ok := MatchArrangeDate(ctx.comp, m)
 	if !ok {
 		return
+	}
+	// An incident only exists once the round's recommended date has passed;
+	// before that the pair is still inside its window to arrange the match.
+	if m.GetString("date") == "" && ctx.now.After(deadline) {
+		unscheduled := item
+		unscheduled.Detail = "Sin fecha propuesta"
+		categories["unscheduled"].Items = append(categories["unscheduled"].Items, unscheduled)
 	}
 	wl := WarningLevel(deadline, ctx.graceDays, ctx.now)
 	if wl >= WarnOverdue {
