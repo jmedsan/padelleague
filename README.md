@@ -140,6 +140,18 @@ e2e/                 # Playwright end-to-end tests (includes full-season simulat
 
 `make e2e` runs the Playwright end-to-end suite, which includes a full-season simulation: an admin creates a competition, players, and pairs through the UI; a complete double round-robin league is played (12 matches with scheduling, disputes, and penalties); standings are asserted against an independent computation covering all tiebreakers (points, set diff, game diff, head-to-head); and a playoff bracket is seeded, played, and resolved to a champion. Leveled leagues use rolling assignments instead of Berger round-robin — the admin sets `target_matches` and `open_assignments`; the system assigns opponents by skill proximity.
 
+## Migrations
+
+Migrations in `migrations/` run automatically each time the app starts. To apply them without leaving a server running (the binary has no `migrate` command):
+
+```bash
+make migrate                 # data dir pb_data
+make migrate DIR=/some/dir   # any data dir
+make scenario-migrate        # the kept scenario server (PORT=<port> if several)
+```
+
+Each target boots the binary on a free port against the data dir, waits until `/healthz` answers, then stops it. Running one again changes nothing.
+
 ## UI language
 
 All user-facing text is in Spanish. Code (Go, HTML, CSS classes) is in English.
