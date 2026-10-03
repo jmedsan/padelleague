@@ -33,6 +33,11 @@ export const SCENARIOS: Record<string, Scenario> = {
     startStage: 'created',
     specs: ['leveled-16-nodates.spec.ts', 'leveled-16-pregen.spec.ts', 'leveled-16-start.spec.ts', 'leveled-16.spec.ts'],
   },
+  'result-ready': {
+    description: 'match with date and place, ready for the result input',
+    startStage: 'assigned',
+    specs: ['result-ready.spec.ts'],
+  },
   'smtp-verify': {
     description: 'SMTP sink receives finalization email',
     startStage: 'assigned',
