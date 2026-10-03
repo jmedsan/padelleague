@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { loginAs } from '../helpers';
 import {
-  PLAYER_PASSWORD, ScenarioApi, ScenarioData, apiGet, apiPatch, loadCtx,
+  ScenarioApi, ScenarioData, apiGet, apiPatch, loadCtx, printLogin,
 } from '../scenario-helpers';
 
 let ctx: ScenarioData;
@@ -27,8 +27,7 @@ test.describe('match ready for the result input', () => {
     await apiPatch(api, `/api/collections/matches/records/${matchID}`, {
       date: '2025-03-15', club: 'Padel 360',
     });
-    console.log(`\nLog in as ${ctx.players[ctx.pairs[0].player1Idx].email} / ${PLAYER_PASSWORD}`);
-    console.log(`Match page: ${ctx.baseURL}/match/${matchID}`);
+    printLogin(ctx.baseURL, ctx.players[ctx.pairs[0].player1Idx].email, `/match/${matchID}`);
     console.log('Click "Enviar resultado" without entering a score.');
   });
 

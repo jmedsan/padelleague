@@ -33,6 +33,7 @@
     { "path": "/admin/settings", "auth": "admin" },
     { "path": "/admin/health", "auth": "admin" },
     { "path": "/admin/dev-tools", "auth": "admin", "skipCensus": "only registered when APP_DEV_TOOLS=true and APP_ENV!=prod; not part of the router's route set in prod and excluded from the routes_test.go equality check" },
+    { "path": "/dev-login", "auth": "none", "skipCensus": "only registered when APP_ENV=dev; signs in from the URL and redirects, renders no page" },
     { "path": "/admin/documents", "auth": "admin" },
     { "path": "/admin/documents/{id}/edit", "auth": "admin", "param": "documentId", "skipCensus": "HTMX fragment (renderPartial, no layout/modal wrapper) — never navigated to directly" },
     { "path": "/admin/sponsors", "auth": "admin" },

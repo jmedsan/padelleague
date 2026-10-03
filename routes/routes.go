@@ -116,6 +116,9 @@ func registerAuthRoutes(se *core.ServeEvent, deps Deps, auth *handlers.AuthHandl
 	tooManyAttempts := "Demasiados intentos. Inténtalo en unos minutos."
 
 	se.Router.GET("/login", auth.Login)
+	if deps.AppEnv == "dev" {
+		se.Router.GET("/dev-login", auth.DevLogin)
+	}
 	se.Router.POST("/login", auth.LoginSubmit).
 		BindFunc(middleware.LimitByClientIP(loginLimiter, tooManyAttempts))
 	registerLimiter := middleware.NewRateLimiter(5, 10*time.Minute)

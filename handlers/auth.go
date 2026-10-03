@@ -43,8 +43,8 @@ func (h *AuthHandler) LoginSubmit(e *core.RequestEvent) error {
 	email := e.Request.FormValue("email")
 	password := e.Request.FormValue("password")
 
-	record, err := h.app.FindAuthRecordByEmail("users", email)
-	if err != nil || !record.ValidatePassword(password) {
+	record, ok := h.userByCredentials(email, password)
+	if !ok {
 		return alertError(e, "Email o contraseña incorrectos")
 	}
 
@@ -60,6 +60,32 @@ func (h *AuthHandler) LoginSubmit(e *core.RequestEvent) error {
 		return redirectHX(e, next)
 	}
 	return e.Redirect(http.StatusFound, next)
+}
+
+// userByCredentials returns the user whose email and password match.
+func (h *AuthHandler) userByCredentials(email, password string) (*core.Record, bool) {
+	record, err := h.app.FindAuthRecordByEmail("users", email)
+	if err != nil || !record.ValidatePassword(password) {
+		return nil, false
+	}
+	return record, true
+}
+
+// DevLogin signs in from the URL (?email=&password=&next=) so a dev link opens
+// a page in one click, replacing any current session. Credentials in a URL are
+// only acceptable on a dev server: routes registers it only when APP_ENV=dev.
+func (h *AuthHandler) DevLogin(e *core.RequestEvent) error {
+	q := e.Request.URL.Query()
+	record, ok := h.userByCredentials(q.Get("email"), q.Get("password"))
+	if !ok {
+		return e.Redirect(http.StatusFound, "/login")
+	}
+	token, err := record.NewAuthToken()
+	if err != nil {
+		return e.InternalServerError("Error al generar sesión", err)
+	}
+	middleware.SetAuthCookie(e, token)
+	return e.Redirect(http.StatusFound, middleware.SafeNext(q.Get("next")))
 }
 
 // Register renders the registration form after validating the invitation token.

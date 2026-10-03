@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
 import {
-  PLAYER_PASSWORD, ScenarioApi, ScenarioData, apiGet, apiPatch, loadCtx,
+  ScenarioApi, ScenarioData, apiGet, apiPatch, loadCtx, printLogin,
 } from '../scenario-helpers';
 
 let ctx: ScenarioData;
@@ -22,8 +22,7 @@ test.describe('match resumed with carried sets', () => {
     await apiPatch(api, `/api/collections/matches/records/${matchID}`, {
       carried_sets: '6-3', date: '2025-03-15', club: 'Padel 360',
     });
-    console.log(`\nLog in as ${ctx.players[pair.player1Idx].email} / ${PLAYER_PASSWORD}`);
-    console.log(`Match page: ${ctx.baseURL}/match/${matchID}`);
+    printLogin(ctx.baseURL, ctx.players[pair.player1Idx].email, `/match/${matchID}`);
     console.log('Click "Enviar resultado" without entering the rest of the score.');
   });
 });

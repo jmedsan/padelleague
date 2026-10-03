@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
 import {
-  PLAYER_PASSWORD, ScenarioApi, ScenarioData, apiGet, loadCtx,
+  PLAYER_PASSWORD, ScenarioApi, ScenarioData, apiGet, loadCtx, printLogin,
 } from '../scenario-helpers';
 
 let ctx: ScenarioData;
@@ -45,8 +45,7 @@ test.describe('match with a date and place proposed but not accepted', () => {
     });
     if (resp.status >= 400) throw new Error(`proposal: ${resp.status} ${await resp.text()}`);
 
-    console.log(`\nLog in as ${rivalPlayer.email} / ${PLAYER_PASSWORD}`);
-    console.log(`Match page: ${ctx.baseURL}/match/${match.id}`);
+    printLogin(ctx.baseURL, rivalPlayer.email, `/match/${match.id}`);
     console.log('Look at the result card: it should say the date is not accepted yet.');
   });
 });
