@@ -24,7 +24,7 @@ func TestLoad_Defaults(t *testing.T) {
 
 	cfg, err := Load()
 	require.NoError(t, err)
-	assert.Equal(t, "dev", cfg.AppEnv, "AppEnv should default to dev")
+	assert.Equal(t, "prod", cfg.AppEnv, "AppEnv should default to prod")
 	assert.Empty(t, cfg.VAPIDPublicKey)
 	assert.Empty(t, cfg.PBAdminEmail)
 }
