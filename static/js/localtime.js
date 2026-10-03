@@ -47,7 +47,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () { localize(); });
-  document.body.addEventListener('htmx:afterSettle', function (e) {
+  document.addEventListener('htmx:afterSettle', function (e) {
     localize(e.detail.elt);
   });
 })();
