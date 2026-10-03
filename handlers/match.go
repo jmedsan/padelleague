@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/types"
 
 	"padelleague/league"
 	"padelleague/notify"
@@ -281,7 +282,7 @@ func (h *MatchHandler) submitResultProposal(e *core.RequestEvent, match *core.Re
 			return err
 		}
 		match.Set("submitted_by", userID)
-		match.Set("submitted_at", time.Now().UTC().Format(time.RFC3339))
+		match.SetRaw("submitted_at", types.NowDateTime()) // autodate: Set is a no-op
 		match.Set("confirm_reminded", false)
 		return txApp.Save(match)
 	}); err != nil {

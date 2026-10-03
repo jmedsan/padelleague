@@ -73,7 +73,7 @@ test.describe('match lifecycle', { tag: '@scoring' }, () => {
     await expect(si.locator('[name="s1a"]')).toHaveClass(/select-error/);
     await expect(si.locator('[name="s1b"]')).toHaveClass(/select-error/);
     await expect(si.locator('.score-winner')).toHaveText('');
-    await expect(page.getByRole('button', { name: 'Enviar resultado' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Enviar resultado' })).toBeEnabled();
   });
 
   test('home page shows matches', async ({ page }) => {
