@@ -31,6 +31,31 @@ async function navToAdmin(page: Page, href: string): Promise<void> {
 }
 
 test.describe('admin management', { tag: '@admin' }, () => {
+  test('admin summary counters sit on one line, each spaced from its label', async ({ page }) => {
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await navToAdmin(page, '/admin/competitions');
+    const items = await page.locator('[data-testid="admin-summary"] > *').evaluateAll(els => els.map(el => {
+      const num = el.querySelector('span.font-bold')!.getBoundingClientRect();
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      let text: DOMRect | null = null;
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        if (!n.textContent?.trim() || el.querySelector('span.font-bold')!.contains(n)) continue;
+        const r = document.createRange();
+        r.selectNodeContents(n);
+        text = r.getBoundingClientRect();
+      }
+      return { top: el.getBoundingClientRect().top, numMid: num.top + num.height / 2, numRight: num.right, textMid: text!.top + text!.height / 2, textLeft: text!.left };
+    }));
+    expect(items).toHaveLength(3);
+    for (const it of items) {
+      expect(Math.abs(it.numMid - it.textMid), 'number and label share a line').toBeLessThanOrEqual(2);
+      expect(it.textLeft - it.numRight, 'gap between number and label').toBeGreaterThanOrEqual(2);
+    }
+    if (!isMobile(page)) {
+      for (const it of items) expect(Math.abs(it.top - items[0].top), 'counters share one row').toBeLessThanOrEqual(1);
+    }
+  });
+
   test('admin can view pairs page', { tag: '@smoke' }, async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await navToAdmin(page, '/admin/pairs');
