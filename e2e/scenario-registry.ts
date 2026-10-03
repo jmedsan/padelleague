@@ -43,6 +43,11 @@ export const SCENARIOS: Record<string, Scenario> = {
     startStage: 'assigned',
     specs: ['result-counter.spec.ts'],
   },
+  'result-carried': {
+    description: 'match with 6-3 carried over, date and place set — ready for the rest of the result',
+    startStage: 'assigned',
+    specs: ['result-carried.spec.ts'],
+  },
   'smtp-verify': {
     description: 'SMTP sink receives finalization email',
     startStage: 'assigned',
