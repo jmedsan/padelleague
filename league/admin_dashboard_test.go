@@ -456,25 +456,51 @@ func TestHealthReport_OpenArbitrationNotDisputedGoesToDisputes(t *testing.T) {
 	assert.Empty(t, byKey["walkovers"].Items, "a non-walkover arbitration must not be counted as a walkover")
 }
 
-func TestHealthReport_UnscheduledMatchWithNoDate(t *testing.T) {
+func TestHealthReport_UnscheduledOnlyAfterRoundDeadline(t *testing.T) {
 	t.Parallel()
-	app := newTestApp(t)
-	p1 := makePair(t, app, "HRUnschedA")
-	p2 := makePair(t, app, "HRUnschedB")
-	comp := makeCompetition(t, app, []*core.Record{p1, p2})
-
-	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusPending)
-	require.Empty(t, m.GetString("date"), "seed helper must leave date unset for this case")
-
-	report := HealthReport(app, time.Now())
-	var unscheduled HealthCategory
-	for _, cat := range report {
-		if cat.Key == "unscheduled" {
-			unscheduled = cat
-		}
+	ptr := func(t time.Time) *time.Time { return &t }
+	day := func(offset int) time.Time { return time.Now().AddDate(0, 0, offset) }
+	cases := []struct {
+		name       string
+		start, end *time.Time
+		want       int
+	}{
+		{"window still open", ptr(day(-5)), ptr(day(30)), 0},
+		{"round deadline passed", ptr(day(-40)), ptr(day(-20)), 1},
+		{"no play window, no deadline", nil, nil, 0},
 	}
-	require.Len(t, unscheduled.Items, 1)
-	assert.Equal(t, m.Id, unscheduled.Items[0].MatchID)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			app := newTestApp(t)
+			p1 := makePair(t, app, "HRUnschedA")
+			p2 := makePair(t, app, "HRUnschedB")
+			comp := makeCompetition(t, app, []*core.Record{p1, p2})
+			if tc.start != nil {
+				sd, _ := types.ParseDateTime(*tc.start)
+				ed, _ := types.ParseDateTime(*tc.end)
+				comp.Set("start_date", sd)
+				comp.Set("end_date", ed)
+				comp.Set("rounds", 1)
+				comp.Set("recovery_days", 9999) // stay out of PhaseFinished
+				require.NoError(t, app.Save(comp))
+			}
+
+			m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusPending)
+			require.Empty(t, m.GetString("date"), "seed helper must leave date unset for this case")
+
+			var unscheduled HealthCategory
+			for _, cat := range HealthReport(app, time.Now()) {
+				if cat.Key == "unscheduled" {
+					unscheduled = cat
+				}
+			}
+			require.Len(t, unscheduled.Items, tc.want)
+			if tc.want == 1 {
+				assert.Equal(t, m.Id, unscheduled.Items[0].MatchID)
+			}
+		})
+	}
 }
 
 func TestHealthReport_WalkoverExcludedFromUnscheduledAndOverdue(t *testing.T) {
