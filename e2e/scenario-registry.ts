@@ -38,6 +38,11 @@ export const SCENARIOS: Record<string, Scenario> = {
     startStage: 'assigned',
     specs: ['result-ready.spec.ts'],
   },
+  'result-counter': {
+    description: 'rival proposed a result — reject and counter-propose from the rival\'s side',
+    startStage: 'assigned',
+    specs: ['result-counter.spec.ts'],
+  },
   'smtp-verify': {
     description: 'SMTP sink receives finalization email',
     startStage: 'assigned',
