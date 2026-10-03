@@ -44,6 +44,11 @@
         }
         document.addEventListener('DOMContentLoaded', function() {
             initFlatpickr();
+            // A form with data-error-target shows its server alert there instead of the top-of-page #flash.
+            document.body.addEventListener('htmx:beforeSwap', function(e) {
+                var slot = e.detail.target.id === 'flash' && e.detail.requestConfig.elt.dataset.errorTarget;
+                if (slot) e.detail.target = document.querySelector(slot);
+            });
             document.body.addEventListener('htmx:beforeSwap', function(e) {
                 e.detail.target.querySelectorAll('[data-fp]').forEach(function(el) {
                     if (el._flatpickr) { el._flatpickr.destroy(); }

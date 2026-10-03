@@ -442,7 +442,8 @@
     <div class="card bg-base-200/50 rounded-xl">
         <div class="card-body p-4">
             <h3 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-3">Registrar resultado</h3>
-            <form hx-post="/match/{{$c.Match.Id}}/submit" hx-target="body">
+            <div id="result-error" aria-live="polite"></div>
+            <form hx-post="/match/{{$c.Match.Id}}/submit" hx-target="body" data-error-target="#result-error">
                 {{template "scoreInput" $c.ScoreSubmit}}
                 <button type="submit" hx-disabled-elt="this" class="btn btn-primary mt-4 w-full">Enviar resultado</button>
             </form>
