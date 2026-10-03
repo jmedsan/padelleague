@@ -34,7 +34,9 @@ test.describe('admin management', { tag: '@admin' }, () => {
   test('admin summary counters sit on one line, each spaced from its label', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await navToAdmin(page, '/admin/competitions');
-    const items = await page.locator('[data-testid="admin-summary"] > *').evaluateAll(els => els.map(el => {
+    const summary = page.locator('[data-testid="admin-summary"]');
+    await expect(summary).toBeVisible();
+    const items = await summary.locator('> *').evaluateAll(els => els.map(el => {
       const num = el.querySelector('span.font-bold')!.getBoundingClientRect();
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       let text: DOMRect | null = null;

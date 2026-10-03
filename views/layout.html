@@ -309,10 +309,14 @@
         </div>
     </div>
 <script>
+// An hx-target="body" swap replays this script in the same window: running it
+// twice redeclares deferredPrompt (a SyntaxError) and stacks every listener below.
+if (!window.layoutScriptLoaded) {
+window.layoutScriptLoaded = true;
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js');
 }
-let deferredPrompt;
+var deferredPrompt;
 window.addEventListener('beforeinstallprompt', function(e) {
     e.preventDefault();
     deferredPrompt = e;
@@ -349,6 +353,7 @@ document.addEventListener('focusout', function(e) {
         if (!d.contains(document.activeElement)) d.dataset.open = '';
     }, 0);
 });
+}
 </script>
 </body>
 </html>
