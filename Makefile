@@ -4,7 +4,7 @@ export
 LOCAL_URL ?= http://127.0.0.1:8090
 OPENER ?= xdg-open
 
-.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci check e2e e2e-bg e2e-failed e2e-smoke scenario-test scenario-serve scenario-stop mutate
+.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci check e2e e2e-bg e2e-failed e2e-smoke scenario-test scenario-serve scenario-stop scenario-migrate mutate
 
 css:
 	cd frontend && npx tailwindcss -i ../static/css/input.css -o ../static/css/styles.css --minify
@@ -20,8 +20,8 @@ version-file:
 run: stop build
 	./padelleague serve
 
-migrate:
-	go run . migrate up
+migrate: ## apply pending migrations to a data dir: make migrate [DIR=pb_data]
+	scripts/migrate-dir.sh $(or $(DIR),pb_data)
 
 open-local:
 	$(OPENER) $(LOCAL_URL)
@@ -241,15 +241,14 @@ scenario-serve: ## boot a scenario and keep server alive: make scenario-serve SC
 	cd e2e && E2E_KEEP=1 SCENARIO=$(SCENARIO) E2E_PORT=$$E2E_PORT npx playwright test \
 	  --config playwright.scenario.config.ts --project="$$FIRST_PROJECT" --grep "00 "
 
+scenario-migrate: build ## apply pending migrations to a kept scenario server's data: make scenario-migrate [PORT=<port>]
+	@port=$$(scripts/scenario-port.sh $(PORT)) || exit 1; \
+	if [ ! -f e2e/.test-data/$$port/scenario.dir ]; then echo "no scenario server running on port $$port"; exit 1; fi; \
+	scripts/migrate-dir.sh "$$(cat e2e/.test-data/$$port/scenario.dir)"
+
 scenario-stop: ## stop a kept scenario server and delete its data: make scenario-stop PORT=<port>
-	@port="$(PORT)"; \
-	if [ -z "$$port" ]; then \
-		runs=$$(ls -d e2e/.test-data/*/scenario.pid 2>/dev/null | sed 's|e2e/.test-data/\([0-9]*\)/scenario.pid|\1|'); \
-		n=$$(echo "$$runs" | grep -c . || true); \
-		if [ "$$n" -eq 1 ]; then port=$$runs; \
-		elif [ "$$n" -eq 0 ]; then echo "no scenario server running"; exit 0; \
-		else echo "several scenario servers running, pick one: make scenario-stop PORT=<port>"; echo "$$runs"; exit 1; fi; \
-	fi; \
+	@port=$$(scripts/scenario-port.sh $(PORT)); rc=$$?; \
+	if [ $$rc -eq 2 ]; then exit 0; elif [ $$rc -ne 0 ]; then exit 1; fi; \
 	d=e2e/.test-data/$$port; \
 	if [ -f $$d/scenario.pid ]; then \
 		pid=$$(cat $$d/scenario.pid); \
