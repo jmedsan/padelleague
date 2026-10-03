@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -35,13 +36,33 @@ func SetAuthCookie(e *core.RequestEvent, token string) {
 // profiles to /profile/complete, handling both regular and HTMX requests.
 func RequireAuth(e *core.RequestEvent) error {
 	if e.Auth == nil {
-		return redirectOrHX(e, "/login")
+		return redirectOrHX(e, loginURL(e.Request))
 	}
 	if e.Auth.GetString("display_name") == "" &&
 		e.Request.URL.Path != "/profile/complete" {
 		return redirectOrHX(e, "/profile/complete")
 	}
 	return e.Next()
+}
+
+// loginURL is the login page, carrying the requested page as ?next= so the
+// user lands there after signing in. Only a plain GET page load is carried:
+// an HTMX fragment or a non-GET request is not a page the user can return to,
+// and "/" is where login lands anyway.
+func loginURL(r *http.Request) string {
+	if r.Method != http.MethodGet || r.URL.Path == "/" || r.Header.Get("HX-Request") == "true" {
+		return "/login"
+	}
+	return "/login?next=" + url.QueryEscape(r.URL.RequestURI())
+}
+
+// SafeNext returns next when it is a path on this site, else "/". It rejects
+// absolute URLs, "//host" and backslash forms, which would redirect off-site.
+func SafeNext(next string) string {
+	if !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") || strings.Contains(next, "\\") {
+		return "/"
+	}
+	return next
 }
 
 // redirectOrHX redirects e to url: a plain 302 for a regular request, or a

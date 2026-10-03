@@ -3,6 +3,7 @@ package routes
 import (
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
 	"testing"
 	"testing/fstest"
@@ -82,7 +83,7 @@ func TestAdminRoutes_RejectUnauthenticated(t *testing.T) {
 			}
 			s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 				loc := res.Header.Get("Location")
-				assert.Equal(tb, "/login", loc, "unauthenticated request to %s should redirect to /login", path)
+				assert.Equal(tb, "/login?next="+url.QueryEscape(path), loc, "unauthenticated request to %s should redirect to /login carrying the page", path)
 			}
 			s.Test(t)
 		})

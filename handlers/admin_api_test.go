@@ -43,7 +43,7 @@ func TestAdminNoAuth(t *testing.T) {
 			setupProductionRoutes(tb, app, e)
 		},
 		AfterTestFunc: func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-			assert.Equal(tb, "/login", res.Header.Get("Location"))
+			assert.Equal(tb, "/login?next=%2Fadmin", res.Header.Get("Location"))
 		},
 	}
 	scenario.Test(t)

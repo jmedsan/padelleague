@@ -31,10 +31,11 @@ func NewAuthHandler(app core.App, notifier *notify.Notifier, renderPage RenderFu
 
 // Login renders the login page, redirecting authenticated users to home.
 func (h *AuthHandler) Login(e *core.RequestEvent) error {
+	next := middleware.SafeNext(e.Request.URL.Query().Get("next"))
 	if e.Auth != nil {
-		return e.Redirect(http.StatusFound, "/")
+		return e.Redirect(http.StatusFound, next)
 	}
-	return h.renderPage(e, "login.html", map[string]any{"PageTitle": "Iniciar sesión"})
+	return h.renderPage(e, "login.html", map[string]any{"PageTitle": "Iniciar sesión", "Next": next})
 }
 
 // LoginSubmit processes the login form and sets the auth cookie on success.
@@ -54,10 +55,11 @@ func (h *AuthHandler) LoginSubmit(e *core.RequestEvent) error {
 
 	middleware.SetAuthCookie(e, token)
 
+	next := middleware.SafeNext(e.Request.FormValue("next"))
 	if e.Request.Header.Get("HX-Request") == "true" {
-		return redirectHX(e, "/")
+		return redirectHX(e, next)
 	}
-	return e.Redirect(http.StatusFound, "/")
+	return e.Redirect(http.StatusFound, next)
 }
 
 // Register renders the registration form after validating the invitation token.

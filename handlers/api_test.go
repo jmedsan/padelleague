@@ -177,7 +177,7 @@ func TestMatchDetailWithoutAuth(t *testing.T) {
 		setupProductionRoutes(tb, app, e)
 	}
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		assert.Equal(tb, "/login", res.Header.Get("Location"))
+		assert.Equal(tb, "/login?next=%2Fmatch%2Ffakeid", res.Header.Get("Location"))
 	}
 	s.Test(t)
 }
