@@ -48,6 +48,16 @@ export const SCENARIOS: Record<string, Scenario> = {
     startStage: 'assigned',
     specs: ['result-carried.spec.ts'],
   },
+  'result-nodate': {
+    description: 'match with no date and place proposed — the result cannot be entered yet',
+    startStage: 'assigned',
+    specs: ['result-nodate.spec.ts'],
+  },
+  'result-date-proposed': {
+    description: 'a date and place were proposed, not accepted — the result cannot be entered yet',
+    startStage: 'assigned',
+    specs: ['result-date-proposed.spec.ts'],
+  },
   'smtp-verify': {
     description: 'SMTP sink receives finalization email',
     startStage: 'assigned',
