@@ -247,7 +247,7 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 	}
 
 	scores, err := readScoreForm(e, match.GetString("carried_sets"), "scores")
-	if err != nil {
+	if err != nil || scores == "" {
 		return err
 	}
 
