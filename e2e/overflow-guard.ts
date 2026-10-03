@@ -1,5 +1,5 @@
 import { test as base, expect } from './worker-server';
-import type { Page, Response, ConsoleMessage } from '@playwright/test';
+import type { Page, Response, ConsoleMessage, WebError, Request } from '@playwright/test';
 import { expectingHxRedirect } from './tour-helpers';
 
 // Widest-offender detail for a horizontal-overflow failure: element,
@@ -537,6 +537,30 @@ export const test = base.extend<{ pageGuards: void }>({
     };
     page.on('console', onConsole);
 
+    // Uncaught exceptions and unhandled promise rejections never reach
+    // console.error: a script that throws at load (localtime.js reading a
+    // null document.body) fires only this event. The context-level events
+    // also cover the service worker, whose console is not the page's.
+    const onWebError = (err: WebError) => {
+      violations.push(`[uncaught-error] ${page.url()}: ${err.error().message.slice(0, 200)}`);
+    };
+    const onWorkerConsole = (msg: ConsoleMessage) => {
+      if (msg.type() === 'error' && msg.worker()) {
+        violations.push(`[worker-console-error] ${msg.text().slice(0, 200)}`);
+      }
+    };
+    // A request that failed at the network level (not an HTTP status, which
+    // onResponse covers). ERR_ABORTED is the browser cancelling a request on
+    // navigation, never a defect.
+    const onRequestFailed = (req: Request) => {
+      const reason = req.failure()?.errorText ?? '';
+      if (reason.includes('ERR_ABORTED')) return;
+      violations.push(`[request-failed] ${req.method()} ${req.url()}: ${reason}`);
+    };
+    page.context().on('weberror', onWebError);
+    page.context().on('console', onWorkerConsole);
+    page.on('requestfailed', onRequestFailed);
+
     const onResponse = (response: Response) => {
       if (response.status() >= 400) {
         const expected = expectedHTTPErrors().some(e => e.status === response.status() && response.url().includes(e.urlSubstring));
@@ -575,6 +599,9 @@ export const test = base.extend<{ pageGuards: void }>({
     page.off('load', recordDOMGuards);
     page.off('framenavigated', recordDOMGuards);
     page.off('console', onConsole);
+    page.context().off('weberror', onWebError);
+    page.context().off('console', onWorkerConsole);
+    page.off('requestfailed', onRequestFailed);
     page.off('response', onResponse);
     page.off('response', onHxRedirectResponse);
     // Drain any check still in flight from the last navigation before

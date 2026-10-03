@@ -315,9 +315,9 @@ export async function seedTestData(baseURL: string, port: number) {
   // the next one.
   // Slots 0-1 use pair1 vs pair2; slot 2 (admin-notif) uses pair1 vs pair3
   // so the admin is NOT a match participant and receives the notification;
-  // slots 3, 4 (lifecycle-ui, invalid-nonlast-set) use pair1 vs pair2.
+  // slots 3-6 (lifecycle-ui, invalid-nonlast-set, empty-result, empty-counter) use pair1 vs pair2.
   // pair3 is NOT added to the competition to avoid changing fixture generation.
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 14; i++) {
     const usePair3 = i >= 4 && i < 6; // slots 0-1 = indices 0-3, slot 2 = indices 4-5
     const extra = await fetchAuthed('/api/collections/matches/records', adminToken, {
       method: 'POST',

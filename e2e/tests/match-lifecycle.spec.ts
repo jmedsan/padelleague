@@ -117,7 +117,39 @@ test.describe('match lifecycle', { tag: '@scoring' }, () => {
     await expect(counterForm.locator('.score-cell').first()).toBeVisible();
   });
 
-  test('admin resolve uses masked score component', async ({ page, request }, testInfo) => {
+  test('empty result form shows the inline banner and stores nothing', async ({ page, request }, testInfo) => {
+    const matchId = scratchMatchId('empty-result', testInfo.project.name);
+    await suPatch(request, `/api/collections/matches/records/${matchId}`, { date: '2025-03-15', club: 'Padel 360' });
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.waitForSelector('#result-panel', { timeout: 10000 });
+    await page.getByRole('button', { name: 'Enviar resultado' }).click();
+    await expect(page.locator('#result-error')).toContainText('Debes indicar el marcador');
+    const msgs = await suGet(request, `/api/collections/match_messages/records?filter=match='${matchId}' %26%26 type='result_submission'`);
+    expect(msgs.items).toHaveLength(0);
+  });
+
+  test('empty counter form shows the inline banner and keeps the proposal', async ({ page, request }, testInfo) => {
+    const matchId = scratchMatchId('empty-counter', testInfo.project.name);
+    const adminId = (await suGet(request, `/api/collections/users/records?filter=email='${ADMIN_EMAIL}'`)).items[0].id;
+    await suPatch(request, `/api/collections/matches/records/${matchId}`, {
+      status: 'scheduled', submitted_by: adminId, date: '2025-03-15', club: 'Padel 360',
+    });
+    const proposal = await suPost(request, '/api/collections/match_messages/records', {
+      match: matchId, type: 'result_submission', proposal_status: 'pending',
+      proposal_data: JSON.stringify({ scores: '6-3 6-4' }), author: adminId,
+    });
+    await loginAs(page, PLAYER2_EMAIL, PLAYER2_PASSWORD);
+    await page.goto(`/match/${matchId}`);
+    await page.locator('#thread-details button:has-text("Contraproponer")').first().click();
+    await page.getByRole('button', { name: 'Enviar contrapropuesta' }).click();
+    await expect(page.locator(`#counter-error-${proposal.id}`)).toContainText('Debes indicar el marcador');
+    const msgs = await suGet(request, `/api/collections/match_messages/records?filter=match='${matchId}' %26%26 type='result_submission'`);
+    expect(msgs.items).toHaveLength(1);
+    expect(msgs.items[0].proposal_status).toBe('pending');
+  });
+
+  test('admin resolve uses masked score component',async ({ page, request }, testInfo) => {
     const matchId = scratchMatchId('lifecycle-ui', testInfo.project.name);
     await suPatch(request, `/api/collections/matches/records/${matchId}`, {
       status: 'disputed', scores: '6-3 6-4', disputed_scores: '4-6 6-3 7-5', review_type: 'score',
