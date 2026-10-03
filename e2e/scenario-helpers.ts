@@ -7,6 +7,15 @@ import { STAGE_ORDER, type StageName } from './scenario-registry';
 
 export const PLAYER_PASSWORD = 'TestPass123456';
 
+// Prints how to open a scenario page as a player: the credentials, the page,
+// and a dev-only one-click link (/dev-login signs in and goes to the page).
+export function printLogin(baseURL: string, email: string, path: string): void {
+  const link = `${baseURL}/dev-login?${new URLSearchParams({ email, password: PLAYER_PASSWORD, next: path })}`;
+  console.log(`\nLog in as ${email} / ${PLAYER_PASSWORD}`);
+  console.log(`Match page: ${baseURL}${path}`);
+  console.log(`One click:  ${link}`);
+}
+
 export function uniqueSuffix(): string {
   return randomUUID().slice(0, 8);
 }

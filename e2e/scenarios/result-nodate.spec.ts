@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
 import {
-  PLAYER_PASSWORD, ScenarioApi, ScenarioData, apiGet, loadCtx,
+  ScenarioApi, ScenarioData, apiGet, loadCtx, printLogin,
 } from '../scenario-helpers';
 
 let ctx: ScenarioData;
@@ -19,8 +19,7 @@ test.describe('match without a date and place proposal', () => {
     const list = await apiGet(api, `/api/collections/matches/records?filter=${encodeURIComponent(
       `competition='${ctx.competitionId}' && status='pending' && (pair1='${pair.id}' || pair2='${pair.id}')`)}&perPage=1`);
     const matchID = list.items[0].id;
-    console.log(`\nLog in as ${ctx.players[pair.player1Idx].email} / ${PLAYER_PASSWORD}`);
-    console.log(`Match page: ${ctx.baseURL}/match/${matchID}`);
+    printLogin(ctx.baseURL, ctx.players[pair.player1Idx].email, `/match/${matchID}`);
     console.log('Look at the result card: it should say the date and place must be proposed first.');
   });
 });

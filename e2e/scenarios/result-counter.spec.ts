@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
 import {
-  PLAYER_PASSWORD, ScenarioApi, ScenarioData, apiGet, apiPatch, loadCtx,
+  PLAYER_PASSWORD, ScenarioApi, ScenarioData, apiGet, apiPatch, loadCtx, printLogin,
 } from '../scenario-helpers';
 
 let ctx: ScenarioData;
@@ -49,8 +49,7 @@ test.describe('match with a result proposed by the rival', () => {
     });
     if (resp.status >= 400) throw new Error(`submit: ${resp.status} ${await resp.text()}`);
 
-    console.log(`\nLog in as ${rivalPlayer.email} / ${PLAYER_PASSWORD}`);
-    console.log(`Match page: ${ctx.baseURL}/match/${match.id}`);
+    printLogin(ctx.baseURL, rivalPlayer.email, `/match/${match.id}`);
     console.log('Click "Rechazar y proponer otra" and send the new proposal without a score.');
   });
 });
