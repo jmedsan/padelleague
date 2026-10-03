@@ -10,6 +10,7 @@
             <h2 class="text-lg font-bold text-center">Iniciar sesión</h2>
             <div id="error" aria-live="polite"></div>
             <form hx-post="/login" hx-target="#error" class="mt-2">
+                <input type="hidden" name="next" value="{{.Next}}">
                 <div class="form-control">
                     <label class="label" for="email">
                         <span class="label-text text-sm font-medium">Email</span>

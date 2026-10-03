@@ -220,7 +220,7 @@ func TestRequireAuth_Unauthenticated_RedirectsToLogin(t *testing.T) {
 			}).BindFunc(RequireAuth)
 		},
 		AfterTestFunc: func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-			assert.Equal(tb, "/login", res.Header.Get("Location"))
+			assert.Equal(tb, "/login?next=%2Fauth-test", res.Header.Get("Location"))
 			assert.False(tb, handlerReached)
 		},
 	}
@@ -486,4 +486,19 @@ func TestClearAuthCookie(t *testing.T) {
 		assert.True(tb, c.Secure)
 	}
 	s.Test(t)
+}
+
+func TestSafeNext(t *testing.T) {
+	t.Parallel()
+	cases := map[string]string{
+		"/match/abc?tab=1":     "/match/abc?tab=1",
+		"":                     "/",
+		"https://evil.example": "/",
+		"//evil.example":       "/",
+		"/\\evil.example":      "/",
+		"match/abc":            "/",
+	}
+	for in, want := range cases {
+		assert.Equal(t, want, SafeNext(in), "SafeNext(%q)", in)
+	}
 }
