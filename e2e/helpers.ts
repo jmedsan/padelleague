@@ -59,6 +59,8 @@ const SCRATCH_SLOTS: Record<string, number> = {
   'admin-notif': 2,
   'lifecycle-ui': 3,
   'invalid-nonlast-set': 4,
+  'empty-result': 5,
+  'empty-counter': 6,
 };
 
 export function scratchMatchId(purpose: keyof typeof SCRATCH_SLOTS | string, projectName: string): string {
