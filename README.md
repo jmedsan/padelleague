@@ -99,7 +99,7 @@ The `-v` flag persists the SQLite database between container restarts.
 | `APP_PLAYER2_EMAIL` | Second seed player email (dev/test, optional) |
 | `APP_PLAYER2_PASSWORD` | Second seed player password (dev/test) |
 | `APP_PLAYER2_NAME` | Second seed player display name (default: `Jugador 2`) |
-| `APP_ENV` | Environment: `dev` (default) or `prod`. `prod` skips the player seed |
+| `APP_ENV` | Environment: `prod` (default) or `dev`. `prod` skips the player seed and `/dev-login` |
 | `APP_DEV_TOOLS` | `true` to enable the admin database reset tool (default: `false`) |
 | `SMTP_HOST` | SMTP server host (e.g. `smtp.gmail.com`) |
 | `SMTP_PORT` | SMTP port (default: `587`) |
