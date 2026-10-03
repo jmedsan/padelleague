@@ -241,23 +241,10 @@
         return anyFilled;
     }
 
-    function updateSubmitState(si) {
-        var form = si.closest('form');
-        if (!form) return;
-        var btn = form.querySelector('button[type=submit]');
-        if (!btn) return;
-        var anyFilled = si.querySelectorAll('select.score-cell').length &&
-            Array.prototype.some.call(si.querySelectorAll('select.score-cell'), function(s) {
-                return !s.closest('.hidden') && !s.disabled && s.value !== '';
-            });
-        btn.disabled = anyFilled && !isComplete(si);
-    }
-
     function refresh(si) {
         checkThirdSet(si);
         updateWinner(si);
         compose(si);
-        updateSubmitState(si);
     }
 
     window.fillCells = function(scoreEl, scoreStr) {
