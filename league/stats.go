@@ -202,7 +202,7 @@ const reliabilityResponseCap = 72.0
 // unanswered scheduling proposal, which has no quorum auto-accept of its
 // own: it is scored as if fully unresponsive once this much time has
 // passed, matching the default quorum_timeout_hours (league/settings.go).
-const reliabilityDefaultTimeoutHours = 48.0
+const reliabilityDefaultTimeoutHours = 24.0
 
 // MinMatchesForReliability is the minimum finalized-match count below which
 // Reliability has too little data to be meaningful and StatsSummary omits

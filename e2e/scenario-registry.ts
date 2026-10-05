@@ -58,6 +58,11 @@ export const SCENARIOS: Record<string, Scenario> = {
     startStage: 'assigned',
     specs: ['result-date-proposed.spec.ts'],
   },
+  'several-competitions': {
+    description: 'three active competitions with quorum 12h, 48h, 48h',
+    startStage: 'created',
+    specs: ['several-competitions.spec.ts'],
+  },
   'smtp-verify': {
     description: 'SMTP sink receives finalization email',
     startStage: 'assigned',

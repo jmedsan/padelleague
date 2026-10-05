@@ -32,7 +32,7 @@ var (
 // DefaultSettings returns hardcoded fallback values.
 func DefaultSettings() AppSettings {
 	return AppSettings{
-		QuorumTimeoutHours:       48,
+		QuorumTimeoutHours:       24,
 		ArrangeGraceDays:         3,
 		WalkoverScore:            "6-0 6-0",
 		DefaultPenalty:           3,

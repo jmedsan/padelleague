@@ -23,7 +23,7 @@ func TestSettingsGET_ShowsDefaultsForm(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/admin/settings",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{`name="quorum_timeout_hours" value="48"`, `name="walkover_score" value="6-0 6-0"`},
+		ExpectedContent: []string{`name="quorum_timeout_hours" value="24"`, `name="walkover_score" value="6-0 6-0"`},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupProductionRoutes(tb, app, e)
