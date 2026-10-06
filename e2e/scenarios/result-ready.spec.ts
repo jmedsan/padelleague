@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { loginAs } from '../helpers';
 import {
-  ScenarioApi, ScenarioData, apiGet, apiPatch, loadCtx, printLogin,
+  PLAYER_PASSWORD, ScenarioApi, ScenarioData, apiGet, apiPatch, loadCtx, printLogin,
 } from '../scenario-helpers';
 
 let ctx: ScenarioData;
