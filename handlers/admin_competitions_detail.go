@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -212,18 +213,27 @@ func finalizeMatchesAsWalkovers(p walkoverParams) error {
 		if opponentID == p.pairID {
 			opponentID = match.GetString("pair1")
 		}
-		match.Set("scores", p.woScore)
-		match.Set("winner", opponentID)
-		match.Set("status", league.StatusFinal)
-		match.Set("review_type", "walkover")
-		match.Set("carried_sets", "")
-		if err := p.app.Save(match); err != nil {
+		_, _, err := writeAsAdmin(p.app, adminWrite{
+			matchID: match.Id, adminID: p.e.Auth.Id,
+			apply: func(_ core.App, m *core.Record) (adminChange, error) {
+				if !league.IsPreScore(m.GetString("status")) {
+					return adminChange{}, errAlreadyResolved
+				}
+				m.Set("scores", p.woScore)
+				m.Set("winner", opponentID)
+				m.Set("status", league.StatusFinal)
+				m.Set("review_type", "walkover")
+				m.Set("carried_sets", "")
+				return adminChange{kind: "result_event", detail: detail,
+					decides: []string{proposalResult, proposalScheduling}}, nil
+			},
+		})
+		if errors.Is(err, errAlreadyResolved) {
+			continue
+		}
+		if err != nil {
 			return alertError(p.e, "Error al finalizar partido")
 		}
-		addTimelineEntry(p.app, timelineEntry{
-			MatchID: match.Id, ActorID: p.e.Auth.Id, Kind: "result_event",
-			Detail: detail,
-		})
 	}
 	return nil
 }

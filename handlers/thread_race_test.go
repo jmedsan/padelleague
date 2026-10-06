@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -29,6 +30,19 @@ func raceScenario(t *testing.T, name string,
 	check func(tb testing.TB, app *tests.TestApp, fx []raceFixture),
 ) {
 	t.Helper()
+	raceScenarioResponses(t, name, setup,
+		func(tb testing.TB, app *tests.TestApp, fx []raceFixture, _ []*httptest.ResponseRecorder) {
+			check(tb, app, fx)
+		})
+}
+
+// raceScenarioResponses is raceScenario whose check also gets each racer's
+// response, in the order setup returned the racers.
+func raceScenarioResponses(t *testing.T, name string,
+	setup func(tb testing.TB, app *tests.TestApp, fx []raceFixture) []racer,
+	check func(tb testing.TB, app *tests.TestApp, fx []raceFixture, rs []*httptest.ResponseRecorder),
+) {
+	t.Helper()
 	s := &tests.ApiScenario{
 		TestAppFactory:  handlers.TestAppFactory,
 		Name:            name,
@@ -38,6 +52,7 @@ func raceScenario(t *testing.T, name string,
 		ExpectedContent: []string{"API is healthy"},
 	}
 	var fixtures []raceFixture
+	var responses []*httptest.ResponseRecorder
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupProductionRoutes(tb, app, e)
 		p1 := handlers.MakePairTB(tb, app, "Race A")
@@ -57,10 +72,10 @@ func raceScenario(t *testing.T, name string,
 		racers := setup(tb, app, fixtures)
 		mux, err := e.Router.BuildMux()
 		require.NoError(tb, err)
-		fireTogether(tb, mux, racers)
+		responses = fireCollect(tb, mux, racers)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		check(tb, app, fixtures)
+		check(tb, app, fixtures, responses)
 	}
 	s.Test(t)
 }

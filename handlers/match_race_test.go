@@ -25,9 +25,16 @@ type racer struct {
 // fireTogether releases every racer at the same instant and waits for all.
 func fireTogether(tb testing.TB, mux http.Handler, racers []racer) {
 	tb.Helper()
+	fireCollect(tb, mux, racers)
+}
+
+// fireCollect is fireTogether that also returns each racer's response, in order.
+func fireCollect(tb testing.TB, mux http.Handler, racers []racer) []*httptest.ResponseRecorder {
+	tb.Helper()
 	start := make(chan struct{})
 	var wg sync.WaitGroup
-	for _, r := range racers {
+	out := make([]*httptest.ResponseRecorder, len(racers))
+	for i, r := range racers {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -38,11 +45,13 @@ func fireTogether(tb testing.TB, mux http.Handler, racers []racer) {
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			req.Header.Set("HX-Request", "true")
 			<-start
-			mux.ServeHTTP(httptest.NewRecorder(), req)
+			out[i] = httptest.NewRecorder()
+			mux.ServeHTTP(out[i], req)
 		}()
 	}
 	close(start)
 	wg.Wait()
+	return out
 }
 
 func pendingResultAuthors(tb testing.TB, app core.App, matchID string) []string {

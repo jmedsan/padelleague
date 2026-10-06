@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -511,6 +512,9 @@ func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 		penaltyID := e.Request.FormValue("penalty_id")
 		voidReason := strings.TrimSpace(e.Request.FormValue("void_reason"))
 		rec, err := league.VoidPenalty(h.app, league.VoidPenaltyInput{PenaltyID: penaltyID, AdminID: e.Auth.Id, Reason: voidReason})
+		if errors.Is(err, league.ErrPenaltyAlreadyVoided) {
+			return alertWarning(e, "Esta penalización ya estaba anulada")
+		}
 		if err != nil {
 			return alertError(e, "Error al quitar la penalización")
 		}

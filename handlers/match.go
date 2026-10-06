@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -383,6 +382,28 @@ func (h *MatchHandler) notifyResultProposal(match *core.Record, userID, scores s
 	}
 }
 
+// releaseMatchTx deletes a match and its notifications, re-checking on a fresh
+// record that it is still unplayed.
+func releaseMatchTx(txApp core.App, id string) error {
+	match, err := txApp.FindRecordById("matches", id)
+	if err != nil {
+		return err
+	}
+	if !league.IsPreScore(match.GetString("status")) {
+		return league.ErrMatchNotPreScore
+	}
+	notifs, err := txApp.FindRecordsByFilter("notifications", "related_match = {:m}", "", 0, 0, map[string]any{"m": id})
+	if err != nil {
+		return err
+	}
+	for _, n := range notifs {
+		if err := txApp.Delete(n); err != nil {
+			return err
+		}
+	}
+	return txApp.Delete(match)
+}
+
 // AdminRelease deletes a pending leveled-league match so the pair-assignment
 // cron can re-pair the affected pairs. Only valid for leveled competitions and
 // pre-score match statuses.
@@ -400,18 +421,10 @@ func (h *MatchHandler) AdminRelease(e *core.RequestEvent) error {
 		return alertError(e, "Solo se puede liberar un partido sin resultado de una liga nivelada")
 	}
 
-	if err := h.app.RunInTransaction(func(txApp core.App) error {
-		notifs, err := txApp.FindRecordsByFilter("notifications", "related_match = {:m}", "", 0, 0, map[string]any{"m": id})
-		if err != nil {
-			return err
+	if err := h.app.RunInTransaction(func(txApp core.App) error { return releaseMatchTx(txApp, id) }); err != nil {
+		if errors.Is(err, league.ErrMatchNotPreScore) {
+			return alertError(e, "Solo se puede liberar un partido sin resultado de una liga nivelada")
 		}
-		for _, n := range notifs {
-			if err := txApp.Delete(n); err != nil {
-				return err
-			}
-		}
-		return txApp.Delete(match)
-	}); err != nil {
 		return alertError(e, "Error al liberar el partido")
 	}
 
@@ -424,126 +437,6 @@ func (h *MatchHandler) AdminRelease(e *core.RequestEvent) error {
 
 	flash(e, "Partido liberado")
 	return redirectHX(e, "/competition/"+compID)
-}
-
-// AdminOverride lets an admin set the final score, bypassing the normal flow.
-func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
-	id := e.Request.PathValue("id")
-	match, err := h.app.FindRecordById("matches", id)
-	if err != nil {
-		return alertError(e, "Partido no encontrado")
-	}
-
-	if !render.AdminView(e) {
-		return alertError(e, "Solo administradores")
-	}
-
-	changes, alertErr := h.detectChanges(e, match)
-	if alertErr != nil {
-		return alertErr
-	}
-
-	if len(changes) == 0 {
-		return alertWarning(e, "No se detectaron cambios")
-	}
-
-	if e.Request.FormValue("date") != "" {
-		if err := h.validatePlayoffDates(match); err != nil {
-			return alertError(e, "Las fechas de playoff deben respetar el orden del cuadro (una ronda posterior no puede ir antes que una previa)")
-		}
-	}
-
-	if err := h.app.Save(match); err != nil {
-		return alertError(e, "Error al guardar")
-	}
-
-	addTimelineEntry(h.app, timelineEntry{
-		MatchID: id, ActorID: e.Auth.Id,
-		Kind: "admin_action", Detail: strings.Join(changes, "; "),
-	})
-
-	compName := league.CompetitionName(h.app, match.GetString("competition"))
-	allPlayers := league.MatchPlayersExcluding(h.app, match, "")
-	h.notifier.NotifyPlayers(allPlayers, league.NotifAdminCorrection(id, changes, compName))
-
-	return redirectHX(e, "/match/"+id)
-}
-
-func (h *MatchHandler) detectChanges(e *core.RequestEvent, match *core.Record) ([]string, error) {
-	var changes []string
-
-	scoreChange, err := h.detectScoreChange(e, match)
-	if err != nil {
-		return nil, err
-	}
-	changes = append(changes, scoreChange...)
-	dateChange := detectFieldChange(match, "date", e.Request.FormValue("date"), "Fecha")
-	changes = append(changes, dateChange...)
-	newTime := e.Request.FormValue("time")
-	if newTime != "" {
-		if _, err := time.Parse("15:04", newTime); err != nil {
-			return nil, fmt.Errorf("formato de hora no válido: usa HH:MM")
-		}
-	}
-	timeChange := detectFieldChange(match, "time", newTime, "Hora")
-	changes = append(changes, timeChange...)
-	changes = append(changes, h.detectVenueChange(match, e.Request.FormValue("venue_id"))...)
-	changes = append(changes, detectFieldChange(match, "court_number", e.Request.FormValue("court_number"), "Pista")...)
-
-	if len(dateChange) > 0 || len(timeChange) > 0 {
-		league.ClearMatchReminders(h.app, match.Id)
-	}
-
-	return changes, nil
-}
-
-func (h *MatchHandler) detectScoreChange(e *core.RequestEvent, match *core.Record) ([]string, error) {
-	raw := e.Request.FormValue("scores")
-	if raw == "" {
-		return nil, nil
-	}
-	oldScores := match.GetString("scores")
-	if raw == oldScores {
-		return nil, nil
-	}
-	scores, err := readScoreForm(e, "", "scores")
-	if err != nil {
-		return nil, err
-	}
-	winner, err := league.DetermineWinner(match, scores)
-	if err != nil {
-		return nil, alertError(e, "No se pudo determinar ganador")
-	}
-	match.Set("scores", scores)
-	match.Set("winner", winner)
-	match.Set("carried_sets", "")
-	if match.GetString("status") != league.StatusFinal {
-		match.Set("status", league.StatusFinal)
-	}
-	if oldScores == "" {
-		return []string{"Resultado establecido: " + scores}, nil
-	}
-	return []string{"Resultado corregido: " + oldScores + " → " + scores}, nil
-}
-
-func (h *MatchHandler) validatePlayoffDates(match *core.Record) error {
-	comp, err := h.app.FindRecordById("competitions", match.GetString("competition"))
-	if err != nil || !league.IsPlayoff(comp) {
-		return nil
-	}
-	allMatches, err := h.app.FindRecordsByFilter("matches",
-		"competition = {:comp}", "", 0, 0,
-		map[string]any{"comp": comp.Id})
-	if err != nil {
-		return nil
-	}
-	for i, m := range allMatches {
-		if m.Id == match.Id {
-			allMatches[i] = match
-			break
-		}
-	}
-	return league.ValidatePlayoffDates(allMatches)
 }
 
 func detectFieldChange(match *core.Record, field, newVal, label string) []string {
@@ -561,25 +454,6 @@ func detectFieldChange(match *core.Record, field, newVal, label string) []string
 		return []string{label + " establecida: " + newVal}
 	}
 	return []string{label + " cambiada: " + normalizedOld + " → " + normalizedNew}
-}
-
-func (h *MatchHandler) detectVenueChange(match *core.Record, venueID string) []string {
-	if venueID == "" {
-		return nil
-	}
-	venueName := venueID
-	if v, err := h.app.FindRecordById("venues", venueID); err == nil {
-		venueName = v.GetString("name")
-	}
-	old := match.GetString("club")
-	if venueName == old {
-		return nil
-	}
-	match.Set("club", venueName)
-	if old == "" {
-		return []string{"Club establecido: " + venueName}
-	}
-	return []string{"Club cambiado: " + old + " → " + venueName}
 }
 
 // arbitrationCategories are the valid values for the "category" form field,

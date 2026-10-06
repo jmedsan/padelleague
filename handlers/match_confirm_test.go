@@ -173,6 +173,7 @@ func TestMatchCorrectAdminBypass(t *testing.T) {
 		ExpectedStatus: 204,
 	}
 	var matchID string
+	var admin *core.Record
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupProductionRoutes(tb, app, e)
 		p1 := handlers.MakePairTB(tb, app, "AdmA")
@@ -187,18 +188,34 @@ func TestMatchCorrectAdminBypass(t *testing.T) {
 		handlers.MakeResultProposal(tb, app, match.Id, submitter, "6-3 6-4")
 		s.URL = "/match/" + match.Id + "/correct"
 		s.Body = strings.NewReader("scores=6-4+6-3")
-		admin := handlers.MakeAdminUserTB(tb, app)
+		admin = handlers.MakeAdminUserTB(tb, app)
 		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		match, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "final", match.GetString("status"), "the admin correction finalizes the match directly")
+		assert.Equal(tb, "6-4 6-3", match.GetString("scores"))
 		pending, _ := app.FindRecordsByFilter("match_messages",
 			"match = {:mid} && type = 'result_submission' && proposal_status = 'pending'",
-			"-created", 0, 0, map[string]any{"mid": matchID})
-		require.Len(tb, pending, 1, "the admin correction replaces the original: two would be a conflict")
-		assert.Equal(tb, "6-4 6-3", handlers.ParseProposalData(pending[0].GetString("proposal_data")).Scores,
-			"the pending one is admin's correction")
+			"", 0, 0, map[string]any{"mid": matchID})
+		assert.Empty(tb, pending, "the admin's write is never a pending proposal")
+		rejected, _ := app.FindRecordsByFilter("match_messages",
+			"match = {:mid} && type = 'result_submission' && proposal_status = 'rejected'",
+			"", 0, 0, map[string]any{"mid": matchID})
+		assert.Len(tb, rejected, 1, "the original proposal is rejected by the admin")
+		entry, err := app.FindFirstRecordByFilter("match_messages",
+			"match = {:mid} && type = 'result_response'", map[string]any{"mid": matchID})
+		require.NoError(tb, err, "the rejection leaves a timeline entry")
+		pd := handlers.ParseProposalData(entry.Get("proposal_data"))
+		assert.Equal(tb, "reject", pd.Action)
+		assert.Equal(tb, "6-3 6-4", pd.Scores, "frozen snapshot of the rejected proposal")
+		assert.Equal(tb, admin.Id, entry.GetString("author"), "attributed to the admin")
+		_, err = app.FindFirstRecordByFilter("match_messages",
+			"match = {:mid} && type = 'admin_action'", map[string]any{"mid": matchID})
+		assert.NoError(tb, err, "admin_action entry")
 	}
 	handlers.ExpectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)

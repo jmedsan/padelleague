@@ -1,6 +1,7 @@
 package league
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -57,21 +58,34 @@ func ApplyPenalty(app core.App, input PenaltyInput) (*core.Record, error) {
 	return rec, nil
 }
 
+// ErrPenaltyAlreadyVoided is returned when the penalty was voided before this call.
+var ErrPenaltyAlreadyVoided = errors.New("penalty already voided")
+
 // VoidPenalty marks a penalty row voided, retaining its history, and
-// returns the voided record.
+// returns the voided record. The voided check runs inside the transaction on a
+// fresh record, so of two concurrent voids exactly one succeeds and the other
+// gets ErrPenaltyAlreadyVoided.
 func VoidPenalty(app core.App, input VoidPenaltyInput) (*core.Record, error) {
-	rec, err := app.FindRecordById("penalties", input.PenaltyID)
-	if err != nil {
-		return nil, err
-	}
-	rec.Set("voided", true)
-	rec.Set("voided_by", input.AdminID)
-	rec.Set("voided_at", time.Now())
-	rec.Set("void_reason", input.Reason)
-	if err := app.Save(rec); err != nil {
-		return nil, fmt.Errorf("void penalty: %w", err)
-	}
-	return rec, nil
+	var voided *core.Record
+	err := app.RunInTransaction(func(txApp core.App) error {
+		rec, err := txApp.FindRecordById("penalties", input.PenaltyID)
+		if err != nil {
+			return err
+		}
+		if rec.GetBool("voided") {
+			return ErrPenaltyAlreadyVoided
+		}
+		rec.Set("voided", true)
+		rec.Set("voided_by", input.AdminID)
+		rec.Set("voided_at", time.Now())
+		rec.Set("void_reason", input.Reason)
+		if err := txApp.Save(rec); err != nil {
+			return fmt.Errorf("void penalty: %w", err)
+		}
+		voided = rec
+		return nil
+	})
+	return voided, err
 }
 
 // ApplyPendingMatchPenalties reconciles auto-penalties for unplayed matches.

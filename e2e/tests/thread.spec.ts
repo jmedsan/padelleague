@@ -6,7 +6,7 @@ import {
   PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, PLAYER5_EMAIL, PLAYER5_PASSWORD,
   ADMIN_EMAIL, ADMIN_PASSWORD,
 } from '../helpers';
-import { enterScore, clickAndWaitForHxRedirect, fillFlatpickrDate } from '../tour-helpers';
+import { enterScore, clickAndWaitForHxRedirect, clickConfirmAndWaitForHxRedirect, fillFlatpickrDate } from '../tour-helpers';
 
 function suToken(): string {
   return loadTestData().adminToken;
@@ -354,6 +354,32 @@ test.describe('match thread', { tag: '@thread' }, () => {
     await expect(page.locator('#thread-details').getByText('Confirmado')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('6-3 3-6 6-4').locator('visible=true').first()).toBeVisible({ timeout: 5000 });
     await expect(page.locator('.badge', { hasText: 'Se reanuda' })).not.toBeVisible();
+  });
+
+  test('admin override rejects the pending result proposal and the timeline shows it as Rechazado @thread', async ({ page, request }) => {
+    const data = loadTestData();
+    const match = await suPost(request, '/api/collections/matches/records', {
+      competition: data.competitionId, pair1: data.pair1Id, pair2: data.pair2Id,
+      status: 'scheduled', round_number: 51, date: '2025-06-15', club: 'Padel 360',
+    });
+    await suPost(request, '/api/collections/match_messages/records', {
+      match: match.id, type: 'result_submission', proposal_status: 'pending', content: '6-3 6-4',
+      proposal_data: JSON.stringify({ scores: '6-3 6-4' }), author: data.player5.id,
+    });
+
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/match/${match.id}`);
+    await page.waitForSelector('#result-panel', { timeout: 10000 });
+    await page.locator('.collapse-title', { hasText: /corrección de administrador/i }).locator('..').locator('input[type="checkbox"]').click();
+    const form = page.locator('form[hx-post*="admin-override"]');
+    await enterScore(page, '6-1 6-1');
+    await clickConfirmAndWaitForHxRedirect(page, form.locator('button[type="submit"]'), `/match/${match.id}`);
+
+    await page.waitForSelector('#thread-timeline', { timeout: 10000 });
+    const entry = page.locator('#thread-timeline .card', { hasText: 'rechazó resultado' });
+    await expect(entry.locator('.badge-soft-error', { hasText: 'Rechazado' })).toBeVisible({ timeout: 5000 });
+    await expect(entry).toContainText('6-3 6-4');
+    await expect(page.locator('#thread-details').getByText('Aceptar resultado')).toHaveCount(0);
   });
 
   test('player can withdraw own pending scheduling proposal', async ({ page, request }) => {

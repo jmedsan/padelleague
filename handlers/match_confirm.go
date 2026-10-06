@@ -34,6 +34,10 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 		return err
 	}
 
+	if render.AdminView(e) {
+		return h.adminCorrect(e, match)
+	}
+
 	scores, err := h.validateCorrectionInput(e, match)
 	if err != nil {
 		return err
@@ -54,6 +58,17 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	return redirectHX(e, "/match/"+id)
 }
 
+// adminCorrect finalizes the match with the admin's score, exactly like
+// AdminOverride: the pending proposals are rejected by the admin and the
+// timeline gets an admin_action entry. The admin's write is never a proposal.
+func (h *MatchHandler) adminCorrect(e *core.RequestEvent, match *core.Record) error {
+	scores, err := readScoreForm(e, match.GetString("carried_sets"), "scores")
+	if err != nil || scores == "" {
+		return err
+	}
+	return h.adminOverrideWrite(e, match.Id, overrideForm{scores: scores})
+}
+
 // correctResultProposal supersedes the author's pending proposals and creates the
 // corrected one, re-checking inside the transaction that the match is still
 // pre-score and the rival has not answered meanwhile (a counter-proposal).
@@ -66,16 +81,10 @@ func (h *MatchHandler) correctResultProposal(match *core.Record, userID, scores 
 		if !league.IsPreScore(fresh.GetString("status")) {
 			return league.ErrMatchNotPreScore
 		}
-		if league.AuthorSide(txApp, fresh, userID) == league.SideNeither {
-			// An admin is on neither side: the correction replaces every pending
-			// proposal, or the original would sit beside it as a conflict.
-			h.supersedePendingResultsTx(txApp, fresh.Id, "")
-		} else {
-			if err := ensureNoOtherSidePending(txApp, fresh, userID); err != nil {
-				return err
-			}
-			h.supersedePendingResultsTx(txApp, fresh.Id, userID)
+		if err := ensureNoOtherSidePending(txApp, fresh, userID); err != nil {
+			return err
 		}
+		h.supersedePendingResultsTx(txApp, fresh.Id, userID)
 		col, err := txApp.FindCollectionByNameOrId("match_messages")
 		if err != nil {
 			return err

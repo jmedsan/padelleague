@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"log/slog"
 	"time"
 
@@ -38,6 +39,8 @@ func (h *DisputeHandler) Disputes(e *core.RequestEvent) error {
 	})
 }
 
+var errAlreadyResolved = errors.New("admin: match already resolved")
+
 // WalkoverApprove handles POST to approve a walkover request, finalizing the match.
 func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
@@ -73,21 +76,13 @@ func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 		loserID = match.GetString("pair1")
 	}
 
-	match.Set("scores", woScore)
-	match.Set("winner", winnerID)
-	match.Set("status", league.StatusFinal)
-	match.Set("carried_sets", "")
-	match.Set("arbitration", "")
-	match.Set("arbitration_by", "")
-
-	if err := h.app.Save(match); err != nil {
+	err = h.approveWalkover(id, e.Auth.Id, woScore, winnerID)
+	if errors.Is(err, errAlreadyResolved) {
+		return alertError(e, "Este partido ya está resuelto")
+	}
+	if err != nil {
 		return alertError(e, "Error al aprobar la incomparecencia")
 	}
-
-	addTimelineEntry(h.app, timelineEntry{
-		MatchID: match.Id, ActorID: e.Auth.Id, Kind: "result_event",
-		Detail: "aprobó incomparecencia a favor de " + league.PairNames(h.app, []string{winnerID})[winnerID],
-	})
 	if err := h.applyWalkoverPenalty(e, comp, loserID); err != nil {
 		return err
 	}
@@ -96,6 +91,31 @@ func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 
 	flash(e, "Incomparecencia aprobada")
 	return redirectHX(e, "/admin/competitions/"+compID)
+}
+
+// approveWalkover finalizes a walkover request as the admin, re-checking on the
+// fresh match that it is still an unresolved walkover request.
+func (h *DisputeHandler) approveWalkover(matchID, adminID, woScore, winnerID string) error {
+	_, _, err := writeAsAdmin(h.app, adminWrite{
+		matchID: matchID, adminID: adminID,
+		apply: func(txApp core.App, m *core.Record) (adminChange, error) {
+			if m.GetString("review_type") != "walkover" || m.GetString("status") == league.StatusFinal {
+				return adminChange{}, errAlreadyResolved
+			}
+			m.Set("scores", woScore)
+			m.Set("winner", winnerID)
+			m.Set("status", league.StatusFinal)
+			m.Set("carried_sets", "")
+			m.Set("arbitration", "")
+			m.Set("arbitration_by", "")
+			return adminChange{
+				kind:    "result_event",
+				detail:  "aprobó incomparecencia a favor de " + league.PairNames(txApp, []string{winnerID})[winnerID],
+				decides: []string{proposalResult, proposalScheduling},
+			}, nil
+		},
+	})
+	return err
 }
 
 // walkoverScoreFor validates and returns comp's configured walkover score,
@@ -150,20 +170,27 @@ func (h *DisputeHandler) DisputesResolve(e *core.RequestEvent) error {
 		return alertError(e, "Marcador no válido")
 	}
 
-	match.Set("scores", score)
-	match.Set("winner", winnerID)
-	match.Set("status", league.StatusFinal)
-	match.Set("arbitration", "")
-	match.Set("arbitration_by", "")
-
-	if err := h.app.Save(match); err != nil {
+	_, _, err = writeAsAdmin(h.app, adminWrite{
+		matchID: id, adminID: e.Auth.Id,
+		apply: func(_ core.App, m *core.Record) (adminChange, error) {
+			if m.GetString("status") != league.StatusDisputed {
+				return adminChange{}, errAlreadyResolved
+			}
+			m.Set("scores", score)
+			m.Set("winner", winnerID)
+			m.Set("status", league.StatusFinal)
+			m.Set("arbitration", "")
+			m.Set("arbitration_by", "")
+			return adminChange{kind: "result_event", detail: "resolvió la disputa: " + score,
+				decides: []string{proposalResult, proposalScheduling}}, nil
+		},
+	})
+	if errors.Is(err, errAlreadyResolved) {
+		return alertError(e, "Este partido no está en disputa")
+	}
+	if err != nil {
 		return alertError(e, "Error al resolver la disputa")
 	}
-
-	addTimelineEntry(h.app, timelineEntry{
-		MatchID: match.Id, ActorID: e.Auth.Id, Kind: "result_event",
-		Detail: "resolvió la disputa: " + score,
-	})
 	compID := match.GetString("competition")
 	h.notifyMatchPlayers(match, league.NotifDisputeResolved(match.Id, league.CompetitionName(h.app, compID)))
 
