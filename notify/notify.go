@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
@@ -25,18 +24,23 @@ type Notifier struct {
 	save            func(*core.Record) error
 	delete          func(*core.Record) error
 
-	// pushWG tracks in-flight sendPush goroutines fired from deliver, so
-	// callers can drain them (WaitPush) before tearing down the app. Without
-	// this, a push goroutine can still be running FindRecordsByFilter
-	// against app after the app has shut down (tests) or is shutting down
-	// (production OnTerminate), segfaulting or logging into a closed DB.
-	pushWG      sync.WaitGroup
-	pushPending atomic.Int64
+	// pushMu guards pushPending and pushClosed. In-flight sendPush goroutines
+	// fired from deliver are counted so callers can drain them (WaitPush)
+	// before tearing down the app; without that, a push goroutine can still
+	// be running FindRecordsByFilter against app after the app has shut down
+	// (tests) or is shutting down (production OnTerminate), segfaulting or
+	// logging into a closed DB. A sync.WaitGroup cannot do this job: deliver
+	// keeps adding pushes from request goroutines while the drain waits, and
+	// WaitGroup forbids an Add from zero concurrent with Wait (it panics).
+	pushMu      sync.Mutex
+	pushIdle    *sync.Cond // signaled when pushPending drops to zero
+	pushPending int
+	pushClosed  bool // set by WaitPushTimeout: shutdown has begun, start no more pushes
 }
 
 // NewNotifier creates a Notifier with the given VAPID keys for web push.
 func NewNotifier(app core.App, vapidPublicKey, vapidPrivateKey string) *Notifier {
-	return &Notifier{
+	n := &Notifier{
 		app:             app,
 		vapidPublicKey:  vapidPublicKey,
 		vapidPrivateKey: vapidPrivateKey,
@@ -44,6 +48,36 @@ func NewNotifier(app core.App, vapidPublicKey, vapidPrivateKey string) *Notifier
 		save:            func(rec *core.Record) error { return app.Save(rec) },
 		delete:          func(rec *core.Record) error { return app.Delete(rec) },
 	}
+	n.pushIdle = sync.NewCond(&n.pushMu)
+	return n
+}
+
+// startPush registers one in-flight push. It reports false once shutdown has
+// begun (WaitPushTimeout), when starting a push would outlive the app.
+func (n *Notifier) startPush() bool {
+	n.pushMu.Lock()
+	defer n.pushMu.Unlock()
+	if n.pushClosed {
+		return false
+	}
+	n.pushPending++
+	return true
+}
+
+// endPush marks one in-flight push as finished.
+func (n *Notifier) endPush() {
+	n.pushMu.Lock()
+	defer n.pushMu.Unlock()
+	if n.pushPending--; n.pushPending == 0 {
+		n.pushIdle.Broadcast()
+	}
+}
+
+// pendingPushes returns the number of pushes still in flight.
+func (n *Notifier) pendingPushes() int {
+	n.pushMu.Lock()
+	defer n.pushMu.Unlock()
+	return n.pushPending
 }
 
 // SetHTTPClient overrides the HTTP client used to deliver web push requests.
@@ -58,7 +92,11 @@ func (n *Notifier) SetHTTPClient(c *http.Client) {
 // finished. Tests call it before asserting or before the TestApp closes, so
 // a background sendPush can never observe a torn-down app.
 func (n *Notifier) WaitPush() {
-	n.pushWG.Wait()
+	n.pushMu.Lock()
+	defer n.pushMu.Unlock()
+	for n.pushPending > 0 {
+		n.pushIdle.Wait()
+	}
 }
 
 // WaitPushTimeout blocks until every in-flight push goroutine fired by
@@ -69,16 +107,19 @@ func (n *Notifier) WaitPush() {
 // but still gives in-flight pushes a bounded chance to complete instead of
 // being cut off immediately.
 func (n *Notifier) WaitPushTimeout(timeout time.Duration) int {
+	n.pushMu.Lock()
+	n.pushClosed = true
+	n.pushMu.Unlock()
 	done := make(chan struct{})
 	go func() {
-		n.pushWG.Wait()
+		n.WaitPush()
 		close(done)
 	}()
 	select {
 	case <-done:
 		return 0
 	case <-time.After(timeout):
-		return int(n.pushPending.Load())
+		return n.pendingPushes()
 	}
 }
 
@@ -146,12 +187,9 @@ func (n *Notifier) deliver(notifCol *core.Collection, user *core.Record, notif l
 	if err := n.save(rec); err != nil {
 		slog.Error(saveFailMsg, "user", user.Id, "err", err)
 	}
-	if PushChannelEnabled(user) {
-		n.pushWG.Add(1)
-		n.pushPending.Add(1)
+	if PushChannelEnabled(user) && n.startPush() {
 		go func() {
-			defer n.pushWG.Done()
-			defer n.pushPending.Add(-1)
+			defer n.endPush()
 			n.sendPush(user.Id, notif.Title, notif.Body, link)
 		}()
 	}
