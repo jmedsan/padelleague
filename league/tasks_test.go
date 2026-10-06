@@ -183,3 +183,30 @@ func TestSortTasks_OrderByWarningDescThenKind(t *testing.T) {
 	assert.Equal(t, "d", tasks[3].MatchID, "organize urgent")
 	assert.Equal(t, "a", tasks[4].MatchID, "organize headsup")
 }
+
+func TestPlayerTasks_SkipsMatchWithUnconfirmedResult(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "PtProvA")
+	p2 := makePair(t, app, "PtProvB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	start := time.Now().AddDate(0, 0, -40)
+	end := time.Now().AddDate(0, 0, -20)
+	sd, _ := types.ParseDateTime(start)
+	ed, _ := types.ParseDateTime(end)
+	comp.Set("start_date", sd)
+	comp.Set("end_date", ed)
+	comp.Set("rounds", 1)
+	comp.Set("recovery_days", 30)
+	require.NoError(t, app.Save(comp))
+
+	proposed := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusPending)
+	makeResultProposal(t, app, proposed.Id, p1.GetString("player1"), "6-3 6-4")
+
+	tasks, err := PlayerTasks(app, p1.GetString("player1"), time.Now())
+	require.NoError(t, err)
+	for _, tk := range tasks {
+		assert.NotEqual(t, proposed.Id, tk.MatchID, "a match with an unconfirmed result counts as played")
+	}
+}

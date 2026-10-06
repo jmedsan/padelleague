@@ -126,11 +126,15 @@ func pendingMatchTasks(app core.App, comp *core.Record, playerPairIDs map[string
 
 	graceDays := comp.GetInt("arrange_grace_days")
 
+	// A match with an unconfirmed result counts as played: nothing to
+	// organize or play.
+	proposed := ProvisionalIDs(app, pending)
+
 	var tasks []PlayerTask
 	for _, m := range pending {
 		_, hasP1 := playerPairIDs[m.GetString("pair1")]
 		_, hasP2 := playerPairIDs[m.GetString("pair2")]
-		if !hasP1 && !hasP2 {
+		if (!hasP1 && !hasP2) || proposed[m.Id] {
 			continue
 		}
 		roundNum := m.GetInt("round_number")

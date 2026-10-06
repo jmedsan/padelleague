@@ -1,7 +1,7 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import {
-  PLAYER_PASSWORD, ScenarioApi, ScenarioData, apiGet, apiPatch, apiPost, loadCtx, printLogin, printLinks,
+  PLAYER_PASSWORD, ScenarioApi, ScenarioData, apiGet, apiPatch, apiPost, loadCtx, printLogin, printLinks, jornadaHiISO,
 } from '../scenario-helpers';
 
 const WARNING = '[data-testid="provisional-warning"]';
@@ -56,13 +56,51 @@ const submit = (email: string, matchId: string, scores: string) =>
 const mine = () => ctx.pairs[0];
 const mineEmail = () => ctx.players[mine().player1Idx].email;
 
+// createRematch adds a later match against the same rival, so the Precedentes
+// strip has a page to live on. The leveled engine only repeats a pairing in
+// rematch mode (after withdrawals), so this writes the record exactly as that
+// path does (league/leveled.go setMatchFields): round 0, rematch, the next
+// Jornada slot after the pairs' last one, with that slot's arrange_by.
+async function createRematch(pair1: string, pair2: string): Promise<void> {
+  const all = (await apiGet(api, `/api/collections/matches/records?filter=${encodeURIComponent(
+    `competition='${ctx.competitionId}'`)}&perPage=500`)).items;
+  const taken = all
+    .filter((x: any) => [x.pair1, x.pair2].some(p => p === pair1 || p === pair2))
+    .map((x: any) => x.slot as number);
+  const slot = Math.max(...taken) + 1;
+  if (slot > ctx.target) throw new Error('no Jornada slot left for the rematch');
+  const comp = await apiGet(api, `/api/collections/competitions/records/${ctx.competitionId}`);
+  const arrangeBy = jornadaHiISO(comp.start_date.slice(0, 10), comp.end_date.slice(0, 10), ctx.target, slot);
+  await apiPost(api, '/api/collections/matches/records', {
+    competition: ctx.competitionId, pair1, pair2, status: 'pending', round_number: 0, matches_to_win: 1,
+    rematch: true, slot, arrange_by: arrangeBy,
+  });
+}
+
+// openRow expands every accordion around a match row and returns the row in
+// the calendar (a disputed match also appears in the Alertas card above).
+async function openRow(page: Page, matchId: string) {
+  let link = page.locator(`a[href="/match/${matchId}"]`).first();
+  if (!await link.locator('xpath=ancestor::div[contains(concat(" ",@class," ")," collapse ")]').count()) {
+    link = page.locator(`.collapse a[href="/match/${matchId}"]`).first();
+  }
+  for (const box of await page.locator('.collapse', { has: link }).all()) {
+    const input = box.locator('> input');
+    if (await input.count() && !(await input.isChecked())) await input.check();
+  }
+  return link;
+}
+
+// groupTitle is the title of the innermost accordion holding the row.
+const groupTitle = (row: Locator) => row.locator('xpath=ancestor::div[contains(concat(" ",@class," ")," collapse ")][1]').locator('.collapse-title').first();
+
 // seeded rebuilds the two cases from the data the 00 step left behind: the
 // pair's first two matches, in id order, are control / disputed.
 async function seeded(): Promise<Seeded> {
   const list = await apiGet(api, `/api/collections/matches/records?filter=${encodeURIComponent(
-    `competition='${ctx.competitionId}' && round_number<90 && (pair1='${mine().id}' || pair2='${mine().id}')`)}&sort=id&perPage=2`);
+    `competition='${ctx.competitionId}' && rematch=false && (pair1='${mine().id}' || pair2='${mine().id}')`)}&sort=id&perPage=2`);
   const extras = await apiGet(api, `/api/collections/matches/records?filter=${encodeURIComponent(
-    `competition='${ctx.competitionId}' && round_number>=90 && (pair1='${mine().id}' || pair2='${mine().id}')`)}&perPage=10`);
+    `competition='${ctx.competitionId}' && rematch=true && (pair1='${mine().id}' || pair2='${mine().id}')`)}&perPage=10`);
   const build = (m: any): Case => {
     const rivalPairId = m.pair1 === mine().id ? m.pair2 : m.pair1;
     const rival = ctx.pairs.find(p => p.id === rivalPairId)!;
@@ -116,10 +154,7 @@ test.describe('a disputed result is not counted', () => {
     if (list.items.length < 2) throw new Error(`pair needs 2 open matches, has ${list.items.length}`);
     for (const m of list.items) {
       await apiPatch(api, `/api/collections/matches/records/${m.id}`, { date: '2025-03-15', club: 'Padel 360' });
-      // A later match against the same rival, so the Precedentes strip has a page to live on.
-      await apiPost(api, '/api/collections/matches/records', {
-        competition: ctx.competitionId, pair1: m.pair1, pair2: m.pair2, status: 'pending', round_number: 90,
-      });
+      await createRematch(m.pair1, m.pair2);
     }
     const { control, disputed } = await seeded();
 
@@ -185,18 +220,24 @@ test.describe('a disputed result is not counted', () => {
     await page.locator(`a[href^="/competition/${ctx.competitionId}"]`).first().click();
     await page.waitForURL(`**/competition/${ctx.competitionId}**`);
     await page.locator('input[aria-label^="Jornadas"], input[aria-label^="Partidos"]').click();
-    const rowOf = async (matchId: string) => {
-      const link = page.locator(`a[href="/match/${matchId}"]`).first();
-      const round = page.locator('.collapse', { has: link }).locator('> input');
-      if (await round.count()) await round.check();
-      return link;
-    };
+    const rowOf = (matchId: string) => openRow(page, matchId);
     const proposed = await rowOf(control.matchId);
     await expect(proposed).toContainText('6-3 6-4');
     await expect(proposed.locator('.badge', { hasText: 'Propuesta' })).toBeVisible();
     await expect(proposed.locator(WARNING)).toHaveCount(0);
+    await expect(groupTitle(proposed), 'a proposed result counts as played').toContainText('Jugados');
     const dispute = await rowOf(disputed.matchId);
+    await expect(groupTitle(dispute), 'a disputed match is not played yet').toContainText('Jornada');
     await expect(dispute, 'a disputed result is not a result: no score in the row').not.toContainText(/(^|\s)[0-7]-[0-7](\s|$)/); // a set score, not the pair-name suffix
+  });
+
+  test('06 admin rounds: the lone proposal sits under Jugados, the disputed match under its Jornada', async ({ page }) => {
+    const { control, disputed } = await seeded();
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.locator(`a[href="/admin/competitions/${ctx.competitionId}"]`).first().click();
+    await page.waitForURL(`**/admin/competitions/${ctx.competitionId}**`);
+    await expect(groupTitle(await openRow(page, control.matchId))).toContainText('Jugados');
+    await expect(groupTitle(await openRow(page, disputed.matchId))).toContainText('Jornada');
   });
 
   test('04 admin card counter: played counts the lone proposal only, with the warning', async ({ page }) => {

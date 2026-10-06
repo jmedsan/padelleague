@@ -198,6 +198,9 @@ type competitionDataParams struct {
 	userID        string
 	isLeveled     bool
 	matches       []*core.Record
+	// proposed holds the ids of matches with an unconfirmed result; they
+	// count as played.
+	proposed map[string]bool
 }
 
 // populateCompetitionData fills in the remaining page-data fields for
@@ -218,6 +221,9 @@ func (h *PublicHandler) populateCompetitionData(data map[string]any, p competiti
 	}
 	if p.pairFilter != "" && p.pairFilter != "all" && len(p.rounds) == 0 {
 		data["FilterEmptyState"] = "Sin partidos para esta pareja"
+	}
+	if p.isLeveled {
+		p.proposed = league.ProvisionalIDs(h.app, p.matches)
 	}
 	if msg := leveledInfoMessage(comp, p); msg != "" {
 		data["LeveledInfoMessage"] = msg
@@ -247,7 +253,7 @@ func leveledInfoMessage(comp *core.Record, p competitionDataParams) string {
 			continue
 		}
 		total++
-		if m.GetString("status") != league.StatusFinal {
+		if m.GetString("status") != league.StatusFinal && !p.proposed[m.Id] {
 			pending++
 		}
 	}
@@ -482,7 +488,7 @@ func buildRounds(matches []*core.Record, pairNames map[string]string, playerPair
 func firstIncompleteRound(rounds []RoundView) string {
 	for _, rv := range rounds {
 		for _, mv := range rv.Matches {
-			if mv.Match.GetString("status") != league.StatusFinal {
+			if mv.Match.GetString("status") != league.StatusFinal && !mv.Provisional {
 				return rv.Key
 			}
 		}

@@ -135,6 +135,20 @@ test.describe('provisional results are counted and warned about everywhere', { t
     }
   });
 
+  test('calendar: a round holding only a proposed match is not the one opened by default', async ({ page }, testInfo) => {
+    const f = await seed(page.request, testInfo.project.name);
+    try {
+      await playerHome(page, f);
+      await page.locator(`a[href^="/competition/${f.compId}"]`).first().click();
+      await page.waitForURL(`**/competition/${f.compId}**`);
+      const roundOf = (id: string) => page.locator('.collapse', { has: page.locator(`a[href="/match/${id}"]`) }).locator('> input');
+      await expect(roundOf(f.nextMatchId), 'the first round with an unplayed match opens').toBeChecked();
+      await expect(roundOf(f.proposedMatchId), 'a proposed result counts as played').not.toBeChecked();
+    } finally {
+      await f.cleanup();
+    }
+  });
+
   test('home: a deadlock of disagreeing proposals counts nowhere and does not warn', async ({ page }, testInfo) => {
     const f = await seed(page.request, testInfo.project.name);
     try {
@@ -150,6 +164,17 @@ test.describe('provisional results are counted and warned about everywhere', { t
       const card = page.locator('[data-testid="player-competitions-heading"] + div > .card', { has: page.locator(`a[href="/competition/${f.compId}"]`) });
       await expect(card.locator('.badge', { hasText: 'pts' })).toBeVisible();
       await expect(card.locator(WARNING), 'a conflicting result must not warn').toHaveCount(0);
+    } finally {
+      await f.cleanup();
+    }
+  });
+
+  test('home: the competition card counts the proposed match as played, not por jugar', async ({ page }, testInfo) => {
+    const f = await seed(page.request, testInfo.project.name);
+    try {
+      await playerHome(page, f);
+      const card = page.locator('[data-testid="player-competitions-heading"] + div > .card', { has: page.locator(`a[href="/competition/${f.compId}"]`) });
+      await expect(card, 'only the unproposed match is left to play').toContainText('1 partido por jugar');
     } finally {
       await f.cleanup();
     }

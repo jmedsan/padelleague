@@ -30,7 +30,7 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 		return err
 	}
 
-	if _, err := h.validateCorrectionAccess(e, match); err != nil {
+	if err := h.validateCorrectionAccess(e, match); err != nil {
 		return err
 	}
 
@@ -106,9 +106,9 @@ func (h *MatchHandler) correctResultProposal(match *core.Record, userID, scores 
 	})
 }
 
-func (h *MatchHandler) validateCorrectionAccess(e *core.RequestEvent, match *core.Record) (int, error) {
+func (h *MatchHandler) validateCorrectionAccess(e *core.RequestEvent, match *core.Record) error {
 	if !league.IsPreScore(match.GetString("status")) {
-		return 0, alertError(e, "Este partido ya tiene un resultado final")
+		return alertError(e, "Este partido ya tiene un resultado final")
 	}
 
 	pending, _ := h.app.FindRecordsByFilter("match_messages",
@@ -116,7 +116,7 @@ func (h *MatchHandler) validateCorrectionAccess(e *core.RequestEvent, match *cor
 		"-created", 1, 0,
 		map[string]any{"mid": match.Id})
 	if len(pending) == 0 {
-		return 0, alertError(e, "No hay propuesta de resultado pendiente para corregir")
+		return alertError(e, "No hay propuesta de resultado pendiente para corregir")
 	}
 
 	isAdmin := render.AdminView(e)
@@ -125,14 +125,14 @@ func (h *MatchHandler) validateCorrectionAccess(e *core.RequestEvent, match *cor
 	if !isAdmin {
 		team, err := playerActionGate(h.app, e.Auth.Id, match)
 		if err != nil {
-			return 0, mapActionGateError(e, err)
+			return mapActionGateError(e, err)
 		}
 		myTeam = team
 	}
 	if msg := h.validateCorrectionPermission(isAdmin, myTeam, submittedByID, match); msg != "" {
-		return 0, alertError(e, msg)
+		return alertError(e, msg)
 	}
-	return myTeam, nil
+	return nil
 }
 
 func (h *MatchHandler) validateCorrectionInput(e *core.RequestEvent, match *core.Record) (string, error) {

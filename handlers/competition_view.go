@@ -53,10 +53,17 @@ func NewCompetitionView(app core.App, comp *core.Record, mode Mode) CompetitionV
 		slog.Error("competition view: provisional results", "comp", comp.Id, "err", err)
 	}
 
-	// A match with an unconfirmed result counts as played; it also stays
-	// pending until the rival answers.
+	// A match with an unconfirmed result counts as played, not pending: the
+	// rival's answer settles it, but until then it is treated as played.
+	proposed := make(map[string]bool, len(unconfirmed))
+	for _, u := range unconfirmed {
+		proposed[u.Id] = true
+	}
 	played, alerts, pending := len(unconfirmed), 0, 0
 	for _, m := range allMatches {
+		if proposed[m.Id] {
+			continue
+		}
 		switch m.GetString("status") {
 		case league.StatusFinal:
 			played++

@@ -1,6 +1,7 @@
 package league
 
 import (
+	"log/slog"
 	"slices"
 	"strconv"
 	"strings"
@@ -13,7 +14,8 @@ import (
 // final or disputed candidate is excluded, as is an open, undecided set
 // (EvaluateScore.Won == false). Each synthetic record keeps the real match's
 // Id, so callers can map it back, plus the fields result readers need:
-// pair1, pair2, competition, round_number, date, scores and winner.
+// pair1, pair2, competition, round_number, date, scores and winner; its
+// created time is the proposal's, i.e. when the result was proposed.
 func ProvisionalResults(app core.App, candidates []*core.Record) ([]*core.Record, error) {
 	var open []*core.Record
 	for _, m := range candidates {
@@ -57,6 +59,7 @@ func ProvisionalResults(app core.App, candidates []*core.Record) ([]*core.Record
 		synth.Set("scores", scores)
 		synth.Set("winner", winner)
 		synth.Set("date", m.GetString("date"))
+		synth.Set("created", p.GetString("created")) // when the result was proposed
 		out = append(out, synth)
 	}
 	return out, nil
@@ -157,4 +160,19 @@ func conflictingOrNewest(props []*core.Record) *core.Record {
 		}
 	}
 	return props[0]
+}
+
+// ProvisionalIDs returns the ids of the matches among candidates that carry a
+// decided, non-conflicting result proposal (see ProvisionalResults). A lookup
+// failure is logged and yields an empty set.
+func ProvisionalIDs(app core.App, candidates []*core.Record) map[string]bool {
+	unconfirmed, err := ProvisionalResults(app, candidates)
+	if err != nil {
+		slog.Error("provisional results", "err", err)
+	}
+	ids := make(map[string]bool, len(unconfirmed))
+	for _, u := range unconfirmed {
+		ids[u.Id] = true
+	}
+	return ids
 }

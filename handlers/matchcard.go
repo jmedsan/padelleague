@@ -57,6 +57,8 @@ type MatchCard struct {
 	Won       bool
 	// Provisional marks a result the rival pair has not accepted yet.
 	Provisional bool
+	// ProposedAt is when the unconfirmed result was proposed; set with Provisional.
+	ProposedAt time.Time
 
 	CanSubmit                    bool
 	CanEdit                      bool
@@ -211,17 +213,18 @@ func markProvisional(app core.App, cards []MatchCard) {
 		slog.Error("match cards: provisional results", "err", err)
 		return
 	}
-	scores := make(map[string]string, len(unconfirmed))
+	byID := make(map[string]*core.Record, len(unconfirmed))
 	for _, m := range unconfirmed {
-		scores[m.Id] = m.GetString("scores")
+		byID[m.Id] = m
 	}
 	for i := range cards {
-		score, ok := scores[cards[i].Match.Id]
+		proposal, ok := byID[cards[i].Match.Id]
 		cards[i].Provisional = ok
 		if !ok {
 			continue
 		}
-		cards[i].Score = score
+		cards[i].Score = proposal.GetString("scores")
+		cards[i].ProposedAt = proposal.GetDateTime("created").Time()
 		if cards[i].Arbitration == "" {
 			cards[i].StatusLabel, cards[i].StatusClass = "Propuesta", "badge-soft-warning"
 		}

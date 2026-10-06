@@ -107,12 +107,15 @@ func (w leveledWindow) jornadaRange(n int) (lo, hi time.Time) {
 }
 
 // leveledGroups partitions match cards into:
-//   - "Jornada N" (N=1..target): every non-final match, grouped by its
+//   - "Jornada N" (N=1..target): every non-final match without a decided
+//     unconfirmed result, grouped by its
 //     per-pair ordinal slot, titled with the competition-window date range
 //     for that slot (or just "Jornada N" without a window)
 //   - "Sin asignar": defensive fallback for slot=0 (pre-migration data)
-//   - "Jugados — <mes año>": finalized matches grouped by calendar month of
-//     finalized_at in the given timezone, newest month first
+//   - "Jugados — <mes año>": finalized matches, plus matches with a decided
+//     unconfirmed result (they count as played), grouped by calendar month of
+//     finalized_at (the proposal time for an unconfirmed one) in the given
+//     timezone, newest month first
 func leveledGroups(cards []MatchCard, tz *time.Location, w leveledWindow) []LeveledGroup {
 	jornadas := map[int][]MatchCard{}
 	unassigned := []MatchCard{}
@@ -121,13 +124,8 @@ func leveledGroups(cards []MatchCard, tz *time.Location, w leveledWindow) []Leve
 	seenMonth := map[monthKey]bool{}
 
 	for _, mc := range cards {
-		if mc.Match.GetString("status") == league.StatusFinal {
-			ft := mc.Match.GetDateTime("finalized_at").Time()
-			if ft.IsZero() {
-				ft = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-			}
-			local := ft.In(tz)
-			mk := monthKey{year: local.Year(), month: local.Month()}
+		if mc.Match.GetString("status") == league.StatusFinal || mc.Provisional {
+			mk := playedMonth(mc, tz)
 			byMonth[mk] = append(byMonth[mk], mc)
 			if !seenMonth[mk] {
 				seenMonth[mk] = true
@@ -152,6 +150,20 @@ func leveledGroups(cards []MatchCard, tz *time.Location, w leveledWindow) []Leve
 	}
 	groups = append(groups, playedGroups(byMonth, monthOrder)...)
 	return groups
+}
+
+// playedMonth is the calendar month a played match is filed under: when it
+// was finalized, or when its result was proposed if still unconfirmed.
+func playedMonth(mc MatchCard, tz *time.Location) monthKey {
+	ft := mc.Match.GetDateTime("finalized_at").Time()
+	if mc.Provisional {
+		ft = mc.ProposedAt
+	}
+	if ft.IsZero() {
+		ft = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	}
+	local := ft.In(tz)
+	return monthKey{year: local.Year(), month: local.Month()}
 }
 
 // jornadaGroups builds the "Jornada N" groups (slot 1..target), ascending.

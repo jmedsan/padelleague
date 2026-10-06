@@ -48,7 +48,7 @@ test.describe('a result proposed and not yet confirmed', () => {
     if (resp.status >= 400) throw new Error(`submit: ${resp.status} ${await resp.text()}`);
 
     printLogin(ctx.baseURL, proposer.email, `/match/${match.id}`);
-    console.log('Check the warning icon ("Incluye resultados sin confirmar") on: Clasificación, home (Mis últimos partidos and the competition card), your profile and pair stats, the next match against the same rival (Precedentes), and the admin round badge.');
+    console.log('Check the warning icon ("Incluye resultados sin confirmar") on: Clasificación, home (Mis últimos partidos and the competition card), your profile and pair stats, and the admin round badge.');
   });
 
   test('01 calendar: the proposed match row shows 6-3 6-4 and Propuesta, no warning icon', async ({ page }) => {
@@ -63,9 +63,14 @@ test.describe('a result proposed and not yet confirmed', () => {
     await page.waitForURL(`**/competition/${ctx.competitionId}**`);
     await page.locator('input[aria-label^="Jornadas"], input[aria-label^="Partidos"]').click();
     const row = page.locator(`a[href="/match/${matchId}"]`).first();
-    const round = page.locator('.collapse', { has: row }).locator('> input');
-    if (await round.count()) await round.check();
+    for (const box of await page.locator('.collapse', { has: row }).all()) {
+      const input = box.locator('> input');
+      if (await input.count() && !(await input.isChecked())) await input.check();
+    }
     await expect(row).toContainText('6-3 6-4');
+    await expect(row.locator('xpath=ancestor::div[contains(concat(" ",@class," ")," collapse ")][1]').locator('.collapse-title').first(),
+      'a proposed result counts as played').toContainText('Jugados');
+    await expect(page.locator('.collapse-title', { hasText: 'Sin asignar' }), 'every live match has a Jornada slot').toHaveCount(0);
     await expect(row.locator('.badge', { hasText: 'Propuesta' })).toBeVisible();
     await expect(row.locator('[data-testid="provisional-warning"]')).toHaveCount(0);
   });

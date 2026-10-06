@@ -292,3 +292,36 @@ func TestLeveledGroups_SlotZeroFallback(t *testing.T) {
 	assert.Equal(t, "bloque-0", groups[0].Key)
 	assert.Equal(t, "Sin asignar", groups[0].Title)
 }
+
+// A match with a decided, unconfirmed result counts as played: it sits in the
+// "Jugados" group of the month it was proposed, not in its Jornada. A disputed
+// or open-set proposal is not a result and stays in its Jornada.
+func TestLeveledGroups_ProvisionalCountsAsPlayed(t *testing.T) {
+	t.Parallel()
+	app := newTestAppForGroups(t)
+
+	p1 := makePairTB(t, app, "PVA")
+	p2 := makePairTB(t, app, "PVB")
+	comp := makeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
+
+	proposed := makeRawMatch(t, app, comp.Id, p1.Id, p2.Id, "scheduled")
+	open := makeRawMatch(t, app, comp.Id, p1.Id, p2.Id, "scheduled")
+	setSlot(t, app, proposed, 1)
+	setSlot(t, app, open, 1)
+
+	cards := []MatchCard{
+		newLeveledMatchCard(t, app, proposed),
+		newLeveledMatchCard(t, app, open),
+	}
+	cards[0].Provisional = true
+	cards[0].ProposedAt = time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
+
+	groups := leveledGroups(cards, time.UTC, leveledWindow{target: 3})
+	require.Len(t, groups, 2)
+	assert.Equal(t, "jornada-1", groups[0].Key)
+	require.Len(t, groups[0].Matches, 1)
+	assert.Equal(t, open.Id, groups[0].Matches[0].Match.Id)
+	assert.Equal(t, "played-2026-09", groups[1].Key)
+	require.Len(t, groups[1].Matches, 1)
+	assert.Equal(t, proposed.Id, groups[1].Matches[0].Match.Id)
+}

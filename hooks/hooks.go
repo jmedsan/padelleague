@@ -122,7 +122,12 @@ func remindCompetitionMatches(app core.App, notifier *notify.Notifier, comp *cor
 		return
 	}
 
+	// A match with an unconfirmed result counts as played: nothing to arrange.
+	proposed := league.ProvisionalIDs(app, matches)
 	for _, m := range matches {
+		if proposed[m.Id] {
+			continue
+		}
 		deadline, ok := league.MatchArrangeDate(comp, m)
 		if !ok {
 			continue
@@ -166,7 +171,11 @@ func checkMatchReminders(app core.App, notifier *notify.Notifier, now time.Time)
 
 	rc := reminderCtx{app: app, notifier: notifier, settings: settings}
 	compCache := map[string]*core.Record{}
+	proposed := league.ProvisionalIDs(app, matches)
 	for _, m := range matches {
+		if proposed[m.Id] {
+			continue
+		}
 		rc.remindMatch(m, compCache, now)
 	}
 }

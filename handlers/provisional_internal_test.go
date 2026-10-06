@@ -75,3 +75,23 @@ func TestRoundGroupCountPlayed(t *testing.T) {
 		assert.False(t, g.HasProvisional)
 	})
 }
+
+// The standard calendar opens the first round with an unplayed match: a round
+// whose only unfinished match holds a decided proposal counts as complete.
+func TestFirstIncompleteRound_SkipsProvisional(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "FI A")
+	p2 := makePair(t, app, "FI B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	m1 := makeMatch(t, app, comp.Id, p1.Id, p2.Id, league.StatusScheduled)
+	m2 := makeMatch(t, app, comp.Id, p1.Id, p2.Id, league.StatusScheduled)
+
+	rounds := []RoundView{
+		{Key: "round-1", Matches: []MatchCard{{Match: m1, Provisional: true}}},
+		{Key: "round-2", Matches: []MatchCard{{Match: m2}}},
+	}
+	assert.Equal(t, "round-2", firstIncompleteRound(rounds))
+	rounds[0].Matches[0].Provisional = false
+	assert.Equal(t, "round-1", firstIncompleteRound(rounds))
+}

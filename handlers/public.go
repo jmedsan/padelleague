@@ -201,12 +201,17 @@ func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[s
 		Sort: "round_number", Params: map[string]any{"cid": c.Id},
 	})
 
+	// A match with an unconfirmed result counts as played, so it is not
+	// "por jugar" and not upcoming; the rival's answer stays a pending action
+	// (findUnconfirmedScores).
+	proposed := league.ProvisionalIDs(h.app, pendingMatches)
+
 	for _, m := range pendingMatches {
 		p1 := m.GetString("pair1")
 		p2 := m.GetString("pair2")
 		_, hasP1 := playerPairIDs[p1]
 		_, hasP2 := playerPairIDs[p2]
-		if !hasP1 && !hasP2 {
+		if (!hasP1 && !hasP2) || proposed[m.Id] {
 			continue
 		}
 		pending++

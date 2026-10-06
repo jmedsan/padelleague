@@ -210,7 +210,13 @@ func addCompHealth(app core.App, c *core.Record, now time.Time, categories map[s
 		"competition = {:cid} && status = 'pending'",
 		"round_number", 0, 0,
 		map[string]any{"cid": c.Id})
+	// A match with an unconfirmed result counts as played, so it raises no
+	// scheduling incident.
+	proposed := ProvisionalIDs(app, pending)
 	for _, m := range pending {
+		if proposed[m.Id] {
+			continue
+		}
 		addPendingHealth(app, m, ctx, categories)
 	}
 }
@@ -442,9 +448,16 @@ func outstandingForComp(app core.App, c *core.Record, now time.Time) []Outstandi
 		"competition = {:cid} && (status = 'pending' || status = 'scheduled')", "", 0, 0,
 		map[string]any{"cid": c.Id})
 
+	// A match with a decided, unconfirmed result counts as played, so it is
+	// no longer outstanding.
+	proposed := ProvisionalIDs(app, matches)
+
 	out := make([]OutstandingMatch, 0, len(matches))
 	for _, m := range matches {
 		if m.GetString("pair1") == "" || m.GetString("pair2") == "" {
+			continue
+		}
+		if proposed[m.Id] {
 			continue
 		}
 		p1, p2 := pairNamesForMatch(app, m)

@@ -148,7 +148,7 @@ func TestNewCompetitionView_CountsUnconfirmedResultAsPlayed(t *testing.T) {
 	assert.Equal(t, 2, cv.TotalMatches)
 	assert.Equal(t, 1, cv.PlayedMatches, "the proposed match counts as played")
 	assert.True(t, cv.HasProvisional)
-	assert.Equal(t, 2, cv.PendingCount, "an unconfirmed match stays pending until the rival answers")
+	assert.Equal(t, 1, cv.PendingCount, "an unconfirmed match counts as played, not pending")
 }
 
 func TestNewCompetitionView_ConfirmedOnlyIsNotFlagged(t *testing.T) {

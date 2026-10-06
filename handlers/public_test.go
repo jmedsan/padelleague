@@ -2015,3 +2015,33 @@ func TestHome_RecentResultsKeepsFiveNewest(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestHomeGen2_PendingCountSkipsUnconfirmedResult(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  handlers.TestAppFactory,
+		Name:            "a match with an unconfirmed result is not por jugar",
+		Method:          http.MethodGet,
+		URL:             "/",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"1 partido por jugar"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		myPair := handlers.MakePairTB(tb, app, "ProvHomeMine")
+		opp1 := handlers.MakePairTB(tb, app, "ProvHomeOpp1")
+		opp2 := handlers.MakePairTB(tb, app, "ProvHomeOpp2")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{myPair, opp1, opp2})
+		proposed := handlers.MakeMatchTB(tb, app, comp.Id, myPair.Id, opp1.Id, "pending")
+		createResultProposal(tb, app, proposed.Id, myPair.GetString("player1"), "6-3 6-4")
+		handlers.MakeMatchTB(tb, app, comp.Id, myPair.Id, opp2.Id, "pending")
+		user, _ := app.FindRecordById("users", myPair.GetString("player1"))
+		s.Headers = handlers.AuthHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := handlers.ReadBody(tb, res)
+		assert.Contains(tb, body, "1 partido por jugar")
+		assert.NotContains(tb, body, "2 partidos por jugar")
+	}
+	s.Test(t)
+}

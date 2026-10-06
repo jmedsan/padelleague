@@ -543,3 +543,28 @@ func TestAdminDashboard_DisputeAlertShowsBothScores(t *testing.T) {
 	assert.Equal(t, "dispute", alerts[0].Kind)
 	assert.Equal(t, "Disputa abierta", alerts[0].Description)
 }
+
+// A match with a decided, unconfirmed result counts as played, so it leaves
+// the outstanding list; a match without one, or with an open set, stays.
+func TestOutstandingMatches_SkipsProvisional(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "OSA")
+	p2 := makePair(t, app, "OSB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	author := p1.GetString("player1")
+
+	proposed := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusScheduled)
+	makeResultProposal(t, app, proposed.Id, author, "6-3 6-4")
+	undecided := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusScheduled)
+	makeResultProposal(t, app, undecided.Id, author, "6-3 2-1")
+	plain := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusPending)
+
+	ids := map[string]bool{}
+	for _, o := range OutstandingMatches(app, time.Now()) {
+		ids[o.MatchID] = true
+	}
+	assert.False(t, ids[proposed.Id], "a decided proposal counts as played")
+	assert.True(t, ids[undecided.Id], "an open set is not a result yet")
+	assert.True(t, ids[plain.Id])
+}
