@@ -165,6 +165,20 @@ func (svc *Service) logResultAccepted(c resultCtx) {
 	}
 }
 
+// preScoreMatchTx reloads the match inside the transaction and refuses it once
+// anything else (an arbitration, an admin override, another accept) moved it
+// out of the pre-score states, so a stale copy is never saved over that change.
+func preScoreMatchTx(txApp core.App, id string) (*core.Record, error) {
+	m, err := txApp.FindRecordById("matches", id)
+	if err != nil {
+		return nil, fmt.Errorf("reload match: %w", err)
+	}
+	if !IsPreScore(m.GetString("status")) {
+		return nil, ErrMatchNotPreScore
+	}
+	return m, nil
+}
+
 func (svc *Service) applyWon(c resultCtx) error {
 	winnerID := c.fresh.GetString("pair1")
 	if c.out.WinnerSide == 2 {
@@ -178,6 +192,9 @@ func (svc *Service) applyWon(c resultCtx) error {
 		}
 		if freshProp.GetString("proposal_status") != "pending" {
 			return fmt.Errorf("proposal already processed")
+		}
+		if c.fresh, err = preScoreMatchTx(txApp, c.fresh.Id); err != nil {
+			return err
 		}
 
 		c.fresh.Set("scores", c.scores)
@@ -215,6 +232,9 @@ func (svc *Service) applyNotWon(c resultCtx) error {
 		}
 		if freshProp.GetString("proposal_status") != "pending" {
 			return fmt.Errorf("proposal already processed")
+		}
+		if c.fresh, err = preScoreMatchTx(txApp, c.fresh.Id); err != nil {
+			return err
 		}
 
 		c.fresh.Set("carried_sets", c.out.Carried)

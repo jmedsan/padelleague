@@ -501,7 +501,7 @@ func (h *ThreadHandler) RejectAndCounterPropose(e *core.RequestEvent) error {
 		e: e, match: match, msg: msg, matchID: matchID,
 		reason: reason, text: text, pdJSON: pdJSON,
 	}); err != nil {
-		return alertError(e, "Error al procesar la contrapropuesta")
+		return proposalTxAlert(e, err, "Error al procesar la contrapropuesta")
 	}
 
 	h.notifyRejectAndCounter(counterNotice{
@@ -558,10 +558,14 @@ type counterProposalParams struct {
 
 func (h *ThreadHandler) rejectAndCreateCounter(p counterProposalParams) error {
 	return h.app.RunInTransaction(func(txApp core.App) error {
-		p.msg.Set("proposal_status", "rejected")
-		p.msg.Set("rejection_reason", p.reason)
-		p.msg.Set("rejection_text", p.text)
-		if err := txApp.Save(p.msg); err != nil {
+		_, freshMsg, err := lockPendingProposal(txApp, p.match.Id, p.msg.Id)
+		if err != nil {
+			return err
+		}
+		freshMsg.Set("proposal_status", "rejected")
+		freshMsg.Set("rejection_reason", p.reason)
+		freshMsg.Set("rejection_text", p.text)
+		if err := txApp.Save(freshMsg); err != nil {
 			return err
 		}
 		proposerName := pairPlayerLabel(h.app, p.msg.GetString("author"), p.match)
@@ -671,20 +675,35 @@ func (h *ThreadHandler) supersedePending(matchID, excludeMsgID string) error {
 	})
 	var failedIDs []string
 	for _, other := range otherPending {
-		other.Set("proposal_status", "superseded")
-		if err := h.app.Save(other); err != nil {
+		// Reload inside a transaction: a request racing this one may have accepted
+		// or rejected the proposal since the query, and the stale copy must not
+		// overwrite that answer.
+		err := h.app.RunInTransaction(func(txApp core.App) error {
+			fresh, err := txApp.FindRecordById("match_messages", other.Id)
+			if err != nil {
+				return err
+			}
+			if fresh.GetString("proposal_status") != "pending" {
+				return nil
+			}
+			fresh.Set("proposal_status", "superseded")
+			if err := txApp.Save(fresh); err != nil {
+				return err
+			}
+			addTimelineEntry(txApp, timelineEntry{
+				MatchID:  matchID,
+				Kind:     "scheduling_response",
+				Detail:   "propuesta sustituida por la aceptada",
+				ParentID: fresh.Id,
+				Action:   "supersede",
+				Data:     ParseProposalData(fresh.Get("proposal_data")),
+			})
+			return nil
+		})
+		if err != nil {
 			slog.Error("supersede proposal", "id", other.Id, "err", err)
 			failedIDs = append(failedIDs, other.Id)
-			continue
 		}
-		addTimelineEntry(h.app, timelineEntry{
-			MatchID:  matchID,
-			Kind:     "scheduling_response",
-			Detail:   "propuesta sustituida por la aceptada",
-			ParentID: other.Id,
-			Action:   "supersede",
-			Data:     ParseProposalData(other.Get("proposal_data")),
-		})
 	}
 	if len(failedIDs) > 0 {
 		return fmt.Errorf("failed to supersede proposals: %v", failedIDs)

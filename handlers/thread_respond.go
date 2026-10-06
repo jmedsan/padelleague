@@ -9,52 +9,112 @@ import (
 	"padelleague/league"
 )
 
-func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Record, _ string) error {
-	existing := findRecordsLogged(h.app, "acceptProposal: find accepted proposals", RecordQuery{
-		Collection: "match_messages", Filter: "match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'accepted'",
-		Params: map[string]any{"mid": match.Id},
-	})
-	if len(existing) > 0 && match.GetString("status") != league.StatusScheduled {
+var errScheduleAlreadyAccepted = errors.New("scheduling proposal already accepted")
+
+// lockPendingProposal reloads the match and the proposal inside the transaction
+// and checks they are still pre-score and pending. Handlers check the same
+// things before opening the transaction, but another request may have moved
+// either record since; only this read is atomic with the write that follows,
+// and the fresh records are the ones to save.
+func lockPendingProposal(txApp core.App, matchID, msgID string) (match, msg *core.Record, err error) {
+	if match, err = txApp.FindRecordById("matches", matchID); err != nil {
+		return nil, nil, err
+	}
+	if !league.IsPreScore(match.GetString("status")) {
+		return nil, nil, league.ErrMatchNotPreScore
+	}
+	if msg, err = txApp.FindRecordById("match_messages", msgID); err != nil {
+		return nil, nil, err
+	}
+	if msg.GetString("proposal_status") != "pending" {
+		return nil, nil, errProposalNotPending
+	}
+	return match, msg, nil
+}
+
+// proposalTxAlert maps the sentinels of a guarded proposal transaction to the
+// alert the player sees; any other error gets the fallback text.
+func proposalTxAlert(e *core.RequestEvent, err error, fallback string) error {
+	switch {
+	case errors.Is(err, league.ErrMatchNotPreScore):
+		return alertError(e, "Este partido ya no acepta propuestas")
+	case errors.Is(err, errProposalNotPending):
+		return alertError(e, "Esta propuesta ya fue respondida")
+	case errors.Is(err, errScheduleAlreadyAccepted):
 		return alertError(e, "Ya hay una propuesta aceptada para este partido")
 	}
+	return alertError(e, fallback)
+}
 
+// scheduleAccept is what acceptScheduleTx needs to accept a date proposal.
+type scheduleAccept struct {
+	actorID, matchID, msgID, proposerName string
+	pd                                    *ProposalData
+}
+
+// acceptScheduleTx accepts the date proposal on fresh copies of the match and
+// the proposal, retiring any earlier accepted date, and returns the saved match.
+func acceptScheduleTx(txApp core.App, a scheduleAccept) (*core.Record, error) {
+	actorID, matchID, msgID, pd, proposerName := a.actorID, a.matchID, a.msgID, a.pd, a.proposerName
+	match, msg, err := lockPendingProposal(txApp, matchID, msgID)
+	if err != nil {
+		return nil, err
+	}
+	existing, err := txApp.FindRecordsByFilter("match_messages",
+		"match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'accepted'",
+		"", 0, 0, map[string]any{"mid": matchID})
+	if err != nil {
+		return nil, err
+	}
+	if len(existing) > 0 && match.GetString("status") != league.StatusScheduled {
+		return nil, errScheduleAlreadyAccepted
+	}
+	for _, old := range existing {
+		old.Set("proposal_status", "superseded")
+		if err := txApp.Save(old); err != nil {
+			return nil, err
+		}
+	}
+	match.Set("date", pd.Date)
+	match.Set("time", pd.Time)
+	match.Set("club", pd.VenueName)
+	match.Set("status", league.StatusScheduled)
+	league.ClearMatchReminders(txApp, matchID)
+	if err := txApp.Save(match); err != nil {
+		return nil, err
+	}
+	msg.Set("proposal_status", "accepted")
+	if err := txApp.Save(msg); err != nil {
+		return nil, err
+	}
+	addTimelineEntry(txApp, timelineEntry{
+		MatchID: matchID, ActorID: actorID,
+		Kind:     "scheduling_response",
+		Detail:   "aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
+		ParentID: msgID,
+		Action:   "accept",
+		Data:     pd,
+	})
+	return match, nil
+}
+
+func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Record, _ string) error {
 	pd := ParseProposalData(msg.Get("proposal_data"))
 	if pd == nil {
 		return alertError(e, "Error al leer los datos de la propuesta")
 	}
 
 	proposerName := pairPlayerLabel(h.app, msg.GetString("author"), match)
-	if err := h.app.RunInTransaction(func(txApp core.App) error {
-		for _, old := range existing {
-			old.Set("proposal_status", "superseded")
-			if err := txApp.Save(old); err != nil {
-				return err
-			}
-		}
-		match.Set("date", pd.Date)
-		match.Set("time", pd.Time)
-		match.Set("club", pd.VenueName)
-		match.Set("status", league.StatusScheduled)
-		league.ClearMatchReminders(txApp, match.Id)
-		if err := txApp.Save(match); err != nil {
-			return err
-		}
-		msg.Set("proposal_status", "accepted")
-		if err := txApp.Save(msg); err != nil {
-			return err
-		}
-		addTimelineEntry(txApp, timelineEntry{
-			MatchID: match.Id, ActorID: e.Auth.Id,
-			Kind:     "scheduling_response",
-			Detail:   "aceptó la propuesta de " + proposerName + " (" + pd.Date + ", " + pd.Time + ", " + pd.VenueName + ")",
-			ParentID: msg.Id,
-			Action:   "accept",
-			Data:     pd,
+	var fresh *core.Record
+	if err := h.app.RunInTransaction(func(txApp core.App) (err error) {
+		fresh, err = acceptScheduleTx(txApp, scheduleAccept{
+			actorID: e.Auth.Id, matchID: match.Id, msgID: msg.Id, proposerName: proposerName, pd: pd,
 		})
-		return nil
+		return err
 	}); err != nil {
-		return alertError(e, "Error al aceptar la propuesta")
+		return proposalTxAlert(e, err, "Error al aceptar la propuesta")
 	}
+	match = fresh
 
 	h.supersedePendingAndNotify(match, msg.Id)
 
@@ -71,13 +131,6 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 	reason := e.Request.FormValue("rejection_reason")
 	text := e.Request.FormValue("rejection_text")
 
-	msg.Set("proposal_status", "rejected")
-	msg.Set("rejection_reason", reason)
-	msg.Set("rejection_text", text)
-	if err := h.app.Save(msg); err != nil {
-		return alertError(e, "Error al rechazar la propuesta")
-	}
-
 	proposerName := pairPlayerLabel(h.app, msg.GetString("author"), match)
 	detail := "rechazó la propuesta de " + proposerName
 	if text != "" {
@@ -89,12 +142,27 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 	if note == "" {
 		note = reason
 	}
-	addTimelineEntry(h.app, timelineEntry{
-		MatchID: match.Id, ActorID: e.Auth.Id,
-		Kind: "scheduling_response", Detail: detail,
-		ParentID: msg.Id, Action: "reject", Note: note,
-		Data: ParseProposalData(msg.Get("proposal_data")),
-	})
+	if err := h.app.RunInTransaction(func(txApp core.App) error {
+		_, freshMsg, err := lockPendingProposal(txApp, match.Id, msg.Id)
+		if err != nil {
+			return err
+		}
+		freshMsg.Set("proposal_status", "rejected")
+		freshMsg.Set("rejection_reason", reason)
+		freshMsg.Set("rejection_text", text)
+		if err := txApp.Save(freshMsg); err != nil {
+			return err
+		}
+		addTimelineEntry(txApp, timelineEntry{
+			MatchID: match.Id, ActorID: e.Auth.Id,
+			Kind: "scheduling_response", Detail: detail,
+			ParentID: msg.Id, Action: "reject", Note: note,
+			Data: ParseProposalData(msg.Get("proposal_data")),
+		})
+		return nil
+	}); err != nil {
+		return proposalTxAlert(e, err, "Error al rechazar la propuesta")
+	}
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
@@ -136,19 +204,9 @@ func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *c
 	// corrected it meanwhile) and the match still pre-score, else the counter
 	// would sit beside a second pending proposal.
 	err = h.app.RunInTransaction(func(txApp core.App) error {
-		freshMatch, err := txApp.FindRecordById("matches", match.Id)
+		_, freshMsg, err := lockPendingProposal(txApp, match.Id, msg.Id)
 		if err != nil {
 			return err
-		}
-		if !league.IsPreScore(freshMatch.GetString("status")) {
-			return league.ErrMatchNotPreScore
-		}
-		freshMsg, err := txApp.FindRecordById("match_messages", msg.Id)
-		if err != nil {
-			return err
-		}
-		if freshMsg.GetString("proposal_status") != "pending" {
-			return errProposalNotPending
 		}
 		freshMsg.Set("proposal_status", "superseded")
 		if err := txApp.Save(freshMsg); err != nil {
