@@ -26,6 +26,8 @@ const MOBILE_VIEWPORT_SPECS = [
   'admin-edit-forms.spec.ts',
   'player-contact.spec.ts',
   'provisional-warning.spec.ts',
+  'notification-dismiss-mobile.spec.ts',
+  'leveled-league-phone.spec.ts',
 ];
 const mobileViewportMatch = MOBILE_VIEWPORT_SPECS.map(f => new RegExp(f.replace('.', '\\.') + '$'));
 
@@ -48,7 +50,7 @@ export default defineConfig({
       // real mobile viewport — that floor deliberately never applies to a
       // mouse-capable desktop context, so running it there only reproduces
       // expected-non-compliant sizes, not a defect.
-      testIgnore: /z-admin-settings|admin-edit-forms/,
+      testIgnore: /z-admin-settings|admin-edit-forms|notification-dismiss-mobile|leveled-league-phone/,
       use: {
         viewport: { width: 1280, height: 720 },
       },

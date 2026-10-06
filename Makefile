@@ -89,6 +89,7 @@ invariants:
 	scripts/check-e2e-selectors.sh || fail=1; \
 	scripts/check-e2e-tags.sh || fail=1; \
 	scripts/check-e2e-player-setup.sh || fail=1; \
+	scripts/check-e2e-skips.sh || fail=1; \
 	scripts/check-e2e-raw-requests.sh || fail=1; \
 	if [ "$$fail" != "0" ]; then exit 1; fi; \
 	echo "invariants hold"

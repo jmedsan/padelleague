@@ -199,28 +199,4 @@ test.describe('leveled league', { tag: '@leveled' }, () => {
     const bodyText = await page.locator('main').textContent() ?? '';
     expect(bodyText).not.toMatch(/Jornada\s+0/);
   });
-
-  // =========================================================================
-  // Responsive assertions (phone + desktop)
-  // =========================================================================
-
-  test('leveled competition page renders correctly on phone', async ({ page }) => {
-    test.skip(
-      (page.viewportSize()?.width ?? 1280) >= 1024,
-      'phone-only test',
-    );
-
-    if (!competitionId) {
-      test.skip(true, 'competition not created (run in serial after main test)');
-      return;
-    }
-
-    const p1Email = PLAYERS[PAIR_DEFS[0].p1].email;
-    await loginAs(page, p1Email, PLAYER_PASSWORD);
-    await page.goto(`/competition/${competitionId}`);
-    await page.waitForLoadState('domcontentloaded');
-
-    await expect(page.locator('input[aria-label^="Partidos"]')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.collapse-title:has-text("Jornada 1")')).toBeVisible({ timeout: 5000 });
-  });
 });

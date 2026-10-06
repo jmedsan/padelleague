@@ -2,13 +2,13 @@
 {{if .Mode.Row}}
 <div id="notif-row-{{.Record.Id}}" class="flex items-start gap-1 bg-neutral/5 font-medium rounded p-1">
     <a href="{{.Link}}" hx-post="/notifications/{{.Record.Id}}/read" hx-swap="none"
-       class="flex-1 block p-1 hover:bg-base-200 cursor-pointer rounded">
+       class="link-row flex-1 block p-1 hover:bg-base-200 cursor-pointer rounded">
         <p class="text-sm">{{.Record.GetString "title"}}</p>
         {{with .Record.GetString "body"}}
-        <p class="text-xs text-base-content/60">{{truncate . 80}}</p>
+        <p class="text-sm text-base-content/60">{{truncate . 80}}</p>
         {{end}}
         {{with .Record.GetString "comp_name"}}
-        <p class="text-xs text-base-content/50">{{.}}</p>
+        <p class="text-sm text-base-content/50">{{.}}</p>
         {{end}}
     </a>
     <span class="tooltip tooltip-left" data-tip="Descartar">
