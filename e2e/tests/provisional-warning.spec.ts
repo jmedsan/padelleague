@@ -226,6 +226,14 @@ test.describe('provisional results are counted and warned about everywhere', { t
       const cellBox = (await warning.locator('xpath=ancestor::td[1]').boundingBox())!;
       expect(box.x, 'the icon must not start left of its cell').toBeGreaterThanOrEqual(cellBox.x);
       expect(box.x + box.width, 'the icon must not be clipped by its cell').toBeLessThanOrEqual(cellBox.x + cellBox.width);
+      expect(cellBox.width, 'the Pareja column must stay wide enough to read a name').toBeGreaterThanOrEqual(140);
+      const nameLink = table.locator('tbody tr', { hasText: longName.slice(0, 20) }).locator('td').nth(1).locator('a').first();
+      const visibleStart = await nameLink.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        const cell = el.closest('td')!.getBoundingClientRect();
+        return Math.min(r.width, cell.right - r.left);
+      });
+      expect(visibleStart, 'the visible part of the name must show more than a few letters').toBeGreaterThanOrEqual(80);
       const hit = await warning.evaluate((el) => {
         const r = el.getBoundingClientRect();
         const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
