@@ -320,13 +320,22 @@ func (h *PublicHandler) AcceptDocs(e *core.RequestEvent) error {
 	if err != nil {
 		return h.render.ErrorPage(e, http.StatusNotFound, "Competición no encontrada")
 	}
-	mandatoryIDs := league.MandatoryDocIDs(h.app, comp)
-	ack, err := league.FindOrNewAck(h.app, comp.Id, e.Auth.Id)
+	// Find-or-create and save in one transaction: two requests for the same
+	// player would otherwise each create an ack row. The unique index on
+	// (user, competition) is the backstop.
+	err = h.app.RunInTransaction(func(txApp core.App) error {
+		fresh, err := txApp.FindRecordById("competitions", comp.Id)
+		if err != nil {
+			return err
+		}
+		ack, err := league.FindOrNewAck(txApp, comp.Id, e.Auth.Id)
+		if err != nil {
+			return err
+		}
+		ack.Set("documents", league.MandatoryDocIDs(txApp, fresh))
+		return txApp.Save(ack)
+	})
 	if err != nil {
-		return alertError(e, "Error al registrar la lectura")
-	}
-	ack.Set("documents", mandatoryIDs)
-	if err := h.app.Save(ack); err != nil {
 		return alertError(e, "Error al registrar la lectura")
 	}
 	return redirectHX(e, "/competition/"+comp.Id)

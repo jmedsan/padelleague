@@ -639,32 +639,17 @@ func (h *MatchHandler) CancelDate(e *core.RequestEvent) error {
 		return alertError(e, "Debes indicar un motivo")
 	}
 
-	within24h := false
-	if start, ok := league.MatchStart(match); ok {
-		within24h = time.Until(start) < 24*time.Hour
+	var within24h bool
+	err = h.app.RunInTransaction(func(txApp core.App) error {
+		match, within24h, err = cancelDateTx(txApp, id, userID, reason)
+		return err
+	})
+	if errors.Is(err, errDateNotScheduled) {
+		return alertError(e, "Este partido no tiene fecha confirmada")
 	}
-
-	h.supersedeAcceptedProposals(id)
-
-	match.Set("date", "")
-	match.Set("time", "")
-	match.Set("club", "")
-	match.Set("status", league.StatusPending)
-	match.Set("last_warn_level", 0)
-	if err := h.app.Save(match); err != nil {
+	if err != nil {
 		return alertError(e, "Error al cancelar la fecha")
 	}
-
-	league.ClearMatchReminders(h.app, id)
-
-	detail := "canceló la fecha del partido: " + reason
-	if within24h {
-		detail = "canceló la fecha del partido (con menos de 24h): " + reason
-	}
-	addTimelineEntry(h.app, timelineEntry{
-		MatchID: id, ActorID: userID,
-		Kind: "scheduling_response", Detail: detail,
-	})
 
 	h.notifyCancelDate(cancelInfo{match: match, team: myTeam, cancellerID: userID, reason: reason, within24h: within24h})
 	return redirectHX(e, "/match/"+id)
@@ -739,16 +724,55 @@ func (h *MatchHandler) notifyCancelDate(ci cancelInfo) {
 	}
 }
 
-func (h *MatchHandler) supersedeAcceptedProposals(matchID string) {
-	accepted, _ := h.app.FindRecordsByFilter("match_messages",
+var errDateNotScheduled = errors.New("match has no confirmed date")
+
+// cancelDateTx cancels the confirmed date on a fresh copy of the match: the
+// handler's gate read the match before the transaction, and a concurrent cancel,
+// result or admin decision may have moved it since. It retires the accepted date
+// proposals, clears the date and reminders, writes the timeline entry, and
+// returns the saved match and whether the date was less than 24h away.
+func cancelDateTx(txApp core.App, matchID, userID, reason string) (*core.Record, bool, error) {
+	match, err := txApp.FindRecordById("matches", matchID)
+	if err != nil {
+		return nil, false, err
+	}
+	if match.GetString("status") != league.StatusScheduled {
+		return nil, false, errDateNotScheduled
+	}
+	within24h := false
+	if start, ok := league.MatchStart(match); ok {
+		within24h = time.Until(start) < 24*time.Hour
+	}
+	accepted, err := txApp.FindRecordsByFilter("match_messages",
 		"match = {:mid} && type = 'scheduling_proposal' && proposal_status = 'accepted'",
 		"", 0, 0, map[string]any{"mid": matchID})
+	if err != nil {
+		return nil, false, err
+	}
 	for _, sp := range accepted {
 		sp.Set("proposal_status", "superseded")
-		if err := h.app.Save(sp); err != nil {
-			slog.Error("supersede scheduling proposal on cancel", "match", matchID, "err", err)
+		if err := txApp.Save(sp); err != nil {
+			return nil, false, err
 		}
 	}
+	match.Set("date", "")
+	match.Set("time", "")
+	match.Set("club", "")
+	match.Set("status", league.StatusPending)
+	match.Set("last_warn_level", 0)
+	if err := txApp.Save(match); err != nil {
+		return nil, false, err
+	}
+	league.ClearMatchReminders(txApp, matchID)
+	detail := "canceló la fecha del partido: " + reason
+	if within24h {
+		detail = "canceló la fecha del partido (con menos de 24h): " + reason
+	}
+	addTimelineEntry(txApp, timelineEntry{
+		MatchID: matchID, ActorID: userID,
+		Kind: "scheduling_response", Detail: detail,
+	})
+	return match, within24h, nil
 }
 
 // playerActionGate validates that userID can perform a score action on match:

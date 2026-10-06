@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -134,19 +136,29 @@ func (h *InvitationHandler) InvitationsResend(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/invitations")
 }
 
+var errInviteNotPending = errors.New("invitation is not pending")
+
 // InvitationsRevoke deactivates an invitation so it can no longer be used.
+// The status check and the delete share one transaction on a fresh record: a
+// registration that consumed the invitation meanwhile must keep it.
 func (h *InvitationHandler) InvitationsRevoke(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	invitation, err := h.app.FindRecordById("invitations", id)
-	if err != nil {
+	err := h.app.RunInTransaction(func(txApp core.App) error {
+		invitation, err := txApp.FindRecordById("invitations", id)
+		if err != nil {
+			return err
+		}
+		if invitation.GetString("status") != "pending" {
+			return errInviteNotPending
+		}
+		return txApp.Delete(invitation)
+	})
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
 		return alertError(e, "Invitación no encontrada")
-	}
-
-	if invitation.GetString("status") != "pending" {
+	case errors.Is(err, errInviteNotPending):
 		return alertError(e, "Solo se pueden revocar invitaciones pendientes")
-	}
-
-	if err := h.app.Delete(invitation); err != nil {
+	case err != nil:
 		return alertError(e, "Error al revocar la invitación")
 	}
 

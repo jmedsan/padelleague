@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -310,7 +311,10 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 	pdJSON, _ := json.Marshal(pd)
 
 	if err := h.saveProposalRecord(matchID, e.Auth.Id, pdJSON); err != nil {
-		return alertError(e, "Error al crear propuesta")
+		if errors.Is(err, errNotParticipant) {
+			return alertError(e, "No eres participante de este partido")
+		}
+		return proposalTxAlert(e, err, "Error al crear propuesta")
 	}
 
 	h.notifyProposal(match, myTeam, proposalNotice{AuthorID: e.Auth.Id, Date: pd.Date, Time: pd.Time, VenueName: pd.VenueName})
@@ -318,18 +322,33 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
 }
 
+// saveProposalRecord creates the pending proposal. The match is reloaded in the
+// transaction: a proposal must not land on a match that stopped accepting them
+// or whose pairs changed since the handler's guards ran.
 func (h *ThreadHandler) saveProposalRecord(matchID, authorID string, pdJSON []byte) error {
-	col, err := h.app.FindCollectionByNameOrId("match_messages")
-	if err != nil {
-		return err
-	}
-	record := core.NewRecord(col)
-	record.Set("match", matchID)
-	record.Set("author", authorID)
-	record.Set("type", "scheduling_proposal")
-	record.Set("proposal_data", string(pdJSON))
-	record.Set("proposal_status", "pending")
-	return h.app.Save(record)
+	return h.app.RunInTransaction(func(txApp core.App) error {
+		match, err := txApp.FindRecordById("matches", matchID)
+		if err != nil {
+			return err
+		}
+		if !league.IsPreScore(match.GetString("status")) {
+			return league.ErrMatchNotPreScore
+		}
+		if team, err := league.PlayerTeam(txApp, authorID, match); err != nil || team == 0 {
+			return errNotParticipant
+		}
+		col, err := txApp.FindCollectionByNameOrId("match_messages")
+		if err != nil {
+			return err
+		}
+		record := core.NewRecord(col)
+		record.Set("match", matchID)
+		record.Set("author", authorID)
+		record.Set("type", "scheduling_proposal")
+		record.Set("proposal_data", string(pdJSON))
+		record.Set("proposal_status", "pending")
+		return txApp.Save(record)
+	})
 }
 
 type proposalNotice struct {
@@ -753,9 +772,6 @@ func (h *ThreadHandler) WithdrawProposal(e *core.RequestEvent) error {
 	if msg.GetString("type") != "scheduling_proposal" {
 		return alertError(e, "Solo se pueden retirar propuestas de fecha")
 	}
-	if msg.GetString("proposal_status") != "pending" {
-		return alertError(e, "Solo se pueden retirar propuestas pendientes")
-	}
 	authorTeam, _ := league.PlayerTeam(h.app, msg.GetString("author"), match)
 	actorTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if actorTeam == 0 || authorTeam != actorTeam {
@@ -765,23 +781,43 @@ func (h *ThreadHandler) WithdrawProposal(e *core.RequestEvent) error {
 		return err
 	}
 
-	msg.Set("proposal_status", "withdrawn")
-	if err := h.app.Save(msg); err != nil {
-		return alertError(e, "Error al retirar la propuesta")
+	// The proposal must still be pending when the withdrawal is written: the
+	// opponent may have accepted or rejected it since the checks above.
+	err = h.app.RunInTransaction(func(txApp core.App) error {
+		return withdrawProposalTx(txApp, matchID, msgID, e.Auth.Id)
+	})
+	if errors.Is(err, errProposalNotPending) {
+		return alertError(e, "Solo se pueden retirar propuestas pendientes")
+	}
+	if err != nil {
+		return proposalTxAlert(e, err, "Error al retirar la propuesta")
 	}
 
-	addTimelineEntry(h.app, timelineEntry{
-		MatchID: match.Id, ActorID: e.Auth.Id,
+	myTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
+	h.notifyWithdrawal(match, myTeam, e.Auth.Id)
+	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
+}
+
+// withdrawProposalTx withdraws the proposal on fresh copies of the match and
+// the proposal, and writes the timeline entry.
+func withdrawProposalTx(txApp core.App, matchID, msgID, actorID string) error {
+	_, msg, err := lockPendingProposal(txApp, matchID, msgID)
+	if err != nil {
+		return err
+	}
+	msg.Set("proposal_status", "withdrawn")
+	if err := txApp.Save(msg); err != nil {
+		return err
+	}
+	addTimelineEntry(txApp, timelineEntry{
+		MatchID: matchID, ActorID: actorID,
 		Kind:     "scheduling_response",
 		Detail:   "retiró su propuesta de fecha",
 		ParentID: msg.Id,
 		Action:   "withdraw",
 		Data:     ParseProposalData(msg.Get("proposal_data")),
 	})
-
-	myTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
-	h.notifyWithdrawal(match, myTeam, e.Auth.Id)
-	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
+	return nil
 }
 
 func (h *ThreadHandler) notifyWithdrawal(match *core.Record, myTeam int, authorID string) {
