@@ -368,7 +368,8 @@ test.describe('match thread', { tag: '@thread' }, () => {
     });
 
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto(`/match/${match.id}`);
+    await page.goto('/admin/outstanding');
+    await page.locator(`a[href="/match/${match.id}"]:visible`).first().click();
     await page.waitForSelector('#result-panel', { timeout: 10000 });
     await page.locator('.collapse-title', { hasText: /corrección de administrador/i }).locator('..').locator('input[type="checkbox"]').click();
     const form = page.locator('form[hx-post*="admin-override"]');
