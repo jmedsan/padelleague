@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -387,4 +388,70 @@ func TestAdvancePlayoff_SkipsNonPendingNextRound(t *testing.T) {
 	assert.Equal(t, p1.Id, after.GetString("pair1"), "pair1 must not be overwritten")
 	assert.Equal(t, p3.Id, after.GetString("pair2"), "pair2 must not be overwritten")
 	assert.Equal(t, StatusConfirmed, after.GetString("status"), "status must remain confirmed")
+}
+
+// lateWriteApp runs onRead right after the first non-transactional read of
+// the next-round matches, the way a concurrent admin write lands between
+// AdvancePlayoff's read and its save. RunInTransaction is promoted from the
+// embedded app, so reads inside a transaction bypass the hook: no write can
+// land in a transaction's window, which is exactly the property under test.
+type lateWriteApp struct {
+	core.App
+	round   int
+	onRead  func()
+	outside int
+}
+
+func (a *lateWriteApp) FindRecordsByFilter(col any, filter, sort string, limit, offset int, params ...dbx.Params) ([]*core.Record, error) {
+	recs, err := a.App.FindRecordsByFilter(col, filter, sort, limit, offset, params...)
+	if len(params) > 0 && params[0]["rn"] == a.round {
+		a.outside++
+		if a.outside == 1 {
+			a.onRead()
+		}
+	}
+	return recs, err
+}
+
+// A next-round match an admin changed while AdvancePlayoff was running must
+// keep the change: AdvancePlayoff reads and saves it inside one transaction.
+func TestAdvancePlayoff_DoesNotOverwriteConcurrentNextRoundWrite(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	pairs := []*core.Record{makePair(t, app, "LW A"), makePair(t, app, "LW B"), makePair(t, app, "LW C"), makePair(t, app, "LW D")}
+	comp := makePlayoffCompetition(t, app, pairs)
+	var trigger *core.Record
+	for i, p := range [][2]int{{0, 1}, {2, 3}} {
+		m := makeMatchRound(t, app, comp.Id, pairs[p[0]].Id, pairs[p[1]].Id, 1)
+		m.Set("status", "final")
+		m.Set("scores", "6-3 6-4")
+		m.Set("winner", pairs[p[0]].Id)
+		require.NoError(t, app.Save(m), i)
+		trigger = m
+	}
+	col, err := app.FindCollectionByNameOrId("matches")
+	require.NoError(t, err)
+	final := core.NewRecord(col)
+	final.Set("competition", comp.Id)
+	final.Set("status", "pending")
+	final.Set("round_number", 2)
+	require.NoError(t, app.Save(final))
+
+	wrap := &lateWriteApp{App: app, round: 2}
+	wrap.onRead = func() {
+		fresh, err := app.FindRecordById("matches", final.Id)
+		require.NoError(t, err)
+		fresh.Set("date", "2026-12-01")
+		fresh.Set("club", "Padel 360")
+		require.NoError(t, app.Save(fresh))
+	}
+	svc := New(wrap, nil)
+	require.NoError(t, svc.AdvancePlayoff(trigger))
+
+	got, err := app.FindRecordById("matches", final.Id)
+	require.NoError(t, err)
+	assert.Zero(t, wrap.outside, "the next round must be read inside the transaction that saves it")
+	if wrap.outside > 0 { // the write landed in the read-to-save window
+		assert.Equal(t, "Padel 360", got.GetString("club"), "a concurrent write to the next-round match must survive")
+	}
 }

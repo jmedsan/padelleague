@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -25,55 +27,81 @@ func NewFixtureHandler(app core.App, leagueSvc *league.Service, renderPage Rende
 	return &FixtureHandler{app: app, leagueSvc: leagueSvc, renderPage: renderPage}
 }
 
+// generateRefusal is a generation precondition that failed; msg is the alert.
+type generateRefusal struct{ msg string }
+
+func (r generateRefusal) Error() string { return r.msg }
+
+// needsConfirm means matches already exist and the admin has not confirmed
+// regenerating them.
+type needsConfirm struct{ matches int }
+
+func (needsConfirm) Error() string { return "regeneration needs confirmation" }
+
+// checkGenerate decides whether fixtures may be generated for comp, given the
+// matches that exist right now.
+func checkGenerate(comp *core.Record, existing int, confirm bool) error {
+	if existing > 0 && !confirm {
+		return needsConfirm{matches: existing}
+	}
+	if len(comp.GetStringSlice("withdrawn_pairs")) > 0 {
+		return generateRefusal{"Hay parejas retiradas en esta competición. Reincorpóralas o elimínalas antes de regenerar el calendario."}
+	}
+	n := len(comp.GetStringSlice("pairs"))
+	if n < 2 {
+		return generateRefusal{"Se necesitan al menos 2 parejas"}
+	}
+	if !league.IsLeveled(comp) {
+		return nil
+	}
+	if target := comp.GetInt("target_matches"); (n*target)%2 != 0 {
+		return generateRefusal{fmt.Sprintf("Con %d parejas, los partidos por pareja deben ser un número par", n)}
+	}
+	start, end := comp.GetDateTime("start_date").Time(), comp.GetDateTime("end_date").Time()
+	if start.IsZero() || end.IsZero() {
+		return generateRefusal{"Las competiciones niveladas necesitan fecha de inicio y de fin"}
+	}
+	if !start.Before(end) {
+		return generateRefusal{"La fecha de inicio debe ser anterior a la fecha de fin"}
+	}
+	return nil
+}
+
 // GenerateFixtures creates round-robin or playoff matches for a competition.
+// The competition and its existing matches are read inside the transaction
+// that replaces them, so two concurrent requests cannot both generate (a
+// second one finds the first one's matches and asks for confirmation).
 func (h *FixtureHandler) GenerateFixtures(e *core.RequestEvent) error {
 	compID := e.Request.PathValue("id")
 	confirm := e.Request.URL.Query().Get("confirm") == "true"
 
-	comp, err := h.app.FindRecordById("competitions", compID)
-	if err != nil {
-		return alertError(e, "Competición no encontrada")
-	}
-
-	existingMatches, _ := h.app.FindRecordsByFilter("matches",
-		"competition = {:id}", "", 0, 0,
-		map[string]any{"id": compID})
-
-	if len(existingMatches) > 0 && !confirm {
-		return regenerateConfirmPrompt(e, compID, len(existingMatches))
-	}
-
-	if withdrawn := comp.GetStringSlice("withdrawn_pairs"); len(withdrawn) > 0 {
-		return alertError(e, "Hay parejas retiradas en esta competición. Reincorpóralas o elimínalas antes de regenerar el calendario.")
-	}
-
-	pairIDs := comp.GetStringSlice("pairs")
-
-	if len(pairIDs) < 2 {
-		return alertError(e, "Se necesitan al menos 2 parejas")
-	}
-
-	if league.IsLeveled(comp) {
-		n := len(pairIDs)
-		target := comp.GetInt("target_matches")
-		if (n*target)%2 != 0 {
-			return alertError(e, fmt.Sprintf("Con %d parejas, los partidos por pareja deben ser un número par", n))
+	var comp *core.Record
+	err := h.app.RunInTransaction(func(txApp core.App) error {
+		var err error
+		if comp, err = txApp.FindRecordById("competitions", compID); err != nil {
+			return err
 		}
-		start := comp.GetDateTime("start_date").Time()
-		end := comp.GetDateTime("end_date").Time()
-		if start.IsZero() || end.IsZero() {
-			return alertError(e, "Las competiciones niveladas necesitan fecha de inicio y de fin")
+		existing, err := txApp.FindRecordsByFilter("matches",
+			"competition = {:id}", "", 0, 0, map[string]any{"id": compID})
+		if err != nil {
+			return err
 		}
-		if !start.Before(end) {
-			return alertError(e, "La fecha de inicio debe ser anterior a la fecha de fin")
+		if err := checkGenerate(comp, len(existing), confirm); err != nil {
+			return err
 		}
-	}
-
-	err = h.app.RunInTransaction(func(txApp core.App) error {
-		return h.regenerateFixturesTx(txApp, comp, pairIDs, existingMatches)
+		return h.regenerateFixturesTx(txApp, comp, comp.GetStringSlice("pairs"), existing)
 	})
 
-	if err != nil {
+	var refusal generateRefusal
+	var prompt needsConfirm
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return alertError(e, "Competición no encontrada")
+	case errors.As(err, &prompt):
+		return regenerateConfirmPrompt(e, compID, prompt.matches)
+	case errors.As(err, &refusal):
+		return alertError(e, refusal.msg)
+	case err != nil:
 		slog.Error("generate fixtures failed", "competition", compID, "err", err)
 		return alertError(e, "Error al generar partidos")
 	}

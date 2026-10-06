@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -423,26 +424,40 @@ func (h *CompetitionHandler) FinalizeCompetition(e *core.RequestEvent) error {
 	return redirectHX(e, "/admin/competitions/"+id)
 }
 
+// Calendar guards re-checked inside the publish/delete transactions.
+var (
+	errNoDraftCalendar = errors.New("no draft calendar")
+	errNoMatches       = errors.New("no matches to publish")
+)
+
 // PublishCalendar makes a draft calendar visible to players and notifies
 // every player in the competition.
 func (h *CompetitionHandler) PublishCalendar(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	comp, err := h.app.FindRecordById("competitions", id)
-	if err != nil {
-		return alertError(e, "Competición no encontrada")
-	}
-
-	if comp.GetString("calendar_status") != "draft" {
+	var comp *core.Record
+	err := h.app.RunInTransaction(func(txApp core.App) error {
+		var err error
+		if comp, err = txApp.FindRecordById("competitions", id); err != nil {
+			return err
+		}
+		if comp.GetString("calendar_status") != "draft" {
+			return errNoDraftCalendar
+		}
+		matches, err := txApp.FindRecordsByFilter("matches", "competition = {:id}", "", 1, 0, map[string]any{"id": id})
+		if err != nil || len(matches) == 0 {
+			return errNoMatches
+		}
+		comp.Set("calendar_status", "published")
+		return txApp.Save(comp)
+	})
+	switch {
+	case errors.Is(err, errNoDraftCalendar):
 		return alertError(e, "No hay un calendario en borrador para publicar")
-	}
-
-	matches, err := h.app.FindRecordsByFilter("matches", "competition = {:id}", "", 1, 0, map[string]any{"id": id})
-	if err != nil || len(matches) == 0 {
+	case errors.Is(err, errNoMatches):
 		return alertError(e, "No hay partidos que publicar")
-	}
-
-	comp.Set("calendar_status", "published")
-	if err := h.app.Save(comp); err != nil {
+	case errors.Is(err, sql.ErrNoRows):
+		return alertError(e, "Competición no encontrada")
+	case err != nil:
 		slog.Error("publish calendar failed", "competition", id, "err", err)
 		return alertError(e, "Error al publicar el calendario")
 	}
@@ -469,22 +484,18 @@ func (h *CompetitionHandler) PublishCalendar(e *core.RequestEvent) error {
 // over without regenerating.
 func (h *CompetitionHandler) DeleteCalendar(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	comp, err := h.app.FindRecordById("competitions", id)
-	if err != nil {
-		return alertError(e, "Competición no encontrada")
-	}
-
-	if comp.GetString("calendar_status") != "draft" {
-		return alertError(e, "No hay un calendario en borrador para eliminar")
-	}
-
-	matches, err := h.app.FindRecordsByFilter("matches", "competition = {:id}", "", 0, 0, map[string]any{"id": id})
-	if err != nil {
-		slog.Error("delete calendar: list matches failed", "competition", id, "err", err)
-		return alertError(e, "Error al eliminar el calendario")
-	}
-
-	err = h.app.RunInTransaction(func(txApp core.App) error {
+	err := h.app.RunInTransaction(func(txApp core.App) error {
+		comp, err := txApp.FindRecordById("competitions", id)
+		if err != nil {
+			return err
+		}
+		if comp.GetString("calendar_status") != "draft" {
+			return errNoDraftCalendar
+		}
+		matches, err := txApp.FindRecordsByFilter("matches", "competition = {:id}", "", 0, 0, map[string]any{"id": id})
+		if err != nil {
+			return err
+		}
 		for _, m := range matches {
 			if err := txApp.Delete(m); err != nil {
 				return err
@@ -493,7 +504,12 @@ func (h *CompetitionHandler) DeleteCalendar(e *core.RequestEvent) error {
 		comp.Set("calendar_status", "none")
 		return txApp.Save(comp)
 	})
-	if err != nil {
+	switch {
+	case errors.Is(err, errNoDraftCalendar):
+		return alertError(e, "No hay un calendario en borrador para eliminar")
+	case errors.Is(err, sql.ErrNoRows):
+		return alertError(e, "Competición no encontrada")
+	case err != nil:
 		slog.Error("delete calendar failed", "competition", id, "err", err)
 		return alertError(e, "Error al eliminar el calendario")
 	}

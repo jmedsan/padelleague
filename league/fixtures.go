@@ -104,50 +104,52 @@ func mirrorLegSides(leg [][]RoundMatch) [][]RoundMatch {
 }
 
 // AdvancePlayoff seeds winners of the current round into the next playoff round.
+// It reads the round and writes the next-round matches in one transaction, so a
+// next-round match an admin or the players changed meanwhile is never
+// overwritten with a stale copy.
 func (svc *Service) AdvancePlayoff(matchRecord *core.Record) error {
 	compID := matchRecord.GetString("competition")
 	comp, err := svc.app.FindRecordById("competitions", compID)
 	if err != nil || comp.GetString("type") != "playoff" {
 		return nil
 	}
-
 	currentRound := int(matchRecord.GetFloat("round_number"))
 
+	return svc.app.RunInTransaction(func(txApp core.App) error {
+		return advanceRound(txApp, compID, currentRound)
+	})
+}
+
+// advanceRound seeds the winners of a finished round into the next round's
+// still-unplayed matches, on txApp's fresh reads.
+func advanceRound(txApp core.App, compID string, currentRound int) error {
 	// NOTE: bye handling assumes power-of-2 brackets; non-power-of-2 pair counts with byes may misalign roundWinners.
-	roundMatches, _ := svc.app.FindRecordsByFilter("matches",
+	roundMatches, _ := txApp.FindRecordsByFilter("matches",
 		"competition = {:cid} && round_number = {:rn}", "created", 0, 0,
 		map[string]any{"cid": compID, "rn": currentRound})
-
 	for _, m := range roundMatches {
 		if m.GetString("status") != "final" {
 			return nil
 		}
 	}
 
-	nextRound := currentRound + 1
-	nextMatches, _ := svc.app.FindRecordsByFilter("matches",
+	nextMatches, _ := txApp.FindRecordsByFilter("matches",
 		"competition = {:cid} && round_number = {:rn}", "created", 0, 0,
-		map[string]any{"cid": compID, "rn": nextRound})
-
-	if len(nextMatches) == 0 {
-		return nil
-	}
+		map[string]any{"cid": compID, "rn": currentRound + 1})
 
 	var roundWinners []string
 	for _, m := range roundMatches {
 		roundWinners = append(roundWinners, m.GetString("winner"))
 	}
-
 	for i, nm := range nextMatches {
 		if !IsPreScore(nm.GetString("status")) {
 			continue
 		}
 		seedNextMatch(nm, roundWinners, i)
-		if err := svc.app.Save(nm); err != nil {
+		if err := txApp.Save(nm); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
