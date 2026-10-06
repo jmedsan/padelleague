@@ -368,8 +368,13 @@ test.describe('match thread', { tag: '@thread' }, () => {
     });
 
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto('/admin/outstanding');
-    await page.locator(`a[href="/match/${match.id}"]:visible`).first().click();
+    // A proposed result counts as played, so the match is no longer in
+    // /admin/outstanding; it is reached from its round on the competition page.
+    await page.goto(`/admin/competitions/${data.competitionId}`);
+    const round = page.locator('.collapse', { has: page.locator('.collapse-title', { hasText: /^\s*Jornada 51\b/ }) });
+    await round.locator('> input').check();
+    const link = round.locator(`a[href="/match/${match.id}"]`);
+    await link.click();
     await page.waitForSelector('#result-panel', { timeout: 10000 });
     await page.locator('.collapse-title', { hasText: /corrección de administrador/i }).locator('..').locator('input[type="checkbox"]').click();
     const form = page.locator('form[hx-post*="admin-override"]');
