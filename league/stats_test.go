@@ -443,3 +443,58 @@ func TestComputeReliability_WalkoverLoss_LowersScore(t *testing.T) {
 	require.True(t, hasReliability)
 	assert.Less(t, got, float64(100), "a walkover loss should reduce the reliability score")
 }
+
+func TestSummarize_CountsUnconfirmedResultAndFlagsIt(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	p1 := makePair(t, app, "SumProvA")
+	p2 := makePair(t, app, "SumProvB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	confirmed := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
+	confirmed.Set("scores", "6-3 6-4")
+	confirmed.Set("winner", p1.Id)
+	require.NoError(t, app.Save(confirmed))
+
+	proposed := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusScheduled)
+	makeProposal(t, app, proposed.Id, p2.GetString("player1"), "2-6 3-6")
+
+	summary := svc.Summarize([]string{p1.Id})
+	assert.Equal(t, 2, summary.TotalPlayed)
+	assert.Equal(t, 1, summary.Wins)
+	assert.Equal(t, 1, summary.Losses)
+	assert.True(t, summary.HasProvisional)
+	require.Len(t, summary.CompetitionStats, 1)
+	assert.True(t, summary.CompetitionStats[0].HasProvisional)
+	assert.Equal(t, 2, summary.CompetitionStats[0].Played)
+
+	flagged := 0
+	for _, r := range summary.Recent {
+		if r.Provisional {
+			flagged++
+			assert.Equal(t, proposed.Id, r.MatchID)
+		}
+	}
+	assert.Equal(t, 1, flagged, "only the unconfirmed result is flagged in recent matches")
+}
+
+func TestSummarize_ConfirmedOnlyIsNotFlagged(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	p1 := makePair(t, app, "SumConfA")
+	p2 := makePair(t, app, "SumConfB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
+	m.Set("scores", "6-3 6-4")
+	m.Set("winner", p1.Id)
+	require.NoError(t, app.Save(m))
+
+	summary := svc.Summarize([]string{p1.Id})
+	assert.False(t, summary.HasProvisional)
+	require.Len(t, summary.CompetitionStats, 1)
+	assert.False(t, summary.CompetitionStats[0].HasProvisional)
+}

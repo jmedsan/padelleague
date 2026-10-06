@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"log/slog"
+
 	"github.com/pocketbase/pocketbase/core"
 
 	"padelleague/league"
@@ -15,9 +17,11 @@ type CompetitionView struct {
 	PairsCount      int
 	TotalMatches    int
 	PlayedMatches   int
-	AlertCount      int // matches with status=disputed: open disputes AND pending walkover approvals
-	PendingCount    int
-	URL             string
+	// HasProvisional is true when PlayedMatches counts an unconfirmed result.
+	HasProvisional bool
+	AlertCount     int // matches with status=disputed: open disputes AND pending walkover approvals
+	PendingCount   int
+	URL            string
 
 	// Standing is non-nil only for a PlayerRow home card in a league with
 	// computed standings, so the card can show the player's own position
@@ -34,6 +38,8 @@ type CompetitionView struct {
 type PlayerStanding struct {
 	Position int
 	Points   int
+	// HasProvisional is true when Points counts an unconfirmed result.
+	HasProvisional bool
 }
 
 // NewCompetitionView builds a CompetitionView from a competition record and its matches.
@@ -42,7 +48,14 @@ func NewCompetitionView(app core.App, comp *core.Record, mode Mode) CompetitionV
 		"competition = {:cid}", "", 0, 0,
 		map[string]any{"cid": comp.Id})
 
-	played, alerts, pending := 0, 0, 0
+	unconfirmed, err := league.ProvisionalResults(app, allMatches)
+	if err != nil {
+		slog.Error("competition view: provisional results", "comp", comp.Id, "err", err)
+	}
+
+	// A match with an unconfirmed result counts as played; it also stays
+	// pending until the rival answers.
+	played, alerts, pending := len(unconfirmed), 0, 0
 	for _, m := range allMatches {
 		switch m.GetString("status") {
 		case league.StatusFinal:
@@ -67,6 +80,7 @@ func NewCompetitionView(app core.App, comp *core.Record, mode Mode) CompetitionV
 		PairsCount:      len(comp.GetStringSlice("pairs")),
 		TotalMatches:    len(allMatches),
 		PlayedMatches:   played,
+		HasProvisional:  len(unconfirmed) > 0,
 		AlertCount:      alerts,
 		PendingCount:    pending,
 		URL:             url,
@@ -101,7 +115,7 @@ func findPlayerStanding(leagueSvc *league.Service, comp *core.Record, playerPair
 	}
 	for _, r := range rows {
 		if _, ok := playerPairIDs[r.PairID]; ok {
-			return &PlayerStanding{Position: r.Position, Points: r.Points}
+			return &PlayerStanding{Position: r.Position, Points: r.Points, HasProvisional: r.HasProvisional}
 		}
 	}
 	return nil

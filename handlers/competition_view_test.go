@@ -133,3 +133,48 @@ func TestCompetitionCardAdminSummaryHasStats(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestNewCompetitionView_CountsUnconfirmedResultAsPlayed(t *testing.T) {
+	t.Parallel()
+	app := handlers.NewTestApp(t)
+	p1 := handlers.MakePairTB(t, app, "CVP A")
+	p2 := handlers.MakePairTB(t, app, "CVP B")
+	comp := handlers.MakeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
+	proposed := handlers.MakeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "scheduled")
+	createResultProposal(t, app, proposed.Id, p1.GetString("player1"), "6-3 6-4")
+	handlers.MakeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "scheduled")
+
+	cv := handlers.NewCompetitionView(app, comp, handlers.AdminSummary)
+	assert.Equal(t, 2, cv.TotalMatches)
+	assert.Equal(t, 1, cv.PlayedMatches, "the proposed match counts as played")
+	assert.True(t, cv.HasProvisional)
+	assert.Equal(t, 2, cv.PendingCount, "an unconfirmed match stays pending until the rival answers")
+}
+
+func TestNewCompetitionView_ConfirmedOnlyIsNotFlagged(t *testing.T) {
+	t.Parallel()
+	app := handlers.NewTestApp(t)
+	p1 := handlers.MakePairTB(t, app, "CVQ A")
+	p2 := handlers.MakePairTB(t, app, "CVQ B")
+	comp := handlers.MakeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
+	handlers.MakeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "pending")
+
+	cv := handlers.NewCompetitionView(app, comp, handlers.AdminSummary)
+	assert.False(t, cv.HasProvisional)
+}
+
+func TestNewHomeCompetitionView_StandingFlagsUnconfirmedResult(t *testing.T) {
+	t.Parallel()
+	app := handlers.NewTestApp(t)
+	svc := league.New(app, nil)
+	p1 := handlers.MakePairTB(t, app, "CVS A")
+	p2 := handlers.MakePairTB(t, app, "CVS B")
+	comp := handlers.MakeCompetitionTB(t, app, "league", []*core.Record{p1, p2})
+	m := handlers.MakeMatchTB(t, app, comp.Id, p1.Id, p2.Id, "scheduled")
+	createResultProposal(t, app, m.Id, p1.GetString("player1"), "6-1 6-2")
+
+	cv := handlers.NewHomeCompetitionView(svc, comp, 1, map[string]struct{}{p1.Id: {}})
+	require.NotNil(t, cv.Standing)
+	assert.Equal(t, 3, cv.Standing.Points)
+	assert.True(t, cv.Standing.HasProvisional)
+}

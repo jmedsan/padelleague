@@ -168,6 +168,7 @@ type PrecedentesView struct {
 	Pair1Wins, Pair2Wins int
 	LastMatchID          string
 	LastScore            string
+	HasProvisional       bool
 }
 
 // buildPrecedentesView looks up the head-to-head record between a match's two
@@ -194,6 +195,8 @@ func buildPrecedentesView(app core.App, match *core.Record, pair1Name, pair2Name
 		Pair2Wins:   summary.Pair2Wins,
 		LastMatchID: summary.LastMatchID,
 		LastScore:   summary.LastScore,
+
+		HasProvisional: summary.HasProvisional,
 	}
 }
 

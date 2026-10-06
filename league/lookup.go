@@ -243,6 +243,8 @@ type PrecedentsSummary struct {
 	Pair1Wins, Pair2Wins int
 	LastMatchID          string
 	LastScore            string
+	// HasProvisional is true when the tally includes an unconfirmed result.
+	HasProvisional bool
 }
 
 // PrecedentsQuery holds the arguments for a Precedents lookup.
@@ -252,21 +254,35 @@ type PrecedentsQuery struct {
 	ExcludeMatchID   string
 }
 
-// Precedents finds all finalized matches between the two pairs within
-// the given competition (excluding ExcludeMatchID), tallies wins, and
-// returns the most recent meeting's score. ok is false when the pairs
-// have never played each other before.
+// Precedents finds the matches between the two pairs within the given
+// competition (excluding ExcludeMatchID) that are final or carry an
+// unconfirmed result proposal, tallies wins, and returns the most recent
+// meeting's score. ok is false when the pairs have never played each other
+// before.
 func Precedents(app core.App, q PrecedentsQuery) (summary PrecedentsSummary, ok bool) {
 	pair1ID, pair2ID := q.Pair1ID, q.Pair2ID
-	matches, err := app.FindRecordsByFilter("matches",
-		"status = 'final' && competition = {:cid} && ((pair1 = {:p1} && pair2 = {:p2}) || (pair1 = {:p2} && pair2 = {:p1})) && id != {:exclude}",
-		"-date,-created", 0, 0,
-		map[string]any{"p1": pair1ID, "p2": pair2ID, "cid": q.CompetitionID, "exclude": q.ExcludeMatchID})
-	if err != nil || len(matches) == 0 {
+	params := map[string]any{"p1": pair1ID, "p2": pair2ID, "cid": q.CompetitionID, "exclude": q.ExcludeMatchID}
+	const between = "competition = {:cid} && ((pair1 = {:p1} && pair2 = {:p2}) || (pair1 = {:p2} && pair2 = {:p1})) && id != {:exclude}"
+	matches, err := app.FindRecordsByFilter("matches", "status = 'final' && "+between,
+		"-date,-created", 0, 0, params)
+	if err != nil {
 		return PrecedentsSummary{}, false
 	}
+	candidates, err := app.FindRecordsByFilter("matches", "status != 'final' && "+between,
+		"", 0, 0, params)
+	if err != nil {
+		return PrecedentsSummary{}, false
+	}
+	unconfirmed, err := ProvisionalResults(app, candidates)
+	if err != nil || len(matches)+len(unconfirmed) == 0 {
+		return PrecedentsSummary{}, false
+	}
+	matches = append(matches, unconfirmed...)
+	slices.SortStableFunc(matches, func(a, b *core.Record) int {
+		return strings.Compare(b.GetString("date"), a.GetString("date"))
+	})
 
-	summary = PrecedentsSummary{Pair1ID: pair1ID, Pair2ID: pair2ID}
+	summary = PrecedentsSummary{Pair1ID: pair1ID, Pair2ID: pair2ID, HasProvisional: len(unconfirmed) > 0}
 	for _, m := range matches {
 		switch m.GetString("winner") {
 		case pair1ID:

@@ -2,8 +2,11 @@ package handlers
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
+	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -381,34 +384,79 @@ func isRivalAction(app core.App, m *core.Record, authorID string, playerPairIDs 
 	return authorTeam != playerTeam
 }
 
-func (h *PublicHandler) findRecentResults(c *core.Record, playerPairIDs map[string]struct{}) []MatchCard {
+// recentResult pairs a match with the record holding its result: the match
+// itself when final, or the synthetic provisional record when the result is
+// still unconfirmed.
+type recentResult struct {
+	match, result *core.Record
+	provisional   bool
+}
+
+// recentResultEntries returns the competition's final and unconfirmed
+// results, newest play date first.
+func (h *PublicHandler) recentResultEntries(c *core.Record) []recentResult {
 	finals := findRecordsLogged(h.app, "findRecentResults: find final matches", RecordQuery{
 		Collection: "matches", Filter: "competition = {:cid} && status = 'final'",
 		Sort: "-date,-created", Limit: 20, Params: map[string]any{"cid": c.Id},
 	})
-	pairNames := collectPairNames(h.app, finals)
+	open := findRecordsLogged(h.app, "findRecentResults: find open matches", RecordQuery{
+		Collection: "matches", Filter: "competition = {:cid} && status != 'final' && status != 'disputed'",
+		Params: map[string]any{"cid": c.Id},
+	})
+	unconfirmed, err := league.ProvisionalResults(h.app, open)
+	if err != nil {
+		slog.Error("findRecentResults: provisional results", "comp", c.Id, "err", err)
+	}
+	openByID := make(map[string]*core.Record, len(open))
+	for _, m := range open {
+		openByID[m.Id] = m
+	}
+	entries := make([]recentResult, 0, len(finals)+len(unconfirmed))
+	for _, m := range finals {
+		entries = append(entries, recentResult{match: m, result: m})
+	}
+	for _, r := range unconfirmed {
+		entries = append(entries, recentResult{match: openByID[r.Id], result: r, provisional: true})
+	}
+	slices.SortStableFunc(entries, func(a, b recentResult) int {
+		return strings.Compare(b.match.GetString("date"), a.match.GetString("date"))
+	})
+	return entries
+}
+
+func (h *PublicHandler) findRecentResults(c *core.Record, playerPairIDs map[string]struct{}) []MatchCard {
+	entries := h.recentResultEntries(c)
+
+	matches := make([]*core.Record, len(entries))
+	for i, e := range entries {
+		matches[i] = e.match
+	}
+	pairNames := collectPairNames(h.app, matches)
 	// No IsMyMatch accent here: every row is already filtered to the
 	// player's own pairs below, so the left border would be noise on
 	// every row rather than a distinguishing signal.
 	noAccent := map[string]struct{}{}
 	var results []MatchCard
-	for _, m := range finals {
-		p1 := m.GetString("pair1")
-		p2 := m.GetString("pair2")
+	for _, e := range entries {
+		p1 := e.match.GetString("pair1")
+		p2 := e.match.GetString("pair2")
 		_, hasP1 := playerPairIDs[p1]
 		_, hasP2 := playerPairIDs[p2]
 		if !hasP1 && !hasP2 {
 			continue
 		}
-		mc := NewMatchRow(m, pairNames, noAccent)
+		mc := NewMatchRow(e.match, pairNames, noAccent)
+		mc.Score = e.result.GetString("scores")
+		mc.Provisional = e.provisional
 		mc.CompetitionName = c.GetString("name")
 		mc.CompetitionLogo = league.CompetitionLogoURL(c.Id, c.GetString("logo"))
+		winner := e.result.GetString("winner")
 		if hasP1 {
 			mc.Opponent = pairNames[p2]
-			mc.Won = m.GetString("winner") == p1
+			mc.Won = winner == p1
 		} else {
 			mc.Opponent = pairNames[p1]
-			mc.Won = m.GetString("winner") == p2
+			mc.Won = winner == p2
 		}
 		results = append(results, mc)
 		if len(results) >= 5 {

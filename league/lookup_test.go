@@ -180,3 +180,66 @@ func TestIsWithdrawn_LookupFailureFailsClosed(t *testing.T) {
 	require.Error(t, err)
 	assert.False(t, withdrawn)
 }
+
+func TestPrecedents_CountsUnconfirmedResultAndFlagsIt(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "PrecG")
+	p2 := makePair(t, app, "PrecH")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	confirmed := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
+	confirmed.Set("date", "2026-01-01")
+	confirmed.Set("scores", "6-3 6-4")
+	confirmed.Set("winner", p1.Id)
+	require.NoError(t, app.Save(confirmed))
+
+	// Later meeting, proposed with p2 on the pair1 side and not yet accepted.
+	proposed := makeMatch(t, app, comp.Id, p2.Id, p1.Id, StatusScheduled)
+	proposed.Set("date", "2026-02-01")
+	require.NoError(t, app.Save(proposed))
+	makeProposal(t, app, proposed.Id, p2.GetString("player1"), "6-2 6-1")
+
+	current := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
+
+	summary, ok := Precedents(app, PrecedentsQuery{Pair1ID: p1.Id, Pair2ID: p2.Id, CompetitionID: comp.Id, ExcludeMatchID: current.Id})
+	require.True(t, ok)
+	assert.True(t, summary.HasProvisional)
+	assert.Equal(t, 1, summary.Pair1Wins)
+	assert.Equal(t, 1, summary.Pair2Wins)
+	assert.Equal(t, proposed.Id, summary.LastMatchID, "the unconfirmed meeting is the most recent")
+	assert.Equal(t, "2-6 1-6", summary.LastScore)
+}
+
+func TestPrecedents_OnlyUnconfirmedResultIsEnough(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "PrecI")
+	p2 := makePair(t, app, "PrecJ")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	proposed := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusScheduled)
+	makeProposal(t, app, proposed.Id, p1.GetString("player1"), "6-3 6-4")
+
+	summary, ok := Precedents(app, PrecedentsQuery{Pair1ID: p1.Id, Pair2ID: p2.Id, CompetitionID: comp.Id})
+	require.True(t, ok)
+	assert.True(t, summary.HasProvisional)
+	assert.Equal(t, 1, summary.Pair1Wins)
+}
+
+func TestPrecedents_ConfirmedOnlyIsNotFlagged(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "PrecK")
+	p2 := makePair(t, app, "PrecL")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
+	m.Set("scores", "6-3 6-4")
+	m.Set("winner", p1.Id)
+	require.NoError(t, app.Save(m))
+
+	summary, ok := Precedents(app, PrecedentsQuery{Pair1ID: p1.Id, Pair2ID: p2.Id, CompetitionID: comp.Id})
+	require.True(t, ok)
+	assert.False(t, summary.HasProvisional)
+}

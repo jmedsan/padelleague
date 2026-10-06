@@ -26,6 +26,22 @@ type roundGroup struct {
 	Played  int
 	Total   int
 	Warning league.Warning
+	// HasProvisional is true when Played counts an unconfirmed result.
+	HasProvisional bool
+}
+
+// countPlayed fills Played and HasProvisional: a final match, or one whose
+// result proposal is still unconfirmed, counts as played.
+func (g *roundGroup) countPlayed() {
+	for _, mc := range g.Matches {
+		switch {
+		case mc.Match.GetString("status") == league.StatusFinal:
+			g.Played++
+		case mc.Provisional:
+			g.Played++
+			g.HasProvisional = true
+		}
+	}
 }
 
 func (h *CompetitionHandler) buildRoundDates(comp *core.Record) []roundDate {
@@ -54,6 +70,7 @@ func (h *CompetitionHandler) buildRoundGroups(comp *core.Record, matches []*core
 		allCards = append(allCards, NewMatchRow(m, pairNames, noPairs))
 	}
 	enrichWithPendingResults(h.app, allCards)
+	markProvisional(h.app, allCards)
 	var rounds []roundGroup
 	for rn, idxs := range roundMap {
 		ms := make([]MatchCard, len(idxs))
@@ -84,18 +101,15 @@ func (h *CompetitionHandler) buildLeveledRoundGroups(comp *core.Record, matches 
 		allCards = append(allCards, NewMatchRow(m, pairNames, noPairs))
 	}
 	enrichWithPendingResults(h.app, allCards)
+	markProvisional(h.app, allCards)
 
 	tz := league.Timezone(h.app)
 	groups := leveledGroups(allCards, tz, leveledWindowFor(comp))
 	result := make([]roundGroup, len(groups))
-	for i, g := range groups {
-		played, total := 0, len(g.Matches)
-		for _, mc := range g.Matches {
-			if mc.Match.GetString("status") == league.StatusFinal {
-				played++
-			}
-		}
-		result[i] = roundGroup{Key: g.Key, Title: g.Title, Matches: g.Matches, Played: played, Total: total}
+	for i, src := range groups {
+		g := roundGroup{Key: src.Key, Title: src.Title, Matches: src.Matches, Total: len(src.Matches)}
+		g.countPlayed()
+		result[i] = g
 	}
 	return result
 }
@@ -120,11 +134,7 @@ func populateRoundProgress(comp *core.Record, rounds []roundGroup) {
 	now := time.Now()
 	for i := range rounds {
 		rounds[i].Total = len(rounds[i].Matches)
-		for _, m := range rounds[i].Matches {
-			if m.Match.GetString("status") == league.StatusFinal {
-				rounds[i].Played++
-			}
-		}
+		rounds[i].countPlayed()
 		if isPlayoff || rounds[i].Played == rounds[i].Total {
 			continue
 		}

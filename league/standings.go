@@ -67,7 +67,13 @@ func (svc *Service) computeStandings(competitionID string, includeProvisional bo
 
 	var provisional []*core.Record
 	if includeProvisional {
-		provisional, err = svc.provisionalMatches(competitionID)
+		candidates, err := svc.app.FindRecordsByFilter("matches",
+			"competition = {:cid} && status != 'final' && status != 'disputed'",
+			"", 0, 0, map[string]any{"cid": competitionID})
+		if err != nil {
+			return nil, err
+		}
+		provisional, err = ProvisionalResults(svc.app, candidates)
 		if err != nil {
 			return nil, err
 		}
@@ -99,58 +105,6 @@ func (svc *Service) computeStandings(competitionID string, includeProvisional bo
 		rows[i].Position = i + 1
 	}
 	return rows, nil
-}
-
-// provisionalMatches returns one synthetic, unsaved match record per
-// competition match that has a live pending result_submission proposal with
-// a determined winner — a match already final or disputed is excluded (an
-// admin-flagged dispute must not count until resolved), and a proposal
-// that's an open, undecided set (EvaluateScore.Won == false) doesn't count
-// either, matching the real accept path's own "not won yet" rule. The
-// synthetic record carries just what tallyMatchStats/pairForm read: pair1,
-// pair2, scores, winner, date (copied from the real match, for form
-// ordering).
-func (svc *Service) provisionalMatches(competitionID string) ([]*core.Record, error) {
-	matches, err := svc.app.FindRecordsByFilter("matches",
-		"competition = {:cid} && status != 'final' && status != 'disputed'",
-		"", 0, 0, map[string]any{"cid": competitionID})
-	if err != nil {
-		return nil, err
-	}
-	if len(matches) == 0 {
-		return nil, nil
-	}
-	col, err := svc.app.FindCollectionByNameOrId("matches")
-	if err != nil {
-		return nil, err
-	}
-
-	var out []*core.Record
-	for _, m := range matches {
-		proposals, err := svc.app.FindRecordsByFilter("match_messages",
-			"match = {:mid} && type = 'result_submission' && proposal_status = 'pending'",
-			"-created", 1, 0, map[string]any{"mid": m.Id})
-		if err != nil || len(proposals) == 0 {
-			continue
-		}
-		scores := parseProposalScores(proposals[0].GetString("proposal_data"))
-		sc, err := ParseScoreMode(scores, AllowOpenSet)
-		if err != nil || !EvaluateScore(sc).Won {
-			continue
-		}
-		winner, err := DetermineWinner(m, scores)
-		if err != nil {
-			continue
-		}
-		synth := core.NewRecord(col)
-		synth.Set("pair1", m.GetString("pair1"))
-		synth.Set("pair2", m.GetString("pair2"))
-		synth.Set("scores", scores)
-		synth.Set("winner", winner)
-		synth.Set("date", m.GetString("date"))
-		out = append(out, synth)
-	}
-	return out, nil
 }
 
 type pairStats struct {

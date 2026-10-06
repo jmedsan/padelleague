@@ -21,7 +21,7 @@
             <span class="font-medium">{{.PairsCount}} pareja{{if ne .PairsCount 1}}s{{end}}</span>
             {{if gt .TotalMatches 0}}
             <span class="text-base-content/60">·</span>
-            <span>{{.PlayedMatches}}/{{.TotalMatches}} partidos</span>
+            <span>{{.PlayedMatches}}/{{.TotalMatches}} partidos{{if .HasProvisional}}{{template "provisionalWarning"}}{{end}}</span>
             {{end}}
         </div>
         {{if gt .TotalMatches 0}}
@@ -85,7 +85,7 @@
         </a>
         <div class="flex items-center gap-2 mt-3 flex-wrap">
             {{if .Standing}}
-            <span class="badge badge-soft-primary badge-sm gap-1">{{.Standing.Position}}º · {{.Standing.Points}} pts</span>
+            <span class="badge badge-soft-primary badge-sm gap-1">{{.Standing.Position}}º · {{.Standing.Points}} pts{{if .Standing.HasProvisional}}{{template "provisionalWarning"}}{{end}}</span>
             {{end}}
             {{if gt .PendingCount 0}}
             <p class="text-sm opacity-70">{{.PendingCount}} partido{{if gt .PendingCount 1}}s{{end}} por jugar</p>

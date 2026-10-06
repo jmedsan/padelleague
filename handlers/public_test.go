@@ -1937,3 +1937,80 @@ func TestLeveledCompetitionPage_InfoMessage_HiddenForAllPairsView(t *testing.T) 
 	}
 	s.Test(t)
 }
+
+// TestHome_RecentResultsIncludeUnconfirmedWithWarning verifies the home
+// "Mis últimos partidos" list shows a result still waiting for the rival,
+// newest first, with the shared warning on that row only.
+func TestHome_RecentResultsIncludeUnconfirmedWithWarning(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  handlers.TestAppFactory,
+		Name:            "home recent results include an unconfirmed result with the warning",
+		Method:          http.MethodGet,
+		URL:             "/",
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Mis últimos partidos", "6-3 6-4", "6-1 6-2"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "Unconf A")
+		p2 := handlers.MakePairTB(tb, app, "Unconf B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+
+		confirmed := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+		confirmed.Set("scores", "6-1 6-2")
+		confirmed.Set("winner", p1.Id)
+		confirmed.Set("date", "2026-01-05")
+		require.NoError(tb, app.Save(confirmed))
+
+		proposed := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
+		proposed.Set("date", "2026-01-20")
+		require.NoError(tb, app.Save(proposed))
+		createResultProposal(tb, app, proposed.Id, p1.GetString("player1"), "6-3 6-4")
+
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = handlers.AuthHeaders(tb, user)
+	}
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		body := handlers.ReadBody(tb, res)
+		start := strings.Index(body, "Mis últimos partidos")
+		require.NotEqual(tb, -1, start)
+		list := body[start:]
+		assert.Equal(tb, 1, strings.Count(list, `data-testid="provisional-warning"`), "only the unconfirmed row warns")
+		assert.Less(tb, strings.Index(list, "6-3 6-4"), strings.Index(list, "6-1 6-2"), "the later unconfirmed result sorts first")
+		assert.Less(tb, strings.Index(list, "6-3 6-4"), strings.Index(list, `data-testid="provisional-warning"`), "the warning belongs to the unconfirmed row")
+	}
+	s.Test(t)
+}
+
+// TestHome_RecentResultsKeepsFiveNewest verifies the list is capped at the
+// five most recent results, the oldest one dropping off.
+func TestHome_RecentResultsKeepsFiveNewest(t *testing.T) {
+	t.Parallel()
+	scores := []string{"6-0 6-0", "6-1 6-0", "6-2 6-0", "6-3 6-0", "6-4 6-0", "7-5 6-0"}
+	s := &tests.ApiScenario{
+		TestAppFactory:     handlers.TestAppFactory,
+		Name:               "home recent results keep the five newest",
+		Method:             http.MethodGet,
+		URL:                "/",
+		ExpectedStatus:     200,
+		ExpectedContent:    scores[1:],
+		NotExpectedContent: []string{scores[0]},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "Cap A")
+		p2 := handlers.MakePairTB(tb, app, "Cap B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		for i, score := range scores {
+			m := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+			m.Set("scores", score)
+			m.Set("winner", p1.Id)
+			m.Set("date", fmt.Sprintf("2026-02-%02d", i+1))
+			require.NoError(tb, app.Save(m))
+		}
+		user, _ := app.FindRecordById("users", p1.GetString("player1"))
+		s.Headers = handlers.AuthHeaders(tb, user)
+	}
+	s.Test(t)
+}

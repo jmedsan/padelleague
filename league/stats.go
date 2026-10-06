@@ -21,6 +21,8 @@ type CompetitionStat struct {
 	Wins     int
 	Losses   int
 	Played   int
+	// HasProvisional is true when the numbers include an unconfirmed result.
+	HasProvisional bool
 }
 
 // RecentMatch holds a finalized match for a player/pair's recent-results list.
@@ -39,6 +41,8 @@ type RecentMatch struct {
 	RoundNum        int
 	CompetitionName string
 	CompetitionLogo string
+	// Provisional marks a result not yet accepted by the rival pair.
+	Provisional bool
 }
 
 // StatsSummary bundles all win/loss/streak/competition/history statistics
@@ -60,6 +64,8 @@ type StatsSummary struct {
 	HasReliability   bool
 	CompetitionStats []CompetitionStat
 	Recent           []RecentMatch
+	// HasProvisional is true when the totals include an unconfirmed result.
+	HasProvisional bool
 }
 
 type matchResult struct {
@@ -76,6 +82,8 @@ type matchResult struct {
 	compID   string
 	compName string
 	compLogo string
+
+	provisional bool
 }
 
 type playerTotals struct {
@@ -91,6 +99,7 @@ func (svc *Service) Summarize(pairIDs []string) StatsSummary {
 	var totals playerTotals
 	var allResults []matchResult
 	seen := map[string]bool{}
+	hasProvisional := false
 
 	for _, pid := range pairIDs {
 		for _, r := range pairMatchResults(svc.app, pid) {
@@ -99,6 +108,7 @@ func (svc *Service) Summarize(pairIDs []string) StatsSummary {
 			}
 			seen[r.matchID] = true
 			totals.played++
+			hasProvisional = hasProvisional || r.provisional
 			if r.won {
 				totals.wins++
 			}
@@ -137,6 +147,7 @@ func (svc *Service) Summarize(pairIDs []string) StatsSummary {
 		HasReliability:   hasReliability,
 		CompetitionStats: svc.competitionStatsForPairs(pairIDs),
 		Recent:           buildRecentMatches(allResults, 20),
+		HasProvisional:   hasProvisional,
 	}
 }
 
@@ -187,6 +198,7 @@ func (svc *Service) pairCompStat(c *core.Record, pairID string) CompetitionStat 
 			cs.Wins = r.Wins
 			cs.Losses = r.Losses
 			cs.Played = r.Played
+			cs.HasProvisional = r.HasProvisional
 			break
 		}
 	}
@@ -387,6 +399,19 @@ func pairMatchResults(app core.App, pairID string) []matchResult {
 		"(pair1 = {:pid} || pair2 = {:pid}) && status = 'final'",
 		"", 0, 0,
 		map[string]any{"pid": pairID})
+	candidates, _ := app.FindRecordsByFilter("matches",
+		"(pair1 = {:pid} || pair2 = {:pid}) && status != 'final' && status != 'disputed'",
+		"", 0, 0,
+		map[string]any{"pid": pairID})
+	unconfirmed, err := ProvisionalResults(app, candidates)
+	if err != nil {
+		slog.Error("stats: provisional results", "pair", pairID, "err", err)
+	}
+	provisionalIDs := make(map[string]struct{}, len(unconfirmed))
+	for _, m := range unconfirmed {
+		provisionalIDs[m.Id] = struct{}{}
+	}
+	matches = append(matches, unconfirmed...)
 
 	pairIDSet := make(map[string]struct{})
 	for _, m := range matches {
@@ -405,6 +430,7 @@ func pairMatchResults(app core.App, pairID string) []matchResult {
 		won := m.GetString("winner") == pairID
 		compID := m.GetString("competition")
 		comp := comps[compID]
+		_, provisional := provisionalIDs[m.Id]
 		results = append(results, matchResult{
 			matchID:  m.Id,
 			won:      won,
@@ -419,6 +445,8 @@ func pairMatchResults(app core.App, pairID string) []matchResult {
 			compID:   compID,
 			compName: comp.name,
 			compLogo: comp.logo,
+
+			provisional: provisional,
 		})
 	}
 	return results
@@ -477,6 +505,7 @@ func buildRecentMatches(allResults []matchResult, limit int) []RecentMatch {
 			RoundNum:        r.roundNum,
 			CompetitionID:   r.compID,
 			CompetitionName: r.compName,
+			Provisional:     r.provisional,
 		})
 	}
 	return recent

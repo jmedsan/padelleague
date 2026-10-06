@@ -185,7 +185,7 @@
                     {{if or (hasPrefix .Key "jornada-") (hasPrefix .Key "bloque-") (hasPrefix .Key "week-")}}
                     <span class="badge badge-soft-ghost badge-sm ml-2">{{.Total}} partido{{if ne .Total 1}}s{{end}}</span>
                     {{else}}
-                    <span class="badge badge-soft-ghost badge-sm ml-2">{{.Played}}/{{.Total}} partido{{if ne .Total 1}}s{{end}} jugado{{if ne .Total 1}}s{{end}}</span>
+                    <span class="badge badge-soft-ghost badge-sm ml-2">{{.Played}}/{{.Total}} partido{{if ne .Total 1}}s{{end}} jugado{{if ne .Total 1}}s{{end}}{{if .HasProvisional}}{{template "provisionalWarning"}}{{end}}</span>
                     {{end}}
                     {{template "warningBadge" .Warning}}
                 </div>

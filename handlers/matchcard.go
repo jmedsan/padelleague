@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -54,6 +55,8 @@ type MatchCard struct {
 	MyTeam    int // 1 or 2; 0 if viewer is not a participant
 	Opponent  string
 	Won       bool
+	// Provisional marks a result the rival pair has not accepted yet.
+	Provisional bool
 
 	CanSubmit                    bool
 	CanEdit                      bool
@@ -183,6 +186,27 @@ func enrichWithPendingResults(app core.App, cards []MatchCard) {
 				cards[idx].StatusClass = "badge-soft-warning"
 			}
 		}
+	}
+}
+
+// markProvisional sets Provisional on every card whose match carries a
+// decided result proposal the rival pair has not accepted yet.
+func markProvisional(app core.App, cards []MatchCard) {
+	matches := make([]*core.Record, len(cards))
+	for i, c := range cards {
+		matches[i] = c.Match
+	}
+	unconfirmed, err := league.ProvisionalResults(app, matches)
+	if err != nil {
+		slog.Error("match cards: provisional results", "err", err)
+		return
+	}
+	ids := make(map[string]struct{}, len(unconfirmed))
+	for _, m := range unconfirmed {
+		ids[m.Id] = struct{}{}
+	}
+	for i := range cards {
+		_, cards[i].Provisional = ids[cards[i].Match.Id]
 	}
 }
 
