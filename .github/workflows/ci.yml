@@ -18,4 +18,6 @@ jobs:
           go install golang.org/x/tools/cmd/deadcode@latest
       - run: npm ci
         working-directory: frontend
+      - run: npm ci
+        working-directory: e2e
       - run: make ci

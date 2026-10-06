@@ -91,7 +91,7 @@ invariants:
 	scripts/check-e2e-player-setup.sh || fail=1; \
 	scripts/check-e2e-skips.sh || fail=1; \
 	scripts/check-e2e-raw-requests.sh || fail=1; \
-	(cd e2e && npx tsc --noEmit -p .) || { echo "FAIL: e2e TypeScript errors"; fail=1; }; \
+	(cd e2e && ./node_modules/.bin/tsc --noEmit -p .) || { echo "FAIL: e2e TypeScript errors"; fail=1; }; \
 	if [ "$$fail" != "0" ]; then exit 1; fi; \
 	echo "invariants hold"
 
