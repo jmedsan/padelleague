@@ -356,9 +356,9 @@ func (h *PublicHandler) findPendingProposals(c *core.Record, playerPairIDs map[s
 		if !isRivalAction(h.app, m, p.GetString("author"), playerPairIDs) {
 			continue
 		}
-		scores := m.GetString("scores")
-		if scores == "" {
-			scores = "pendiente"
+		scores := "pendiente"
+		if pd := ParseProposalData(p.GetString("proposal_data")); pd != nil && pd.Scores != "" {
+			scores = pd.Scores
 		}
 		actions = append(actions, PendingAction{
 			MatchID:     m.Id,

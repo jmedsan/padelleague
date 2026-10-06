@@ -1976,9 +1976,10 @@ func TestHome_RecentResultsIncludeUnconfirmedWithWarning(t *testing.T) {
 		start := strings.Index(body, "Mis últimos partidos")
 		require.NotEqual(tb, -1, start)
 		list := body[start:]
-		assert.Equal(tb, 1, strings.Count(list, `data-testid="provisional-warning"`), "only the unconfirmed row warns")
+		assert.Equal(tb, 1, strings.Count(list, ">Propuesta<"), "only the unconfirmed row carries the Propuesta badge")
+		assert.NotContains(tb, list, `data-testid="provisional-warning"`, "a single match shows the badge, never the aggregate icon")
 		assert.Less(tb, strings.Index(list, "6-3 6-4"), strings.Index(list, "6-1 6-2"), "the later unconfirmed result sorts first")
-		assert.Less(tb, strings.Index(list, "6-3 6-4"), strings.Index(list, `data-testid="provisional-warning"`), "the warning belongs to the unconfirmed row")
+		assert.Less(tb, strings.Index(list, "6-3 6-4"), strings.Index(list, ">Propuesta<"), "the badge belongs to the unconfirmed row")
 	}
 	s.Test(t)
 }

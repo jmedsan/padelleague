@@ -352,11 +352,58 @@ func TestBuildMatchEntry_Round0_NoJornada0(t *testing.T) {
 	m.Set("status", "pending")
 	require.NoError(t, app.Save(m))
 
-	entry := buildMatchEntry(app, m)
+	entry := buildMatchEntry(app, m, "")
 
 	assert.NotContains(t, entry.Label, "J0", "round-0 label must not contain J0")
 	for _, kw := range entry.Keywords {
 		assert.False(t, strings.EqualFold(kw, "jornada 0"),
 			"round-0 keywords must not contain %q (got %v)", "jornada 0", entry.Keywords)
 	}
+}
+
+// A decided result proposal shows in the match's search entry like a final
+// score, followed by "Propuesta"; saving the proposal alone refreshes it.
+func TestUpsertRecord_ResultProposal_ShowsProposedScore(t *testing.T) {
+	t.Parallel()
+	app := newSearchTestApp(t)
+	p1 := makeSearchPair(t, app, "PropA")
+	p2 := makeSearchPair(t, app, "PropB")
+
+	cCol, err := app.FindCollectionByNameOrId("competitions")
+	require.NoError(t, err)
+	comp := core.NewRecord(cCol)
+	comp.Set("name", "Liga Prop")
+	comp.Set("type", "league")
+	comp.Set("active", true)
+	comp.Set("pairs", []string{p1.Id, p2.Id})
+	comp.Set("calendar_status", "published")
+	require.NoError(t, app.Save(comp))
+
+	mCol, err := app.FindCollectionByNameOrId("matches")
+	require.NoError(t, err)
+	m := core.NewRecord(mCol)
+	m.Set("competition", comp.Id)
+	m.Set("pair1", p1.Id)
+	m.Set("pair2", p2.Id)
+	m.Set("round_number", 1)
+	m.Set("status", "scheduled")
+	require.NoError(t, app.Save(m))
+
+	msgCol, err := app.FindCollectionByNameOrId("match_messages")
+	require.NoError(t, err)
+	msg := core.NewRecord(msgCol)
+	msg.Set("match", m.Id)
+	msg.Set("type", "result_submission")
+	msg.Set("author", p1.GetString("player1"))
+	msg.Set("proposal_status", "pending")
+	msg.Set("content", "6-3 6-4")
+	msg.Set("proposal_data", `{"scores":"6-3 6-4"}`)
+	require.NoError(t, app.Save(msg))
+
+	ix := &Index{}
+	UpsertRecord(ix, app, "match_messages", msg)
+
+	entry := buildMatchEntry(app, m, proposedScores(app, []*core.Record{m})[m.Id])
+	assert.Equal(t, "Liga Prop · 6-3 6-4 · Propuesta", entry.Secondary)
+	assert.Equal(t, 1, ix.Len(), "saving the proposal upserts its match's entry")
 }

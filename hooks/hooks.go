@@ -443,7 +443,7 @@ func registerSearch(app core.App, idx *search.Index) {
 	app.Cron().MustAdd("search-index-rebuild", "*/30 * * * *", func() {
 		idx.Rebuild(app)
 	})
-	for _, collection := range []string{"users", "pairs", "competitions", "matches", "venues", "announcements"} {
+	for _, collection := range []string{"users", "pairs", "competitions", "matches", "match_messages", "venues", "announcements"} {
 		app.OnRecordAfterCreateSuccess(collection).BindFunc(func(e *core.RecordEvent) error {
 			search.UpsertRecord(idx, app, e.Record.Collection().Name, e.Record)
 			return e.Next()

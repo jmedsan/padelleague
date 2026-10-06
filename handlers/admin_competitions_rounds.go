@@ -70,7 +70,6 @@ func (h *CompetitionHandler) buildRoundGroups(comp *core.Record, matches []*core
 		allCards = append(allCards, NewMatchRow(m, pairNames, noPairs))
 	}
 	enrichWithPendingResults(h.app, allCards)
-	markProvisional(h.app, allCards)
 	var rounds []roundGroup
 	for rn, idxs := range roundMap {
 		ms := make([]MatchCard, len(idxs))
@@ -101,7 +100,6 @@ func (h *CompetitionHandler) buildLeveledRoundGroups(comp *core.Record, matches 
 		allCards = append(allCards, NewMatchRow(m, pairNames, noPairs))
 	}
 	enrichWithPendingResults(h.app, allCards)
-	markProvisional(h.app, allCards)
 
 	tz := league.Timezone(h.app)
 	groups := leveledGroups(allCards, tz, leveledWindowFor(comp))

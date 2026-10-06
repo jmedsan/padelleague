@@ -138,6 +138,7 @@ func (h *PublicHandler) buildCompRounds(matches []*core.Record, ctx roundsCtx) [
 	if ctx.IsLeveled {
 		tz := league.Timezone(h.app)
 		return buildLeveledRounds(matches, leveledRoundsCtx{
+			App:           h.app,
 			PairNames:     ctx.PairNames,
 			PlayerPairIDs: ctx.PlayerPairIDs,
 			PairFilter:    ctx.PairFilter,

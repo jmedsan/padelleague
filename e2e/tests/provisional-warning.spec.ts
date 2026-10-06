@@ -7,7 +7,6 @@ import {
 
 const PASSWORD = 'testpass123456';
 const WARNING = '[data-testid="provisional-warning"]';
-const TIP = 'Incluye resultados sin confirmar';
 
 interface Fixture {
   suffix: string;
@@ -95,14 +94,42 @@ async function openStandings(page: Page, f: Fixture): Promise<void> {
   await page.locator('input[aria-label^="Clasificación"]').click();
 }
 
+// openCalendarRow reaches a match row the way a player does: the competition
+// card on home, its Partidos tab, the round accordion.
+async function openCalendarRow(page: Page, f: Fixture, matchId: string) {
+  await page.locator(`a[href^="/competition/${f.compId}"]`).first().click();
+  await page.waitForURL(`**/competition/${f.compId}**`);
+  await page.locator('input[aria-label^="Jornadas"], input[aria-label^="Partidos"]').click();
+  const row = page.locator(`a[href="/match/${matchId}"]`).first();
+  const round = page.locator('.collapse', { has: row }).locator('> input');
+  if (await round.count()) await round.check();
+  return row;
+}
+
 test.describe('provisional results are counted and warned about everywhere', { tag: '@provisional' }, () => {
-  test('home: the recent-results badge carries the warning', async ({ page }, testInfo) => {
+  test('home: the recent-results row shows the proposed score with the Propuesta badge, no icon', async ({ page }, testInfo) => {
     const f = await seed(page.request, testInfo.project.name);
     try {
       await playerHome(page, f);
       const row = page.locator(`h2:has-text("Mis últimos partidos") + div a[href="/match/${f.proposedMatchId}"]`);
-      await expect(row.locator(WARNING), 'the unconfirmed result row must warn').toBeVisible();
-      await expect(row.locator(`[data-tip="${TIP}"]`)).toHaveCount(1);
+      await expect(row.locator('.badge', { hasText: 'Propuesta' }), 'the unconfirmed row says Propuesta').toBeVisible();
+      await expect(row, 'the proposed score is shown').toContainText('6-3 6-4');
+      await expect(row.locator(WARNING), 'a single match uses the badge, not the aggregate icon').toHaveCount(0);
+    } finally {
+      await f.cleanup();
+    }
+  });
+
+  test('calendar: the proposed match row shows its score with the Propuesta badge, no icon', async ({ page }, testInfo) => {
+    const f = await seed(page.request, testInfo.project.name);
+    try {
+      await playerHome(page, f);
+      const row = await openCalendarRow(page, f, f.proposedMatchId);
+      await expect(row.locator('.badge', { hasText: 'Propuesta' })).toBeVisible();
+      await expect(row, 'the proposed score is shown in the row').toContainText('6-3 6-4');
+      await expect(row.locator(WARNING), 'a single match uses the badge, not the aggregate icon').toHaveCount(0);
+      const open = await openCalendarRow(page, f, f.nextMatchId);
+      await expect(open, 'a match with no proposal shows no score').not.toContainText(/\d-\d/);
     } finally {
       await f.cleanup();
     }

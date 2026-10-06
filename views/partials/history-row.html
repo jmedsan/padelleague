@@ -34,4 +34,4 @@
 </a>
 {{end}}
 
-{{define "wonBadge"}}{{if .Won}}<span class="badge badge-soft-success">V</span>{{else}}<span class="badge badge-soft-error">D</span>{{end}}{{if .Provisional}}{{template "provisionalWarning"}}{{end}}{{end}}
+{{define "wonBadge"}}{{if .Won}}<span class="badge badge-soft-success">V</span>{{else}}<span class="badge badge-soft-error">D</span>{{end}}{{if .Provisional}}<span class="badge badge-soft-warning ml-1 whitespace-nowrap">Propuesta</span>{{end}}{{end}}

@@ -16,6 +16,14 @@ export function printLogin(baseURL: string, email: string, path: string): void {
   console.log(`One click:  ${link}`);
 }
 
+// Prints labeled one-click links, each signing in as the given user first.
+export function printLinks(baseURL: string, links: Array<{ label: string; email: string; password: string; path: string }>): void {
+  for (const l of links) {
+    const url = `${baseURL}/dev-login?${new URLSearchParams({ email: l.email, password: l.password, next: l.path })}`;
+    console.log(`${l.label} (${l.email}): ${url}`);
+  }
+}
+
 export function uniqueSuffix(): string {
   return randomUUID().slice(0, 8);
 }

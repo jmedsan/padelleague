@@ -92,9 +92,10 @@ func buildMatches(app core.App) []Entry {
 		return nil
 	}
 
+	proposed := proposedScores(app, matches)
 	entries := make([]Entry, 0, len(matches))
 	for _, m := range matches {
-		entries = append(entries, buildMatchEntry(app, m))
+		entries = append(entries, buildMatchEntry(app, m, proposed[m.Id]))
 	}
 	return entries
 }
@@ -108,7 +109,24 @@ func shortRoundLabel(n int) string {
 	return fmt.Sprintf("J%d", n)
 }
 
-func buildMatchEntry(app core.App, m *core.Record) Entry {
+// proposedScores maps a match id to its unconfirmed proposed score, for the
+// matches that carry a decided, unconflicted result proposal.
+func proposedScores(app core.App, matches []*core.Record) map[string]string {
+	unconfirmed, err := league.ProvisionalResults(app, matches)
+	if err != nil {
+		slog.Error("search: provisional results", "err", err)
+	}
+	out := make(map[string]string, len(unconfirmed))
+	for _, u := range unconfirmed {
+		out[u.Id] = u.GetString("scores")
+	}
+	return out
+}
+
+// buildMatchEntry builds a match's search entry. proposed is the match's
+// unconfirmed proposed score ("" when none): it shows like a final score,
+// followed by "Propuesta" (the status vocabulary's indicator).
+func buildMatchEntry(app core.App, m *core.Record, proposed string) Entry {
 	pairNames := league.PairNames(app, []string{m.GetString("pair1"), m.GetString("pair2")})
 	p1 := pairNames[m.GetString("pair1")]
 	p2 := pairNames[m.GetString("pair2")]
@@ -122,6 +140,8 @@ func buildMatchEntry(app core.App, m *core.Record) Entry {
 	secondary := league.CompetitionName(app, compID)
 	if score := m.GetString("scores"); score != "" {
 		secondary += " · " + score
+	} else if proposed != "" {
+		secondary += " · " + proposed + " · Propuesta"
 	}
 	keywords := []string{"partido", p1, p2}
 	if roundLabel != "" {
@@ -417,7 +437,15 @@ func UpsertRecord(ix *Index, app core.App, collection string, record *core.Recor
 	case "competitions":
 		ix.Upsert(record.Id, []Entry{buildCompetitionEntry(record)})
 	case "matches":
-		ix.Upsert(record.Id, []Entry{buildMatchEntry(app, record)})
+		ix.Upsert(record.Id, []Entry{buildMatchEntry(app, record, proposedScores(app, []*core.Record{record})[record.Id])})
+	case "match_messages":
+		// A result proposal changes what its match's entry shows.
+		if record.GetString("type") != "result_submission" {
+			return
+		}
+		if m, err := app.FindRecordById("matches", record.GetString("match")); err == nil {
+			UpsertRecord(ix, app, "matches", m)
+		}
 	case "venues":
 		ix.Upsert(record.Id, []Entry{buildVenueEntry(record)})
 	case "announcements":

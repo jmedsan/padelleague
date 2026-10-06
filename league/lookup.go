@@ -243,6 +243,9 @@ type PrecedentsSummary struct {
 	Pair1Wins, Pair2Wins int
 	LastMatchID          string
 	LastScore            string
+	// LastProvisional is true when the last match's score is an unconfirmed
+	// proposal, so a surface can badge that one match "Propuesta".
+	LastProvisional bool
 	// HasProvisional is true when the tally includes an unconfirmed result.
 	HasProvisional bool
 }
@@ -295,6 +298,7 @@ func Precedents(app core.App, q PrecedentsQuery) (summary PrecedentsSummary, ok 
 	last := matches[0]
 	summary.LastMatchID = last.Id
 	summary.LastScore = last.GetString("scores")
+	summary.LastProvisional = slices.ContainsFunc(unconfirmed, func(u *core.Record) bool { return u.Id == last.Id })
 	if last.GetString("pair1") == pair2ID {
 		// Normalize the last score to pair1/pair2 order regardless of which
 		// side each pair was on in that older match.

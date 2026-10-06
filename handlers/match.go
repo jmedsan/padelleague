@@ -171,6 +171,7 @@ type PrecedentesView struct {
 	Pair1Wins, Pair2Wins int
 	LastMatchID          string
 	LastScore            string
+	LastProvisional      bool
 	HasProvisional       bool
 }
 
@@ -198,6 +199,8 @@ func buildPrecedentesView(app core.App, match *core.Record, pair1Name, pair2Name
 		Pair2Wins:   summary.Pair2Wins,
 		LastMatchID: summary.LastMatchID,
 		LastScore:   summary.LastScore,
+
+		LastProvisional: summary.LastProvisional,
 
 		HasProvisional: summary.HasProvisional,
 	}

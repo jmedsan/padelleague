@@ -204,6 +204,7 @@ func fmtShortDate(t time.Time, tz *time.Location) string {
 
 // leveledRoundsCtx holds the display context for buildLeveledRounds.
 type leveledRoundsCtx struct {
+	App           core.App
 	PairNames     map[string]string
 	PlayerPairIDs map[string]struct{}
 	PairFilter    string
@@ -221,6 +222,7 @@ func buildLeveledRounds(matches []*core.Record, ctx leveledRoundsCtx, tz *time.L
 		}
 		cards = append(cards, NewMatchRow(m, ctx.PairNames, ctx.PlayerPairIDs))
 	}
+	enrichWithPendingResults(ctx.App, cards)
 
 	groups := leveledGroups(cards, tz, ctx.Window)
 	rounds := make([]RoundView, 0, len(groups))

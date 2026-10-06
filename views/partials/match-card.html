@@ -498,6 +498,7 @@
         <p class="text-base font-medium mb-3">{{.Pair1Name}} {{.Pair1Wins}} · {{.Pair2Wins}} {{.Pair2Name}}{{if .HasProvisional}}{{template "provisionalWarning"}}{{end}}</p>
         <a href="{{entityURL "match" .LastMatchID}}" class="block hover:opacity-80 transition-opacity">
             {{template "resultBox" (dict "Score" .LastScore "Pair1Name" .Pair1Name "Pair2Name" .Pair2Name "Mode" (dict "Row" true))}}
+            {{if .LastProvisional}}<span class="badge badge-soft-warning badge-sm">Propuesta</span>{{end}}
         </a>
     </div>
 </div>

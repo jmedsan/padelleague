@@ -1,4 +1,5 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { loginAs } from '../helpers';
 import {
   PLAYER_PASSWORD, ScenarioApi, ScenarioData, apiGet, apiPatch, loadCtx, printLogin,
 } from '../scenario-helpers';
@@ -48,5 +49,24 @@ test.describe('a result proposed and not yet confirmed', () => {
 
     printLogin(ctx.baseURL, proposer.email, `/match/${match.id}`);
     console.log('Check the warning icon ("Incluye resultados sin confirmar") on: Clasificación, home (Mis últimos partidos and the competition card), your profile and pair stats, the next match against the same rival (Precedentes), and the admin round badge.');
+  });
+
+  test('01 calendar: the proposed match row shows 6-3 6-4 and Propuesta, no warning icon', async ({ page }) => {
+    const mine = ctx.pairs[0];
+    const proposer = ctx.players[mine.player1Idx];
+    const list = await apiGet(api, `/api/collections/matches/records?filter=${encodeURIComponent(
+      `competition='${ctx.competitionId}' && date='2025-03-15 00:00:00.000Z' && (pair1='${mine.id}' || pair2='${mine.id}')`)}&perPage=1`);
+    const matchId = list.items[0].id;
+    await loginAs(page, proposer.email, PLAYER_PASSWORD);
+    await page.goto('/');
+    await page.locator(`a[href^="/competition/${ctx.competitionId}"]`).first().click();
+    await page.waitForURL(`**/competition/${ctx.competitionId}**`);
+    await page.locator('input[aria-label^="Jornadas"], input[aria-label^="Partidos"]').click();
+    const row = page.locator(`a[href="/match/${matchId}"]`).first();
+    const round = page.locator('.collapse', { has: row }).locator('> input');
+    if (await round.count()) await round.check();
+    await expect(row).toContainText('6-3 6-4');
+    await expect(row.locator('.badge', { hasText: 'Propuesta' })).toBeVisible();
+    await expect(row.locator('[data-testid="provisional-warning"]')).toHaveCount(0);
   });
 });

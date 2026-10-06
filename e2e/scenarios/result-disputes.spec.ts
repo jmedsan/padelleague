@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import {
-  PLAYER_PASSWORD, ScenarioApi, ScenarioData, apiGet, apiPatch, apiPost, loadCtx, printLogin,
+  PLAYER_PASSWORD, ScenarioApi, ScenarioData, apiGet, apiPatch, apiPost, loadCtx, printLogin, printLinks,
 } from '../scenario-helpers';
 
 const WARNING = '[data-testid="provisional-warning"]';
@@ -94,7 +94,7 @@ async function openMatch(page: Page, matchId: string): Promise<void> {
   await page.waitForURL(/\/$/);
   await page.locator(`a[href^="/competition/${ctx.competitionId}"]`).first().click();
   await page.waitForURL(`**/competition/${ctx.competitionId}**`);
-  await page.locator('input[aria-label^="Partidos"]').click();
+  await page.locator('input[aria-label^="Jornadas"], input[aria-label^="Partidos"]').click();
   const link = page.locator(`a[href="/match/${matchId}"]`).first();
   const round = page.locator('.collapse', { has: link }).locator('> input');
   if (await round.count()) await round.check();
@@ -133,6 +133,13 @@ test.describe('a disputed result is not counted', () => {
     });
 
     printLogin(ctx.baseURL, mineEmail(), `/match/${disputed.matchId}`);
+    const comp = `/competition/${ctx.competitionId}`;
+    printLinks(ctx.baseURL, [
+      { label: 'Calendar / Jornadas (the lone proposal row shows 6-3 6-4 + Propuesta, the disputed row no score)', email: mineEmail(), password: PLAYER_PASSWORD, path: comp },
+      { label: 'Match with the lone proposal', email: mineEmail(), password: PLAYER_PASSWORD, path: `/match/${control.matchId}` },
+      { label: 'Disputed match (no score)', email: mineEmail(), password: PLAYER_PASSWORD, path: `/match/${disputed.matchId}` },
+      { label: 'Admin rounds page', email: ADMIN_EMAIL, password: ADMIN_PASSWORD, path: `/admin/competitions/${ctx.competitionId}` },
+    ]);
     console.log('Two matches of this pair: (1) a lone proposal 6-3 6-4 — counts, with the warning; (2) disputed — counts nowhere. Check Clasificación, your profile, the "Precedentes" strip on the later match against each rival, and the admin counters.');
   });
 
@@ -170,6 +177,26 @@ test.describe('a disputed result is not counted', () => {
 
     await openMatch(page, disputed.extraMatchId);
     await expect(page.locator('.card', { hasText: 'Precedentes' }), 'no precedent exists, so no strip').toHaveCount(0);
+  });
+
+  test('05 calendar: the lone proposal shows its score with Propuesta, the disputed match shows none', async ({ page }) => {
+    const { control, disputed } = await seeded();
+    await asMine(page);
+    await page.locator(`a[href^="/competition/${ctx.competitionId}"]`).first().click();
+    await page.waitForURL(`**/competition/${ctx.competitionId}**`);
+    await page.locator('input[aria-label^="Jornadas"], input[aria-label^="Partidos"]').click();
+    const rowOf = async (matchId: string) => {
+      const link = page.locator(`a[href="/match/${matchId}"]`).first();
+      const round = page.locator('.collapse', { has: link }).locator('> input');
+      if (await round.count()) await round.check();
+      return link;
+    };
+    const proposed = await rowOf(control.matchId);
+    await expect(proposed).toContainText('6-3 6-4');
+    await expect(proposed.locator('.badge', { hasText: 'Propuesta' })).toBeVisible();
+    await expect(proposed.locator(WARNING)).toHaveCount(0);
+    const dispute = await rowOf(disputed.matchId);
+    await expect(dispute, 'a disputed result is not a result: no score in the row').not.toContainText(/(^|\s)[0-7]-[0-7](\s|$)/); // a set score, not the pair-name suffix
   });
 
   test('04 admin card counter: played counts the lone proposal only, with the warning', async ({ page }) => {

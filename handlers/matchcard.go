@@ -157,10 +157,17 @@ func NewMatchRow(match *core.Record, pairNames map[string]string, playerPairIDs 
 	}
 }
 
-// enrichWithPendingResults updates StatusLabel to "Propuesta" for pre-score
-// matches that have a pending result_submission, so list rows reflect the
-// effective state rather than the raw match status.
+// enrichWithPendingResults makes list rows reflect the effective state rather
+// than the raw match status: StatusLabel becomes "Propuesta" for pre-score
+// matches that have a pending result_submission, and a decided, unconflicted
+// proposal also fills Score (see markProvisional). Every row surface calls it.
 func enrichWithPendingResults(app core.App, cards []MatchCard) {
+	markPendingProposals(app, cards)
+	markProvisional(app, cards)
+}
+
+// markPendingProposals relabels pre-score cards with a pending result proposal.
+func markPendingProposals(app core.App, cards []MatchCard) {
 	var preScoreIDs []string
 	idxMap := map[string][]int{}
 	for i, c := range cards {
@@ -189,8 +196,11 @@ func enrichWithPendingResults(app core.App, cards []MatchCard) {
 	}
 }
 
-// markProvisional sets Provisional on every card whose match carries a
-// decided result proposal the rival pair has not accepted yet.
+// markProvisional sets Provisional and Score on every card whose match carries
+// a decided result proposal the rival pair has not accepted yet, so the row
+// shows the proposed score through the same resultBox as a final one. The
+// "Propuesta" status badge is the only indicator; a disputed or conflicting
+// match gets no score. A card with an open arbitration keeps its own badge.
 func markProvisional(app core.App, cards []MatchCard) {
 	matches := make([]*core.Record, len(cards))
 	for i, c := range cards {
@@ -201,12 +211,20 @@ func markProvisional(app core.App, cards []MatchCard) {
 		slog.Error("match cards: provisional results", "err", err)
 		return
 	}
-	ids := make(map[string]struct{}, len(unconfirmed))
+	scores := make(map[string]string, len(unconfirmed))
 	for _, m := range unconfirmed {
-		ids[m.Id] = struct{}{}
+		scores[m.Id] = m.GetString("scores")
 	}
 	for i := range cards {
-		_, cards[i].Provisional = ids[cards[i].Match.Id]
+		score, ok := scores[cards[i].Match.Id]
+		cards[i].Provisional = ok
+		if !ok {
+			continue
+		}
+		cards[i].Score = score
+		if cards[i].Arbitration == "" {
+			cards[i].StatusLabel, cards[i].StatusClass = "Propuesta", "badge-soft-warning"
+		}
 	}
 }
 
