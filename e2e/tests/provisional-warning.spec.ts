@@ -13,6 +13,7 @@ interface Fixture {
   suffix: string;
   email: string;
   userId: string;
+  rivalId: string;
   pairAId: string;
   pairAName: string;
   compId: string;
@@ -65,7 +66,7 @@ async function seed(request: APIRequestContext, project: string, pairAName?: str
     content: '6-3 6-4', proposal_data: JSON.stringify({ scores: '6-3 6-4' }),
   });
   return {
-    suffix, email: `pw-a1-${suffix}@test.local`, userId: a1, pairAId, pairAName: nameA,
+    suffix, email: `pw-a1-${suffix}@test.local`, userId: a1, rivalId: b1, pairAId, pairAName: nameA,
     compId, otherCompId, proposedMatchId, nextMatchId,
     cleanup: async () => {
       for (const [collection, id] of made) await apiDeleteRecord(request, token, collection, id);
@@ -102,6 +103,26 @@ test.describe('provisional results are counted and warned about everywhere', { t
       const row = page.locator(`h2:has-text("Mis últimos partidos") + div a[href="/match/${f.proposedMatchId}"]`);
       await expect(row.locator(WARNING), 'the unconfirmed result row must warn').toBeVisible();
       await expect(row.locator(`[data-tip="${TIP}"]`)).toHaveCount(1);
+    } finally {
+      await f.cleanup();
+    }
+  });
+
+  test('home: a deadlock of disagreeing proposals counts nowhere and does not warn', async ({ page }, testInfo) => {
+    const f = await seed(page.request, testInfo.project.name);
+    try {
+      await apiCreateRecord(page.request, loadTestData().adminToken, 'match_messages', {
+        match: f.proposedMatchId, author: f.rivalId, type: 'result_submission', proposal_status: 'pending',
+        content: '3-6 4-6', proposal_data: JSON.stringify({ scores: '3-6 4-6' }),
+      });
+      await playerHome(page, f);
+      await expect(
+        page.locator(`h2:has-text("Mis últimos partidos") + div a[href="/match/${f.proposedMatchId}"]`),
+        'a conflicting result must not appear in recent results',
+      ).toHaveCount(0);
+      const card = page.locator('[data-testid="player-competitions-heading"] + div > .card', { has: page.locator(`a[href="/competition/${f.compId}"]`) });
+      await expect(card.locator('.badge', { hasText: 'pts' })).toBeVisible();
+      await expect(card.locator(WARNING), 'a conflicting result must not warn').toHaveCount(0);
     } finally {
       await f.cleanup();
     }

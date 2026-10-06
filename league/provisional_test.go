@@ -61,10 +61,10 @@ func TestProvisionalResults(t *testing.T) {
 		assert.Empty(t, got)
 	})
 
-	t.Run("newest pending proposal wins", func(t *testing.T) {
+	t.Run("newest pending proposal of the same pair wins", func(t *testing.T) {
 		m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusScheduled)
 		makeProposal(t, app, m.Id, author, "6-3 6-4")
-		newer := makeProposal(t, app, m.Id, p2.GetString("player1"), "3-6 4-6")
+		newer := makeProposal(t, app, m.Id, p1.GetString("player2"), "6-4 6-3")
 		dt, err := types.ParseDateTime("2099-01-01 00:00:00.000Z")
 		require.NoError(t, err)
 		newer.SetRaw("created", dt)
@@ -73,8 +73,50 @@ func TestProvisionalResults(t *testing.T) {
 		got, err := ProvisionalResults(app, []*core.Record{m})
 		require.NoError(t, err)
 		require.Len(t, got, 1)
-		assert.Equal(t, p2.Id, got[0].GetString("winner"))
-		assert.Equal(t, "3-6 4-6", got[0].GetString("scores"))
+		assert.Equal(t, "6-4 6-3", got[0].GetString("scores"))
+	})
+
+	t.Run("pending proposals from both pairs that disagree count nowhere", func(t *testing.T) {
+		m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusScheduled)
+		makeProposal(t, app, m.Id, author, "6-3 6-4")
+		makeProposal(t, app, m.Id, p2.GetString("player1"), "3-6 4-6")
+
+		got, err := ProvisionalResults(app, []*core.Record{m})
+		require.NoError(t, err)
+		assert.Empty(t, got)
+	})
+
+	t.Run("pending proposals from both pairs that agree still count", func(t *testing.T) {
+		m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusScheduled)
+		makeProposal(t, app, m.Id, author, "6-3 6-4")
+		makeProposal(t, app, m.Id, p2.GetString("player1"), "6-3 6-4")
+
+		got, err := ProvisionalResults(app, []*core.Record{m})
+		require.NoError(t, err)
+		require.Len(t, got, 1)
+		assert.Equal(t, "6-3 6-4", got[0].GetString("scores"))
+	})
+
+	admin := makeUser(t, app, "Admin Prov", "admin-prov@test.local")
+
+	t.Run("an admin proposal that disagrees with a pair's counts nowhere", func(t *testing.T) {
+		m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusScheduled)
+		makeProposal(t, app, m.Id, admin.Id, "6-0 6-0")
+		makeProposal(t, app, m.Id, p2.GetString("player1"), "3-6 4-6")
+
+		got, err := ProvisionalResults(app, []*core.Record{m})
+		require.NoError(t, err)
+		assert.Empty(t, got, "the admin is on neither side: not pair2 by elimination")
+	})
+
+	t.Run("an admin proposal that agrees with a pair's counts", func(t *testing.T) {
+		m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusScheduled)
+		makeProposal(t, app, m.Id, admin.Id, "6-3 6-4")
+		makeProposal(t, app, m.Id, p2.GetString("player1"), "6-3 6-4")
+
+		got, err := ProvisionalResults(app, []*core.Record{m})
+		require.NoError(t, err)
+		require.Len(t, got, 1)
 	})
 
 	t.Run("no candidates", func(t *testing.T) {
@@ -84,7 +126,7 @@ func TestProvisionalResults(t *testing.T) {
 	})
 }
 
-func TestNewestPendingProposals_ScopedToGivenMatches(t *testing.T) {
+func TestPendingProposals_ScopedToGivenMatches(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 	p1 := makePair(t, app, "ScopeA")
@@ -97,14 +139,15 @@ func TestNewestPendingProposals_ScopedToGivenMatches(t *testing.T) {
 	wantProposal := makeProposal(t, app, mine.Id, author, "6-3 6-4")
 	makeProposal(t, app, other.Id, author, "6-3 6-4")
 
-	got, err := newestPendingProposals(app, []*core.Record{mine})
+	got, err := pendingProposals(app, []*core.Record{mine})
 	require.NoError(t, err)
 	require.Len(t, got, 1)
-	assert.Equal(t, wantProposal.Id, got[mine.Id].Id)
+	require.Len(t, got[mine.Id], 1)
+	assert.Equal(t, wantProposal.Id, got[mine.Id][0].Id)
 	assert.NotContains(t, got, other.Id, "a pending proposal in another competition must not be loaded")
 }
 
-func TestNewestPendingProposals_AcrossChunks(t *testing.T) {
+func TestPendingProposals_AcrossChunks(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 	p1 := makePair(t, app, "ChunkA")
@@ -119,9 +162,24 @@ func TestNewestPendingProposals_AcrossChunks(t *testing.T) {
 	first := makeProposal(t, app, matches[0].Id, author, "6-3 6-4")
 	last := makeProposal(t, app, matches[len(matches)-1].Id, author, "6-3 6-4")
 
-	got, err := newestPendingProposals(app, matches)
+	got, err := pendingProposals(app, matches)
 	require.NoError(t, err)
 	require.Len(t, got, 2)
-	assert.Equal(t, first.Id, got[matches[0].Id].Id)
-	assert.Equal(t, last.Id, got[matches[len(matches)-1].Id].Id, "a match in the second chunk must be found")
+	assert.Equal(t, first.Id, got[matches[0].Id][0].Id)
+	assert.Equal(t, last.Id, got[matches[len(matches)-1].Id][0].Id, "a match in the second chunk must be found")
+}
+
+func TestAuthorSide(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1, p2 := makePair(t, app, "Side A"), makePair(t, app, "Side B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusScheduled)
+	admin := makeUser(t, app, "Admin Side", "admin-side@test.local")
+
+	assert.Equal(t, Side1, AuthorSide(app, m, p1.GetString("player1")))
+	assert.Equal(t, Side1, AuthorSide(app, m, p1.GetString("player2")))
+	assert.Equal(t, Side2, AuthorSide(app, m, p2.GetString("player2")))
+	assert.Equal(t, SideNeither, AuthorSide(app, m, admin.Id))
+	assert.Equal(t, SideNeither, AuthorSide(app, m, ""))
 }

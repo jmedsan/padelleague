@@ -123,38 +123,63 @@ func (h *ThreadHandler) acceptResultProposal(e *core.RequestEvent, match, msg *c
 	return nil
 }
 
+var errProposalNotPending = errors.New("proposal no longer pending")
+
 func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
 	counterScores, err := readScoreForm(e, match.GetString("carried_sets"), "counter_scores")
 	if err != nil || counterScores == "" {
 		return err
 	}
 
-	msg.Set("proposal_status", "superseded")
-	if err := h.app.Save(msg); err != nil {
-		return alertError(e, "Error al rechazar la propuesta")
-	}
-
 	rejectedScores := msg.GetString("content")
-	addTimelineEntry(h.app, timelineEntry{
-		MatchID: match.Id, ActorID: e.Auth.Id,
-		Kind: "result_response", Detail: "Resultado rechazado: " + rejectedScores,
-		ParentID: msg.Id, Action: "reject", Scores: rejectedScores,
+	// One transaction: the proposal must still be pending (its author may have
+	// corrected it meanwhile) and the match still pre-score, else the counter
+	// would sit beside a second pending proposal.
+	err = h.app.RunInTransaction(func(txApp core.App) error {
+		freshMatch, err := txApp.FindRecordById("matches", match.Id)
+		if err != nil {
+			return err
+		}
+		if !league.IsPreScore(freshMatch.GetString("status")) {
+			return league.ErrMatchNotPreScore
+		}
+		freshMsg, err := txApp.FindRecordById("match_messages", msg.Id)
+		if err != nil {
+			return err
+		}
+		if freshMsg.GetString("proposal_status") != "pending" {
+			return errProposalNotPending
+		}
+		freshMsg.Set("proposal_status", "superseded")
+		if err := txApp.Save(freshMsg); err != nil {
+			return err
+		}
+		addTimelineEntry(txApp, timelineEntry{
+			MatchID: match.Id, ActorID: e.Auth.Id,
+			Kind: "result_response", Detail: "Resultado rechazado: " + rejectedScores,
+			ParentID: msg.Id, Action: "reject", Scores: rejectedScores,
+		})
+		col, err := txApp.FindCollectionByNameOrId("match_messages")
+		if err != nil {
+			return err
+		}
+		pdJSON, _ := json.Marshal(ProposalData{Scores: counterScores})
+		counter := core.NewRecord(col)
+		counter.Set("match", match.Id)
+		counter.Set("author", e.Auth.Id)
+		counter.Set("type", "result_submission")
+		counter.Set("content", counterScores)
+		counter.Set("proposal_status", "pending")
+		counter.Set("proposal_data", string(pdJSON))
+		return txApp.Save(counter)
 	})
-
-	col, err := h.app.FindCollectionByNameOrId("match_messages")
-	if err != nil {
-		return alertError(e, "Error interno")
-	}
-	pdJSON, _ := json.Marshal(ProposalData{Scores: counterScores})
-	counter := core.NewRecord(col)
-	counter.Set("match", match.Id)
-	counter.Set("author", e.Auth.Id)
-	counter.Set("type", "result_submission")
-	counter.Set("content", counterScores)
-	counter.Set("proposal_status", "pending")
-	counter.Set("proposal_data", string(pdJSON))
-	if err := h.app.Save(counter); err != nil {
-		return alertError(e, "Error al crear la contrapropuesta")
+	switch {
+	case errors.Is(err, league.ErrMatchNotPreScore):
+		return alertError(e, "Este partido ya tiene un resultado registrado")
+	case errors.Is(err, errProposalNotPending):
+		return alertError(e, "Esta propuesta ya no está pendiente. Revisa el hilo del partido.")
+	case err != nil:
+		return alertError(e, "Error al rechazar la propuesta")
 	}
 
 	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)

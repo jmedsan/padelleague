@@ -48,6 +48,11 @@ export const SCENARIOS: Record<string, Scenario> = {
     startStage: 'assigned',
     specs: ['result-provisional.spec.ts'],
   },
+  'result-disputes': {
+    description: 'three matches of one pair: a lone proposal (counts, warns), a disputed one and a deadlock of conflicting proposals (count nowhere)',
+    startStage: 'assigned',
+    specs: ['result-disputes.spec.ts'],
+  },
   'result-carried': {
     description: 'match with 6-3 carried over, date and place set — ready for the rest of the result',
     startStage: 'assigned',

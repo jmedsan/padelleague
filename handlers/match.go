@@ -19,8 +19,12 @@ import (
 )
 
 var (
-	errNotParticipant = errors.New("not participant")
-	errWithdrawn      = errors.New("withdrawn")
+	errNotParticipant    = errors.New("not participant")
+	errWithdrawn         = errors.New("withdrawn")
+	errMatchResolved     = errors.New("match already resolved")
+	errArbitrationExists = errors.New("arbitration already requested")
+	// errOtherSidePending: another side already holds a pending result proposal.
+	errOtherSidePending = errors.New("other side has a pending result proposal")
 )
 
 // MatchHandler handles match detail, score submission, and correction flows.
@@ -255,27 +259,50 @@ func (h *MatchHandler) MatchSubmit(e *core.RequestEvent) error {
 		return err
 	}
 
-	if h.rivalHasPendingResult(match, userID) {
-		return alertError(e, "Ya hay una propuesta de resultado del rival pendiente. Revisa el hilo del partido para aceptar o rechazar.")
+	if err := h.submitResultProposal(match, userID, scores); err != nil {
+		return submitErrorAlert(e, err)
 	}
-
-	if err := h.submitResultProposal(e, match, userID, scores); err != nil {
-		return err
-	}
+	h.notifyResultProposal(match, userID, scores)
 	return redirectHX(e, "/match/"+match.Id)
 }
 
-func (h *MatchHandler) submitResultProposal(e *core.RequestEvent, match *core.Record, userID, scores string) error {
-	if err := h.app.RunInTransaction(func(txApp core.App) error {
+func submitErrorAlert(e *core.RequestEvent, err error) error {
+	switch {
+	case errors.Is(err, errOtherSidePending):
+		return alertError(e, "Ya hay una propuesta de resultado del rival pendiente. Revisa el hilo del partido para aceptar o rechazar.")
+	case errors.Is(err, league.ErrMatchNotPreScore):
+		return alertError(e, "Este partido ya tiene un resultado registrado")
+	default:
+		return alertError(e, "Error al guardar el resultado")
+	}
+}
+
+// submitResultProposal supersedes the author's own pending proposals and creates
+// the new one, after checking inside the same transaction that the match is
+// still pre-score and no other side holds a pending proposal. PocketBase runs
+// write transactions on a single connection, so the check and the insert are
+// atomic: two sides racing cannot both create a pending proposal.
+func (h *MatchHandler) submitResultProposal(match *core.Record, userID, scores string) error {
+	return h.app.RunInTransaction(func(txApp core.App) error {
+		fresh, err := txApp.FindRecordById("matches", match.Id)
+		if err != nil {
+			return err
+		}
+		if !league.IsPreScore(fresh.GetString("status")) {
+			return league.ErrMatchNotPreScore
+		}
+		if err := ensureNoOtherSidePending(txApp, fresh, userID); err != nil {
+			return err
+		}
 		// Supersede before creating the new proposal so the new one is not caught.
-		h.supersedeMyPendingResultsTx(txApp, match.Id, userID)
+		h.supersedePendingResultsTx(txApp, fresh.Id, userID)
 		col, err := txApp.FindCollectionByNameOrId("match_messages")
 		if err != nil {
 			return err
 		}
 		pdJSON, _ := json.Marshal(ProposalData{Scores: scores})
 		proposal := core.NewRecord(col)
-		proposal.Set("match", match.Id)
+		proposal.Set("match", fresh.Id)
 		proposal.Set("author", userID)
 		proposal.Set("type", "result_submission")
 		proposal.Set("content", scores)
@@ -284,26 +311,43 @@ func (h *MatchHandler) submitResultProposal(e *core.RequestEvent, match *core.Re
 		if err := txApp.Save(proposal); err != nil {
 			return err
 		}
-		match.Set("submitted_by", userID)
-		match.SetRaw("submitted_at", types.NowDateTime()) // autodate: Set is a no-op
-		match.Set("confirm_reminded", false)
-		return txApp.Save(match)
-	}); err != nil {
-		return alertError(e, "Error al guardar el resultado")
+		fresh.Set("submitted_by", userID)
+		fresh.SetRaw("submitted_at", types.NowDateTime()) // autodate: Set is a no-op
+		fresh.Set("confirm_reminded", false)
+		return txApp.Save(fresh)
+	})
+}
+
+// ensureNoOtherSidePending returns errOtherSidePending when a pending result
+// proposal exists whose author is on a different side than userID. Sides are
+// pair1, pair2 and "neither" (an admin submitting for the match): an admin
+// is not a pair, so any other author's pending proposal conflicts with theirs.
+func ensureNoOtherSidePending(app core.App, match *core.Record, userID string) error {
+	pending, err := app.FindRecordsByFilter("match_messages",
+		"match = {:mid} && type = 'result_submission' && proposal_status = 'pending' && author != {:uid}",
+		"", 0, 0, map[string]any{"mid": match.Id, "uid": userID})
+	if err != nil {
+		return err
 	}
-	h.notifyResultProposal(match, userID, scores)
+	mySide := league.AuthorSide(app, match, userID)
+	for _, p := range pending {
+		if side := league.AuthorSide(app, match, p.GetString("author")); side != mySide || side == league.SideNeither {
+			return errOtherSidePending
+		}
+	}
 	return nil
 }
 
-func (h *MatchHandler) supersedeMyPendingResults(matchID, userID string) {
-	h.supersedeMyPendingResultsTx(h.app, matchID, userID)
-}
-
-func (h *MatchHandler) supersedeMyPendingResultsTx(app core.App, matchID, userID string) {
-	pending, _ := app.FindRecordsByFilter("match_messages",
-		"match = {:mid} && type = 'result_submission' && author = {:uid} && proposal_status = 'pending'",
-		"", 0, 0,
-		map[string]any{"mid": matchID, "uid": userID})
+// supersedePendingResultsTx supersedes the pending result proposals of the
+// match: only authorID's when given, every author's when empty.
+func (h *MatchHandler) supersedePendingResultsTx(app core.App, matchID, authorID string) {
+	filter := "match = {:mid} && type = 'result_submission' && proposal_status = 'pending'"
+	params := map[string]any{"mid": matchID}
+	if authorID != "" {
+		filter += " && author = {:uid}"
+		params["uid"] = authorID
+	}
+	pending, _ := app.FindRecordsByFilter("match_messages", filter, "", 0, 0, params)
 	for _, p := range pending {
 		p.Set("proposal_status", "superseded")
 		if err := app.Save(p); err != nil {
@@ -312,31 +356,21 @@ func (h *MatchHandler) supersedeMyPendingResultsTx(app core.App, matchID, userID
 	}
 }
 
-func (h *MatchHandler) rivalHasPendingResult(match *core.Record, userID string) bool {
-	myTeam, _ := league.PlayerTeam(h.app, userID, match)
-	rivalPairID := match.GetString("pair2")
-	if myTeam == 2 {
-		rivalPairID = match.GetString("pair1")
+// playersOtherThanAuthorSide returns the players a result action must tell: the
+// opposing pair's, or both pairs' when the author is on neither side (an admin).
+func playersOtherThanAuthorSide(app core.App, match *core.Record, authorID string) []string {
+	pair1, pair2 := match.GetString("pair1"), match.GetString("pair2")
+	switch league.AuthorSide(app, match, authorID) {
+	case league.Side1:
+		return league.PlayersForPair(app, pair2)
+	case league.Side2:
+		return league.PlayersForPair(app, pair1)
 	}
-	for _, rp := range league.PlayersForPair(h.app, rivalPairID) {
-		pending, _ := h.app.FindRecordsByFilter("match_messages",
-			"match = {:mid} && type = 'result_submission' && author = {:uid} && proposal_status = 'pending'",
-			"", 1, 0,
-			map[string]any{"mid": match.Id, "uid": rp})
-		if len(pending) > 0 {
-			return true
-		}
-	}
-	return false
+	return append(league.PlayersForPair(app, pair1), league.PlayersForPair(app, pair2)...)
 }
 
 func (h *MatchHandler) notifyResultProposal(match *core.Record, userID, scores string) {
-	myTeam, _ := league.PlayerTeam(h.app, userID, match)
-	rivalPairID := match.GetString("pair2")
-	if myTeam == 2 {
-		rivalPairID = match.GetString("pair1")
-	}
-	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
+	rivalPlayers := playersOtherThanAuthorSide(h.app, match, userID)
 	submitterLabel := pairPlayerLabel(h.app, userID, match)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	n := league.NotifResultSubmitted(match.Id, submitterLabel, compName, scores)
@@ -602,8 +636,13 @@ func (h *MatchHandler) RequestArbitration(e *core.RequestEvent) error {
 		return alertError(e, "Explica el motivo")
 	}
 
-	applyArbitrationFields(match, category, notes, userID)
-	if err := h.app.Save(match); err != nil {
+	match, err = h.saveArbitration(match.Id, category, notes, userID)
+	switch {
+	case errors.Is(err, errMatchResolved):
+		return alertError(e, "Este partido ya está resuelto")
+	case errors.Is(err, errArbitrationExists):
+		return redirectHX(e, "/match/"+id)
+	case err != nil:
 		return alertError(e, "Error al solicitar arbitraje")
 	}
 
@@ -614,6 +653,28 @@ func (h *MatchHandler) RequestArbitration(e *core.RequestEvent) error {
 	h.notifyArbitrationRequested(match, category)
 
 	return redirectHX(e, "/match/"+id)
+}
+
+// saveArbitration re-reads the match inside a transaction: a concurrent accept
+// may have finalized it, and saving a stale record would overwrite that.
+func (h *MatchHandler) saveArbitration(matchID, category, notes, userID string) (*core.Record, error) {
+	var saved *core.Record
+	err := h.app.RunInTransaction(func(txApp core.App) error {
+		fresh, err := txApp.FindRecordById("matches", matchID)
+		if err != nil {
+			return err
+		}
+		if fresh.GetString("status") == league.StatusFinal {
+			return errMatchResolved
+		}
+		if fresh.GetString("arbitration") != "" {
+			return errArbitrationExists
+		}
+		applyArbitrationFields(fresh, category, notes, userID)
+		saved = fresh
+		return txApp.Save(fresh)
+	})
+	return saved, err
 }
 
 // applyArbitrationFields sets the fields RequestArbitration writes on match.

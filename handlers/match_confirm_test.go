@@ -196,9 +196,9 @@ func TestMatchCorrectAdminBypass(t *testing.T) {
 		pending, _ := app.FindRecordsByFilter("match_messages",
 			"match = {:mid} && type = 'result_submission' && proposal_status = 'pending'",
 			"-created", 0, 0, map[string]any{"mid": matchID})
-		require.Len(tb, pending, 2, "original + admin correction both pending")
+		require.Len(tb, pending, 1, "the admin correction replaces the original: two would be a conflict")
 		assert.Equal(tb, "6-4 6-3", handlers.ParseProposalData(pending[0].GetString("proposal_data")).Scores,
-			"newest pending is admin's correction")
+			"the pending one is admin's correction")
 	}
 	handlers.ExpectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)
