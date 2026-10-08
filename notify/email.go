@@ -82,6 +82,21 @@ func CtaHTML(href, label string) string { return ctaHTML(href, label) }
 
 // BuildNotificationEmail returns the HTML body for a notification email.
 func BuildNotificationEmail(displayName, body, link string) string {
+	return buildNotificationEmail(displayName, emailContent{Body: body}, link)
+}
+
+// emailContent is what a notification email shows besides the greeting.
+type emailContent struct {
+	Body     string
+	Author   string     // chat: who wrote it; with Text, shown as an author line plus a quote
+	Text     string     // chat: the full message
+	CompName string     // competition label in the context card
+	Match    *matchInfo // match block in the context card
+}
+
+// buildNotificationEmail renders the notification body in this order: the
+// message, then one context card (competition and match), then the button.
+func buildNotificationEmail(displayName string, c emailContent, link string) string {
 	linkHTML := ""
 	if link != "" {
 		label := "Ver partido"
@@ -93,9 +108,19 @@ func BuildNotificationEmail(displayName, body, link string) string {
 		}
 		linkHTML = ctaHTML(link, label)
 	}
-	return fmt.Sprintf(`<p>Hola %s,</p>
-<p>%s</p>
-%s`, html.EscapeString(displayName), html.EscapeString(body), linkHTML)
+	return fmt.Sprintf(`<p style="margin:0 0 12px;">Hola %s,</p>
+%s
+%s%s`, html.EscapeString(displayName), messageHTML(c), contextCardHTML(c.CompName, c.Match), linkHTML)
+}
+
+// messageHTML renders the message itself: for chat the author line and the
+// text as a quote, otherwise the body as a paragraph.
+func messageHTML(c emailContent) string {
+	if c.Text != "" {
+		return fmt.Sprintf(`<p style="margin:0;font-weight:bold;">%s escribió:</p>
+%s`, html.EscapeString(strings.TrimSuffix(strings.Replace(c.Author, " (", " · ", 1), ")")), quoteHTML(c.Text))
+	}
+	return fmt.Sprintf(`<p style="margin:0 0 4px;">%s</p>`, html.EscapeString(c.Body))
 }
 
 // RenderEmail wraps bodyHTML in the league's branded email shell.
@@ -124,7 +149,7 @@ func RenderEmail(app core.App, compID, bodyHTML string) string {
 <body style="margin:0;padding:0;background:#f2f2f2;">
 <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background:#f2f2f2;padding:24px 0;">
 <tr><td align="center">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%%;background:#ffffff;border-radius:8px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%%;max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;">
 %s<tr><td style="background:#0b0b0b;padding:24px;text-align:center;">
 %s
 %s

@@ -338,10 +338,11 @@ func TestMatchSubmitNotifiesRival(t *testing.T) {
 		assertNotNotified(tb, app, pair1Player2ID, want.Title)
 
 		adminWant := league.Notification{
-			Type:    "match_progress",
-			Title:   "Progreso de partido",
-			Body:    "Resultado propuesto: 6-3 6-4",
-			MatchID: matchID,
+			Type:     "match_progress",
+			Title:    "Progreso de partido",
+			Body:     "Resultado propuesto: 6-3 6-4",
+			MatchID:  matchID,
+			CompName: "Test Competition",
 		}
 		assertNotified(tb, app, adminID, adminWant)
 	}
@@ -1334,7 +1335,7 @@ func TestMatchSubmitCreatesResultProposal(t *testing.T) {
 
 		prop := proposals[0]
 		assert.Equal(tb, "pending", prop.GetString("proposal_status"))
-		pd := handlers.ParseProposalData(prop.GetString("proposal_data"))
+		pd := league.ParseProposalData(prop.GetString("proposal_data"))
 		require.NotNil(tb, pd, "proposal_data must be parseable")
 		assert.Equal(tb, "6-3 6-4", pd.Scores)
 	}
@@ -1390,7 +1391,7 @@ func TestMatchSubmitSupersedesPreviousProposal(t *testing.T) {
 			map[string]any{"mid": matchID, "uid": submitterID})
 		require.NoError(tb, err)
 		assert.Len(tb, pending, 1, "only one pending proposal must remain")
-		assert.Equal(tb, "6-3 6-4", handlers.ParseProposalData(pending[0].GetString("proposal_data")).Scores)
+		assert.Equal(tb, "6-3 6-4", league.ParseProposalData(pending[0].GetString("proposal_data")).Scores)
 
 		superseded, _ := app.FindRecordsByFilter("match_messages",
 			"match = {:mid} && type = 'result_submission' && author = {:uid} && proposal_status = 'superseded'",

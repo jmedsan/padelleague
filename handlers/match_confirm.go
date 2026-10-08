@@ -89,7 +89,7 @@ func (h *MatchHandler) correctResultProposal(match *core.Record, userID, scores 
 		if err != nil {
 			return err
 		}
-		pdJSON, _ := json.Marshal(ProposalData{Scores: scores})
+		pdJSON, _ := json.Marshal(league.ProposalData{Scores: scores})
 		proposal := core.NewRecord(col)
 		proposal.Set("match", fresh.Id)
 		proposal.Set("author", userID)

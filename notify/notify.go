@@ -173,7 +173,7 @@ func (n *Notifier) deliver(notifCol *core.Collection, user *core.Record, notif l
 	rec.Set("user", user.Id)
 	rec.Set("type", notif.Type)
 	rec.Set("title", notif.Title)
-	rec.Set("body", notif.Body)
+	rec.Set("body", notif.Prefix+notif.Body)
 	if notif.MatchID != "" {
 		rec.Set("related_match", notif.MatchID)
 	}
@@ -190,10 +190,21 @@ func (n *Notifier) deliver(notifCol *core.Collection, user *core.Record, notif l
 	if PushChannelEnabled(user) && n.startPush() {
 		go func() {
 			defer n.endPush()
-			n.sendPush(user.Id, notif.Title, notif.Body, link)
+			n.sendPush(user.Id, notif.Title, pushBody(notif), link)
 		}()
 	}
 	n.emailNotification(user, notif, link)
+}
+
+// pushBody is the push text: the prefixed body, plus the competition name
+// when the body does not already mention it (push has no separate
+// competition line).
+func pushBody(notif league.Notification) string {
+	body := notif.Prefix + notif.Body
+	if notif.CompName == "" || strings.Contains(body, notif.CompName) {
+		return body
+	}
+	return body + " · " + notif.CompName
 }
 
 // emailNotification sends notif as an email to user, gated on SMTP being
@@ -220,7 +231,14 @@ func (n *Notifier) emailNotification(user *core.Record, notif league.Notificatio
 
 	subject := SubjectPrefix() + notif.Title
 	displayName := user.GetString("display_name")
-	htmlBody := RenderEmail(n.app, "", BuildNotificationEmail(displayName, notif.Body, link))
+	content := emailContent{Body: notif.Prefix + notif.Body, Author: notif.Author, Text: notif.Text, CompName: notif.CompName}
+	if notif.MatchID != "" {
+		if info, ok := loadMatchInfo(n.app, notif.MatchID); ok {
+			content.Match = &info
+			content.Body = notif.Body // the context card shows the prefix
+		}
+	}
+	htmlBody := RenderEmail(n.app, "", buildNotificationEmail(displayName, content, link))
 	SendEmail(n.app, user.Email(), subject, htmlBody)
 }
 

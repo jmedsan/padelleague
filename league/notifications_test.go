@@ -48,12 +48,12 @@ func TestNotificationConstructors(t *testing.T) {
 		{
 			name: "NewMessage",
 			got:  NotifNewMessage("m1", "Ana", "Hola, ¿jugamos mañana?", "Liga Primavera"),
-			want: Notification{Type: "message", Title: "Nuevo mensaje", Body: "Ana escribió: Hola, ¿jugamos mañana?", MatchID: "m1", CompName: "Liga Primavera"},
+			want: Notification{Type: "message", Title: "Nuevo mensaje", Body: "Ana escribió: Hola, ¿jugamos mañana?", Author: "Ana", Text: "Hola, ¿jugamos mañana?", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "NewMessage_truncates",
 			got:  NotifNewMessage("m1", "Ana", "Este es un mensaje muy largo que debería ser truncado porque supera los sesenta caracteres permitidos", "Liga Primavera"),
-			want: Notification{Type: "message", Title: "Nuevo mensaje", Body: "Ana escribió: Este es un mensaje muy largo que debería ser truncado porque...", MatchID: "m1", CompName: "Liga Primavera"},
+			want: Notification{Type: "message", Title: "Nuevo mensaje", Body: "Ana escribió: Este es un mensaje muy largo que debería ser truncado porque...", Author: "Ana", Text: "Este es un mensaje muy largo que debería ser truncado porque supera los sesenta caracteres permitidos", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "Proposal",
@@ -107,8 +107,8 @@ func TestNotificationConstructors(t *testing.T) {
 		},
 		{
 			name: "AdminMatchProgress",
-			got:  NotifAdminMatchProgress("m1", "Resultado registrado: 6-3 6-4"),
-			want: Notification{Type: "match_progress", Title: "Progreso de partido", Body: "Resultado registrado: 6-3 6-4", MatchID: "m1"},
+			got:  NotifAdminMatchProgress("m1", "Resultado registrado: 6-3 6-4", "Liga Primavera"),
+			want: Notification{Type: "match_progress", Title: "Progreso de partido", Body: "Resultado registrado: 6-3 6-4", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "MatchUpcoming_FarAhead",
@@ -148,42 +148,42 @@ func TestNotificationConstructors(t *testing.T) {
 		{
 			name: "ResultAutoConfirmed",
 			got:  NotifResultAutoConfirmed("m1", "Liga Primavera"),
-			want: Notification{Type: "general", Title: "Resultado confirmado automáticamente", Body: "El resultado ha sido confirmado por tiempo de espera · Liga Primavera.", MatchID: "m1"},
+			want: Notification{Type: "general", Title: "Resultado confirmado automáticamente", Body: "El resultado ha sido confirmado por tiempo de espera.", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "ProposalResponsePending",
 			got:  NotifProposalResponsePending("m1", "Pareja A", "Liga Primavera", 48),
-			want: Notification{Type: "quorum_request", Title: "Resultado pendiente de respuesta", Body: "Pareja A propuso un resultado hace más de 48 horas · Liga Primavera. Acepta o contrapropón.", MatchID: "m1"},
+			want: Notification{Type: "quorum_request", Title: "Resultado pendiente de respuesta", Body: "Pareja A propuso un resultado hace más de 48 horas. Acepta o contrapropón.", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "ResultConfirmationPending",
 			got:  NotifResultConfirmationPending("m1", "Pareja A", "Liga Primavera", 48),
-			want: Notification{Type: "quorum_request", Title: "Resultado pendiente de confirmar", Body: "Pareja A envió un resultado hace más de 48 horas · Liga Primavera. Confirma o contrapropón.", MatchID: "m1"},
+			want: Notification{Type: "quorum_request", Title: "Resultado pendiente de confirmar", Body: "Pareja A envió un resultado hace más de 48 horas. Confirma o contrapropón.", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "MatchResumes",
 			got:  NotifMatchResumes("m1", "6-4", "Liga Primavera"),
-			want: Notification{Type: "scheduling", Title: "Partido por reanudar", Body: "Se reanuda desde 6-4 0-0. Acordad una nueva fecha · Liga Primavera.", MatchID: "m1"},
+			want: Notification{Type: "scheduling", Title: "Partido por reanudar", Body: "Se reanuda desde 6-4 0-0. Acordad una nueva fecha.", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "PenaltyApplied",
-			got:  NotifPenaltyApplied("c1", 3, "Incomparecencia"),
-			want: Notification{Type: "penalty", Title: "Penalización aplicada", Body: "3 puntos — Incomparecencia", Link: "/competition/c1"},
+			got:  NotifPenaltyApplied("c1", "Liga Primavera", 3, "Incomparecencia"),
+			want: Notification{Type: "penalty", Title: "Penalización aplicada", Body: "3 puntos — Incomparecencia", Link: "/competition/c1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "PenaltyVoided",
-			got:  NotifPenaltyVoided("c1", 3),
-			want: Notification{Type: "penalty", Title: "Penalización anulada", Body: "3 puntos anulados", Link: "/competition/c1"},
+			got:  NotifPenaltyVoided("c1", "Liga Primavera", 3),
+			want: Notification{Type: "penalty", Title: "Penalización anulada", Body: "3 puntos anulados", Link: "/competition/c1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "AdminPenaltiesApplied",
 			got:  NotifAdminPenaltiesApplied("c1", "Liga Primavera", 4),
-			want: Notification{Type: "penalty", Title: "Penalizaciones automáticas aplicadas", Body: "4 penalizaciones aplicadas en Liga Primavera", Link: "/admin/competitions/c1"},
+			want: Notification{Type: "penalty", Title: "Penalizaciones automáticas aplicadas", Body: "4 penalizaciones aplicadas", Link: "/admin/competitions/c1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "AdminLeagueClosed",
 			got:  NotifAdminLeagueClosed("c1", "Liga Primavera", 2),
-			want: Notification{Type: "penalty", Title: "Liga cerrada automáticamente", Body: "Liga Primavera ha terminado su semana extraordinaria: 2 penalizaciones por partidos no disputados. Revísalas y corrige las que correspondan a una sola pareja.", Link: "/admin/competitions/c1"},
+			want: Notification{Type: "penalty", Title: "Liga cerrada automáticamente", Body: "La liga ha terminado su semana extraordinaria: 2 penalizaciones por partidos no disputados. Revísalas y corrige las que correspondan a una sola pareja.", Link: "/admin/competitions/c1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "RoleChanged",
@@ -213,7 +213,7 @@ func TestNotificationConstructors(t *testing.T) {
 		{
 			name: "AdminDateCancelled",
 			got:  NotifAdminDateCancelled(DateCancelledParams{MatchID: "m1", PlayerName: "Ana (Pareja A)", Reason: "lesión", CompName: "Liga Primavera", Pair1Name: "Pareja A", Pair2Name: "Pareja B", Urgency: " Quedan pocos días."}),
-			want: Notification{Type: "dispute", Title: "Cancelación de partido", Body: "Pareja A vs Pareja B: Ana (Pareja A) ha cancelado la fecha. Motivo: lesión Quedan pocos días.", MatchID: "m1", CompName: "Liga Primavera"},
+			want: Notification{Type: "dispute", Title: "Cancelación de partido", Prefix: "Pareja A vs Pareja B: ", Body: "Ana (Pareja A) ha cancelado la fecha. Motivo: lesión Quedan pocos días.", MatchID: "m1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "Announcement",

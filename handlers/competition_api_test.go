@@ -461,10 +461,11 @@ func TestCompApplyPenalty(t *testing.T) {
 		assert.Equal(tb, "Prueba", rows[0].GetString("reason"))
 
 		want := league.Notification{
-			Type:  "penalty",
-			Title: "Penalización aplicada",
-			Body:  "3 puntos — Prueba",
-			Link:  "/competition/" + compID,
+			Type:     "penalty",
+			Title:    "Penalización aplicada",
+			Body:     "3 puntos — Prueba",
+			Link:     "/competition/" + compID,
+			CompName: "Test Competition",
 		}
 		for _, uid := range league.PlayersForPair(app, pairID) {
 			assertNotified(tb, app, uid, want)

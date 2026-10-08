@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
 )
 
 // Proposal types an admin decision can settle.
@@ -83,7 +85,7 @@ func rejectPendingByAdmin(txApp core.App, match *core.Record, adminID string, ty
 				MatchID: match.Id, ActorID: adminID, Kind: responseKind(typ),
 				Detail:   "rechazó la propuesta de " + pairPlayerLabel(txApp, p.GetString("author"), match),
 				ParentID: p.Id, Action: "reject", Note: adminRejectReason,
-				Data: ParseProposalData(p.Get("proposal_data")),
+				Data: league.ParseProposalData(p.Get("proposal_data")),
 			})
 		}
 	}

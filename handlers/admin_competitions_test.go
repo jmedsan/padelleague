@@ -1396,10 +1396,11 @@ func TestPenaltyVoidTraceAndNotification(t *testing.T) {
 		assert.False(tb, pen.GetDateTime("voided_at").IsZero(), "voided_at must be set")
 
 		want := league.Notification{
-			Type:  "penalty",
-			Title: "Penalización anulada",
-			Body:  "6 puntos anulados",
-			Link:  "/competition/" + compID,
+			Type:     "penalty",
+			Title:    "Penalización anulada",
+			Body:     "6 puntos anulados",
+			Link:     "/competition/" + compID,
+			CompName: "Test Competition",
 		}
 		assertNotified(tb, app, player1ID, want)
 		assertNotified(tb, app, player2ID, want)

@@ -302,7 +302,7 @@ func (h *MatchHandler) submitResultProposal(match *core.Record, userID, scores s
 		if err != nil {
 			return err
 		}
-		pdJSON, _ := json.Marshal(ProposalData{Scores: scores})
+		pdJSON, _ := json.Marshal(league.ProposalData{Scores: scores})
 		proposal := core.NewRecord(col)
 		proposal.Set("match", fresh.Id)
 		proposal.Set("author", userID)
@@ -379,7 +379,7 @@ func (h *MatchHandler) notifyResultProposal(match *core.Record, userID, scores s
 	h.notifier.NotifyPlayers(rivalPlayers, n)
 
 	participants := matchParticipantUserIDs(h.app, match)
-	an := league.NotifAdminMatchProgress(match.Id, "Resultado propuesto: "+scores)
+	an := league.NotifAdminMatchProgress(match.Id, "Resultado propuesto: "+scores, compName)
 	if err := h.notifier.NotifyAdmins(an, participants...); err != nil {
 		slog.Error("notify admins match progress failed", "match", match.Id, "err", err)
 	}

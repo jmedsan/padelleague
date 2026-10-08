@@ -49,7 +49,7 @@ func proposalTxAlert(e *core.RequestEvent, err error, fallback string) error {
 // scheduleAccept is what acceptScheduleTx needs to accept a date proposal.
 type scheduleAccept struct {
 	actorID, matchID, msgID, proposerName string
-	pd                                    *ProposalData
+	pd                                    *league.ProposalData
 }
 
 // acceptScheduleTx accepts the date proposal on fresh copies of the match and
@@ -99,7 +99,7 @@ func acceptScheduleTx(txApp core.App, a scheduleAccept) (*core.Record, error) {
 }
 
 func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Record, _ string) error {
-	pd := ParseProposalData(msg.Get("proposal_data"))
+	pd := league.ParseProposalData(msg.Get("proposal_data"))
 	if pd == nil {
 		return alertError(e, "Error al leer los datos de la propuesta")
 	}
@@ -157,7 +157,7 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 			MatchID: match.Id, ActorID: e.Auth.Id,
 			Kind: "scheduling_response", Detail: detail,
 			ParentID: msg.Id, Action: "reject", Note: note,
-			Data: ParseProposalData(msg.Get("proposal_data")),
+			Data: league.ParseProposalData(msg.Get("proposal_data")),
 		})
 		return nil
 	}); err != nil {
@@ -221,7 +221,7 @@ func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *c
 		if err != nil {
 			return err
 		}
-		pdJSON, _ := json.Marshal(ProposalData{Scores: counterScores})
+		pdJSON, _ := json.Marshal(league.ProposalData{Scores: counterScores})
 		counter := core.NewRecord(col)
 		counter.Set("match", match.Id)
 		counter.Set("author", e.Auth.Id)

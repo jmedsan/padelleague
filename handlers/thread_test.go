@@ -1479,7 +1479,7 @@ func TestRejectResultProposalRequiresCounter(t *testing.T) {
 			"", 0, 0,
 			map[string]any{"mid": matchID, "uid": respondentID})
 		require.Len(tb, counters, 1, "a counter-proposal must exist")
-		assert.Equal(tb, "6-4 6-3", handlers.ParseProposalData(counters[0].GetString("proposal_data")).Scores)
+		assert.Equal(tb, "6-4 6-3", league.ParseProposalData(counters[0].GetString("proposal_data")).Scores)
 
 		// The counter-proposal itself must be a visible timeline entry, not
 		// just a DB record — the project rule is that every result-changing action has

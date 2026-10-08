@@ -143,7 +143,7 @@ func (h *DisputeHandler) applyWalkoverPenalty(e *core.RequestEvent, comp *core.R
 		return alertError(e, "Incomparecencia aprobada, pero no se pudo aplicar la penalización. Aplícala manualmente.")
 	}
 	players := league.PlayersForPair(h.app, loserID)
-	h.notifier.NotifyPlayers(players, league.NotifPenaltyApplied(comp.Id, penalty, rec.GetString("reason")))
+	h.notifier.NotifyPlayers(players, league.NotifPenaltyApplied(comp.Id, comp.GetString("name"), penalty, rec.GetString("reason")))
 	return nil
 }
 

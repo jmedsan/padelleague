@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"padelleague/handlers"
+	"padelleague/league"
 )
 
 // adminDecision is one admin action on a match holding one pending result
@@ -97,9 +98,9 @@ func assertProposal(tb testing.TB, app core.App, prop *core.Record, want, adminI
 	entry := entries[0]
 	assert.Equal(tb, adminID, entry.GetString("author"), "attributed to the admin")
 	assert.NotEqual(tb, authorID, entry.GetString("author"))
-	pd := handlers.ParseProposalData(entry.Get("proposal_data"))
+	pd := league.ParseProposalData(entry.Get("proposal_data"))
 	assert.Equal(tb, "reject", pd.Action)
-	want2 := handlers.ParseProposalData(prop.Get("proposal_data"))
+	want2 := league.ParseProposalData(prop.Get("proposal_data"))
 	assert.Equal(tb, want2.Scores, pd.Scores, "frozen snapshot: result")
 	assert.Equal(tb, want2.Date, pd.Date, "frozen snapshot: date")
 }

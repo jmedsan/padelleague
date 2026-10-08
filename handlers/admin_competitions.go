@@ -534,7 +534,7 @@ func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 		if err != nil {
 			return alertError(e, "Error al quitar la penalización")
 		}
-		h.notifyPenalty(rec, league.NotifPenaltyVoided(id, rec.GetFloat("amount")))
+		h.notifyPenalty(rec, league.NotifPenaltyVoided(id, league.CompetitionName(h.app, id), rec.GetFloat("amount")))
 		return redirectHX(e, "/admin/competitions/"+id)
 	}
 
@@ -556,7 +556,7 @@ func (h *CompetitionHandler) ApplyPenalty(e *core.RequestEvent) error {
 	if err != nil {
 		return alertError(e, "Error al guardar la penalización")
 	}
-	h.notifyPenalty(rec, league.NotifPenaltyApplied(id, amount, reason))
+	h.notifyPenalty(rec, league.NotifPenaltyApplied(id, league.CompetitionName(h.app, id), amount, reason))
 	return redirectHX(e, "/admin/competitions/"+id)
 }
 

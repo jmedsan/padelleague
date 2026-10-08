@@ -1541,10 +1541,11 @@ func TestApplyPendingMatchPenalties_RulebookClose(t *testing.T) {
 	// (no fault attribution), so a single match between p1 and p2 penalizes
 	// both pairs — 2 penalties total, not 1.
 	penaltyWant := league.Notification{
-		Type:  "penalty",
-		Title: "Penalización aplicada",
-		Body:  "1 puntos — Partido no disputado al cierre de la competición (1 sin jugar)",
-		Link:  "/competition/" + comp.Id,
+		Type:     "penalty",
+		Title:    "Penalización aplicada",
+		Body:     "1 puntos — Partido no disputado al cierre de la competición (1 sin jugar)",
+		Link:     "/competition/" + comp.Id,
+		CompName: comp.GetString("name"),
 	}
 	for _, uid := range league.PlayersForPair(app, p1.Id) {
 		assertNotified(t, app, uid, penaltyWant)
@@ -1558,18 +1559,20 @@ func TestApplyPendingMatchPenalties_RulebookClose(t *testing.T) {
 	require.Len(t, adminUsers, 1)
 
 	adminPenaltiesWant := league.Notification{
-		Type:  "penalty",
-		Title: "Penalizaciones automáticas aplicadas",
-		Body:  "2 penalizaciones aplicadas en Hook Rulebook Close Test",
-		Link:  "/admin/competitions/" + comp.Id,
+		Type:     "penalty",
+		Title:    "Penalizaciones automáticas aplicadas",
+		Body:     "2 penalizaciones aplicadas",
+		Link:     "/admin/competitions/" + comp.Id,
+		CompName: "Hook Rulebook Close Test",
 	}
 	assertNotified(t, app, adminUsers[0].Id, adminPenaltiesWant)
 
 	adminClosedWant := league.Notification{
-		Type:  "penalty",
-		Title: "Liga cerrada automáticamente",
-		Body:  "Hook Rulebook Close Test ha terminado su semana extraordinaria: 2 penalizaciones por partidos no disputados. Revísalas y corrige las que correspondan a una sola pareja.",
-		Link:  "/admin/competitions/" + comp.Id,
+		Type:     "penalty",
+		Title:    "Liga cerrada automáticamente",
+		Body:     "La liga ha terminado su semana extraordinaria: 2 penalizaciones por partidos no disputados. Revísalas y corrige las que correspondan a una sola pareja.",
+		Link:     "/admin/competitions/" + comp.Id,
+		CompName: "Hook Rulebook Close Test",
 	}
 	assertNotified(t, app, adminUsers[0].Id, adminClosedWant)
 }

@@ -39,45 +39,6 @@ func NewThreadHandler(d ThreadDeps) *ThreadHandler {
 	return &ThreadHandler{app: d.App, notifier: d.Notifier, svc: d.Svc, renderPage: d.RenderPage, renderPartial: d.RenderPartial}
 }
 
-// ProposalData holds parsed scheduling proposal details from a thread message.
-type ProposalData struct {
-	Date      string `json:"date"`
-	Time      string `json:"time"`
-	VenueID   string `json:"venue_id"`
-	VenueName string `json:"venue_name"`
-	VenueText string `json:"venue_text"`
-	Scores    string `json:"scores,omitempty"`
-	// Action is set on scheduling_response/result_response entries only:
-	// "accept" or "reject", the decision that produced this entry.
-	Action string `json:"action,omitempty"`
-}
-
-// ParseProposalData decodes a proposal from a raw JSON field value.
-func ParseProposalData(raw any) *ProposalData {
-	if raw == nil {
-		return nil
-	}
-	var pd ProposalData
-	switch v := raw.(type) {
-	case string:
-		if v == "" {
-			return nil
-		}
-		if err := json.Unmarshal([]byte(v), &pd); err != nil {
-			return nil
-		}
-	default:
-		b, err := json.Marshal(v)
-		if err != nil {
-			return nil
-		}
-		if err := json.Unmarshal(b, &pd); err != nil {
-			return nil
-		}
-	}
-	return &pd
-}
-
 // Thread renders the full match thread page with messages and proposals.
 func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	matchID := e.Request.PathValue("id")
@@ -134,7 +95,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		"IsPlayoff":            isPlayoff,
 		"CompModifiable":       compModifiable,
 		"IsScheduled":          match.GetString("status") == league.StatusScheduled,
-		"HasDateAndPlace":      match.GetString("date") != "" && match.GetString("club") != "",
+		"HasDateAndPlace":      league.HasDateAndPlace(match),
 		"Match":                match,
 		"UnpaidWarning":        unpaidWarning,
 		"ProposalDefaultVenue": match.GetString("club"),
@@ -359,27 +320,27 @@ func (h *ThreadHandler) notifyProposal(match *core.Record, myTeam int, n proposa
 	h.notifier.NotifyPlayers(rivalPlayers, notif)
 }
 
-func (h *ThreadHandler) parseProposalForm(e *core.RequestEvent) (ProposalData, error) {
+func (h *ThreadHandler) parseProposalForm(e *core.RequestEvent) (league.ProposalData, error) {
 	date := e.Request.FormValue("date")
 	timeVal := e.Request.FormValue("time")
 	venueID := e.Request.FormValue("venue_id")
 	venueText := e.Request.FormValue("venue_text")
 
 	if date == "" || timeVal == "" {
-		return ProposalData{}, alertError(e, "Fecha y hora son obligatorias")
+		return league.ProposalData{}, alertError(e, "Fecha y hora son obligatorias")
 	}
 	if _, err := time.Parse("2006-01-02", date); err != nil {
-		return ProposalData{}, alertError(e, "Formato de fecha no válido")
+		return league.ProposalData{}, alertError(e, "Formato de fecha no válido")
 	}
 	if _, err := time.Parse("15:04", timeVal); err != nil {
-		return ProposalData{}, alertError(e, "Formato de hora no válido")
+		return league.ProposalData{}, alertError(e, "Formato de hora no válido")
 	}
 	if parsed, _ := time.Parse("2006-01-02", date); !parsed.IsZero() && parsed.Before(time.Now().Truncate(24*time.Hour)) {
-		return ProposalData{}, alertError(e, "La fecha no puede ser anterior a hoy")
+		return league.ProposalData{}, alertError(e, "La fecha no puede ser anterior a hoy")
 	}
 
 	venueID, venueName := h.resolveVenue(venueID, venueText)
-	return ProposalData{
+	return league.ProposalData{
 		Date:      date,
 		Time:      timeVal,
 		VenueID:   venueID,
@@ -541,15 +502,15 @@ func (h *ThreadHandler) validateCounterTarget(e *core.RequestEvent, match, msg *
 	return authorTeam, nil
 }
 
-func (h *ThreadHandler) validateCounterProposal(e *core.RequestEvent) (ProposalData, []byte, error) {
+func (h *ThreadHandler) validateCounterProposal(e *core.RequestEvent) (league.ProposalData, []byte, error) {
 	date := e.Request.FormValue("date")
 	timeVal := e.Request.FormValue("time")
 	if date == "" || timeVal == "" {
-		return ProposalData{}, nil, alertError(e, "Fecha y hora son obligatorias")
+		return league.ProposalData{}, nil, alertError(e, "Fecha y hora son obligatorias")
 	}
 	pd, err := h.parseProposalForm(e)
 	if err != nil || pd.Date == "" {
-		return ProposalData{}, nil, err
+		return league.ProposalData{}, nil, err
 	}
 	pdJSON, _ := json.Marshal(pd)
 	return pd, pdJSON, nil
@@ -592,7 +553,7 @@ func (h *ThreadHandler) rejectAndCreateCounter(p counterProposalParams) error {
 			MatchID: p.match.Id, ActorID: p.e.Auth.Id,
 			Kind: "scheduling_response", Detail: detail,
 			ParentID: p.msg.Id, Action: "reject", Note: note,
-			Data: ParseProposalData(p.msg.Get("proposal_data")),
+			Data: league.ParseProposalData(p.msg.Get("proposal_data")),
 		})
 		col, err := txApp.FindCollectionByNameOrId("match_messages")
 		if err != nil {
@@ -615,7 +576,7 @@ type counterNotice struct {
 	authorTeam int
 	reason     string
 	text       string
-	pd         ProposalData
+	pd         league.ProposalData
 }
 
 func (h *ThreadHandler) notifyRejectAndCounter(n counterNotice) {
@@ -705,7 +666,7 @@ func (h *ThreadHandler) supersedePending(matchID, excludeMsgID string) error {
 				Detail:   "propuesta sustituida por la aceptada",
 				ParentID: fresh.Id,
 				Action:   "supersede",
-				Data:     ParseProposalData(fresh.Get("proposal_data")),
+				Data:     league.ParseProposalData(fresh.Get("proposal_data")),
 			})
 			return nil
 		})
@@ -805,7 +766,7 @@ func withdrawProposalTx(txApp core.App, matchID, msgID, actorID string) error {
 		Detail:   "retiró su propuesta de fecha",
 		ParentID: msg.Id,
 		Action:   "withdraw",
-		Data:     ParseProposalData(msg.Get("proposal_data")),
+		Data:     league.ParseProposalData(msg.Get("proposal_data")),
 	})
 	return nil
 }

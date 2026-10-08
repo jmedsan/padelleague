@@ -5,6 +5,8 @@ import (
 	"log/slog"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
 )
 
 type timelineEntry struct {
@@ -21,7 +23,7 @@ type timelineEntry struct {
 	// response entry renders the identical dateBox/resultBox as its
 	// proposal, just with a different status badge. Scores set here wins
 	// over Data.Scores for a result_response (Data may be nil).
-	Data   *ProposalData
+	Data   *league.ProposalData
 	Scores string
 	// Note is a frozen note shown under this entry's dateBox/resultBox (e.g.
 	// a rejection reason) — stored on this entry's OWN record, since the
@@ -47,7 +49,7 @@ func addTimelineEntry(app core.App, e timelineEntry) {
 		rec.Set("rejection_text", e.Note)
 	}
 	if e.Action != "" {
-		pd := ProposalData{Action: e.Action, Scores: e.Scores}
+		pd := league.ProposalData{Action: e.Action, Scores: e.Scores}
 		if e.Data != nil {
 			pd.Date, pd.Time, pd.VenueName = e.Data.Date, e.Data.Time, e.Data.VenueName
 			if pd.Scores == "" {

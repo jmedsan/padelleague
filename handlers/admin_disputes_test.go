@@ -474,10 +474,11 @@ func TestWalkoverApprove(t *testing.T) {
 		}
 
 		penaltyWant := league.Notification{
-			Type:  "penalty",
-			Title: "Penalización aplicada",
-			Body:  "5 puntos — Incomparecencia aprobada",
-			Link:  "/competition/" + compID,
+			Type:     "penalty",
+			Title:    "Penalización aplicada",
+			Body:     "5 puntos — Incomparecencia aprobada",
+			Link:     "/competition/" + compID,
+			CompName: "Test Competition",
 		}
 		for _, uid := range league.PlayersForPair(app, p2ID) {
 			assertNotified(tb, app, uid, penaltyWant)

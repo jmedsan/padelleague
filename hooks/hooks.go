@@ -495,7 +495,7 @@ func applyPendingMatchPenalties(app core.App, notifier *notify.Notifier) {
 		compID := comp.Id
 		for _, pen := range applied {
 			players := league.PlayersForPair(app, pen.GetString("pair"))
-			notifier.NotifyPlayers(players, league.NotifPenaltyApplied(compID, pen.GetFloat("amount"), pen.GetString("reason")))
+			notifier.NotifyPlayers(players, league.NotifPenaltyApplied(compID, comp.GetString("name"), pen.GetFloat("amount"), pen.GetString("reason")))
 		}
 		_ = notifier.NotifyAdmins(league.NotifAdminPenaltiesApplied(compID, comp.GetString("name"), len(applied)))
 	}

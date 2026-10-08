@@ -279,7 +279,7 @@ func resolveMatchDate(m *core.Record, c *core.Record) time.Time {
 }
 
 func applyProposalToNextMatch(nm *NextMatch, prop *core.Record) {
-	pd := ParseProposalData(prop.GetString("proposal_data"))
+	pd := league.ParseProposalData(prop.GetString("proposal_data"))
 	if prop.GetString("proposal_status") == "accepted" {
 		nm.ScheduleStatus = "confirmed"
 	} else {
@@ -362,7 +362,7 @@ func (h *PublicHandler) findPendingProposals(c *core.Record, playerPairIDs map[s
 			continue
 		}
 		scores := "pendiente"
-		if pd := ParseProposalData(p.GetString("proposal_data")); pd != nil && pd.Scores != "" {
+		if pd := league.ParseProposalData(p.GetString("proposal_data")); pd != nil && pd.Scores != "" {
 			scores = pd.Scores
 		}
 		actions = append(actions, PendingAction{

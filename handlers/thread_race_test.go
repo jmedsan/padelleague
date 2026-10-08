@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"padelleague/handlers"
+	"padelleague/league"
 )
 
 // raceMatches is how many matches each race scenario runs side by side.
@@ -85,7 +86,7 @@ func schedulingProposal(tb testing.TB, app core.App, matchID, authorID, date str
 	tb.Helper()
 	col, err := app.FindCollectionByNameOrId("match_messages")
 	require.NoError(tb, err)
-	pd, err := json.Marshal(handlers.ProposalData{Date: date, Time: "18:00", VenueName: "Padel 360", VenueText: "Padel 360"})
+	pd, err := json.Marshal(league.ProposalData{Date: date, Time: "18:00", VenueName: "Padel 360", VenueText: "Padel 360"})
 	require.NoError(tb, err)
 	rec := core.NewRecord(col)
 	rec.Set("match", matchID)

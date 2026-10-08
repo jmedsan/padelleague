@@ -137,7 +137,7 @@ func TestApplyAcceptedResult_NotWon(t *testing.T) {
 	// Notification: "Partido por reanudar" to both pairs (same title on both
 	// calls, so assert both directly rather than via assertNotifyCall).
 	require.Len(t, notifier.calls, 2)
-	wantBody := "Se reanuda desde 6-3 0-0. Acordad una nueva fecha · Test Competition."
+	wantBody := "Se reanuda desde 6-3 0-0. Acordad una nueva fecha."
 	for _, c := range notifier.calls {
 		assert.Equal(t, "scheduling", c.notifType)
 		assert.Equal(t, "Partido por reanudar", c.title)
@@ -181,7 +181,7 @@ func TestApplyAcceptedResult_QuorumTimeout(t *testing.T) {
 	// doesn't apply here — assert both calls directly instead).
 	require.Len(t, notifier.calls, 2)
 	wantTitle := "Resultado confirmado automáticamente"
-	wantBody := "El resultado ha sido confirmado por tiempo de espera · Test Competition."
+	wantBody := "El resultado ha sido confirmado por tiempo de espera."
 	for _, c := range notifier.calls {
 		assert.Equal(t, "general", c.notifType)
 		assert.Equal(t, wantTitle, c.title)

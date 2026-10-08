@@ -7,7 +7,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// systemProposalData mirrors the JSON shape handlers.ProposalData expects
+// systemProposalData mirrors the JSON shape ProposalData expects
 // for a result_response entry's proposal_data — only action/scores set.
 type systemProposalData struct {
 	Scores string `json:"scores,omitempty"`

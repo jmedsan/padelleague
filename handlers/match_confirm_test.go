@@ -53,7 +53,7 @@ func TestMatchCorrectBoundary_Under24h_Allowed(t *testing.T) {
 			"match = {:mid} && type = 'result_submission' && proposal_status = 'pending'",
 			"", 0, 0, map[string]any{"mid": matchID})
 		require.Len(tb, pending, 1)
-		assert.Equal(tb, "6-4 6-3", handlers.ParseProposalData(pending[0].GetString("proposal_data")).Scores,
+		assert.Equal(tb, "6-4 6-3", league.ParseProposalData(pending[0].GetString("proposal_data")).Scores,
 			"corrected scores must be in the new proposal")
 
 		want := league.Notification{
@@ -209,7 +209,7 @@ func TestMatchCorrectAdminBypass(t *testing.T) {
 		entry, err := app.FindFirstRecordByFilter("match_messages",
 			"match = {:mid} && type = 'result_response'", map[string]any{"mid": matchID})
 		require.NoError(tb, err, "the rejection leaves a timeline entry")
-		pd := handlers.ParseProposalData(entry.Get("proposal_data"))
+		pd := league.ParseProposalData(entry.Get("proposal_data"))
 		assert.Equal(tb, "reject", pd.Action)
 		assert.Equal(tb, "6-3 6-4", pd.Scores, "frozen snapshot of the rejected proposal")
 		assert.Equal(tb, admin.Id, entry.GetString("author"), "attributed to the admin")

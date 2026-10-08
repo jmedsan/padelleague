@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"padelleague/handlers"
+	"padelleague/league"
 )
 
 func TestLoginPage(t *testing.T) {
@@ -298,7 +299,7 @@ func TestMatchSubmitValidScore(t *testing.T) {
 			"", 0, 0, map[string]any{"mid": matchID})
 		require.NoError(tb, err)
 		require.Len(tb, proposals, 1)
-		assert.Equal(tb, "6-3 6-4", handlers.ParseProposalData(proposals[0].GetString("proposal_data")).Scores)
+		assert.Equal(tb, "6-3 6-4", league.ParseProposalData(proposals[0].GetString("proposal_data")).Scores)
 	}
 	handlers.ExpectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)

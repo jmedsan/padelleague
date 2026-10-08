@@ -55,6 +55,8 @@ func NotifNewMessage(matchID, authorName, content, compName string) Notification
 	return Notification{
 		Type: "message", Title: "Nuevo mensaje",
 		Body:     fmt.Sprintf("%s escribió: %s", authorName, Truncate(content, 60)),
+		Author:   authorName,
+		Text:     content,
 		MatchID:  matchID,
 		CompName: compName,
 	}
@@ -167,10 +169,10 @@ func NotifDisputeResolved(matchID, compName string) Notification {
 }
 
 // NotifAdminMatchProgress alerts admins of match score activity (submit or confirm).
-func NotifAdminMatchProgress(matchID, summary string) Notification {
+func NotifAdminMatchProgress(matchID, summary, compName string) Notification {
 	return Notification{
 		Type: "match_progress", Title: "Progreso de partido",
-		Body: summary, MatchID: matchID,
+		Body: summary, MatchID: matchID, CompName: compName,
 	}
 }
 
@@ -313,10 +315,11 @@ func NotifAdminUserJoined(displayName string) Notification {
 // NotifResultAutoConfirmed tells both pairs a result was confirmed by timeout.
 func NotifResultAutoConfirmed(matchID, compName string) Notification {
 	return Notification{
-		Type:    "general",
-		Title:   "Resultado confirmado automáticamente",
-		Body:    fmt.Sprintf("El resultado ha sido confirmado por tiempo de espera · %s.", compName),
-		MatchID: matchID,
+		Type:     "general",
+		Title:    "Resultado confirmado automáticamente",
+		Body:     "El resultado ha sido confirmado por tiempo de espera.",
+		MatchID:  matchID,
+		CompName: compName,
 	}
 }
 
@@ -324,10 +327,11 @@ func NotifResultAutoConfirmed(matchID, compName string) Notification {
 // waited more than thresholdHours for an answer.
 func NotifProposalResponsePending(matchID, submitterName, compName string, thresholdHours int) Notification {
 	return Notification{
-		Type:    "quorum_request",
-		Title:   "Resultado pendiente de respuesta",
-		Body:    fmt.Sprintf("%s propuso un resultado hace más de %d horas · %s. Acepta o contrapropón.", submitterName, thresholdHours, compName),
-		MatchID: matchID,
+		Type:     "quorum_request",
+		Title:    "Resultado pendiente de respuesta",
+		Body:     fmt.Sprintf("%s propuso un resultado hace más de %d horas. Acepta o contrapropón.", submitterName, thresholdHours),
+		MatchID:  matchID,
+		CompName: compName,
 	}
 }
 
@@ -335,10 +339,11 @@ func NotifProposalResponsePending(matchID, submitterName, compName string, thres
 // has waited more than thresholdHours for confirmation.
 func NotifResultConfirmationPending(matchID, submitterName, compName string, thresholdHours int) Notification {
 	return Notification{
-		Type:    "quorum_request",
-		Title:   "Resultado pendiente de confirmar",
-		Body:    fmt.Sprintf("%s envió un resultado hace más de %d horas · %s. Confirma o contrapropón.", submitterName, thresholdHours, compName),
-		MatchID: matchID,
+		Type:     "quorum_request",
+		Title:    "Resultado pendiente de confirmar",
+		Body:     fmt.Sprintf("%s envió un resultado hace más de %d horas. Confirma o contrapropón.", submitterName, thresholdHours),
+		MatchID:  matchID,
+		CompName: compName,
 	}
 }
 
@@ -346,20 +351,22 @@ func NotifResultConfirmationPending(matchID, submitterName, compName string, thr
 // carried sets.
 func NotifMatchResumes(matchID, carried, compName string) Notification {
 	return Notification{
-		Type:    "scheduling",
-		Title:   "Partido por reanudar",
-		Body:    fmt.Sprintf("Se reanuda desde %s 0-0. Acordad una nueva fecha · %s.", carried, compName),
-		MatchID: matchID,
+		Type:     "scheduling",
+		Title:    "Partido por reanudar",
+		Body:     fmt.Sprintf("Se reanuda desde %s 0-0. Acordad una nueva fecha.", carried),
+		MatchID:  matchID,
+		CompName: compName,
 	}
 }
 
 // NotifPenaltyApplied tells a pair's players a points penalty was applied.
-func NotifPenaltyApplied(compID string, amount float64, reason string) Notification {
+func NotifPenaltyApplied(compID, compName string, amount float64, reason string) Notification {
 	return Notification{
-		Type:  "penalty",
-		Title: "Penalización aplicada",
-		Body:  fmt.Sprintf("%.0f puntos — %s", amount, reason),
-		Link:  "/competition/" + compID,
+		Type:     "penalty",
+		Title:    "Penalización aplicada",
+		Body:     fmt.Sprintf("%.0f puntos — %s", amount, reason),
+		Link:     "/competition/" + compID,
+		CompName: compName,
 	}
 }
 
@@ -367,20 +374,22 @@ func NotifPenaltyApplied(compID string, amount float64, reason string) Notificat
 // pending-match penalties.
 func NotifAdminPenaltiesApplied(compID, compName string, count int) Notification {
 	return Notification{
-		Type:  "penalty",
-		Title: "Penalizaciones automáticas aplicadas",
-		Body:  fmt.Sprintf("%d penalizaciones aplicadas en %s", count, compName),
-		Link:  "/admin/competitions/" + compID,
+		Type:     "penalty",
+		Title:    "Penalizaciones automáticas aplicadas",
+		Body:     fmt.Sprintf("%d penalizaciones aplicadas", count),
+		Link:     "/admin/competitions/" + compID,
+		CompName: compName,
 	}
 }
 
 // NotifAdminLeagueClosed alerts admins that the rulebook close ended a league.
 func NotifAdminLeagueClosed(compID, compName string, penalties int) Notification {
 	return Notification{
-		Type:  "penalty",
-		Title: "Liga cerrada automáticamente",
-		Body:  fmt.Sprintf("%s ha terminado su semana extraordinaria: %d penalizaciones por partidos no disputados. Revísalas y corrige las que correspondan a una sola pareja.", compName, penalties),
-		Link:  "/admin/competitions/" + compID,
+		Type:     "penalty",
+		Title:    "Liga cerrada automáticamente",
+		Body:     fmt.Sprintf("La liga ha terminado su semana extraordinaria: %d penalizaciones por partidos no disputados. Revísalas y corrige las que correspondan a una sola pareja.", penalties),
+		Link:     "/admin/competitions/" + compID,
+		CompName: compName,
 	}
 }
 
@@ -404,12 +413,13 @@ func NotifPasswordResetRequested() Notification {
 }
 
 // NotifPenaltyVoided tells a pair's players a penalty was voided.
-func NotifPenaltyVoided(compID string, amount float64) Notification {
+func NotifPenaltyVoided(compID, compName string, amount float64) Notification {
 	return Notification{
-		Type:  "penalty",
-		Title: "Penalización anulada",
-		Body:  fmt.Sprintf("%.0f puntos anulados", amount),
-		Link:  "/competition/" + compID,
+		Type:     "penalty",
+		Title:    "Penalización anulada",
+		Body:     fmt.Sprintf("%.0f puntos anulados", amount),
+		Link:     "/competition/" + compID,
+		CompName: compName,
 	}
 }
 
@@ -457,7 +467,8 @@ func NotifAdminDateCancelled(p DateCancelledParams) Notification {
 	return Notification{
 		Type:     "dispute",
 		Title:    "Cancelación de partido",
-		Body:     fmt.Sprintf("%s vs %s: %s ha cancelado la fecha. Motivo: %s%s", p.Pair1Name, p.Pair2Name, p.PlayerName, p.Reason, p.Urgency),
+		Prefix:   fmt.Sprintf("%s vs %s: ", p.Pair1Name, p.Pair2Name),
+		Body:     fmt.Sprintf("%s ha cancelado la fecha. Motivo: %s%s", p.PlayerName, p.Reason, p.Urgency),
 		MatchID:  p.MatchID,
 		CompName: p.CompName,
 	}

@@ -54,7 +54,7 @@ func TestMatchSubmitScore(t *testing.T) {
 			"", 0, 0, map[string]any{"mid": matchID})
 		require.NoError(tb, err)
 		require.Len(tb, proposals, 1, "a pending result proposal must exist")
-		assert.Equal(tb, "6-3 6-4", handlers.ParseProposalData(proposals[0].GetString("proposal_data")).Scores)
+		assert.Equal(tb, "6-3 6-4", league.ParseProposalData(proposals[0].GetString("proposal_data")).Scores)
 	}
 	s.Test(t)
 }
@@ -96,7 +96,7 @@ func TestMatchCorrect(t *testing.T) {
 			"match = {:mid} && type = 'result_submission' && proposal_status = 'pending'",
 			"", 0, 0, map[string]any{"mid": matchID})
 		require.Len(tb, pending, 1, "corrected proposal must be pending")
-		assert.Equal(tb, "6-4 6-3", handlers.ParseProposalData(pending[0].GetString("proposal_data")).Scores)
+		assert.Equal(tb, "6-4 6-3", league.ParseProposalData(pending[0].GetString("proposal_data")).Scores)
 
 		superseded, _ := app.FindRecordsByFilter("match_messages",
 			"match = {:mid} && type = 'result_submission' && proposal_status = 'superseded'",

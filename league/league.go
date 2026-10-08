@@ -13,6 +13,9 @@ type Notification struct {
 	Type     string
 	Title    string
 	Body     string
+	Prefix   string // match context ("A vs B: ") ahead of Body; the email drops it when its context card shows the match
+	Author   string // chat only: who wrote it, for the email quote
+	Text     string // chat only: the full message; Body holds a truncated copy
 	MatchID  string
 	Link     string // overrides the "/match/{MatchID}" default when set
 	CompName string // competition display name, rendered as a secondary line

@@ -52,7 +52,7 @@ type SchedProposalVM struct {
 	RecordID    string
 	MatchID     string
 	AuthorLabel string
-	Data        *ProposalData
+	Data        *league.ProposalData
 	Status      string // "pending" | "accepted" | "superseded"
 	CanRespond  bool
 	CanWithdraw bool
@@ -173,7 +173,7 @@ func (bc *threadBuildCtx) processMessage(msg *core.Record, authorID, cachedName 
 // response, its own recorded Action), not proposal_status (which is the
 // proposal's current, possibly later-superseded, state).
 func (bc *threadBuildCtx) timelineEntry(mc msgCtx) TimelineEntryVM {
-	pd := ParseProposalData(mc.msg.GetString("proposal_data"))
+	pd := league.ParseProposalData(mc.msg.GetString("proposal_data"))
 	entry := TimelineEntryVM{
 		Kind:       timelineKind(mc.msgType),
 		AuthorName: mc.authorName,
@@ -219,7 +219,7 @@ func (bc *threadBuildCtx) appendToPanel(mc msgCtx, td *ThreadData) {
 		td.SchedProposals = append(td.SchedProposals, bc.schedProposal(mc, sameTeam))
 	}
 	if mc.msgType == "scheduling_proposal" && status == "rejected" && mc.authorTeam == bc.myTeam {
-		pd := ParseProposalData(mc.msg.GetString("proposal_data"))
+		pd := league.ParseProposalData(mc.msg.GetString("proposal_data"))
 		reason := mc.msg.GetString("rejection_text")
 		if reason == "" {
 			reason = mc.msg.GetString("rejection_reason")
@@ -242,7 +242,7 @@ func (bc *threadBuildCtx) schedProposal(mc msgCtx, sameTeam bool) SchedProposalV
 		RecordID:    mc.msg.Id,
 		MatchID:     bc.matchID,
 		AuthorLabel: mc.authorName,
-		Data:        ParseProposalData(mc.msg.GetString("proposal_data")),
+		Data:        league.ParseProposalData(mc.msg.GetString("proposal_data")),
 		Status:      status,
 		CanRespond:  canRespond && bc.compModifiable,
 		CanWithdraw: bc.myTeam != 0 && sameTeam && status == "pending" && bc.compModifiable,
@@ -255,7 +255,7 @@ func (bc *threadBuildCtx) resultProposal(msg *core.Record, authorName string, au
 	canRespond, _ := proposalActions("result_submission", bc.matchStatus, sameTeam, msg.GetString("proposal_status"))
 	canRespond = canRespond && bc.compModifiable
 	score := msg.GetString("content")
-	if pd := ParseProposalData(msg.Get("proposal_data")); pd != nil && pd.Scores != "" {
+	if pd := league.ParseProposalData(msg.Get("proposal_data")); pd != nil && pd.Scores != "" {
 		score = pd.Scores
 	}
 	rp := ResultProposalVM{
@@ -295,7 +295,7 @@ func timelineKind(msgType string) string {
 // renders through resultBox/dateBox, based on the message type. Response
 // entries (accept/reject) carry the same proposal data as their parent
 // proposal, so they render the identical component with a different badge.
-func fillTimelineEntryData(entry *TimelineEntryVM, pd *ProposalData, msgType string) {
+func fillTimelineEntryData(entry *TimelineEntryVM, pd *league.ProposalData, msgType string) {
 	if pd == nil {
 		return
 	}
