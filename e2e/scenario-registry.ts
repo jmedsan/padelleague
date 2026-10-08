@@ -3,7 +3,8 @@ export type StageName = (typeof STAGE_ORDER)[number];
 
 export interface Scenario {
   description: string;
-  startStage: StageName;
+  // 'blank' boots an empty server: the scenario's first spec seeds everything itself.
+  startStage: StageName | 'blank';
   // Points the server's SMTP at Mailpit (also forced by MAIL=1 on any scenario).
   mail?: boolean;
   specs: string[];
@@ -69,6 +70,12 @@ export const SCENARIOS: Record<string, Scenario> = {
     description: 'a date and place were proposed, not accepted — the result cannot be entered yet',
     startStage: 'assigned',
     specs: ['result-date-proposed.spec.ts'],
+  },
+  'mail-chat': {
+    description: 'one match, four players with distinct emails, SMTP pointed at Mailpit (run `make mail`) — post a chat message and watch the inbox',
+    startStage: 'blank',
+    mail: true,
+    specs: ['mail-chat.spec.ts'],
   },
   'several-competitions': {
     description: 'three active competitions with quorum 12h, 48h, 48h',

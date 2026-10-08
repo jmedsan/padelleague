@@ -448,6 +448,7 @@ async function advanceToStage(api: ScenarioApi, ctx: ScenarioCtx, stageName: str
 }
 
 export async function buildToStage(api: ScenarioApi, stageName: string): Promise<ScenarioCtx> {
+  if (stageName === 'blank') return { ...emptyCtx(api), stage: 'blank' };
   return advanceToStage(api, emptyCtx(api), stageName);
 }
 
