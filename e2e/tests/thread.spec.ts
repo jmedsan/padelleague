@@ -1,7 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import {
-  loginAs, scratchMatchId, loadTestData, leagueDate,
+  loginAs, scratchMatchId, loadTestData, leagueDate, openMatchFromHome,
   suPost as suPostBase, suPatch as suPatchBase,
   PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, PLAYER5_EMAIL, PLAYER5_PASSWORD,
   ADMIN_EMAIL, ADMIN_PASSWORD,
@@ -45,6 +45,17 @@ test.describe('match thread', { tag: '@thread' }, () => {
       msg,
       { timeout: 15000 }
     );
+  });
+
+  test('chat textbox is cleared after sending a message', async ({ page }) => {
+    const data = loadTestData();
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await openMatchFromHome(page, data.matchIds[0]);
+    const box = page.getByLabel('Mensaje');
+    const msg = `E2E clear ${Date.now()}`;
+    await box.fill(msg);
+    await clickAndWaitForHxRedirect(page, page.getByRole('button', { name: 'Enviar', exact: true }), `/match/${data.matchIds[0]}`);
+    await expect(box).toHaveValue('');
   });
 
   test('player can propose a schedule', async ({ page }, testInfo) => {

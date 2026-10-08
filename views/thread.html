@@ -245,7 +245,7 @@
             {{if and .IsAdmin (not .IsParticipant)}}
             <div class="text-center text-sm opacity-60 mb-2">Escribiendo como administrador</div>
             {{end}}
-            <form hx-post="/match/{{.MatchID}}/thread/message" hx-target="body" class="flex gap-2">
+            <form hx-post="/match/{{.MatchID}}/thread/message" hx-target="body" hx-on::after-request="if(event.detail.xhr.status<400)this.reset()" class="flex gap-2">
                 <input type="hidden" name="type" value="chat">
                 <input type="text" name="content" aria-label="Mensaje" class="input input-bordered input-sm flex-1 min-w-0" placeholder="Escribe un mensaje..." required>
                 <button type="submit" hx-disabled-elt="this" class="btn btn-primary btn-sm">Enviar</button>
