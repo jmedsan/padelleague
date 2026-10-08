@@ -207,3 +207,118 @@ func TestEmail_ChatMessageIsNotTruncated(t *testing.T) {
 	html := capture(t, app, n)
 	assert.Contains(t, html, text)
 }
+
+// proposeSchedule saves a scheduling_proposal message on the match.
+func proposeSchedule(t *testing.T, app core.App, match *core.Record, data, status string) {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId("match_messages")
+	require.NoError(t, err)
+	msg := core.NewRecord(col)
+	msg.Set("match", match.Id)
+	msg.Set("author", makeUser(t, app, "player").Id)
+	msg.Set("type", "scheduling_proposal")
+	msg.Set("proposal_data", data)
+	msg.Set("proposal_status", status)
+	require.NoError(t, app.Save(msg))
+}
+
+func TestLoadMatchInfo_Schedule(t *testing.T) {
+	t.Parallel()
+	confirm := func(m *core.Record, clubCourt, clock string) {
+		m.Set("date", "2026-10-20")
+		m.Set("time", clock)
+		m.Set("club", "Padel 360")
+		m.Set("court_number", clubCourt)
+	}
+	tests := []struct {
+		name  string
+		setup func(t *testing.T, app core.App, m *core.Record)
+		want  matchInfo
+	}{
+		{"confirmed without court or time", func(_ *testing.T, _ core.App, m *core.Record) { confirm(m, "", "") },
+			matchInfo{Status: scheduleConfirmed, When: "20/10/2026", Place: "Padel 360"}},
+		{"date without club is not confirmed", func(_ *testing.T, _ core.App, m *core.Record) { m.Set("date", "2026-10-20") },
+			matchInfo{}},
+		{"club without date is not confirmed", func(_ *testing.T, _ core.App, m *core.Record) { m.Set("club", "Padel 360") },
+			matchInfo{}},
+		{"proposal prefers the venue name", func(t *testing.T, app core.App, m *core.Record) {
+			proposeSchedule(t, app, m, `{"date":"2026-11-02","time":"19:00","venue_name":"Wurko","venue_text":"otro"}`, "pending")
+		}, matchInfo{Status: scheduleProposed, When: "02/11/2026 19:00", Place: "Wurko"}},
+		{"proposal without a date shows nothing", func(t *testing.T, app core.App, m *core.Record) {
+			proposeSchedule(t, app, m, `{"time":"19:00","venue_text":"Wurko"}`, "pending")
+		}, matchInfo{}},
+		{"accepted proposal is not pending", func(t *testing.T, app core.App, m *core.Record) {
+			proposeSchedule(t, app, m, `{"date":"2026-11-02","venue_text":"Wurko"}`, "accepted")
+		}, matchInfo{}},
+		{"confirmed date wins over a pending proposal", func(t *testing.T, app core.App, m *core.Record) {
+			confirm(m, "", "18:30")
+			proposeSchedule(t, app, m, `{"date":"2026-11-02","venue_text":"Wurko"}`, "pending")
+		}, matchInfo{Status: scheduleConfirmed, When: "20/10/2026 18:30", Place: "Padel 360"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			app := newTestApp(t)
+			match := makeMatch(t, app)
+			tt.setup(t, app, match)
+			require.NoError(t, app.Save(match))
+			info, ok := loadMatchInfo(app, match.Id)
+			require.True(t, ok)
+			assert.Equal(t, tt.want.Status, info.Status)
+			assert.Equal(t, tt.want.When, info.When)
+			assert.Equal(t, tt.want.Place, info.Place)
+		})
+	}
+}
+
+func TestLoadMatchInfo_NotFoundAndUnknownPair(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	_, ok := loadMatchInfo(app, "missing")
+	assert.False(t, ok)
+	assert.Equal(t, matchPair{Name: "Pareja desconocida"}, loadMatchPair(app, "missing"))
+}
+
+func TestMessageHTML(t *testing.T) {
+	t.Parallel()
+	chat := messageHTML(emailContent{Author: "Ana <b> (Pareja X)", Text: "hola <i>"})
+	assert.Contains(t, chat, "Ana &lt;b&gt; · Pareja X escribió:")
+	assert.Contains(t, chat, "hola &lt;i&gt;")
+	assert.NotContains(t, chat, "<i>")
+	assert.Contains(t, messageHTML(emailContent{Author: "Ana", Text: "x"}), "Ana escribió:")
+	plain := messageHTML(emailContent{Body: "a <b>", Author: "Ana"})
+	assert.Contains(t, plain, "a &lt;b&gt;")
+	assert.NotContains(t, plain, "escribió")
+}
+
+func TestBuildNotificationEmail_LinkLabels(t *testing.T) {
+	t.Parallel()
+	tests := []struct{ link, want string }{
+		{"https://x.test/match/1", "Ver partido"},
+		{"https://x.test/competition/1", "Ver competición"},
+		{"https://x.test/notifications", "Abrir"},
+	}
+	for _, tt := range tests {
+		html := buildNotificationEmail("Ana", emailContent{Body: "b"}, tt.link)
+		assert.Contains(t, html, ">"+tt.want+"<", tt.link)
+		for _, other := range []string{"Ver partido", "Ver competición", "Abrir"} {
+			if other != tt.want {
+				assert.NotContains(t, html, ">"+other+"<", tt.link)
+			}
+		}
+	}
+}
+
+func TestPairBlockHTML_PlayersLineOnlyWhenKnown(t *testing.T) {
+	t.Parallel()
+	assert.NotContains(t, pairBlockHTML(matchPair{Name: "A"}), "font-size:13px")
+	assert.Contains(t, pairBlockHTML(matchPair{Name: "A", Players: "x / y"}), "x / y")
+}
+
+func TestEmail_RelativeLinkGetsTheAppURL(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	app.Settings().Meta.AppURL = "https://liga.test/"
+	html := capture(t, app, league.Notification{Type: "general", Title: "T", Body: "b", Link: "/match/abc"})
+	assert.Contains(t, html, `href="https://liga.test/match/abc"`)
+}
