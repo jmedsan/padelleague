@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { runDataDir } from './run-dir';
 import { SMTPServer } from 'smtp-server';
+import { ADMIN_EMAIL, ADMIN_PASSWORD } from './helpers';
 import { STAGE_ORDER, type StageName } from './scenario-registry';
 
 export const PLAYER_PASSWORD = 'TestPass123456';
@@ -560,4 +561,122 @@ export async function mailpitReachable(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export type ChatSchedule = 'none' | 'proposed' | 'confirmed';
+
+export interface ChatMatch {
+  competitionId: string;
+  competitionName: string;
+  matchID: string;
+  players: Array<{ id: string; email: string }>;
+  pairs: Array<{ id: string; name: string; player1Idx: number; player2Idx: number }>;
+  // pair1 / pair2 of the match, as seeded (p01 and p02 may be on either side).
+  pair1: { id: string; name: string; player1Idx: number; player2Idx: number };
+  pair2: { id: string; name: string; player1Idx: number; player2Idx: number };
+}
+
+async function playerToken(baseURL: string, email: string): Promise<string> {
+  const resp = await fetch(`${baseURL}/api/collections/users/auth-with-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identity: email, password: PLAYER_PASSWORD }),
+  });
+  if (!resp.ok) throw new Error(`login ${email}: ${resp.status}`);
+  return (await resp.json()).token;
+}
+
+// playerPost submits a form to an app route as a player, like the browser does.
+export async function playerPost(api: ScenarioApi, email: string, path: string, form: Record<string, string>): Promise<void> {
+  const resp = await fetch(`${api.baseURL}${path}`, {
+    method: 'POST',
+    headers: {
+      Cookie: `pb_auth=${await playerToken(api.baseURL, email)}`,
+      'HX-Request': 'true',
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams(form).toString(),
+    redirect: 'manual',
+  });
+  if (resp.status >= 400) throw new Error(`POST ${path}: ${resp.status} ${await resp.text()}`);
+}
+
+// seedChatMatch builds one competition with one match between two pairs of
+// players (p01 + p02 against p03 + p04; p04 is unverified, so gets no email)
+// and, through the real routes, leaves its date in the given state.
+export async function seedChatMatch(api: ScenarioApi, title: string, schedule: ChatSchedule): Promise<ChatMatch> {
+  const suffix = uniqueSuffix();
+  const players = await createPlayers(api, 4, suffix);
+  await apiPatch(api, `/api/collections/users/records/${players[3].id}`, { verified: false });
+  const pairs = await createPairs(api, players, suffix);
+  const competitionName = `${title} ${suffix}`;
+  const competitionId = await createCompetition(api, competitionName, 0, 0);
+  for (const pair of pairs) await addPairToCompetition(api, competitionId, pair.id);
+  await generateAssignments(api, competitionId);
+  await publishCalendar(api, competitionId);
+  const list = await apiGet(api, `/api/collections/matches/records?filter=${encodeURIComponent(
+    `competition='${competitionId}'`)}&perPage=5`);
+  if (list.totalItems !== 1) throw new Error(`expected one match, got ${list.totalItems}`);
+  const match = list.items[0];
+  const pairOf = (id: string) => pairs.find((p) => p.id === id)!;
+  const pair1 = pairOf(match.pair1);
+  const pair2 = pairOf(match.pair2);
+
+  if (schedule !== 'none') {
+    await playerPost(api, players[pair1.player1Idx].email, `/match/${match.id}/thread/proposal`,
+      { date: '2027-09-15', time: '18:30', venue_text: 'Padel 360' });
+    const pending = await apiGet(api, `/api/collections/match_messages/records?filter=${encodeURIComponent(
+      `match='${match.id}' && type='scheduling_proposal' && proposal_status='pending'`)}&perPage=5`);
+    if (pending.totalItems !== 1) throw new Error(`expected one pending proposal, got ${pending.totalItems}`);
+    if (schedule === 'confirmed') {
+      await playerPost(api, players[pair2.player1Idx].email,
+        `/match/${match.id}/thread/proposal/${pending.items[0].id}/respond`, { action: 'accept' });
+    }
+  }
+  return { competitionId, competitionName, matchID: match.id, players, pairs, pair1, pair2 };
+}
+
+// printChatMatch lists the seeded match for a person to open: page, inbox,
+// players and one-click sign-in links.
+export function printChatMatch(baseURL: string, m: ChatMatch): void {
+  const matchPath = `/match/${m.matchID}`;
+  console.log(`\nMatch page: ${baseURL}${matchPath}`);
+  console.log(`Mailpit inbox: ${MAILPIT_URL} (start it with: make mail)`);
+  console.log(`Match: ${m.pair1.name} vs ${m.pair2.name}`);
+  for (const pair of m.pairs) {
+    for (const idx of [pair.player1Idx, pair.player2Idx]) {
+      console.log(`  ${pair.name}  ${m.players[idx].email}  password ${PLAYER_PASSWORD}  verified ${idx === 3 ? 'no' : 'yes'}`);
+    }
+  }
+  printLinks(baseURL, m.pairs.flatMap((pair) => [pair.player1Idx, pair.player2Idx].map((idx) => ({
+    label: `Sign in as ${pair.name} / ${m.players[idx].email}`,
+    email: m.players[idx].email, password: PLAYER_PASSWORD, path: matchPath,
+  }))));
+}
+
+// htmlOf returns the decoded text/html part of a captured MIME message.
+export function htmlOf(raw: string): string {
+  const parts = raw.split(/\r?\n--[^\r\n]+/);
+  const part = parts.find((p) => /content-type:\s*text\/html/i.test(p));
+  if (!part) throw new Error('no text/html part in message');
+  const [head, ...rest] = part.split(/\r?\n\r?\n/);
+  const body = rest.join('\n\n');
+  if (/content-transfer-encoding:\s*base64/i.test(head)) return Buffer.from(body, 'base64').toString('utf-8');
+  if (/content-transfer-encoding:\s*quoted-printable/i.test(head)) {
+    const bytes = body.replace(/=\r?\n/g, '').replace(/=([0-9A-F]{2})/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+    return Buffer.from(bytes, 'latin1').toString('utf-8');
+  }
+  return body;
+}
+
+// adminCookie logs the test admin in through the HTML form and returns the
+// session cookie header value.
+export async function adminCookie(baseURL: string): Promise<string> {
+  const resp = await fetch(`${baseURL}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `email=${ADMIN_EMAIL}&password=${ADMIN_PASSWORD}`,
+    redirect: 'manual',
+  });
+  return (resp.headers.getSetCookie?.() || []).join('; ');
 }

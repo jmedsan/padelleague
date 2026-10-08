@@ -1,6 +1,7 @@
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { runDataDir } from './run-dir';
+import { adminCookie } from './scenario-helpers';
 import { spawnServer, superuserLogin, sweepStaleTestDirs } from './server';
 
 // Port must match playwright.config.ts's resolution of E2E_PORT (see the
@@ -131,20 +132,9 @@ export async function seedTestData(baseURL: string, port: number) {
     });
   }
 
-  async function adminCookie(): Promise<string> {
-    const loginResp = await fetch(`${baseURL}/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `email=${ADMIN_EMAIL}&password=${ADMIN_PASSWORD}`,
-      redirect: 'manual',
-    });
-    const cookies = loginResp.headers.getSetCookie?.() || [];
-    return cookies.join('; ');
-  }
-
   async function generateFixtures(compId: string) {
     // Use the admin HTML endpoint with cookie-based auth
-    const cookieStr = await adminCookie();
+    const cookieStr = await adminCookie(baseURL);
     await fetch(`${baseURL}/admin/competitions/${compId}/generate`, {
       method: 'POST',
       headers: { 'Cookie': cookieStr, 'HX-Request': 'true' },
@@ -155,7 +145,7 @@ export async function seedTestData(baseURL: string, port: number) {
   // — generateFixtures alone leaves it in draft (calendar_status), which
   // hides matches/standings from every non-admin test fixture relies on.
   async function publishCalendar(compId: string) {
-    const cookieStr = await adminCookie();
+    const cookieStr = await adminCookie(baseURL);
     await fetch(`${baseURL}/admin/competitions/${compId}/publish`, {
       method: 'POST',
       headers: { 'Cookie': cookieStr, 'HX-Request': 'true' },
