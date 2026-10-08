@@ -2,6 +2,7 @@
 package routes
 
 import (
+	"encoding/json"
 	"io/fs"
 	"net/http"
 	"strings"
@@ -70,7 +71,7 @@ func Register(se *core.ServeEvent, deps Deps) {
 func registerStaticRoutes(se *core.ServeEvent, deps Deps) {
 	se.Router.GET("/manifest.json", func(e *core.RequestEvent) error {
 		data, _ := fs.ReadFile(deps.StaticFS, "static/manifest.json")
-		return e.Blob(http.StatusOK, "application/manifest+json", data)
+		return e.Blob(http.StatusOK, "application/manifest+json", leagueManifest(deps.App, data))
 	})
 	se.Router.GET("/sw.js", func(e *core.RequestEvent) error {
 		data, _ := fs.ReadFile(deps.StaticFS, "static/sw.js")
@@ -92,13 +93,13 @@ func registerStaticRoutes(se *core.ServeEvent, deps Deps) {
 	se.Router.GET("/logo/sponsor/{id}", logo.SponsorLogo)
 
 	se.Router.GET("/privacy", func(e *core.RequestEvent) error {
-		return deps.Renderer.Page(e, "privacy.html", map[string]any{"PageTitle": "Política de Privacidad"})
+		return deps.Renderer.Page(e, "privacy.html", map[string]any{"PageTitle": "Política de Privacidad", "LegalEmail": league.LoadContactInfo(deps.App).Email})
 	})
 	se.Router.GET("/cookies", func(e *core.RequestEvent) error {
 		return deps.Renderer.Page(e, "cookies.html", map[string]any{"PageTitle": "Política de Cookies"})
 	})
 	se.Router.GET("/aviso-legal", func(e *core.RequestEvent) error {
-		return deps.Renderer.Page(e, "aviso-legal.html", map[string]any{"PageTitle": "Aviso Legal"})
+		return deps.Renderer.Page(e, "aviso-legal.html", map[string]any{"PageTitle": "Aviso Legal", "LegalEmail": league.LoadContactInfo(deps.App).Email})
 	})
 
 	se.Router.GET("/healthz", func(e *core.RequestEvent) error {
@@ -386,4 +387,21 @@ func blockPBDashboard(se *core.ServeEvent) {
 		},
 		Priority: -1050,
 	})
+}
+
+// leagueManifest stamps the league name from app_settings into the static
+// manifest's name and short_name. The static manifest is returned unchanged
+// when it is not a JSON object.
+func leagueManifest(app core.App, static []byte) []byte {
+	var m map[string]any
+	if err := json.Unmarshal(static, &m); err != nil {
+		return static
+	}
+	name := league.DisplayName(app)
+	m["name"], m["short_name"] = name, name
+	out, err := json.Marshal(m)
+	if err != nil {
+		return static
+	}
+	return out
 }

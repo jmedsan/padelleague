@@ -641,3 +641,104 @@ func TestRegisterPage_ExplainsPhoneVisibility(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+// setLeagueSettings overwrites app_settings fields on the singleton row.
+func setLeagueSettings(tb testing.TB, app *tests.TestApp, fields map[string]any) {
+	tb.Helper()
+	rec, err := app.FindFirstRecordByFilter("app_settings", "1=1")
+	require.NoError(tb, err)
+	for k, v := range fields {
+		rec.Set(k, v)
+	}
+	require.NoError(tb, app.Save(rec))
+}
+
+func TestLoginPage_FollowsLeagueBranding(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "GET /login shows the configured name as wordmark and its tagline",
+		Method:         http.MethodGet,
+		URL:            "/login",
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			`<span class="text-primary">Club</span> Norte`,
+			"Juega fuerte",
+		},
+		NotExpectedContent: []string{"Dale Fuerte"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		setLeagueSettings(tb, app, map[string]any{"league_name": "Club Norte", "league_tagline": "Juega fuerte"})
+	}
+	s.Test(t)
+}
+
+func TestLoginPage_EmptyTaglineRendersNoTaglineLine(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:     handlers.TestAppFactory,
+		Name:               "GET /login with an empty tagline omits the tagline paragraph",
+		Method:             http.MethodGet,
+		URL:                "/login",
+		ExpectedStatus:     200,
+		ExpectedContent:    []string{`<span class="text-primary">Club</span> Norte`},
+		NotExpectedContent: []string{"uppercase tracking-widest"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		setLeagueSettings(tb, app, map[string]any{"league_name": "Club Norte", "league_tagline": ""})
+	}
+	s.Test(t)
+}
+
+func TestLegalPages_UseConfiguredContactEmail(t *testing.T) {
+	t.Parallel()
+	for _, url := range []string{"/privacy", "/aviso-legal"} {
+		s := &tests.ApiScenario{
+			TestAppFactory: handlers.TestAppFactory,
+			Name:           "GET " + url + " shows the configured contact email and league name",
+			Method:         http.MethodGet,
+			URL:            url,
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`href="mailto:contacto@club-norte.test"`,
+				"Club Norte",
+			},
+			NotExpectedContent: []string{"ligadalefuerte.com", "Dale Fuerte"},
+		}
+		s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+			setupProductionRoutes(tb, app, e)
+			setLeagueSettings(tb, app, map[string]any{"league_name": "Club Norte", "contact_email": "contacto@club-norte.test"})
+		}
+		s.Test(t)
+	}
+}
+
+func TestLegalPages_NoContactEmailFallsBackToText(t *testing.T) {
+	t.Parallel()
+	privacy := &tests.ApiScenario{
+		TestAppFactory:     handlers.TestAppFactory,
+		Name:               "GET /privacy without a contact email says to write to the league administration",
+		Method:             http.MethodGet,
+		URL:                "/privacy",
+		ExpectedStatus:     200,
+		ExpectedContent:    []string{"escribiendo a la administración de la liga"},
+		NotExpectedContent: []string{`href="mailto:`, "ligadalefuerte.com"},
+	}
+	aviso := &tests.ApiScenario{
+		TestAppFactory:     handlers.TestAppFactory,
+		Name:               "GET /aviso-legal without a contact email omits the contact line",
+		Method:             http.MethodGet,
+		URL:                "/aviso-legal",
+		ExpectedStatus:     200,
+		NotExpectedContent: []string{"Contacto:", `href="mailto:`, "ligadalefuerte.com"},
+	}
+	for _, s := range []*tests.ApiScenario{privacy, aviso} {
+		s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+			setupProductionRoutes(tb, app, e)
+			setLeagueSettings(tb, app, map[string]any{"contact_email": ""})
+		}
+		s.Test(t)
+	}
+}

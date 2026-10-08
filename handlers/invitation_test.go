@@ -86,3 +86,10 @@ func TestInvitationMaxUses(t *testing.T) {
 	useCount := int(fresh.GetFloat("use_count"))
 	assert.GreaterOrEqual(t, useCount, maxUses, "third use should be rejected")
 }
+
+func TestBuildInviteEmail_UsesEscapedLeagueName(t *testing.T) {
+	t.Parallel()
+	got := buildInviteEmail(`Club <Norte>`, "https://x.test/register?token=t")
+	assert.Contains(t, got, "Has sido invitado a unirte a Club &lt;Norte&gt;.")
+	assert.Contains(t, got, "https://x.test/register?token=t")
+}

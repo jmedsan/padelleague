@@ -18,6 +18,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/mailer"
 
+	"padelleague/league"
 	"padelleague/notify"
 )
 
@@ -170,7 +171,7 @@ func sendBackupEmail(app core.App, to, attachmentName string, data []byte) error
 		return fmt.Errorf("SMTP not configured")
 	}
 	now := time.Now()
-	subject := notify.SubjectPrefix() + "[Liga Dale Fuerte] Backup " + now.Format("2006-01-02")
+	subject := notify.SubjectPrefix() + "[" + league.DisplayName(app) + "] Backup " + now.Format("2006-01-02")
 	body := "Backup automático de pb_data/ — " + now.Format("2006-01-02 15:04:05")
 
 	msg := &mailer.Message{

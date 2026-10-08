@@ -499,3 +499,19 @@ func TestInitials(t *testing.T) {
 		})
 	}
 }
+
+func TestWordmark(t *testing.T) {
+	t.Parallel()
+	tests := []struct{ name, in, want string }{
+		{"first word highlighted", "Liga Norte Pro", `<span class="text-primary">Liga</span> Norte Pro`},
+		{"single word", "PadelLeague", `<span class="text-primary">PadelLeague</span>`},
+		{"empty", "", `<span class="text-primary"></span>`},
+		{"escapes both parts", `<b> & "x"`, `<span class="text-primary">&lt;b&gt;</span> &amp; &#34;x&#34;`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, string(wordmark(tc.in)))
+		})
+	}
+}

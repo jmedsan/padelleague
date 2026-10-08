@@ -60,3 +60,31 @@ func TestRegisterSMTP_EmptyAppURLLeavesExistingValue(t *testing.T) {
 
 	assert.Equal(t, "https://existing.example.com", app.Settings().Meta.AppURL, "empty AppURL config must not overwrite an existing value")
 }
+
+func TestRegisterSMTP_EmptySenderNameFallsBackToLeagueName(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	settings, err := app.FindFirstRecordByFilter("app_settings", "1=1")
+	require.NoError(t, err)
+	settings.Set("league_name", "Club Norte")
+	require.NoError(t, app.Save(settings))
+
+	registerSMTP(app, SMTPConfig{Host: "smtp.example.com", Port: 587, Sender: "a@example.com"})
+	require.NoError(t, app.OnServe().Trigger(&core.ServeEvent{App: app}, func(*core.ServeEvent) error { return nil }))
+
+	assert.Equal(t, "Club Norte", app.Settings().Meta.SenderName)
+}
+
+func TestRegisterSMTP_SenderNameEnvWinsOverLeagueName(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	settings, err := app.FindFirstRecordByFilter("app_settings", "1=1")
+	require.NoError(t, err)
+	settings.Set("league_name", "Club Norte")
+	require.NoError(t, app.Save(settings))
+
+	registerSMTP(app, SMTPConfig{Host: "smtp.example.com", Port: 587, Sender: "a@example.com", SenderName: "Env Name"})
+	require.NoError(t, app.OnServe().Trigger(&core.ServeEvent{App: app}, func(*core.ServeEvent) error { return nil }))
+
+	assert.Equal(t, "Env Name", app.Settings().Meta.SenderName)
+}

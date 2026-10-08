@@ -6,6 +6,16 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// DefaultLeagueName is the league name shown until an admin sets one in
+// app_settings (league_name).
+const DefaultLeagueName = "PadelLeague"
+
+// DisplayName returns the league-wide name from app_settings, or
+// DefaultLeagueName when none is set.
+func DisplayName(app core.App) string {
+	return settingsString(leagueSettingsRecord(app), "league_name", DefaultLeagueName)
+}
+
 // FooterCompIdent identifies a competition in the footer.
 type FooterCompIdent struct {
 	ID      string
@@ -50,8 +60,8 @@ type BrandingData struct {
 func Branding(app core.App, compID string) BrandingData {
 	settings := leagueSettingsRecord(app)
 	bd := BrandingData{
-		Name:    settingsString(settings, "league_name", "Liga Dale Fuerte"),
-		Tagline: settingsString(settings, "league_tagline", "A La Bola"),
+		Name:    settingsString(settings, "league_name", DefaultLeagueName),
+		Tagline: settingsString(settings, "league_tagline", ""),
 		LogoURL: leagueLogoURL(settings),
 	}
 

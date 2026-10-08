@@ -3,12 +3,14 @@ package hooks
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/pocketbase/pocketbase/tools/mailer"
 	"github.com/pocketbase/pocketbase/tools/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1575,4 +1577,33 @@ func TestApplyPendingMatchPenalties_RulebookClose(t *testing.T) {
 		CompName: "Hook Rulebook Close Test",
 	}
 	assertNotified(t, app, adminUsers[0].Id, adminClosedWant)
+}
+
+func TestMailerSubjects_UseLeagueName(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	settings, err := app.FindFirstRecordByFilter("app_settings", "1=1")
+	require.NoError(t, err)
+	settings.Set("league_name", "Club Norte")
+	require.NoError(t, app.Save(settings))
+	registerMailerBranding(app)
+	user := core.NewRecord(core.NewBaseCollection("users"))
+
+	for name, trigger := range map[string]func(*core.MailerRecordEvent) error{
+		"reset": func(e *core.MailerRecordEvent) error {
+			return app.OnMailerRecordPasswordResetSend().Trigger(e, func(*core.MailerRecordEvent) error { return nil })
+		},
+		"verify": func(e *core.MailerRecordEvent) error {
+			return app.OnMailerRecordVerificationSend().Trigger(e, func(*core.MailerRecordEvent) error { return nil })
+		},
+		"email change": func(e *core.MailerRecordEvent) error {
+			return app.OnMailerRecordEmailChangeSend().Trigger(e, func(*core.MailerRecordEvent) error { return nil })
+		},
+	} {
+		e := &core.MailerRecordEvent{Record: user, Meta: map[string]any{"token": "t"}}
+		e.App = app
+		e.Message = &mailer.Message{}
+		require.NoError(t, trigger(e), name)
+		assert.True(t, strings.HasSuffix(e.Message.Subject, " — Club Norte"), "%s: %q", name, e.Message.Subject)
+	}
 }

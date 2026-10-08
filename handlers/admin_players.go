@@ -164,7 +164,7 @@ func (h *AdminPlayerHandler) PlayerPreCreate(e *core.RequestEvent) error {
 
 	resetURL := buildResetURL(e, resetToken)
 
-	notify.SendEmail(h.app, email, notify.SubjectPrefix()+"Bienvenido a Liga Dale Fuerte",
+	notify.SendEmail(h.app, email, notify.SubjectPrefix()+"Bienvenido a "+league.DisplayName(h.app),
 		notify.RenderEmail(h.app, "", buildOnboardingEmail(email, resetURL)))
 
 	name := displayName
@@ -253,8 +253,8 @@ func buildOnboardingEmail(email, resetURL string) string {
 <p><a href="%s">Establecer contraseña</a></p>`, html.EscapeString(email), html.EscapeString(resetURL))
 }
 
-func buildInviteEmail(registerURL string) string {
-	return fmt.Sprintf(`<p>Has sido invitado a unirte a Liga Dale Fuerte.</p>
+func buildInviteEmail(leagueName, registerURL string) string {
+	return fmt.Sprintf(`<p>Has sido invitado a unirte a %s.</p>
 <p>Regístrate con el siguiente enlace:</p>
-<p><a href="%s">Registrarse</a></p>`, html.EscapeString(registerURL))
+<p><a href="%s">Registrarse</a></p>`, html.EscapeString(leagueName), html.EscapeString(registerURL))
 }

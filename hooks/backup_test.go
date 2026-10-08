@@ -126,6 +126,10 @@ func TestOnBackupCreate_EmailsEncryptedAttachment(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 	enableSMTPForBackupTest(t, app)
+	settings, err := app.FindFirstRecordByFilter("app_settings", "1=1")
+	require.NoError(t, err)
+	settings.Set("league_name", "Club Norte")
+	require.NoError(t, app.Save(settings))
 
 	registerBackup(app, BackupConfig{Email: "backup@test.local", EncryptionKey: "test-passphrase"})
 
@@ -134,7 +138,7 @@ func TestOnBackupCreate_EmailsEncryptedAttachment(t *testing.T) {
 	require.Equal(t, 1, app.TestMailer.TotalSend())
 	msg := app.TestMailer.LastMessage()
 	assert.Equal(t, "backup@test.local", msg.To[0].Address)
-	assert.Contains(t, msg.Subject, "Backup")
+	assert.Regexp(t, `\[Club Norte\] Backup \d{4}-\d{2}-\d{2}$`, msg.Subject)
 
 	require.Len(t, msg.Attachments, 1)
 	for name, r := range msg.Attachments {

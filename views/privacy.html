@@ -4,12 +4,12 @@
         <div class="card-body">
             <h1 class="card-title text-2xl mb-4">Política de Privacidad</h1>
             <div class="prose prose-sm max-w-none space-y-3">
-                <p><strong>Responsable:</strong> Liga Dale Fuerte.</p>
+                <p><strong>Responsable:</strong> {{.Branding.Name}}.</p>
                 <p><strong>Finalidad:</strong> organizar los partidos y competiciones de la liga de pádel.</p>
                 <p><strong>Datos que recogemos:</strong> nombre, email, teléfono y foto de perfil.</p>
                 <p><strong>Visibilidad del teléfono y el email:</strong> los jugadores registrados en la liga pueden verlos en tu perfil y, cuando jugáis un partido entre vosotros, en la página del partido, para organizar los partidos. Los administradores también pueden verlos.</p>
                 <p><strong>Conservación:</strong> tus datos se guardan mientras tengas una cuenta activa.</p>
-                <p><strong>Tus derechos:</strong> puedes solicitar el acceso, la rectificación o la eliminación de tus datos escribiendo a <a href="mailto:admin@ligadalefuerte.com" class="link link-primary">admin@ligadalefuerte.com</a>.</p>
+                <p><strong>Tus derechos:</strong> puedes solicitar el acceso, la rectificación o la eliminación de tus datos {{if .LegalEmail}}escribiendo a <a href="mailto:{{.LegalEmail}}" class="link link-primary">{{.LegalEmail}}</a>{{else}}escribiendo a la administración de la liga{{end}}.</p>
             </div>
             <div class="mt-4">
                 <a href="/" class="link link-hover text-sm opacity-60 breadcrumb-link">← Inicio</a>

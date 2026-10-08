@@ -40,7 +40,7 @@ type Config struct {
 	SMTPPass       string `env:"SMTP_PASSWORD"`
 	SMTPTLS        bool   `env:"SMTP_TLS" envDefault:"false"`
 	SMTPSender     string `env:"SMTP_SENDER_ADDRESS"`
-	SMTPSenderName string `env:"SMTP_SENDER_NAME" envDefault:"Liga Dale Fuerte"`
+	SMTPSenderName string `env:"SMTP_SENDER_NAME" envDefault:""`
 	AppURL         string `env:"APP_URL"`
 }
 

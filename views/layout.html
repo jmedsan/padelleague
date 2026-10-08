@@ -103,7 +103,7 @@
                 <div class="flex-1 min-w-0">
                     {{/* Below sm the wordmark may wrap to two lines, so the bar's icons fit at 360px. */}}
                     <a href="/" class="btn btn-ghost normal-case hover:bg-white/10 px-2 shrink min-w-0 sm:whitespace-nowrap">
-                        <span class="font-black italic uppercase tracking-tight leading-tight text-left text-neutral-content"><span class="text-primary">Liga</span> Dale Fuerte</span>
+                        <span class="font-black italic uppercase tracking-tight leading-tight text-left text-neutral-content">{{wordmark .Branding.Name}}</span>
                     </a>
                 </div>
                 {{if .HasBothRoles}}
@@ -265,7 +265,7 @@
             <label for="main-drawer" aria-label="cerrar menú" class="drawer-overlay"></label>
             <div class="bg-base-100 min-h-full w-72 p-0">
                 <div class="p-4 bg-neutral text-neutral-content">
-                    <span class="font-black italic uppercase tracking-tight"><span class="text-primary">Liga</span> Dale Fuerte</span>
+                    <span class="font-black italic uppercase tracking-tight">{{wordmark .Branding.Name}}</span>
                 </div>
                 {{if .DisplayName}}
                 <div class="p-4 pb-0 relative z-20">

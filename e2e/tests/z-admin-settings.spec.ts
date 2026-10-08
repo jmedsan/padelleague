@@ -233,4 +233,39 @@ test.describe('admin settings: league defaults', { tag: '@admin' }, () => {
     await emailInput.fill(originalEmail);
     await clickAndWaitForHxRedirect(page, saveButton, '/admin/settings');
   });
+  test('league name and tagline from settings drive the navbar wordmark and the login page', async ({ page }) => {
+    const nameInput = page.locator('#league-name');
+    const taglineInput = page.locator('#league-tagline');
+    const form = page.locator('form:has(#league-name)');
+    const saveButton = form.locator('button:has-text("Guardar")');
+    const originalName = await nameInput.inputValue();
+    const originalTagline = await taglineInput.inputValue();
+
+    await nameInput.fill('Club Norte');
+    await taglineInput.fill('');
+    await clickAndWaitForHxRedirect(page, saveButton, '/admin/settings');
+
+    // Navbar (desktop) or drawer (mobile) wordmark follows the name.
+    if (isMobile(page)) {
+      await openDrawer(page);
+      await expect(page.locator('.drawer-side')).toContainText('Club Norte');
+      await page.locator('.drawer-side a[href="/"]').click();
+    } else {
+      await expect(page.locator('.navbar')).toContainText('Club Norte');
+    }
+    await expect(page).toHaveTitle(/Club Norte/);
+
+    // Login page: same name, and no tagline line when it is empty.
+    await clickAndWaitForHxRedirect(page, page.locator('.navbar button:has-text("Salir")'), '/login');
+    await expect(page.locator('h1')).toContainText('Club Norte');
+    await expect(page.locator('p.uppercase.tracking-widest')).toHaveCount(0);
+
+    // Restore the original branding.
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await navToAdmin(page, '/admin/settings');
+    await nameInput.fill(originalName);
+    await taglineInput.fill(originalTagline);
+    await clickAndWaitForHxRedirect(page, saveButton, '/admin/settings');
+    await expect(nameInput).toHaveValue(originalName);
+  });
 });

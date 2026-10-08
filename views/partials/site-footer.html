@@ -27,13 +27,13 @@
             </div>
             {{else if .Footer.LeagueLogoURL}}
             <a href="/" class="footer-identity-link hover:opacity-80 transition-opacity sm:order-first">
-                <img src="{{.Footer.LeagueLogoURL}}" alt="Liga Dale Fuerte" class="rounded-xl w-auto" style="height:var(--footer-logo-h)" loading="lazy">
+                <img src="{{.Footer.LeagueLogoURL}}" alt="{{.Branding.Name}}" class="rounded-xl w-auto" style="height:var(--footer-logo-h)" loading="lazy">
             </a>
             {{end}}
         </div>
         {{end}}
         {{template "contactLinks" (dict "Contact" .Contact)}}
-        <p class="text-sm opacity-40">Liga Dale Fuerte &copy; 2026 · <a href="/privacy" class="link link-hover">Privacidad</a> · <a href="/cookies" class="link link-hover">Cookies</a> · <a href="/aviso-legal" class="link link-hover">Aviso Legal</a></p>
+        <p class="text-sm opacity-40">{{.Branding.Name}} &copy; 2026 · <a href="/privacy" class="link link-hover">Privacidad</a> · <a href="/cookies" class="link link-hover">Cookies</a> · <a href="/aviso-legal" class="link link-hover">Aviso Legal</a></p>
     </div>
 </footer>
 {{end}}

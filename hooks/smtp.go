@@ -4,6 +4,8 @@ import (
 	"log/slog"
 
 	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
 )
 
 // SMTPConfig configures outgoing mail (verification/reset emails, admin
@@ -41,6 +43,9 @@ func registerSMTP(app core.App, cfg SMTPConfig) {
 		s.SMTP.AuthMethod = "PLAIN"
 		s.Meta.SenderAddress = cfg.Sender
 		s.Meta.SenderName = cfg.SenderName
+		if s.Meta.SenderName == "" {
+			s.Meta.SenderName = league.DisplayName(app)
+		}
 		if cfg.AppURL != "" {
 			s.Meta.AppURL = cfg.AppURL
 		}

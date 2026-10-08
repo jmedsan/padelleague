@@ -14,6 +14,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 
+	"padelleague/league"
 	"padelleague/notify"
 	"padelleague/render"
 )
@@ -92,8 +93,8 @@ func (h *InvitationHandler) InvitationsCreate(e *core.RequestEvent) error {
 
 	if email != "" {
 		registerURL := render.RequestBaseURL(e) + "/register?token=" + token
-		notify.SendEmail(h.app, email, notify.SubjectPrefix()+"Invitación a Liga Dale Fuerte",
-			notify.RenderEmail(h.app, "", buildInviteEmail(registerURL)))
+		notify.SendEmail(h.app, email, notify.SubjectPrefix()+"Invitación a "+league.DisplayName(h.app),
+			notify.RenderEmail(h.app, "", buildInviteEmail(league.DisplayName(h.app), registerURL)))
 	}
 
 	flash(e, "Invitación creada")
@@ -130,8 +131,8 @@ func (h *InvitationHandler) InvitationsResend(e *core.RequestEvent) error {
 	}
 	token := invitation.GetString("token")
 	registerURL := render.RequestBaseURL(e) + "/register?token=" + token
-	notify.SendEmail(h.app, email, notify.SubjectPrefix()+"Invitación a Liga Dale Fuerte",
-		notify.RenderEmail(h.app, "", buildInviteEmail(registerURL)))
+	notify.SendEmail(h.app, email, notify.SubjectPrefix()+"Invitación a "+league.DisplayName(h.app),
+		notify.RenderEmail(h.app, "", buildInviteEmail(league.DisplayName(h.app), registerURL)))
 	flash(e, "Invitación reenviada")
 	return redirectHX(e, "/admin/invitations")
 }

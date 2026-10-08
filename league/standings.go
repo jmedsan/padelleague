@@ -219,7 +219,7 @@ func pairForm(pid string, matches []*core.Record) []bool {
 	return form
 }
 
-// sortStandings ranks pairs by Liga Dale Fuerte tiebreaker rules (FEP RTG 2026
+// sortStandings ranks pairs by the league tiebreaker rules (FEP RTG 2026
 // §3.3.10 supplemented by the league rulebook). Rows are first sorted by
 // points; consecutive rows level on points form a tie group resolved by size:
 //   - 1 pair: nothing to resolve.
@@ -291,7 +291,7 @@ func lessTwoWay(a, b StandingRowFull, h2hStats map[string]*pairStats) bool {
 }
 
 // resolveMiniLeague orders 3+ pairs tied on points using the FEP RTG 2026 §3.3.10
-// recursive partition algorithm, adapted for the Liga Dale Fuerte rulebook.
+// recursive partition algorithm, adapted for the league rulebook.
 //
 // Pre-step: sort by matches played (overall, more = higher). Pairs that separate
 // on this criterion are done; pairs still tied proceed to the mini-league chain.

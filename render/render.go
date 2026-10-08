@@ -53,6 +53,7 @@ func New(viewsFS fs.FS, vapidPublicKey string, appDevTools bool) *Renderer {
 		},
 		"fmtPhone":    league.FormatPhone,
 		"whatsappURL": league.WhatsAppURL,
+		"wordmark":    wordmark,
 		"mailtoURL":   league.MailtoURL,
 		"maskPhone":   league.MaskPhone,
 		"sub":         func(a, b int) int { return a - b },
@@ -417,4 +418,15 @@ func Initials(name string) string {
 	}
 	last := []rune(words[len(words)-1])
 	return string(unicode.ToUpper(first[0])) + string(unicode.ToUpper(last[0]))
+}
+
+// wordmark renders a league name for the brand lockup: the first word in the
+// primary color, the rest plain.
+func wordmark(name string) htmltpl.HTML {
+	first, rest, _ := strings.Cut(name, " ")
+	out := `<span class="text-primary">` + htmltpl.HTMLEscapeString(first) + `</span>`
+	if rest != "" {
+		out += " " + htmltpl.HTMLEscapeString(rest)
+	}
+	return htmltpl.HTML(out)
 }

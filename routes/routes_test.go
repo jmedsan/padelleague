@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"encoding/json"
 	"io/fs"
 	"net/http"
 	"net/url"
@@ -221,7 +222,7 @@ func TestStaticRoutes_ManifestJSON(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/manifest.json",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"{}"},
+		ExpectedContent: []string{`"name":"Liga Dale Fuerte"`, `"short_name":"Liga Dale Fuerte"`},
 	}
 	s.BeforeTestFunc = func(_ testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		viewsFS := minimalFS()
@@ -314,4 +315,24 @@ func authHeaders(tb testing.TB, user *core.Record) map[string]string {
 	token, err := user.NewAuthToken()
 	require.NoError(tb, err)
 	return map[string]string{"Authorization": token}
+}
+
+func TestLeagueManifest(t *testing.T) {
+	t.Parallel()
+	app := testapp.New(t)
+	settings, err := app.FindFirstRecordByFilter("app_settings", "1=1")
+	require.NoError(t, err)
+	settings.Set("league_name", "Club Norte")
+	require.NoError(t, app.Save(settings))
+
+	out := leagueManifest(app, []byte(`{"name":"x","short_name":"y","start_url":"/","icons":[{"src":"a.png"}]}`))
+
+	var got map[string]any
+	require.NoError(t, json.Unmarshal(out, &got))
+	assert.Equal(t, "Club Norte", got["name"])
+	assert.Equal(t, "Club Norte", got["short_name"])
+	assert.Equal(t, "/", got["start_url"], "other fields are kept")
+	assert.Len(t, got["icons"], 1)
+
+	assert.Equal(t, []byte("not json"), leagueManifest(app, []byte("not json")), "invalid input is returned unchanged")
 }

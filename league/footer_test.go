@@ -204,3 +204,34 @@ func TestBranding_InContext_MergesCompetitionAndGlobalSponsorsDedupedByID(t *tes
 	names := []string{bd.Sponsors[0].Name, bd.Sponsors[1].Name}
 	assert.ElementsMatch(t, []string{"Wurko", "Decathlon"}, names)
 }
+
+func TestDisplayName_ReadsSettingAndFallsBackToDefault(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	settings, err := app.FindFirstRecordByFilter("app_settings", "1=1")
+	require.NoError(t, err)
+
+	settings.Set("league_name", "Club Norte")
+	require.NoError(t, app.Save(settings))
+	assert.Equal(t, "Club Norte", DisplayName(app))
+
+	settings.Set("league_name", "")
+	require.NoError(t, app.Save(settings))
+	assert.Equal(t, "PadelLeague", DisplayName(app))
+	assert.Equal(t, DefaultLeagueName, DisplayName(app))
+}
+
+func TestBranding_EmptyTaglineStaysEmpty(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	settings, err := app.FindFirstRecordByFilter("app_settings", "1=1")
+	require.NoError(t, err)
+	settings.Set("league_name", "")
+	settings.Set("league_tagline", "")
+	require.NoError(t, app.Save(settings))
+
+	bd := Branding(app, "")
+
+	assert.Equal(t, "PadelLeague", bd.Name)
+	assert.Empty(t, bd.Tagline)
+}

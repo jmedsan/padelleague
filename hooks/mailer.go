@@ -6,6 +6,7 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 
+	"padelleague/league"
 	"padelleague/notify"
 )
 
@@ -25,7 +26,7 @@ func registerMailerBranding(app core.App) {
 <p><small>Si no solicitaste este cambio, ignora este email.</small></p>`,
 			name, notify.CtaHTML(appURL+"/reset-password?token="+notify.EscapeToken(token), "Restablecer contraseña"))
 
-		e.Message.Subject = notify.SubjectPrefix() + "Restablecer contraseña — Liga Dale Fuerte"
+		e.Message.Subject = notify.SubjectPrefix() + "Restablecer contraseña — " + league.DisplayName(app)
 		e.Message.HTML = notify.RenderEmail(app, "", body)
 		return e.Next()
 	})
@@ -41,7 +42,7 @@ func registerMailerBranding(app core.App) {
 <p><small>Si no te registraste recientemente, ignora este email.</small></p>`,
 			name, notify.CtaHTML(appURL+"/verify?token="+notify.EscapeToken(token), "Confirmar email"))
 
-		e.Message.Subject = notify.SubjectPrefix() + "Confirma tu email — Liga Dale Fuerte"
+		e.Message.Subject = notify.SubjectPrefix() + "Confirma tu email — " + league.DisplayName(app)
 		e.Message.HTML = notify.RenderEmail(app, "", body)
 		return e.Next()
 	})
@@ -57,7 +58,7 @@ func registerMailerBranding(app core.App) {
 <p><small>Si no solicitaste este cambio, ignora este email.</small></p>`,
 			name, notify.CtaHTML(appURL+"/verify?token="+notify.EscapeToken(token), "Confirmar nuevo email"))
 
-		e.Message.Subject = notify.SubjectPrefix() + "Confirmar nuevo email — Liga Dale Fuerte"
+		e.Message.Subject = notify.SubjectPrefix() + "Confirmar nuevo email — " + league.DisplayName(app)
 		e.Message.HTML = notify.RenderEmail(app, "", body)
 		return e.Next()
 	})
