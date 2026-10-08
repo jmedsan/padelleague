@@ -138,9 +138,11 @@ func (n *Notifier) NotifyPlayers(playerUserIDs []string, notif league.Notificati
 	for _, userID := range playerUserIDs {
 		user, err := n.app.FindRecordById("users", userID)
 		if err != nil {
+			slog.Warn("notification skipped", "type", notif.Type, "user", userID, "reason", "recipient not found")
 			continue
 		}
 		if !notificationEnabled(user, notif.Type) {
+			slog.Info("notification skipped", "type", notif.Type, "user", userID, "reason", "type switched off in prefs")
 			continue
 		}
 		n.deliver(notifCol, user, notif, "notify player failed")
@@ -212,14 +214,23 @@ func pushBody(notif league.Notification) string {
 // enabled in their prefs. Callers run it in a goroutine; it does not signal
 // completion back.
 func (n *Notifier) emailNotification(user *core.Record, notif league.Notification, link string) {
-	if !IsMailerConfigured(n.app) || user.Email() == "" {
+	skip := func(reason string) {
+		slog.Info("email skipped", "type", notif.Type, "user", user.Id, "reason", reason)
+	}
+	if !IsMailerConfigured(n.app) {
+		skip("smtp not configured")
+		return
+	}
+	if user.Email() == "" {
+		skip("user has no email address")
 		return
 	}
 	if !user.Verified() {
-		slog.Info("skip email to unverified user", "to", maskEmail(user.Email()))
+		skip("email not verified")
 		return
 	}
 	if !EmailChannelEnabled(user) {
+		skip("email channel switched off in prefs")
 		return
 	}
 
@@ -239,7 +250,11 @@ func (n *Notifier) emailNotification(user *core.Record, notif league.Notificatio
 		}
 	}
 	htmlBody := RenderEmail(n.app, "", buildNotificationEmail(displayName, content, link))
-	SendEmail(n.app, user.Email(), subject, htmlBody)
+	if err := sendEmail(n.app, user.Email(), subject, htmlBody); err != nil {
+		slog.Error("email send failed", "type", notif.Type, "user", user.Id, "err", err)
+		return
+	}
+	slog.Info("email sent", "type", notif.Type, "user", user.Id)
 }
 
 func notificationEnabled(user *core.Record, notifType string) bool {
@@ -272,11 +287,13 @@ func filterRecipients(users []*core.Record, notifType string, excludeIDs []strin
 	var out []*core.Record
 	for _, u := range users {
 		if _, excluded := excludeSet[u.Id]; excluded {
+			slog.Info("notification skipped", "type", notifType, "user", u.Id, "reason", "already notified as a player")
 			continue
 		}
 		prefs := NotificationPrefs(u)
 		if enabled, ok := prefs[notifType]; ok {
 			if b, ok := enabled.(bool); ok && !b {
+				slog.Info("notification skipped", "type", notifType, "user", u.Id, "reason", "type switched off in prefs")
 				continue
 			}
 		}

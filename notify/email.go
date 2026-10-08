@@ -38,8 +38,16 @@ func SubjectPrefix() string {
 
 // SendEmail sends an HTML email via the configured SMTP mailer.
 func SendEmail(app core.App, to, subject, htmlBody string) {
+	if err := sendEmail(app, to, subject, htmlBody); err != nil {
+		slog.Error("send email failed", "to", maskEmail(to), "err", err)
+	}
+}
+
+// sendEmail sends one email and returns the send error; a no-op when SMTP is
+// not configured.
+func sendEmail(app core.App, to, subject, htmlBody string) error {
 	if !IsMailerConfigured(app) {
-		return
+		return nil
 	}
 
 	client := app.NewMailClient()
@@ -52,9 +60,7 @@ func SendEmail(app core.App, to, subject, htmlBody string) {
 		Subject: subject,
 		HTML:    htmlBody,
 	}
-	if err := client.Send(msg); err != nil {
-		slog.Error("send email failed", "to", maskEmail(to), "err", err)
-	}
+	return client.Send(msg)
 }
 
 func maskEmail(email string) string {
