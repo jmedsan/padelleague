@@ -226,7 +226,7 @@ func TestThreadRespondProposalReject(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var msgID, matchID, proposerID, proposerPartnerID, responderID string
+	var msgID, matchID, proposerID, proposerPartnerID, responderID, responderPartnerID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupProductionRoutes(tb, app, e)
 		p1 := handlers.MakePairTB(tb, app, "RejA")
@@ -238,6 +238,7 @@ func TestThreadRespondProposalReject(t *testing.T) {
 		proposerID = p1.GetString("player1")
 		proposerPartnerID = p1.GetString("player2")
 		responderID = p2.GetString("player1")
+		responderPartnerID = p2.GetString("player2")
 		col, err := app.FindCollectionByNameOrId("match_messages")
 		require.NoError(tb, err)
 		msg := core.NewRecord(col)
@@ -272,6 +273,7 @@ func TestThreadRespondProposalReject(t *testing.T) {
 		}
 		assertNotified(tb, app, proposerID, want)
 		assertNotified(tb, app, proposerPartnerID, want)
+		assertNotified(tb, app, responderPartnerID, want)
 		assertNotNotified(tb, app, responderID, want.Title)
 	}
 	handlers.ExpectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "?scroll=mensajes" })

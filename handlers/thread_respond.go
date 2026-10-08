@@ -98,7 +98,7 @@ func acceptScheduleTx(txApp core.App, a scheduleAccept) (*core.Record, error) {
 	return match, nil
 }
 
-func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Record, _ string) error {
+func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Record) error {
 	pd := league.ParseProposalData(msg.Get("proposal_data"))
 	if pd == nil {
 		return alertError(e, "Error al leer los datos de la propuesta")
@@ -127,7 +127,7 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 	return nil
 }
 
-func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, match *core.Record, proposerPairID string) error {
+func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, match *core.Record) error {
 	reason := e.Request.FormValue("rejection_reason")
 	text := e.Request.FormValue("rejection_text")
 
@@ -164,7 +164,7 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 		return proposalTxAlert(e, err, "Error al rechazar la propuesta")
 	}
 
-	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
+	recipients := league.MatchPlayersExcluding(h.app, match, e.Auth.Id)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	notifReason := reason
 	if reason == "Otro" && text != "" {
@@ -173,11 +173,11 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 		notifReason = ""
 	}
 	notif := league.NotifProposalRejected(match.Id, pairPlayerLabel(h.app, e.Auth.Id, match), notifReason, compName)
-	h.notifier.NotifyPlayers(proposerPlayers, notif)
+	h.notifier.NotifyPlayers(recipients, notif)
 	return nil
 }
 
-func (h *ThreadHandler) acceptResultProposal(e *core.RequestEvent, match, msg *core.Record, _ string) error {
+func (h *ThreadHandler) acceptResultProposal(e *core.RequestEvent, match, msg *core.Record) error {
 	_, err := h.svc.ApplyAcceptedResult(match, league.AcceptedResult{
 		Proposal: msg,
 		ActorID:  e.Auth.Id,
@@ -193,7 +193,7 @@ func (h *ThreadHandler) acceptResultProposal(e *core.RequestEvent, match, msg *c
 
 var errProposalNotPending = errors.New("proposal no longer pending")
 
-func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *core.Record, proposerPairID string) error {
+func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *core.Record) error {
 	counterScores, err := readScoreForm(e, match.GetString("carried_sets"), "counter_scores")
 	if err != nil || counterScores == "" {
 		return err
@@ -240,10 +240,10 @@ func (h *ThreadHandler) rejectResultProposal(e *core.RequestEvent, match, msg *c
 		return alertError(e, "Error al rechazar la propuesta")
 	}
 
-	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
+	recipients := league.MatchPlayersExcluding(h.app, match, e.Auth.Id)
 	counterLabel := pairPlayerLabel(h.app, e.Auth.Id, match)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	notif := league.NotifResultCountered(match.Id, counterLabel, compName)
-	h.notifier.NotifyPlayers(proposerPlayers, notif)
+	h.notifier.NotifyPlayers(recipients, notif)
 	return nil
 }

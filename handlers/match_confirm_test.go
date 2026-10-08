@@ -26,10 +26,11 @@ func TestMatchCorrectBoundary_Under24h_Allowed(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID, submitter, rival1, rival2 string
+	var matchID, submitter, submitterPartner, rival1, rival2 string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupProductionRoutes(tb, app, e)
 		p1 := handlers.MakePairTB(tb, app, "Bnd A")
+		submitterPartner = p1.GetString("player2")
 		p2 := handlers.MakePairTB(tb, app, "Bnd B")
 		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
@@ -65,6 +66,7 @@ func TestMatchCorrectBoundary_Under24h_Allowed(t *testing.T) {
 		}
 		assertNotified(tb, app, rival1, want)
 		assertNotified(tb, app, rival2, want)
+		assertNotified(tb, app, submitterPartner, want)
 		assertNotNotified(tb, app, submitter, want.Title)
 	}
 	handlers.ExpectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })

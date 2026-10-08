@@ -358,25 +358,12 @@ func (h *MatchHandler) supersedePendingResultsTx(app core.App, matchID, authorID
 	}
 }
 
-// playersOtherThanAuthorSide returns the players a result action must tell: the
-// opposing pair's, or both pairs' when the author is on neither side (an admin).
-func playersOtherThanAuthorSide(app core.App, match *core.Record, authorID string) []string {
-	pair1, pair2 := match.GetString("pair1"), match.GetString("pair2")
-	switch league.AuthorSide(app, match, authorID) {
-	case league.Side1:
-		return league.PlayersForPair(app, pair2)
-	case league.Side2:
-		return league.PlayersForPair(app, pair1)
-	}
-	return append(league.PlayersForPair(app, pair1), league.PlayersForPair(app, pair2)...)
-}
-
 func (h *MatchHandler) notifyResultProposal(match *core.Record, userID, scores string) {
-	rivalPlayers := playersOtherThanAuthorSide(h.app, match, userID)
+	recipients := league.MatchPlayersExcluding(h.app, match, userID)
 	submitterLabel := pairPlayerLabel(h.app, userID, match)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	n := league.NotifResultSubmitted(match.Id, submitterLabel, compName, scores)
-	h.notifier.NotifyPlayers(rivalPlayers, n)
+	h.notifier.NotifyPlayers(recipients, n)
 
 	participants := matchParticipantUserIDs(h.app, match)
 	an := league.NotifAdminMatchProgress(match.Id, "Resultado propuesto: "+scores, compName)
@@ -632,7 +619,7 @@ func (h *MatchHandler) CancelDate(e *core.RequestEvent) error {
 	}
 
 	userID := e.Auth.Id
-	myTeam, err := h.cancelDateGate(e, match)
+	_, err = h.cancelDateGate(e, match)
 	if err != nil {
 		return err
 	}
@@ -654,7 +641,7 @@ func (h *MatchHandler) CancelDate(e *core.RequestEvent) error {
 		return alertError(e, "Error al cancelar la fecha")
 	}
 
-	h.notifyCancelDate(cancelInfo{match: match, team: myTeam, cancellerID: userID, reason: reason, within24h: within24h})
+	h.notifyCancelDate(cancelInfo{match: match, cancellerID: userID, reason: reason, within24h: within24h})
 	return redirectHX(e, "/match/"+id)
 }
 
@@ -686,14 +673,12 @@ func (h *MatchHandler) cancelDateGate(e *core.RequestEvent, match *core.Record) 
 type cancelInfo struct {
 	match       *core.Record
 	cancellerID string
-	team        int
 	reason      string
 	within24h   bool
 }
 
 func (h *MatchHandler) notifyCancelDate(ci cancelInfo) {
 	match := ci.match
-	cancellerTeam := ci.team
 	cancellerID := ci.cancellerID
 	reason := ci.reason
 	within24h := ci.within24h
@@ -701,12 +686,8 @@ func (h *MatchHandler) notifyCancelDate(ci cancelInfo) {
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	playerName := pairPlayerLabel(h.app, cancellerID, match)
 
-	rivalPairID := match.GetString("pair2")
-	if cancellerTeam == 2 {
-		rivalPairID = match.GetString("pair1")
-	}
-	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
-	h.notifier.NotifyPlayers(rivalPlayers, league.NotifDateCancelled(league.DateCancelledParams{
+	recipients := league.MatchPlayersExcluding(h.app, match, cancellerID)
+	h.notifier.NotifyPlayers(recipients, league.NotifDateCancelled(league.DateCancelledParams{
 		MatchID: id, PlayerName: playerName, Reason: reason, CompName: compName,
 	}))
 

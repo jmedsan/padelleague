@@ -268,7 +268,7 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 		return proposalTxAlert(e, err, "Error al crear propuesta")
 	}
 
-	h.notifyProposal(match, myTeam, proposalNotice{AuthorID: e.Auth.Id, Date: pd.Date, Time: pd.Time, VenueName: pd.VenueName})
+	h.notifyProposal(match, proposalNotice{AuthorID: e.Auth.Id, Date: pd.Date, Time: pd.Time, VenueName: pd.VenueName})
 	flash(e, "Propuesta enviada")
 	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
 }
@@ -306,18 +306,14 @@ type proposalNotice struct {
 	AuthorID, Date, Time, VenueName string
 }
 
-func (h *ThreadHandler) notifyProposal(match *core.Record, myTeam int, n proposalNotice) {
-	rivalPairID := match.GetString("pair1")
-	if myTeam == 1 {
-		rivalPairID = match.GetString("pair2")
-	}
-	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
+func (h *ThreadHandler) notifyProposal(match *core.Record, n proposalNotice) {
+	recipients := league.MatchPlayersExcluding(h.app, match, n.AuthorID)
 	authorName := pairPlayerLabel(h.app, n.AuthorID, match)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	notif := league.NotifProposal(league.ProposalParams{
 		MatchID: match.Id, AuthorName: authorName, Date: n.Date, Time: n.Time, VenueName: n.VenueName, CompName: compName,
 	})
-	h.notifier.NotifyPlayers(rivalPlayers, notif)
+	h.notifier.NotifyPlayers(recipients, notif)
 }
 
 func (h *ThreadHandler) parseProposalForm(e *core.RequestEvent) (league.ProposalData, error) {
@@ -401,7 +397,7 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 		return alertError(e, "No puedes responder a tu propia propuesta")
 	}
 
-	if err := h.dispatchProposalAction(e, match, msg, authorTeam); err != nil {
+	if err := h.dispatchProposalAction(e, match, msg); err != nil {
 		return err
 	}
 	flashSchedulingResponse(e, msg)
@@ -451,8 +447,7 @@ func (h *ThreadHandler) RejectAndCounterPropose(e *core.RequestEvent) error {
 	if err != nil {
 		return alertError(e, "Propuesta no encontrada")
 	}
-	authorTeam, err := h.validateCounterTarget(e, match, msg, myTeam)
-	if err != nil {
+	if err := h.validateCounterTarget(e, match, msg, myTeam); err != nil {
 		return err
 	}
 
@@ -475,7 +470,7 @@ func (h *ThreadHandler) RejectAndCounterPropose(e *core.RequestEvent) error {
 	}
 
 	h.notifyRejectAndCounter(counterNotice{
-		e: e, match: match, myTeam: myTeam, authorTeam: authorTeam,
+		e: e, match: match,
 		reason: reason, text: text, pd: pd,
 	})
 
@@ -483,23 +478,23 @@ func (h *ThreadHandler) RejectAndCounterPropose(e *core.RequestEvent) error {
 	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
 }
 
-func (h *ThreadHandler) validateCounterTarget(e *core.RequestEvent, match, msg *core.Record, myTeam int) (int, error) {
+func (h *ThreadHandler) validateCounterTarget(e *core.RequestEvent, match, msg *core.Record, myTeam int) error {
 	if msg.GetString("match") != match.Id {
-		return 0, alertError(e, "Propuesta no pertenece a este partido")
+		return alertError(e, "Propuesta no pertenece a este partido")
 	}
 	if msg.GetString("type") != "scheduling_proposal" {
-		return 0, alertError(e, "Solo se puede contraproponer en propuestas de fecha")
+		return alertError(e, "Solo se puede contraproponer en propuestas de fecha")
 	}
 	if status := msg.GetString("proposal_status"); status == "accepted" {
-		return 0, redirectHX(e, "/match/"+match.Id+"?scroll=mensajes")
+		return redirectHX(e, "/match/"+match.Id+"?scroll=mensajes")
 	} else if status != "pending" {
-		return 0, alertError(e, "Esta propuesta ya fue respondida")
+		return alertError(e, "Esta propuesta ya fue respondida")
 	}
 	authorTeam, _ := league.PlayerTeam(h.app, msg.GetString("author"), match)
 	if authorTeam == myTeam {
-		return 0, alertError(e, "No puedes responder a tu propia propuesta")
+		return alertError(e, "No puedes responder a tu propia propuesta")
 	}
-	return authorTeam, nil
+	return nil
 }
 
 func (h *ThreadHandler) validateCounterProposal(e *core.RequestEvent) (league.ProposalData, []byte, error) {
@@ -570,13 +565,11 @@ func (h *ThreadHandler) rejectAndCreateCounter(p counterProposalParams) error {
 }
 
 type counterNotice struct {
-	e          *core.RequestEvent
-	match      *core.Record
-	myTeam     int
-	authorTeam int
-	reason     string
-	text       string
-	pd         league.ProposalData
+	e      *core.RequestEvent
+	match  *core.Record
+	reason string
+	text   string
+	pd     league.ProposalData
 }
 
 func (h *ThreadHandler) notifyRejectAndCounter(n counterNotice) {
@@ -586,31 +579,23 @@ func (h *ThreadHandler) notifyRejectAndCounter(n counterNotice) {
 	} else if n.reason == "Otro" {
 		notifReason = ""
 	}
-	proposerPairID := n.match.GetString("pair1")
-	if n.authorTeam == 2 {
-		proposerPairID = n.match.GetString("pair2")
-	}
-	proposerPlayers := league.PlayersForPair(h.app, proposerPairID)
+	recipients := league.MatchPlayersExcluding(h.app, n.match, n.e.Auth.Id)
 	compName := league.CompetitionName(h.app, n.match.GetString("competition"))
 	notif := league.NotifProposalRejected(n.match.Id, pairPlayerLabel(h.app, n.e.Auth.Id, n.match), notifReason, compName)
-	h.notifier.NotifyPlayers(proposerPlayers, notif)
-	h.notifyProposal(n.match, n.myTeam, proposalNotice{AuthorID: n.e.Auth.Id, Date: n.pd.Date, Time: n.pd.Time, VenueName: n.pd.VenueName})
+	h.notifier.NotifyPlayers(recipients, notif)
+	h.notifyProposal(n.match, proposalNotice{AuthorID: n.e.Auth.Id, Date: n.pd.Date, Time: n.pd.Time, VenueName: n.pd.VenueName})
 }
 
-func (h *ThreadHandler) dispatchProposalAction(e *core.RequestEvent, match, msg *core.Record, authorTeam int) error {
-	proposerPairID := match.GetString("pair1")
-	if authorTeam == 2 {
-		proposerPairID = match.GetString("pair2")
-	}
+func (h *ThreadHandler) dispatchProposalAction(e *core.RequestEvent, match, msg *core.Record) error {
 	action := e.Request.FormValue("action")
 
 	msgType := msg.GetString("type")
 	if msgType == "result_submission" {
 		switch action {
 		case "accept":
-			return h.acceptResultProposal(e, match, msg, proposerPairID)
+			return h.acceptResultProposal(e, match, msg)
 		case "reject":
-			return h.rejectResultProposal(e, match, msg, proposerPairID)
+			return h.rejectResultProposal(e, match, msg)
 		default:
 			return alertError(e, "Acción no válida")
 		}
@@ -618,9 +603,9 @@ func (h *ThreadHandler) dispatchProposalAction(e *core.RequestEvent, match, msg 
 
 	switch action {
 	case "accept":
-		return h.acceptProposal(e, match, msg, proposerPairID)
+		return h.acceptProposal(e, match, msg)
 	case "reject":
-		return h.rejectProposal(e, msg, match, proposerPairID)
+		return h.rejectProposal(e, msg, match)
 	default:
 		return alertError(e, "Acción no válida")
 	}
@@ -744,8 +729,7 @@ func (h *ThreadHandler) WithdrawProposal(e *core.RequestEvent) error {
 		return proposalTxAlert(e, err, "Error al retirar la propuesta")
 	}
 
-	myTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
-	h.notifyWithdrawal(match, myTeam, e.Auth.Id)
+	h.notifyWithdrawal(match, e.Auth.Id)
 	return redirectHX(e, "/match/"+matchID+"?scroll=mensajes")
 }
 
@@ -771,13 +755,9 @@ func withdrawProposalTx(txApp core.App, matchID, msgID, actorID string) error {
 	return nil
 }
 
-func (h *ThreadHandler) notifyWithdrawal(match *core.Record, myTeam int, authorID string) {
-	rivalPairID := match.GetString("pair1")
-	if myTeam == 1 {
-		rivalPairID = match.GetString("pair2")
-	}
-	rivalPlayers := league.PlayersForPair(h.app, rivalPairID)
+func (h *ThreadHandler) notifyWithdrawal(match *core.Record, authorID string) {
+	recipients := league.MatchPlayersExcluding(h.app, match, authorID)
 	authorName := pairPlayerLabel(h.app, authorID, match)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
-	h.notifier.NotifyPlayers(rivalPlayers, league.NotifProposalWithdrawn(match.Id, authorName, compName))
+	h.notifier.NotifyPlayers(recipients, league.NotifProposalWithdrawn(match.Id, authorName, compName))
 }

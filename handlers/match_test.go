@@ -334,8 +334,8 @@ func TestMatchSubmitNotifiesRival(t *testing.T) {
 		}
 		assertNotified(tb, app, pair2Player1ID, want)
 		assertNotified(tb, app, pair2Player2ID, want)
+		assertNotified(tb, app, pair1Player2ID, want)
 		assertNotNotified(tb, app, pair1Player1ID, want.Title)
-		assertNotNotified(tb, app, pair1Player2ID, want.Title)
 
 		adminWant := league.Notification{
 			Type:     "match_progress",
@@ -1498,12 +1498,13 @@ func TestCancelDateAsParticipant(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID, rivalPlayerID, adminID string
+	var matchID, rivalPlayerID, cancellerID, cancellerPartnerID, adminID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupProductionRoutes(tb, app, e)
 		admin := handlers.MakeAdminUserTB(tb, app)
 		adminID = admin.Id
 		p1 := handlers.MakePairTB(tb, app, "CD A")
+		cancellerID, cancellerPartnerID = p1.GetString("player1"), p1.GetString("player2")
 		p2 := handlers.MakePairTB(tb, app, "CD B")
 		rivalPlayerID = p2.GetString("player1")
 		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
@@ -1545,6 +1546,8 @@ func TestCancelDateAsParticipant(t *testing.T) {
 			CompName: "Test Competition",
 		}
 		assertNotified(tb, app, rivalPlayerID, wantRival)
+		assertNotified(tb, app, cancellerPartnerID, wantRival)
+		assertNotNotified(tb, app, cancellerID, wantRival.Title)
 
 		wantAdmin := league.Notification{
 			Type:     "dispute",

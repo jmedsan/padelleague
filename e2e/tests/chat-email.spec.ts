@@ -1,5 +1,5 @@
 import { test, expect } from '../overflow-guard';
-import { loadTestData } from '../helpers';
+import { leagueDate, loadTestData } from '../helpers';
 import {
   adminCookie, ChatSchedule, ScenarioApi, disableSmtp, enableSmtp, htmlOf, playerPost, seedChatMatch, startSmtpSink,
 } from '../scenario-helpers';
@@ -50,4 +50,26 @@ test.describe('chat email', { tag: '@notifications' }, () => {
       }
     });
   }
+
+  // A date proposal tells the whole match but its author: the author's partner
+  // (p02) too, not only the rival pair (p03; p04 is unverified).
+  test('a date proposal emails the proposer\'s partner and the rival pair', async ({ baseURL }) => {
+    const api: ScenarioApi = { baseURL: baseURL!, suToken: loadTestData().adminToken, adminCookie: await adminCookie(baseURL!) };
+    const m = await seedChatMatch(api, 'Proposal email', 'none');
+    const sink = await startSmtpSink();
+    try {
+      await enableSmtp(api, sink.port);
+      const date = leagueDate(10);
+      await playerPost(api, m.players[0].email, `/match/${m.matchID}/thread/proposal`, { date, time: '19:00', venue_text: 'Club Test' });
+      const seeded = new Set(m.players.map((p) => p.email));
+      const ours = () => sink.messages.filter((msg) => msg.to.some((a) => seeded.has(a)));
+      await expect.poll(() => ours().length).toBeGreaterThanOrEqual(2);
+      await new Promise((r) => setTimeout(r, 500));
+
+      expect(ours().flatMap((msg) => msg.to).sort()).toEqual([m.players[1].email, m.players[2].email].sort());
+    } finally {
+      await disableSmtp(api);
+      await sink.close();
+    }
+  });
 });

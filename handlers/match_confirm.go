@@ -147,10 +147,10 @@ func (h *MatchHandler) validateCorrectionInput(e *core.RequestEvent, match *core
 }
 
 func (h *MatchHandler) notifyCorrectionToRival(match *core.Record, correctorID string) {
-	rivalPlayers := playersOtherThanAuthorSide(h.app, match, correctorID)
+	recipients := league.MatchPlayersExcluding(h.app, match, correctorID)
 	correctorLabel := pairPlayerLabel(h.app, correctorID, match)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
-	h.notifier.NotifyPlayers(rivalPlayers, league.NotifResultCorrected(match.Id, correctorLabel, compName))
+	h.notifier.NotifyPlayers(recipients, league.NotifResultCorrected(match.Id, correctorLabel, compName))
 }
 
 func (h *MatchHandler) validateCorrectionWindow(e *core.RequestEvent, match *core.Record) error {

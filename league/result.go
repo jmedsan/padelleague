@@ -3,7 +3,6 @@ package league
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -309,18 +308,8 @@ func (svc *Service) notifyAccepted(fresh *core.Record, in AcceptedResult, compNa
 	pair2ID := fresh.GetString("pair2")
 
 	if in.ActorID != "" {
-		team, err := PlayerTeam(svc.app, in.ActorID, fresh)
-		if err != nil {
-			slog.Error("apply result: resolve actor team", "match", fresh.Id, "err", err)
-			return
-		}
-		proposerPairID := pair1ID
-		if team == 1 {
-			proposerPairID = pair2ID
-		}
 		responderLabel := PairPlayerLabel(svc.app, in.ActorID, fresh)
-		proposerPlayers := PlayersForPair(svc.app, proposerPairID)
-		svc.notifier.NotifyPlayers(proposerPlayers, NotifResultConfirmed(fresh.Id, responderLabel, compName))
+		svc.notifier.NotifyPlayers(MatchPlayersExcluding(svc.app, fresh, in.ActorID), NotifResultConfirmed(fresh.Id, responderLabel, compName))
 		return
 	}
 

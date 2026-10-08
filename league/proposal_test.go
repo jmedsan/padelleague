@@ -103,3 +103,19 @@ func TestPendingSchedulingProposal(t *testing.T) {
 	require.NotNil(t, got)
 	assert.Equal(t, "newest", got.GetString("content"))
 }
+
+// MatchPlayersExcluding is the one recipient rule of every match-thread action:
+// all four players but the actor, and all four when the actor is an admin.
+func TestMatchPlayersExcluding(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "MPE A")
+	p2 := makePair(t, app, "MPE B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
+	all := []string{p1.GetString("player1"), p1.GetString("player2"), p2.GetString("player1"), p2.GetString("player2")}
+
+	assert.ElementsMatch(t, all[1:], MatchPlayersExcluding(app, match, all[0]), "the actor's partner stays in")
+	assert.ElementsMatch(t, all[:3], MatchPlayersExcluding(app, match, all[3]))
+	assert.ElementsMatch(t, all, MatchPlayersExcluding(app, match, "an-admin"), "a non-player actor excludes nobody")
+}

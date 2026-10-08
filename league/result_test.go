@@ -66,10 +66,9 @@ func TestApplyAcceptedResult_Won(t *testing.T) {
 		notifType: "general",
 		body:      "Pareja B P1 (Pareja B) ha confirmado el resultado",
 		matchID:   match.Id,
-		playerIDs: []string{p1.GetString("player1"), p1.GetString("player2")},
+		playerIDs: []string{p1.GetString("player1"), p1.GetString("player2"), p2.GetString("player2")},
 	})
-	assertNotNotifyCallRecipient(t, notifier, "Resultado confirmado", p2.GetString("player1"))
-	assertNotNotifyCallRecipient(t, notifier, "Resultado confirmado", p2.GetString("player2"))
+	assertNotNotifyCallRecipient(t, notifier, "Resultado confirmado", responder)
 
 	entries, err := app.FindRecordsByFilter("match_messages",
 		"match = {:mid} && type = 'result_response'", "", 0, 0, map[string]any{"mid": match.Id})
