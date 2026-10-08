@@ -625,7 +625,7 @@ func TestSchedulingReminder_UrgentLevel(t *testing.T) {
 	// "now" regardless of the wall-clock time-of-day the test happens to
 	// run at. Deriving end from time.Now().AddDate(0,0,1) flaked before
 	// noon UTC, since truncateToNoonUTC could push recommendedBy-1-day into
-	// the future relative to a pre-noon "now" (b3db747 follow-up).
+	// the future relative to a pre-noon "now" (a53fcdf follow-up).
 	now := time.Now().UTC()
 	end := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, time.UTC)
 	start := end.AddDate(0, -1, 0)

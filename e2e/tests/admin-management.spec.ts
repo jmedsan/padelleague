@@ -108,7 +108,7 @@ test.describe('admin management', { tag: '@admin' }, () => {
 
   test('admin can upload a competition logo', async ({ page }) => {
     // Competition-scoped invitations (and the register-hero-shows-logo path
-    // this test used to exercise end-to-end) were removed in fb675f6:
+    // this test used to exercise end-to-end) were removed in fc208ae:
     // invitations are global-only now, no admin UI sets invitations.competition
     // — that branch in auth.go is only reachable via a raw API write or
     // pre-refactor data, and is covered at the handler level by

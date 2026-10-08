@@ -88,7 +88,7 @@ test.describe('player contact', { tag: '@profile' }, () => {
       await expect(rivals.getByRole('link', { name: /^Email: maximiliano-/ })).toBeVisible();
       // The short name keeps its icons on the name's line, mid-card: where a
       // hidden hover tooltip carrying the full email address pushed the page
-      // sideways on 481a3d0. The long name wraps its icons below.
+      // sideways on 0b7787c. The long name wraps its icons below.
       await expect(rivals.getByText('Ana Ruiz')).toBeVisible();
       await expect(rivals.getByRole('link', { name: 'WhatsApp: +34699887766', exact: true })).toBeVisible();
       const card = await rivals.evaluate(el => ({ scroll: el.scrollWidth, client: el.clientWidth }));

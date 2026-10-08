@@ -266,7 +266,7 @@ function findWrappedBadges(page: Page): Promise<string[]> {
 }
 
 // findOverlappingNavbarSiblings generalizes the navbar-360 wordmark bug
-// (60610ec): any two visible direct-child blocks of a `.navbar` whose
+// (e7cc3a4): any two visible direct-child blocks of a `.navbar` whose
 // horizontal ranges overlap. A navbar is laid out left-to-right in DOM
 // order; two blocks overlapping means one is visually clipping or sitting
 // on top of the other, exactly the "role switch overlapped the wordmark"

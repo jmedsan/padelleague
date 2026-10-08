@@ -20,7 +20,7 @@ var (
 // TestNoContentScenariosPinTheRedirect fails when a scenario expecting 204
 // does not assert the HX-Redirect target: every mutation answers 204 plus a
 // redirect, and a test that only checks the status let an admin land on the
-// list instead of the detail page (9236fe2) without failing.
+// list instead of the detail page (f415a20) without failing.
 func TestNoContentScenariosPinTheRedirect(t *testing.T) {
 	t.Parallel()
 	files, err := filepath.Glob("*_test.go")
