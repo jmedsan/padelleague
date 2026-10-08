@@ -13,6 +13,10 @@ A web app for organizing padel leagues. An admin creates competitions, assigns p
 - **Match thread** — schedule proposals, chat, and score discussion in one place; every result-changing action (submit, confirm, dispute, correct, resolve, walkover) is recorded as a timeline entry attributed to the acting pair and player
 - **Structured score entry** — set-by-set input with valid padel scores, venue selection
 - **Score confirmation with reminders** — one player submits a result, the opponent confirms or disputes; if it sits unconfirmed the app reminds the opponent before the quorum timeout resolves it
+- **Arbitration requests** — a participant can ask the admin to review a match (result, scheduling, abandonment, no-show, other); the match shows an "Arbitraje solicitado" badge and the admins are notified
+- **Proposed results count as played** — a proposed score already counts in standings and stats, marked with a warning icon ("Incluye resultados sin confirmar"), until it is final; a match in dispute, a still-open set, or two pairs holding different pending proposals counts nowhere until it is resolved (a counter-proposal replaces the original, so the newest proposal then counts)
+- **Everyone in the match is notified** — chat, date and result proposals, responses, withdrawals and cancellations notify every player in the match except the one who acted, the actor's partner included
+- **Contact links** — WhatsApp and email icons for your rivals on the match page and for players on their profile (when they have set a phone or email), and the league admin's contact in the navbar menu, the drawer and error pages
 - **Add to calendar** — one-tap "Añadir al calendario" (`.ics`) on a scheduled match
 - **Player profile** — win rate, per-competition stats with links to competitions and partners
 - **Pair page** — canonical page per pair showing players, competition positions, and match history
@@ -23,15 +27,19 @@ A web app for organizing padel leagues. An admin creates competitions, assigns p
 ### For admins
 
 - **Competition management** — create leagues/playoffs, assign pairs, generate fixtures (round-robin for standard leagues, rolling opponent assignment for leveled leagues)
-- **Leveled leagues** — each pair plays opponents closest to them in skill; opponent assignments are rolling (configurable `target_matches` open at a time); standings use the same 3-points-per-win rules as any league
+- **Gender rules** — each competition is free, male, female or mixed; the admin sets it (default in Configuración) and the app refuses pairs that do not fit (mixed needs one man and one woman; players need a gender set)
+- **Pair withdrawal** — withdraw a pair from a competition: its pre-score matches are finalized as walkovers for the opponents with the default score, and the pair shows a "Retirada" badge in the standings
+- **Competition announcements** — post an announcement on the competition page and notify its players (they can mute it in notification preferences); delete it later
+- **Leveled leagues** — each pair plays opponents closest to them in skill; opponent assignments are rolling: the admin sets `target_matches` (total matches per pair) and `open_assignments` (matches each pair keeps open at once, default 3); standings use the same 3-points-per-win rules as any league
 - **League scheduling** — set start/end dates; the app computes and **stores a recommended arrange-by date per round** (admin-editable on the competition page, with a "regenerate" option), sends escalating reminders, and flags overdue matches
-- **End-of-league recovery window** — a per-competition grace period after the end date (default 14 days, editable) during which still-pending matches show an "En recuperación" state and stay organizable; the admin can finalize a league early
-- **Admin-approved walkovers** — when a team reports a match unplayed, the admin approves a walkover with a configurable default score (6-0 6-0) and points penalty; nothing is ever penalized automatically
+- **End-of-league recovery window** — a per-competition grace period after the end date (default 7 days, editable) during which still-pending matches show an "En recuperación" state and stay organizable; the admin can finalize a league early
+- **Admin-approved walkovers** — when a team reports a match unplayed, the admin approves a walkover with a configurable default score (6-0 6-0) and points penalty; no walkover is ever applied without admin approval. The one automatic penalty is the rulebook close: once the recovery window ends, a daily job closes the league and applies −1 point per match a pair is short of its target (and −1 per pending match above the limit during the window), logs it, and notifies the admin, who can void or correct it
 - **Playoff brackets** — admin-set fixed dates enforced in bracket order (quarters → semis → final), with a mobile-friendly bracket view
 - **Home dashboard** — a setup checklist before a league starts, and dispute/overdue/walkover alerts once it is active
 - **Outstanding matches** — one view of every unresolved match across active competitions with its deadline and urgency, most-urgent first
 - **Invite-only registration** — admin generates invite links, no open signup
-- **Dispute resolution** — review and resolve score disagreements
+- **Dispute resolution** — review and resolve score disagreements; close an arbitration request once it is handled
+- **League contact details** — set the admin phone and email that logged-in users see as contact links (Configuración)
 - **Admin notifications** — toggleable alerts for match progress, system errors, and new player registrations; admin-only section in notification preferences
 - **Reference documents** — upload files or add links with mandatory/default flags; protected file downloads with per-request tokens
 - **Penalty system** — apply configurable, reasoned point penalties per pair; every application records its admin and timestamp, and removals retain the audit history
@@ -64,9 +72,9 @@ make build
 ./padelleague serve --http=0.0.0.0:8090
 ```
 
-The app is available at `http://localhost:8090`. PocketBase admin UI is at `http://localhost:8090/_/`.
+The app is available at `http://localhost:8090`. On startup the app creates the PocketBase superuser and the admin users from the `PB_ADMIN_*` and `APP_ADMIN*` variables (see below). The PocketBase admin UI at `http://localhost:8090/_/` is blocked unless `APP_DEV_TOOLS=true`.
 
-On first run, create a superuser:
+To create a superuser by hand instead:
 
 ```bash
 ./padelleague superuser create admin@example.com yourpassword
@@ -85,7 +93,7 @@ The `-v` flag persists the SQLite database between container restarts.
 
 | Variable | Description |
 |----------|-------------|
-| `PB_ADMIN_EMAIL` | PocketBase superuser email |
+| `PB_ADMIN_EMAIL` | PocketBase superuser email (created at startup if missing) |
 | `PB_ADMIN_PASSWORD` | PocketBase superuser password |
 | `APP_ADMIN1_EMAIL` | First app-level admin user email |
 | `APP_ADMIN1_PASSWORD` | First app-level admin user password |
@@ -99,25 +107,28 @@ The `-v` flag persists the SQLite database between container restarts.
 | `APP_PLAYER2_EMAIL` | Second seed player email (dev/test, optional) |
 | `APP_PLAYER2_PASSWORD` | Second seed player password (dev/test) |
 | `APP_PLAYER2_NAME` | Second seed player display name (default: `Jugador 2`) |
-| `APP_ENV` | Environment: `prod` (default) or `dev`. `prod` skips the player seed and `/dev-login` |
-| `APP_DEV_TOOLS` | `true` to enable the admin database reset tool (default: `false`) |
+| `APP_ENV` | Environment: `prod` (default) or `dev`. `prod` skips the player seed; `/dev-login` exists only when `dev` |
+| `APP_DEV_TOOLS` | `true` to unblock the PocketBase admin UI at `/_/` and show the admin Dev Tools page (database reset, test push; the page also needs `APP_ENV` other than `prod`). Default: `false` |
 | `SMTP_HOST` | SMTP server host (e.g. `smtp.gmail.com`) |
 | `SMTP_PORT` | SMTP port (default: `587`) |
 | `SMTP_USERNAME` | SMTP username |
 | `SMTP_PASSWORD` | SMTP password (app password for Gmail) |
 | `SMTP_TLS` | Enable TLS (default: `false`) |
 | `SMTP_SENDER_ADDRESS` | Sender email address |
-| `SMTP_SENDER_NAME` | Sender display name (default: `Liga Dale Fuerte`) |
-| `APP_URL` | Public app URL for email links (e.g. `https://www.ligadalefuerte.com`) |
+| `SMTP_SENDER_NAME` | Sender display name (default: empty, which uses the league name from Configuración, or `PadelLeague` if unset) |
+| `APP_URL` | Public app URL for email links (e.g. `https://league.example.com`) |
 | `VAPID_PUBLIC_KEY` | Web push VAPID public key |
 | `VAPID_PRIVATE_KEY` | Web push VAPID private key |
+| `BACKUP_EMAIL` | Address that receives an emailed copy of each backup; backups are off when unset |
+| `BACKUP_ENCRYPTION_KEY` | Passphrase for the emailed backup (AES-256, `openssl enc -d -aes-256-cbc -pbkdf2`); required, the app never mails an unencrypted backup |
+| `BACKUP_INTERVAL_HOURS` | Hours between backups (default: `12`; 24 or more means daily) |
 
 ## Project structure
 
 ```
 main.go              # Entry point, wires packages together
 config/              # Env-based configuration struct
-league/              # Domain logic (scoring, standings, fixtures, awards, quorum)
+league/              # Domain logic (scoring, standings, fixtures, awards, quorum, leveled assignment, hidden rating)
 notify/              # Notification delivery (in-app, push, email — all three from one deliver method)
 handlers/            # HTTP handlers (thin: parse request, call domain, render)
 hooks/               # PocketBase event hooks and cron jobs
