@@ -4,6 +4,8 @@ export type StageName = (typeof STAGE_ORDER)[number];
 export interface Scenario {
   description: string;
   startStage: StageName;
+  // Points the server's SMTP at Mailpit (also forced by MAIL=1 on any scenario).
+  mail?: boolean;
   specs: string[];
 }
 

@@ -534,3 +534,29 @@ export async function enableSmtp(api: ScenarioApi, sinkPort: number): Promise<vo
 export async function disableSmtp(api: ScenarioApi): Promise<void> {
   await apiPatch(api, '/api/settings', { smtp: { enabled: false } });
 }
+
+export const MAILPIT_SMTP_PORT = 1025;
+export const MAILPIT_URL = 'http://localhost:8025';
+// Node resolves localhost to ::1 first; Mailpit listens on IPv4 only.
+export const MAILPIT_API = 'http://127.0.0.1:8025';
+
+// Points the server's SMTP at a local Mailpit (`make mail`).
+export async function enableMailpit(api: ScenarioApi): Promise<void> {
+  await enableSmtp(api, MAILPIT_SMTP_PORT);
+}
+
+// Recipient addresses (To) of every message Mailpit holds, via its REST API.
+export async function mailpitRecipients(): Promise<string[]> {
+  const resp = await fetch(`${MAILPIT_API}/api/v1/messages?limit=500`);
+  if (!resp.ok) throw new Error(`Mailpit /api/v1/messages: ${resp.status}`);
+  const body = (await resp.json()) as { messages: Array<{ To: Array<{ Address: string }> }> };
+  return body.messages.flatMap((m) => m.To.map((t) => t.Address));
+}
+
+export async function mailpitReachable(): Promise<boolean> {
+  try {
+    return (await fetch(`${MAILPIT_API}/api/v1/info`)).ok;
+  } catch {
+    return false;
+  }
+}

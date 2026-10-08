@@ -4,7 +4,7 @@ export
 LOCAL_URL ?= http://127.0.0.1:8090
 OPENER ?= xdg-open
 
-.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci check e2e e2e-bg e2e-failed e2e-smoke scenario-test scenario-serve scenario-stop scenario-migrate mutate
+.PHONY: build run migrate css open open-local open-remote stop reset test lint fmt vuln fmt-check ci check e2e e2e-bg e2e-failed e2e-smoke scenario-test scenario-serve scenario-stop scenario-migrate mutate mail
 
 css:
 	cd frontend && npx tailwindcss -i ../static/css/input.css -o ../static/css/styles.css --minify
@@ -229,6 +229,19 @@ mutate: ## mutation test one package under a memory cap: make mutate PKG=./leagu
 	@if [ -z "$(PKG)" ]; then echo "usage: make mutate PKG=./league [ARGS=...]"; exit 1; fi
 	systemd-run --user --scope -q -p MemoryMax=$(MUTATE_MEM) -p MemorySwapMax=0 \
 	  gremlins unleash --workers 1 --timeout-coefficient 100 --coverpkg=$(PKG) $(ARGS) $(PKG)
+
+MAILPIT_VERSION ?= v1.31.4
+MAILPIT_SHA256 ?= 30942c4605c2ca8b9f759b1bb4e3ab6a12bdfdf66e5c94644ec2c75ac41e88e7
+bin/mailpit:
+	@if [ "$$(uname -sm)" != "Linux x86_64" ]; then echo "mail: only linux-amd64 is pinned; download mailpit manually into bin/"; exit 1; fi
+	mkdir -p bin
+	curl -sSLo bin/mailpit.tar.gz https://github.com/axllent/mailpit/releases/download/$(MAILPIT_VERSION)/mailpit-linux-amd64.tar.gz
+	echo "$(MAILPIT_SHA256)  bin/mailpit.tar.gz" | sha256sum -c - || { rm -f bin/mailpit.tar.gz; exit 1; }
+	tar xzf bin/mailpit.tar.gz -C bin mailpit
+	rm -f bin/mailpit.tar.gz
+
+mail: bin/mailpit ## run Mailpit (SMTP :1025, inbox UI http://localhost:8025) for manual email testing
+	bin/mailpit --smtp 127.0.0.1:1025 --listen 127.0.0.1:8025 --smtp-auth-accept-any --smtp-auth-allow-insecure
 
 scenario-test: ## run a scenario: make scenario-test SCENARIO=<name>
 	@if [ -z "$(SCENARIO)" ]; then cd e2e && npx tsx list-scenarios.ts; exit 1; fi

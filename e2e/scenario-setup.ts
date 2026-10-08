@@ -3,7 +3,7 @@ import { join } from 'path';
 import { runDataDir } from './run-dir';
 import { spawnServer, superuserLogin, sweepStaleTestDirs } from './server';
 import { ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME } from './global-setup';
-import { buildToStage, ScenarioApi } from './scenario-helpers';
+import { buildToStage, enableMailpit, ScenarioApi } from './scenario-helpers';
 import { SCENARIOS } from './scenario-registry';
 
 const PORT = process.env.E2E_PORT ? Number(process.env.E2E_PORT) : 8098;
@@ -39,6 +39,7 @@ export default async function scenarioSetup() {
 
   const api: ScenarioApi = { baseURL: handle.baseURL, suToken, adminCookie };
   const ctx = await buildToStage(api, scenario.startStage);
+  if (scenario.mail || process.env.MAIL === '1') await enableMailpit(api);
 
   writeFileSync(
     join(runDataDir(PORT), 'scenario.json'),
