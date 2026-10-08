@@ -77,6 +77,18 @@ export const SCENARIOS: Record<string, Scenario> = {
     mail: true,
     specs: ['mail-chat.spec.ts'],
   },
+  'mail-chat-scheduled': {
+    description: 'as mail-chat, with a confirmed date, time and venue on the match — post a chat message and compare the email summary',
+    startStage: 'blank',
+    mail: true,
+    specs: ['mail-chat-scheduled.spec.ts'],
+  },
+  'mail-chat-proposed': {
+    description: 'as mail-chat, with a date, time and venue proposed by p01 and not accepted — post a chat message and compare the email summary',
+    startStage: 'blank',
+    mail: true,
+    specs: ['mail-chat-proposed.spec.ts'],
+  },
   'several-competitions': {
     description: 'three active competitions with quorum 12h, 48h, 48h',
     startStage: 'created',

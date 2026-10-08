@@ -3,7 +3,7 @@ import { join } from 'path';
 import { runDataDir } from './run-dir';
 import { spawnServer, superuserLogin, sweepStaleTestDirs } from './server';
 import { ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME } from './global-setup';
-import { buildToStage, enableMailpit, ScenarioApi } from './scenario-helpers';
+import { apiPatch, buildToStage, enableMailpit, ScenarioApi } from './scenario-helpers';
 import { SCENARIOS } from './scenario-registry';
 
 const PORT = process.env.E2E_PORT ? Number(process.env.E2E_PORT) : 8098;
@@ -38,6 +38,8 @@ export default async function scenarioSetup() {
   const adminCookie = await getAdminCookie(handle.baseURL);
 
   const api: ScenarioApi = { baseURL: handle.baseURL, suToken, adminCookie };
+  // Links in emails are built from meta.appURL (the .env APP_URL); point it at this server so they work.
+  await apiPatch(api, '/api/settings', { meta: { appUrl: handle.baseURL } });
   const ctx = await buildToStage(api, scenario.startStage);
   if (scenario.mail || process.env.MAIL === '1') await enableMailpit(api);
 
