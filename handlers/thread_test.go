@@ -1053,6 +1053,52 @@ func TestPostMessage_AdminNotifiesBothPairs(t *testing.T) {
 	s.Test(t)
 }
 
+func TestPostMessage_PlayerEmailsRivalsAndOwnPartner(t *testing.T) {
+	t.Parallel()
+	var wantEmails []string
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "player chat emails both rivals and own partner, never the author",
+		Method:         http.MethodPost,
+		Body:           strings.NewReader("content=Hola+a+todos&type=chat"),
+		ExpectedStatus: 204,
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		app.Settings().SMTP.Enabled = true
+		app.Settings().SMTP.Host = "smtp.test.local"
+		app.Settings().SMTP.Port = 587
+		require.NoError(tb, app.Save(app.Settings()))
+
+		p1 := handlers.MakePairTB(tb, app, "ChatMail A")
+		p2 := handlers.MakePairTB(tb, app, "ChatMail B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		author, err := app.FindRecordById("users", p1.GetString("player1"))
+		require.NoError(tb, err)
+		for _, id := range []string{p1.GetString("player2"), p2.GetString("player1"), p2.GetString("player2")} {
+			u, err := app.FindRecordById("users", id)
+			require.NoError(tb, err)
+			wantEmails = append(wantEmails, u.Email())
+		}
+		s.URL = "/match/" + match.Id + "/thread/message"
+		hdrs := handlers.AuthHeaders(tb, author)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		var got []string
+		for _, msg := range app.TestMailer.Messages() {
+			require.Len(tb, msg.To, 1)
+			got = append(got, msg.To[0].Address)
+		}
+		assert.ElementsMatch(tb, wantEmails, got)
+	}
+	handlers.ExpectRedirect(s, func(core.App) string { return matchPageURL(s.URL) + "#mensajes" })
+	s.Test(t)
+}
+
 func TestFinalMatchThreadAcceptsPost(t *testing.T) {
 	t.Parallel()
 

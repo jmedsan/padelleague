@@ -250,18 +250,8 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 		return alertError(e, "Error al enviar mensaje")
 	}
 
-	// A player notifies the rival team; an admin (not on either team) notifies both.
-	var recipients []string
-	if myTeam == 0 {
-		recipients = append(league.PlayersForPair(h.app, match.GetString("pair1")),
-			league.PlayersForPair(h.app, match.GetString("pair2"))...)
-	} else {
-		rivalPairID := match.GetString("pair1")
-		if myTeam == 1 {
-			rivalPairID = match.GetString("pair2")
-		}
-		recipients = league.PlayersForPair(h.app, rivalPairID)
-	}
+	// Everyone in the match but the author: rivals and the author's partner (an admin is on neither pair).
+	recipients := league.MatchPlayersExcluding(h.app, match, e.Auth.Id)
 	authorName := pairPlayerLabel(h.app, e.Auth.Id, match)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	h.notifier.NotifyPlayers(recipients, league.NotifNewMessage(matchID, authorName, content, compName))
