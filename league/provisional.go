@@ -59,7 +59,8 @@ func ProvisionalResults(app core.App, candidates []*core.Record) ([]*core.Record
 		synth.Set("scores", scores)
 		synth.Set("winner", winner)
 		synth.Set("date", m.GetString("date"))
-		synth.Set("created", p.GetString("created")) // when the result was proposed
+		// SetRaw: Set is a no-op on an autodate field (PocketBase noopSetter).
+		synth.SetRaw("created", p.GetDateTime("created")) // when the result was proposed
 		out = append(out, synth)
 	}
 	return out, nil
