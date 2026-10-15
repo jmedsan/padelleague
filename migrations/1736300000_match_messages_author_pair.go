@@ -34,7 +34,7 @@ func init() {
 }
 
 func backfillAuthorPair(app core.App) error {
-	msgs, err := app.FindRecordsByFilter("match_messages", "author != ''", "", 0, 0)
+	msgs, err := app.FindRecordsByFilter("match_messages", "author != '' && type != 'admin_action'", "", 0, 0)
 	if err != nil {
 		return err
 	}

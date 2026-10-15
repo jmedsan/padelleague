@@ -103,18 +103,64 @@ func PairPlayerLabel(app core.App, userID string, match *core.Record) string {
 }
 
 // MessageAuthorLabel returns "PlayerName (PairName)" for a message author using
-// the pair stored on the message (frozen at write time), falling back to the
-// current membership for messages without one.
-func MessageAuthorLabel(app core.App, msg, match *core.Record) string {
+// the pair stored on the message, frozen when it was written. A message without
+// one (an admin entry, a system line, an author who played for no pair) shows
+// the bare name: the current membership says nothing about what the author was
+// at that time.
+func MessageAuthorLabel(app core.App, msg *core.Record) string {
 	authorID := msg.GetString("author")
 	if authorID == "" {
 		return ""
 	}
-	pairID := msg.GetString("author_pair")
-	if pairID == "" {
-		pairID = CurrentPairID(app, authorID, match)
+	return pairLabel(app, authorID, msg.GetString("author_pair"))
+}
+
+// PairTeam returns 1 or 2 when pairID is the match's first or second pair, and
+// 0 when it is neither (or empty).
+func PairTeam(match *core.Record, pairID string) int {
+	switch {
+	case pairID == "":
+		return 0
+	case pairID == match.GetString("pair1"):
+		return 1
+	case pairID == match.GetString("pair2"):
+		return 2
 	}
-	return pairLabel(app, authorID, pairID)
+	return 0
+}
+
+// MessageAuthorTeam returns the team a message's author wrote for, from the
+// pair stored on the message. It stays right after the pair's players change,
+// and is 0 for messages with no pair (admin or system entries).
+func MessageAuthorTeam(msg, match *core.Record) int {
+	return PairTeam(match, msg.GetString("author_pair"))
+}
+
+// SubmitterTeam returns the team of the match's result submitter, from the
+// pair stored when the result was submitted.
+func SubmitterTeam(match *core.Record) int {
+	return PairTeam(match, match.GetString("submitted_by_pair"))
+}
+
+// DisputerTeam returns the team of the match's disputer, from the pair stored
+// when the dispute was recorded.
+func DisputerTeam(match *core.Record) int {
+	return PairTeam(match, match.GetString("disputed_by_pair"))
+}
+
+// StampActorPairs freezes the pair of the match's submitter and disputer when
+// either changes, so they keep naming the same pair after its players change.
+func StampActorPairs(app core.App, match *core.Record) {
+	for _, f := range [...]struct{ actor, pair string }{
+		{"submitted_by", "submitted_by_pair"},
+		{"disputed_by", "disputed_by_pair"},
+	} {
+		actor := match.GetString(f.actor)
+		if actor != match.Original().GetString(f.actor) {
+			// A cleared actor has no current pair, so this also clears the stamp.
+			match.Set(f.pair, CurrentPairID(app, actor, match))
+		}
+	}
 }
 
 // CurrentPairID returns the match pair the user belongs to now, or "" when the
@@ -136,7 +182,16 @@ func pairLabel(app core.App, userID, pairID string) string {
 	if pairID == "" {
 		return name
 	}
-	return fmt.Sprintf("%s (%s)", name, PairNames(app, []string{pairID})[pairID])
+	return LabelWithPair(name, PairNames(app, []string{pairID})[pairID])
+}
+
+// LabelWithPair formats "PlayerName (PairName)", or the bare name when the
+// pair name is empty.
+func LabelWithPair(name, pairName string) string {
+	if pairName == "" {
+		return name
+	}
+	return fmt.Sprintf("%s (%s)", name, pairName)
 }
 
 // PlayerAvatarURL returns the served URL for a user's avatar, or "" if the

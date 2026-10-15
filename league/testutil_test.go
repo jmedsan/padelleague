@@ -27,7 +27,9 @@ func TestMain(m *testing.M) {
 
 func newTestApp(t *testing.T) core.App {
 	t.Helper()
-	return testapp.New(t)
+	app := testapp.New(t)
+	RegisterPairStamps(app)
+	return app
 }
 
 func makeUser(t *testing.T, app core.App, displayName, email string) *core.Record {

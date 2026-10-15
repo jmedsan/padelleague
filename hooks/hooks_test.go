@@ -1634,7 +1634,7 @@ func TestMatchMessage_AuthorPairSurvivesPlayerSwap(t *testing.T) {
 
 	saved, err := app.FindRecordById("match_messages", msg.Id)
 	require.NoError(t, err)
-	assert.Equal(t, league.PlayerName(app, author)+" (Frozen A)", league.MessageAuthorLabel(app, saved, match))
+	assert.Equal(t, league.PlayerName(app, author)+" (Frozen A)", league.MessageAuthorLabel(app, saved))
 	assert.Equal(t, league.PlayerName(app, author), league.PairPlayerLabel(app, author, match),
 		"live membership no longer has the author in a pair")
 }
@@ -1654,4 +1654,63 @@ func TestMatchMessage_SystemAuthorHasNoPair(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, msgs, 1)
 	assert.Empty(t, msgs[0].GetString("author_pair"))
+}
+
+func TestMatchMessage_AdminActionCarriesNoPair(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	registerHooks(t, app)
+	p1 := makePair(t, app, "Adm A")
+	p2 := makePair(t, app, "Adm B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+	// An admin who also plays in the match.
+	admin, err := app.FindRecordById("users", p1.GetString("player1"))
+	require.NoError(t, err)
+	admin.Set("roles", []string{"player", "admin"})
+	require.NoError(t, app.Save(admin))
+
+	col, err := app.FindCollectionByNameOrId("match_messages")
+	require.NoError(t, err)
+	for _, tc := range []struct{ typ, wantPair string }{
+		{"admin_action", ""},
+		{"chat", p1.Id},
+	} {
+		msg := core.NewRecord(col)
+		msg.Set("match", match.Id)
+		msg.Set("author", admin.Id)
+		msg.Set("type", tc.typ)
+		msg.Set("content", "x")
+		require.NoError(t, app.Save(msg))
+		assert.Equal(t, tc.wantPair, msg.GetString("author_pair"), tc.typ)
+	}
+}
+
+func TestMatch_ActorPairsSurvivePlayerSwap(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	registerHooks(t, app)
+	p1 := makePair(t, app, "Act A")
+	p2 := makePair(t, app, "Act B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	created := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+	match, err := app.FindRecordById("matches", created.Id)
+	require.NoError(t, err)
+
+	match.Set("submitted_by", p1.GetString("player1"))
+	match.Set("disputed_by", p2.GetString("player1"))
+	require.NoError(t, app.Save(match))
+	assert.Equal(t, p1.Id, match.GetString("submitted_by_pair"))
+	assert.Equal(t, p2.Id, match.GetString("disputed_by_pair"))
+
+	spare := makePair(t, app, "Act Spare")
+	p1.Set("player1", spare.GetString("player1"))
+	require.NoError(t, app.Save(p1))
+
+	saved, err := app.FindRecordById("matches", match.Id)
+	require.NoError(t, err)
+	saved.Set("scores", "6-0 6-0")
+	require.NoError(t, app.Save(saved))
+	assert.Equal(t, 1, league.SubmitterTeam(saved), "the submitter's pair is frozen")
+	assert.Equal(t, 2, league.DisputerTeam(saved))
 }

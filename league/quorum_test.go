@@ -673,3 +673,36 @@ func TestRemindProposal_ThresholdGteTimeout(t *testing.T) {
 	assert.Empty(t, notifier.calls,
 		"reminder must NOT fire when threshold >= timeout (proposal path)")
 }
+
+func TestRemindPendingConfirmations_AfterSubmitterLeftPair(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "Left A")
+	p2 := makePair(t, app, "Left B")
+
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	comp.Set("confirm_reminder_hours", 6)
+	comp.Set("quorum_timeout_hours", 24)
+	require.NoError(t, app.Save(comp))
+
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "confirmed")
+	match.Set("scores", "6-3 6-4")
+	match.Set("submitted_by", p1.GetString("player1"))
+	require.NoError(t, app.Save(match))
+	pastThreshold := time.Now().Add(-8 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
+	_, err := app.DB().NewQuery("UPDATE matches SET submitted_at = {:sa} WHERE id = {:id}").
+		Bind(map[string]any{"sa": pastThreshold, "id": match.Id}).Execute()
+	require.NoError(t, err)
+
+	// Admin swaps the submitter out of pair A after the submission.
+	repl := makeUser(t, app, "Left Replacement", "left-repl@test.local")
+	p1.Set("player1", repl.Id)
+	require.NoError(t, app.Save(p1))
+
+	notifier := &fakeNotifier{}
+	New(app, notifier).RemindPendingConfirmations(time.Now())
+
+	require.Len(t, notifier.calls, 1, "the rival must still be reminded")
+	assert.ElementsMatch(t, PlayersForPair(app, p2.Id), notifier.calls[0].playerIDs)
+	assert.Equal(t, "Left A envió un resultado hace más de 6 horas. Confirma o contrapropón.", notifier.calls[0].body)
+}

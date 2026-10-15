@@ -84,7 +84,7 @@ func (h *MatchHandler) correctResultProposal(match *core.Record, userID, scores 
 		if err := ensureNoOtherSidePending(txApp, fresh, userID); err != nil {
 			return err
 		}
-		h.supersedePendingResultsTx(txApp, fresh.Id, userID)
+		h.supersedePendingResultsTx(txApp, fresh, userID)
 		col, err := txApp.FindCollectionByNameOrId("match_messages")
 		if err != nil {
 			return err
@@ -120,7 +120,7 @@ func (h *MatchHandler) validateCorrectionAccess(e *core.RequestEvent, match *cor
 	}
 
 	isAdmin := render.AdminView(e)
-	submittedByID := pending[0].GetString("author")
+	submitterTeam := league.MessageAuthorTeam(pending[0], match)
 	var myTeam int
 	if !isAdmin {
 		team, err := playerActionGate(h.app, e.Auth.Id, match)
@@ -129,7 +129,7 @@ func (h *MatchHandler) validateCorrectionAccess(e *core.RequestEvent, match *cor
 		}
 		myTeam = team
 	}
-	if msg := h.validateCorrectionPermission(isAdmin, myTeam, submittedByID, match); msg != "" {
+	if msg := validateCorrectionPermission(isAdmin, myTeam, submitterTeam); msg != "" {
 		return alertError(e, msg)
 	}
 	return nil
@@ -165,12 +165,11 @@ func (h *MatchHandler) validateCorrectionWindow(e *core.RequestEvent, match *cor
 	return nil
 }
 
-func (h *MatchHandler) validateCorrectionPermission(isAdmin bool, myTeam int, submittedByID string, match *core.Record) string {
+func validateCorrectionPermission(isAdmin bool, myTeam, submitterTeam int) string {
 	if isAdmin {
 		return ""
 	}
-	submitterTeam, err := league.PlayerTeam(h.app, submittedByID, match)
-	if err != nil || myTeam != submitterTeam {
+	if submitterTeam == 0 || myTeam != submitterTeam {
 		return "Solo el equipo que envió el resultado puede corregirlo"
 	}
 	return ""

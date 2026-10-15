@@ -96,6 +96,6 @@ test.describe('timeline after a pair member is swapped', () => {
     const mine = ctx.pairs[0];
     await loginAs(page, ctx.players[mine.player1Idx].email, PLAYER_PASSWORD);
     await page.goto(`/match/${match.id}`);
-    await expect(page.getByText(`Player 1 (${mine.name})`).first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(`Player 1 (${mine.name})`).locator('visible=true').first()).toBeVisible({ timeout: 10000 });
   });
 });

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"padelleague/internal/testapp"
+	"padelleague/league"
 	_ "padelleague/migrations"
 )
 
@@ -68,12 +69,18 @@ func makeUser(t testing.TB, app core.App, displayName, email string) *core.Recor
 // template. Without it ApiScenario calls tests.NewTestApp() itself and pays
 // the full migration cost on every scenario.
 func testAppFactory(t testing.TB) *tests.TestApp {
-	return testapp.Factory(t)
+	app := testapp.Factory(t)
+	league.RegisterPairStamps(app)
+	return app
 }
 
 func newTestApp(t *testing.T) core.App {
 	t.Helper()
-	return testapp.New(t)
+	app := testapp.New(t)
+	// The production hooks stamp author_pair and the submitter/disputer pairs
+	// that the handlers read; without them those fields stay empty.
+	league.RegisterPairStamps(app)
+	return app
 }
 
 func makePair(t testing.TB, app core.App, name string) *core.Record {

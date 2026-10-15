@@ -309,8 +309,7 @@ func (h *PublicHandler) checkPendingProposal(m *core.Record, playerPairIDs map[s
 		playerTeam = 2
 	}
 	for _, prop := range proposals {
-		proposerTeam, _ := league.PlayerTeam(h.app, prop.GetString("author"), m)
-		if proposerTeam != playerTeam {
+		if league.MessageAuthorTeam(prop, m) != playerTeam {
 			return &PendingAction{
 				MatchID:     m.Id,
 				Opponent:    h.opponentName(m, playerPairIDs),
@@ -335,7 +334,7 @@ func (h *PublicHandler) findLegacyConfirmed(c *core.Record, playerPairIDs map[st
 		Sort: "-created", Params: map[string]any{"cid": c.Id},
 	})
 	for _, m := range confirmed {
-		if !isRivalAction(h.app, m, m.GetString("submitted_by"), playerPairIDs) {
+		if !isRivalAction(m, league.SubmitterTeam(m), playerPairIDs) {
 			continue
 		}
 		actions = append(actions, PendingAction{
@@ -358,7 +357,7 @@ func (h *PublicHandler) findPendingProposals(c *core.Record, playerPairIDs map[s
 		if err != nil || m.GetString("competition") != c.Id {
 			continue
 		}
-		if !isRivalAction(h.app, m, p.GetString("author"), playerPairIDs) {
+		if !isRivalAction(m, league.MessageAuthorTeam(p, m), playerPairIDs) {
 			continue
 		}
 		scores := "pendiente"
@@ -375,13 +374,12 @@ func (h *PublicHandler) findPendingProposals(c *core.Record, playerPairIDs map[s
 	return actions
 }
 
-func isRivalAction(app core.App, m *core.Record, authorID string, playerPairIDs map[string]struct{}) bool {
+func isRivalAction(m *core.Record, authorTeam int, playerPairIDs map[string]struct{}) bool {
 	_, hasP1 := playerPairIDs[m.GetString("pair1")]
 	_, hasP2 := playerPairIDs[m.GetString("pair2")]
 	if !hasP1 && !hasP2 {
 		return false
 	}
-	authorTeam, _ := league.PlayerTeam(app, authorID, m)
 	playerTeam := 1
 	if hasP2 {
 		playerTeam = 2

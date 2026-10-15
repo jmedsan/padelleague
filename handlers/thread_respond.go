@@ -104,7 +104,7 @@ func (h *ThreadHandler) acceptProposal(e *core.RequestEvent, match, msg *core.Re
 		return alertError(e, "Error al leer los datos de la propuesta")
 	}
 
-	proposerName := league.MessageAuthorLabel(h.app, msg, match)
+	proposerName := league.MessageAuthorLabel(h.app, msg)
 	var fresh *core.Record
 	if err := h.app.RunInTransaction(func(txApp core.App) (err error) {
 		fresh, err = acceptScheduleTx(txApp, scheduleAccept{
@@ -131,7 +131,7 @@ func (h *ThreadHandler) rejectProposal(e *core.RequestEvent, msg *core.Record, m
 	reason := e.Request.FormValue("rejection_reason")
 	text := e.Request.FormValue("rejection_text")
 
-	proposerName := league.MessageAuthorLabel(h.app, msg, match)
+	proposerName := league.MessageAuthorLabel(h.app, msg)
 	detail := "rechazó la propuesta de " + proposerName
 	if text != "" {
 		detail += ": " + text

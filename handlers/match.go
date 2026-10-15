@@ -297,7 +297,7 @@ func (h *MatchHandler) submitResultProposal(match *core.Record, userID, scores s
 			return err
 		}
 		// Supersede before creating the new proposal so the new one is not caught.
-		h.supersedePendingResultsTx(txApp, fresh.Id, userID)
+		h.supersedePendingResultsTx(txApp, fresh, userID)
 		col, err := txApp.FindCollectionByNameOrId("match_messages")
 		if err != nil {
 			return err
@@ -333,7 +333,7 @@ func ensureNoOtherSidePending(app core.App, match *core.Record, userID string) e
 	}
 	mySide := league.AuthorSide(app, match, userID)
 	for _, p := range pending {
-		if side := league.AuthorSide(app, match, p.GetString("author")); side != mySide || side == league.SideNeither {
+		if side := league.MessageAuthorTeam(p, match); side != mySide || side == league.SideNeither {
 			return errOtherSidePending
 		}
 	}
@@ -342,12 +342,15 @@ func ensureNoOtherSidePending(app core.App, match *core.Record, userID string) e
 
 // supersedePendingResultsTx supersedes the pending result proposals of the
 // match: only authorID's when given, every author's when empty.
-func (h *MatchHandler) supersedePendingResultsTx(app core.App, matchID, authorID string) {
+func (h *MatchHandler) supersedePendingResultsTx(app core.App, match *core.Record, authorID string) {
 	filter := "match = {:mid} && type = 'result_submission' && proposal_status = 'pending'"
-	params := map[string]any{"mid": matchID}
+	params := map[string]any{"mid": match.Id}
 	if authorID != "" {
-		filter += " && author = {:uid}"
+		// The author's pair, not just the author: a proposal by a player
+		// since replaced in the pair is still the pair's own.
+		filter += " && (author = {:uid} || (author_pair != '' && author_pair = {:pair}))"
 		params["uid"] = authorID
+		params["pair"] = league.CurrentPairID(app, authorID, match)
 	}
 	pending, _ := app.FindRecordsByFilter("match_messages", filter, "", 0, 0, params)
 	for _, p := range pending {

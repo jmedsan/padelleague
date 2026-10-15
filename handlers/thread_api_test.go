@@ -317,6 +317,37 @@ func TestThreadRespondOwnProposalRejected(t *testing.T) {
 	s.Test(t)
 }
 
+func TestThreadRespondOwnPairProposalRejectedAfterSwap(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  handlers.TestAppFactory,
+		Name:            "replacement player cannot accept the proposal their pair already made",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"propia propuesta"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "SwapA")
+		p2 := handlers.MakePairTB(tb, app, "SwapB")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+
+		msg := handlers.MakeProposal(tb, app, match.Id, p1.GetString("player1"))
+
+		replacement := handlers.MakeUserTB(tb, app, "Replacement", "swap-repl@test.local")
+		p1.Set("player1", replacement.Id)
+		require.NoError(tb, app.Save(p1))
+
+		s.URL = fmt.Sprintf("/match/%s/thread/proposal/%s/respond", match.Id, msg.Id)
+		s.Body = strings.NewReader("action=accept")
+		hdrs := handlers.AuthHeaders(tb, replacement)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.Test(t)
+}
+
 func TestThreadEmptyPairsShowsMessage(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{

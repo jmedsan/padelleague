@@ -102,8 +102,8 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 		DisputedScore:     match.GetString("disputed_scores"),
 		DisputeNotes:      match.GetString("dispute_notes"),
 		ReviewType:        match.GetString("review_type"),
-		SubmitterPairName: userPairName(app, match.GetString("submitted_by"), match, pairNames),
-		DisputerPairName:  userPairName(app, match.GetString("disputed_by"), match, pairNames),
+		SubmitterPairName: pairNames[match.GetString("submitted_by_pair")],
+		DisputerPairName:  pairNames[match.GetString("disputed_by_pair")],
 		RequestedBy:       playerNameIfSet(app, match.GetString("walkover_requested_by")),
 		Arbitration:       arbitration,
 		ArbitrationLabel:  league.ArbitrationLabel(arbitration),
@@ -234,7 +234,7 @@ func markProvisional(app core.App, cards []MatchCard) {
 func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID string) {
 	status := match.GetString("status")
 	team, _ := league.PlayerTeam(app, viewerID, match)
-	isSubmitter := viewerIsSubmitter(app, match, team)
+	isSubmitter := viewerIsSubmitter(match, team)
 	c.MyTeam = team
 	c.HasDateAndPlace = league.HasDateAndPlace(match)
 	c.HasPendingSchedulingProposal = league.PendingSchedulingProposal(app, match.Id) != nil
@@ -256,13 +256,8 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 
 }
 
-func viewerIsSubmitter(app core.App, match *core.Record, viewerTeam int) bool {
-	submittedBy := match.GetString("submitted_by")
-	if submittedBy == "" || viewerTeam == 0 {
-		return false
-	}
-	submitterTeam, err := league.PlayerTeam(app, submittedBy, match)
-	return err == nil && submitterTeam == viewerTeam
+func viewerIsSubmitter(match *core.Record, viewerTeam int) bool {
+	return viewerTeam != 0 && league.SubmitterTeam(match) == viewerTeam
 }
 
 func canCorrectNow(match *core.Record, status string) bool {
@@ -301,19 +296,4 @@ func matchParticipantUserIDs(app core.App, match *core.Record) []string {
 
 func pairPlayerLabel(app core.App, userID string, match *core.Record) string {
 	return league.PairPlayerLabel(app, userID, match)
-}
-
-func userPairName(app core.App, userID string, match *core.Record, pairNames map[string]string) string {
-	if userID == "" {
-		return ""
-	}
-	team, err := league.PlayerTeam(app, userID, match)
-	if err != nil || team == 0 {
-		return ""
-	}
-	pairID := match.GetString("pair1")
-	if team == 2 {
-		pairID = match.GetString("pair2")
-	}
-	return pairNames[pairID]
 }

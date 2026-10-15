@@ -37,7 +37,7 @@ func ProvisionalResults(app core.App, candidates []*core.Record) ([]*core.Record
 
 	var out []*core.Record
 	for _, m := range open {
-		p := provisionalProposal(app, m, pending[m.Id])
+		p := provisionalProposal(m, pending[m.Id])
 		if p == nil {
 			continue
 		}
@@ -101,7 +101,7 @@ func pendingProposals(app core.App, matches []*core.Record) (map[string][]*core.
 // result: the newest pending one. It returns nil when there is none, or when
 // the two pairs each hold a pending proposal and those disagree (a deadlock):
 // a conflicting result is not a result, so it counts nowhere.
-func provisionalProposal(app core.App, m *core.Record, props []*core.Record) *core.Record {
+func provisionalProposal(m *core.Record, props []*core.Record) *core.Record {
 	if len(props) == 0 {
 		return nil
 	}
@@ -110,7 +110,7 @@ func provisionalProposal(app core.App, m *core.Record, props []*core.Record) *co
 	}
 	var side1, side2 *core.Record
 	for _, p := range props { // newest first: keep the newest per side
-		switch AuthorSide(app, m, p.GetString("author")) {
+		switch MessageAuthorTeam(p, m) {
 		case Side1:
 			if side1 == nil {
 				side1 = p

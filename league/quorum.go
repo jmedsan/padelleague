@@ -264,11 +264,10 @@ func (svc *Service) remindProposalIfDue(m, comp *core.Record, now time.Time) {
 		return
 	}
 
-	submitterID := m.GetString("submitted_by")
 	rivalPairID := m.GetString("pair2")
-	team, err := PlayerTeam(svc.app, submitterID, m)
-	if err != nil {
-		slog.Error("remind proposal: resolve submitter team", "match", m.Id, "err", err)
+	team := SubmitterTeam(m)
+	if team == 0 {
+		slog.Error("remind proposal: submitter pair not recorded", "match", m.Id)
 		return
 	}
 	if team == 2 {
@@ -318,11 +317,10 @@ func (svc *Service) remindIfDue(m *core.Record, comp *core.Record, now time.Time
 		return
 	}
 
-	submitterID := fresh.GetString("submitted_by")
 	rivalPairID := fresh.GetString("pair2")
-	team, err := PlayerTeam(svc.app, submitterID, fresh)
-	if err != nil {
-		slog.Error("remind: resolve submitter team", "match", m.Id, "err", err)
+	team := SubmitterTeam(fresh)
+	if team == 0 {
+		slog.Error("remind: submitter pair not recorded", "match", m.Id)
 		return
 	}
 	if team == 2 {

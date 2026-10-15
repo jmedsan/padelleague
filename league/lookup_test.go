@@ -249,29 +249,88 @@ func TestMessageAuthorLabel(t *testing.T) {
 	app := newTestApp(t)
 	p1 := makePair(t, app, "Label A")
 	p2 := makePair(t, app, "Label B")
-	comp := makeCompetition(t, app, []*core.Record{p1, p2})
-	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
 	author := p2.GetString("player1")
 	authorName := PlayerName(app, author)
 
 	msg := core.NewRecord(mustCollection(t, app, "match_messages"))
 	msg.Set("author", author)
 
-	t.Run("no stored pair falls back to the current team", func(t *testing.T) {
-		assert.Equal(t, authorName+" (Label B)", MessageAuthorLabel(app, msg, match))
+	t.Run("no stored pair is the bare name, whatever the current team", func(t *testing.T) {
+		assert.Equal(t, authorName, MessageAuthorLabel(app, msg))
 	})
-	t.Run("stored pair wins over the current team", func(t *testing.T) {
+	t.Run("stored pair names the pair, not the current team", func(t *testing.T) {
 		msg.Set("author_pair", p1.Id)
-		assert.Equal(t, authorName+" (Label A)", MessageAuthorLabel(app, msg, match))
+		assert.Equal(t, authorName+" (Label A)", MessageAuthorLabel(app, msg))
 	})
 	t.Run("no author has no label", func(t *testing.T) {
-		assert.Empty(t, MessageAuthorLabel(app, core.NewRecord(mustCollection(t, app, "match_messages")), match))
+		assert.Empty(t, MessageAuthorLabel(app, core.NewRecord(mustCollection(t, app, "match_messages"))))
 	})
-	t.Run("non-participant with no stored pair is the bare name", func(t *testing.T) {
-		outsider := makePair(t, app, "Label C").GetString("player1")
-		bare := core.NewRecord(mustCollection(t, app, "match_messages"))
-		bare.Set("author", outsider)
-		assert.Equal(t, PlayerName(app, outsider), MessageAuthorLabel(app, bare, match))
+}
+
+func TestPairTeamAndStoredTeams(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "Team A")
+	p2 := makePair(t, app, "Team B")
+	other := makePair(t, app, "Team C")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
+
+	assert.Equal(t, 1, PairTeam(match, p1.Id))
+	assert.Equal(t, 2, PairTeam(match, p2.Id))
+	assert.Equal(t, 0, PairTeam(match, other.Id), "a pair outside the match")
+	assert.Equal(t, 0, PairTeam(match, ""), "no pair")
+
+	msg := core.NewRecord(mustCollection(t, app, "match_messages"))
+	assert.Equal(t, 0, MessageAuthorTeam(msg, match))
+	msg.Set("author_pair", p2.Id)
+	assert.Equal(t, 2, MessageAuthorTeam(msg, match))
+
+	assert.Equal(t, 0, SubmitterTeam(match))
+	assert.Equal(t, 0, DisputerTeam(match))
+	match.Set("submitted_by_pair", p1.Id)
+	match.Set("disputed_by_pair", p2.Id)
+	assert.Equal(t, 1, SubmitterTeam(match))
+	assert.Equal(t, 2, DisputerTeam(match))
+}
+
+func TestStampActorPairs(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "Stamp A")
+	p2 := makePair(t, app, "Stamp B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
+
+	match.Set("submitted_by", p1.GetString("player1"))
+	match.Set("disputed_by", p2.GetString("player2"))
+	StampActorPairs(app, match)
+	assert.Equal(t, p1.Id, match.GetString("submitted_by_pair"))
+	assert.Equal(t, p2.Id, match.GetString("disputed_by_pair"))
+	require.NoError(t, app.Save(match))
+
+	t.Run("an unchanged actor keeps the stored pair after a swap", func(t *testing.T) {
+		p1.Set("player1", makePair(t, app, "Stamp Spare").GetString("player1"))
+		require.NoError(t, app.Save(p1))
+		saved, err := app.FindRecordById("matches", match.Id)
+		require.NoError(t, err)
+		saved.Set("status", "pending")
+		StampActorPairs(app, saved)
+		assert.Equal(t, p1.Id, saved.GetString("submitted_by_pair"))
+	})
+	t.Run("a new actor is stamped with their current pair", func(t *testing.T) {
+		saved, err := app.FindRecordById("matches", match.Id)
+		require.NoError(t, err)
+		saved.Set("submitted_by", p2.GetString("player1"))
+		StampActorPairs(app, saved)
+		assert.Equal(t, p2.Id, saved.GetString("submitted_by_pair"))
+	})
+	t.Run("clearing the actor clears the pair", func(t *testing.T) {
+		saved, err := app.FindRecordById("matches", match.Id)
+		require.NoError(t, err)
+		saved.Set("disputed_by", "")
+		StampActorPairs(app, saved)
+		assert.Empty(t, saved.GetString("disputed_by_pair"))
 	})
 }
 

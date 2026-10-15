@@ -83,7 +83,7 @@ func rejectPendingByAdmin(txApp core.App, match *core.Record, adminID string, ty
 			}
 			addTimelineEntry(txApp, timelineEntry{
 				MatchID: match.Id, ActorID: adminID, Kind: responseKind(typ),
-				Detail:   "rechazó la propuesta de " + league.MessageAuthorLabel(txApp, p, match),
+				Detail:   "rechazó la propuesta de " + league.MessageAuthorLabel(txApp, p),
 				ParentID: p.Id, Action: "reject", Note: adminRejectReason,
 				Data: league.ParseProposalData(p.Get("proposal_data")),
 			})

@@ -88,8 +88,6 @@ type threadBuildCtx struct {
 	myTeam         int
 	compModifiable bool
 	pairNames      map[string]string
-	pair1Players   []string
-	pair2Players   []string
 }
 
 type threadViewerCtx struct {
@@ -107,8 +105,6 @@ func (h *ThreadHandler) buildThreadData(match *core.Record, matchID string, vc t
 		myTeam:         vc.myTeam,
 		compModifiable: vc.compModifiable,
 		pairNames:      league.PairNames(h.app, []string{match.GetString("pair1"), match.GetString("pair2")}),
-		pair1Players:   league.PlayersForPair(h.app, match.GetString("pair1")),
-		pair2Players:   league.PlayersForPair(h.app, match.GetString("pair2")),
 	}
 	messages, _ := h.app.FindRecordsByFilter("match_messages",
 		"match = {:mid}", "created", 0, 0,
@@ -156,27 +152,15 @@ func (bc *threadBuildCtx) processMessage(msg *core.Record, authorID, cachedName 
 		msg:        msg,
 		msgType:    msg.GetString("type"),
 		authorName: cachedName,
-		authorTeam: bc.authorTeam(msg, authorID),
+		authorTeam: league.MessageAuthorTeam(msg, bc.match),
 		created:    render.FmtShortTime(createdTime),
 		createdRaw: createdTime.Format(time.RFC3339),
 	}
 	if authorID != "" {
-		mc.authorName = league.MessageAuthorLabel(bc.app, msg, bc.match)
+		mc.authorName = league.LabelWithPair(cachedName, bc.pairNames[msg.GetString("author_pair")])
 	}
 	td.Timeline = append(td.Timeline, bc.timelineEntry(mc))
 	bc.appendToPanel(mc, td)
-}
-
-// authorTeam returns the team the author wrote for: the pair stored on the
-// message, falling back to current membership for messages without one.
-func (bc *threadBuildCtx) authorTeam(msg *core.Record, authorID string) int {
-	switch msg.GetString("author_pair") {
-	case bc.match.GetString("pair1"):
-		return 1
-	case bc.match.GetString("pair2"):
-		return 2
-	}
-	return playerTeamOf(authorID, bc.pair1Players, bc.pair2Players)
 }
 
 // timelineEntry builds the frozen-snapshot timeline line for one message.
@@ -352,20 +336,6 @@ func timelineEntryText(msgType, action, content string) (verb, statusLabel, stat
 	default: // result_event, admin_action, chat
 		return content, "", ""
 	}
-}
-
-func playerTeamOf(uid string, pair1Players, pair2Players []string) int {
-	for _, p := range pair1Players {
-		if p == uid {
-			return 1
-		}
-	}
-	for _, p := range pair2Players {
-		if p == uid {
-			return 2
-		}
-	}
-	return 0
 }
 
 func proposalActions(msgType, matchStatus string, sameTeamOrOutsider bool, proposalStatus string) (canRespond, canChange bool) {

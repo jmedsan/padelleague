@@ -15,7 +15,7 @@ import (
 // thread_internal_test.go holds thread-related unit tests that exercise
 // unexported ThreadHandler internals (resolveVenue, notifyProposal,
 // buildThreadData) and unexported package-level helpers (league.ParseProposalData,
-// ProposalActions, PlayerTeamOf) directly, with no HTTP round trip. These
+// ProposalActions) directly, with no HTTP round trip. These
 // stayed in package handlers instead of moving to package handlers_test
 // because none of them touch routes.Register — routing_test.go's
 // setupProductionRoutes is for tests that need real route wiring.
@@ -54,45 +54,6 @@ func TestProposalActions(t *testing.T) {
 			assert.Equal(t, tc.wantChange, change, "canChange")
 		})
 	}
-}
-
-// playerTeamOf decides which side of a match a user is on. Returning the
-// wrong side, or zero for a real participant, silently removes every action
-// that participation grants.
-
-func TestPlayerTeamOf(t *testing.T) {
-	t.Parallel()
-
-	p1 := []string{"alice", "bob"}
-	p2 := []string{"carol", "dave"}
-
-	cases := []struct {
-		name string
-		uid  string
-		want int
-	}{
-		{"first player of pair 1", "alice", 1},
-		{"second player of pair 1", "bob", 1},
-		{"first player of pair 2", "carol", 2},
-		{"second player of pair 2", "dave", 2},
-		{"not in either pair", "eve", 0},
-		{"empty user id", "", 0},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			assert.Equal(t, tc.want, playerTeamOf(tc.uid, p1, p2))
-		})
-	}
-}
-
-// A player listed in both pairs should resolve to pair 1, since that is the
-// first match found. Pinning it stops the order silently reversing.
-
-func TestPlayerTeamOfPrefersPairOne(t *testing.T) {
-	t.Parallel()
-	assert.Equal(t, 1, playerTeamOf("alice", []string{"alice"}, []string{"alice"}))
 }
 
 // resolveVenue turns a form's venue selection into a stored venue id and a

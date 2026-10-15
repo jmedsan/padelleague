@@ -30,7 +30,6 @@ var (
 	IsInviteExpired          = isInviteExpired
 	PairPlayerLabel          = pairPlayerLabel
 	PlayerNameIfSet          = playerNameIfSet
-	PlayerTeamOf             = playerTeamOf
 	ProposalActions          = proposalActions
 	RedirectHX               = redirectHX
 	StatusClass              = statusClass

@@ -392,7 +392,7 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 		return alertError(e, "Esta propuesta ya fue respondida")
 	}
 
-	authorTeam, _ := league.PlayerTeam(h.app, msg.GetString("author"), match)
+	authorTeam := league.MessageAuthorTeam(msg, match)
 	if authorTeam == myTeam {
 		return alertError(e, "No puedes responder a tu propia propuesta")
 	}
@@ -490,7 +490,7 @@ func (h *ThreadHandler) validateCounterTarget(e *core.RequestEvent, match, msg *
 	} else if status != "pending" {
 		return alertError(e, "Esta propuesta ya fue respondida")
 	}
-	authorTeam, _ := league.PlayerTeam(h.app, msg.GetString("author"), match)
+	authorTeam := league.MessageAuthorTeam(msg, match)
 	if authorTeam == myTeam {
 		return alertError(e, "No puedes responder a tu propia propuesta")
 	}
@@ -533,7 +533,7 @@ func (h *ThreadHandler) rejectAndCreateCounter(p counterProposalParams) error {
 		if err := txApp.Save(freshMsg); err != nil {
 			return err
 		}
-		proposerName := league.MessageAuthorLabel(h.app, p.msg, p.match)
+		proposerName := league.MessageAuthorLabel(h.app, p.msg)
 		detail := "rechazó la propuesta de " + proposerName
 		if p.text != "" {
 			detail += ": " + p.text
@@ -708,7 +708,7 @@ func (h *ThreadHandler) WithdrawProposal(e *core.RequestEvent) error {
 	if msg.GetString("type") != "scheduling_proposal" {
 		return alertError(e, "Solo se pueden retirar propuestas de fecha")
 	}
-	authorTeam, _ := league.PlayerTeam(h.app, msg.GetString("author"), match)
+	authorTeam := league.MessageAuthorTeam(msg, match)
 	actorTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
 	if actorTeam == 0 || authorTeam != actorTeam {
 		return alertError(e, "Solo tu pareja puede retirar esta propuesta")
