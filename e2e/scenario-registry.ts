@@ -71,6 +71,11 @@ export const SCENARIOS: Record<string, Scenario> = {
     startStage: 'assigned',
     specs: ['result-date-proposed.spec.ts'],
   },
+  'pair-swap': {
+    description: 'a played match (date, chat, result confirmed by the rival) and a spare player in no pair — swap a pair member in the admin and check the timeline keeps the pair label',
+    startStage: 'assigned',
+    specs: ['pair-swap.spec.ts'],
+  },
   'mail-chat': {
     description: 'one match, four players with distinct emails, SMTP pointed at Mailpit (run `make mail`) — post a chat message and watch the inbox',
     startStage: 'blank',
