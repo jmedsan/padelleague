@@ -156,15 +156,27 @@ func (bc *threadBuildCtx) processMessage(msg *core.Record, authorID, cachedName 
 		msg:        msg,
 		msgType:    msg.GetString("type"),
 		authorName: cachedName,
-		authorTeam: playerTeamOf(authorID, bc.pair1Players, bc.pair2Players),
+		authorTeam: bc.authorTeam(msg, authorID),
 		created:    render.FmtShortTime(createdTime),
 		createdRaw: createdTime.Format(time.RFC3339),
 	}
-	if authorID != "" && isProposalOrResponse(mc.msgType) {
-		mc.authorName = pairPlayerLabel(bc.app, authorID, bc.match)
+	if authorID != "" {
+		mc.authorName = league.MessageAuthorLabel(bc.app, msg, bc.match)
 	}
 	td.Timeline = append(td.Timeline, bc.timelineEntry(mc))
 	bc.appendToPanel(mc, td)
+}
+
+// authorTeam returns the team the author wrote for: the pair stored on the
+// message, falling back to current membership for messages without one.
+func (bc *threadBuildCtx) authorTeam(msg *core.Record, authorID string) int {
+	switch msg.GetString("author_pair") {
+	case bc.match.GetString("pair1"):
+		return 1
+	case bc.match.GetString("pair2"):
+		return 2
+	}
+	return playerTeamOf(authorID, bc.pair1Players, bc.pair2Players)
 }
 
 // timelineEntry builds the frozen-snapshot timeline line for one message.
@@ -340,11 +352,6 @@ func timelineEntryText(msgType, action, content string) (verb, statusLabel, stat
 	default: // result_event, admin_action, chat
 		return content, "", ""
 	}
-}
-
-func isProposalOrResponse(msgType string) bool {
-	return msgType == "scheduling_proposal" || msgType == "result_submission" ||
-		msgType == "scheduling_response" || msgType == "result_response"
 }
 
 func playerTeamOf(uid string, pair1Players, pair2Players []string) int {

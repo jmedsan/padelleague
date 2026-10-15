@@ -93,22 +93,50 @@ func PlayerName(app core.App, userID string) string {
 	return user.GetString("display_name")
 }
 
-// PairPlayerLabel returns "PlayerName (PairName)" for a user in a match context.
+// PairPlayerLabel returns "PlayerName (PairName)" for a user in a match context,
+// resolving the pair from the current membership.
 func PairPlayerLabel(app core.App, userID string, match *core.Record) string {
 	if userID == "" {
 		return ""
 	}
-	name := PlayerName(app, userID)
+	return pairLabel(app, userID, CurrentPairID(app, userID, match))
+}
+
+// MessageAuthorLabel returns "PlayerName (PairName)" for a message author using
+// the pair stored on the message (frozen at write time), falling back to the
+// current membership for messages without one.
+func MessageAuthorLabel(app core.App, msg, match *core.Record) string {
+	authorID := msg.GetString("author")
+	if authorID == "" {
+		return ""
+	}
+	pairID := msg.GetString("author_pair")
+	if pairID == "" {
+		pairID = CurrentPairID(app, authorID, match)
+	}
+	return pairLabel(app, authorID, pairID)
+}
+
+// CurrentPairID returns the match pair the user belongs to now, or "" when the
+// user is not a participant.
+func CurrentPairID(app core.App, userID string, match *core.Record) string {
 	team, err := PlayerTeam(app, userID, match)
-	if err != nil || team == 0 {
+	switch {
+	case err != nil || team == 0:
+		return ""
+	case team == 2:
+		return match.GetString("pair2")
+	default:
+		return match.GetString("pair1")
+	}
+}
+
+func pairLabel(app core.App, userID, pairID string) string {
+	name := PlayerName(app, userID)
+	if pairID == "" {
 		return name
 	}
-	pairID := match.GetString("pair1")
-	if team == 2 {
-		pairID = match.GetString("pair2")
-	}
-	pairName := PairNames(app, []string{pairID})[pairID]
-	return fmt.Sprintf("%s (%s)", name, pairName)
+	return fmt.Sprintf("%s (%s)", name, PairNames(app, []string{pairID})[pairID])
 }
 
 // PlayerAvatarURL returns the served URL for a user's avatar, or "" if the

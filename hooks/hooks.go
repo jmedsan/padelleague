@@ -345,6 +345,11 @@ func registerMatchHooks(app core.App, svc *league.Service) {
 		return e.Next()
 	})
 
+	app.OnRecordCreate("match_messages").BindFunc(func(e *core.RecordEvent) error {
+		stampAuthorPair(e.App, e.Record)
+		return e.Next()
+	})
+
 	app.OnRecordCreate("matches").BindFunc(func(e *core.RecordEvent) error {
 		stampFinalized(e.Record, time.Now())
 		return e.Next()
@@ -499,4 +504,18 @@ func applyPendingMatchPenalties(app core.App, notifier *notify.Notifier) {
 		}
 		_ = notifier.NotifyAdmins(league.NotifAdminPenaltiesApplied(compID, comp.GetString("name"), len(applied)))
 	}
+}
+
+// stampAuthorPair freezes the author's current pair on a new message so the
+// timeline keeps the label after a pair's players change.
+func stampAuthorPair(app core.App, msg *core.Record) {
+	authorID := msg.GetString("author")
+	if authorID == "" || msg.GetString("author_pair") != "" {
+		return
+	}
+	match, err := app.FindRecordById("matches", msg.GetString("match"))
+	if err != nil {
+		return
+	}
+	msg.Set("author_pair", league.CurrentPairID(app, authorID, match))
 }

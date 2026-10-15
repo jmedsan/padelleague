@@ -1607,3 +1607,51 @@ func TestMailerSubjects_UseLeagueName(t *testing.T) {
 		assert.True(t, strings.HasSuffix(e.Message.Subject, " — Club Norte"), "%s: %q", name, e.Message.Subject)
 	}
 }
+
+func TestMatchMessage_AuthorPairSurvivesPlayerSwap(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	registerHooks(t, app)
+	p1 := makePair(t, app, "Frozen A")
+	p2 := makePair(t, app, "Frozen B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+	author := p1.GetString("player1")
+
+	col, err := app.FindCollectionByNameOrId("match_messages")
+	require.NoError(t, err)
+	msg := core.NewRecord(col)
+	msg.Set("match", match.Id)
+	msg.Set("author", author)
+	msg.Set("type", "scheduling_proposal")
+	msg.Set("proposal_data", `{"date":"2027-09-20","time":"19:00"}`)
+	require.NoError(t, app.Save(msg))
+	assert.Equal(t, p1.Id, msg.GetString("author_pair"))
+
+	spare := makePair(t, app, "Frozen Spare")
+	p1.Set("player1", spare.GetString("player1"))
+	require.NoError(t, app.Save(p1))
+
+	saved, err := app.FindRecordById("match_messages", msg.Id)
+	require.NoError(t, err)
+	assert.Equal(t, league.PlayerName(app, author)+" (Frozen A)", league.MessageAuthorLabel(app, saved, match))
+	assert.Equal(t, league.PlayerName(app, author), league.PairPlayerLabel(app, author, match),
+		"live membership no longer has the author in a pair")
+}
+
+func TestMatchMessage_SystemAuthorHasNoPair(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	registerHooks(t, app)
+	p1 := makePair(t, app, "Sys A")
+	p2 := makePair(t, app, "Sys B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+
+	league.AddSystemResultAccepted(app, match.Id, "", "6-0 6-0")
+
+	msgs, err := app.FindRecordsByFilter("match_messages", "match = {:m}", "", 0, 0, map[string]any{"m": match.Id})
+	require.NoError(t, err)
+	require.Len(t, msgs, 1)
+	assert.Empty(t, msgs[0].GetString("author_pair"))
+}

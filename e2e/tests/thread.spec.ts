@@ -97,6 +97,55 @@ test.describe('match thread', { tag: '@thread' }, () => {
     await expect(accordion.locator('input[type="checkbox"]')).not.toBeChecked();
   });
 
+  test('timeline keeps the author\'s pair label after an admin swaps a player in that pair', async ({ page, request }, testInfo) => {
+    const suffix = `${Date.now()}-${testInfo.project.name}`;
+    const mkUser = (tag: string) => suPost(request, '/api/collections/users/records', {
+      email: `frz-${tag}-${suffix}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: `Frz ${tag} ${suffix}`, roles: ['player'], verified: true, gender: 'male',
+    });
+    const [a1, a2, b1, b2, spare] = await Promise.all(['a1', 'a2', 'b1', 'b2', 'spare'].map(mkUser));
+    const comp = await suPost(request, '/api/collections/competitions/records', {
+      name: `Frozen Label ${suffix}`, type: 'league', active: true,
+    });
+    const pairA = await suPost(request, '/api/collections/pairs/records', {
+      name: `Frz Pareja A ${suffix}`, player1: a1.id, player2: a2.id,
+    });
+    const pairB = await suPost(request, '/api/collections/pairs/records', {
+      name: `Frz Pareja B ${suffix}`, player1: b1.id, player2: b2.id,
+    });
+    await suPatch(request, `/api/collections/competitions/records/${comp.id}`, { pairs: [pairA.id, pairB.id] });
+    const match = await suPost(request, '/api/collections/matches/records', {
+      competition: comp.id, pair1: pairA.id, pair2: pairB.id, status: 'pending', round_number: 96,
+    });
+    await suPost(request, '/api/collections/match_messages/records', {
+      match: match.id, author: a1.id, type: 'scheduling_proposal', proposal_status: 'pending',
+      proposal_data: { date: '2027-09-20', time: '19:00', venue_name: 'Club Test' },
+    });
+    await suPost(request, '/api/collections/match_messages/records', {
+      match: match.id, author: a1.id, type: 'chat', content: `Hola ${suffix}`,
+    });
+    const label = `${a1.display_name} (${pairA.name}) propuso`;
+    const chatLabel = `${a1.display_name} (${pairA.name})`;
+    const chatEntry = page.locator('.card.rounded-xl', { hasText: `Hola ${suffix}` });
+
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/match/${match.id}`);
+    await expect(page.getByText(label)).toBeVisible();
+    await expect(chatEntry.getByText(chatLabel, { exact: true })).toBeVisible();
+
+    await page.goto('/admin/pairs');
+    await page.locator('.card', { hasText: pairA.name }).getByLabel('Editar').click();
+    const modal = page.locator('#modal-edit');
+    await modal.locator('#edit-player1').selectOption(spare.id);
+    await modal.locator('#edit-captain').selectOption({ index: 1 });
+    await clickAndWaitForHxRedirect(page, modal.getByRole('button', { name: 'Guardar cambios' }), '/admin/pairs');
+    await expect(page.locator('.card', { hasText: pairA.name }).getByText(spare.display_name)).toBeVisible();
+
+    await page.goto(`/match/${match.id}`);
+    await expect(page.getByText(label)).toBeVisible();
+    await expect(chatEntry.getByText(chatLabel, { exact: true })).toBeVisible();
+  });
+
   test('proposal form shows inline error instead of a native alert when "Otro" club has no name', async ({ page, request }) => {
     const data = loadTestData();
     const match = await suPost(request, '/api/collections/matches/records', {

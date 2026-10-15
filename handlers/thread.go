@@ -533,7 +533,7 @@ func (h *ThreadHandler) rejectAndCreateCounter(p counterProposalParams) error {
 		if err := txApp.Save(freshMsg); err != nil {
 			return err
 		}
-		proposerName := pairPlayerLabel(h.app, p.msg.GetString("author"), p.match)
+		proposerName := league.MessageAuthorLabel(h.app, p.msg, p.match)
 		detail := "rechazó la propuesta de " + proposerName
 		if p.text != "" {
 			detail += ": " + p.text

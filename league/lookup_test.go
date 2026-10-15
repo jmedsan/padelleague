@@ -243,3 +243,41 @@ func TestPrecedents_ConfirmedOnlyIsNotFlagged(t *testing.T) {
 	require.True(t, ok)
 	assert.False(t, summary.HasProvisional)
 }
+
+func TestMessageAuthorLabel(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "Label A")
+	p2 := makePair(t, app, "Label B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
+	author := p2.GetString("player1")
+	authorName := PlayerName(app, author)
+
+	msg := core.NewRecord(mustCollection(t, app, "match_messages"))
+	msg.Set("author", author)
+
+	t.Run("no stored pair falls back to the current team", func(t *testing.T) {
+		assert.Equal(t, authorName+" (Label B)", MessageAuthorLabel(app, msg, match))
+	})
+	t.Run("stored pair wins over the current team", func(t *testing.T) {
+		msg.Set("author_pair", p1.Id)
+		assert.Equal(t, authorName+" (Label A)", MessageAuthorLabel(app, msg, match))
+	})
+	t.Run("no author has no label", func(t *testing.T) {
+		assert.Empty(t, MessageAuthorLabel(app, core.NewRecord(mustCollection(t, app, "match_messages")), match))
+	})
+	t.Run("non-participant with no stored pair is the bare name", func(t *testing.T) {
+		outsider := makePair(t, app, "Label C").GetString("player1")
+		bare := core.NewRecord(mustCollection(t, app, "match_messages"))
+		bare.Set("author", outsider)
+		assert.Equal(t, PlayerName(app, outsider), MessageAuthorLabel(app, bare, match))
+	})
+}
+
+func mustCollection(t *testing.T, app core.App, name string) *core.Collection {
+	t.Helper()
+	col, err := app.FindCollectionByNameOrId(name)
+	require.NoError(t, err)
+	return col
+}
