@@ -31,8 +31,16 @@ open-remote:
 
 open: open-local
 
+# PKG and RUN narrow the run while iterating, e.g.
+#   make test PKG=./handlers RUN='TestThreadRespond.*Swap'
+# With neither set, the whole module runs.
+ifneq ($(strip $(PKG)$(RUN)),)
+test:
+	go test $(or $(PKG),./...) $(if $(RUN),-run '$(RUN)') -count=1
+else
 test:
 	go test -parallel 4 ./...
+endif
 
 lint:
 	golangci-lint run ./...
