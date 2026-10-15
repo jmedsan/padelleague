@@ -1,6 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, loadTestData, isMobile, openDrawer, suPost as suPostBase, suGet, suPatch, clickAndWaitForHxRedirect, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
+import { loginAs, loadTestData, isMobile, openDrawer, suPost as suPostBase, suGet, suPatch, clickAndWaitForHxRedirect, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 
 const FRESH_PLAYER_PASSWORD = 'TestPass123456';
 
@@ -48,6 +48,48 @@ test.describe('player profile and stats', { tag: '@profile' }, () => {
     await expect(page.locator('.stat-title', { hasText: '% Victorias' })).toBeVisible();
     await expect(page.getByText('Parejas')).toBeVisible();
     await expect(page.getByText('Pareja Alpha').locator('visible=true').first()).toBeVisible();
+  });
+
+  test('after a pair swap the ex-player keeps the match and the replacement does not count it', { tag: '@profile' }, async ({ page, request }, testInfo) => {
+    const suffix = `${Date.now()}-${testInfo.project.name}`;
+    const mkUser = (tag: string) => suPost(request, '/api/collections/users/records', {
+      email: `lin-${tag}-${suffix}@test.local`, password: FRESH_PLAYER_PASSWORD, passwordConfirm: FRESH_PLAYER_PASSWORD,
+      display_name: `Lin ${tag} ${suffix}`, roles: ['player'], verified: true, gender: 'male',
+    });
+    const [a1, a2, b1, b2, repl] = await Promise.all(['a1', 'a2', 'b1', 'b2', 'repl'].map(mkUser));
+    const comp = await suPost(request, '/api/collections/competitions/records', {
+      name: `Lineup ${suffix}`, type: 'league', active: true,
+    });
+    const pairA = await suPost(request, '/api/collections/pairs/records', { name: `Lin A ${suffix}`, player1: a1.id, player2: a2.id });
+    const pairB = await suPost(request, '/api/collections/pairs/records', { name: `Lin B ${suffix}`, player1: b1.id, player2: b2.id });
+    await suPatch(request, loadTestData().adminToken, `/api/collections/competitions/records/${comp.id}`, { pairs: [pairA.id, pairB.id] });
+    await suPost(request, '/api/collections/matches/records', {
+      competition: comp.id, pair1: pairA.id, pair2: pairB.id, status: 'final', round_number: 97,
+      scores: '6-3 6-4', winner: pairA.id, date: '2027-01-10',
+    });
+    await suPatch(request, loadTestData().adminToken, `/api/collections/pairs/records/${pairA.id}`, { player1: repl.id, captain: repl.id });
+
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    const openPlayer = async (displayName: string) => {
+      if (isMobile(page)) {
+        await openDrawer(page);
+        await page.locator('.drawer-side a[href="/admin/players"]').click();
+      } else {
+        await page.locator('summary:has-text("Gestión")').click();
+        await page.locator('.menu-horizontal a:has-text("Usuarios")').evaluate(el => (el as HTMLAnchorElement).click());
+      }
+      await page.waitForLoadState('domcontentloaded');
+      await page.locator('#player-search').fill(displayName);
+      await page.getByRole('link', { name: displayName, exact: true }).locator('visible=true').first().click();
+      await page.waitForLoadState('domcontentloaded');
+      await expect(page.getByRole('heading', { name: displayName })).toBeVisible();
+    };
+    const played = page.locator('.stat', { has: page.locator('.stat-title', { hasText: 'Partidos' }) }).locator('.stat-value');
+
+    await openPlayer(a1.display_name);
+    await expect(played).toHaveText('1');
+    await openPlayer(repl.display_name);
+    await expect(played).toHaveText('0');
   });
 
   test('player sees notification prefs with message toggle but no admin section', async ({ page }) => {

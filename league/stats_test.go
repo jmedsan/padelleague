@@ -352,7 +352,7 @@ func TestComputeReliability_BelowMinimumMatches_NoScore(t *testing.T) {
 	svc := New(app, nil)
 	p1 := makePair(t, app, "RelBelowMin")
 
-	_, hasReliability := svc.computeReliability([]string{p1.Id}, MinMatchesForReliability-1)
+	_, hasReliability := svc.computeReliability([]string{p1.Id}, MinMatchesForReliability-1, reliabilityScope{})
 	assert.False(t, hasReliability, "below MinMatchesForReliability should have no score")
 }
 
@@ -379,7 +379,7 @@ func TestComputeReliability_IgnoredProposal_ScoresZeroNotHundred(t *testing.T) {
 	unansweredMatch := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
 	makeMessage(t, app, unansweredMatch.Id, proposer, "scheduling_proposal", "", time.Now().Add(-100*time.Hour))
 
-	got, hasReliability := svc.computeReliability([]string{p1.Id}, MinMatchesForReliability)
+	got, hasReliability := svc.computeReliability([]string{p1.Id}, MinMatchesForReliability, reliabilityScope{})
 	require.True(t, hasReliability)
 	assert.Less(t, got, float64(100), "ignoring a proposal past its quorum timeout must lower reliability, not leave it at the neutral default")
 }
@@ -408,7 +408,7 @@ func TestComputeReliability_FastResponse_ScoresHigherThanSlowResponse(t *testing
 		proposal := makeMessage(t, app, proposalMatch.Id, proposer, "scheduling_proposal", "", proposalTime)
 		makeMessage(t, app, proposalMatch.Id, responder, "scheduling_response", proposal.Id, proposalTime.Add(responseDelay))
 
-		got, hasReliability := svc.computeReliability([]string{p1.Id}, MinMatchesForReliability)
+		got, hasReliability := svc.computeReliability([]string{p1.Id}, MinMatchesForReliability, reliabilityScope{})
 		require.True(t, hasReliability)
 		return got
 	}
@@ -439,7 +439,7 @@ func TestComputeReliability_WalkoverLoss_LowersScore(t *testing.T) {
 	walkover.Set("review_type", "walkover")
 	require.NoError(t, app.Save(walkover))
 
-	got, hasReliability := svc.computeReliability([]string{p1.Id}, MinMatchesForReliability)
+	got, hasReliability := svc.computeReliability([]string{p1.Id}, MinMatchesForReliability, reliabilityScope{})
 	require.True(t, hasReliability)
 	assert.Less(t, got, float64(100), "a walkover loss should reduce the reliability score")
 }
@@ -497,4 +497,31 @@ func TestSummarize_ConfirmedOnlyIsNotFlagged(t *testing.T) {
 	assert.False(t, summary.HasProvisional)
 	require.Len(t, summary.CompetitionStats, 1)
 	assert.False(t, summary.CompetitionStats[0].HasProvisional)
+}
+
+func TestShowUpScore_PlayerScopeFollowsTheFrozenLineup(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+	p1 := makePair(t, app, "ShowA")
+	p2 := makePair(t, app, "ShowB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	orig := p1.GetString("player1")
+
+	lost := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
+	lost.Set("status", "final")
+	lost.Set("review_type", "walkover")
+	lost.Set("winner", p2.Id)
+	lost.Set("scores", "0-6 0-6")
+	require.NoError(t, app.Save(lost))
+
+	repl := makeUser(t, app, "Show Repl", "show-repl@test.local")
+	p1.Set("player1", repl.Id)
+	require.NoError(t, app.Save(p1))
+
+	pairs := []string{p1.Id}
+	const played = 3
+	assert.Less(t, svc.showUpScore(pairs, played, reliabilityScope{}), float64(100), "the pair lost by walkover")
+	assert.Less(t, svc.showUpScore(pairs, played, newReliabilityScope(app, orig)), float64(100), "the ex-player was in that lineup")
+	assert.InDelta(t, 100, svc.showUpScore(pairs, played, newReliabilityScope(app, repl.Id)), 0.001, "the replacement was not")
 }

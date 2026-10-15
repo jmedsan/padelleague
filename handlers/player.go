@@ -56,7 +56,6 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 	pairs, _ := league.PairsForPlayer(h.app, user.Id)
 
 	pairInfos := make([]PairInfo, 0, len(pairs))
-	pairIDs := make([]string, 0, len(pairs))
 	for _, p := range pairs {
 		partnerID := p.GetString("player1")
 		if partnerID == user.Id {
@@ -68,13 +67,12 @@ func (h *PlayerHandler) Player(e *core.RequestEvent) error {
 			PartnerID: partnerID,
 			CaptainID: p.GetString("captain"),
 		})
-		pairIDs = append(pairIDs, p.Id)
 	}
 
 	data := PlayerData{
 		User:          user,
 		Pairs:         pairInfos,
-		Stats:         h.leagueSvc.Summarize(pairIDs),
+		Stats:         h.leagueSvc.SummarizePlayer(user.Id),
 		AvatarURL:     league.AvatarURL(user.Id, user.GetString("avatar")),
 		CanEditAvatar: e.Auth != nil && e.Auth.Id == user.Id,
 	}

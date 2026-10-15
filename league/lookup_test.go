@@ -252,7 +252,7 @@ func TestMessageAuthorLabel(t *testing.T) {
 	author := p2.GetString("player1")
 	authorName := PlayerName(app, author)
 
-	msg := core.NewRecord(mustCollection(t, app, "match_messages"))
+	msg := core.NewRecord(matchMessagesCollection(t, app))
 	msg.Set("author", author)
 
 	t.Run("no stored pair is the bare name, whatever the current team", func(t *testing.T) {
@@ -263,7 +263,7 @@ func TestMessageAuthorLabel(t *testing.T) {
 		assert.Equal(t, authorName+" (Label A)", MessageAuthorLabel(app, msg))
 	})
 	t.Run("no author has no label", func(t *testing.T) {
-		assert.Empty(t, MessageAuthorLabel(app, core.NewRecord(mustCollection(t, app, "match_messages"))))
+		assert.Empty(t, MessageAuthorLabel(app, core.NewRecord(matchMessagesCollection(t, app))))
 	})
 }
 
@@ -281,7 +281,7 @@ func TestPairTeamAndStoredTeams(t *testing.T) {
 	assert.Equal(t, 0, PairTeam(match, other.Id), "a pair outside the match")
 	assert.Equal(t, 0, PairTeam(match, ""), "no pair")
 
-	msg := core.NewRecord(mustCollection(t, app, "match_messages"))
+	msg := core.NewRecord(matchMessagesCollection(t, app))
 	assert.Equal(t, 0, MessageAuthorTeam(msg, match))
 	msg.Set("author_pair", p2.Id)
 	assert.Equal(t, 2, MessageAuthorTeam(msg, match))
@@ -334,9 +334,9 @@ func TestStampActorPairs(t *testing.T) {
 	})
 }
 
-func mustCollection(t *testing.T, app core.App, name string) *core.Collection {
+func matchMessagesCollection(t *testing.T, app core.App) *core.Collection {
 	t.Helper()
-	col, err := app.FindCollectionByNameOrId(name)
+	col, err := app.FindCollectionByNameOrId("match_messages")
 	require.NoError(t, err)
 	return col
 }

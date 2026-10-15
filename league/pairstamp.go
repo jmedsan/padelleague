@@ -5,8 +5,9 @@ import "github.com/pocketbase/pocketbase/core"
 // RegisterPairStamps freezes who acted for which pair: the author's pair on
 // every new match message, and the submitter's and disputer's pair on a match
 // when either changes. Readers then name the same pair after its players
-// change.
+// change. It also freezes each match's lineup (see lineup.go).
 func RegisterPairStamps(app core.App) {
+	registerLineupFreeze(app)
 	app.OnRecordCreate("match_messages").BindFunc(func(e *core.RecordEvent) error {
 		stampAuthorPair(e.App, e.Record)
 		return e.Next()

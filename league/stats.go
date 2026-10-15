@@ -84,6 +84,10 @@ type matchResult struct {
 	compLogo string
 
 	provisional bool
+
+	// lineup is the frozen players of the side this pair played for; empty
+	// when the match has none recorded.
+	lineup []string
 }
 
 type playerTotals struct {
@@ -96,6 +100,19 @@ type playerTotals struct {
 // results are unioned with matches deduplicated (a player on both sides of a
 // match, via two different pairs, counts it once).
 func (svc *Service) Summarize(pairIDs []string) StatsSummary {
+	return svc.summarize(pairIDs, "")
+}
+
+// SummarizePlayer is Summarize for one player's own page: it unions the
+// pairs the player has played for and keeps only the matches whose frozen
+// lineup includes them, so a pair swap never moves a match between players.
+func (svc *Service) SummarizePlayer(userID string) StatsSummary {
+	return svc.summarize(PlayerStatPairIDs(svc.app, userID), userID)
+}
+
+// summarize builds the summary; a non-empty userID restricts the results to
+// the matches that player played.
+func (svc *Service) summarize(pairIDs []string, userID string) StatsSummary {
 	var totals playerTotals
 	var allResults []matchResult
 	seen := map[string]bool{}
@@ -103,7 +120,7 @@ func (svc *Service) Summarize(pairIDs []string) StatsSummary {
 
 	for _, pid := range pairIDs {
 		for _, r := range pairMatchResults(svc.app, pid) {
-			if seen[r.matchID] {
+			if seen[r.matchID] || (userID != "" && len(r.lineup) > 0 && !slices.Contains(r.lineup, userID)) {
 				continue
 			}
 			seen[r.matchID] = true
@@ -128,7 +145,8 @@ func (svc *Service) Summarize(pairIDs []string) StatsSummary {
 
 	currentStreakWins := currentStreakWinCount(allResults)
 	level, hasLevel := computeLevel(winRate, totals.played, currentStreakWins)
-	reliability, hasReliability := svc.computeReliability(pairIDs, totals.played)
+	scope := newReliabilityScope(svc.app, userID)
+	reliability, hasReliability := svc.computeReliability(pairIDs, totals.played, scope)
 
 	return StatsSummary{
 		WinRate:          winRate,
@@ -228,13 +246,13 @@ const MinMatchesForReliability = 3
 // walkover) into a 0-100 score. The second return is false when the pair
 // has fewer than MinMatchesForReliability finalized matches, in which case
 // the score has too little data to display.
-func (svc *Service) computeReliability(pairIDs []string, played int) (float64, bool) {
+func (svc *Service) computeReliability(pairIDs []string, played int, scope reliabilityScope) (float64, bool) {
 	if played < MinMatchesForReliability {
 		return 0, false
 	}
 
-	responseScore, hasResponses := svc.responsivenessScore(pairIDs)
-	showUpScore := svc.showUpScore(pairIDs, played)
+	responseScore, hasResponses := svc.responsivenessScore(pairIDs, scope)
+	showUpScore := svc.showUpScore(pairIDs, played, scope)
 
 	if !hasResponses {
 		return math.Round(showUpScore), true
@@ -250,7 +268,7 @@ func (svc *Service) computeReliability(pairIDs []string, played int) (float64, b
 // reliabilityDefaultTimeoutHours for scheduling proposals, which have no
 // auto-accept) and is otherwise excluded as still-pending. The second
 // return is false when the pair has no incoming proposals to score.
-func (svc *Service) responsivenessScore(pairIDs []string) (float64, bool) {
+func (svc *Service) responsivenessScore(pairIDs []string, scope reliabilityScope) (float64, bool) {
 	var total float64
 	var count int
 	for _, pid := range pairIDs {
@@ -264,7 +282,14 @@ func (svc *Service) responsivenessScore(pairIDs []string) (float64, bool) {
 			continue
 		}
 		for _, m := range matches {
-			t, c := svc.incomingProposalScores(m, pid, playerIDs)
+			if !scope.includes(m, pid) {
+				continue
+			}
+			responders := playerIDs
+			if lineup := MatchLineup(m, pid); len(lineup) > 0 {
+				responders = lineup
+			}
+			t, c := svc.incomingProposalScores(m, pid, responders)
 			total += t
 			count += c
 		}
@@ -294,7 +319,10 @@ func (svc *Service) incomingProposalScores(m *core.Record, pid string, playerIDs
 	if err != nil {
 		return 0, 0
 	}
-	opponentPlayerIDs := PlayersForPair(svc.app, opponentID)
+	opponentPlayerIDs := MatchLineup(m, opponentID)
+	if len(opponentPlayerIDs) == 0 {
+		opponentPlayerIDs = PlayersForPair(svc.app, opponentID)
+	}
 
 	var total float64
 	var count int
@@ -359,7 +387,7 @@ func (svc *Service) reliabilityTimeout(m *core.Record) float64 {
 // showUpScore is the fraction of this pair's finalized matches that were not
 // lost by an approved walkover, as a 0-100 score. Called only once played
 // is known to be at least MinMatchesForReliability.
-func (svc *Service) showUpScore(pairIDs []string, played int) float64 {
+func (svc *Service) showUpScore(pairIDs []string, played int, scope reliabilityScope) float64 {
 	var walkoverLosses int
 	for _, pid := range pairIDs {
 		losses, err := svc.app.FindRecordsByFilter("matches",
@@ -368,7 +396,11 @@ func (svc *Service) showUpScore(pairIDs []string, played int) float64 {
 		if err != nil {
 			continue
 		}
-		walkoverLosses += len(losses)
+		for _, m := range losses {
+			if scope.includes(m, pid) {
+				walkoverLosses++
+			}
+		}
 	}
 	return 100 * (1 - min(float64(walkoverLosses)/float64(played), 1.0))
 }
@@ -447,6 +479,7 @@ func pairMatchResults(app core.App, pairID string) []matchResult {
 			compLogo: comp.logo,
 
 			provisional: provisional,
+			lineup:      MatchLineup(m, pairID),
 		})
 	}
 	return results
