@@ -35,7 +35,7 @@ func IsWithdrawn(app core.App, pairID, competitionID string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("find competition %s: %w", competitionID, err)
 	}
-	return slices.Contains(comp.GetStringSlice("withdrawn_pairs"), pairID), nil
+	return WithdrawnSet(comp)[pairID], nil
 }
 
 // PairNames resolves pair IDs to their display names.

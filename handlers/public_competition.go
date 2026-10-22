@@ -390,12 +390,6 @@ func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundVi
 		bracket = buildBracket(rounds, maxRound)
 	}
 
-	withdrawnIDs := comp.GetStringSlice("withdrawn_pairs")
-	wp := make(map[string]bool, len(withdrawnIDs))
-	for _, wid := range withdrawnIDs {
-		wp[wid] = true
-	}
-
 	return map[string]any{
 		"Competition":      comp,
 		"Rounds":           rounds,
@@ -407,7 +401,7 @@ func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundVi
 		"HasPenalties":     hasPenalties,
 		"IsPlayoff":        isPlayoff,
 		"Bracket":          bracket,
-		"WithdrawnPairs":   wp,
+		"WithdrawnPairs":   league.WithdrawnSet(comp),
 	}
 }
 

@@ -179,12 +179,7 @@ func resolveAdminPairFilter(query map[string][]string, compPairIDs []string) str
 func (h *CompetitionHandler) loadPairEntries(comp *core.Record, pairIDs []string) ([]pairEntry, []*core.Record) {
 	payment := paymentInfo{app: h.app, status: getPaymentStatus(comp), paidAt: getPaymentDates(comp), paidBy: getPaymentActors(comp)}
 	balls := ballsInfo{status: getBallsStatus(comp), deliveredAt: getBallsDates(comp), deliveredBy: getBallsActors(comp)}
-	withdrawnIDs := comp.GetStringSlice("withdrawn_pairs")
-	withdrawnSet := make(map[string]bool, len(withdrawnIDs))
-	for _, wid := range withdrawnIDs {
-		withdrawnSet[wid] = true
-	}
-	in := pairEntryInputs{seeding: getSeeding(comp), payment: payment, balls: balls, withdrawnSet: withdrawnSet}
+	in := pairEntryInputs{seeding: getSeeding(comp), payment: payment, balls: balls, withdrawnSet: league.WithdrawnSet(comp)}
 	return buildPairEntries(pairIDs, in), availablePairs(h.app, pairIDs)
 }
 

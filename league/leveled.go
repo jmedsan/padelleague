@@ -911,10 +911,7 @@ func shortfallMatches(need []int) int {
 // activePairs splits comp's pairs into the active ids (configured order)
 // and the withdrawn set.
 func activePairs(comp *core.Record) (active []string, withdrawn map[string]bool) {
-	withdrawn = make(map[string]bool)
-	for _, id := range comp.GetStringSlice("withdrawn_pairs") {
-		withdrawn[id] = true
-	}
+	withdrawn = WithdrawnSet(comp)
 	for _, id := range comp.GetStringSlice("pairs") {
 		if !withdrawn[id] {
 			active = append(active, id)

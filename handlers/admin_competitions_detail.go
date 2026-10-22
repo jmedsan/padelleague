@@ -48,12 +48,7 @@ func (h *CompetitionHandler) addLeagueExtras(data map[string]any, comp *core.Rec
 	if len(matches) > 0 {
 		data["RoundDates"] = h.buildRoundDates(comp)
 	}
-	withdrawnIDs := comp.GetStringSlice("withdrawn_pairs")
-	wp := make(map[string]bool, len(withdrawnIDs))
-	for _, id := range withdrawnIDs {
-		wp[id] = true
-	}
-	data["WithdrawnPairs"] = wp
+	data["WithdrawnPairs"] = league.WithdrawnSet(comp)
 }
 
 // buildActivityTimeline maps the competition's activity log (competition_events)
