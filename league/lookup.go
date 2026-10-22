@@ -385,17 +385,17 @@ func Precedents(app core.App, q PrecedentsQuery) (summary PrecedentsSummary, ok 
 	if last.GetString("pair1") == pair2ID {
 		// Normalize the last score to pair1/pair2 order regardless of which
 		// side each pair was on in that older match.
-		summary.LastScore = flipScoreSides(summary.LastScore)
+		summary.LastScore = FlipScoreSides(summary.LastScore)
 	}
 
 	return summary, true
 }
 
-// flipScoreSides swaps a "S1-S2[(tb)] S1-S2[(tb)] ..." score string to
+// FlipScoreSides swaps a "S1-S2[(tb)] S1-S2[(tb)] ..." score string to
 // pair2/pair1 order, so a past match's score can be displayed in the current
 // match's pair1/pair2 order. The optional "(N)" tiebreak annotation stays
 // attached to the set it was recorded on.
-func flipScoreSides(score string) string {
+func FlipScoreSides(score string) string {
 	if strings.EqualFold(strings.TrimSpace(score), "WO") {
 		return score
 	}

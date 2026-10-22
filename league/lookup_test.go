@@ -21,8 +21,8 @@ func TestFlipScoreSides(t *testing.T) {
 		{"", ""},
 	}
 	for _, tt := range tests {
-		if got := flipScoreSides(tt.score); got != tt.want {
-			t.Errorf("flipScoreSides(%q) = %q, want %q", tt.score, got, tt.want)
+		if got := FlipScoreSides(tt.score); got != tt.want {
+			t.Errorf("FlipScoreSides(%q) = %q, want %q", tt.score, got, tt.want)
 		}
 	}
 }
