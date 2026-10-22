@@ -1,6 +1,10 @@
 package league
 
-import "github.com/pocketbase/pocketbase/core"
+import (
+	"slices"
+
+	"github.com/pocketbase/pocketbase/core"
+)
 
 // Round groups matches for a single round of play.
 type Round struct {
@@ -137,6 +141,10 @@ func advanceRound(txApp core.App, compID string, currentRound int) error {
 		"competition = {:cid} && round_number = {:rn}", "created", 0, 0,
 		map[string]any{"cid": compID, "rn": currentRound + 1})
 
+	comp, err := txApp.FindRecordById("competitions", compID)
+	if err != nil {
+		return err
+	}
 	var roundWinners []string
 	for _, m := range roundMatches {
 		roundWinners = append(roundWinners, m.GetString("winner"))
@@ -146,6 +154,9 @@ func advanceRound(txApp core.App, compID string, currentRound int) error {
 			continue
 		}
 		seedNextMatch(nm, roundWinners, i)
+		if err := resolveWithdrawnSeed(txApp, comp, nm); err != nil {
+			return err
+		}
 		if err := txApp.Save(nm); err != nil {
 			return err
 		}
@@ -177,4 +188,29 @@ func seedNextMatch(nm *core.Record, winners []string, matchIdx int) {
 	if p2Idx < len(winners) && winners[p2Idx] != "" {
 		nm.Set("pair2", winners[p2Idx])
 	}
+}
+
+// resolveWithdrawnSeed gives a withdrawn seeded pair its walkover loss, so the opponent advances.
+// Both seeds withdrawn is not resolved here: the design does not cover it.
+func resolveWithdrawnSeed(txApp core.App, comp, nm *core.Record) error {
+	p1, p2 := nm.GetString("pair1"), nm.GetString("pair2")
+	if p1 == "" || p2 == "" {
+		return nil
+	}
+	withdrawn := comp.GetStringSlice("withdrawn_pairs")
+	w1, w2 := slices.Contains(withdrawn, p1), slices.Contains(withdrawn, p2)
+	if w1 == w2 {
+		return nil
+	}
+	loser, winner := p1, p2
+	if w2 {
+		loser, winner = p2, p1
+	}
+	pair, err := txApp.FindRecordById("pairs", loser)
+	if err != nil {
+		return err
+	}
+	ApplyWalkoverResult(nm, winner, WalkoverScore(comp))
+	AddSystemResultEvent(txApp, nm.Id, WithdrawalEventText(pair.GetString("name")))
+	return nil
 }

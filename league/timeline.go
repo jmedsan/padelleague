@@ -91,6 +91,16 @@ type CompetitionEvent struct {
 	Detail        string
 }
 
+// LogAssignmentReleased records that an unplayed match of a leveled league was released.
+func LogAssignmentReleased(app core.App, compID, actorID string) {
+	LogCompetitionEvent(app, CompetitionEvent{
+		CompetitionID: compID,
+		ActorID:       actorID,
+		Kind:          "assignment_released",
+		Detail:        "liberó un partido de liga nivelada",
+	})
+}
+
 // LogCompetitionEvent writes a competition_events record for the admin
 // activity timeline.
 func LogCompetitionEvent(app core.App, ev CompetitionEvent) {

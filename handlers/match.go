@@ -421,12 +421,7 @@ func (h *MatchHandler) AdminRelease(e *core.RequestEvent) error {
 		return alertError(e, "Error al liberar el partido")
 	}
 
-	league.LogCompetitionEvent(h.app, league.CompetitionEvent{
-		CompetitionID: compID,
-		ActorID:       e.Auth.Id,
-		Kind:          "assignment_released",
-		Detail:        "liberó un partido de liga nivelada",
-	})
+	league.LogAssignmentReleased(h.app, compID, e.Auth.Id)
 
 	flash(e, "Partido liberado")
 	return redirectHX(e, "/competition/"+compID)

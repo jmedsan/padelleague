@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -135,7 +134,8 @@ func (h *CompetitionHandler) buildDetailDocs(comp *core.Record, fileToken string
 	return views, unattached
 }
 
-// WithdrawPair bulk-finalizes all pre-score matches for a pair and marks it as withdrawn.
+// WithdrawPair marks a pair as withdrawn, then gives every match of the pair the official
+// withdrawal result (or releases it, in a leveled league) in one transaction.
 func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
 	compID := e.Request.PathValue("id")
 	pairID := e.Request.FormValue("pair_id")
@@ -145,6 +145,9 @@ func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
 		return alertError(e, "Competición no encontrada")
 	}
 
+	if comp.GetBool("finalized") {
+		return alertError(e, "La competición está finalizada; no se puede retirar una pareja")
+	}
 	if !slices.Contains(comp.GetStringSlice("pairs"), pairID) {
 		return alertError(e, "La pareja no pertenece a esta competición")
 	}
@@ -156,98 +159,98 @@ func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
 	if err != nil {
 		return alertError(e, "Pareja no encontrada")
 	}
-	pairName := pair.GetString("name")
+	w := pairWithdrawal{adminID: e.Auth.Id, pairID: pairID, pairName: pair.GetString("name"),
+		woScore: league.WalkoverScore(comp)}
 
-	woScore := comp.GetString("walkover_score")
-	if woScore == "" {
-		woScore = "6-0 6-0"
-	}
-
-	preScoreMatches, manualMatches, err := h.findWithdrawalMatches(compID, pairID)
+	matches, err := h.findPairMatches(compID, pairID)
 	if err != nil {
 		return alertError(e, "Error al buscar partidos")
 	}
 
-	compName := comp.GetString("name")
+	var changed, released []*core.Record
 	if err := h.app.RunInTransaction(func(txApp core.App) error {
-		if err := finalizeMatchesAsWalkovers(walkoverParams{
-			app: txApp, e: e, matches: preScoreMatches,
-			pairID: pairID, woScore: woScore, pairName: pairName,
-		}); err != nil {
-			return err
-		}
-		withdrawn := comp.GetStringSlice("withdrawn_pairs")
-		withdrawn = append(withdrawn, pairID)
-		comp.Set("withdrawn_pairs", withdrawn)
-		return txApp.Save(comp)
+		var err error
+		changed, released, err = applyWithdrawal(txApp, comp, matches, w)
+		return err
 	}); err != nil {
 		return alertError(e, "Error al procesar el retiro")
 	}
 
+	for range released {
+		league.LogAssignmentReleased(h.app, compID, e.Auth.Id)
+	}
 	h.notifyWithdrawal(withdrawalNotice{
-		matches: preScoreMatches, pairID: pairID,
-		pairName: pairName, compName: compName, woScore: woScore,
+		matches: changed, pairID: w.pairID,
+		pairName: w.pairName, compName: comp.GetString("name"), woScore: w.woScore,
 	})
-	flashWithdrawal(e, pairName, len(preScoreMatches), len(manualMatches))
+	flashWithdrawal(e, w.pairName, len(changed), len(released))
 	return redirectHX(e, "/admin/competitions/"+compID)
 }
 
-type walkoverParams struct {
-	app      core.App
-	e        *core.RequestEvent
-	matches  []*core.Record
+// pairWithdrawal is the withdrawing pair and the admin and walkover score it is recorded with.
+type pairWithdrawal struct {
+	adminID  string
 	pairID   string
-	woScore  string
 	pairName string
+	woScore  string
 }
 
-func finalizeMatchesAsWalkovers(p walkoverParams) error {
-	detail := fmt.Sprintf("Incomparecencia — %s se ha retirado de la competición", p.pairName)
-	for _, match := range p.matches {
-		opponentID := match.GetString("pair2")
-		if opponentID == p.pairID {
-			opponentID = match.GetString("pair1")
-		}
-		_, _, err := writeAsAdmin(p.app, adminWrite{
-			matchID: match.Id, adminID: p.e.Auth.Id,
-			apply: func(_ core.App, m *core.Record) (adminChange, error) {
-				if !league.IsPreScore(m.GetString("status")) {
-					return adminChange{}, errAlreadyResolved
-				}
-				m.Set("scores", p.woScore)
-				m.Set("winner", opponentID)
-				m.Set("status", league.StatusFinal)
-				m.Set("review_type", "walkover")
-				m.Set("carried_sets", "")
-				return adminChange{kind: "result_event", detail: detail,
-					decides: []string{proposalResult, proposalScheduling}}, nil
-			},
-		})
-		if errors.Is(err, errAlreadyResolved) {
-			continue
-		}
-		if err != nil {
-			return alertError(p.e, "Error al finalizar partido")
+// applyWithdrawal gives every match of the withdrawn pair its official result, or releases it
+// when the league is leveled and the match has no real score. It runs on txApp, the caller's transaction.
+func applyWithdrawal(txApp core.App, comp *core.Record, matches []*core.Record, w pairWithdrawal) (changed, released []*core.Record, err error) {
+	comp.Set("withdrawn_pairs", append(comp.GetStringSlice("withdrawn_pairs"), w.pairID))
+	if err := txApp.Save(comp); err != nil {
+		return nil, nil, err
+	}
+	proposed := league.ProvisionalIDs(txApp, matches)
+	for _, m := range matches {
+		switch league.WithdrawalPlan(comp, m, w.pairID, proposed) {
+		case league.WithdrawalRelease:
+			if err := releaseMatchTx(txApp, m.Id); err != nil {
+				return nil, nil, err
+			}
+			released = append(released, m)
+		case league.WithdrawalOfficial:
+			if err := setOfficialResult(txApp, w, m); err != nil {
+				return nil, nil, err
+			}
+			changed = append(changed, m)
 		}
 	}
-	return nil
+	return changed, released, nil
 }
 
-func (h *CompetitionHandler) findWithdrawalMatches(compID, pairID string) (preScore, manual []*core.Record, err error) {
-	params := map[string]any{"cid": compID, "pid": pairID}
-	preScore, err = h.app.FindRecordsByFilter("matches",
-		"competition = {:cid} && (status = 'pending' || status = 'scheduled') && (pair1 = {:pid} || pair2 = {:pid})",
-		"", 0, 0, params)
-	if err != nil {
-		return nil, nil, err
-	}
-	manual, err = h.app.FindRecordsByFilter("matches",
-		"competition = {:cid} && (status = 'confirmed' || status = 'disputed') && (pair1 = {:pid} || pair2 = {:pid})",
-		"", 0, 0, params)
-	if err != nil {
-		return nil, nil, err
-	}
-	return preScore, manual, nil
+// setOfficialResult gives match m the withdrawal walkover for w.pairID. A played score is kept
+// on the match as rating_scores and its review type is kept, so the rating and the quota
+// still count the match as played.
+func setOfficialResult(txApp core.App, w pairWithdrawal, m *core.Record) error {
+	opponent := league.OpponentOf(m, w.pairID)
+	detail := league.WithdrawalEventText(w.pairName)
+	_, _, err := writeAsAdmin(txApp, adminWrite{
+		matchID: m.Id, adminID: w.adminID,
+		apply: func(app core.App, fresh *core.Record) (adminChange, error) {
+			played, err := league.RealScore(app, fresh)
+			if err != nil {
+				return adminChange{}, err
+			}
+			reviewType := fresh.GetString("review_type")
+			league.ApplyWalkoverResult(fresh, opponent, w.woScore)
+			if played != "" {
+				fresh.Set("rating_scores", played)
+				fresh.Set("review_type", reviewType)
+			}
+			return adminChange{kind: "result_event", detail: detail,
+				decides: []string{proposalResult, proposalScheduling}}, nil
+		},
+	})
+	return err
+}
+
+// findPairMatches returns every match of pairID in the competition, whatever its status.
+func (h *CompetitionHandler) findPairMatches(compID, pairID string) ([]*core.Record, error) {
+	return h.app.FindRecordsByFilter("matches",
+		"competition = {:cid} && (pair1 = {:pid} || pair2 = {:pid})",
+		"created", 0, 0, map[string]any{"cid": compID, "pid": pairID})
 }
 
 type withdrawalNotice struct {
@@ -271,10 +274,10 @@ func (h *CompetitionHandler) notifyWithdrawal(n withdrawalNotice) {
 	h.notifier.NotifyPlayers(withdrawnPlayers, league.NotifPairWithdrawn(n.compName))
 }
 
-func flashWithdrawal(e *core.RequestEvent, pairName string, finalized, manual int) {
-	msg := fmt.Sprintf("%s retirada (%d partidos finalizados por incomparecencia", pairName, finalized)
-	if manual > 0 {
-		msg += fmt.Sprintf(". %d partidos en estado confirmado/disputa requieren atención manual", manual)
+func flashWithdrawal(e *core.RequestEvent, pairName string, changed, released int) {
+	msg := fmt.Sprintf("%s retirada (%d partidos registrados por incomparecencia", pairName, changed)
+	if released > 0 {
+		msg += fmt.Sprintf(", %d partidos sin resultado liberados", released)
 	}
 	msg += ")"
 	flash(e, msg)

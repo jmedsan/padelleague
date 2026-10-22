@@ -1,6 +1,8 @@
 package league
 
 import (
+	"fmt"
+
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -14,6 +16,11 @@ const (
 	WithdrawalRelease
 	WithdrawalOfficial
 )
+
+// WithdrawalEventText is the result_event text a withdrawal writes on each match it resolves.
+func WithdrawalEventText(pairName string) string {
+	return fmt.Sprintf("Incomparecencia — %s se ha retirado de la competición", pairName)
+}
 
 // WalkoverScore is the competition's walkover score, falling back to 6-0 6-0 when unset.
 func WalkoverScore(comp *core.Record) string {
