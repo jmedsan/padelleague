@@ -247,3 +247,41 @@ func TestRatings_SkipsWalkovers(t *testing.T) {
 	assert.InDelta(t, 0.0, ratings[pa.Id], 0.001)
 	assert.InDelta(t, 0.0, ratings[pb.Id], 0.001)
 }
+
+func TestRatings_WithdrawnRealScore(t *testing.T) {
+	t.Parallel()
+
+	matchTime := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name         string
+		realScore    string // the score the pair actually played; "" when none stands
+		ratingScores string // what the withdrawal stores in rating_scores
+	}{
+		{name: "withdrawn final rates the stored real score", realScore: "6-4 4-6 6-3", ratingScores: "6-4 4-6 6-3"},
+		{name: "no real score (deadlock, disputed, unplayed or approved walkover) is not rated", ratingScores: ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			app := newTestApp(t)
+			pa := makePair(t, app, "RealA")
+			pb := makePair(t, app, "RealB")
+			played := makeCompetition(t, app, []*core.Record{pa, pb})
+			withdrawn := makeCompetition(t, app, []*core.Record{pa, pb})
+			if tc.realScore != "" {
+				makeLeveledMatch(t, app, played.Id, pa.Id, pb.Id, tc.realScore, pa.Id, "final", matchTime)
+			}
+
+			wo := makeLeveledMatch(t, app, withdrawn.Id, pa.Id, pb.Id, "6-0 6-0", pa.Id, "final", matchTime)
+			wo.Set("review_type", "walkover")
+			wo.Set("rating_scores", tc.ratingScores)
+			require.NoError(t, app.Save(wo))
+
+			want, err := Ratings(app, played)
+			require.NoError(t, err)
+			got, err := Ratings(app, withdrawn)
+			require.NoError(t, err)
+			assert.Equal(t, want, got)
+		})
+	}
+}

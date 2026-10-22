@@ -131,9 +131,13 @@ func Ratings(app core.App, comp *core.Record) (map[string]float64, error) {
 
 // applyMatchRating updates ratings and played counts for one final match.
 func applyMatchRating(m *core.Record, ratings map[string]float64, played map[string]int) {
-	scores := strings.TrimSpace(m.GetString("scores"))
-	if strings.EqualFold(scores, "WO") || m.GetString("review_type") == "walkover" {
-		return
+	// rating_scores holds the real score of a withdrawn match; scores then carries the official walkover.
+	scores := strings.TrimSpace(m.GetString("rating_scores"))
+	if scores == "" {
+		scores = strings.TrimSpace(m.GetString("scores"))
+		if strings.EqualFold(scores, "WO") || m.GetString("review_type") == "walkover" {
+			return
+		}
 	}
 	sc, err := ParseScore(scores)
 	if err != nil {
