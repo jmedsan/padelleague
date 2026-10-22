@@ -91,6 +91,7 @@ func TestConfirmStaleMatches_Finalizes(t *testing.T) {
 	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "confirmed")
 	match.Set("scores", "6-3 6-4")
 	match.Set("submitted_by", p1.GetString("player1"))
+	match.Set("admin_result", true)
 	require.NoError(t, app.Save(match))
 
 	// AutodateField ignores Set() — use raw SQL to backdate
@@ -107,6 +108,7 @@ func TestConfirmStaleMatches_Finalizes(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "final", updated.GetString("status"))
 	assert.Equal(t, p1.Id, updated.GetString("winner"))
+	assert.False(t, updated.GetBool("admin_result"), "an auto-confirmed result is not an admin result")
 	assert.Contains(t, updated.GetString("dispute_notes"), "Auto-confirmado")
 	require.Len(t, notifier.calls, 2)
 	assert.Equal(t, "general", notifier.calls[0].notifType)

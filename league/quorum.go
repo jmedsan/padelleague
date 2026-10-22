@@ -163,6 +163,7 @@ func (svc *Service) confirmIfExpired(m *core.Record, comp *core.Record) {
 
 	fresh.Set("status", "final")
 	fresh.Set("winner", winnerID)
+	fresh.Set("admin_result", false)
 	fresh.Set("confirmed_by", "")
 	fresh.Set("dispute_notes", "Auto-confirmado por tiempo de espera")
 	if err := svc.app.Save(fresh); err != nil {

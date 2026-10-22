@@ -384,6 +384,7 @@ func walkoverSampleMatch(txApp core.App, match *core.Record) error {
 	match.Set("winner", winner)
 	match.Set("status", league.StatusFinal)
 	match.Set("review_type", "walkover")
+	match.Set("admin_result", true)
 	match.Set("walkover_requested_by", requester)
 	match.Set("dispute_notes", "[No jugado] El rival no se presentó.")
 

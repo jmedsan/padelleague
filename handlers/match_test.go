@@ -70,6 +70,7 @@ func TestAdminOverrideNewScore(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "6-3 6-4", m.GetString("scores"))
 		assert.Equal(tb, "final", m.GetString("status"))
+		assert.True(tb, m.GetBool("admin_result"), "admin override is an admin result")
 
 		msgs, _ := app.FindRecordsByFilter("match_messages",
 			"match = {:id} && type = 'admin_action'", "", 0, 0,
@@ -139,6 +140,43 @@ func TestAdminOverrideCorrectedScore(t *testing.T) {
 			}
 		}
 		assert.True(tb, found, "timeline must contain 'Resultado corregido'")
+	}
+	handlers.ExpectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
+	s.Test(t)
+}
+
+func TestAdminOverrideClearsRatingScores(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "POST /match/{id}/admin-override clears the stored real score when the score changes",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		admin := handlers.MakeAdminUserTB(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "CR A")
+		p2 := handlers.MakePairTB(tb, app, "CR B")
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		m := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
+		m.Set("scores", "6-0 6-0")
+		m.Set("winner", p1.Id)
+		m.Set("rating_scores", "6-3 6-4")
+		require.NoError(tb, app.Save(m))
+		matchID = m.Id
+		s.URL = "/match/" + m.Id + "/admin-override"
+		s.Body = strings.NewReader("scores=6-1+6-2")
+		hdrs := handlers.AuthHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "6-1 6-2", m.GetString("scores"))
+		assert.Empty(tb, m.GetString("rating_scores"), "a corrected result must not keep the stored real score")
 	}
 	handlers.ExpectRedirect(s, func(core.App) string { return matchPageURL(s.URL) })
 	s.Test(t)

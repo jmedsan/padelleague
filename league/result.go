@@ -200,6 +200,7 @@ func (svc *Service) applyWon(c resultCtx) error {
 		c.fresh.Set("winner", winnerID)
 		c.fresh.Set("status", StatusFinal)
 		c.fresh.Set("carried_sets", "")
+		c.fresh.Set("admin_result", false)
 		if c.in.ActorID == "" {
 			c.fresh.Set("dispute_notes", "Auto-confirmado por tiempo de espera")
 		}

@@ -464,6 +464,31 @@ func TestComputeStandings_WalkoverPair2Wins(t *testing.T) {
 	assert.Equal(t, 1, rows[1].Losses)
 }
 
+func TestComputeStandings_WalkoverPair2WinsOrientedScore(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	p1 := makePair(t, app, "WO2O A")
+	p2 := makePair(t, app, "WO2O B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
+	m.Set("scores", "0-6 0-6")
+	m.Set("winner", p2.Id)
+	require.NoError(t, app.Save(m))
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	assert.Equal(t, p2.Id, rows[0].PairID)
+	assert.Equal(t, 2, rows[0].SetsWon)
+	assert.Equal(t, 0, rows[0].SetsLost)
+	assert.Equal(t, 12, rows[0].GamesWon)
+	assert.Equal(t, p1.Id, rows[1].PairID)
+	assert.Equal(t, 0, rows[1].SetsWon)
+	assert.Equal(t, 2, rows[1].SetsLost)
+}
+
 func TestComputeStandings_PenaltyStoredAsJSONText(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)

@@ -120,6 +120,7 @@ func TestDisputeResolveAutoWinner(t *testing.T) {
 		require.NoError(tb, err)
 		assert.Equal(tb, "final", m.GetString("status"))
 		assert.Equal(tb, p1ID, m.GetString("winner"))
+		assert.True(tb, m.GetBool("admin_result"), "dispute resolved by the admin is an admin result")
 	}
 	handlers.ExpectRedirect(s, func(app core.App) string { return "/admin/competitions/" + matchCompetitionID(app, s.URL) })
 	s.Test(t)
@@ -447,6 +448,7 @@ func TestWalkoverApprove(t *testing.T) {
 		assert.Equal(tb, "final", m.GetString("status"))
 		assert.Equal(tb, "6-0 6-0", m.GetString("scores"))
 		assert.Equal(tb, p1ID, m.GetString("winner"))
+		assert.True(tb, m.GetBool("admin_result"), "approved walkover is an admin result")
 
 		rows, err := app.FindRecordsByFilter("penalties",
 			"competition = {:c} && pair = {:p} && voided = false", "", 0, 0,
@@ -483,6 +485,46 @@ func TestWalkoverApprove(t *testing.T) {
 		for _, uid := range league.PlayersForPair(app, p2ID) {
 			assertNotified(tb, app, uid, penaltyWant)
 		}
+	}
+	handlers.ExpectRedirect(s, func(app core.App) string { return "/admin/competitions/" + matchCompetitionID(app, s.URL) })
+	s.Test(t)
+}
+
+func TestWalkoverApprove_PairTwoWins_StoresWinnersOrder(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "POST /admin/disputes/{id}/walkover-approve stores the score in pair2 winner's order",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var matchID, p2ID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		admin := makeAdminUser(tb, app)
+		p1 := handlers.MakePairTB(tb, app, "WoP2A")
+		p2 := handlers.MakePairTB(tb, app, "WoP2B")
+		p2ID = p2.Id
+		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+		comp.Set("walkover_score", "6-0 6-0")
+		require.NoError(tb, app.Save(comp))
+		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
+		match.Set("review_type", "walkover")
+		require.NoError(tb, app.Save(match))
+		matchID = match.Id
+		s.URL = "/admin/disputes/" + match.Id + "/walkover-approve"
+		s.Body = strings.NewReader("winner=" + p2.Id)
+		hdrs := handlers.AuthHeaders(tb, admin)
+		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+		s.Headers = hdrs
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "final", m.GetString("status"))
+		assert.Equal(tb, p2ID, m.GetString("winner"))
+		assert.Equal(tb, "0-6 0-6", m.GetString("scores"), "pair2 holds the sets, so the score is flipped")
+		assert.True(tb, m.GetBool("admin_result"), "approved walkover is an admin result")
 	}
 	handlers.ExpectRedirect(s, func(app core.App) string { return "/admin/competitions/" + matchCompetitionID(app, s.URL) })
 	s.Test(t)

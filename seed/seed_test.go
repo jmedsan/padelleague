@@ -275,6 +275,7 @@ func TestSampleLeague(t *testing.T) {
 		}
 		if m.GetString("review_type") == "walkover" {
 			walkoverCount++
+			assert.True(t, m.GetBool("admin_result"), "seeded walkover is an admin result")
 		}
 	}
 	assert.Equal(t, 1, scheduledCount, "one arranged-but-unplayed match")

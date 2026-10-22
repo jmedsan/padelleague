@@ -102,12 +102,7 @@ func (h *DisputeHandler) approveWalkover(matchID, adminID, woScore, winnerID str
 			if m.GetString("review_type") != "walkover" || m.GetString("status") == league.StatusFinal {
 				return adminChange{}, errAlreadyResolved
 			}
-			m.Set("scores", woScore)
-			m.Set("winner", winnerID)
-			m.Set("status", league.StatusFinal)
-			m.Set("carried_sets", "")
-			m.Set("arbitration", "")
-			m.Set("arbitration_by", "")
+			league.ApplyWalkoverResult(m, winnerID, woScore)
 			return adminChange{
 				kind:    "result_event",
 				detail:  "aprobó incomparecencia a favor de " + league.PairNames(txApp, []string{winnerID})[winnerID],
@@ -122,10 +117,7 @@ func (h *DisputeHandler) approveWalkover(matchID, adminID, woScore, winnerID str
 // falling back to "6-0 6-0"; errMsg is non-empty (and score empty) on an
 // invalid configured score.
 func walkoverScoreFor(comp *core.Record) (score, errMsg string) {
-	woScore := comp.GetString("walkover_score")
-	if woScore == "" {
-		woScore = "6-0 6-0"
-	}
+	woScore := league.WalkoverScore(comp)
 	if _, err := league.ParseScore(woScore); err != nil {
 		return "", "El marcador de incomparecencia configurado no es válido:" + woScore
 	}
@@ -179,6 +171,7 @@ func (h *DisputeHandler) DisputesResolve(e *core.RequestEvent) error {
 			m.Set("scores", score)
 			m.Set("winner", winnerID)
 			m.Set("status", league.StatusFinal)
+			m.Set("admin_result", true)
 			m.Set("arbitration", "")
 			m.Set("arbitration_by", "")
 			return adminChange{kind: "result_event", detail: "resolvió la disputa: " + score,

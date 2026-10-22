@@ -23,6 +23,19 @@ func WalkoverScore(comp *core.Record) string {
 	return "6-0 6-0"
 }
 
+// ApplyWalkoverResult records the official walkover on m: the score in pair1/pair2 order, the
+// winner, final, and the admin marker, with any arbitration request cleared.
+func ApplyWalkoverResult(m *core.Record, winnerID, woScore string) {
+	m.Set("scores", OfficialScore(m, winnerID, woScore))
+	m.Set("winner", winnerID)
+	m.Set("status", StatusFinal)
+	m.Set("review_type", "walkover")
+	m.Set("admin_result", true)
+	m.Set("carried_sets", "")
+	m.Set("arbitration", "")
+	m.Set("arbitration_by", "")
+}
+
 // WithdrawalPlan decides what the withdrawal of pairID does to match m. proposed holds the
 // match ids with a standing result proposal.
 func WithdrawalPlan(comp, m *core.Record, pairID string, proposed map[string]bool) WithdrawalAction {

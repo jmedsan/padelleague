@@ -41,6 +41,8 @@ func TestApplyAcceptedResult_Won(t *testing.T) {
 	responder := p2.GetString("player1")
 	notifier := &fakeNotifier{}
 	svc := New(app, notifier)
+	match.Set("admin_result", true)
+	require.NoError(t, app.Save(match))
 
 	out, err := svc.ApplyAcceptedResult(match, AcceptedResult{Proposal: proposal, ActorID: responder})
 	require.NoError(t, err)
@@ -52,6 +54,7 @@ func TestApplyAcceptedResult_Won(t *testing.T) {
 	assert.Equal(t, StatusFinal, updated.GetString("status"))
 	assert.Equal(t, p1.Id, updated.GetString("winner"))
 	assert.Equal(t, "6-3 6-4", updated.GetString("scores"))
+	assert.False(t, updated.GetBool("admin_result"), "a player-accepted result is not an admin result")
 
 	updatedProposal, err := app.FindRecordById("match_messages", proposal.Id)
 	require.NoError(t, err)

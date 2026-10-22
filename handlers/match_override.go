@@ -106,6 +106,8 @@ func applyOverride(app core.App, match *core.Record, f overrideForm) (adminChang
 		match.Set("winner", winner)
 		match.Set("carried_sets", "")
 		match.Set("status", league.StatusFinal)
+		match.Set("admin_result", true)
+		match.Set("rating_scores", "")
 		if oldScores == "" {
 			changes = append(changes, "Resultado establecido: "+f.scores)
 		} else {
