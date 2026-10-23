@@ -7,8 +7,11 @@ import {
 } from '../helpers';
 import { enterScore } from '../tour-helpers';
 
-const GRAY = '[title="Pareja retirada de esta competición"]';
-const GRAY_VISIBLE = `${GRAY}:visible`;
+const WITHDRAWN = '[data-testid="withdrawn-indicator"]';
+const WITHDRAWN_VISIBLE = `${WITHDRAWN}:visible`;
+// withdrawnNameOf is the pair-name element (name + indicator) of the named withdrawn pair.
+const withdrawnNameOf = (page: Page, name: string) =>
+  page.locator(WITHDRAWN_VISIBLE).locator('xpath=..').filter({ hasText: name });
 
 const WITHDRAW_ACTION = (pairId: string) =>
   `form[hx-post$="/withdraw-pair"]:has(input[name="pair_id"][value="${pairId}"]) button`;
@@ -83,24 +86,29 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     createdComps.length = 0;
   });
 
-  test('admin pairs list grays the withdrawn pair and shows a badge-sm Retirada', async ({ page }, testInfo) => {
+  test('admin pairs list shows the withdrawn indicator with its tooltip and no Retirada badge', async ({ page }, testInfo) => {
     const data = loadTestData();
     const compId = await createLeague(page, `Retirada admin ${testInfo.project.name} ${Date.now()}`, [data.pair1Id, data.pair2Id, data.pair3Id]);
     createdComps.push(compId);
 
     await withdrawFromDetail(page, compId, data.pair1Id);
 
-    // Gray name in the pairs list, reached by the withdraw click on the same page.
-    await expect(page.locator(GRAY_VISIBLE).filter({ hasText: 'Pareja Alpha' }).first()).toBeVisible();
-
-    // The badge is the one visible on this viewport (the desktop table or the mobile card).
-    const badge = page.locator('.badge:visible', { hasText: 'Retirada' }).first();
-    await expect(badge).toBeVisible();
-    await expect(badge).toHaveClass(/badge-sm/);
-    await expect(badge).not.toHaveClass(/badge-xs/);
+    // Indicator in the pairs list, reached by the withdraw click on the same page.
+    await expect(withdrawnNameOf(page, 'Pareja Alpha').first()).toBeVisible();
+    const indicator = page.locator(WITHDRAWN_VISIBLE).first();
+    await expect(indicator.locator('.tooltip')).toHaveAttribute('data-tip', 'Pareja retirada de esta competición');
+    await expect(indicator.locator('.tooltip')).toHaveClass(/\btooltip-error\b/);
+    await expect(page.locator('.badge', { hasText: 'Retirada' })).toHaveCount(0);
+    // The name wraps instead of truncating, and the icon stays inside the viewport.
+    const name = indicator.locator('xpath=preceding-sibling::span[1]');
+    await expect(name).toHaveText('Pareja Alpha');
+    await expect(name).toHaveClass(/\bbreak-words\b/);
+    await expect(name).not.toHaveClass(/\btruncate\b/);
+    const box = (await indicator.boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   });
 
-  test('competition page standings gray the withdrawn pair, reached from home', async ({ page }, testInfo) => {
+  test('competition page standings show the withdrawn indicator on the pair, reached from home', async ({ page }, testInfo) => {
     const data = loadTestData();
     const compId = await createLeague(page, `Retirada standings ${testInfo.project.name} ${Date.now()}`, [data.pair1Id, data.pair2Id, data.pair3Id]);
     createdComps.push(compId);
@@ -110,13 +118,11 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     await openFromHome(page, compId);
     await page.locator('input[aria-label^="Clasificación"]').click();
 
-    await expect(page.locator(GRAY_VISIBLE).filter({ hasText: 'Pareja Alpha' }).first()).toBeVisible();
-
-    const badge = page.locator('.badge:visible', { hasText: 'Retirada' }).first();
-    await expect(badge).toHaveClass(/badge-sm/);
+    await expect(withdrawnNameOf(page, 'Pareja Alpha').first()).toBeVisible();
+    await expect(page.locator('.badge', { hasText: 'Retirada' })).toHaveCount(0);
   });
 
-  test('the same pair is not grayed in another competition', async ({ page }, testInfo) => {
+  test('the same pair shows no indicator in another competition', async ({ page }, testInfo) => {
     const data = loadTestData();
     const withdrawn = await createLeague(page, `Retirada A ${testInfo.project.name} ${Date.now()}`, [data.pair1Id, data.pair2Id, data.pair3Id]);
     const other = await createLeague(page, `Retirada B ${testInfo.project.name} ${Date.now()}`, [data.pair1Id, data.pair2Id, data.pair3Id]);
@@ -128,10 +134,10 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     await expandRound(page, 'Jornada 1');
 
     await expect(page.locator('text=Pareja Alpha >> visible=true').first()).toBeVisible();
-    await expect(page.locator(GRAY)).toHaveCount(0);
+    await expect(page.locator(WITHDRAWN)).toHaveCount(0);
   });
 
-  test('a match of a withdrawn pair shows the gray name on its match page, reached from the competition page', async ({ page }, testInfo) => {
+  test('a match of a withdrawn pair shows the indicator on its match page, reached from the competition page', async ({ page }, testInfo) => {
     const data = loadTestData();
     const compId = await createLeague(page, `Retirada partido ${testInfo.project.name} ${Date.now()}`, [data.pair1Id, data.pair2Id, data.pair3Id]);
     createdComps.push(compId);
@@ -143,7 +149,7 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     const matches = await apiListRecords(page.request, data.adminToken, 'matches', `competition='${compId}' && pair1='${data.pair1Id}'`);
     await openMatchFromHome(page, matches[0].id);
 
-    await expect(page.locator(GRAY_VISIBLE).filter({ hasText: 'Pareja Alpha' }).first()).toBeVisible();
+    await expect(withdrawnNameOf(page, 'Pareja Alpha').first()).toBeVisible();
   });
 
   test('a withdrawn pair player sees the walkover result on the match and cannot act on it', async ({ page }, testInfo) => {
@@ -178,7 +184,7 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     expect(unchanged.winner).toBe(data.pair2Id);
   });
 
-  test('the jornadas list grays the withdrawn pair on its match rows and leaves the others plain', async ({ page }, testInfo) => {
+  test('the jornadas list shows the indicator on the withdrawn pair in its match rows and not on the others', async ({ page }, testInfo) => {
     const data = loadTestData();
     const compId = await createLeague(page, `Retirada lista ${testInfo.project.name} ${Date.now()}`, [data.pair1Id, data.pair2Id, data.pair3Id]);
     createdComps.push(compId);
@@ -188,8 +194,8 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     await openFromHome(page, compId);
     await expandRound(page, 'Jornada 1');
 
-    await expect(page.locator(GRAY_VISIBLE).filter({ hasText: 'Pareja Alpha' }).first()).toBeVisible();
-    await expect(page.locator(GRAY_VISIBLE).filter({ hasText: 'Pareja Beta' })).toHaveCount(0);
+    await expect(withdrawnNameOf(page, 'Pareja Alpha').first()).toBeVisible();
+    await expect(withdrawnNameOf(page, 'Pareja Beta')).toHaveCount(0);
   });
 
   test('the jornadas pair filter marks the withdrawn pair (retirada) and leaves the others plain', async ({ page }, testInfo) => {
@@ -285,14 +291,14 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     await page.locator('#confirm-typed').fill('RETIRAR');
     await page.locator('[data-confirm="cancel"]').click();
     await expect(page.locator('#confirm-modal')).not.toHaveAttribute('open', '');
-    await expect(page.locator(GRAY)).toHaveCount(0);
+    await expect(page.locator(WITHDRAWN)).toHaveCount(0);
 
     await clickAction(page, WITHDRAW_ACTION(data.pair1Id), 'Retirar de la competición');
     await expect(page.locator('#confirm-typed')).toHaveValue('');
     await expect(page.locator('#confirm-ok')).toBeDisabled();
     await page.keyboard.press('Escape');
     await expect(page.locator('#confirm-modal')).not.toHaveAttribute('open', '');
-    await expect(page.locator(GRAY)).toHaveCount(0);
+    await expect(page.locator(WITHDRAWN)).toHaveCount(0);
   });
 
   test('the dialog names the pair and states the walkover effect', async ({ page }, testInfo) => {
@@ -336,7 +342,7 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     await page.locator('[data-confirm="cancel"]').click();
   });
 
-  test('a result proposal by a withdrawn pair keeps its author gray on the thread timeline', async ({ page }, testInfo) => {
+  test('a result proposal by a withdrawn pair names the pair in its frozen timeline author line without the indicator', async ({ page }, testInfo) => {
     const data = loadTestData();
     const compId = await createLeague(page, `Retirada linea ${testInfo.project.name} ${Date.now()}`,
       [data.pair1Id, data.pair2Id, data.pair3Id]);
@@ -361,10 +367,10 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     await openMatchFromHome(page, match.id);
     const timeline = page.locator('#thread-timeline');
     await expect(timeline.getByText('6-3 6-4').locator('visible=true').first()).toBeVisible({ timeout: 5000 });
-    // The proposal's author line: bold, and naming the withdrawn pair in its gray pair part.
+    // The proposal's author line is a frozen snapshot: it names the pair but shows no withdrawn indicator.
     const author = timeline.locator('.font-bold', { hasText: '(Pareja Alpha)' });
     await expect(author).toHaveCount(1);
-    await expect(author.locator(GRAY)).toHaveText('Pareja Alpha');
     await expect(author).toContainText('(Pareja Alpha)');
+    await expect(author.locator(WITHDRAWN)).toHaveCount(0);
   });
 });

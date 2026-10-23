@@ -29,41 +29,37 @@ type RejectedProposalVM struct {
 
 // TimelineEntryVM is one read-only history line in the timeline.
 type TimelineEntryVM struct {
-	Kind            string // "proposal" | "response" | "event" | "chat"
-	AuthorPlayer    string
-	AuthorPairName  string // the author's pair; only the pair part is grayed when withdrawn
-	AuthorWithdrawn bool   // the author's pair is withdrawn from the competition
-	IsMyTeam        bool
-	Content         string
-	Note            string // rejection reason, shown below the dateBox/resultBox
-	CreatedAt       string // render.FmtShortTime — DD/MM HH:MM, shown as the title (hover) text
-	CreatedRel      string // RFC3339 raw value for {{relDate}} — the visible timeline timestamp
-	Score           string // result_submission only
-	Pair1Name       string // result_submission only, for the winner-name calculation
-	Pair2Name       string // result_submission only, for the winner-name calculation
-	Pair1Withdrawn  bool   // result_submission only
-	Pair2Withdrawn  bool   // result_submission only
-	Date            string // scheduling_proposal only (stored "2006-01-02")
-	Time            string // scheduling_proposal only
-	Place           string // scheduling_proposal venue name
-	Status          string // proposal_status; scheduling_proposal/result_submission only
-	StatusLabel     string // Spanish label for Status
-	StatusClass     string // DaisyUI badge class for Status
+	Kind           string // "proposal" | "response" | "event" | "chat"
+	AuthorPlayer   string
+	AuthorPairName string // the author's pair as it was when the entry was written
+	IsMyTeam       bool
+	Content        string
+	Note           string // rejection reason, shown below the dateBox/resultBox
+	CreatedAt      string // render.FmtShortTime — DD/MM HH:MM, shown as the title (hover) text
+	CreatedRel     string // RFC3339 raw value for {{relDate}} — the visible timeline timestamp
+	Score          string // result_submission only
+	Pair1Name      string // result_submission only, for the winner-name calculation
+	Pair2Name      string // result_submission only, for the winner-name calculation
+	Date           string // scheduling_proposal only (stored "2006-01-02")
+	Time           string // scheduling_proposal only
+	Place          string // scheduling_proposal venue name
+	Status         string // proposal_status; scheduling_proposal/result_submission only
+	StatusLabel    string // Spanish label for Status
+	StatusClass    string // DaisyUI badge class for Status
 }
 
 // SchedProposalVM is one non-rejected scheduling proposal in the details panel.
 type SchedProposalVM struct {
-	RecordID        string
-	MatchID         string
-	AuthorPlayer    string
-	AuthorPairName  string
-	AuthorWithdrawn bool
-	Data            *league.ProposalData
-	Status          string // "pending" | "accepted" | "superseded"
-	CanRespond      bool
-	CanWithdraw     bool
-	CreatedAt       string
-	CreatedRel      string // RFC3339, for {{relDate}}
+	RecordID       string
+	MatchID        string
+	AuthorPlayer   string
+	AuthorPairName string
+	Data           *league.ProposalData
+	Status         string // "pending" | "accepted" | "superseded"
+	CanRespond     bool
+	CanWithdraw    bool
+	CreatedAt      string
+	CreatedRel     string // RFC3339, for {{relDate}}
 }
 
 // ResultPanelVM is the result box: the final result once quorum is reached,
@@ -191,20 +187,17 @@ func (bc *threadBuildCtx) processMessage(msg *core.Record, authorID, cachedName 
 func (bc *threadBuildCtx) timelineEntry(mc msgCtx) TimelineEntryVM {
 	pd := league.ParseProposalData(mc.msg.GetString("proposal_data"))
 	entry := TimelineEntryVM{
-		Kind:            timelineKind(mc.msgType),
-		AuthorPlayer:    mc.authorPlayer,
-		AuthorPairName:  mc.authorPairName,
-		AuthorWithdrawn: mc.authorWithdrawn,
-		IsMyTeam:        bc.myTeam != 0 && mc.authorTeam == bc.myTeam,
-		CreatedAt:       mc.created,
-		CreatedRel:      mc.createdRaw,
+		Kind:           timelineKind(mc.msgType),
+		AuthorPlayer:   mc.authorPlayer,
+		AuthorPairName: mc.authorPairName,
+		IsMyTeam:       bc.myTeam != 0 && mc.authorTeam == bc.myTeam,
+		CreatedAt:      mc.created,
+		CreatedRel:     mc.createdRaw,
 	}
 	fillTimelineEntryData(&entry, pd, mc.msgType)
 	if mc.msgType == "result_submission" || mc.msgType == "result_response" {
 		entry.Pair1Name = bc.pairNames[bc.match.GetString("pair1")]
 		entry.Pair2Name = bc.pairNames[bc.match.GetString("pair2")]
-		entry.Pair1Withdrawn = bc.withdrawn[bc.match.GetString("pair1")]
-		entry.Pair2Withdrawn = bc.withdrawn[bc.match.GetString("pair2")]
 	}
 	action := ""
 	if pd != nil {
@@ -259,17 +252,16 @@ func (bc *threadBuildCtx) schedProposal(mc msgCtx, sameTeam bool) SchedProposalV
 	status := mc.msg.GetString("proposal_status")
 	canRespond, _ := proposalActions("scheduling_proposal", bc.matchStatus, sameTeam, status)
 	return SchedProposalVM{
-		RecordID:        mc.msg.Id,
-		MatchID:         bc.matchID,
-		AuthorPlayer:    mc.authorPlayer,
-		AuthorPairName:  mc.authorPairName,
-		AuthorWithdrawn: mc.authorWithdrawn,
-		Data:            league.ParseProposalData(mc.msg.GetString("proposal_data")),
-		Status:          status,
-		CanRespond:      canRespond && bc.compModifiable,
-		CanWithdraw:     bc.myTeam != 0 && sameTeam && status == "pending" && bc.compModifiable,
-		CreatedAt:       mc.created,
-		CreatedRel:      mc.createdRaw,
+		RecordID:       mc.msg.Id,
+		MatchID:        bc.matchID,
+		AuthorPlayer:   mc.authorPlayer,
+		AuthorPairName: mc.authorPairName,
+		Data:           league.ParseProposalData(mc.msg.GetString("proposal_data")),
+		Status:         status,
+		CanRespond:     canRespond && bc.compModifiable,
+		CanWithdraw:    bc.myTeam != 0 && sameTeam && status == "pending" && bc.compModifiable,
+		CreatedAt:      mc.created,
+		CreatedRel:     mc.createdRaw,
 	}
 }
 

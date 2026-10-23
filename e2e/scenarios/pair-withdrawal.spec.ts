@@ -64,7 +64,7 @@ test('00 seed: six pairs, play twice, the pair under test in nine states and spa
   console.log('     proposed result, disputed, the players\' 6-3 6-4 final, and the spare.');
   console.log('  2. The match an admin set to 6-0 6-0 is unchanged: no timeline entry, no notice.');
   console.log('  3. The disputed and arbitrated matches have no open arbitration request.');
-  console.log('  4. The pair name is gray in this competition, with the tooltip "Pareja retirada de esta competición".');
+  console.log('  4. The pair name shows a red withdrawn icon in this competition; hovering it shows "Pareja retirada de esta competición".');
   console.log('  5. The withdrawn pair gets one notice, then no more competition notices.');
   console.log('  6. Each rival gets one notice per changed match.');
 });

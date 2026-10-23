@@ -10,9 +10,9 @@
 {{define "resultHistoryRow"}}
 <tr class="hover cursor-pointer" onclick="window.location='{{entityURL "match" .MatchID}}'" role="link" tabindex="0" onkeydown="if(event.key==='Enter')this.click()">
     <td class="text-sm opacity-70">{{if .Date}}{{fmtDate .Date}}{{else}}Sin fecha{{end}}</td>
-    <td>{{template "pairLink" (elink .Pair1ID .PairName1 .Pair1Withdrawn)}}</td>
-    <td>{{template "pairLink" (elink .Pair2ID .PairName2 .Pair2Withdrawn)}}</td>
-    <td>{{template "resultBox" (dict "Score" .Score "Pair1Name" .PairName1 "Pair1Withdrawn" .Pair1Withdrawn "Pair2Name" .PairName2 "Pair2Withdrawn" .Pair2Withdrawn "Mode" (dict "Row" true))}}</td>
+    <td>{{template "pairLink" (elink .Pair1ID .PairName1 false)}}</td>
+    <td>{{template "pairLink" (elink .Pair2ID .PairName2 false)}}</td>
+    <td>{{template "resultBox" (dict "Score" .Score "Pair1Name" .PairName1 "Pair2Name" .PairName2 "Mode" (dict "Row" true))}}</td>
     <td>{{template "competitionIdentity" (dict "ID" .CompetitionID "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true))}}</td>
     <td class="text-center">{{template "wonBadge" .}}</td>
 </tr>
@@ -27,7 +27,7 @@
 {{define "historyMatchCard"}}
 <a href="{{entityURL "match" .MatchID}}" class="flex items-center gap-3 p-3 rounded-xl bg-base-200/50 hover:bg-base-200 transition-colors">
     <div class="flex-1 min-w-0">
-        <p class="font-medium text-sm truncate">{{template "pairName" (dict "Name" .Opponent "Withdrawn" .OpponentWithdrawn)}}</p>
+        <p class="font-medium text-sm min-w-0">{{template "pairName" (dict "Name" .Opponent "Truncate" true)}}</p>
         <p class="text-sm opacity-60">{{if .Date}}{{fmtDate .Date}}{{else}}Sin fecha{{end}} · {{.Score}} · {{if .RoundNum}}J{{.RoundNum}} · {{end}}{{template "competitionIdentity" (dict "ID" .CompetitionID "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true) "NoLink" true "Small" true)}}</p>
     </div>
     {{template "wonBadge" .}}

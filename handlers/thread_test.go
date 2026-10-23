@@ -1276,7 +1276,8 @@ func TestThreadMessages_AllTypesRenderCorrectSubDefine(t *testing.T) {
 		// no chat bubbles, no centered pills, no nested boxes.
 		assert.Contains(tb, body, "Padel 360", "proposal shows venue name")
 		assert.Contains(tb, body, "20:00", "proposal shows time")
-		assert.Regexp(tb, `\w+ \(SubDef B\)`, body, "proposal author shows PlayerName (PairName)")
+		assert.Regexp(tb, `\w+ \(<span class="inline-flex[^"]*"><span class="break-words min-w-0">SubDef B</span></span>\)`,
+			body, "proposal author shows PlayerName (PairName)")
 		assert.Contains(tb, body, `id="thread-timeline"`, "entries render in the flat timeline")
 		assert.Contains(tb, body, "registró resultado: 6-2 6-3", "event content shown")
 		assert.Contains(tb, body, "Hola desde chat", "chat content shown as a flat row")

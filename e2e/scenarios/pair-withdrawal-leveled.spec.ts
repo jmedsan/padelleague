@@ -73,6 +73,6 @@ test('00 seed: eight pairs, leveled, the pair under test with five open matches 
   console.log('  2. The proposed-result match and the players\' 6-3 6-4 final end final with the rival winning 6-0 6-0.');
   console.log('  3. Each released or changed match sends the rival one notice that links to the competition page.');
   console.log('  4. The top-up may give a freed rival a new opponent; the withdrawn pair gets none.');
-  console.log('  5. The pair name is gray in this competition, with the tooltip "Pareja retirada de esta competición".');
+  console.log('  5. The pair name shows a red withdrawn icon in this competition; hovering it shows "Pareja retirada de esta competición".');
   console.log('  6. The withdrawn pair gets one notice, then no more competition notices.');
 });

@@ -1,0 +1,5 @@
+{{/* tooltipIcon — the ONE small status icon with a hover/tap explanation. Args: Tip (the text),
+     TipClass (tooltip-warning, tooltip-error), IconClass (text-warning, text-error), Path (svg path
+     data). Tailwind only sees literal class names, so callers pass both classes whole. Callers wrap
+     it in a span that carries the data-testid. */}}
+{{define "tooltipIcon"}}<span class="tooltip tooltip-left {{.TipClass}}" data-tip="{{.Tip}}"><svg xmlns="http://www.w3.org/2000/svg" aria-label="{{.Tip}}" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="inline w-4 h-4 {{.IconClass}}"><path stroke-linecap="round" stroke-linejoin="round" d="{{.Path}}" /></svg></span>{{end}}

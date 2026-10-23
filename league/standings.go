@@ -31,7 +31,7 @@ type StandingRowFull struct {
 	// pending (not yet accepted) result proposal — the standingsTable
 	// component shows a tooltip on such rows.
 	HasProvisional bool
-	// Withdrawn is true when the pair is withdrawn from the competition (rendered gray).
+	// Withdrawn is true when the pair is withdrawn from the competition (pairName shows the withdrawn indicator).
 	Withdrawn bool
 }
 
