@@ -362,8 +362,8 @@ test.describe('responsive - no horizontal overflow', { tag: '@presentation' }, (
     await page.goto('/admin/pairs');
     await page.waitForLoadState('domcontentloaded');
     await checkNoOverflow(page);
-    await expect(page.getByText('Pareja Alpha')).toBeVisible();
-    await expect(page.getByText('Pareja Beta')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Pareja Alpha', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Pareja Beta', exact: true })).toBeVisible();
   });
 
   test('admin players', async ({ page }) => {

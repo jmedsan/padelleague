@@ -688,6 +688,18 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     expect(css, 'styles.css must contain htmx-request spinner rule').toContain('htmx-request');
   });
 
+  test('the footer names the league on a player page, as the page title does', async ({ page }) => {
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+
+    // The title ends with the league name ("Página — Liga"), set from the same Branding value as the footer.
+    const league = (await page.title()).split(' — ').pop() ?? '';
+    expect(league).not.toBe('');
+    const footerLine = page.locator('footer p', { hasText: '© 2026' });
+    await expect(footerLine).toHaveText(`${league} © 2026 · Privacidad · Cookies · Aviso Legal`);
+  });
+
   test('R-209: pairs create form disables selected player in sibling dropdown', async ({ page }) => {
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await openAdminPage(page, '/admin/pairs');
