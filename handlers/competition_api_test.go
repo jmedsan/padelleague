@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -2205,6 +2206,150 @@ func TestWithdrawPair_PlayoffPlayedNextRoundStays(t *testing.T) {
 		assert.Equal(tb, "6-2 6-3", next.GetString("scores"))
 		assert.Empty(tb, next.GetString("review_type"))
 		assert.Empty(tb, resultEventTexts(tb, app, nextID))
+	}
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	s.Test(t)
+}
+
+// flashMessage is the decoded text of the flash cookie a response sets, or "" when it sets none.
+func flashMessage(tb testing.TB, res *http.Response) string {
+	tb.Helper()
+	for _, c := range res.Cookies() {
+		if c.Name == "flash_msg" {
+			msg, err := url.QueryUnescape(c.Value)
+			require.NoError(tb, err)
+			return msg
+		}
+	}
+	return ""
+}
+
+// TestWithdrawPair_RefusesPairOutsideCompetition: a pair that is not in the competition cannot be withdrawn.
+func TestWithdrawPair_RefusesPairOutsideCompetition(t *testing.T) {
+	t.Parallel()
+	var matchID string
+	var compID string
+	var outsiderID string
+	s := withdrawScenario("POST withdraw-pair refuses a pair outside the competition",
+		func(tb testing.TB, app *tests.TestApp) (string, string) {
+			p1 := handlers.MakePairTB(tb, app, "WdrawA")
+			p2 := handlers.MakePairTB(tb, app, "WdrawB")
+			outsider := handlers.MakePairTB(tb, app, "WdrawOut")
+			comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
+			matchID = handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending").Id
+			compID = comp.Id
+			outsiderID = outsider.Id
+			return comp.Id, outsider.Id
+		})
+	s.ExpectedStatus = http.StatusOK
+	s.ExpectedContent = []string{"La pareja no pertenece a esta competición"}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
+		assert.Empty(tb, res.Header.Get("HX-Redirect"))
+		assert.Equal(tb, "pending", loadMatch(tb, app, matchID).GetString("status"))
+		comp, err := app.FindRecordById("competitions", compID)
+		require.NoError(tb, err)
+		assert.NotContains(tb, comp.GetStringSlice("withdrawn_pairs"), outsiderID)
+	}
+	s.Test(t)
+}
+
+// TestWithdrawPair_FlashCountsOnlyWalkovers: a standard league counts only the walkovers it records,
+// and names no released or voided matches.
+func TestWithdrawPair_FlashCountsOnlyWalkovers(t *testing.T) {
+	t.Parallel()
+	s := withdrawScenario("POST withdraw-pair flash counts only the recorded walkovers",
+		func(tb testing.TB, app *tests.TestApp) (string, string) {
+			p1 := handlers.MakePairTB(tb, app, "WdrawA")
+			p2 := handlers.MakePairTB(tb, app, "WdrawB")
+			p3 := handlers.MakePairTB(tb, app, "WdrawC")
+			comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3})
+			handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+			handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p3.Id, "scheduled")
+			return comp.Id, p1.Id
+		})
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "WdrawA retirada (2 partidos registrados por incomparecencia)", flashMessage(tb, res))
+	}
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	s.Test(t)
+}
+
+// TestWithdrawPair_FlashCountsReleasedMatches: a leveled league names the matches it released.
+func TestWithdrawPair_FlashCountsReleasedMatches(t *testing.T) {
+	t.Parallel()
+	s := withdrawScenario("POST withdraw-pair flash names the released leveled matches",
+		func(tb testing.TB, app *tests.TestApp) (string, string) {
+			p1 := handlers.MakePairTB(tb, app, "WdrawA")
+			p2 := handlers.MakePairTB(tb, app, "WdrawB")
+			p3 := handlers.MakePairTB(tb, app, "WdrawC")
+			comp := leveledWithdrawComp(tb, app, p1, p2, p3)
+			handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+			handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p3.Id, "scheduled")
+			return comp.Id, p1.Id
+		})
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "WdrawA retirada (0 partidos registrados por incomparecencia, 2 partidos sin resultado liberados)",
+			flashMessage(tb, res))
+	}
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	s.Test(t)
+}
+
+// TestWithdrawPair_FlashCountsVoidedMatches: a playoff match against an already-withdrawn pair is named as voided.
+func TestWithdrawPair_FlashCountsVoidedMatches(t *testing.T) {
+	t.Parallel()
+	s := withdrawScenario("POST withdraw-pair flash names the voided playoff matches",
+		func(tb testing.TB, app *tests.TestApp) (string, string) {
+			withdrawn := handlers.MakePairTB(tb, app, "WdrawA")
+			p1 := handlers.MakePairTB(tb, app, "WdrawB")
+			comp := makePlayoffComp(tb, app, []*core.Record{withdrawn, p1}, nil)
+			comp.Set("withdrawn_pairs", []string{withdrawn.Id})
+			require.NoError(tb, app.Save(comp))
+			handlers.MakeMatchTB(tb, app, comp.Id, withdrawn.Id, p1.Id, "pending")
+			return comp.Id, p1.Id
+		})
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "WdrawB retirada (0 partidos registrados por incomparecencia, 1 partido anulado)",
+			flashMessage(tb, res))
+	}
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	s.Test(t)
+}
+
+// TestWithdrawPair_FlashSingularWalkover: one recorded walkover is named in the singular.
+func TestWithdrawPair_FlashSingularWalkover(t *testing.T) {
+	t.Parallel()
+	s := withdrawScenario("POST withdraw-pair flash names one recorded walkover in the singular",
+		func(tb testing.TB, app *tests.TestApp) (string, string) {
+			p1 := handlers.MakePairTB(tb, app, "WdrawA")
+			p2 := handlers.MakePairTB(tb, app, "WdrawB")
+			p3 := handlers.MakePairTB(tb, app, "WdrawC")
+			comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3})
+			handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+			return comp.Id, p1.Id
+		})
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "WdrawA retirada (1 partido registrado por incomparecencia)", flashMessage(tb, res))
+	}
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	s.Test(t)
+}
+
+// TestWithdrawPair_FlashSingularReleasedMatch: one released leveled match is named in the singular.
+func TestWithdrawPair_FlashSingularReleasedMatch(t *testing.T) {
+	t.Parallel()
+	s := withdrawScenario("POST withdraw-pair flash names one released leveled match in the singular",
+		func(tb testing.TB, app *tests.TestApp) (string, string) {
+			p1 := handlers.MakePairTB(tb, app, "WdrawA")
+			p2 := handlers.MakePairTB(tb, app, "WdrawB")
+			p3 := handlers.MakePairTB(tb, app, "WdrawC")
+			comp := leveledWithdrawComp(tb, app, p1, p2, p3)
+			handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+			return comp.Id, p1.Id
+		})
+	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		assert.Equal(tb, "WdrawA retirada (0 partidos registrados por incomparecencia, 1 partido sin resultado liberado)",
+			flashMessage(tb, res))
 	}
 	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)

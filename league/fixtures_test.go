@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -270,4 +271,114 @@ func unorderedKey(m RoundMatch) string {
 		return m.Away + ":" + m.Home
 	}
 	return m.Home + ":" + m.Away
+}
+
+// A playable seed walks over when the other seed is withdrawn, whichever side the withdrawn one is on.
+func TestSettleSeeds_OneWithdrawnSeedWalksOverPlayable(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name         string
+		withdrawnIs1 bool
+	}{
+		{"withdrawn seed in pair1", true},
+		{"withdrawn seed in pair2", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			app := newTestApp(t)
+			w := makePair(t, app, "Retirada")
+			wLoser := makePair(t, app, "Perdedor de la retirada")
+			p := makePair(t, app, "Vivo")
+			pLoser := makePair(t, app, "Perdedor del vivo")
+			comp := makeCompetition(t, app, []*core.Record{w, wLoser, p, pLoser})
+			comp.Set("withdrawn_pairs", []string{w.Id})
+			require.NoError(t, app.Save(comp))
+
+			wWon := makeMatch(t, app, comp.Id, w.Id, wLoser.Id, "final")
+			wWon.Set("winner", w.Id)
+			require.NoError(t, app.Save(wWon))
+			pWon := makeMatch(t, app, comp.Id, p.Id, pLoser.Id, "final")
+			pWon.Set("winner", p.Id)
+			require.NoError(t, app.Save(pWon))
+
+			pair1, pair2 := w.Id, p.Id
+			if !tc.withdrawnIs1 {
+				pair1, pair2 = p.Id, w.Id
+			}
+			nm := makeMatch(t, app, comp.Id, pair1, pair2, "pending")
+			require.NoError(t, settleSeeds(app, comp, nm, []*core.Record{wWon, pWon}))
+
+			assert.Equal(t, pair1, nm.GetString("pair1"), "the seeds are not swapped")
+			assert.Equal(t, pair2, nm.GetString("pair2"), "the seeds are not swapped")
+			assert.Equal(t, "final", nm.GetString("status"))
+			assert.Equal(t, p.Id, nm.GetString("winner"), "the playable seed wins by walkover")
+		})
+	}
+}
+
+// A replacement that cannot be named fails the settle instead of seeding a blank side.
+func TestSettleSeeds_MissingReplacementFails(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	w := makePair(t, app, "Retirada")
+	v := makePair(t, app, "Retirada doble")
+	comp := makeCompetition(t, app, []*core.Record{w, v})
+	comp.Set("withdrawn_pairs", []string{w.Id, v.Id})
+	require.NoError(t, app.Save(comp))
+
+	matchCol, err := app.FindCollectionByNameOrId("matches")
+	require.NoError(t, err)
+	lostToW := core.NewRecord(matchCol)
+	lostToW.Set("pair1", w.Id)
+	lostToW.Set("pair2", "pair-deleted-after-round")
+	lostToW.Set("winner", w.Id)
+
+	nm := makeMatch(t, app, comp.Id, w.Id, v.Id, "pending")
+	assert.Error(t, settleSeeds(app, comp, nm, []*core.Record{lostToW}))
+}
+
+// PlayoffMaxRound is ok only for a playoff competition that already has matches.
+func TestPlayoffMaxRound(t *testing.T) {
+	t.Parallel()
+	t.Run("league competition is not ok, even with matches", func(t *testing.T) {
+		t.Parallel()
+		app := newTestApp(t)
+		p1 := makePair(t, app, "A")
+		p2 := makePair(t, app, "B")
+		comp := makeCompetition(t, app, []*core.Record{p1, p2})
+		makeMatchRound(t, app, comp.Id, p1.Id, p2.Id, 1)
+
+		maxRound, ok := PlayoffMaxRound(app, comp)
+		assert.False(t, ok)
+		assert.Equal(t, 0, maxRound)
+	})
+	t.Run("playoff competition with no matches is not ok", func(t *testing.T) {
+		t.Parallel()
+		app := newTestApp(t)
+		p1 := makePair(t, app, "A")
+		p2 := makePair(t, app, "B")
+		comp := makeCompetition(t, app, []*core.Record{p1, p2})
+		comp.Set("type", "playoff")
+		require.NoError(t, app.Save(comp))
+
+		maxRound, ok := PlayoffMaxRound(app, comp)
+		assert.False(t, ok)
+		assert.Equal(t, 0, maxRound)
+	})
+	t.Run("playoff competition reports its last round, whatever the insert order", func(t *testing.T) {
+		t.Parallel()
+		app := newTestApp(t)
+		p := []*core.Record{makePair(t, app, "A"), makePair(t, app, "B"), makePair(t, app, "C"), makePair(t, app, "D")}
+		comp := makeCompetition(t, app, p)
+		comp.Set("type", "playoff")
+		require.NoError(t, app.Save(comp))
+		makeMatchRound(t, app, comp.Id, p[2].Id, p[3].Id, 2)
+		makeMatchRound(t, app, comp.Id, p[0].Id, p[2].Id, 3)
+		makeMatchRound(t, app, comp.Id, p[1].Id, p[3].Id, 1)
+
+		maxRound, ok := PlayoffMaxRound(app, comp)
+		assert.True(t, ok)
+		assert.Equal(t, 3, maxRound)
+	})
 }

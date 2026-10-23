@@ -311,15 +311,24 @@ func (h *CompetitionHandler) notifyOpponent(n withdrawalNotice, match *core.Reco
 }
 
 func flashWithdrawal(e *core.RequestEvent, pairName string, out withdrawalOutcome) {
-	msg := fmt.Sprintf("%s retirada (%d partidos registrados por incomparecencia", pairName, len(out.changed))
+	msg := fmt.Sprintf("%s retirada (%s por incomparecencia", pairName,
+		countPhrase(len(out.changed), "partido registrado", "partidos registrados"))
 	if len(out.released) > 0 {
-		msg += fmt.Sprintf(", %d partidos sin resultado liberados", len(out.released))
+		msg += ", " + countPhrase(len(out.released), "partido sin resultado liberado", "partidos sin resultado liberados")
 	}
 	if len(out.voided) > 0 {
-		msg += fmt.Sprintf(", %d partidos anulados", len(out.voided))
+		msg += ", " + countPhrase(len(out.voided), "partido anulado", "partidos anulados")
 	}
 	msg += ")"
 	flash(e, msg)
+}
+
+// countPhrase is "1 <singular>" for one and "<n> <plural>" otherwise, zero included.
+func countPhrase(n int, singular, plural string) string {
+	if n == 1 {
+		return "1 " + singular
+	}
+	return fmt.Sprintf("%d %s", n, plural)
 }
 
 func anyUnpaid(entries []pairEntry) bool {

@@ -283,6 +283,27 @@ func TestSummarize_CompetitionStatsFromStandings(t *testing.T) {
 	assert.Equal(t, 1, cs.Position, "league position from ComputeStandings")
 }
 
+func TestSummarize_CompetitionStatsSortedByName(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	p1 := makePair(t, app, "SortCompA")
+	p2 := makePair(t, app, "SortCompB")
+	for _, name := range []string{"Liga Beta", "Liga Alfa"} {
+		comp := makeCompetition(t, app, []*core.Record{p1, p2})
+		comp.Set("name", name)
+		require.NoError(t, app.Save(comp))
+	}
+
+	summary := svc.Summarize([]string{p1.Id})
+	var names []string
+	for _, cs := range summary.CompetitionStats {
+		names = append(names, cs.CompName)
+	}
+	assert.Equal(t, []string{"Liga Alfa", "Liga Beta"}, names)
+}
+
 // currentStreakWinCount
 
 func TestCurrentStreakWinCount(t *testing.T) {

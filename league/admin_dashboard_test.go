@@ -1,6 +1,7 @@
 package league
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -208,6 +209,105 @@ func TestSortOutstanding_SameWarning_TiebreakByDeadline(t *testing.T) {
 	assert.Equal(t, "late-overdue", out[1].MatchID)
 	assert.Equal(t, "urgent", out[2].MatchID)
 	assert.Equal(t, "headsup", out[3].MatchID)
+}
+
+func TestSortOutstanding_UndatedSortsLast(t *testing.T) {
+	t.Parallel()
+	day := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	dated := OutstandingMatch{MatchID: "dated", Warning: WarnUrgent, deadline: day}
+	undated := OutstandingMatch{MatchID: "undated", Warning: WarnUrgent}
+
+	tests := []struct {
+		name string
+		in   []OutstandingMatch
+	}{
+		{name: "undated first in input", in: []OutstandingMatch{undated, dated}},
+		{name: "dated first in input", in: []OutstandingMatch{dated, undated}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			sortOutstanding(tc.in)
+			assert.Equal(t, "dated", tc.in[0].MatchID, "a missing deadline sorts after a dated one")
+			assert.Equal(t, "undated", tc.in[1].MatchID)
+		})
+	}
+}
+
+func TestCompHealthItems_UnknownCompetitionIsNil(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	assert.Nil(t, CompHealthItems(app, "no-such-competition", time.Now(), "disputes"))
+}
+
+func TestCompHealthItems_ReturnsOnlyWantedCategories(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "CHA")
+	p2 := makePair(t, app, "CHB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusDisputed)
+
+	items := CompHealthItems(app, comp.Id, time.Now(), "disputes")
+	require.Len(t, items, 1)
+	assert.Equal(t, m.Id, items[0].MatchID)
+	assert.Equal(t, "Disputas", items[0].CategoryTitle)
+	assert.True(t, items[0].Urgent)
+
+	assert.Empty(t, CompHealthItems(app, comp.Id, time.Now(), "unpaid"),
+		"a category that was not requested must not leak its items")
+}
+
+func TestCompSetupOf(t *testing.T) {
+	t.Parallel()
+	labels := []string{"Parejas añadidas", "Jornadas generadas", "Fechas configuradas"}
+	tests := []struct {
+		name      string
+		pairs     int
+		fixtures  bool
+		dates     bool
+		wantDone  []bool
+		wantReady bool
+	}{
+		{name: "one pair is not enough", pairs: 1, fixtures: true, dates: true,
+			wantDone: []bool{false, true, true}},
+		{name: "no fixtures", pairs: 2, dates: true, wantDone: []bool{true, false, true}},
+		{name: "no dates", pairs: 2, fixtures: true, wantDone: []bool{true, true, false}},
+		{name: "ready", pairs: 2, fixtures: true, dates: true,
+			wantDone: []bool{true, true, true}, wantReady: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			app := newTestApp(t)
+			pairs := make([]*core.Record, tc.pairs)
+			for i := range pairs {
+				pairs[i] = makePair(t, app, fmt.Sprintf("Setup%d", i))
+			}
+			comp := makeCompetition(t, app, pairs)
+			if tc.dates {
+				sd, _ := types.ParseDateTime(time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC))
+				ed, _ := types.ParseDateTime(time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC))
+				comp.Set("start_date", sd)
+				comp.Set("end_date", ed)
+				require.NoError(t, app.Save(comp))
+			}
+			if tc.fixtures {
+				p1 := makePair(t, app, "SetupF1")
+				p2 := makePair(t, app, "SetupF2")
+				makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusPending)
+			}
+
+			setup := CompSetupOf(app, comp)
+
+			want := make([]SetupItem, len(labels))
+			for i, l := range labels {
+				want[i] = SetupItem{Label: l, Done: tc.wantDone[i]}
+			}
+			assert.Equal(t, want, setup.Items)
+			assert.Equal(t, tc.wantReady, setup.Ready)
+		})
+	}
 }
 
 func TestPlayoffPrompts(t *testing.T) {

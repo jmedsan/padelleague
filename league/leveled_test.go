@@ -107,6 +107,77 @@ func TestOpenAssignments(t *testing.T) {
 	}
 }
 
+// -- homeTeam and saveAssignments -------------------------------------------
+
+func TestHomeTeam_LowerBalanceHosts(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		home     map[string]int
+		wantHome string
+		wantAway string
+	}{
+		// balance = 2*home - load: P at 2 vs Q at 0, so the lower-balance Q hosts.
+		{name: "p heavier at home, q hosts", home: map[string]int{"P": 1}, wantHome: "Q", wantAway: "P"},
+		{name: "q heavier at home, p hosts", home: map[string]int{"Q": 1}, wantHome: "P", wantAway: "Q"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			st := &leveledState{home: tc.home}
+			home, away := st.homeTeam("P", "Q")
+			assert.Equal(t, tc.wantHome, home)
+			assert.Equal(t, tc.wantAway, away)
+		})
+	}
+}
+
+func TestHomeTeam_TieAlternatesHost(t *testing.T) {
+	t.Parallel()
+	st := &leveledState{}
+	var hosts []string
+	for range 4 {
+		home, _ := st.homeTeam("P", "Q")
+		hosts = append(hosts, home)
+	}
+	assert.Equal(t, []string{"Q", "P", "Q", "P"}, hosts, "equal balances must alternate via tieCoin")
+}
+
+func TestSaveAssignments_SavesEveryPairing(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "SAA")
+	p2 := makePair(t, app, "SAB")
+	p3 := makePair(t, app, "SAC")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2, p3})
+
+	created, err := saveAssignments(app, comp, []Pairing{{A: p1.Id, B: p2.Id}, {A: p2.Id, B: p3.Id}}, time.Now())
+	require.NoError(t, err)
+	require.Len(t, created, 2)
+	assert.Equal(t, p1.Id, created[0].GetString("pair1"))
+	assert.Equal(t, p2.Id, created[0].GetString("pair2"))
+	assert.Equal(t, "pending", created[0].GetString("status"))
+	assert.Equal(t, p2.Id, created[1].GetString("pair1"))
+	assert.Equal(t, p3.Id, created[1].GetString("pair2"))
+
+	persisted, err := app.FindRecordsByFilter("matches", "competition = {:cid}", "", 0, 0,
+		map[string]any{"cid": comp.Id})
+	require.NoError(t, err)
+	assert.Len(t, persisted, 2)
+}
+
+func TestSaveAssignments_FailedSaveReturnsError(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "SAFA")
+	p2 := makePair(t, app, "SAFB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	created, err := saveAssignments(app, comp, []Pairing{{A: p1.Id, B: "no-such-pair"}}, time.Now())
+	require.Error(t, err)
+	assert.Nil(t, created)
+}
+
 // -- TestEligible -----------------------------------------------------------
 
 func TestEligible(t *testing.T) {

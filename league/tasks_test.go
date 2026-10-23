@@ -164,6 +164,61 @@ func TestPlayerTasks_OpponentName_ResolvesRealPairName(t *testing.T) {
 	assert.Equal(t, "OppNameB", tasks[0].Opponent, "opponent must resolve to pair name, not '?'")
 }
 
+// An accepted date proposal fills the play task's date and venue from its stored data.
+func TestPlayerTasks_AcceptedProposalFillsSchedule(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		data      string
+		wantDate  string
+		wantVenue string
+	}{
+		{
+			name:      "venue name wins",
+			data:      `{"date":"15/03","time":"18:00","venue_name":"Padel 360","venue_text":"Pista 2"}`,
+			wantDate:  "15/03 18:00",
+			wantVenue: "Padel 360",
+		},
+		{
+			name:      "venue text when there is no venue name",
+			data:      `{"date":"15/03","time":"18:00","venue_text":"Pista 2"}`,
+			wantDate:  "15/03 18:00",
+			wantVenue: "Pista 2",
+		},
+		{name: "no venue", data: `{"date":"15/03","time":"18:00"}`, wantDate: "15/03 18:00"},
+		{name: "unparseable data leaves the schedule empty", data: `{"date":`},
+		{name: "empty data leaves the schedule empty", data: ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			app := newTestApp(t)
+			p1 := makePair(t, app, "Acc A")
+			p2 := makePair(t, app, "Acc B")
+			comp := makeCompetition(t, app, []*core.Record{p1, p2})
+			match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusPending)
+
+			msgCol, err := app.FindCollectionByNameOrId("match_messages")
+			require.NoError(t, err)
+			author := makeUser(t, app, "Ana", "ana@test.local")
+			msg := core.NewRecord(msgCol)
+			msg.Set("match", match.Id)
+			msg.Set("author", author.Id)
+			msg.Set("type", "scheduling_proposal")
+			msg.Set("proposal_status", "accepted")
+			msg.Set("proposal_data", tc.data)
+			require.NoError(t, app.Save(msg))
+
+			tasks, err := PlayerTasks(app, p1.GetString("player1"), time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC))
+			require.NoError(t, err)
+			require.Len(t, tasks, 1)
+			assert.Equal(t, "confirmed", tasks[0].ScheduleStatus)
+			assert.Equal(t, tc.wantDate, tasks[0].ProposedDate)
+			assert.Equal(t, tc.wantVenue, tasks[0].ProposedVenue)
+		})
+	}
+}
+
 func TestSortTasks_OrderByWarningDescThenKind(t *testing.T) {
 	t.Parallel()
 	tasks := []PlayerTask{

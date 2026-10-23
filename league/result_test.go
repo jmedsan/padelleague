@@ -237,3 +237,28 @@ func TestApplyAcceptedResult_Accumulation(t *testing.T) {
 	assert.Equal(t, "6-3 3-6", updated.GetString("carried_sets"))
 	assert.Equal(t, StatusPending, updated.GetString("status"))
 }
+
+func TestSupersedeSchedulingProposals_SupersedesAccepted(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "SSA")
+	p2 := makePair(t, app, "SSB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusPending)
+	author := makeUser(t, app, "Ssa", "ssa@test.local")
+
+	msgCol, err := app.FindCollectionByNameOrId("match_messages")
+	require.NoError(t, err)
+	msg := core.NewRecord(msgCol)
+	msg.Set("match", m.Id)
+	msg.Set("author", author.Id)
+	msg.Set("type", "scheduling_proposal")
+	msg.Set("proposal_status", "accepted")
+	require.NoError(t, app.Save(msg))
+
+	require.NoError(t, supersedeSchedulingProposals(app, m.Id))
+
+	fresh, err := app.FindRecordById("match_messages", msg.Id)
+	require.NoError(t, err)
+	assert.Equal(t, "superseded", fresh.GetString("proposal_status"))
+}

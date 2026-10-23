@@ -160,6 +160,33 @@ func TestWithdrawalPlan(t *testing.T) {
 	}
 }
 
+func TestIsVoid(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name       string
+		status     string
+		withWinner bool
+		want       bool
+	}{
+		{name: "final with no winner", status: StatusFinal, want: true},
+		{name: "final with a winner", status: StatusFinal, withWinner: true, want: false},
+		{name: "pending with no winner", status: StatusPending, want: false},
+		{name: "scheduled with no winner", status: StatusScheduled, want: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			f := newPlannerFixture(t, "standard")
+			var winner *core.Record
+			if tc.withWinner {
+				winner = f.withdrawn
+			}
+			m := f.match(t, tc.status, "", "", false, winner)
+			assert.Equal(t, tc.want, IsVoid(m))
+		})
+	}
+}
+
 func TestOpponentOf(t *testing.T) {
 	t.Parallel()
 	f := newPlannerFixture(t, "standard")

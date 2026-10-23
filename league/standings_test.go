@@ -439,6 +439,34 @@ func TestComputeStandings_TwoWaySplitUsesH2HSetDiff(t *testing.T) {
 		"a has the better head-to-head set/game diff even though overall stats are level")
 }
 
+// On a points tie, the pair that has played more matches ranks higher, before head-to-head.
+func TestComputeStandings_TwoWayTieMorePlayedRanksHigher(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	a := makePair(t, app, "Played A")
+	b := makePair(t, app, "Played B")
+	c := makePair(t, app, "Played C")
+	comp := makeCompetition(t, app, []*core.Record{a, b, c})
+
+	// B beats A (head-to-head goes to B), then A beats C: A has 2 matches and 3 points,
+	// B has 1 match and 3 points, so A ranks above B on matches played alone.
+	finalMatch(t, app, comp.Id, b, a, b, "6-1 6-1", 1)
+	finalMatch(t, app, comp.Id, a, c, a, "6-1 6-1", 2)
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	require.Len(t, rows, 3)
+
+	rowA := rowByName(t, rows, "Played A")
+	rowB := rowByName(t, rows, "Played B")
+	require.Equal(t, rowB.Points, rowA.Points, "precondition: level on points")
+	require.Greater(t, rowA.Played, rowB.Played, "precondition: A has played more matches")
+
+	assert.Less(t, rowA.Position, rowB.Position, "more matches played ranks higher before head-to-head")
+}
+
 func TestComputeStandings_WalkoverPair2Wins(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)

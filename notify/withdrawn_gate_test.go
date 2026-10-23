@@ -196,3 +196,38 @@ func TestNotifyPlayers_UnresolvableMatchReachesNobody(t *testing.T) {
 		assert.Empty(t, notificationsFor(t, app, uid), "user %s", uid)
 	}
 }
+
+// TestNotifyPlayers_UnresolvableCompetitionReachesNobody: a notice naming a competition that cannot
+// be found is not sent to anyone (fail closed), the same as an unresolvable match.
+func TestNotifyPlayers_UnresolvableCompetitionReachesNobody(t *testing.T) {
+	app := newTestApp(t)
+	_, withdrawn, opponent := withdrawnMatch(t, app)
+	everyone := append(append([]string{}, withdrawn...), opponent...)
+
+	notif := league.Notification{Type: "general", Title: "Aviso", Body: "Aviso", CompID: "missing-competition-id"}
+	NewNotifier(app, "", "").NotifyPlayers(everyone, notif)
+	for _, uid := range everyone {
+		assert.Empty(t, notificationsFor(t, app, uid), "user %s", uid)
+	}
+}
+
+// TestNotifyPlayers_CompetitionIDDecidesTheGate: a notice's own competition decides who is withdrawn,
+// not the competition of the match it names.
+func TestNotifyPlayers_CompetitionIDDecidesTheGate(t *testing.T) {
+	app := newTestApp(t)
+	match, withdrawn, _ := withdrawnMatch(t, app)
+	compCol, err := app.FindCollectionByNameOrId("competitions")
+	require.NoError(t, err)
+	other := core.NewRecord(compCol)
+	other.Set("name", "Other")
+	other.Set("type", "league")
+	other.Set("active", true)
+	other.Set("pairs", []string{match.GetString("pair1"), match.GetString("pair2")})
+	require.NoError(t, app.Save(other))
+
+	notif := league.Notification{Type: "general", Title: "Aviso", Body: "Aviso", MatchID: match.Id, CompID: other.Id}
+	NewNotifier(app, "", "").NotifyPlayers(withdrawn, notif)
+	for _, uid := range withdrawn {
+		assert.Len(t, notificationsFor(t, app, uid), 1, "player %s is not withdrawn from %s", uid, other.Id)
+	}
+}

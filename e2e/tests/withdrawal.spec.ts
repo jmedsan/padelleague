@@ -192,6 +192,9 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     await typed.fill('RETIRA');
     await expect(ok).toBeDisabled();
 
+    await typed.fill('RETIRARS');
+    await expect(ok).toBeDisabled();
+
     await typed.fill('  retirar  ');
     await expect(ok).toBeEnabled();
     await page.locator('[data-confirm="cancel"]').click();

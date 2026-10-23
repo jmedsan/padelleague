@@ -294,6 +294,67 @@ func TestPairTeamAndStoredTeams(t *testing.T) {
 	assert.Equal(t, 2, DisputerTeam(match))
 }
 
+func TestPairTeam_EmptyPairOnMatchIsNoTeam(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "Unseeded A")
+	p2 := makePair(t, app, "Unseeded B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
+	match.Set("pair2", "")
+	require.NoError(t, app.SaveNoValidate(match))
+
+	assert.Equal(t, 0, PairTeam(match, ""), "an empty pair id is no team, even beside an empty seed")
+	assert.Equal(t, 1, PairTeam(match, p1.Id))
+}
+
+func TestCurrentPairID(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "Current A")
+	p2 := makePair(t, app, "Current B")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+	match := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
+	outsider := makeUser(t, app, "Fuera", "fuera@test.local")
+
+	tests := []struct {
+		name   string
+		userID string
+		want   string
+	}{
+		{name: "player of pair1", userID: p1.GetString("player1"), want: p1.Id},
+		{name: "player of pair2", userID: p2.GetString("player1"), want: p2.Id},
+		{name: "user outside the match", userID: outsider.Id, want: ""},
+		{name: "no user", userID: "", want: ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, CurrentPairID(app, tc.userID, match))
+		})
+	}
+}
+
+func TestAvatarURL(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "", AvatarURL("u1", ""), "no file, no URL")
+	assert.Equal(t, "/api/files/users/u1/me.png", AvatarURL("u1", "me.png"))
+}
+
+func TestPlayerAvatarURL(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	withAvatar := makeUser(t, app, "Con foto", "foto@test.local")
+	withAvatar.Set("avatar", "me.png")
+	require.NoError(t, app.SaveNoValidate(withAvatar)) // the stored filename, not a new upload
+	withoutAvatar := makeUser(t, app, "Sin foto", "sinfoto@test.local")
+
+	assert.Equal(t, "/api/files/users/"+withAvatar.Id+"/me.png", PlayerAvatarURL(app, withAvatar.Id))
+	assert.Equal(t, "", PlayerAvatarURL(app, withoutAvatar.Id), "a user with no avatar has no URL")
+	assert.Equal(t, "", PlayerAvatarURL(app, "missing-user-id"), "an unknown user has no URL")
+	assert.Equal(t, "", PlayerAvatarURL(app, ""), "no user has no URL")
+}
+
 func TestStampActorPairs(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
