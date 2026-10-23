@@ -76,6 +76,16 @@ export const SCENARIOS: Record<string, Scenario> = {
     startStage: 'assigned',
     specs: ['pair-swap.spec.ts'],
   },
+  'pair-withdrawal': {
+    description: 'standard league, 6 pairs, play twice — one pair in eight match states (assigned to admin 6-0) plus spares; withdraw it from its detail page',
+    startStage: 'blank',
+    specs: ['pair-withdrawal.spec.ts'],
+  },
+  'pair-withdrawal-leveled': {
+    description: 'leveled league, 8 pairs, target 6, open 5 — one pair with assigned, date-proposed, scheduled, proposed-result and final matches; withdraw it',
+    startStage: 'blank',
+    specs: ['pair-withdrawal-leveled.spec.ts'],
+  },
   'mail-chat': {
     description: 'one match, four players with distinct emails, SMTP pointed at Mailpit (run `make mail`) — post a chat message and watch the inbox',
     startStage: 'blank',

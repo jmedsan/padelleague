@@ -368,6 +368,12 @@ async function stageCreated(api: ScenarioApi, ctx: ScenarioCtx): Promise<Scenari
 }
 
 async function stageDated(api: ScenarioApi, ctx: ScenarioCtx): Promise<ScenarioCtx> {
+  await setCompetitionDates(api, ctx.competitionId);
+  return { ...ctx, stage: 'dated' };
+}
+
+// setCompetitionDates stores competitionDates() on a competition through the admin form.
+export async function setCompetitionDates(api: ScenarioApi, competitionId: string): Promise<void> {
   const { startDate, endDate } = competitionDates();
   // Post through the real admin Update handler (POST /admin/competitions/:id)
   // instead of a raw PATCH to the JSON API, so start_date/end_date get
@@ -380,7 +386,7 @@ async function stageDated(api: ScenarioApi, ctx: ScenarioCtx): Promise<ScenarioC
   // only start_date/end_date would silently zero the leveled-league fields.
   // Fetch the record first and echo every field back exactly as the
   // browser form would.
-  const comp = await apiGet(api, `/api/collections/competitions/records/${ctx.competitionId}`);
+  const comp = await apiGet(api, `/api/collections/competitions/records/${competitionId}`);
   const body: Record<string, string> = {
     name: comp.name,
     type: comp.type,
@@ -398,8 +404,7 @@ async function stageDated(api: ScenarioApi, ctx: ScenarioCtx): Promise<ScenarioC
     open_assignments: String(comp.open_assignments ?? 0),
   };
   if (comp.play_twice) body.play_twice = 'on'; // checkbox: present+"on" when checked, absent when not
-  await formPostData(api, `/admin/competitions/${ctx.competitionId}`, body);
-  return { ...ctx, stage: 'dated' };
+  await formPostData(api, `/admin/competitions/${competitionId}`, body);
 }
 
 async function stageAssigned(api: ScenarioApi, ctx: ScenarioCtx): Promise<ScenarioCtx> {
@@ -576,14 +581,31 @@ export interface ChatMatch {
   pair2: { id: string; name: string; player1Idx: number; player2Idx: number };
 }
 
+// Each player signs in once per run; PocketBase's default *:auth limit (2 requests per 3 s)
+// answers 429 to a burst of logins, so a 429 waits out the window and retries.
+const playerTokens = new Map<string, string>();
+const AUTH_WINDOW_MS = 3100;
+const AUTH_ATTEMPTS = 10;
+
 async function playerToken(baseURL: string, email: string): Promise<string> {
-  const resp = await fetch(`${baseURL}/api/collections/users/auth-with-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identity: email, password: PLAYER_PASSWORD }),
-  });
-  if (!resp.ok) throw new Error(`login ${email}: ${resp.status}`);
-  return (await resp.json()).token;
+  const key = `${baseURL}|${email}`;
+  const cached = playerTokens.get(key);
+  if (cached) return cached;
+  for (let attempt = 1; ; attempt++) {
+    const resp = await fetch(`${baseURL}/api/collections/users/auth-with-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identity: email, password: PLAYER_PASSWORD }),
+    });
+    if (resp.status === 429 && attempt < AUTH_ATTEMPTS) {
+      await new Promise((resolve) => setTimeout(resolve, AUTH_WINDOW_MS));
+      continue;
+    }
+    if (!resp.ok) throw new Error(`login ${email}: ${resp.status}`);
+    const token = (await resp.json()).token as string;
+    playerTokens.set(key, token);
+    return token;
+  }
 }
 
 // playerPost submits a form to an app route as a player, like the browser does.

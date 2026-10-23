@@ -145,7 +145,7 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     await withdrawFromDetail(page, compId, data.pair1Id);
     await asPlayerOn(page, compId, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await openFromHome(page, compId);
-    await page.locator('input[aria-label="Jornadas"]').click();
+    await page.getByLabel('Jornadas', { exact: true }).click();
 
     await expect(page.locator('select[name="pair"] option', { hasText: /^(★ )?Pareja Alpha \(retirada\)$/ })).toHaveCount(1);
     await expect(page.locator('select[name="pair"] option', { hasText: /^(★ )?Pareja Beta$/ })).toHaveCount(1);
@@ -280,7 +280,7 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     await page.goto('/');
     await openMatchFromHome(page, match.id);
     const timeline = page.locator('#thread-timeline');
-    await expect(timeline.getByText('6-3 6-4').first()).toBeVisible({ timeout: 5000 });
+    await expect(timeline.getByText('6-3 6-4').locator('visible=true').first()).toBeVisible({ timeout: 5000 });
     // The proposal's author line: bold, and naming the withdrawn pair in its gray pair part.
     const author = timeline.locator('.font-bold', { hasText: '(Pareja Alpha)' });
     await expect(author).toHaveCount(1);
