@@ -34,6 +34,31 @@ async function checkNoOverflow(page: import('@playwright/test').Page) {
   expect(overflow, 'page should not have horizontal overflow').toBe(false);
 }
 
+// The mobile standings table (table.table-sm) must fit its scroll box: no hidden
+// columns, and every header cell's right edge inside the box.
+async function expectStandingsFit(page: import('@playwright/test').Page) {
+  const table = page.locator('table.table-sm', { has: page.getByRole('columnheader', { name: 'Pts' }) });
+  await expect(table).toBeVisible();
+  const fit = await table.evaluate((el) => {
+    const box = el.parentElement!;
+    const boxRight = box.getBoundingClientRect().right;
+    return {
+      overflowPx: box.scrollWidth - box.clientWidth,
+      headers: [...el.querySelectorAll('thead th')].map((th) => ({
+        text: th.textContent!.trim(),
+        left: th.getBoundingClientRect().left,
+        right: th.getBoundingClientRect().right,
+      })),
+      boxLeft: box.getBoundingClientRect().left,
+      boxRight,
+    };
+  });
+  expect(fit.overflowPx, `standings table must not scroll sideways at 360px: ${JSON.stringify(fit)}`).toBeLessThanOrEqual(0);
+  for (const h of fit.headers) {
+    expect(h.right, `column "${h.text}" must sit inside the table box`).toBeLessThanOrEqual(fit.boxRight + 0.5);
+  }
+}
+
 test.describe('responsive - no horizontal overflow', { tag: '@presentation' }, () => {
   test('login page', async ({ page }) => {
     await page.setViewportSize(MOBILE);
@@ -109,6 +134,67 @@ test.describe('responsive - no horizontal overflow', { tag: '@presentation' }, (
     // Mobile card list and desktop table both render every pair name (CSS-
     // toggled per breakpoint, both in the DOM at once) — scope to visible.
     await expect(standingsCard.getByText('Pareja Alpha').locator('visible=true').first()).toBeVisible();
+  });
+
+  test('admin standings table fits a 360px phone (Pts and every column visible)', async ({ page }) => {
+    const data = loadTestData();
+    await page.setViewportSize(MOBILE);
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/admin/competitions/${data.competitionId}`);
+    await page.waitForLoadState('domcontentloaded');
+    await expectStandingsFit(page);
+  });
+
+  test('public standings table fits a 360px phone (Pts and every column visible)', async ({ page }) => {
+    const data = loadTestData();
+    await page.setViewportSize(MOBILE);
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto('/');
+    await page.locator(`a[href^="/competition/${data.competitionId}"]`).first().click();
+    await page.waitForURL(`**/competition/${data.competitionId}**`);
+    await page.locator('input[aria-label^="Clasificación"]').click();
+    await expectStandingsFit(page);
+  });
+
+  test('a long pair name in the standings wraps inside its cell, never over the numbers, at 360px', async ({ page }) => {
+    suToken = loadTestData().adminToken;
+    const suffix = `long-standing-${Date.now()}`;
+    const user = (tag: string, name: string) => apiCreateRecord(page.request, 'users', {
+      email: `${suffix}-${tag}@test.local`, password: 'testpass123456', passwordConfirm: 'testpass123456',
+      display_name: name, roles: ['player'], verified: true, gender: 'male',
+    });
+    const longPair = await apiCreateRecord(page.request, 'pairs', {
+      name: 'Pareja Alpha-Beta Gamma', player1: await user('a1', 'Alejandro Fernandez'), player2: await user('a2', 'Bartolome Gutierrez'),
+    });
+    const otherPair = await apiCreateRecord(page.request, 'pairs', {
+      name: 'Pareja Delta', player1: await user('b1', 'Cristobal Rodriguez'), player2: await user('b2', 'Domingo Hernandez'),
+    });
+    const compId = await apiCreateRecord(page.request, 'competitions', {
+      name: `Standings Long Name ${suffix}`, type: 'league', active: true, pairs: [longPair, otherPair],
+    });
+    await apiCreateRecord(page.request, 'matches', {
+      competition: compId, pair1: longPair, pair2: otherPair, status: 'final', scores: '6-3 6-4', winner: longPair, round_number: 1,
+    });
+
+    await page.setViewportSize(MOBILE);
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/admin/competitions/${compId}`);
+    const table = page.locator('table.table-sm', { has: page.getByRole('columnheader', { name: 'Pts' }) });
+    const nameText = table.locator('tbody tr', { hasText: 'Pareja Alpha-Beta Gamma' }).locator('a > span');
+    await expect(nameText).toBeVisible();
+    const geometry = await table.evaluate((el, name) => {
+      const row = [...el.querySelectorAll('tbody tr')].find((tr) => tr.textContent!.includes(name))!;
+      const pts = [...el.querySelectorAll('thead th')].find((th) => th.textContent!.trim() === 'Pts')!;
+      const text = row.querySelector('a > span')!;
+      const link = row.querySelector('a')!;
+      return {
+        textRight: text.getBoundingClientRect().right,
+        ptsLeft: pts.getBoundingClientRect().left,
+        linkHeight: link.getBoundingClientRect().height,
+      };
+    }, 'Pareja Alpha-Beta Gamma');
+    expect(geometry.textRight, `pair name must end before the Pts column: ${JSON.stringify(geometry)}`).toBeLessThanOrEqual(geometry.ptsLeft + 0.5);
+    expect(geometry.linkHeight).toBeGreaterThanOrEqual(44);
   });
 
   test('W13: long pair names in a jornada match row wrap instead of overflowing at 360px', async ({ page }) => {

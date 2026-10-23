@@ -348,6 +348,53 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
       parseFloat(getComputedStyle(el).height) / parseFloat(getComputedStyle(document.documentElement).fontSize));
     expect(badgeHeightRem).toBeGreaterThanOrEqual(1);
 
+    // Each card's name rows and badges stay inside its own border, each card stays inside its
+    // bracket cell, and no two cards overlap.
+    const cardGeometry = await mobilePage.locator('.bracket a.match').evaluateAll((cells) => cells.map((cell) => {
+      const card = cell.querySelector('.card')!;
+      const box = card.getBoundingClientRect();
+      const cellBox = cell.getBoundingClientRect();
+      const content = [...card.querySelectorAll('span, .badge')].map((n) => n.getBoundingClientRect())
+        .filter((r) => r.height > 0)
+        .map((r) => ({ top: r.top, bottom: r.bottom }));
+      return { top: box.top, bottom: box.bottom, left: box.left, right: box.right, cellTop: cellBox.top, cellBottom: cellBox.bottom, content };
+    }));
+    expect(cardGeometry.length).toBeGreaterThanOrEqual(3);
+    cardGeometry.forEach((card, i) => {
+      for (const row of card.content) {
+        expect(row.top, `card ${i}: content starts above its border`).toBeGreaterThanOrEqual(card.top);
+        expect(row.bottom, `card ${i}: content ends below its border`).toBeLessThanOrEqual(card.bottom);
+      }
+      expect(card.top, `card ${i}: card starts above its bracket cell`).toBeGreaterThanOrEqual(card.cellTop);
+      expect(card.bottom, `card ${i}: card ends below its bracket cell`).toBeLessThanOrEqual(card.cellBottom);
+    });
+    for (let i = 0; i < cardGeometry.length; i++) {
+      for (let j = i + 1; j < cardGeometry.length; j++) {
+        const a = cardGeometry[i];
+        const b = cardGeometry[j];
+        const overlaps = a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+        expect(overlaps, `cards ${i} and ${j} overlap`).toBe(false);
+      }
+    }
+
+    // The Final sits past the right edge of a phone. Bring it into view the way a swipe would,
+    // then check its heading and match card lie fully inside the bracket's scroll frame.
+    const finalRound = mobilePage.locator('.bracket .round').last();
+    await finalRound.scrollIntoViewIfNeeded();
+    await expect(finalRound.getByText('Final', { exact: true })).toBeVisible();
+    const finalFit = await finalRound.evaluate((round) => {
+      const frame = round.closest('.bracket')!.parentElement!.getBoundingClientRect();
+      const within = (el: Element) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left - frame.left, right: r.right - frame.left };
+      };
+      return { frameWidth: frame.width, heading: within(round.firstElementChild!), card: within(round.querySelector('.card')!) };
+    });
+    expect(finalFit.heading.left, 'Final heading starts left of the bracket frame').toBeGreaterThanOrEqual(0);
+    expect(finalFit.heading.right, 'Final heading is cut at the right edge').toBeLessThanOrEqual(finalFit.frameWidth);
+    expect(finalFit.card.left, 'Final card starts left of the bracket frame').toBeGreaterThanOrEqual(0);
+    expect(finalFit.card.right, 'Final card is cut at the right edge').toBeLessThanOrEqual(finalFit.frameWidth);
+
     // This page bypasses the pageGuards auto-fixture (it's a manually
     // created context, not the fixture's own `page`), so run the same
     // DOM-snapshot guards explicitly instead of losing coverage silently.

@@ -1503,9 +1503,9 @@ func TestBuildBracket_Slot(t *testing.T) {
 	require.Len(t, bracket, 2)
 
 	assert.Equal(t, 0, bracket[0].Index)
-	assert.Equal(t, 84, bracket[0].Slot)
+	assert.Equal(t, 112, bracket[0].Slot)
 	assert.Equal(t, 1, bracket[1].Index)
-	assert.Equal(t, 168, bracket[1].Slot)
+	assert.Equal(t, 224, bracket[1].Slot)
 }
 
 func TestHome_MandatoryDocShowsAction(t *testing.T) {

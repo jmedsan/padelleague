@@ -39,7 +39,7 @@ func buildBracket(rounds []RoundView, maxRound int) []BracketRound {
 		bracket = append(bracket, BracketRound{
 			Name:    bracketRoundName(r.RoundNumber, maxRound),
 			Index:   i,
-			Slot:    84 << i,
+			Slot:    112 << i,
 			Matches: r.Matches,
 		})
 	}

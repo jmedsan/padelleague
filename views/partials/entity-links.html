@@ -1,5 +1,5 @@
 {{define "pairName"}}<span class="inline-flex flex-wrap items-center min-w-0 max-w-full"><span class="{{if .Truncate}}truncate{{else}}break-words{{end}} min-w-0">{{.Name}}</span>{{if .Withdrawn}}{{template "withdrawnIndicator"}}{{end}}</span>{{end}}
-{{define "pairLink"}}<span class="inline-flex items-center gap-1"><a href="{{entityURL "pair" .ID}}" class="link link-hover inline-flex items-center min-h-[44px]">{{template "pairName" .}}</a>{{if .IsMine}} <span class="badge badge-sm badge-primary leading-none">Tú</span>{{end}}{{if .IsCaptain}}{{template "captainBadge" .}}{{end}}</span>{{end}}
+{{define "pairLink"}}<span class="inline-flex flex-wrap items-center gap-1 min-w-0 max-w-full"><a href="{{entityURL "pair" .ID}}" class="link link-hover inline-flex items-center min-h-[44px] min-w-0 max-w-full">{{template "pairName" .}}</a>{{if .IsMine}} <span class="badge badge-sm badge-primary leading-none">Tú</span>{{end}}{{if .IsCaptain}}{{template "captainBadge" .}}{{end}}</span>{{end}}
 {{define "authorLabel"}}{{.Player}}{{with .Pair}} ({{template "pairName" (dict "Name" .)}}){{end}}{{end}}
 {{define "pairOptionLabel"}}{{.Name}}{{if .Withdrawn}} (retirada){{end}}{{end}}
 {{define "pairLinkText"}}<span class="inline-flex items-center gap-1">{{template "pairName" .}}{{if .IsMine}} <span class="badge badge-sm badge-primary leading-none">Tú</span>{{end}}</span>{{end}}
