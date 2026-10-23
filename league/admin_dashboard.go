@@ -411,6 +411,8 @@ type OutstandingMatch struct {
 	RoundNumber      int
 	Pair1ID, Pair2ID string
 	Pair1, Pair2     string
+	Pair1Withdrawn   bool
+	Pair2Withdrawn   bool
 	Status           string
 	StatusLabel      string
 	ArrangeBy        string // "DD/MM", or "" when no schedule (e.g. playoffs)
@@ -451,6 +453,7 @@ func outstandingForComp(app core.App, c *core.Record, now time.Time) []Outstandi
 	// A match with a decided, unconfirmed result counts as played, so it is
 	// no longer outstanding.
 	proposed := ProvisionalIDs(app, matches)
+	withdrawn := WithdrawnSet(c)
 
 	out := make([]OutstandingMatch, 0, len(matches))
 	for _, m := range matches {
@@ -469,8 +472,10 @@ func outstandingForComp(app core.App, c *core.Record, now time.Time) []Outstandi
 			RoundNumber:     m.GetInt("round_number"),
 			Pair1ID:         m.GetString("pair1"),
 			Pair1:           p1,
+			Pair1Withdrawn:  withdrawn[m.GetString("pair1")],
 			Pair2ID:         m.GetString("pair2"),
 			Pair2:           p2,
+			Pair2Withdrawn:  withdrawn[m.GetString("pair2")],
 			Status:          m.GetString("status"),
 			StatusLabel:     StatusLabel(m.GetString("status")),
 		}

@@ -173,7 +173,7 @@ func unplayedCounts(app core.App, comp *core.Record, phase Phase) (map[string]in
 func projectedShortfall(comp *core.Record, matches []*core.Record) map[string]int {
 	played := make(map[string]int)
 	for _, m := range matches {
-		if m.GetString("status") == StatusFinal {
+		if m.GetString("status") == StatusFinal && !IsVoid(m) {
 			played[m.GetString("pair1")]++
 			played[m.GetString("pair2")]++
 		}

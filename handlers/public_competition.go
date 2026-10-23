@@ -113,6 +113,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 		PairFilter:    pairFilter,
 		IsLeveled:     isLeveled,
 		Window:        leveledWindowFor(comp),
+		Withdrawn:     league.WithdrawnSet(comp),
 	})
 	autoExpandRound := firstIncompleteRound(rounds)
 
@@ -132,6 +133,7 @@ type roundsCtx struct {
 	PairFilter    string
 	IsLeveled     bool
 	Window        leveledWindow
+	Withdrawn     map[string]bool
 }
 
 func (h *PublicHandler) buildCompRounds(matches []*core.Record, ctx roundsCtx) []RoundView {
@@ -143,9 +145,10 @@ func (h *PublicHandler) buildCompRounds(matches []*core.Record, ctx roundsCtx) [
 			PlayerPairIDs: ctx.PlayerPairIDs,
 			PairFilter:    ctx.PairFilter,
 			Window:        ctx.Window,
+			Withdrawn:     ctx.Withdrawn,
 		}, tz)
 	}
-	rounds := buildRounds(matches, ctx.PairNames, ctx.PlayerPairIDs, ctx.PairFilter)
+	rounds := buildRounds(matches, ctx)
 	for i := range rounds {
 		enrichWithPendingResults(h.app, rounds[i].Matches)
 	}
@@ -214,7 +217,7 @@ func (h *PublicHandler) populateCompetitionData(data map[string]any, p competiti
 	data["OGImage"] = league.CompetitionLogoURL(comp.Id, comp.GetString("logo"))
 	data["FooterCompetitionID"] = comp.Id
 	if !p.isPlayoff {
-		data["PairOptions"] = buildPairOptions(h.app, p.compPairIDs, p.playerPairIDs, p.pairFilter)
+		data["PairOptions"] = buildPairOptions(h.app, p.comp, p.playerPairIDs, p.pairFilter)
 	}
 	if p.pairFilter != "" && p.pairFilter != "all" {
 		data["ActiveTab"] = "jornadas"
@@ -401,31 +404,34 @@ func (h *PublicHandler) buildCompetitionData(comp *core.Record, rounds []RoundVi
 		"HasPenalties":     hasPenalties,
 		"IsPlayoff":        isPlayoff,
 		"Bracket":          bracket,
-		"WithdrawnPairs":   league.WithdrawnSet(comp),
 	}
 }
 
 // PairOption is one entry in the Jornadas team filter <select>.
 type PairOption struct {
-	ID       string
-	Name     string
-	IsOwn    bool
-	Selected bool
+	ID        string
+	Name      string
+	IsOwn     bool
+	Selected  bool
+	Withdrawn bool
 }
 
 // buildPairOptions returns the competition's pairs for the team filter:
 // the viewer's own pair(s) first (name prefixed with a star), then every
 // other pair sorted alphabetically (accent-folded) for "Otras parejas".
-func buildPairOptions(app core.App, compPairIDs []string, playerPairIDs map[string]struct{}, selected string) []PairOption {
+func buildPairOptions(app core.App, comp *core.Record, playerPairIDs map[string]struct{}, selected string) []PairOption {
+	compPairIDs := comp.GetStringSlice("pairs")
 	names := league.PairNames(app, compPairIDs)
+	withdrawn := league.WithdrawnSet(comp)
 	options := make([]PairOption, 0, len(compPairIDs))
 	for _, pid := range compPairIDs {
 		_, isOwn := playerPairIDs[pid]
 		options = append(options, PairOption{
-			ID:       pid,
-			Name:     names[pid],
-			IsOwn:    isOwn,
-			Selected: pid == selected,
+			ID:        pid,
+			Name:      names[pid],
+			IsOwn:     isOwn,
+			Selected:  pid == selected,
+			Withdrawn: withdrawn[pid],
 		})
 	}
 	sort.SliceStable(options, func(i, j int) bool {
@@ -450,13 +456,13 @@ func collectPairNames(app core.App, matches []*core.Record) map[string]string {
 	return league.PairNames(app, slice)
 }
 
-func buildRounds(matches []*core.Record, pairNames map[string]string, playerPairIDs map[string]struct{}, pairFilter string) []RoundView {
+func buildRounds(matches []*core.Record, ctx roundsCtx) []RoundView {
 	roundMap := map[int][]MatchCard{}
 	for _, m := range matches {
-		if pairFilter != "" && m.GetString("pair1") != pairFilter && m.GetString("pair2") != pairFilter {
+		if ctx.PairFilter != "" && m.GetString("pair1") != ctx.PairFilter && m.GetString("pair2") != ctx.PairFilter {
 			continue
 		}
-		mc := NewMatchRow(m, pairNames, playerPairIDs)
+		mc := NewMatchRow(m, ctx.PairNames, ctx.PlayerPairIDs, ctx.Withdrawn)
 		rn := int(m.GetFloat("round_number"))
 		roundMap[rn] = append(roundMap[rn], mc)
 	}

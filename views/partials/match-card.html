@@ -2,7 +2,7 @@
 <div class="card {{if and .Mode.Full (not .Mode.Editable)}}bg-neutral text-neutral-content{{else}}bg-base-100{{end}} shadow-lg rounded-2xl overflow-hidden">
     <div class="card-body">
         <div class="flex items-center justify-between">
-            {{if .Mode.Full}}<h1 class="card-title flex-wrap {{if not .Mode.Editable}}text-2xl font-bold{{else}}text-lg{{end}}">{{else}}<h2 class="card-title flex-wrap text-lg">{{end}}<span class="min-w-0 break-words">{{if .Pair1Name}}{{template "pairLink" (dict "ID" (.Match.GetString "pair1") "Name" .Pair1Name "IsMine" (eq .MyTeam 1))}}{{else}}Por definir{{end}}</span> <span class="text-sm opacity-60 flex-none">vs</span> <span class="min-w-0 break-words">{{if .Pair2Name}}{{template "pairLink" (dict "ID" (.Match.GetString "pair2") "Name" .Pair2Name "IsMine" (eq .MyTeam 2))}}{{else}}Por definir{{end}}</span>{{if .Mode.Full}}</h1>{{else}}</h2>{{end}}
+            {{if .Mode.Full}}<h1 class="card-title flex-wrap {{if not .Mode.Editable}}text-2xl font-bold{{else}}text-lg{{end}}">{{else}}<h2 class="card-title flex-wrap text-lg">{{end}}<span class="min-w-0 break-words">{{if .Pair1Name}}{{template "pairLink" (dict "ID" (.Match.GetString "pair1") "Name" .Pair1Name "Withdrawn" .Pair1Withdrawn "IsMine" (eq .MyTeam 1))}}{{else}}Por definir{{end}}</span> <span class="text-sm opacity-60 flex-none">vs</span> <span class="min-w-0 break-words">{{if .Pair2Name}}{{template "pairLink" (dict "ID" (.Match.GetString "pair2") "Name" .Pair2Name "Withdrawn" .Pair2Withdrawn "IsMine" (eq .MyTeam 2))}}{{else}}Por definir{{end}}</span>{{if .Mode.Full}}</h1>{{else}}</h2>{{end}}
             {{if not (and .Mode.Full (not .Mode.Editable))}}
             <span class="flex items-center gap-1">
                 {{if .Match.GetBool "rematch"}}<span class="badge badge-info badge-sm" title="Repite rival por bajas en la liga">Revancha</span>{{end}}
@@ -23,7 +23,7 @@
 
         {{if eq (.Match.GetString "status") "final"}}
         {{if .Score}}
-        {{template "resultBox" (dict "Score" .Score "Pair1Name" .Pair1Name "Pair2Name" .Pair2Name)}}
+        {{template "resultBox" (dict "Score" .Score "Pair1Name" .Pair1Name "Pair1Withdrawn" .Pair1Withdrawn "Pair2Name" .Pair2Name "Pair2Withdrawn" .Pair2Withdrawn)}}
         {{end}}
         {{end}}
         {{if and .Arbitration (ne (.Match.GetString "status") "disputed")}}
@@ -37,8 +37,8 @@
         </div>
         {{else if not (and .Mode.Admin .Mode.Editable)}}
         <div class="space-y-2">
-            {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "Score" .SubmittedScore "Pair1Name" .Pair1Name "Pair2Name" .Pair2Name)}}
-            {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore "Note" .DisputeNotes "Pair1Name" .Pair1Name "Pair2Name" .Pair2Name)}}{{end}}
+            {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "LabelWithdrawn" .SubmitterWithdrawn "Score" .SubmittedScore "Pair1Name" .Pair1Name "Pair1Withdrawn" .Pair1Withdrawn "Pair2Name" .Pair2Name "Pair2Withdrawn" .Pair2Withdrawn)}}
+            {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "LabelWithdrawn" .DisputerWithdrawn "Score" .DisputedScore "Note" .DisputeNotes "Pair1Name" .Pair1Name "Pair1Withdrawn" .Pair1Withdrawn "Pair2Name" .Pair2Name "Pair2Withdrawn" .Pair2Withdrawn)}}{{end}}
         </div>
         {{end}}
         {{end}}
@@ -62,8 +62,8 @@
     {{else}}
     <div class="dispute-resolve">
         <div class="space-y-2 mb-3">
-            {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "Score" .SubmittedScore "FillScore" .SubmittedScore "Pair1Name" .Pair1Name "Pair2Name" .Pair2Name)}}
-            {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "Score" .DisputedScore "Note" .DisputeNotes "FillScore" .DisputedScore "Pair1Name" .Pair1Name "Pair2Name" .Pair2Name)}}{{end}}
+            {{template "resultBox" (dict "PairLabel" (or .SubmitterPairName "Propuesta") "LabelWithdrawn" .SubmitterWithdrawn "Score" .SubmittedScore "FillScore" .SubmittedScore "Pair1Name" .Pair1Name "Pair1Withdrawn" .Pair1Withdrawn "Pair2Name" .Pair2Name "Pair2Withdrawn" .Pair2Withdrawn)}}
+            {{if .DisputedScore}}{{template "resultBox" (dict "PairLabel" (or .DisputerPairName "Contrapropuesta") "LabelWithdrawn" .DisputerWithdrawn "Score" .DisputedScore "Note" .DisputeNotes "FillScore" .DisputedScore "Pair1Name" .Pair1Name "Pair1Withdrawn" .Pair1Withdrawn "Pair2Name" .Pair2Name "Pair2Withdrawn" .Pair2Withdrawn)}}{{end}}
         </div>
         <div class="divider my-2"></div>
         <form hx-post="/admin/disputes/{{.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
@@ -124,8 +124,8 @@
             <label class="label"><span class="label-text">Ganador</span></label>
             <select name="winner" class="select select-bordered select-sm" required>
                 <option value="">Seleccionar</option>
-                <option value="{{.Match.GetString "pair1"}}">{{.Pair1Name}}</option>
-                <option value="{{.Match.GetString "pair2"}}">{{.Pair2Name}}</option>
+                <option value="{{.Match.GetString "pair1"}}">{{template "pairOptionLabel" (dict "Name" .Pair1Name "Withdrawn" .Pair1Withdrawn)}}</option>
+                <option value="{{.Match.GetString "pair2"}}">{{template "pairOptionLabel" (dict "Name" .Pair2Name "Withdrawn" .Pair2Withdrawn)}}</option>
             </select>
         </div>
         <button type="submit" hx-disabled-elt="this" class="btn btn-warning btn-sm">Aprobar incomparecencia</button>
@@ -232,17 +232,17 @@
 {{define "matchRow"}}
 <a href="/match/{{.Match.Id}}" class="flex items-center gap-3 py-2 px-3 min-h-[56px] rounded-lg transition-all duration-150 hover:shadow-md {{if .IsMyMatch}}bg-neutral/5 border-l-4 border-l-neutral hover:bg-neutral/10{{else}}bg-base-200/50 hover:bg-base-200{{end}}">
     <div class="flex-1 min-w-0 sm:hidden">
-        <p class="font-medium text-sm break-words">{{if .Pair1Name}}{{template "pairLinkText" (dict "Name" .Pair1Name "IsMine" (eq .MyTeam 1))}}{{else}}Por definir{{end}}</p>
-        <p class="font-medium text-sm break-words"><span class="opacity-60">vs</span> {{if .Pair2Name}}{{template "pairLinkText" (dict "Name" .Pair2Name "IsMine" (eq .MyTeam 2))}}{{else}}Por definir{{end}}</p>
+        <p class="font-medium text-sm break-words">{{if .Pair1Name}}{{template "pairLinkText" (dict "Name" .Pair1Name "Withdrawn" .Pair1Withdrawn "IsMine" (eq .MyTeam 1))}}{{else}}Por definir{{end}}</p>
+        <p class="font-medium text-sm break-words"><span class="opacity-60">vs</span> {{if .Pair2Name}}{{template "pairLinkText" (dict "Name" .Pair2Name "Withdrawn" .Pair2Withdrawn "IsMine" (eq .MyTeam 2))}}{{else}}Por definir{{end}}</p>
     </div>
     <div class="hidden sm:flex flex-1 min-w-0 items-center gap-2">
-        <span class="font-medium text-base break-words min-w-0 flex-1">{{if .Pair1Name}}{{template "pairLinkText" (dict "Name" .Pair1Name "IsMine" (eq .MyTeam 1))}}{{else}}Por definir{{end}}</span>
+        <span class="font-medium text-base break-words min-w-0 flex-1">{{if .Pair1Name}}{{template "pairLinkText" (dict "Name" .Pair1Name "Withdrawn" .Pair1Withdrawn "IsMine" (eq .MyTeam 1))}}{{else}}Por definir{{end}}</span>
         {{if .Score}}
         {{template "resultBox" (dict "Score" .Score "Mode" (dict "Row" true))}}
         {{else}}
         <span class="text-sm opacity-60 flex-none">vs</span>
         {{end}}
-        <span class="font-medium text-base break-words min-w-0 flex-1">{{if .Pair2Name}}{{template "pairLinkText" (dict "Name" .Pair2Name "IsMine" (eq .MyTeam 2))}}{{else}}Por definir{{end}}</span>
+        <span class="font-medium text-base break-words min-w-0 flex-1">{{if .Pair2Name}}{{template "pairLinkText" (dict "Name" .Pair2Name "Withdrawn" .Pair2Withdrawn "IsMine" (eq .MyTeam 2))}}{{else}}Por definir{{end}}</span>
         {{if .CompetitionName}}<span class="text-sm opacity-50 truncate">{{template "competitionIdentity" (dict "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true) "NoLink" true "Small" true)}}</span>{{end}}
     </div>
     <div class="flex flex-col items-end gap-1 shrink-0">
@@ -264,7 +264,7 @@
         {{if .RoundNumber}}<span class="text-sm font-bold text-primary">J{{.RoundNumber}}</span>{{else}}<span class="text-sm font-bold text-primary opacity-40">—</span>{{end}}
     </div>
     <div class="flex-1 min-w-0">
-        <p class="font-medium text-sm truncate">vs <span data-testid="upcoming-opponent">{{.Opponent}}</span></p>
+        <p class="font-medium text-sm truncate">vs <span data-testid="upcoming-opponent">{{template "pairName" (dict "Name" .Opponent "Withdrawn" .OpponentWithdrawn)}}</span></p>
         <p class="text-sm opacity-60">{{template "competitionIdentity" (dict "Name" .CompetitionName "LogoURL" .CompetitionLogo "Mode" (dict "Row" true) "NoLink" true "Small" true)}}{{if .DisplayDate}} · <span class="whitespace-nowrap" title="{{fmtDate .DisplayDate}}">{{relDate .DisplayDate}}</span>{{end}}{{if .ProposedVenue}} · {{.ProposedVenue}}{{end}}</p>
     </div>
     {{template "scheduleStatusBadge" .ScheduleStatus}}
@@ -280,7 +280,7 @@
     <div class="card bg-base-200/50 border border-base-300 rounded-xl">
         <div class="card-body p-3">
             <div class="flex items-center gap-2">
-                <span class="text-sm font-bold">{{.AuthorLabel}}</span>
+                <span class="text-sm font-bold">{{template "authorLabel" (dict "Player" .AuthorPlayer "Pair" .AuthorPairName "Withdrawn" .AuthorWithdrawn)}}</span>
                 <span class="text-sm opacity-50">{{timeTag .CreatedRel}}</span>
             </div>
             {{if .Data}}
@@ -371,7 +371,8 @@
      caller (thread.html) next to the "Resultado" heading. */}}
 {{define "resultStatusBadge"}}
 {{$status := .Card.Match.GetString "status"}}
-{{if .ResultPanel.HasFinal}}<span class="badge badge-soft-success">Confirmado</span>
+{{if .ResultPanel.Void}}<span class="badge badge-ghost">Sin resultado</span>
+{{else if .ResultPanel.HasFinal}}<span class="badge badge-soft-success">Confirmado</span>
 {{else if eq $status "disputed"}}<span class="badge badge-soft-error">En disputa</span>
 {{else if .ResultPanel.Live}}<span class="badge badge-soft-warning">Propuesta</span>
 {{else}}<span class="badge badge-ghost">Pendiente</span>
@@ -383,12 +384,14 @@
 {{$status := $c.Match.GetString "status"}}
 <div id="result-panel">
     {{if .ResultPanel.HasFinal}}
-    {{/* State: FINAL / accepted */}}
+    {{/* State: FINAL / accepted. A void match has no result to show: its "Sin resultado" badge is the only text. */}}
+    {{if not .ResultPanel.Void}}
     <div class="card bg-success/10 border border-success/20 rounded-xl">
         <div class="card-body p-4">
-            {{template "resultBox" (dict "Score" .ResultPanel.FinalScore "Pair1Name" $c.Pair1Name "Pair2Name" $c.Pair2Name)}}
+            {{template "resultBox" (dict "Score" .ResultPanel.FinalScore "Pair1Name" $c.Pair1Name "Pair1Withdrawn" $c.Pair1Withdrawn "Pair2Name" $c.Pair2Name "Pair2Withdrawn" $c.Pair2Withdrawn)}}
         </div>
     </div>
+    {{end}}
 
     {{else if eq $status "disputed"}}
     {{/* State: DISPUTED — the two proposals; admin gets clickable-to-fill + resolve */}}
@@ -401,8 +404,8 @@
     {{$canResolve := and $c.Mode.Admin $c.Mode.Editable}}
     <h4 class="font-bold text-sm uppercase tracking-wider opacity-50 mb-2">Propuestas</h4>
     <div class="dispute-resolve space-y-2">
-        {{template "resultBox" (dict "PairLabel" (or $c.SubmitterPairName "Propuesta") "Score" $c.SubmittedScore "FillScore" (ternary $canResolve $c.SubmittedScore "") "Pair1Name" $c.Pair1Name "Pair2Name" $c.Pair2Name)}}
-        {{if $c.DisputedScore}}{{template "resultBox" (dict "PairLabel" (or $c.DisputerPairName "Contrapropuesta") "Score" $c.DisputedScore "Note" $c.DisputeNotes "FillScore" (ternary $canResolve $c.DisputedScore "") "Pair1Name" $c.Pair1Name "Pair2Name" $c.Pair2Name)}}{{end}}
+        {{template "resultBox" (dict "PairLabel" (or $c.SubmitterPairName "Propuesta") "LabelWithdrawn" $c.SubmitterWithdrawn "Score" $c.SubmittedScore "FillScore" (ternary $canResolve $c.SubmittedScore "") "Pair1Name" $c.Pair1Name "Pair1Withdrawn" $c.Pair1Withdrawn "Pair2Name" $c.Pair2Name "Pair2Withdrawn" $c.Pair2Withdrawn)}}
+        {{if $c.DisputedScore}}{{template "resultBox" (dict "PairLabel" (or $c.DisputerPairName "Contrapropuesta") "LabelWithdrawn" $c.DisputerWithdrawn "Score" $c.DisputedScore "Note" $c.DisputeNotes "FillScore" (ternary $canResolve $c.DisputedScore "") "Pair1Name" $c.Pair1Name "Pair1Withdrawn" $c.Pair1Withdrawn "Pair2Name" $c.Pair2Name "Pair2Withdrawn" $c.Pair2Withdrawn)}}{{end}}
         {{if $canResolve}}
         <div class="divider my-2"></div>
         <form hx-post="/admin/disputes/{{$c.Match.Id}}/resolve" hx-target="closest .card" hx-swap="outerHTML">
@@ -417,7 +420,7 @@
     {{/* State: PENDING — rival proposal to confirm/counter */}}
     <div class="space-y-3">
         {{range .ResultPanel.Live}}
-        {{template "resultBox" (dict "PairLabel" .PairLabel "Score" .Score "Pair1Name" $c.Pair1Name "Pair2Name" $c.Pair2Name)}}
+        {{template "resultBox" (dict "PairLabel" .PairLabel "AuthorPlayer" .AuthorPlayer "LabelWithdrawn" .LabelWithdrawn "Score" .Score "Pair1Name" $c.Pair1Name "Pair1Withdrawn" $c.Pair1Withdrawn "Pair2Name" $c.Pair2Name "Pair2Withdrawn" $c.Pair2Withdrawn)}}
         {{if .CanRespond}}
         <div class="flex gap-2 mt-2">
             <form hx-post="/match/{{.MatchID}}/thread/proposal/{{.RecordID}}/respond" hx-target="body" class="flex-1">
@@ -464,7 +467,7 @@
     {{if $c.CanCorrect}}
     <div class="card bg-base-200/50 rounded-xl mt-3">
         <div class="card-body p-4">
-            <p class="text-sm opacity-60">Esperando confirmación de {{$c.Opponent}}</p>
+            <p class="text-sm opacity-60">Esperando confirmación de {{template "pairName" (dict "Name" $c.Opponent "Withdrawn" $c.OpponentWithdrawn)}}</p>
             <details class="mt-3">
                 <summary class="text-sm link link-hover cursor-pointer">¿Te has equivocado? Corregir</summary>
                 <div class="mt-3">
@@ -495,9 +498,9 @@
 <div class="card bg-base-100 shadow-lg rounded-2xl overflow-hidden mb-6">
     <div class="card-body p-4 sm:p-6">
         <h3 class="text-sm font-semibold opacity-70 mb-2">Precedentes</h3>
-        <p class="text-base font-medium mb-3">{{.Pair1Name}} {{.Pair1Wins}} · {{.Pair2Wins}} {{.Pair2Name}}{{if .HasProvisional}}{{template "provisionalWarning"}}{{end}}</p>
+        <p class="text-base font-medium mb-3">{{template "pairName" (dict "Name" .Pair1Name "Withdrawn" .Pair1Withdrawn)}} {{.Pair1Wins}} · {{.Pair2Wins}} {{template "pairName" (dict "Name" .Pair2Name "Withdrawn" .Pair2Withdrawn)}}{{if .HasProvisional}}{{template "provisionalWarning"}}{{end}}</p>
         <a href="{{entityURL "match" .LastMatchID}}" class="block hover:opacity-80 transition-opacity">
-            {{template "resultBox" (dict "Score" .LastScore "Pair1Name" .Pair1Name "Pair2Name" .Pair2Name "Mode" (dict "Row" true))}}
+            {{template "resultBox" (dict "Score" .LastScore "Pair1Name" .Pair1Name "Pair1Withdrawn" .Pair1Withdrawn "Pair2Name" .Pair2Name "Pair2Withdrawn" .Pair2Withdrawn "Mode" (dict "Row" true))}}
             {{if .LastProvisional}}<span class="badge badge-soft-warning badge-sm">Propuesta</span>{{end}}
         </a>
     </div>
@@ -522,9 +525,9 @@
 {{$winner := ""}}
 {{if and .Pair1Name .Pair2Name}}{{$winner = scoreWinner .Score .Pair1Name .Pair2Name}}{{end}}
 <div class="flex items-baseline gap-2 my-1 flex-wrap">
-    {{if .PairLabel}}<span class="{{if .Mode.Row}}text-sm{{else}}text-base{{end}} font-bold">{{.PairLabel}}</span>{{end}}
-    <span class="{{if .Mode.Row}}text-base{{else}}text-xl{{end}} font-black tracking-wide">{{.Score}}</span>
-    {{if $winner}}<span class="text-sm font-medium text-success">Gana {{$winner}}</span>{{end}}
+    {{if or .PairLabel .AuthorPlayer}}<span class="{{if .Mode.Row}}text-sm{{else}}text-base{{end}} font-bold">{{if .AuthorPlayer}}{{template "authorLabel" (dict "Player" .AuthorPlayer "Pair" .PairLabel "Withdrawn" .LabelWithdrawn)}}{{else}}{{template "pairName" (dict "Name" .PairLabel "Withdrawn" .LabelWithdrawn)}}{{end}}</span>{{end}}
+    {{if .Score}}<span class="{{if .Mode.Row}}text-base{{else}}text-xl{{end}} font-black tracking-wide">{{.Score}}</span>{{end}}
+    {{if $winner}}{{$winnerWithdrawn := .Pair2Withdrawn}}{{if eq $winner .Pair1Name}}{{$winnerWithdrawn = .Pair1Withdrawn}}{{end}}<span class="text-sm font-medium text-success">Gana {{template "pairName" (dict "Name" $winner "Withdrawn" $winnerWithdrawn)}}</span>{{end}}
 </div>
 {{with or .Note (scoreNote .Score)}}<p class="text-sm opacity-60">{{.}}</p>{{end}}
 {{end}}
@@ -551,11 +554,11 @@
     <span class="in"></span>
     <div class="card-body p-2 gap-0 justify-center h-full">
         <div class="flex items-center justify-between gap-2">
-            <span class="text-sm flex-1 truncate {{if and (.Match.GetString "winner") (eq (.Match.GetString "winner") (.Match.GetString "pair1"))}}font-bold text-accent{{end}}">{{if .Pair1Name}}{{.Pair1Name}}{{else}}<span class="opacity-40 text-xs">Por definir</span>{{end}}</span>
+            <span class="text-sm flex-1 truncate {{if and (.Match.GetString "winner") (eq (.Match.GetString "winner") (.Match.GetString "pair1"))}}font-bold text-accent{{end}}">{{if .Pair1Name}}{{template "pairName" (dict "Name" .Pair1Name "Withdrawn" .Pair1Withdrawn)}}{{else}}<span class="opacity-40 text-xs">Por definir</span>{{end}}</span>
         </div>
         <div class="divider my-0 h-0"></div>
         <div class="flex items-center justify-between gap-2">
-            <span class="text-sm flex-1 truncate {{if and (.Match.GetString "winner") (eq (.Match.GetString "winner") (.Match.GetString "pair2"))}}font-bold text-accent{{end}}">{{if .Pair2Name}}{{.Pair2Name}}{{else}}<span class="opacity-40 text-xs">Por definir</span>{{end}}</span>
+            <span class="text-sm flex-1 truncate {{if and (.Match.GetString "winner") (eq (.Match.GetString "winner") (.Match.GetString "pair2"))}}font-bold text-accent{{end}}">{{if .Pair2Name}}{{template "pairName" (dict "Name" .Pair2Name "Withdrawn" .Pair2Withdrawn)}}{{else}}<span class="opacity-40 text-xs">Por definir</span>{{end}}</span>
         </div>
         {{if .Score}}
         <div class="text-center mt-1">

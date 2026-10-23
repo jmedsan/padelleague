@@ -227,6 +227,7 @@ func NotifCalendarPublished(compID, compName string) Notification {
 		Title:    "Calendario publicado",
 		Body:     "El calendario ha sido publicado.",
 		Link:     "/competition/" + compID,
+		CompID:   compID,
 		CompName: compName,
 	}
 }
@@ -281,14 +282,31 @@ func formatRemaining(d time.Duration) string {
 	return fmt.Sprintf("en %d minutos", mins)
 }
 
-// NotifOpponentWithdrawn notifies the opponents of a withdrawn pair per match.
-func NotifOpponentWithdrawn(matchID, pairName, compName, woScore string) Notification {
+// OpponentWithdrawnParams holds the dynamic parts of the notice an opponent gets when a pair withdraws.
+// MatchID is empty when the match was released, so the notice links to the competition instead.
+type OpponentWithdrawnParams struct {
+	CompID, MatchID, PairName, CompName, WoScore string
+}
+
+// NotifOpponentWithdrawn notifies an opponent that a pair withdrew.
+func NotifOpponentWithdrawn(p OpponentWithdrawnParams) Notification {
+	if p.MatchID == "" {
+		return Notification{
+			Type:     "general",
+			Title:    "Pareja retirada",
+			Body:     fmt.Sprintf("La pareja %s se ha retirado de la competición. Tu partido contra esa pareja se ha liberado y se te puede asignar un nuevo rival.", p.PairName),
+			Link:     "/competition/" + p.CompID,
+			CompID:   p.CompID,
+			CompName: p.CompName,
+		}
+	}
 	return Notification{
 		Type:     "general",
 		Title:    "Pareja retirada",
-		Body:     fmt.Sprintf("La pareja %s se ha retirado. El partido se registra como %s a tu favor.", pairName, woScore),
-		MatchID:  matchID,
-		CompName: compName,
+		Body:     fmt.Sprintf("La pareja %s se ha retirado. El partido se registra como %s a tu favor.", p.PairName, p.WoScore),
+		MatchID:  p.MatchID,
+		CompID:   p.CompID,
+		CompName: p.CompName,
 	}
 }
 
@@ -366,6 +384,7 @@ func NotifPenaltyApplied(compID, compName string, amount float64, reason string)
 		Title:    "Penalización aplicada",
 		Body:     fmt.Sprintf("%.0f puntos — %s", amount, reason),
 		Link:     "/competition/" + compID,
+		CompID:   compID,
 		CompName: compName,
 	}
 }
@@ -378,6 +397,7 @@ func NotifAdminPenaltiesApplied(compID, compName string, count int) Notification
 		Title:    "Penalizaciones automáticas aplicadas",
 		Body:     fmt.Sprintf("%d penalizaciones aplicadas", count),
 		Link:     "/admin/competitions/" + compID,
+		CompID:   compID,
 		CompName: compName,
 	}
 }
@@ -389,6 +409,7 @@ func NotifAdminLeagueClosed(compID, compName string, penalties int) Notification
 		Title:    "Liga cerrada automáticamente",
 		Body:     fmt.Sprintf("La liga ha terminado su semana extraordinaria: %d penalizaciones por partidos no disputados. Revísalas y corrige las que correspondan a una sola pareja.", penalties),
 		Link:     "/admin/competitions/" + compID,
+		CompID:   compID,
 		CompName: compName,
 	}
 }
@@ -419,6 +440,7 @@ func NotifPenaltyVoided(compID, compName string, amount float64) Notification {
 		Title:    "Penalización anulada",
 		Body:     fmt.Sprintf("%.0f puntos anulados", amount),
 		Link:     "/competition/" + compID,
+		CompID:   compID,
 		CompName: compName,
 	}
 }
@@ -430,6 +452,7 @@ func NotifPaymentReminder(compID, compName string) Notification {
 		Title:    "Recordatorio de pago",
 		Body:     "Recuerda realizar el pago para " + compName,
 		Link:     "/competition/" + compID,
+		CompID:   compID,
 		CompName: compName,
 	}
 }
@@ -480,6 +503,7 @@ func NotifAnnouncement(compID, compName, title, body string) Notification {
 		Type:     "announcement",
 		Title:    title,
 		Body:     body,
+		CompID:   compID,
 		CompName: compName,
 		Link:     "/competition/" + compID + "#avisos",
 	}

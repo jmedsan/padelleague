@@ -52,18 +52,19 @@ func NewPublicHandler(app core.App, leagueSvc *league.Service, render PublicRend
 
 // NextMatch holds the player's next upcoming match details for the dashboard.
 type NextMatch struct {
-	MatchID         string
-	Opponent        string
-	CompetitionID   string
-	CompetitionName string
-	CompetitionLogo string
-	RoundNumber     int
-	ScheduleStatus  string // "unscheduled", "proposed", "confirmed"
-	ProposedDate    string
-	ProposedVenue   string
-	IsPlayoff       bool
-	EffectiveDate   time.Time // resolved: match date → round date → competition end
-	DisplayDate     string    // formatted for the template
+	MatchID           string
+	Opponent          string
+	OpponentWithdrawn bool
+	CompetitionID     string
+	CompetitionName   string
+	CompetitionLogo   string
+	RoundNumber       int
+	ScheduleStatus    string // "unscheduled", "proposed", "confirmed"
+	ProposedDate      string
+	ProposedVenue     string
+	IsPlayoff         bool
+	EffectiveDate     time.Time // resolved: match date → round date → competition end
+	DisplayDate       string    // formatted for the template
 }
 
 // PendingAction represents an action the player needs to take on a match.
@@ -163,12 +164,17 @@ func (h *PublicHandler) playerInCompetition(c *core.Record, playerPairIDs map[st
 	return false
 }
 
-func (h *PublicHandler) opponentName(m *core.Record, playerPairIDs map[string]struct{}) string {
+// opponentID is the pair of m that is not one of the player's pairs.
+func opponentID(m *core.Record, playerPairIDs map[string]struct{}) string {
 	opponent := m.GetString("pair1")
 	if _, ok := playerPairIDs[opponent]; ok {
 		opponent = m.GetString("pair2")
 	}
-	if pair, err := h.app.FindRecordById("pairs", opponent); err == nil {
+	return opponent
+}
+
+func (h *PublicHandler) opponentName(m *core.Record, playerPairIDs map[string]struct{}) string {
+	if pair, err := h.app.FindRecordById("pairs", opponentID(m, playerPairIDs)); err == nil {
 		return pair.GetString("name")
 	}
 	return "?"
@@ -241,14 +247,15 @@ func (h *PublicHandler) buildHomeCompetition(c *core.Record, playerPairIDs map[s
 
 func (h *PublicHandler) buildNextMatch(m *core.Record, c *core.Record, playerPairIDs map[string]struct{}) *NextMatch {
 	nm := &NextMatch{
-		MatchID:         m.Id,
-		Opponent:        h.opponentName(m, playerPairIDs),
-		CompetitionID:   c.Id,
-		CompetitionName: c.GetString("name"),
-		CompetitionLogo: league.CompetitionLogoURL(c.Id, c.GetString("logo")),
-		RoundNumber:     int(m.GetFloat("round_number")),
-		ScheduleStatus:  "unscheduled",
-		IsPlayoff:       league.IsPlayoff(c),
+		MatchID:           m.Id,
+		Opponent:          h.opponentName(m, playerPairIDs),
+		OpponentWithdrawn: league.WithdrawnSet(c)[opponentID(m, playerPairIDs)],
+		CompetitionID:     c.Id,
+		CompetitionName:   c.GetString("name"),
+		CompetitionLogo:   league.CompetitionLogoURL(c.Id, c.GetString("logo")),
+		RoundNumber:       int(m.GetFloat("round_number")),
+		ScheduleStatus:    "unscheduled",
+		IsPlayoff:         league.IsPlayoff(c),
 	}
 	proposals := findRecordsLogged(h.app, "buildNextMatch: find scheduling proposal", RecordQuery{
 		Collection: "match_messages",
@@ -399,7 +406,7 @@ type recentResult struct {
 // results, newest play date first.
 func (h *PublicHandler) recentResultEntries(c *core.Record) []recentResult {
 	finals := findRecordsLogged(h.app, "findRecentResults: find final matches", RecordQuery{
-		Collection: "matches", Filter: "competition = {:cid} && status = 'final'",
+		Collection: "matches", Filter: "competition = {:cid} && status = 'final' && winner != ''",
 		Sort: "-date,-created", Limit: 20, Params: map[string]any{"cid": c.Id},
 	})
 	open := findRecordsLogged(h.app, "findRecentResults: find open matches", RecordQuery{
@@ -439,6 +446,7 @@ func (h *PublicHandler) findRecentResults(c *core.Record, playerPairIDs map[stri
 	// player's own pairs below, so the left border would be noise on
 	// every row rather than a distinguishing signal.
 	noAccent := map[string]struct{}{}
+	withdrawn := league.WithdrawnSet(c)
 	var results []MatchCard
 	for _, e := range entries {
 		p1 := e.match.GetString("pair1")
@@ -448,7 +456,7 @@ func (h *PublicHandler) findRecentResults(c *core.Record, playerPairIDs map[stri
 		if !hasP1 && !hasP2 {
 			continue
 		}
-		mc := NewMatchRow(e.match, pairNames, noAccent)
+		mc := NewMatchRow(e.match, pairNames, noAccent, withdrawn)
 		mc.Score = e.result.GetString("scores")
 		mc.Provisional = e.provisional
 		mc.CompetitionName = c.GetString("name")
@@ -456,9 +464,11 @@ func (h *PublicHandler) findRecentResults(c *core.Record, playerPairIDs map[stri
 		winner := e.result.GetString("winner")
 		if hasP1 {
 			mc.Opponent = pairNames[p2]
+			mc.OpponentWithdrawn = withdrawn[p2]
 			mc.Won = winner == p1
 		} else {
 			mc.Opponent = pairNames[p1]
+			mc.OpponentWithdrawn = withdrawn[p1]
 			mc.Won = winner == p2
 		}
 		results = append(results, mc)

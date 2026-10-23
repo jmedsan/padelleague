@@ -17,6 +17,7 @@ type Notification struct {
 	Author   string // chat only: who wrote it, for the email quote
 	Text     string // chat only: the full message; Body holds a truncated copy
 	MatchID  string
+	CompID   string // competition the notice belongs to; the withdrawn-pair gate reads it
 	Link     string // overrides the "/match/{MatchID}" default when set
 	CompName string // competition display name, rendered as a secondary line
 }

@@ -1,6 +1,7 @@
 package league
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -153,9 +154,10 @@ func advanceRound(txApp core.App, compID string, currentRound int) error {
 		if !IsPreScore(nm.GetString("status")) {
 			continue
 		}
-		seedNextMatch(nm, roundWinners, i)
-		if err := resolveWithdrawnSeed(txApp, comp, nm); err != nil {
-			return err
+		if seedNextMatch(nm, roundWinners, i) {
+			if err := settleSeeds(txApp, comp, nm, roundMatches); err != nil {
+				return err
+			}
 		}
 		if err := txApp.Save(nm); err != nil {
 			return err
@@ -179,38 +181,129 @@ func PlayoffMaxRound(app core.App, comp *core.Record) (maxRound int, ok bool) {
 	return int(allMatches[0].GetFloat("round_number")), true
 }
 
-func seedNextMatch(nm *core.Record, winners []string, matchIdx int) {
-	p1Idx := matchIdx * 2
-	p2Idx := matchIdx*2 + 1
-	if p1Idx < len(winners) && winners[p1Idx] != "" {
-		nm.Set("pair1", winners[p1Idx])
+// seedNextMatch seeds nm's slots from the previous round's winners. A slot with no winner
+// feeding it is left as it is; it reports false when that slot is also empty, so the match
+// waits for its pair.
+func seedNextMatch(nm *core.Record, winners []string, matchIdx int) bool {
+	ready := true
+	for side, field := range []string{"pair1", "pair2"} {
+		idx := matchIdx*2 + side
+		if idx < len(winners) {
+			nm.Set(field, winners[idx])
+		} else if nm.GetString(field) == "" {
+			ready = false
+		}
 	}
-	if p2Idx < len(winners) && winners[p2Idx] != "" {
-		nm.Set("pair2", winners[p2Idx])
+	return ready
+}
+
+// settleSeeds decides nm once the previous round is final. Two withdrawn seeds are first swapped
+// for the pairs that lost to them. A match with no playable pair is void, and a single playable
+// pair wins by walkover over the withdrawn or empty side.
+func settleSeeds(txApp core.App, comp, nm *core.Record, roundMatches []*core.Record) error {
+	withdrawn := comp.GetStringSlice("withdrawn_pairs")
+	if slices.Contains(withdrawn, nm.GetString("pair1")) && slices.Contains(withdrawn, nm.GetString("pair2")) {
+		if err := replaceWithdrawnSeeds(txApp, nm, roundMatches); err != nil {
+			return err
+		}
+	}
+	playable := func(id string) bool { return id != "" && !slices.Contains(withdrawn, id) }
+	p1, p2 := nm.GetString("pair1"), nm.GetString("pair2")
+	p1Ok, p2Ok := playable(p1), playable(p2)
+	switch {
+	case p1Ok && p2Ok:
+		return nil
+	case !p1Ok && !p2Ok:
+		ApplyVoidResult(nm)
+		AddSystemResultEvent(txApp, nm.Id, NoResultEventText)
+		return nil
+	case p1Ok:
+		return walkoverOver(txApp, nm, WalkoverScore(comp), p1)
+	default:
+		return walkoverOver(txApp, nm, WalkoverScore(comp), p2)
 	}
 }
 
-// resolveWithdrawnSeed gives a withdrawn seeded pair its walkover loss, so the opponent advances.
-// Both seeds withdrawn is not resolved here: the design does not cover it.
-func resolveWithdrawnSeed(txApp core.App, comp, nm *core.Record) error {
-	p1, p2 := nm.GetString("pair1"), nm.GetString("pair2")
-	if p1 == "" || p2 == "" {
-		return nil
-	}
-	withdrawn := comp.GetStringSlice("withdrawn_pairs")
-	w1, w2 := slices.Contains(withdrawn, p1), slices.Contains(withdrawn, p2)
-	if w1 == w2 {
-		return nil
-	}
-	loser, winner := p1, p2
-	if w2 {
-		loser, winner = p2, p1
-	}
-	pair, err := txApp.FindRecordById("pairs", loser)
+// walkoverOver gives nm to winner by walkover. A withdrawn opponent is named in the timeline; an
+// empty opponent means no pair is left to play the winner.
+func walkoverOver(txApp core.App, nm *core.Record, score, winner string) error {
+	loser := OpponentOf(nm, winner)
+	ApplyWalkoverResult(nm, winner, score)
+	winnerName, err := pairName(txApp, winner)
 	if err != nil {
 		return err
 	}
-	ApplyWalkoverResult(nm, winner, WalkoverScore(comp))
-	AddSystemResultEvent(txApp, nm.Id, WithdrawalEventText(pair.GetString("name")))
+	if loser == "" {
+		AddSystemResultEvent(txApp, nm.Id, walkoverNoRivalText(winnerName))
+		return nil
+	}
+	loserName, err := pairName(txApp, loser)
+	if err != nil {
+		return err
+	}
+	AddSystemResultEvent(txApp, nm.Id, WithdrawalEventText(loserName))
 	return nil
+}
+
+// replaceWithdrawnSeeds swaps each withdrawn seed of nm for the pair that lost to it in roundMatches.
+// A seed with a bye is replaced by "".
+func replaceWithdrawnSeeds(txApp core.App, nm *core.Record, roundMatches []*core.Record) error {
+	var sides [2]string
+	for i, seed := range []string{nm.GetString("pair1"), nm.GetString("pair2")} {
+		repl, err := replacementFor(txApp, nm, seed, roundMatches)
+		if err != nil {
+			return err
+		}
+		sides[i] = repl
+	}
+	nm.Set("pair1", sides[0])
+	nm.Set("pair2", sides[1])
+	return nil
+}
+
+// replacementFor is the pair that replaces seed in nm, or "" when seed had a bye. It writes the timeline line.
+func replacementFor(txApp core.App, nm *core.Record, seed string, roundMatches []*core.Record) (string, error) {
+	repl := previousLoser(roundMatches, seed)
+	if repl == "" {
+		return "", nil
+	}
+	seedName, err := pairName(txApp, seed)
+	if err != nil {
+		return "", err
+	}
+	replName, err := pairName(txApp, repl)
+	if err != nil {
+		return "", err
+	}
+	AddSystemResultEvent(txApp, nm.Id, replacementEventText(replName, seedName))
+	return repl, nil
+}
+
+// previousLoser is the pair that lost to winner in roundMatches, or "" when winner had a bye.
+func previousLoser(roundMatches []*core.Record, winner string) string {
+	for _, m := range roundMatches {
+		if m.GetString("winner") == winner {
+			return OpponentOf(m, winner)
+		}
+	}
+	return ""
+}
+
+// replacementEventText is the timeline line for replacement taking the seed of a withdrawn pair.
+func replacementEventText(replacement, withdrawn string) string {
+	return fmt.Sprintf("%s juega en lugar de %s, retirada de la competición", replacement, withdrawn)
+}
+
+// walkoverNoRivalText is the timeline line for a walkover over an empty side (a void previous match).
+func walkoverNoRivalText(winner string) string {
+	return fmt.Sprintf("%s gana por incomparecencia: no hay pareja rival que pueda jugar", winner)
+}
+
+// pairName is the display name of pair id.
+func pairName(txApp core.App, id string) (string, error) {
+	pair, err := txApp.FindRecordById("pairs", id)
+	if err != nil {
+		return "", err
+	}
+	return pair.GetString("name"), nil
 }

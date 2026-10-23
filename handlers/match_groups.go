@@ -221,6 +221,7 @@ type leveledRoundsCtx struct {
 	PlayerPairIDs map[string]struct{}
 	PairFilter    string
 	Window        leveledWindow
+	Withdrawn     map[string]bool
 }
 
 // buildLeveledRounds converts matches into leveled RoundView groups for the
@@ -232,7 +233,7 @@ func buildLeveledRounds(matches []*core.Record, ctx leveledRoundsCtx, tz *time.L
 			m.GetString("pair1") != ctx.PairFilter && m.GetString("pair2") != ctx.PairFilter {
 			continue
 		}
-		cards = append(cards, NewMatchRow(m, ctx.PairNames, ctx.PlayerPairIDs))
+		cards = append(cards, NewMatchRow(m, ctx.PairNames, ctx.PlayerPairIDs, ctx.Withdrawn))
 	}
 	enrichWithPendingResults(ctx.App, cards)
 

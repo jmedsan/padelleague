@@ -62,12 +62,13 @@ func (h *CompetitionHandler) buildRoundDates(comp *core.Record) []roundDate {
 
 func (h *CompetitionHandler) buildRoundGroups(comp *core.Record, matches []*core.Record, pairNames map[string]string) []roundGroup {
 	noPairs := map[string]struct{}{}
+	withdrawn := league.WithdrawnSet(comp)
 	var allCards []MatchCard
 	roundMap := map[int][]int{}
 	for _, m := range matches {
 		rn := int(m.GetFloat("round_number"))
 		roundMap[rn] = append(roundMap[rn], len(allCards))
-		allCards = append(allCards, NewMatchRow(m, pairNames, noPairs))
+		allCards = append(allCards, NewMatchRow(m, pairNames, noPairs, withdrawn))
 	}
 	enrichWithPendingResults(h.app, allCards)
 	var rounds []roundGroup
@@ -92,12 +93,13 @@ func (h *CompetitionHandler) buildRoundGroups(comp *core.Record, matches []*core
 // pair (mirrors the public competition page's team filter).
 func (h *CompetitionHandler) buildLeveledRoundGroups(comp *core.Record, matches []*core.Record, pairNames map[string]string, pairFilter string) []roundGroup {
 	noPairs := map[string]struct{}{}
+	withdrawn := league.WithdrawnSet(comp)
 	var allCards []MatchCard
 	for _, m := range matches {
 		if pairFilter != "" && m.GetString("pair1") != pairFilter && m.GetString("pair2") != pairFilter {
 			continue
 		}
-		allCards = append(allCards, NewMatchRow(m, pairNames, noPairs))
+		allCards = append(allCards, NewMatchRow(m, pairNames, noPairs, withdrawn))
 	}
 	enrichWithPendingResults(h.app, allCards)
 

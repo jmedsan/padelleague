@@ -129,16 +129,26 @@ func (n *Notifier) PushEnabled() bool {
 }
 
 // NotifyPlayers creates an in-app notification, sends a push, and emails each player.
+// Players of pairs withdrawn from the notice's competition are skipped.
 func (n *Notifier) NotifyPlayers(playerUserIDs []string, notif league.Notification) {
 	notifCol, err := n.app.FindCollectionByNameOrId("notifications")
 	if err != nil {
 		slog.Error("notifications collection not found", "err", err)
 		return
 	}
+	withdrawn, err := n.withdrawnRecipients(notif)
+	if err != nil {
+		slog.Error("withdrawn gate failed, notice not sent", "type", notif.Type, "match", notif.MatchID, "competition", notif.CompID, "err", err)
+		return
+	}
 	for _, userID := range playerUserIDs {
 		user, err := n.app.FindRecordById("users", userID)
 		if err != nil {
 			slog.Warn("notification skipped", "type", notif.Type, "user", userID, "reason", "recipient not found")
+			continue
+		}
+		if withdrawn[userID] {
+			slog.Info("notification skipped", "type", notif.Type, "user", userID, "reason", "pair withdrawn from competition")
 			continue
 		}
 		if !notificationEnabled(user, notif.Type) {
@@ -164,6 +174,34 @@ func (n *Notifier) NotifyAdmins(notif league.Notification, excludeUserIDs ...str
 		n.deliver(notifCol, admin, notif, "notify admin failed")
 	}
 	return nil
+}
+
+// withdrawnRecipients returns the user ids of the pairs withdrawn from the notice's competition.
+// The competition comes from notif.CompID, or from its match when that is unset. A notice with
+// neither is not competition-bound and yields no skips. An unresolvable reference is an error.
+func (n *Notifier) withdrawnRecipients(notif league.Notification) (map[string]bool, error) {
+	compID := notif.CompID
+	if compID == "" && notif.MatchID != "" {
+		match, err := n.app.FindRecordById("matches", notif.MatchID)
+		if err != nil {
+			return nil, err
+		}
+		compID = match.GetString("competition")
+	}
+	if compID == "" {
+		return nil, nil
+	}
+	comp, err := n.app.FindRecordById("competitions", compID)
+	if err != nil {
+		return nil, err
+	}
+	skip := map[string]bool{}
+	for pairID := range league.WithdrawnSet(comp) {
+		for _, userID := range league.PlayersForPair(n.app, pairID) {
+			skip[userID] = true
+		}
+	}
+	return skip, nil
 }
 
 // deliver saves the in-app notification record for user and fires its push

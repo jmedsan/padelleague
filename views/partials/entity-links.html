@@ -1,5 +1,8 @@
-{{define "pairLink"}}<span class="inline-flex items-center gap-1"><a href="{{entityURL "pair" .ID}}" class="link link-hover inline-flex items-center min-h-[44px]">{{.Name}}</a>{{if .IsMine}} <span class="badge badge-sm badge-primary leading-none">Tú</span>{{end}}{{if .IsCaptain}}{{template "captainBadge" .}}{{end}}</span>{{end}}
-{{define "pairLinkText"}}<span class="inline-flex items-center gap-1">{{.Name}}{{if .IsMine}} <span class="badge badge-sm badge-primary leading-none">Tú</span>{{end}}</span>{{end}}
+{{define "pairName"}}{{if .Withdrawn}}<span class="opacity-50" title="Pareja retirada de esta competición">{{.Name}}</span>{{else}}{{.Name}}{{end}}{{end}}
+{{define "pairLink"}}<span class="inline-flex items-center gap-1"><a href="{{entityURL "pair" .ID}}" class="link link-hover inline-flex items-center min-h-[44px]">{{template "pairName" .}}</a>{{if .IsMine}} <span class="badge badge-sm badge-primary leading-none">Tú</span>{{end}}{{if .IsCaptain}}{{template "captainBadge" .}}{{end}}</span>{{end}}
+{{define "authorLabel"}}{{.Player}}{{with .Pair}} ({{template "pairName" (dict "Name" . "Withdrawn" $.Withdrawn)}}){{end}}{{end}}
+{{define "pairOptionLabel"}}{{.Name}}{{if .Withdrawn}} (retirada){{end}}{{end}}
+{{define "pairLinkText"}}<span class="inline-flex items-center gap-1">{{template "pairName" .}}{{if .IsMine}} <span class="badge badge-sm badge-primary leading-none">Tú</span>{{end}}</span>{{end}}
 {{define "playerLink"}}<a href="{{entityURL "player" .ID}}" class="link link-hover inline-flex items-center min-h-[44px]">{{.Name}}</a>{{end}}
 {{define "playerLinkCaptain"}}<span class="inline-flex items-center gap-1">{{template "playerLink" .}}{{if .IsCaptain}}{{template "captainBadge" .}}{{end}}</span>{{end}}
 {{define "captainBadge"}}<span class="badge badge-sm badge-primary leading-none" title="Capitán">C</span>{{end}}

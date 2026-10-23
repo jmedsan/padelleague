@@ -324,7 +324,7 @@ func TestNewMatchRowFields(t *testing.T) {
 	pairNames := map[string]string{p1.Id: "MR A", p2.Id: "MR B"}
 	playerPairIDs := map[string]struct{}{p1.Id: {}}
 
-	mc := handlers.NewMatchRow(match, pairNames, playerPairIDs)
+	mc := handlers.NewMatchRow(match, pairNames, playerPairIDs, map[string]bool{})
 	assert.Equal(t, handlers.PlayerRow, mc.Mode)
 	assert.Equal(t, "MR A", mc.Pair1Name)
 	assert.Equal(t, "MR B", mc.Pair2Name)

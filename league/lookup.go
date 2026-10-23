@@ -349,7 +349,7 @@ func Precedents(app core.App, q PrecedentsQuery) (summary PrecedentsSummary, ok 
 	pair1ID, pair2ID := q.Pair1ID, q.Pair2ID
 	params := map[string]any{"p1": pair1ID, "p2": pair2ID, "cid": q.CompetitionID, "exclude": q.ExcludeMatchID}
 	const between = "competition = {:cid} && ((pair1 = {:p1} && pair2 = {:p2}) || (pair1 = {:p2} && pair2 = {:p1})) && id != {:exclude}"
-	matches, err := app.FindRecordsByFilter("matches", "status = 'final' && "+between,
+	matches, err := app.FindRecordsByFilter("matches", "status = 'final' && winner != '' && "+between,
 		"-date,-created", 0, 0, params)
 	if err != nil {
 		return PrecedentsSummary{}, false

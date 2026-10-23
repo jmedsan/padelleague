@@ -326,7 +326,9 @@ func TestApplyPendingMatchPenalties_LeveledCloseProjected(t *testing.T) {
 	comp.Set("withdrawn_pairs", []string{pairs[5].Id})
 	require.NoError(t, app.Save(comp))
 	// pairs[0] played one match (with pairs[1]) and has one assigned but unplayed.
-	makeMatch(t, app, comp.Id, pairs[0].Id, pairs[1].Id, "final")
+	played := makeMatch(t, app, comp.Id, pairs[0].Id, pairs[1].Id, "final")
+	played.Set("winner", pairs[0].Id)
+	require.NoError(t, app.Save(played))
 	makeMatch(t, app, comp.Id, pairs[0].Id, pairs[2].Id, "pending")
 	setFinishedPhase(t, app, comp)
 	comp, err := app.FindRecordById("competitions", comp.Id)

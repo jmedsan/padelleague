@@ -58,8 +58,11 @@ func statusClass(status string) string {
 // effectiveStatusBadge overrides the plain status label/class with "Arbitraje
 // solicitado" (badge-warning) while a request is open — unless status is
 // already disputed or final, which keep their own badge ("En disputa" wins
-// over an open request; a final match can't have one open anyway).
-func effectiveStatusBadge(status, arbitration string) (label, class string) {
+// over an open request; a final match can't have one open anyway). A void match reads "Sin resultado".
+func effectiveStatusBadge(status, arbitration string, void bool) (label, class string) {
+	if void {
+		return "Sin resultado", "badge-ghost"
+	}
 	if arbitration != "" && status != league.StatusDisputed && status != league.StatusFinal {
 		return "Arbitraje solicitado", "badge-warning"
 	}
@@ -128,7 +131,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	venues, _ := h.app.FindRecordsByFilter("venues", "", "name", 0, 0, nil)
 	mc.Venues = venues
 
-	precedentes := buildPrecedentesView(h.app, match, mc.Pair1Name, mc.Pair2Name)
+	precedentes := buildPrecedentesView(h.app, match, mc)
 
 	canRelease := isAdmin && comp != nil && league.IsLeveled(comp) && league.IsPreScore(match.GetString("status"))
 
@@ -166,19 +169,20 @@ func matchRivalContacts(app core.App, match *core.Record, mode Mode, userID stri
 // head-to-head strip. Show reports whether there is any prior meeting to
 // display — the template hides the whole section when false.
 type PrecedentesView struct {
-	Show                 bool
-	Pair1Name, Pair2Name string
-	Pair1Wins, Pair2Wins int
-	LastMatchID          string
-	LastScore            string
-	LastProvisional      bool
-	HasProvisional       bool
+	Show                           bool
+	Pair1Name, Pair2Name           string
+	Pair1Withdrawn, Pair2Withdrawn bool
+	Pair1Wins, Pair2Wins           int
+	LastMatchID                    string
+	LastScore                      string
+	LastProvisional                bool
+	HasProvisional                 bool
 }
 
 // buildPrecedentesView looks up the head-to-head record between a match's two
 // pairs, excluding the match itself. Returns Show=false when either pair is
 // unresolved (a playoff feeder slot) or the pairs have never met before.
-func buildPrecedentesView(app core.App, match *core.Record, pair1Name, pair2Name string) PrecedentesView {
+func buildPrecedentesView(app core.App, match *core.Record, mc MatchCard) PrecedentesView {
 	pair1ID, pair2ID := match.GetString("pair1"), match.GetString("pair2")
 	if pair1ID == "" || pair2ID == "" {
 		return PrecedentesView{}
@@ -192,13 +196,15 @@ func buildPrecedentesView(app core.App, match *core.Record, pair1Name, pair2Name
 		return PrecedentesView{}
 	}
 	return PrecedentesView{
-		Show:        true,
-		Pair1Name:   pair1Name,
-		Pair2Name:   pair2Name,
-		Pair1Wins:   summary.Pair1Wins,
-		Pair2Wins:   summary.Pair2Wins,
-		LastMatchID: summary.LastMatchID,
-		LastScore:   summary.LastScore,
+		Show:           true,
+		Pair1Name:      mc.Pair1Name,
+		Pair2Name:      mc.Pair2Name,
+		Pair1Withdrawn: mc.Pair1Withdrawn,
+		Pair2Withdrawn: mc.Pair2Withdrawn,
+		Pair1Wins:      summary.Pair1Wins,
+		Pair2Wins:      summary.Pair2Wins,
+		LastMatchID:    summary.LastMatchID,
+		LastScore:      summary.LastScore,
 
 		LastProvisional: summary.LastProvisional,
 

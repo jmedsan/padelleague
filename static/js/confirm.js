@@ -3,6 +3,7 @@
 //   data-confirm-title  — modal heading (default "Confirmar")
 //   data-confirm-ok     — OK button label (default "Confirmar")
 //   data-confirm-danger — style the OK button as btn-error
+//   data-confirm-type   — the user must type this word (case-insensitive) to enable OK
 // On cancel, a bubbling `confirm:cancelled` event fires on the element so
 // templates can undo optimistic UI (e.g. re-flip a toggle).
 (function () {
@@ -11,11 +12,22 @@
     var msg = document.getElementById('confirm-message');
     var title = document.getElementById('confirm-title');
     var ok = document.getElementById('confirm-ok');
+    var typedWrap = document.getElementById('confirm-typed-wrap');
+    var typedLabel = document.getElementById('confirm-typed-label');
+    var typed = document.getElementById('confirm-typed');
     var pending = null;
+    var required = '';
+
+    function typedMatches() {
+        return required === '' || typed.value.trim().toUpperCase() === required;
+    }
 
     function settle(accepted) {
         var p = pending;
         pending = null;
+        required = '';
+        typed.value = '';
+        ok.disabled = false;
         if (dlg.open) dlg.close();
         if (!p) return;
         if (accepted) {
@@ -34,9 +46,16 @@
         title.textContent = el.getAttribute('data-confirm-title') || 'Confirmar';
         ok.textContent = el.getAttribute('data-confirm-ok') || 'Confirmar';
         ok.className = 'btn ' + (el.hasAttribute('data-confirm-danger') ? 'btn-error' : 'btn-primary');
+        required = el.getAttribute('data-confirm-type') || '';
+        typedWrap.hidden = required === '';
+        typedLabel.textContent = 'Escribe ' + required + ' para confirmar';
+        typed.value = '';
+        ok.disabled = !typedMatches();
         dlg.showModal();
-        ok.focus();
+        (required ? typed : ok).focus();
     });
+
+    typed.addEventListener('input', function () { ok.disabled = !typedMatches(); });
 
     dlg.querySelectorAll('[data-confirm]').forEach(function (btn) {
         btn.addEventListener('click', function () { settle(btn.dataset.confirm === 'ok'); });

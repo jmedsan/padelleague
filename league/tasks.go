@@ -207,12 +207,17 @@ func enrichPlaySchedule(app core.App, matchID string, task *PlayerTask) {
 	}
 }
 
-func opponentName(app core.App, m *core.Record, playerPairIDs map[string]struct{}) string {
+// opponentPairID is the pair of m that is not one of the player's pairs.
+func opponentPairID(m *core.Record, playerPairIDs map[string]struct{}) string {
 	opponent := m.GetString("pair1")
 	if _, ok := playerPairIDs[opponent]; ok {
 		opponent = m.GetString("pair2")
 	}
-	if pair, err := app.FindRecordById("pairs", opponent); err == nil {
+	return opponent
+}
+
+func opponentName(app core.App, m *core.Record, playerPairIDs map[string]struct{}) string {
+	if pair, err := app.FindRecordById("pairs", opponentPairID(m, playerPairIDs)); err == nil {
 		return pair.GetString("name")
 	}
 	return "?"

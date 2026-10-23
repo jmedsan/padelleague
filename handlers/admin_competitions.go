@@ -96,7 +96,7 @@ func (h *CompetitionHandler) buildDetailData(e *core.RequestEvent, id string, co
 		"FooterCompetitionID": id,
 	}
 	if isLeveled {
-		data["PairOptions"] = buildPairOptions(h.app, pairIDs, map[string]struct{}{}, pairFilter)
+		data["PairOptions"] = buildPairOptions(h.app, comp, map[string]struct{}{}, pairFilter)
 		if shortfall := h.leveledShortfallView(comp, pairNameMap, len(matches) > 0); shortfall != nil {
 			data["Shortfall"] = shortfall
 		}

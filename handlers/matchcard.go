@@ -13,12 +13,14 @@ import (
 
 // ScoreInputVM drives the shared score-entry partial (views/partials/score-input.html).
 type ScoreInputVM struct {
-	FieldName string // hidden field the handler reads: "scores" | "score" | "counter_scores"
-	Value     string // prefill value, e.g. "6-3 4-6"; empty for blank entry
-	IDSuffix  string // unique per instance on a page (usually the match ID)
-	Pair1Name string
-	Pair2Name string
-	Carried   string // locked carried sets from a previous session (e.g. "6-3")
+	FieldName      string // hidden field the handler reads: "scores" | "score" | "counter_scores"
+	Value          string // prefill value, e.g. "6-3 4-6"; empty for blank entry
+	IDSuffix       string // unique per instance on a page (usually the match ID)
+	Pair1Name      string
+	Pair2Name      string
+	Pair1Withdrawn bool
+	Pair2Withdrawn bool
+	Carried        string // locked carried sets from a previous session (e.g. "6-3")
 }
 
 // MatchCard is the neutral view-model for a match, rendered by
@@ -28,20 +30,25 @@ type MatchCard struct {
 	Match           *core.Record
 	Pair1Name       string
 	Pair2Name       string
+	Pair1Withdrawn  bool
+	Pair2Withdrawn  bool
 	CompetitionName string
 	CompetitionLogo string
 	RoundNum        int
 	StatusLabel     string
 	StatusClass     string
+	Void            bool // final with no winner: no pair could play the match
 
-	Score             string
-	SubmittedScore    string
-	SubmitterPairName string
-	DisputedScore     string
-	DisputeNotes      string
-	DisputerPairName  string
-	ReviewType        string
-	RequestedBy       string
+	Score              string
+	SubmittedScore     string
+	SubmitterPairName  string
+	DisputedScore      string
+	DisputeNotes       string
+	DisputerPairName   string
+	SubmitterWithdrawn bool
+	DisputerWithdrawn  bool
+	ReviewType         string
+	RequestedBy        string
 
 	Arbitration      string // "" | result | scheduling | abandonment | no_show | other
 	ArbitrationLabel string // Spanish label for Arbitration, "" when none open
@@ -51,10 +58,11 @@ type MatchCard struct {
 
 	Contact league.ContactInfo // admin contact links, shown next to the arbitration affordance
 
-	IsMyMatch bool
-	MyTeam    int // 1 or 2; 0 if viewer is not a participant
-	Opponent  string
-	Won       bool
+	IsMyMatch         bool
+	MyTeam            int // 1 or 2; 0 if viewer is not a participant
+	Opponent          string
+	OpponentWithdrawn bool
+	Won               bool
 	// Provisional marks a result the rival pair has not accepted yet.
 	Provisional bool
 	// ProposedAt is when the unconfirmed result was proposed; set with Provisional.
@@ -81,34 +89,42 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 	pairNames := league.PairNames(app, []string{match.GetString("pair1"), match.GetString("pair2")})
 	competitionName := ""
 	competitionLogo := ""
+	withdrawn := map[string]bool{}
 	if competition, err := app.FindRecordById("competitions", match.GetString("competition")); err == nil {
 		competitionName = competition.GetString("name")
 		competitionLogo = league.CompetitionLogoURL(competition.Id, competition.GetString("logo"))
+		withdrawn = league.WithdrawnSet(competition)
 	}
 	arbitration := match.GetString("arbitration")
-	statusLabel, statusCls := effectiveStatusBadge(status, arbitration)
+	void := league.IsVoid(match)
+	statusLabel, statusCls := effectiveStatusBadge(status, arbitration, void)
 	c := MatchCard{
-		Mode:              mode,
-		Match:             match,
-		Pair1Name:         pairNames[match.GetString("pair1")],
-		Pair2Name:         pairNames[match.GetString("pair2")],
-		CompetitionName:   competitionName,
-		CompetitionLogo:   competitionLogo,
-		RoundNum:          int(match.GetFloat("round_number")),
-		StatusLabel:       statusLabel,
-		StatusClass:       statusCls,
-		Score:             match.GetString("scores"),
-		SubmittedScore:    match.GetString("scores"),
-		DisputedScore:     match.GetString("disputed_scores"),
-		DisputeNotes:      match.GetString("dispute_notes"),
-		ReviewType:        match.GetString("review_type"),
-		SubmitterPairName: pairNames[match.GetString("submitted_by_pair")],
-		DisputerPairName:  pairNames[match.GetString("disputed_by_pair")],
-		RequestedBy:       playerNameIfSet(app, match.GetString("walkover_requested_by")),
-		Arbitration:       arbitration,
-		ArbitrationLabel:  league.ArbitrationLabel(arbitration),
-		ArbitrationBy:     playerNameIfSet(app, match.GetString("arbitration_by")),
-		CarriedSets:       match.GetString("carried_sets"),
+		Mode:               mode,
+		Match:              match,
+		Pair1Name:          pairNames[match.GetString("pair1")],
+		Pair2Name:          pairNames[match.GetString("pair2")],
+		Pair1Withdrawn:     withdrawn[match.GetString("pair1")],
+		Pair2Withdrawn:     withdrawn[match.GetString("pair2")],
+		CompetitionName:    competitionName,
+		CompetitionLogo:    competitionLogo,
+		RoundNum:           int(match.GetFloat("round_number")),
+		StatusLabel:        statusLabel,
+		StatusClass:        statusCls,
+		Void:               void,
+		Score:              match.GetString("scores"),
+		SubmittedScore:     match.GetString("scores"),
+		DisputedScore:      match.GetString("disputed_scores"),
+		DisputeNotes:       match.GetString("dispute_notes"),
+		ReviewType:         match.GetString("review_type"),
+		SubmitterPairName:  pairNames[match.GetString("submitted_by_pair")],
+		DisputerPairName:   pairNames[match.GetString("disputed_by_pair")],
+		SubmitterWithdrawn: withdrawn[match.GetString("submitted_by_pair")],
+		DisputerWithdrawn:  withdrawn[match.GetString("disputed_by_pair")],
+		RequestedBy:        playerNameIfSet(app, match.GetString("walkover_requested_by")),
+		Arbitration:        arbitration,
+		ArbitrationLabel:   league.ArbitrationLabel(arbitration),
+		ArbitrationBy:      playerNameIfSet(app, match.GetString("arbitration_by")),
+		CarriedSets:        match.GetString("carried_sets"),
 	}
 	// NewMatchCard is only ever called for an authenticated match/thread page
 	// render (never a logged-out surface), so Contact is always populated here
@@ -129,7 +145,8 @@ func NewMatchCard(app core.App, match *core.Record, mode Mode, viewerID string) 
 }
 
 // NewMatchRow builds a reduced read-only match view-model for list/row surfaces.
-func NewMatchRow(match *core.Record, pairNames map[string]string, playerPairIDs map[string]struct{}) MatchCard {
+// withdrawn is the set of pairs withdrawn from the match's competition.
+func NewMatchRow(match *core.Record, pairNames map[string]string, playerPairIDs map[string]struct{}, withdrawn map[string]bool) MatchCard {
 	p1 := match.GetString("pair1")
 	p2 := match.GetString("pair2")
 	status := match.GetString("status")
@@ -142,20 +159,24 @@ func NewMatchRow(match *core.Record, pairNames map[string]string, playerPairIDs 
 		myTeam = 2
 	}
 	arbitration := match.GetString("arbitration")
-	statusLabel, statusCls := effectiveStatusBadge(status, arbitration)
+	void := league.IsVoid(match)
+	statusLabel, statusCls := effectiveStatusBadge(status, arbitration, void)
 	return MatchCard{
-		Mode:        PlayerRow,
-		Match:       match,
-		Pair1Name:   pairNames[p1],
-		Pair2Name:   pairNames[p2],
-		RoundNum:    int(match.GetFloat("round_number")),
-		StatusLabel: statusLabel,
-		StatusClass: statusCls,
-		Score:       match.GetString("scores"),
-		IsMyMatch:   myP1 || myP2,
-		MyTeam:      myTeam,
-		Arbitration: arbitration,
-		CarriedSets: match.GetString("carried_sets"),
+		Mode:           PlayerRow,
+		Match:          match,
+		Pair1Name:      pairNames[p1],
+		Pair2Name:      pairNames[p2],
+		Pair1Withdrawn: withdrawn[p1],
+		Pair2Withdrawn: withdrawn[p2],
+		RoundNum:       int(match.GetFloat("round_number")),
+		StatusLabel:    statusLabel,
+		StatusClass:    statusCls,
+		Void:           void,
+		Score:          match.GetString("scores"),
+		IsMyMatch:      myP1 || myP2,
+		MyTeam:         myTeam,
+		Arbitration:    arbitration,
+		CarriedSets:    match.GetString("carried_sets"),
 	}
 }
 
@@ -245,14 +266,16 @@ func (c *MatchCard) fillPlayerActions(app core.App, match *core.Record, viewerID
 	switch team {
 	case 1:
 		c.Opponent = c.Pair2Name
+		c.OpponentWithdrawn = c.Pair2Withdrawn
 	case 2:
 		c.Opponent = c.Pair1Name
+		c.OpponentWithdrawn = c.Pair1Withdrawn
 	}
 
 	mid := match.Id
 	carried := match.GetString("carried_sets")
-	c.ScoreSubmit = ScoreInputVM{FieldName: "scores", IDSuffix: mid, Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name, Carried: carried}
-	c.ScoreCorrect = ScoreInputVM{FieldName: "scores", Value: match.GetString("scores"), IDSuffix: mid + "-correct", Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name, Carried: carried}
+	c.ScoreSubmit = c.scoreInputVM(ScoreInputVM{FieldName: "scores", IDSuffix: mid, Carried: carried})
+	c.ScoreCorrect = c.scoreInputVM(ScoreInputVM{FieldName: "scores", Value: match.GetString("scores"), IDSuffix: mid + "-correct", Carried: carried})
 
 }
 
@@ -274,13 +297,23 @@ func canCorrectNow(match *core.Record, status string) bool {
 
 func (c *MatchCard) fillAdminScoreVMs(match *core.Record) {
 	mid := match.Id
-	c.ScoreResolve = ScoreInputVM{FieldName: "score", Value: c.SubmittedScore, IDSuffix: mid + "-resolve", Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
-	c.ScoreOverride = ScoreInputVM{FieldName: "scores", Value: match.GetString("scores"), IDSuffix: mid + "-override", Pair1Name: c.Pair1Name, Pair2Name: c.Pair2Name}
+	c.ScoreResolve = c.scoreInputVM(ScoreInputVM{FieldName: "score", Value: c.SubmittedScore, IDSuffix: mid + "-resolve"})
+	c.ScoreOverride = c.scoreInputVM(ScoreInputVM{FieldName: "scores", Value: match.GetString("scores"), IDSuffix: mid + "-override"})
+}
+
+// scoreInputVM fills the pair names and withdrawn flags of a score input from the card.
+func (c *MatchCard) scoreInputVM(vm ScoreInputVM) ScoreInputVM {
+	vm.Pair1Name, vm.Pair2Name = c.Pair1Name, c.Pair2Name
+	vm.Pair1Withdrawn, vm.Pair2Withdrawn = c.Pair1Withdrawn, c.Pair2Withdrawn
+	return vm
 }
 
 // SummaryLine is the notification-mode rendering: one raw line naming the
 // pairs, the score, and the winner.
 func (c MatchCard) SummaryLine() string {
+	if c.Void {
+		return fmt.Sprintf("Resultado: %s contra %s. Sin resultado.", c.Pair1Name, c.Pair2Name)
+	}
 	winner := c.Pair2Name
 	if c.Match.GetString("winner") == c.Match.GetString("pair1") {
 		winner = c.Pair1Name

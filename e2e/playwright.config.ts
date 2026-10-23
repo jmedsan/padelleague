@@ -28,6 +28,7 @@ const MOBILE_VIEWPORT_SPECS = [
   'provisional-warning.spec.ts',
   'notification-dismiss-mobile.spec.ts',
   'leveled-league-phone.spec.ts',
+  'withdrawal.spec.ts',
 ];
 const mobileViewportMatch = MOBILE_VIEWPORT_SPECS.map(f => new RegExp(f.replace('.', '\\.') + '$'));
 

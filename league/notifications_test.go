@@ -14,12 +14,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNotificationConstructors(t *testing.T) {
-	tests := []struct {
-		name string
-		got  Notification
-		want Notification
-	}{
+// constructorCase pairs a constructor's output with the exact notification it must produce.
+type constructorCase struct {
+	name string
+	got  Notification
+	want Notification
+}
+
+func notificationConstructorCases() []constructorCase {
+	return []constructorCase{
 		{
 			name: "ResultSubmitted",
 			got:  NotifResultSubmitted("m1", "Pareja A", "Liga Primavera", "6-2 6-2"),
@@ -133,12 +136,17 @@ func TestNotificationConstructors(t *testing.T) {
 		{
 			name: "CalendarPublished",
 			got:  NotifCalendarPublished("c1", "Liga Primavera"),
-			want: Notification{Type: "calendar_published", Title: "Calendario publicado", Body: "El calendario ha sido publicado.", Link: "/competition/c1", CompName: "Liga Primavera"},
+			want: Notification{Type: "calendar_published", Title: "Calendario publicado", Body: "El calendario ha sido publicado.", Link: "/competition/c1", CompID: "c1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "OpponentWithdrawn",
-			got:  NotifOpponentWithdrawn("m1", "Pareja B", "Liga Primavera", "6-0 6-0"),
-			want: Notification{Type: "general", Title: "Pareja retirada", Body: "La pareja Pareja B se ha retirado. El partido se registra como 6-0 6-0 a tu favor.", MatchID: "m1", CompName: "Liga Primavera"},
+			got:  NotifOpponentWithdrawn(OpponentWithdrawnParams{CompID: "c1", MatchID: "m1", PairName: "Pareja B", CompName: "Liga Primavera", WoScore: "6-0 6-0"}),
+			want: Notification{Type: "general", Title: "Pareja retirada", Body: "La pareja Pareja B se ha retirado. El partido se registra como 6-0 6-0 a tu favor.", MatchID: "m1", CompID: "c1", CompName: "Liga Primavera"},
+		},
+		{
+			name: "OpponentWithdrawnReleasedMatch",
+			got:  NotifOpponentWithdrawn(OpponentWithdrawnParams{CompID: "c1", PairName: "Pareja B", CompName: "Liga Primavera", WoScore: "6-0 6-0"}),
+			want: Notification{Type: "general", Title: "Pareja retirada", Body: "La pareja Pareja B se ha retirado de la competición. Tu partido contra esa pareja se ha liberado y se te puede asignar un nuevo rival.", Link: "/competition/c1", CompID: "c1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "PairWithdrawn",
@@ -168,22 +176,22 @@ func TestNotificationConstructors(t *testing.T) {
 		{
 			name: "PenaltyApplied",
 			got:  NotifPenaltyApplied("c1", "Liga Primavera", 3, "Incomparecencia"),
-			want: Notification{Type: "penalty", Title: "Penalización aplicada", Body: "3 puntos — Incomparecencia", Link: "/competition/c1", CompName: "Liga Primavera"},
+			want: Notification{Type: "penalty", Title: "Penalización aplicada", Body: "3 puntos — Incomparecencia", Link: "/competition/c1", CompID: "c1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "PenaltyVoided",
 			got:  NotifPenaltyVoided("c1", "Liga Primavera", 3),
-			want: Notification{Type: "penalty", Title: "Penalización anulada", Body: "3 puntos anulados", Link: "/competition/c1", CompName: "Liga Primavera"},
+			want: Notification{Type: "penalty", Title: "Penalización anulada", Body: "3 puntos anulados", Link: "/competition/c1", CompID: "c1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "AdminPenaltiesApplied",
 			got:  NotifAdminPenaltiesApplied("c1", "Liga Primavera", 4),
-			want: Notification{Type: "penalty", Title: "Penalizaciones automáticas aplicadas", Body: "4 penalizaciones aplicadas", Link: "/admin/competitions/c1", CompName: "Liga Primavera"},
+			want: Notification{Type: "penalty", Title: "Penalizaciones automáticas aplicadas", Body: "4 penalizaciones aplicadas", Link: "/admin/competitions/c1", CompID: "c1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "AdminLeagueClosed",
 			got:  NotifAdminLeagueClosed("c1", "Liga Primavera", 2),
-			want: Notification{Type: "penalty", Title: "Liga cerrada automáticamente", Body: "La liga ha terminado su semana extraordinaria: 2 penalizaciones por partidos no disputados. Revísalas y corrige las que correspondan a una sola pareja.", Link: "/admin/competitions/c1", CompName: "Liga Primavera"},
+			want: Notification{Type: "penalty", Title: "Liga cerrada automáticamente", Body: "La liga ha terminado su semana extraordinaria: 2 penalizaciones por partidos no disputados. Revísalas y corrige las que correspondan a una sola pareja.", Link: "/admin/competitions/c1", CompID: "c1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "RoleChanged",
@@ -198,7 +206,7 @@ func TestNotificationConstructors(t *testing.T) {
 		{
 			name: "PaymentReminder",
 			got:  NotifPaymentReminder("c1", "Liga Primavera"),
-			want: Notification{Type: "payment", Title: "Recordatorio de pago", Body: "Recuerda realizar el pago para Liga Primavera", Link: "/competition/c1", CompName: "Liga Primavera"},
+			want: Notification{Type: "payment", Title: "Recordatorio de pago", Body: "Recuerda realizar el pago para Liga Primavera", Link: "/competition/c1", CompID: "c1", CompName: "Liga Primavera"},
 		},
 		{
 			name: "AdminCorrection",
@@ -218,7 +226,7 @@ func TestNotificationConstructors(t *testing.T) {
 		{
 			name: "Announcement",
 			got:  NotifAnnouncement("c1", "Liga Primavera", "Aviso", "Cambio de pista"),
-			want: Notification{Type: "announcement", Title: "Aviso", Body: "Cambio de pista", CompName: "Liga Primavera", Link: "/competition/c1#avisos"},
+			want: Notification{Type: "announcement", Title: "Aviso", Body: "Cambio de pista", CompID: "c1", CompName: "Liga Primavera", Link: "/competition/c1#avisos"},
 		},
 		{
 			name: "TestPush",
@@ -226,11 +234,27 @@ func TestNotificationConstructors(t *testing.T) {
 			want: Notification{Type: "general", Title: "Notificación de prueba", Body: "Si ves esto, las notificaciones funcionan correctamente.", Link: "/admin/dev-tools"},
 		},
 	}
+}
 
-	for _, tt := range tests {
+func TestNotificationConstructors(t *testing.T) {
+	for _, tt := range notificationConstructorCases() {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, tt.got)
 		})
+	}
+}
+
+// TestNotificationConstructors_CompNameNeedsCompIDOrMatchID: a notice that names its competition
+// carries CompID or MatchID, so the competition gate sees it. PairWithdrawn is the one exception:
+// it must reach the withdrawn pair, so the gate never applies to it.
+func TestNotificationConstructors_CompNameNeedsCompIDOrMatchID(t *testing.T) {
+	t.Parallel()
+	for _, tt := range notificationConstructorCases() {
+		if tt.got.CompName == "" || tt.name == "PairWithdrawn" {
+			continue
+		}
+		assert.True(t, tt.got.CompID != "" || tt.got.MatchID != "",
+			"%s names its competition without CompID or MatchID", tt.name)
 	}
 }
 

@@ -67,6 +67,8 @@ func TestWithdrawalPlan(t *testing.T) {
 		winnerOpp  bool // the opponent won (otherwise the withdrawn pair won)
 		proposed   bool // the match has a standing result proposal
 		noOpp      bool // playoff match whose next-round opponent is not seeded yet
+		oppWdrawn  bool // the opponent already withdrew from the competition
+		noWinner   bool // a void match: no winner is recorded
 		want       WithdrawalAction
 	}{
 		{name: "standard pending", kind: "standard", status: StatusPending, want: WithdrawalOfficial},
@@ -105,21 +107,47 @@ func TestWithdrawalPlan(t *testing.T) {
 		{name: "playoff pending with an opponent", kind: "playoff", status: StatusPending, want: WithdrawalOfficial},
 		{name: "playoff pending, opponent not seeded yet", kind: "playoff", status: StatusPending, noOpp: true, want: WithdrawalLeave},
 		{name: "playoff final", kind: "playoff", status: StatusFinal, scores: "6-1 6-2", winnerOpp: true, want: WithdrawalLeave},
+		{
+			name: "playoff pending, opponent already withdrew", kind: "playoff", status: StatusPending,
+			oppWdrawn: true, want: WithdrawalVoid,
+		},
+		{
+			name: "playoff walkover final, opponent already withdrew", kind: "playoff", status: StatusFinal,
+			reviewType: "walkover", scores: testWOScore, oppWdrawn: true, want: WithdrawalVoid,
+		},
+		{
+			name: "playoff void final, opponent already withdrew", kind: "playoff", status: StatusFinal,
+			noWinner: true, oppWdrawn: true, want: WithdrawalVoid,
+		},
+		{
+			name: "playoff played final, opponent already withdrew", kind: "playoff", status: StatusFinal,
+			scores: "6-1 6-2", winnerOpp: true, oppWdrawn: true, want: WithdrawalLeave,
+		},
+		{
+			name: "standard walkover final, opponent already withdrew, withdrawn pair won", kind: "standard",
+			status: StatusFinal, reviewType: "walkover", scores: testWOScore, oppWdrawn: true, want: WithdrawalLeave,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			f := newPlannerFixture(t, tc.kind)
 			var winner *core.Record
-			if tc.winnerOpp {
+			switch {
+			case tc.noWinner:
+			case tc.winnerOpp:
 				winner = f.opponent
-			} else {
+			default:
 				winner = f.withdrawn
 			}
 			m := f.match(t, tc.status, tc.reviewType, tc.scores, tc.admin, winner)
 			if tc.noOpp {
 				m.Set("pair2", "")
 				require.NoError(t, f.app.SaveNoValidate(m))
+			}
+			if tc.oppWdrawn {
+				f.comp.Set("withdrawn_pairs", []string{f.opponent.Id})
+				require.NoError(t, f.app.Save(f.comp))
 			}
 			proposed := map[string]bool{}
 			if tc.proposed {

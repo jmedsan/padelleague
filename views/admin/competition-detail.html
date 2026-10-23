@@ -168,7 +168,7 @@
         <form method="get" hx-boost="true" hx-trigger="change" class="mb-3">
             <select name="pair" aria-label="Filtrar por pareja" class="select select-bordered select-sm w-full sm:w-64">
                 <option value="all">Todas las parejas</option>
-                {{range .PairOptions}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>{{end}}
+                {{range .PairOptions}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{template "pairOptionLabel" .}}</option>{{end}}
             </select>
         </form>
         {{end}}
@@ -263,7 +263,7 @@
                 <tbody>
                     {{range .Entries}}
                     <tr>
-                        <td class="font-medium">{{template "pairLink" (elink .PairID .PairName)}}{{if and (not $.IsLeague) (not $.IsLeveled) (gt .Seed 0)}}<span class="badge badge-outline badge-xs ml-1 sm:hidden">{{.Seed}}</span>{{end}}</td>
+                        <td class="font-medium">{{template "pairLink" (elink .PairID .PairName .Withdrawn)}}{{if and (not $.IsLeague) (not $.IsLeveled) (gt .Seed 0)}}<span class="badge badge-outline badge-sm ml-1 sm:hidden">{{.Seed}}</span>{{end}}</td>
                         {{if $.IsLeveled}}<td>{{template "pairLevelSelect" (dict "PairID" .PairID "ReturnTo" (print "/admin/competitions/" $.Competition.Id) "Current" .Level "Locked" .LevelLocked "Levels" $.Levels "SizeClass" "select-sm")}}</td>{{end}}
                         {{if and (not $.IsLeague) (not $.IsLeveled)}}<td class="hidden sm:table-cell">{{if gt .Seed 0}}<span class="badge badge-outline badge-sm">{{.Seed}}</span>{{else}}<span class="text-base-content/60">—</span>{{end}}</td>{{end}}
                         <td class="text-center">
@@ -299,14 +299,9 @@
                                     <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
                                 </label>
                             </span>
-                            <form hx-post="/admin/competitions/{{$.Competition.Id}}/withdraw-pair" hx-confirm="¿Retirar a {{.PairName}}? Se resolverán todos sus partidos pendientes como incomparecencia ({{or ($.Competition.GetString "walkover_score") "6-0 6-0"}})." data-confirm-danger data-confirm-ok="Retirar" class="inline">
-                                <input type="hidden" name="pair_id" value="{{.PairID}}">
-                                <span class="tooltip tooltip-left" data-tip="Retirar de la competición">
-                                    <button type="submit" hx-disabled-elt="this" class="btn btn-ghost btn-sm btn-circle min-h-[44px] min-w-[44px] text-warning" aria-label="Retirar de la competición">
-                                        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" /></svg>
-                                    </button>
-                                </span>
-                            </form>
+                            <span class="tooltip tooltip-left" data-tip="Retirar de la competición">
+                                {{template "withdrawPairForm" (dict "CompetitionID" $.Competition.Id "PairID" .PairID "PairName" .PairName "Leveled" $.IsLeveled "Walkover" (or ($.Competition.GetString "walkover_score") "6-0 6-0") "Class" "inline" "ButtonClass" "btn btn-ghost btn-sm btn-circle min-h-[44px] min-w-[44px] text-warning")}}
+                            </span>
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja de la competición?" data-confirm-danger data-confirm-ok="Quitar" class="inline">
                                 <input type="hidden" name="pair_id" value="{{.PairID}}">
                                 <span class="tooltip tooltip-left" data-tip="Quitar de la competición">
@@ -329,7 +324,7 @@
                 {{$rows := index $.PenaltyRows $e.PairID}}
                 <li class="flex flex-col gap-1 px-4 py-2 min-h-[72px]">
                     <div class="flex items-center gap-4">
-                        <p class="font-medium break-words flex-1 min-w-0">{{$e.PairName}}{{if and (not $.IsLeague) (not $.IsLeveled) (gt $e.Seed 0)}} <span class="badge badge-outline badge-xs">{{$e.Seed}}</span>{{end}}</p>
+                        <p class="font-medium break-words flex-1 min-w-0">{{template "pairName" (dict "Name" $e.PairName "Withdrawn" $e.Withdrawn)}}{{if and (not $.IsLeague) (not $.IsLeveled) (gt $e.Seed 0)}} <span class="badge badge-outline badge-sm">{{$e.Seed}}</span>{{end}}</p>
                         <div class="flex items-center gap-1 shrink-0">
                             {{template "pairFlagToggle" (dict "CompetitionID" $.Competition.Id "Route" "payment" "PairID" $e.PairID "On" $e.Paid "Label" "pagado" "Kind" "payment")}}
                             {{template "pairFlagToggle" (dict "CompetitionID" $.Competition.Id "Route" "balls" "PairID" $e.PairID "On" $e.Balls "Label" "bolas entregadas" "Kind" "balls")}}
@@ -355,13 +350,7 @@
                                         </button>
                                     </form></li>
                                     {{end}}{{end}}
-                                    <li><form class="contents" hx-post="/admin/competitions/{{$.Competition.Id}}/withdraw-pair" hx-confirm="¿Retirar a {{$e.PairName}}? Se resolverán todos sus partidos pendientes como incomparecencia." data-confirm-danger data-confirm-ok="Retirar">
-                                        <input type="hidden" name="pair_id" value="{{$e.PairID}}">
-                                        <button type="submit" hx-disabled-elt="this" class="text-warning">
-                                            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" /></svg>
-                                            Retirar de la competición
-                                        </button>
-                                    </form></li>
+                                    <li>{{template "withdrawPairForm" (dict "CompetitionID" $.Competition.Id "PairID" $e.PairID "PairName" $e.PairName "Leveled" $.IsLeveled "Walkover" (or ($.Competition.GetString "walkover_score") "6-0 6-0") "Class" "contents" "ButtonClass" "text-warning" "Text" true)}}</li>
                                     <li><form class="contents" hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja de la competición?" data-confirm-danger data-confirm-ok="Quitar">
                                         <input type="hidden" name="pair_id" value="{{$e.PairID}}">
                                         <button type="submit" hx-disabled-elt="this" class="text-error">
@@ -402,7 +391,7 @@
 <input type="checkbox" id="penalty-modal-{{.PairID}}" class="modal-toggle">
 <div class="modal" role="dialog">
     <div class="modal-box">
-        <h3 class="text-lg font-bold mb-4">Penalizar a {{.PairName}}</h3>
+        <h3 class="text-lg font-bold mb-4">Penalizar a {{template "pairName" (dict "Name" .PairName "Withdrawn" .Withdrawn)}}</h3>
         <form hx-post="/admin/competitions/{{$.Competition.Id}}/penalty" class="space-y-3">
             <input type="hidden" name="action" value="apply">
             <input type="hidden" name="pair_id" value="{{.PairID}}">
@@ -641,7 +630,7 @@
             Clasificación
         </h2>
         {{if .Standings}}
-        {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "Mode" .Mode "WithdrawnPairs" .WithdrawnPairs)}}
+        {{template "standingsTable" (dict "Standings" .Standings "HasPenalties" .HasPenalties "Mode" .Mode)}}
         {{else}}
         {{template "emptyState" "No hay datos de clasificación todavía"}}
         {{end}}

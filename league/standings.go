@@ -31,6 +31,8 @@ type StandingRowFull struct {
 	// pending (not yet accepted) result proposal — the standingsTable
 	// component shows a tooltip on such rows.
 	HasProvisional bool
+	// Withdrawn is true when the pair is withdrawn from the competition (rendered gray).
+	Withdrawn bool
 }
 
 // ComputeStandings calculates ranked standings for a competition, counting a
@@ -97,6 +99,7 @@ func (svc *Service) computeStandings(competitionID string, includeProvisional bo
 		penaltyMap:       penaltyMap,
 		matches:          allMatches,
 		provisionalPairs: provisionalPairs,
+		withdrawn:        WithdrawnSet(comp),
 	})
 
 	sortStandings(rows, allMatches)
@@ -172,6 +175,7 @@ type standingRowInputs struct {
 	// proposal, nil when ComputeFinalStandings is computing (no provisional
 	// data exists to mark).
 	provisionalPairs map[string]bool
+	withdrawn        map[string]bool
 }
 
 func buildStandingRows(in standingRowInputs) []StandingRowFull {
@@ -193,6 +197,7 @@ func buildStandingRows(in standingRowInputs) []StandingRowFull {
 			Penalty:        penalty,
 			Form:           pairForm(pid, in.matches),
 			HasProvisional: in.provisionalPairs[pid],
+			Withdrawn:      in.withdrawn[pid],
 		})
 	}
 	return rows

@@ -27,20 +27,23 @@ type CompetitionStat struct {
 
 // RecentMatch holds a finalized match for a player/pair's recent-results list.
 type RecentMatch struct {
-	MatchID         string
-	Pair1ID         string
-	Pair2ID         string
-	PairName1       string
-	PairName2       string
-	OpponentID      string
-	Opponent        string
-	Score           string
-	Won             bool
-	Date            string
-	CompetitionID   string
-	RoundNum        int
-	CompetitionName string
-	CompetitionLogo string
+	MatchID           string
+	Pair1ID           string
+	Pair2ID           string
+	PairName1         string
+	PairName2         string
+	Pair1Withdrawn    bool
+	Pair2Withdrawn    bool
+	OpponentID        string
+	Opponent          string
+	OpponentWithdrawn bool
+	Score             string
+	Won               bool
+	Date              string
+	CompetitionID     string
+	RoundNum          int
+	CompetitionName   string
+	CompetitionLogo   string
 	// Provisional marks a result not yet accepted by the rival pair.
 	Provisional bool
 }
@@ -82,6 +85,9 @@ type matchResult struct {
 	compID   string
 	compName string
 	compLogo string
+
+	p1withdrawn bool
+	p2withdrawn bool
 
 	provisional bool
 
@@ -428,7 +434,7 @@ func tallyScore(t *playerTotals, score string, isPair1 bool) {
 
 func pairMatchResults(app core.App, pairID string) []matchResult {
 	matches, _ := app.FindRecordsByFilter("matches",
-		"(pair1 = {:pid} || pair2 = {:pid}) && status = 'final'",
+		"(pair1 = {:pid} || pair2 = {:pid}) && status = 'final' && winner != ''",
 		"", 0, 0,
 		map[string]any{"pid": pairID})
 	candidates, _ := app.FindRecordsByFilter("matches",
@@ -478,6 +484,8 @@ func pairMatchResults(app core.App, pairID string) []matchResult {
 			compName: comp.name,
 			compLogo: comp.logo,
 
+			p1withdrawn: comp.withdrawn[m.GetString("pair1")],
+			p2withdrawn: comp.withdrawn[m.GetString("pair2")],
 			provisional: provisional,
 			lineup:      MatchLineup(m, pairID),
 		})
@@ -487,6 +495,7 @@ func pairMatchResults(app core.App, pairID string) []matchResult {
 
 type compNameLogo struct {
 	name, logo string
+	withdrawn  map[string]bool
 }
 
 // competitionInfo batch-resolves the distinct competition IDs referenced by
@@ -507,8 +516,9 @@ func competitionInfo(app core.App, matches []*core.Record) map[string]compNameLo
 			continue
 		}
 		info[cid] = compNameLogo{
-			name: comp.GetString("name"),
-			logo: CompetitionLogoURL(comp.Id, comp.GetString("logo")),
+			name:      comp.GetString("name"),
+			logo:      CompetitionLogoURL(comp.Id, comp.GetString("logo")),
+			withdrawn: WithdrawnSet(comp),
 		}
 	}
 	return info
@@ -520,25 +530,28 @@ func buildRecentMatches(allResults []matchResult, limit int) []RecentMatch {
 	}
 	recent := make([]RecentMatch, 0, limit)
 	for _, r := range allResults[:limit] {
-		opponentID, opponent := r.p2id, r.p2
+		opponentID, opponent, opponentWithdrawn := r.p2id, r.p2, r.p2withdrawn
 		if !r.isPair1 {
-			opponentID, opponent = r.p1id, r.p1
+			opponentID, opponent, opponentWithdrawn = r.p1id, r.p1, r.p1withdrawn
 		}
 		recent = append(recent, RecentMatch{
-			MatchID:         r.matchID,
-			Pair1ID:         r.p1id,
-			Pair2ID:         r.p2id,
-			PairName1:       r.p1,
-			PairName2:       r.p2,
-			OpponentID:      opponentID,
-			Opponent:        opponent,
-			Score:           r.score,
-			Won:             r.won,
-			Date:            r.date,
-			RoundNum:        r.roundNum,
-			CompetitionID:   r.compID,
-			CompetitionName: r.compName,
-			Provisional:     r.provisional,
+			MatchID:           r.matchID,
+			Pair1ID:           r.p1id,
+			Pair2ID:           r.p2id,
+			PairName1:         r.p1,
+			PairName2:         r.p2,
+			Pair1Withdrawn:    r.p1withdrawn,
+			Pair2Withdrawn:    r.p2withdrawn,
+			OpponentID:        opponentID,
+			Opponent:          opponent,
+			OpponentWithdrawn: opponentWithdrawn,
+			Score:             r.score,
+			Won:               r.won,
+			Date:              r.date,
+			RoundNum:          r.roundNum,
+			CompetitionID:     r.compID,
+			CompetitionName:   r.compName,
+			Provisional:       r.provisional,
 		})
 	}
 	return recent

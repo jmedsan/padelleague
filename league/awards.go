@@ -8,10 +8,11 @@ import (
 
 // Award represents a competition award (e.g. best pair, longest streak).
 type Award struct {
-	Title    string
-	PairID   string
-	PairName string
-	Value    string
+	Title     string
+	PairID    string
+	PairName  string
+	Value     string
+	Withdrawn bool
 }
 
 // Awards computes end-of-competition awards based on standings and match
@@ -55,6 +56,13 @@ func (svc *Service) Awards(competitionID string) []Award {
 		awards = append(awards, *a)
 	}
 
+	withdrawn := make(map[string]bool, len(standings))
+	for _, s := range standings {
+		withdrawn[s.PairID] = s.Withdrawn
+	}
+	for i := range awards {
+		awards[i].Withdrawn = withdrawn[awards[i].PairID]
+	}
 	return awards
 }
 
@@ -66,7 +74,7 @@ type streakInfo struct {
 
 func (svc *Service) longestStreakAward(competitionID string, standings []StandingRowFull) *Award {
 	matches, _ := svc.app.FindRecordsByFilter("matches",
-		"competition = {:cid} && status = 'final'",
+		"competition = {:cid} && status = 'final' && winner != ''",
 		"", 0, 0,
 		map[string]any{"cid": competitionID})
 

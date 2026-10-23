@@ -16,7 +16,7 @@ import (
 // newMatchCard builds a minimal MatchCard from a match record for group tests.
 func newLeveledMatchCard(t *testing.T, _ core.App, m *core.Record) MatchCard {
 	t.Helper()
-	return NewMatchRow(m, map[string]string{}, map[string]struct{}{})
+	return NewMatchRow(m, map[string]string{}, map[string]struct{}{}, map[string]bool{})
 }
 
 // makeRawMatch inserts a match record and optionally sets arrange_by /

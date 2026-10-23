@@ -249,6 +249,10 @@
                 <div class="modal-box">
                     <h3 id="confirm-title" class="text-lg font-bold">Confirmar</h3>
                     <p id="confirm-message" class="py-4"></p>
+                    <div id="confirm-typed-wrap" class="w-full pb-4" hidden>
+                        <label for="confirm-typed" id="confirm-typed-label" class="block pb-2"></label>
+                        <input id="confirm-typed" type="text" autocomplete="off" class="input input-bordered w-full">
+                    </div>
                     <div class="modal-action">
                         <button type="button" class="btn btn-ghost" data-confirm="cancel">Cancelar</button>
                         <button type="button" id="confirm-ok" class="btn btn-primary" data-confirm="ok">Confirmar</button>
