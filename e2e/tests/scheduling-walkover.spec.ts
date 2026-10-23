@@ -275,7 +275,7 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     await suPatch(page.request, suToken, `/api/collections/app_settings/records/${settings.id}`, { contact_whatsapp: '' });
   });
 
-  test('playoff bracket renders at mobile viewport with Spanish round names', async ({ page, browser }, testInfo) => {
+  test('playoff bracket renders at mobile viewport with Spanish round names', { tag: '@match-font' }, async ({ page, browser }, testInfo) => {
     suToken = loadTestData().adminToken;
     const data = loadTestData();
 
@@ -328,7 +328,9 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     const mobileContext = await browser.newContext({ viewport: { width: 375, height: 812 }, hasTouch: true });
     const mobilePage = await mobileContext.newPage();
     await loginAs(mobilePage, PLAYER1_EMAIL, PLAYER1_PASSWORD);
-    await mobilePage.goto(`/competition/${compId}`);
+    await mobilePage.goto('/');
+    await mobilePage.locator(`a[href="/competition/${compId}"]`).first().click();
+    await mobilePage.waitForURL(`**/competition/${compId}`);
 
     await expect(mobilePage.getByRole('heading', { name: 'Cuadro' })).toBeVisible({ timeout: 10000 });
     await expect(mobilePage.getByText('Semifinal')).toBeVisible();
@@ -338,6 +340,13 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
     const bracketCards = mobilePage.locator('.card.shadow-sm.border');
     const cardCount = await bracketCards.count();
     expect(cardCount).toBeGreaterThanOrEqual(3);
+
+    // badge-sm and badge-xs share a 0.75rem font, so the guard is the height: badge-sm is 1rem, badge-xs 0.75rem.
+    const statusBadge = mobilePage.locator('a.match .badge').first();
+    await expect(statusBadge).toBeVisible();
+    const badgeHeightRem = await statusBadge.evaluate((el) =>
+      parseFloat(getComputedStyle(el).height) / parseFloat(getComputedStyle(document.documentElement).fontSize));
+    expect(badgeHeightRem).toBeGreaterThanOrEqual(1);
 
     // This page bypasses the pageGuards auto-fixture (it's a manually
     // created context, not the fixture's own `page`), so run the same

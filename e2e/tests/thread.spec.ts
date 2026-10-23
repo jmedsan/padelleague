@@ -2,7 +2,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import {
   loginAs, scratchMatchId, loadTestData, leagueDate, openMatchFromHome,
-  suPost as suPostBase, suPatch as suPatchBase,
+  suPost as suPostBase, suPatch as suPatchBase, suGet as suGetBase,
   PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER2_EMAIL, PLAYER2_PASSWORD, PLAYER5_EMAIL, PLAYER5_PASSWORD,
   ADMIN_EMAIL, ADMIN_PASSWORD,
 } from '../helpers';
@@ -520,6 +520,29 @@ test.describe('match thread', { tag: '@thread' }, () => {
     // same pattern as resultBox's rejection note.
     await expect(page.locator('#thread-timeline').locator('.badge', { hasText: 'Rechazada' })).toBeVisible({ timeout: 5000 });
     await expect(page.locator('#thread-timeline').getByText('No puedo ese día')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('counter-propose divider stays at text-sm or larger', { tag: '@match-font' }, async ({ page, request }) => {
+    const data = loadTestData();
+    const match = await suPost(request, '/api/collections/matches/records', {
+      competition: data.competitionId, pair1: data.pair1Id, pair2: data.pair2Id,
+      status: 'pending', round_number: 73,
+    });
+    const player2 = (await suGetBase(request, suToken(), `/api/collections/users/records?filter=email='${PLAYER2_EMAIL}'`)).items[0];
+    await suPost(request, '/api/collections/match_messages/records', {
+      match: match.id, author: player2.id, type: 'scheduling_proposal', proposal_status: 'pending',
+      proposal_data: { date: '2027-02-10', time: '18:00', venue_name: 'Club Test' },
+    });
+
+    await loginAs(page, PLAYER5_EMAIL, PLAYER5_PASSWORD);
+    await openMatchFromHome(page, match.id);
+    await page.locator('button:has-text("Rechazar y proponer otra")').first().click();
+    const divider = page.locator('.counter-form .divider', { hasText: 'Nueva propuesta' });
+    await expect(divider).toBeVisible({ timeout: 3000 });
+    // Compared in rem: html is 18px, so text-sm (0.875rem) is 15.75px.
+    const fontRem = await divider.evaluate((el) =>
+      parseFloat(getComputedStyle(el).fontSize) / parseFloat(getComputedStyle(document.documentElement).fontSize));
+    expect(fontRem).toBeGreaterThanOrEqual(0.875);
   });
 
   test('flatpickr date picker posts date in YYYY-MM-DD format', async ({ page, request }) => {

@@ -332,7 +332,7 @@
                 <div class="form-control mt-2 rejection-text-wrap hidden">
                     <textarea name="rejection_text" class="textarea textarea-bordered textarea-sm w-full" placeholder="Explica el motivo..."></textarea>
                 </div>
-                <div class="divider text-xs my-2">Nueva propuesta</div>
+                <div class="divider text-sm my-2">Nueva propuesta</div>
                 <div class="grid grid-cols-2 gap-3">
                     <div class="form-control">
                         <label class="label py-1"><span class="label-text text-sm">Fecha</span></label>
@@ -566,7 +566,7 @@
         </div>
         {{end}}
         {{if or (eq (.Match.GetString "status") "final") (eq (.Match.GetString "status") "pending")}}
-        <div class="text-center"><span class="badge {{.StatusClass}} badge-xs">{{.StatusLabel}}</span></div>
+        <div class="text-center"><span class="badge {{.StatusClass}} badge-sm">{{.StatusLabel}}</span></div>
         {{end}}
     </div>
 </a>
