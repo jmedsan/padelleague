@@ -238,12 +238,15 @@ func pairForm(pid string, matches []*core.Record) []bool {
 // regardless of input order.
 func sortStandings(rows []StandingRowFull, matches []*core.Record) {
 	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].Withdrawn != rows[j].Withdrawn {
+			return !rows[i].Withdrawn
+		}
 		return rows[i].Points > rows[j].Points
 	})
 
 	for start := 0; start < len(rows); {
 		end := start + 1
-		for end < len(rows) && rows[end].Points == rows[start].Points {
+		for end < len(rows) && rows[end].Points == rows[start].Points && rows[end].Withdrawn == rows[start].Withdrawn {
 			end++
 		}
 		resolveTieGroup(rows[start:end], matches)

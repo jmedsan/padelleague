@@ -991,3 +991,36 @@ func TestComputeStandings_SubGroupFreshMiniStats(t *testing.T) {
 	// Bug (4-way stats for sub-group): would produce [A, B, D, C].
 	assert.Equal(t, []string{"SG A", "SG D", "SG B", "SG C"}, order)
 }
+
+func TestComputeStandings_WithdrawnPairRanksLastDespitePoints(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+
+	p1 := makePair(t, app, "Stand Withdrawn")
+	p2 := makePair(t, app, "Stand Second")
+	p3 := makePair(t, app, "Stand Third")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2, p3})
+
+	for _, won := range []struct{ winner, loser *core.Record }{{p1, p2}, {p1, p3}, {p2, p3}} {
+		m := makeMatch(t, app, comp.Id, won.winner.Id, won.loser.Id, "final")
+		m.Set("scores", "6-3 6-4")
+		m.Set("winner", won.winner.Id)
+		require.NoError(t, app.Save(m))
+	}
+	comp.Set("withdrawn_pairs", []string{p1.Id})
+	require.NoError(t, app.Save(comp))
+
+	rows, err := svc.ComputeStandings(comp.Id)
+	require.NoError(t, err)
+	require.Len(t, rows, 3)
+
+	assert.Equal(t, p2.Id, rows[0].PairID)
+	assert.Equal(t, 1, rows[0].Position)
+	assert.Equal(t, p3.Id, rows[1].PairID)
+	assert.Equal(t, 2, rows[1].Position)
+	assert.Equal(t, p1.Id, rows[2].PairID)
+	assert.Equal(t, 3, rows[2].Position)
+	assert.Equal(t, 6, rows[2].Points)
+	assert.True(t, rows[2].Withdrawn)
+}
