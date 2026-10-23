@@ -546,3 +546,22 @@ func TestShowUpScore_PlayerScopeFollowsTheFrozenLineup(t *testing.T) {
 	assert.Less(t, svc.showUpScore(pairs, played, newReliabilityScope(app, orig)), float64(100), "the ex-player was in that lineup")
 	assert.InDelta(t, 100, svc.showUpScore(pairs, played, newReliabilityScope(app, repl.Id)), 0.001, "the replacement was not")
 }
+
+func TestShowUpScore_PlayedLossOfWithdrawnPairIsNotAWalkoverLoss(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	svc := New(app, nil)
+	p1 := makePair(t, app, "ShowPlayA")
+	p2 := makePair(t, app, "ShowPlayB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	played := makeMatch(t, app, comp.Id, p1.Id, p2.Id, "pending")
+	played.Set("status", "final")
+	played.Set("review_type", "")
+	played.Set("winner", p2.Id)
+	played.Set("scores", "4-6 4-6")
+	require.NoError(t, app.Save(played))
+
+	assert.InDelta(t, 100, svc.showUpScore([]string{p1.Id}, 3, reliabilityScope{}), 0.001,
+		"a played loss keeps its review type, so the pair showed up")
+}

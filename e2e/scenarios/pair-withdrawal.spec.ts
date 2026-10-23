@@ -12,11 +12,11 @@ const MATCHES_PER_PAIR = 10;
 
 // One match per state, in the order they are driven; the rest stay assigned as spares.
 const STATES: MatchState[] = [
-  'assigned', 'dateProposed', 'scheduled', 'scheduledResult',
+  'assigned', 'dateProposed', 'pendingResult', 'scheduled', 'scheduledResult',
   'final', 'disputed', 'arbitrated', 'adminFinal',
 ];
 
-test('00 seed: six pairs, play twice, the pair under test in eight states and spares', async () => {
+test('00 seed: six pairs, play twice, the pair under test in nine states and spares', async () => {
   const raw = loadCtx();
   const api: ScenarioApi = { baseURL: raw.baseURL, suToken: raw.suToken, adminCookie: raw.adminCookie };
   const suffix = uniqueSuffix();

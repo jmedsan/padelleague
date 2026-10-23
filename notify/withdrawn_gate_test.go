@@ -1,6 +1,7 @@
 package notify
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -76,6 +77,19 @@ func TestNotifyPlayers_WithdrawnPairGetsNoCompetitionNotice(t *testing.T) {
 		{"calendar published", func(m *core.Record) league.Notification {
 			return league.NotifCalendarPublished(m.GetString("competition"), "Test")
 		}},
+		{"result confirmed", func(m *core.Record) league.Notification {
+			return league.NotifResultConfirmed(m.Id, "Pareja B", "Test")
+		}},
+		{"result countered", func(m *core.Record) league.Notification {
+			return league.NotifResultCountered(m.Id, "Pareja B", "Test")
+		}},
+		{"proposal accepted", func(m *core.Record) league.Notification {
+			return league.NotifProposalAccepted(league.ProposalAcceptedParams{MatchID: m.Id, ResponderName: "Ana",
+				Date: "15/03", Time: "18:00", CompName: "Test"})
+		}},
+		{"proposal rejected", func(m *core.Record) league.Notification {
+			return league.NotifProposalRejected(m.Id, "Ana", "no me viene bien", "Test")
+		}},
 	}
 	app := newTestApp(t)
 	notifier := NewNotifier(app, "", "")
@@ -91,6 +105,25 @@ func TestNotifyPlayers_WithdrawnPairGetsNoCompetitionNotice(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestNotifyPlayers_WithdrawnPairGetsNoPush: the push channel obeys the same gate as the in-app one.
+func TestNotifyPlayers_WithdrawnPairGetsNoPush(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	srv, hits := pushServer(t, http.StatusCreated)
+	priv, pub := vapidKeys(t)
+	match, withdrawn, opponent := withdrawnMatch(t, app)
+	recipients := append(append([]string{}, withdrawn...), opponent...)
+	for _, uid := range recipients {
+		makeSubscription(t, app, uid, srv.URL)
+	}
+
+	notifier := NewNotifier(app, pub, priv)
+	notifier.NotifyPlayers(recipients, league.NotifNewMessage(match.Id, "Ana", "hola", "Test"))
+	notifier.WaitPush()
+
+	assert.Equal(t, int32(len(opponent)), hits.Load(), "only the opponent's players get a push")
 }
 
 // TestNotifyPlayers_WithdrawnPairGetsNoEmail: the email channel obeys the same gate as the in-app one.

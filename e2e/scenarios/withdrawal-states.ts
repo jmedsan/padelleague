@@ -10,6 +10,7 @@ const SCORE = '6-3 6-4';
 export type MatchState =
   | 'assigned'
   | 'dateProposed'
+  | 'pendingResult'
   | 'scheduled'
   | 'scheduledResult'
   | 'final'
@@ -20,6 +21,7 @@ export type MatchState =
 const EXPECTED_STATUS: Record<MatchState, string> = {
   assigned: 'pending',
   dateProposed: 'pending',
+  pendingResult: 'pending',
   scheduled: 'scheduled',
   scheduledResult: 'scheduled',
   final: 'final',
@@ -89,6 +91,20 @@ async function acceptDate(api: ScenarioApi, d: Duel): Promise<void> {
   await playerPost(api, d.rivalEmail, `/match/${d.matchId}/thread/proposal/${id}/respond`, { action: 'accept' });
 }
 
+// adminSetSlot sets the slot through the admin override, the only live route that gives a pending match
+// a date and club without accepting a proposal (applyOverride leaves the status alone).
+async function adminSetSlot(api: ScenarioApi, matchId: string): Promise<void> {
+  const filter = encodeURIComponent(`name='${SLOT.venue}'`);
+  const venues = await apiGet(api, `/api/collections/venues/records?filter=${filter}&perPage=5`);
+  if (venues.totalItems !== 1) throw new Error(`venue ${SLOT.venue}: expected one record, got ${venues.totalItems}`);
+  await formPostData(api, `/match/${matchId}/admin-override`,
+    { date: SLOT.date, time: SLOT.time, venue_id: venues.items[0].id });
+  const m = await apiGet(api, `/api/collections/matches/records/${matchId}`);
+  if (!String(m.date).startsWith(SLOT.date) || m.club !== SLOT.venue) {
+    throw new Error(`match ${matchId}: admin override did not set date ${SLOT.date} and club ${SLOT.venue}, got ${m.date} / ${m.club}`);
+  }
+}
+
 async function submitResult(api: ScenarioApi, d: Duel): Promise<void> {
   await playerPost(api, d.proposerEmail, `/match/${d.matchId}/submit`, { scores: SCORE });
 }
@@ -111,6 +127,11 @@ export async function driveTo(api: ScenarioApi, d: Duel, state: MatchState): Pro
     case 'dateProposed':
       await proposeDate(api, d);
       await pendingProposalID(api, d.matchId, 'scheduling_proposal');
+      break;
+    case 'pendingResult':
+      await adminSetSlot(api, d.matchId);
+      await submitResult(api, d);
+      await pendingProposalID(api, d.matchId, 'result_submission');
       break;
     case 'scheduled':
       await acceptDate(api, d);

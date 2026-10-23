@@ -77,7 +77,7 @@ export const SCENARIOS: Record<string, Scenario> = {
     specs: ['pair-swap.spec.ts'],
   },
   'pair-withdrawal': {
-    description: 'standard league, 6 pairs, play twice — one pair in eight match states (assigned to admin 6-0) plus spares; withdraw it from its detail page',
+    description: 'standard league, 6 pairs, play twice — one pair in nine match states (assigned to admin 6-0) plus spares; withdraw it from its detail page',
     startStage: 'blank',
     specs: ['pair-withdrawal.spec.ts'],
   },

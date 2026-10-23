@@ -304,6 +304,7 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     const message = page.locator('#confirm-message');
     await expect(message).toContainText('¿Retirar a Pareja Alpha?');
     await expect(message).toContainText('incomparecencia (6-0 6-0)');
+    await expect(message).toContainText('salvo los que el administrador ya fijó como incomparecencia a favor del rival');
     await expect(message).not.toContainText('sin jugar se liberan');
     await page.locator('[data-confirm="cancel"]').click();
   });
