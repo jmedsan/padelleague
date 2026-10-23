@@ -196,7 +196,6 @@ export async function createCompetition(
     // scenario's admin activity log doesn't show a spurious change on the
     // first edit that touches neither field.
     gender_type: 'free',
-    walkover_score: '6-0 6-0',
   });
   return record.id;
 }
@@ -395,7 +394,6 @@ export async function setCompetitionDates(api: ScenarioApi, competitionId: strin
     start_date: startDate,
     end_date: endDate,
     arrange_grace_days: String(comp.arrange_grace_days || 3),
-    walkover_score: comp.walkover_score || '6-0 6-0',
     default_penalty: String(comp.default_penalty || 3),
     recovery_days: String(comp.recovery_days || 14),
     max_pending_matches: String(comp.max_pending_matches ?? 0),

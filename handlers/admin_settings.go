@@ -49,7 +49,6 @@ func (h *AdminSettingsHandler) SaveDefaults(e *core.RequestEvent) error {
 
 	rec.Set("quorum_timeout_hours", fields.quorum)
 	rec.Set("arrange_grace_days", fields.grace)
-	rec.Set("walkover_score", fields.walkover)
 	rec.Set("default_penalty", fields.penalty)
 	rec.Set("recovery_days", fields.recovery)
 	rec.Set("play_twice", e.Request.FormValue("play_twice") == "on")
@@ -192,7 +191,6 @@ func (h *AdminSettingsHandler) SettingsLogoDelete(e *core.RequestEvent) error {
 // defaults form.
 type settingsFormFields struct {
 	quorum, grace, penalty, recovery, maxUses, expDays int
-	walkover                                           string
 	reminderHours                                      []int
 }
 
@@ -220,11 +218,6 @@ func parseSettingsForm(e *core.RequestEvent) (settingsFormFields, string) {
 	}
 	if f.expDays, err = parseBoundedInt(e, "invite_expiration_days", 1); err != nil {
 		return f, "Días de expiración de invitación debe ser un número entero mayor que 0"
-	}
-
-	f.walkover = e.Request.FormValue("walkover_score")
-	if _, err := league.ParseScore(f.walkover); err != nil {
-		return f, "Marcador de incomparecencia no válido"
 	}
 
 	f.reminderHours, err = league.ParseReminderHours(e.Request.FormValue("match_reminder_hours"))

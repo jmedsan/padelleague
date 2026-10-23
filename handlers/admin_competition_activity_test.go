@@ -56,11 +56,11 @@ func TestCompetitionUpdateDetail_MultipleFieldsJoinedWithVerbPrefix(t *testing.T
 	before := record.Original()
 
 	record.Set("gender_type", "male")
-	record.Set("walkover_score", "6-0 6-0")
+	record.Set("play_twice", true)
 	require.NoError(t, app.Save(record))
 
 	detail := competitionUpdateDetail(before, record)
-	assert.Equal(t, "actualizó la configuración: Género: — → Masculina; Marcador de incomparecencia: — → 6-0 6-0", detail)
+	assert.Equal(t, "actualizó la configuración: Ida y vuelta: no → sí; Género: — → Masculina", detail)
 }
 
 func TestCompetitionUpdateDetail_NoChangeReturnsEmpty(t *testing.T) {

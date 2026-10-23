@@ -11,7 +11,6 @@ import (
 type AppSettings struct {
 	QuorumTimeoutHours       int
 	ArrangeGraceDays         int
-	WalkoverScore            string
 	DefaultPenalty           int
 	RecoveryDays             int
 	PlayTwice                bool
@@ -34,7 +33,6 @@ func DefaultSettings() AppSettings {
 	return AppSettings{
 		QuorumTimeoutHours:       24,
 		ArrangeGraceDays:         3,
-		WalkoverScore:            "6-0 6-0",
 		DefaultPenalty:           3,
 		RecoveryDays:             7,
 		GenderType:               "free",
@@ -65,7 +63,6 @@ func LoadSettings(app core.App) AppSettings {
 	s := AppSettings{
 		QuorumTimeoutHours:       int(r.GetFloat("quorum_timeout_hours")),
 		ArrangeGraceDays:         int(r.GetFloat("arrange_grace_days")),
-		WalkoverScore:            r.GetString("walkover_score"),
 		DefaultPenalty:           int(r.GetFloat("default_penalty")),
 		RecoveryDays:             int(r.GetFloat("recovery_days")),
 		PlayTwice:                r.GetBool("play_twice"),
@@ -84,9 +81,6 @@ func LoadSettings(app core.App) AppSettings {
 	}
 	if len(s.MatchReminderHours) == 0 {
 		s.MatchReminderHours = []int{defaultReminderHoursFirst, defaultReminderHoursSecond}
-	}
-	if s.WalkoverScore == "" {
-		s.WalkoverScore = "6-0 6-0"
 	}
 	if s.GenderType == "" {
 		s.GenderType = "free"

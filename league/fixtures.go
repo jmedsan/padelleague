@@ -218,9 +218,9 @@ func settleSeeds(txApp core.App, comp, nm *core.Record, roundMatches []*core.Rec
 		AddSystemResultEvent(txApp, nm.Id, NoResultEventText)
 		return nil
 	case p1Ok:
-		return walkoverOver(txApp, nm, WalkoverScore(comp), p1)
+		return walkoverOver(txApp, nm, WalkoverScore, p1)
 	default:
-		return walkoverOver(txApp, nm, WalkoverScore(comp), p2)
+		return walkoverOver(txApp, nm, WalkoverScore, p2)
 	}
 }
 

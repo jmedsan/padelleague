@@ -199,7 +199,6 @@ func TestWalkoverApproveCreatesTimelineEntry(t *testing.T) {
 		p1 := handlers.MakePairTB(tb, app, "TL WO A")
 		p2 := handlers.MakePairTB(tb, app, "TL WO B")
 		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		comp.Set("walkover_score", "6-0 6-0")
 		require.NoError(tb, app.Save(comp))
 		m := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
 		m.Set("review_type", "walkover")

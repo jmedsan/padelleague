@@ -23,7 +23,7 @@ func TestSettingsGET_ShowsDefaultsForm(t *testing.T) {
 		Method:          http.MethodGet,
 		URL:             "/admin/settings",
 		ExpectedStatus:  200,
-		ExpectedContent: []string{`name="quorum_timeout_hours" value="24"`, `name="walkover_score" value="6-0 6-0"`},
+		ExpectedContent: []string{`name="quorum_timeout_hours" value="24"`},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupProductionRoutes(tb, app, e)
@@ -46,7 +46,7 @@ func TestSaveDefaults_UpdatesAppSettings(t *testing.T) {
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
-		s.Body = strings.NewReader("gender_type=mixed&quorum_timeout_hours=72&arrange_grace_days=5&walkover_score=6-1+6-1&default_penalty=4&recovery_days=20&invite_max_uses=15&invite_expiration_days=10")
+		s.Body = strings.NewReader("gender_type=mixed&quorum_timeout_hours=72&arrange_grace_days=5&default_penalty=4&recovery_days=20&invite_max_uses=15&invite_expiration_days=10")
 		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -59,38 +59,10 @@ func TestSaveDefaults_UpdatesAppSettings(t *testing.T) {
 		assert.Equal(tb, "mixed", rec.GetString("gender_type"))
 		assert.Equal(tb, 72.0, rec.GetFloat("quorum_timeout_hours"))
 		assert.Equal(tb, 5.0, rec.GetFloat("arrange_grace_days"))
-		assert.Equal(tb, "6-1 6-1", rec.GetString("walkover_score"))
 		assert.Equal(tb, 4.0, rec.GetFloat("default_penalty"))
 		assert.Equal(tb, 20.0, rec.GetFloat("recovery_days"))
 		assert.Equal(tb, 15.0, rec.GetFloat("invite_max_uses"))
 		assert.Equal(tb, 10.0, rec.GetFloat("invite_expiration_days"))
-	}
-	s.Test(t)
-}
-
-func TestSaveDefaults_InvalidWalkoverScoreRejected(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  handlers.TestAppFactory,
-		Name:            "POST /admin/settings/defaults rejects an invalid walkover score",
-		Method:          http.MethodPost,
-		URL:             "/admin/settings/defaults",
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"no válido"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupProductionRoutes(tb, app, e)
-		admin := makeAdminUser(tb, app)
-		s.Body = strings.NewReader("gender_type=free&quorum_timeout_hours=48&arrange_grace_days=3&walkover_score=bogus&default_penalty=3&recovery_days=14&invite_max_uses=10&invite_expiration_days=7")
-		hdrs := handlers.AuthHeaders(tb, admin)
-		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-		s.Headers = hdrs
-	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		records, err := app.FindRecordsByFilter("app_settings", "", "", 1, 0)
-		require.NoError(tb, err)
-		require.Len(tb, records, 1)
-		assert.Equal(tb, "6-0 6-0", records[0].GetString("walkover_score"), "invalid save must not persist")
 	}
 	s.Test(t)
 }

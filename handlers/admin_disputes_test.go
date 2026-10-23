@@ -429,7 +429,6 @@ func TestWalkoverApprove(t *testing.T) {
 		p2ID = p2.Id
 		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("default_penalty", 5)
-		comp.Set("walkover_score", "6-0 6-0")
 		require.NoError(tb, app.Save(comp))
 		compID = comp.Id
 		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
@@ -506,7 +505,6 @@ func TestWalkoverApprove_PairTwoWins_StoresWinnersOrder(t *testing.T) {
 		p2 := handlers.MakePairTB(tb, app, "WoP2B")
 		p2ID = p2.Id
 		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
-		comp.Set("walkover_score", "6-0 6-0")
 		require.NoError(tb, app.Save(comp))
 		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
 		match.Set("review_type", "walkover")
@@ -547,7 +545,6 @@ func TestWalkoverApprove_ZeroPenalty_NoPenaltyApplied(t *testing.T) {
 		p2ID = p2.Id
 		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("default_penalty", 0)
-		comp.Set("walkover_score", "6-0 6-0")
 		require.NoError(tb, app.Save(comp))
 		compID = comp.Id
 		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
@@ -592,7 +589,6 @@ func TestWalkoverApprove_PenaltyFails_AlertsAdmin(t *testing.T) {
 		p2 := handlers.MakePairTB(tb, app, "WoFailB")
 		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("default_penalty", 5)
-		comp.Set("walkover_score", "6-0 6-0")
 		require.NoError(tb, app.Save(comp))
 		match := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "disputed")
 		match.Set("review_type", "walkover")
@@ -635,7 +631,6 @@ func TestWalkoverApprove_AlreadyFinal_RejectedNoDoublePenalty(t *testing.T) {
 		p2ID = p2.Id
 		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})
 		comp.Set("default_penalty", 5)
-		comp.Set("walkover_score", "6-0 6-0")
 		handlers.MakePenaltyTB(tb, app, comp.Id, p2.Id, 5, "Incomparecencia aprobada", admin.Id, false)
 		compID = comp.Id
 		// Simulates the state right after a first, successful approval.

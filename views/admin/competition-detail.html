@@ -74,10 +74,6 @@
                         <label class="label"><a href="/admin/outstanding" class="label-text-alt link link-hover">Ver partidos pendientes →</a></label>
                     </div>
                     <div class="form-control mb-3">
-                        <label class="label" for="edit-comp-walkover"><span class="label-text">Marcador de incomparecencia <span class="tooltip tooltip-right" data-tip="Resultado que se asigna automáticamente al aprobar una incomparecencia"><span class="text-info cursor-help">ⓘ</span></span></span></label>
-                        <input type="text" id="edit-comp-walkover" name="walkover_score" value="{{or (.Competition.GetString "walkover_score") "6-0 6-0"}}" class="input input-bordered input-sm">
-                    </div>
-                    <div class="form-control mb-3">
                         <label class="label" for="edit-comp-penalty"><span class="label-text">Penalización por defecto (puntos) <span class="tooltip tooltip-right" data-tip="Puntos que se restan al aprobar una incomparecencia. El admin puede cambiar el valor en cada caso"><span class="text-info cursor-help">ⓘ</span></span></span></label>
                         <input type="number" id="edit-comp-penalty" name="default_penalty" value="{{or (.Competition.GetFloat "default_penalty") 3}}" min="0" class="input input-bordered input-sm">
                     </div>
@@ -298,7 +294,7 @@
                                 </label>
                             </span>
                             <span class="tooltip tooltip-left" data-tip="Retirar de la competición">
-                                {{template "withdrawPairForm" (dict "CompetitionID" $.Competition.Id "PairID" .PairID "PairName" .PairName "Leveled" $.IsLeveled "IsPlayoff" $.IsPlayoff "Walkover" (or ($.Competition.GetString "walkover_score") "6-0 6-0") "Class" "inline" "ButtonClass" "btn btn-ghost btn-sm btn-circle min-h-[44px] min-w-[44px] text-warning")}}
+                                {{template "withdrawPairForm" (dict "CompetitionID" $.Competition.Id "PairID" .PairID "PairName" .PairName "Leveled" $.IsLeveled "IsPlayoff" $.IsPlayoff "Walkover" walkoverScore "Class" "inline" "ButtonClass" "btn btn-ghost btn-sm btn-circle min-h-[44px] min-w-[44px] text-warning")}}
                             </span>
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja de la competición?" data-confirm-danger data-confirm-ok="Quitar" class="inline">
                                 <input type="hidden" name="pair_id" value="{{.PairID}}">
@@ -348,7 +344,7 @@
                                         </button>
                                     </form></li>
                                     {{end}}{{end}}
-                                    <li>{{template "withdrawPairForm" (dict "CompetitionID" $.Competition.Id "PairID" $e.PairID "PairName" $e.PairName "Leveled" $.IsLeveled "IsPlayoff" $.IsPlayoff "Walkover" (or ($.Competition.GetString "walkover_score") "6-0 6-0") "Class" "contents" "ButtonClass" "text-warning" "Text" true)}}</li>
+                                    <li>{{template "withdrawPairForm" (dict "CompetitionID" $.Competition.Id "PairID" $e.PairID "PairName" $e.PairName "Leveled" $.IsLeveled "IsPlayoff" $.IsPlayoff "Walkover" walkoverScore "Class" "contents" "ButtonClass" "text-warning" "Text" true)}}</li>
                                     <li><form class="contents" hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja de la competición?" data-confirm-danger data-confirm-ok="Quitar">
                                         <input type="hidden" name="pair_id" value="{{$e.PairID}}">
                                         <button type="submit" hx-disabled-elt="this" class="text-error">

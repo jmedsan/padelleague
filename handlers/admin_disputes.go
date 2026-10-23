@@ -67,16 +67,12 @@ func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 		return alertError(e, "Competición no encontrada")
 	}
 
-	woScore, errMsg := walkoverScoreFor(comp)
-	if errMsg != "" {
-		return alertError(e, errMsg)
-	}
 	loserID := match.GetString("pair2")
 	if winnerID == loserID {
 		loserID = match.GetString("pair1")
 	}
 
-	err = h.approveWalkover(id, e.Auth.Id, woScore, winnerID)
+	err = h.approveWalkover(id, e.Auth.Id, league.WalkoverScore, winnerID)
 	if errors.Is(err, errAlreadyResolved) {
 		return alertError(e, "Este partido ya está resuelto")
 	}
@@ -111,17 +107,6 @@ func (h *DisputeHandler) approveWalkover(matchID, adminID, woScore, winnerID str
 		},
 	})
 	return err
-}
-
-// walkoverScoreFor validates and returns comp's configured walkover score,
-// falling back to "6-0 6-0"; errMsg is non-empty (and score empty) on an
-// invalid configured score.
-func walkoverScoreFor(comp *core.Record) (score, errMsg string) {
-	woScore := league.WalkoverScore(comp)
-	if _, err := league.ParseScore(woScore); err != nil {
-		return "", "El marcador de incomparecencia configurado no es válido:" + woScore
-	}
-	return woScore, ""
 }
 
 func (h *DisputeHandler) applyWalkoverPenalty(e *core.RequestEvent, comp *core.Record, loserID string) error {

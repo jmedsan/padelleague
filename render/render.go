@@ -51,13 +51,14 @@ func New(viewsFS fs.FS, vapidPublicKey string, appDevTools bool) *Renderer {
 			_, ok := m[key]
 			return ok
 		},
-		"fmtPhone":    league.FormatPhone,
-		"whatsappURL": league.WhatsAppURL,
-		"wordmark":    wordmark,
-		"mailtoURL":   league.MailtoURL,
-		"maskPhone":   league.MaskPhone,
-		"sub":         func(a, b int) int { return a - b },
-		"mulf":        func(a float64, b int) float64 { return a * float64(b) },
+		"fmtPhone":      league.FormatPhone,
+		"walkoverScore": func() string { return league.WalkoverScore },
+		"whatsappURL":   league.WhatsAppURL,
+		"wordmark":      wordmark,
+		"mailtoURL":     league.MailtoURL,
+		"maskPhone":     league.MaskPhone,
+		"sub":           func(a, b int) int { return a - b },
+		"mulf":          func(a float64, b int) float64 { return a * float64(b) },
 		"dict": func(pairs ...any) map[string]any {
 			m := make(map[string]any, len(pairs)/2)
 			for i := 0; i+1 < len(pairs); i += 2 {

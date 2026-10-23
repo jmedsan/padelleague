@@ -10,7 +10,6 @@ import (
 )
 
 const (
-	testWOScore      = "6-0 6-0"
 	plannerPairCount = 6 // leveled needs target_matches below pairs-1
 )
 
@@ -37,7 +36,6 @@ func newPlannerFixture(t *testing.T, kind string) plannerFixture {
 	case "playoff":
 		comp.Set("type", "playoff")
 	}
-	comp.Set("walkover_score", testWOScore)
 	require.NoError(t, app.Save(comp))
 	return plannerFixture{app: app, comp: comp, withdrawn: pairs[0], opponent: pairs[1]}
 }
@@ -77,7 +75,7 @@ func TestWithdrawalPlan(t *testing.T) {
 		{name: "standard disputed", kind: "standard", status: StatusDisputed, want: WithdrawalOfficial},
 		{
 			name: "standard final, admin set the official result", kind: "standard", status: StatusFinal,
-			scores: testWOScore, admin: true, winnerOpp: true, want: WithdrawalLeave,
+			scores: WalkoverScore, admin: true, winnerOpp: true, want: WithdrawalLeave,
 		},
 		{
 			name: "standard final, admin set the official result stored in the other order", kind: "standard",
@@ -89,7 +87,7 @@ func TestWithdrawalPlan(t *testing.T) {
 		},
 		{
 			name: "standard final, player-produced 6-0 6-0", kind: "standard", status: StatusFinal,
-			scores: testWOScore, winnerOpp: true, want: WithdrawalOfficial,
+			scores: WalkoverScore, winnerOpp: true, want: WithdrawalOfficial,
 		},
 		{
 			name: "standard final, withdrawn pair won", kind: "standard", status: StatusFinal,
@@ -97,7 +95,7 @@ func TestWithdrawalPlan(t *testing.T) {
 		},
 		{
 			name: "standard final, admin set the official score but the withdrawn pair won", kind: "standard",
-			status: StatusFinal, scores: testWOScore, admin: true, want: WithdrawalOfficial,
+			status: StatusFinal, scores: WalkoverScore, admin: true, want: WithdrawalOfficial,
 		},
 		{name: "leveled pending, not proposed", kind: "leveled", status: StatusPending, want: WithdrawalRelease},
 		{name: "leveled scheduled, not proposed", kind: "leveled", status: StatusScheduled, want: WithdrawalRelease},
@@ -109,7 +107,7 @@ func TestWithdrawalPlan(t *testing.T) {
 		{name: "playoff final", kind: "playoff", status: StatusFinal, scores: "6-1 6-2", winnerOpp: true, want: WithdrawalLeave},
 		{
 			name: "playoff walkover final, opponent already withdrew", kind: "playoff", status: StatusFinal,
-			reviewType: "walkover", scores: testWOScore, oppWdrawn: true, want: WithdrawalLeave,
+			reviewType: "walkover", scores: WalkoverScore, oppWdrawn: true, want: WithdrawalLeave,
 		},
 		{
 			name: "playoff void final, opponent already withdrew", kind: "playoff", status: StatusFinal,
@@ -121,7 +119,7 @@ func TestWithdrawalPlan(t *testing.T) {
 		},
 		{
 			name: "standard walkover final, opponent already withdrew, withdrawn pair won", kind: "standard",
-			status: StatusFinal, reviewType: "walkover", scores: testWOScore, oppWdrawn: true, want: WithdrawalLeave,
+			status: StatusFinal, reviewType: "walkover", scores: WalkoverScore, oppWdrawn: true, want: WithdrawalLeave,
 		},
 	}
 	for _, tc := range tests {
@@ -202,13 +200,13 @@ func TestOfficialScore(t *testing.T) {
 		winnerID string
 		want     string
 	}{
-		{name: "pair1 wins, score kept", winnerID: f.withdrawn.Id, want: testWOScore},
+		{name: "pair1 wins, score kept", winnerID: f.withdrawn.Id, want: WalkoverScore},
 		{name: "pair2 wins, score flipped to the winner's side", winnerID: f.opponent.Id, want: "0-6 0-6"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tc.want, OfficialScore(m, tc.winnerID, testWOScore))
+			assert.Equal(t, tc.want, OfficialScore(m, tc.winnerID, WalkoverScore))
 		})
 	}
 }
@@ -231,7 +229,7 @@ func TestIsOfficialScore(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			m := f.match(t, StatusFinal, "", tc.scores, true, f.opponent)
-			assert.Equal(t, tc.want, isOfficialScore(m, testWOScore))
+			assert.Equal(t, tc.want, isOfficialScore(m, WalkoverScore))
 		})
 	}
 }
@@ -250,7 +248,7 @@ func TestRealScore(t *testing.T) {
 		want  string
 	}{
 		{name: "final, played", status: StatusFinal, scores: "6-3 6-4", want: "6-3 6-4"},
-		{name: "final walkover has no real score", status: StatusFinal, review: "walkover", scores: testWOScore, want: ""},
+		{name: "final walkover has no real score", status: StatusFinal, review: "walkover", scores: WalkoverScore, want: ""},
 		{name: "pending with a standing proposal", status: StatusPending, proposal: "6-3 6-4", want: "6-3 6-4"},
 		{name: "scheduled with an undecided open set", status: StatusScheduled, proposal: "6-3 2-1", want: ""},
 		{name: "pending deadlock", status: StatusPending, proposal: "6-3 6-4", rival: "6-4 6-3", want: ""},
@@ -272,26 +270,6 @@ func TestRealScore(t *testing.T) {
 			got, err := RealScore(f.app, m)
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, got)
-		})
-	}
-}
-
-func TestWalkoverScore(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name  string
-		score string
-		want  string
-	}{
-		{name: "configured score", score: "6-1 6-1", want: "6-1 6-1"},
-		{name: "unset falls back to 6-0 6-0", score: "", want: testWOScore},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			f := newPlannerFixture(t, "standard")
-			f.comp.Set("walkover_score", tc.score)
-			assert.Equal(t, tc.want, WalkoverScore(f.comp))
 		})
 	}
 }

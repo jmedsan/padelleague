@@ -83,7 +83,6 @@ test.describe('scheduling, walkover & bracket', { tag: '@scheduling' }, () => {
       type: 'league',
       active: true,
       pairs: [data.pair1Id, data.pair2Id],
-      walkover_score: '6-0 6-0',
       default_penalty: 5,
       rounds: 1,
     });

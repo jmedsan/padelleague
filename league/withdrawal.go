@@ -25,13 +25,8 @@ func WithdrawalEventText(pairName string) string {
 	return fmt.Sprintf("Incomparecencia — %s se ha retirado de la competición", pairName)
 }
 
-// WalkoverScore is the competition's walkover score, falling back to 6-0 6-0 when unset.
-func WalkoverScore(comp *core.Record) string {
-	if s := comp.GetString("walkover_score"); s != "" {
-		return s
-	}
-	return "6-0 6-0"
-}
+// WalkoverScore is the score every approved walkover records. It is fixed, not configured.
+const WalkoverScore = "6-0 6-0"
 
 // ApplyWalkoverResult records the official walkover on m: the score in pair1/pair2 order, the
 // winner, final, and the admin marker, with any arbitration request cleared.
@@ -68,7 +63,7 @@ func IsVoid(m *core.Record) bool {
 func WithdrawalPlan(comp, m *core.Record, pairID string, proposed map[string]bool) WithdrawalAction {
 	opponent := OpponentOf(m, pairID)
 	status := m.GetString("status")
-	woScore := WalkoverScore(comp)
+	woScore := WalkoverScore
 	switch {
 	case IsPlayoff(comp) && opponent == "":
 		return WithdrawalLeave // next round not seeded yet; advanceRound resolves it

@@ -160,7 +160,7 @@ func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
 			return nil
 		}
 		w = pairWithdrawal{adminID: e.Auth.Id, pairID: pairID, pairName: pair.GetString("name"),
-			woScore: league.WalkoverScore(comp)}
+			woScore: league.WalkoverScore}
 		matches, err := findPairMatches(txApp, compID, pairID)
 		if err != nil {
 			return err

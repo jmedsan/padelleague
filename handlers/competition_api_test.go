@@ -64,7 +64,7 @@ func TestCompCreateSchedulingFields(t *testing.T) {
 		setupProductionRoutes(tb, app, e)
 		admin := makeAdminUser(tb, app)
 		s.URL = "/admin/competitions"
-		s.Body = strings.NewReader("name=SchedTest&type=league&start_date=2026-09-01&end_date=2026-12-15&arrange_grace_days=5&walkover_score=6-1+6-1&default_penalty=7")
+		s.Body = strings.NewReader("name=SchedTest&type=league&start_date=2026-09-01&end_date=2026-12-15&arrange_grace_days=5&default_penalty=7")
 		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -77,7 +77,6 @@ func TestCompCreateSchedulingFields(t *testing.T) {
 		assert.Contains(tb, c.GetString("start_date"), "2026-09-01")
 		assert.Contains(tb, c.GetString("end_date"), "2026-12-15")
 		assert.Equal(tb, 5.0, c.GetFloat("arrange_grace_days"))
-		assert.Equal(tb, "6-1 6-1", c.GetString("walkover_score"))
 		assert.Equal(tb, 7.0, c.GetFloat("default_penalty"))
 	}
 	handlers.ExpectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
@@ -107,7 +106,6 @@ func TestCompCreateSchedulingDefaults(t *testing.T) {
 		require.Len(tb, comps, 1)
 		c := comps[0]
 		assert.Equal(tb, 3.0, c.GetFloat("arrange_grace_days"))
-		assert.Equal(tb, "6-0 6-0", c.GetString("walkover_score"))
 		assert.Equal(tb, 3.0, c.GetFloat("default_penalty"))
 	}
 	handlers.ExpectRedirect(s, func(app core.App) string { return "/admin/competitions/" + newestCompetitionID(app) })
@@ -129,7 +127,7 @@ func TestCompUpdateSchedulingFields(t *testing.T) {
 		comp := handlers.MakeCompetitionTB(tb, app, "league", nil)
 		compID = comp.Id
 		s.URL = "/admin/competitions/" + comp.Id
-		s.Body = strings.NewReader("name=Sched&type=league&start_date=2026-10-01&end_date=2026-11-30&arrange_grace_days=2&walkover_score=6-2+6-2&default_penalty=4")
+		s.Body = strings.NewReader("name=Sched&type=league&start_date=2026-10-01&end_date=2026-11-30&arrange_grace_days=2&default_penalty=4")
 		hdrs := handlers.AuthHeaders(tb, admin)
 		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
 		s.Headers = hdrs
@@ -140,53 +138,9 @@ func TestCompUpdateSchedulingFields(t *testing.T) {
 		assert.Contains(tb, c.GetString("start_date"), "2026-10-01")
 		assert.Contains(tb, c.GetString("end_date"), "2026-11-30")
 		assert.Equal(tb, 2.0, c.GetFloat("arrange_grace_days"))
-		assert.Equal(tb, "6-2 6-2", c.GetString("walkover_score"))
 		assert.Equal(tb, 4.0, c.GetFloat("default_penalty"))
 	}
 	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
-	s.Test(t)
-}
-
-func TestCompCreateInvalidWalkoverScore(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  handlers.TestAppFactory,
-		Name:            "POST /admin/competitions rejects invalid walkover_score",
-		Method:          http.MethodPost,
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"incomparecencia inválido"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupProductionRoutes(tb, app, e)
-		admin := makeAdminUser(tb, app)
-		s.URL = "/admin/competitions"
-		s.Body = strings.NewReader("name=BadWO&type=league&walkover_score=abc")
-		hdrs := handlers.AuthHeaders(tb, admin)
-		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-		s.Headers = hdrs
-	}
-	s.Test(t)
-}
-
-func TestCompUpdateInvalidWalkoverScore(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory:  handlers.TestAppFactory,
-		Name:            "POST /admin/competitions/{id} rejects invalid walkover_score",
-		Method:          http.MethodPost,
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"incomparecencia inválido"},
-	}
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupProductionRoutes(tb, app, e)
-		admin := makeAdminUser(tb, app)
-		comp := handlers.MakeCompetitionTB(tb, app, "league", nil)
-		s.URL = "/admin/competitions/" + comp.Id
-		s.Body = strings.NewReader("name=Updated&type=league&walkover_score=invalid")
-		hdrs := handlers.AuthHeaders(tb, admin)
-		hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-		s.Headers = hdrs
-	}
 	s.Test(t)
 }
 
@@ -1647,7 +1601,7 @@ func TestWithdrawPair_PlayoffRoundOneWinnerSeedsWalkover(t *testing.T) {
 			require.NoError(tb, app.Save(comp))
 			// pairs[0] withdrew earlier, so pairs[1] won this match by walkover.
 			walkover := handlers.MakeMatchTB(tb, app, comp.Id, pairs[0].Id, pairs[1].Id, "pending")
-			league.ApplyWalkoverResult(walkover, pairs[1].Id, league.WalkoverScore(comp))
+			league.ApplyWalkoverResult(walkover, pairs[1].Id, league.WalkoverScore)
 			require.NoError(tb, app.Save(walkover))
 			firstID = walkover.Id
 			won := handlers.MakeMatchTB(tb, app, comp.Id, pairs[2].Id, pairs[3].Id, "final")
@@ -2163,7 +2117,7 @@ func TestWithdrawPair_StandardSecondWithdrawalKeepsWalkover(t *testing.T) {
 			comp.Set("withdrawn_pairs", []string{pA.Id})
 			require.NoError(tb, app.Save(comp))
 			m := handlers.MakeMatchTB(tb, app, comp.Id, pA.Id, pB.Id, "final")
-			league.ApplyWalkoverResult(m, pB.Id, league.WalkoverScore(comp))
+			league.ApplyWalkoverResult(m, pB.Id, league.WalkoverScore)
 			require.NoError(tb, app.Save(m))
 			matchID, scores = m.Id, m.GetString("scores")
 			return comp.Id, pB.Id
@@ -2196,7 +2150,7 @@ func TestWithdrawPair_PlayoffWalkoverWinnerWithdrawsRoundOneStands(t *testing.T)
 			require.NoError(tb, app.Save(comp))
 			first := handlers.MakeMatchTB(tb, app, comp.Id, pairs[0].Id, pairs[1].Id, "final")
 			first.Set("round_number", 1)
-			league.ApplyWalkoverResult(first, pairs[1].Id, league.WalkoverScore(comp))
+			league.ApplyWalkoverResult(first, pairs[1].Id, league.WalkoverScore)
 			require.NoError(tb, app.Save(first))
 			next := handlers.MakeMatchTB(tb, app, comp.Id, pairs[1].Id, pairs[2].Id, "pending")
 			next.Set("round_number", 2)
@@ -2240,7 +2194,7 @@ func TestWithdrawPair_PlayoffPlayedNextRoundStays(t *testing.T) {
 			require.NoError(tb, app.Save(comp))
 			first := handlers.MakeMatchTB(tb, app, comp.Id, pairs[0].Id, pairs[1].Id, "final")
 			first.Set("round_number", 1)
-			league.ApplyWalkoverResult(first, pairs[1].Id, league.WalkoverScore(comp))
+			league.ApplyWalkoverResult(first, pairs[1].Id, league.WalkoverScore)
 			require.NoError(tb, app.Save(first))
 			firstID = first.Id
 			next := handlers.MakeMatchTB(tb, app, comp.Id, pairs[1].Id, pairs[2].Id, "final")

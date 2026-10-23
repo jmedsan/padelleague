@@ -32,7 +32,6 @@ var competitionUpdateLabels = []struct {
 	{"start_date", "Fecha inicio", fmtActivityDate, ""},
 	{"end_date", "Fecha fin", fmtActivityDate, ""},
 	{"arrange_grace_days", "Días de gracia", fmtActivityString, "0"},
-	{"walkover_score", "Marcador de incomparecencia", fmtActivityString, ""},
 	{"default_penalty", "Penalización por defecto", fmtActivityString, "0"},
 	{"recovery_days", "Período extra", fmtActivityString, "0"},
 	{"match_reminder_hours", "Recordatorios de partido", fmtActivityString, ""},

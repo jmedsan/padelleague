@@ -663,15 +663,6 @@ func setSchedulingFields(record *core.Record, e *core.RequestEvent, hasFixtures 
 	}
 	record.Set("arrange_grace_days", grace)
 
-	ws := e.Request.FormValue("walkover_score")
-	if ws == "" {
-		ws = "6-0 6-0"
-	}
-	if _, err := league.ParseScore(ws); err != nil {
-		return "Marcador de incomparecencia inválido. Usa el formato: 6-0 6-0"
-	}
-	record.Set("walkover_score", ws)
-
 	penalty, msg := formIntValidated(e, "default_penalty", 3)
 	if msg != "" {
 		return "Penalización: " + msg
