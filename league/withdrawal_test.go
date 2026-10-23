@@ -108,16 +108,12 @@ func TestWithdrawalPlan(t *testing.T) {
 		{name: "playoff pending, opponent not seeded yet", kind: "playoff", status: StatusPending, noOpp: true, want: WithdrawalLeave},
 		{name: "playoff final", kind: "playoff", status: StatusFinal, scores: "6-1 6-2", winnerOpp: true, want: WithdrawalLeave},
 		{
-			name: "playoff pending, opponent already withdrew", kind: "playoff", status: StatusPending,
-			oppWdrawn: true, want: WithdrawalVoid,
-		},
-		{
 			name: "playoff walkover final, opponent already withdrew", kind: "playoff", status: StatusFinal,
-			reviewType: "walkover", scores: testWOScore, oppWdrawn: true, want: WithdrawalVoid,
+			reviewType: "walkover", scores: testWOScore, oppWdrawn: true, want: WithdrawalLeave,
 		},
 		{
 			name: "playoff void final, opponent already withdrew", kind: "playoff", status: StatusFinal,
-			noWinner: true, oppWdrawn: true, want: WithdrawalVoid,
+			noWinner: true, oppWdrawn: true, want: WithdrawalLeave,
 		},
 		{
 			name: "playoff played final, opponent already withdrew", kind: "playoff", status: StatusFinal,

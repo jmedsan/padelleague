@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -1128,7 +1130,7 @@ func leveledWithdrawComp(tb testing.TB, app *tests.TestApp, pairs ...*core.Recor
 func TestWithdrawPair_StatusMatrix(t *testing.T) {
 	t.Parallel()
 	var p1, p2, p3 *core.Record
-	var pending, scheduled, proposed, disputed, played string
+	var pending, scheduled, proposed, pendingProposed, disputed, played string
 	s := withdrawScenario("POST withdraw-pair applies the official walkover to every match state",
 		func(tb testing.TB, app *tests.TestApp) (string, string) {
 			p1 = handlers.MakePairTB(tb, app, "WdrawA")
@@ -1140,6 +1142,9 @@ func TestWithdrawPair_StatusMatrix(t *testing.T) {
 			proposedMatch := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "scheduled")
 			handlers.MakeResultProposal(tb, app, proposedMatch.Id, league.PlayersForPair(app, p2.Id)[0], "6-2 6-3")
 			proposed = proposedMatch.Id
+			pendingProposedMatch := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p3.Id, "pending")
+			handlers.MakeResultProposal(tb, app, pendingProposedMatch.Id, league.PlayersForPair(app, p3.Id)[0], "6-2 6-3")
+			pendingProposed = pendingProposedMatch.Id
 			disputed = handlers.MakeMatchTB(tb, app, comp.Id, p3.Id, p1.Id, "disputed").Id
 			playedMatch := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "final")
 			playedMatch.Set("scores", "3-6 4-6")
@@ -1149,12 +1154,13 @@ func TestWithdrawPair_StatusMatrix(t *testing.T) {
 			return comp.Id, p1.Id
 		})
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		want := []struct{ label, id, winner, scores, review string }{
-			{"pending", pending, p2.Id, "0-6 0-6", "walkover"},
-			{"scheduled", scheduled, p3.Id, "6-0 6-0", "walkover"},
-			{"proposed", proposed, p2.Id, "0-6 0-6", ""},
-			{"disputed", disputed, p3.Id, "6-0 6-0", "walkover"},
-			{"played", played, p2.Id, "0-6 0-6", ""},
+		want := []struct{ label, id, winner, scores, review, rating string }{
+			{"pending", pending, p2.Id, "0-6 0-6", "walkover", ""},
+			{"scheduled", scheduled, p3.Id, "6-0 6-0", "walkover", ""},
+			{"proposed", proposed, p2.Id, "0-6 0-6", "", "6-2 6-3"},
+			{"pending proposed", pendingProposed, p3.Id, "0-6 0-6", "", "6-2 6-3"},
+			{"disputed", disputed, p3.Id, "6-0 6-0", "walkover", ""},
+			{"played", played, p2.Id, "0-6 0-6", "", "3-6 4-6"},
 		}
 		for _, w := range want {
 			m := loadMatch(tb, app, w.id)
@@ -1162,6 +1168,7 @@ func TestWithdrawPair_StatusMatrix(t *testing.T) {
 			assert.Equal(tb, w.winner, m.GetString("winner"), w.label+" winner")
 			assert.Equal(tb, w.scores, m.GetString("scores"), w.label+" scores")
 			assert.Equal(tb, w.review, m.GetString("review_type"), w.label+" review_type")
+			assert.Equal(tb, w.rating, m.GetString("rating_scores"), w.label+" rating_scores")
 		}
 	}
 	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
@@ -1623,12 +1630,14 @@ func TestWithdrawPair_PlayoffBothSeedsNoReplacementWalkover(t *testing.T) {
 
 // TestWithdrawPair_PlayoffRoundOneVoidGivesNextRoundWalkover: a first-round match whose two pairs are
 // both withdrawn has no result, and the opponent waiting in the next round wins it by walkover.
-func TestWithdrawPair_PlayoffRoundOneVoidGivesNextRoundWalkover(t *testing.T) {
+// TestWithdrawPair_PlayoffRoundOneWinnerSeedsWalkover: a round-one walkover whose winner then withdraws
+// stands, and the round-two seat it fed goes to the opponent by walkover once the round is seeded.
+func TestWithdrawPair_PlayoffRoundOneWinnerSeedsWalkover(t *testing.T) {
 	t.Parallel()
 	var pairs [8]*core.Record
-	var voidID string
+	var firstID string
 	var open, seeded []string
-	s := withdrawScenario("POST withdraw-pair voids a first-round match whose two pairs are withdrawn",
+	s := withdrawScenario("POST withdraw-pair keeps a round-one walkover and walks over its round-two seat",
 		func(tb testing.TB, app *tests.TestApp) (string, string) {
 			for i := range pairs {
 				pairs[i] = handlers.MakePairTB(tb, app, fmt.Sprintf("WdrawP%d", i+1))
@@ -1640,7 +1649,7 @@ func TestWithdrawPair_PlayoffRoundOneVoidGivesNextRoundWalkover(t *testing.T) {
 			walkover := handlers.MakeMatchTB(tb, app, comp.Id, pairs[0].Id, pairs[1].Id, "pending")
 			league.ApplyWalkoverResult(walkover, pairs[1].Id, league.WalkoverScore(comp))
 			require.NoError(tb, app.Save(walkover))
-			voidID = walkover.Id
+			firstID = walkover.Id
 			won := handlers.MakeMatchTB(tb, app, comp.Id, pairs[2].Id, pairs[3].Id, "final")
 			won.Set("scores", "6-0 6-0")
 			won.Set("winner", pairs[2].Id)
@@ -1657,16 +1666,12 @@ func TestWithdrawPair_PlayoffRoundOneVoidGivesNextRoundWalkover(t *testing.T) {
 			return comp.Id, pairs[1].Id
 		})
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		void := loadMatch(tb, app, voidID)
-		assert.Equal(tb, "final", void.GetString("status"))
-		assert.Empty(tb, void.GetString("winner"))
-		assert.Empty(tb, void.GetString("scores"))
-		assert.Empty(tb, void.GetString("review_type"))
-		assert.Equal(tb, pairs[0].Id, void.GetString("pair1"))
-		assert.Equal(tb, pairs[1].Id, void.GetString("pair2"))
-		assert.Equal(tb, []string{
-			"Sin resultado: no hay pareja que pueda jugar este partido",
-		}, resultEventTexts(tb, app, voidID))
+		first := loadMatch(tb, app, firstID)
+		assert.Equal(tb, "final", first.GetString("status"))
+		assert.Equal(tb, pairs[1].Id, first.GetString("winner"))
+		assert.Equal(tb, "walkover", first.GetString("review_type"))
+		assert.Equal(tb, "0-6 0-6", first.GetString("scores"))
+		assert.Empty(tb, resultEventTexts(tb, app, firstID))
 
 		finishOpenMatches(tb, app, open)
 
@@ -1674,11 +1679,11 @@ func TestWithdrawPair_PlayoffRoundOneVoidGivesNextRoundWalkover(t *testing.T) {
 		assert.Equal(tb, "final", walkover.GetString("status"))
 		assert.Equal(tb, pairs[2].Id, walkover.GetString("winner"))
 		assert.Equal(tb, "walkover", walkover.GetString("review_type"))
-		assert.Empty(tb, walkover.GetString("pair1"))
+		assert.Equal(tb, pairs[1].Id, walkover.GetString("pair1"))
 		assert.Equal(tb, pairs[2].Id, walkover.GetString("pair2"))
 		assert.Equal(tb, "0-6 0-6", walkover.GetString("scores"))
 		assert.Equal(tb, []string{
-			"WdrawP3 gana por incomparecencia: no hay pareja rival que pueda jugar",
+			"Incomparecencia — WdrawP2 se ha retirado de la competición",
 		}, resultEventTexts(tb, app, seeded[0]))
 
 		next := loadMatch(tb, app, seeded[1])
@@ -1732,47 +1737,6 @@ func TestWithdrawPair_PlayoffVoidedSeedGivesNextRoundWalkover(t *testing.T) {
 		assert.Equal(tb, []string{
 			"WdrawP5 gana por incomparecencia: no hay pareja rival que pueda jugar",
 		}, resultEventTexts(tb, app, thirdID))
-	}
-	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
-	s.Test(t)
-}
-
-// TestWithdrawPair_PlayoffVoidFinalHasNoWinner: when both semifinals have no result, the final is
-// void too and names no champion.
-func TestWithdrawPair_PlayoffVoidFinalHasNoWinner(t *testing.T) {
-	t.Parallel()
-	var pairs [4]*core.Record
-	var finalID string
-	s := withdrawScenario("POST withdraw-pair leaves a final void when both semifinals are void",
-		func(tb testing.TB, app *tests.TestApp) (string, string) {
-			for i := range pairs {
-				pairs[i] = handlers.MakePairTB(tb, app, fmt.Sprintf("WdrawP%d", i+1))
-			}
-			comp := makePlayoffComp(tb, app, pairs[:], nil)
-			// pairs[2] and pairs[3] were withdrawn earlier, which voided their match.
-			comp.Set("withdrawn_pairs", []string{pairs[0].Id, pairs[2].Id, pairs[3].Id})
-			require.NoError(tb, app.Save(comp))
-			handlers.MakeMatchTB(tb, app, comp.Id, pairs[0].Id, pairs[1].Id, "pending")
-			void := handlers.MakeMatchTB(tb, app, comp.Id, pairs[2].Id, pairs[3].Id, "final")
-			void.Set("winner", "")
-			require.NoError(tb, app.Save(void))
-			final := handlers.MakeMatchTB(tb, app, comp.Id, "", "", "pending")
-			final.Set("round_number", 2)
-			require.NoError(tb, app.Save(final))
-			finalID = final.Id
-			return comp.Id, pairs[1].Id
-		})
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		final := loadMatch(tb, app, finalID)
-		assert.Equal(tb, "final", final.GetString("status"))
-		assert.Empty(tb, final.GetString("winner"))
-		assert.Empty(tb, final.GetString("scores"))
-		assert.Empty(tb, final.GetString("review_type"))
-		assert.Empty(tb, final.GetString("pair1"))
-		assert.Empty(tb, final.GetString("pair2"))
-		assert.Equal(tb, []string{
-			"Sin resultado: no hay pareja que pueda jugar este partido",
-		}, resultEventTexts(tb, app, finalID))
 	}
 	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
@@ -1918,6 +1882,40 @@ func TestWithdrawPair_SecondWithdrawalRefused(t *testing.T) {
 	s.Test(t)
 }
 
+// TestWithdrawPair_TwoAdminsWithdrawOnce: two admins confirm the same withdrawal at once. One wins;
+// the other is refused inside the transaction, so each match gets one timeline entry, the pair is
+// listed once, and each opponent gets one notice per match.
+func TestWithdrawPair_TwoAdminsWithdrawOnce(t *testing.T) {
+	t.Parallel()
+	raceScenarioResponses(t, "two admins withdraw one pair at the same time",
+		func(tb testing.TB, app *tests.TestApp, fx []raceFixture) []racer {
+			notifier := notify.NewNotifier(app, "", "")
+			hooks.Register(app, hooks.Deps{Svc: league.New(app, notifier), Notifier: notifier})
+			a1, a2 := makeAdminUser(tb, app), makeAdminUser(tb, app)
+			compID := fx[0].match.GetString("competition")
+			path := "/admin/competitions/" + compID + "/withdraw-pair"
+			form := "pair_id=" + fx[0].match.GetString("pair1")
+			return []racer{{a1, path, form}, {a2, path, form}}
+		},
+		func(tb testing.TB, app *tests.TestApp, fx []raceFixture, rs []*httptest.ResponseRecorder) {
+			require.Len(tb, rs, 2)
+			assert.Equal(tb, 1, succeeded(rs), "exactly one admin may withdraw the pair")
+			withdrawn := fx[0].match.GetString("pair1")
+			comp := reload(tb, app, "competitions", fx[0].match.GetString("competition"))
+			assert.Equal(tb, []string{withdrawn}, comp.GetStringSlice("withdrawn_pairs"))
+			withdrawalText := league.WithdrawalEventText("Race A")
+			for _, f := range fx {
+				assert.Equal(tb, []string{withdrawalText}, resultEventTexts(tb, app, f.match.Id),
+					"match %s: one withdrawal entry", f.match.Id)
+			}
+			opponent := reload(tb, app, "pairs", fx[0].match.GetString("pair2"))
+			for _, uid := range league.PlayersForPair(app, opponent.Id) {
+				assert.Len(tb, notificationsTitled(tb, app, uid, "Pareja retirada"), raceMatches,
+					"opponent %s: one notice per changed match", uid)
+			}
+		})
+}
+
 // TestWithdrawPair_FailureRollsBack: a failed write on one match leaves every match, the
 // withdrawn list and the notices untouched, and the admin sees the failure.
 func TestWithdrawPair_FailureRollsBack(t *testing.T) {
@@ -2026,6 +2024,59 @@ func TestWithdrawPair_LeveledReleasesPendingAndScheduled(t *testing.T) {
 	s.Test(t)
 }
 
+// TestWithdrawPair_LeveledTopUpAfterReleaseNeverPairsWithdrawn: the top-up that runs after the release
+// gives the freed opponent a new rival, and never pairs it with the withdrawn pair.
+func TestWithdrawPair_LeveledTopUpAfterReleaseNeverPairsWithdrawn(t *testing.T) {
+	t.Parallel()
+	var p1, p2, p3, p4 *core.Record
+	var compID string
+	var released, kept []string
+	s := withdrawScenario("POST withdraw-pair: the top-up after a release pairs the freed opponent with a new rival",
+		func(tb testing.TB, app *tests.TestApp) (string, string) {
+			p1 = handlers.MakePairTB(tb, app, "WdrawA")
+			p2 = handlers.MakePairTB(tb, app, "WdrawB")
+			p3 = handlers.MakePairTB(tb, app, "WdrawC")
+			p4 = handlers.MakePairTB(tb, app, "WdrawD")
+			comp := leveledWithdrawComp(tb, app, p1, p2, p3, p4)
+			comp.Set("target_matches", 2)
+			comp.Set("open_assignments", 4)
+			require.NoError(tb, app.Save(comp))
+			compID = comp.Id
+			released = []string{
+				handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending").Id,
+				handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p3.Id, "pending").Id,
+			}
+			kept = []string{
+				handlers.MakeMatchTB(tb, app, comp.Id, p2.Id, p4.Id, "pending").Id,
+				handlers.MakeMatchTB(tb, app, comp.Id, p3.Id, p4.Id, "pending").Id,
+			}
+			return comp.Id, p1.Id
+		})
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		for _, id := range released {
+			_, err := app.FindRecordById("matches", id)
+			assert.Error(tb, err, "released match %s must be deleted", id)
+		}
+		matches, err := app.FindRecordsByFilter("matches", "competition = {:c}", "", 0, 0, map[string]any{"c": compID})
+		require.NoError(tb, err)
+		var freedRival []string
+		for _, m := range matches {
+			if slices.Contains(kept, m.Id) {
+				continue
+			}
+			pair1, pair2 := m.GetString("pair1"), m.GetString("pair2")
+			assert.NotEqual(tb, p1.Id, pair1, "match %s pairs the withdrawn pair", m.Id)
+			assert.NotEqual(tb, p1.Id, pair2, "match %s pairs the withdrawn pair", m.Id)
+			if pair1 == p2.Id || pair2 == p2.Id {
+				freedRival = append(freedRival, m.GetString("pair1")+"/"+m.GetString("pair2"))
+			}
+		}
+		assert.NotEmpty(tb, freedRival, "the top-up must give the freed opponent a new rival")
+	}
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	s.Test(t)
+}
+
 // TestWithdrawPair_LeveledSetsOfficialResultForPlayed: proposed, disputed and played matches get the
 // official result; a scheduled match with a proposed result is kept, not released.
 func TestWithdrawPair_LeveledSetsOfficialResultForPlayed(t *testing.T) {
@@ -2129,14 +2180,13 @@ func TestWithdrawPair_StandardSecondWithdrawalKeepsWalkover(t *testing.T) {
 	s.Test(t)
 }
 
-// TestWithdrawPair_PlayoffWalkoverWinnerWithdrawsVoidsFirstRound: the walkover winner of a round-one
-// match withdraws after its opponent did. The match is void, and the pair it already seeded into
-// round two gets its opponent's walkover.
-func TestWithdrawPair_PlayoffWalkoverWinnerWithdrawsVoidsFirstRound(t *testing.T) {
+// TestWithdrawPair_PlayoffWalkoverWinnerWithdrawsRoundOneStands: a final round-one walkover stands when
+// its winner withdraws; the unplayed round-two match gives the opponent a walkover.
+func TestWithdrawPair_PlayoffWalkoverWinnerWithdrawsRoundOneStands(t *testing.T) {
 	t.Parallel()
 	var pairs [4]*core.Record
 	var firstID, nextID string
-	s := withdrawScenario("POST withdraw-pair voids a walkover whose winner withdraws, walkover in round two",
+	s := withdrawScenario("POST withdraw-pair keeps a final round-one walkover and walks over round two",
 		func(tb testing.TB, app *tests.TestApp) (string, string) {
 			for i := range pairs {
 				pairs[i] = handlers.MakePairTB(tb, app, fmt.Sprintf("WdrawW%d", i+1))
@@ -2157,9 +2207,10 @@ func TestWithdrawPair_PlayoffWalkoverWinnerWithdrawsVoidsFirstRound(t *testing.T
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
 		first := loadMatch(tb, app, firstID)
 		assert.Equal(tb, "final", first.GetString("status"))
-		assert.Empty(tb, first.GetString("winner"))
-		assert.Empty(tb, first.GetString("scores"))
-		assert.Equal(tb, []string{league.NoResultEventText}, resultEventTexts(tb, app, firstID))
+		assert.Equal(tb, pairs[1].Id, first.GetString("winner"))
+		assert.Equal(tb, "walkover", first.GetString("review_type"))
+		assert.Equal(tb, "0-6 0-6", first.GetString("scores"))
+		assert.Empty(tb, resultEventTexts(tb, app, firstID))
 
 		next := loadMatch(tb, app, nextID)
 		assert.Equal(tb, "final", next.GetString("status"))
@@ -2174,11 +2225,11 @@ func TestWithdrawPair_PlayoffWalkoverWinnerWithdrawsVoidsFirstRound(t *testing.T
 }
 
 // TestWithdrawPair_PlayoffPlayedNextRoundStays: the round-two match of a walkover winner already
-// played (final) when that winner withdraws. The round-one void does not touch the played match.
+// played (final) when that winner withdraws. Both the round-one walkover and the played match stand.
 func TestWithdrawPair_PlayoffPlayedNextRoundStays(t *testing.T) {
 	t.Parallel()
 	var pairs [4]*core.Record
-	var nextID string
+	var firstID, nextID string
 	s := withdrawScenario("POST withdraw-pair leaves a played round-two match when its round-one walkover is voided",
 		func(tb testing.TB, app *tests.TestApp) (string, string) {
 			for i := range pairs {
@@ -2191,6 +2242,7 @@ func TestWithdrawPair_PlayoffPlayedNextRoundStays(t *testing.T) {
 			first.Set("round_number", 1)
 			league.ApplyWalkoverResult(first, pairs[1].Id, league.WalkoverScore(comp))
 			require.NoError(tb, app.Save(first))
+			firstID = first.Id
 			next := handlers.MakeMatchTB(tb, app, comp.Id, pairs[1].Id, pairs[2].Id, "final")
 			next.Set("round_number", 2)
 			next.Set("scores", "6-2 6-3")
@@ -2200,6 +2252,12 @@ func TestWithdrawPair_PlayoffPlayedNextRoundStays(t *testing.T) {
 			return comp.Id, pairs[1].Id
 		})
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		first := loadMatch(tb, app, firstID)
+		assert.Equal(tb, "final", first.GetString("status"))
+		assert.Equal(tb, pairs[1].Id, first.GetString("winner"))
+		assert.Equal(tb, "walkover", first.GetString("review_type"))
+		assert.Empty(tb, resultEventTexts(tb, app, firstID))
+
 		next := loadMatch(tb, app, nextID)
 		assert.Equal(tb, "final", next.GetString("status"))
 		assert.Equal(tb, pairs[1].Id, next.GetString("winner"))
@@ -2289,27 +2347,6 @@ func TestWithdrawPair_FlashCountsReleasedMatches(t *testing.T) {
 		})
 	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
 		assert.Equal(tb, "WdrawA retirada (0 partidos registrados por incomparecencia, 2 partidos sin resultado liberados)",
-			flashMessage(tb, res))
-	}
-	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
-	s.Test(t)
-}
-
-// TestWithdrawPair_FlashCountsVoidedMatches: a playoff match against an already-withdrawn pair is named as voided.
-func TestWithdrawPair_FlashCountsVoidedMatches(t *testing.T) {
-	t.Parallel()
-	s := withdrawScenario("POST withdraw-pair flash names the voided playoff matches",
-		func(tb testing.TB, app *tests.TestApp) (string, string) {
-			withdrawn := handlers.MakePairTB(tb, app, "WdrawA")
-			p1 := handlers.MakePairTB(tb, app, "WdrawB")
-			comp := makePlayoffComp(tb, app, []*core.Record{withdrawn, p1}, nil)
-			comp.Set("withdrawn_pairs", []string{withdrawn.Id})
-			require.NoError(tb, app.Save(comp))
-			handlers.MakeMatchTB(tb, app, comp.Id, withdrawn.Id, p1.Id, "pending")
-			return comp.Id, p1.Id
-		})
-	s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
-		assert.Equal(tb, "WdrawB retirada (0 partidos registrados por incomparecencia, 1 partido anulado)",
 			flashMessage(tb, res))
 	}
 	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })

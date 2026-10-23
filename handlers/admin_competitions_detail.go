@@ -139,40 +139,39 @@ func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
 	compID := e.Request.PathValue("id")
 	pairID := e.Request.FormValue("pair_id")
 
-	comp, err := h.app.FindRecordById("competitions", compID)
-	if err != nil {
-		return alertError(e, "Competición no encontrada")
-	}
-
-	if comp.GetBool("finalized") {
-		return alertError(e, "La competición está finalizada; no se puede retirar una pareja")
-	}
-	if !slices.Contains(comp.GetStringSlice("pairs"), pairID) {
-		return alertError(e, "La pareja no pertenece a esta competición")
-	}
-	if slices.Contains(comp.GetStringSlice("withdrawn_pairs"), pairID) {
-		return alertError(e, "La pareja ya está retirada")
-	}
-
-	pair, err := h.app.FindRecordById("pairs", pairID)
-	if err != nil {
-		return alertError(e, "Pareja no encontrada")
-	}
-	w := pairWithdrawal{adminID: e.Auth.Id, pairID: pairID, pairName: pair.GetString("name"),
-		woScore: league.WalkoverScore(comp)}
-
-	matches, err := h.findPairMatches(compID, pairID)
-	if err != nil {
-		return alertError(e, "Error al buscar partidos")
-	}
-
+	// The guards and the match list are read inside the transaction.
 	var out withdrawalOutcome
+	var comp *core.Record
+	var w pairWithdrawal
+	var refusal string
 	if err := h.app.RunInTransaction(func(txApp core.App) error {
 		var err error
+		comp, err = txApp.FindRecordById("competitions", compID)
+		if err != nil {
+			refusal = "Competición no encontrada"
+			return nil
+		}
+		if refusal = withdrawalRefusal(comp, pairID); refusal != "" {
+			return nil
+		}
+		pair, err := txApp.FindRecordById("pairs", pairID)
+		if err != nil {
+			refusal = "Pareja no encontrada"
+			return nil
+		}
+		w = pairWithdrawal{adminID: e.Auth.Id, pairID: pairID, pairName: pair.GetString("name"),
+			woScore: league.WalkoverScore(comp)}
+		matches, err := findPairMatches(txApp, compID, pairID)
+		if err != nil {
+			return err
+		}
 		out, err = applyWithdrawal(txApp, comp, matches, w)
 		return err
 	}); err != nil {
 		return alertError(e, "Error al procesar el retiro")
+	}
+	if refusal != "" {
+		return alertError(e, refusal)
 	}
 
 	for range out.released {
@@ -197,12 +196,24 @@ type pairWithdrawal struct {
 
 // withdrawalOutcome is what applyWithdrawal did to the matches of the withdrawn pair.
 type withdrawalOutcome struct {
-	changed, released, voided []*core.Record
+	changed, released []*core.Record
 }
 
-// applyWithdrawal gives every match of the withdrawn pair its official result, releases it when the
-// league is leveled and the match has no real score, or voids it when no pair can play it. It runs
-// on txApp, the caller's transaction.
+// withdrawalRefusal is why pairID cannot be withdrawn from comp, or "" when it can.
+func withdrawalRefusal(comp *core.Record, pairID string) string {
+	switch {
+	case comp.GetBool("finalized"):
+		return "La competición está finalizada; no se puede retirar una pareja"
+	case !slices.Contains(comp.GetStringSlice("pairs"), pairID):
+		return "La pareja no pertenece a esta competición"
+	case slices.Contains(comp.GetStringSlice("withdrawn_pairs"), pairID):
+		return "La pareja ya está retirada"
+	}
+	return ""
+}
+
+// applyWithdrawal gives every match of the withdrawn pair its official result, or releases it when
+// the league is leveled and the match has no real score. It runs on txApp, the caller's transaction.
 func applyWithdrawal(txApp core.App, comp *core.Record, matches []*core.Record, w pairWithdrawal) (withdrawalOutcome, error) {
 	var out withdrawalOutcome
 	comp.Set("withdrawn_pairs", append(comp.GetStringSlice("withdrawn_pairs"), w.pairID))
@@ -222,27 +233,9 @@ func applyWithdrawal(txApp core.App, comp *core.Record, matches []*core.Record, 
 				return out, err
 			}
 			out.changed = append(out.changed, m)
-		case league.WithdrawalVoid:
-			if err := setVoidResult(txApp, w.adminID, m); err != nil {
-				return out, err
-			}
-			out.voided = append(out.voided, m)
 		}
 	}
 	return out, nil
-}
-
-// setVoidResult voids match m: no pair can play it, so it ends final with no result.
-func setVoidResult(txApp core.App, adminID string, m *core.Record) error {
-	_, _, err := writeAsAdmin(txApp, adminWrite{
-		matchID: m.Id, adminID: adminID,
-		apply: func(_ core.App, fresh *core.Record) (adminChange, error) {
-			league.ApplyVoidResult(fresh)
-			return adminChange{kind: "result_event", detail: league.NoResultEventText,
-				decides: []string{proposalResult, proposalScheduling}}, nil
-		},
-	})
-	return err
 }
 
 // setOfficialResult gives match m the withdrawal walkover for w.pairID. A played score is kept
@@ -272,8 +265,8 @@ func setOfficialResult(txApp core.App, w pairWithdrawal, m *core.Record) error {
 }
 
 // findPairMatches returns every match of pairID in the competition, whatever its status.
-func (h *CompetitionHandler) findPairMatches(compID, pairID string) ([]*core.Record, error) {
-	return h.app.FindRecordsByFilter("matches",
+func findPairMatches(app core.App, compID, pairID string) ([]*core.Record, error) {
+	return app.FindRecordsByFilter("matches",
 		"competition = {:cid} && (pair1 = {:pid} || pair2 = {:pid})",
 		"created", 0, 0, map[string]any{"cid": compID, "pid": pairID})
 }
@@ -315,9 +308,6 @@ func flashWithdrawal(e *core.RequestEvent, pairName string, out withdrawalOutcom
 		countPhrase(len(out.changed), "partido registrado", "partidos registrados"))
 	if len(out.released) > 0 {
 		msg += ", " + countPhrase(len(out.released), "partido sin resultado liberado", "partidos sin resultado liberados")
-	}
-	if len(out.voided) > 0 {
-		msg += ", " + countPhrase(len(out.voided), "partido anulado", "partidos anulados")
 	}
 	msg += ")"
 	flash(e, msg)

@@ -338,6 +338,35 @@ func TestSettleSeeds_MissingReplacementFails(t *testing.T) {
 	assert.Error(t, settleSeeds(app, comp, nm, []*core.Record{lostToW}))
 }
 
+// A final whose two seeds are withdrawn and whose replacements are withdrawn too has no pair that
+// can play it, so it is void: final, no winner, no score.
+func TestSettleSeeds_BothUnplayableVoidsFinal(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	w := makePair(t, app, "Retirada A")
+	wLoser := makePair(t, app, "Perdedor A")
+	v := makePair(t, app, "Retirada B")
+	vLoser := makePair(t, app, "Perdedor B")
+	comp := makeCompetition(t, app, []*core.Record{w, wLoser, v, vLoser})
+	comp.Set("withdrawn_pairs", []string{w.Id, wLoser.Id, v.Id, vLoser.Id})
+	require.NoError(t, app.Save(comp))
+
+	wWon := makeMatch(t, app, comp.Id, w.Id, wLoser.Id, "final")
+	wWon.Set("winner", w.Id)
+	require.NoError(t, app.Save(wWon))
+	vWon := makeMatch(t, app, comp.Id, v.Id, vLoser.Id, "final")
+	vWon.Set("winner", v.Id)
+	require.NoError(t, app.Save(vWon))
+
+	nm := makeMatch(t, app, comp.Id, w.Id, v.Id, "pending")
+	require.NoError(t, settleSeeds(app, comp, nm, []*core.Record{wWon, vWon}))
+
+	assert.Equal(t, "final", nm.GetString("status"))
+	assert.Empty(t, nm.GetString("winner"))
+	assert.Empty(t, nm.GetString("scores"))
+	assert.Empty(t, nm.GetString("review_type"))
+}
+
 // PlayoffMaxRound is ok only for a playoff competition that already has matches.
 func TestPlayoffMaxRound(t *testing.T) {
 	t.Parallel()

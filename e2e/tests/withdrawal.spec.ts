@@ -3,7 +3,7 @@ import { test, expect } from '../overflow-guard';
 import {
   loginAs, asPlayerOn, isMobile, clickAction, clickAndWaitForHxRedirect, waitForHxRedirect, loadTestData,
   ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD, PLAYER5_EMAIL, PLAYER5_PASSWORD,
-  apiCreateRecord, apiDeleteRecord, apiListRecords, openMatchFromHome, suPatch,
+  apiCreateRecord, apiDeleteRecord, apiGetRecord, apiListRecords, openMatchFromHome, suPatch,
 } from '../helpers';
 import { enterScore } from '../tour-helpers';
 
@@ -47,6 +47,13 @@ async function createLeague(page: Page, name: string, pairIds: string[], extra: 
     competition: compId, pair1: pairIds[0], pair2: pairIds[2], status: 'pending', round_number: 1,
   });
   return compId;
+}
+
+// expandRound opens the Jornadas round whose title starts with title; rounds start collapsed.
+// The round's checkbox covers its title, so the checkbox is what gets clicked.
+async function expandRound(page: Page, title: string) {
+  await page.locator('.collapse', { has: page.locator('.collapse-title', { hasText: title }) })
+    .first().locator('input[type="checkbox"]').check();
 }
 
 // openFromHome clicks the competition's card on the player's home page.
@@ -116,7 +123,9 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     createdComps.push(withdrawn, other);
 
     await withdrawFromDetail(page, withdrawn, data.pair1Id);
-    await page.goto(`/admin/competitions/${other}`);
+    await asPlayerOn(page, other, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await openFromHome(page, other);
+    await expandRound(page, 'Jornada 1');
 
     await expect(page.locator('text=Pareja Alpha >> visible=true').first()).toBeVisible();
     await expect(page.locator(GRAY)).toHaveCount(0);
@@ -137,6 +146,52 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     await expect(page.locator(GRAY_VISIBLE).filter({ hasText: 'Pareja Alpha' }).first()).toBeVisible();
   });
 
+  test('a withdrawn pair player sees the walkover result on the match and cannot act on it', async ({ page }, testInfo) => {
+    const data = loadTestData();
+    const compId = await createLeague(page, `Retirada accion ${testInfo.project.name} ${Date.now()}`, [data.pair1Id, data.pair2Id, data.pair3Id]);
+    createdComps.push(compId);
+    const [match] = await apiListRecords(page.request, data.adminToken, 'matches',
+      `competition='${compId}' && pair1='${data.pair1Id}' && pair2='${data.pair2Id}'`);
+
+    await withdrawFromDetail(page, compId, data.pair1Id);
+
+    const walkover = await apiGetRecord(page.request, data.adminToken, 'matches', match.id);
+    expect(walkover.status).toBe('final');
+    expect(walkover.scores).toBe('0-6 0-6'); // stored pair1 first; pair2 holds the sets
+    expect(walkover.winner).toBe(data.pair2Id);
+    expect(walkover.review_type).toBe('walkover');
+
+    await asPlayerOn(page, compId, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await openFromHome(page, compId);
+    await openMatchFromHome(page, match.id);
+
+    await expect(page.locator('#result-panel')).toContainText('0-6 0-6');
+    await expect(page.locator('#result-panel form')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Enviar resultado' })).toHaveCount(0);
+
+    // The withdrawn pair's player is refused before the match's own state is checked.
+    // raw-request: the refusal is the response under test; the throwing helpers would fail on it.
+    const refused = await page.request.post(`/match/${match.id}/submit`, { form: { scores: '6-3 6-4' } });
+    expect(await refused.text()).toContain('Tu pareja se ha retirado de esta competición');
+    const unchanged = await apiGetRecord(page.request, data.adminToken, 'matches', match.id);
+    expect(unchanged.scores).toBe('0-6 0-6');
+    expect(unchanged.winner).toBe(data.pair2Id);
+  });
+
+  test('the jornadas list grays the withdrawn pair on its match rows and leaves the others plain', async ({ page }, testInfo) => {
+    const data = loadTestData();
+    const compId = await createLeague(page, `Retirada lista ${testInfo.project.name} ${Date.now()}`, [data.pair1Id, data.pair2Id, data.pair3Id]);
+    createdComps.push(compId);
+
+    await withdrawFromDetail(page, compId, data.pair1Id);
+    await asPlayerOn(page, compId, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await openFromHome(page, compId);
+    await expandRound(page, 'Jornada 1');
+
+    await expect(page.locator(GRAY_VISIBLE).filter({ hasText: 'Pareja Alpha' }).first()).toBeVisible();
+    await expect(page.locator(GRAY_VISIBLE).filter({ hasText: 'Pareja Beta' })).toHaveCount(0);
+  });
+
   test('the jornadas pair filter marks the withdrawn pair (retirada) and leaves the others plain', async ({ page }, testInfo) => {
     const data = loadTestData();
     const compId = await createLeague(page, `Retirada filtro ${testInfo.project.name} ${Date.now()}`, [data.pair1Id, data.pair2Id, data.pair3Id]);
@@ -151,7 +206,7 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     await expect(page.locator('select[name="pair"] option', { hasText: /^(★ )?Pareja Beta$/ })).toHaveCount(1);
   });
 
-  test('a void playoff match reads Sin resultado on the competition page, and its withdrawn seeds are gray', async ({ page }, testInfo) => {
+  test('a playoff match whose pair withdrew stands as a walkover when the opponent withdraws too', async ({ page }, testInfo) => {
     const data = loadTestData();
     const token = data.adminToken;
     const compId = await apiCreateRecord(page.request, token, 'competitions', {
@@ -166,16 +221,37 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
       competition: compId, pair1: data.pair3Id, pair2: data.adminPairId, status: 'pending', round_number: 1,
     });
 
-    // The first withdrawal walks the opponent over; the second leaves the match with no playable pair.
+    // The first withdrawal walks the opponent over; the second leaves that final match standing.
     await withdrawFromDetail(page, compId, data.pair1Id);
     await withdrawFromDetail(page, compId, data.pair2Id);
+
+    const matchFinal = await apiGetRecord(page.request, token, 'matches', matchId);
+    expect(matchFinal.status).toBe('final');
+    expect(matchFinal.scores).toBe('0-6 0-6');
+    expect(matchFinal.winner).toBe(data.pair2Id);
 
     await asPlayerOn(page, compId, PLAYER1_EMAIL, PLAYER1_PASSWORD);
     await openFromHome(page, compId);
 
     await expect(page.locator(`a[href="/match/${matchId}"]`).first()).toBeVisible();
-    await expect(page.locator('span:visible', { hasText: /^Sin resultado$/ }).first()).toBeVisible();
-    await expect(page.locator(GRAY_VISIBLE).filter({ hasText: 'Pareja Beta' }).first()).toBeVisible();
+    await expect(page.locator('span:visible', { hasText: /^Sin resultado$/ })).toHaveCount(0);
+  });
+
+  test('the playoff dialog states that finished matches stay', async ({ page }, testInfo) => {
+    const data = loadTestData();
+    const token = data.adminToken;
+    const compId = await apiCreateRecord(page.request, token, 'competitions', {
+      name: `Retirada playoff texto ${testInfo.project.name} ${Date.now()}`, type: 'playoff', active: true,
+      pairs: [data.pair1Id, data.pair2Id, data.pair3Id, data.adminPairId], rounds: 2,
+    });
+    createdComps.push(compId);
+    await apiCreateRecord(page.request, token, 'matches', {
+      competition: compId, pair1: data.pair1Id, pair2: data.pair2Id, status: 'pending', round_number: 1,
+    });
+
+    await openWithdrawDialog(page, compId, data.pair1Id);
+    await expect(page.locator('#confirm-message')).toContainText('los partidos ya terminados se mantienen');
+    await page.locator('[data-confirm="cancel"]').click();
   });
 
   test('the withdraw confirm stays disabled until RETIRAR is typed, ignoring surrounding spaces and case', async ({ page }, testInfo) => {

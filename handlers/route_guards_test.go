@@ -88,10 +88,25 @@ func playerRoutes() []playerRoute {
 			},
 		},
 		{
+			name: "thread reject date proposal", captainGated: false, withdrawnBlocked: true,
+			setup: func(tb testing.TB, app core.App, f guardFixture) (string, string) {
+				msg := makeSchedulingProposal(tb, app, f.match.Id, f.rival)
+				return fmt.Sprintf("/match/%s/thread/proposal/%s/respond", f.match.Id, msg.Id), "action=reject"
+			},
+		},
+		{
 			name: "thread respond to result proposal", captainGated: false, withdrawnBlocked: true,
 			setup: func(tb testing.TB, app core.App, f guardFixture) (string, string) {
 				msg := handlers.MakeResultProposal(tb, app, f.match.Id, f.rival, "6-3 6-4")
 				return fmt.Sprintf("/match/%s/thread/proposal/%s/respond", f.match.Id, msg.Id), "action=accept"
+			},
+		},
+		{
+			name: "thread reject result proposal", captainGated: false, withdrawnBlocked: true,
+			setup: func(tb testing.TB, app core.App, f guardFixture) (string, string) {
+				msg := handlers.MakeResultProposal(tb, app, f.match.Id, f.rival, "6-3 6-4")
+				return fmt.Sprintf("/match/%s/thread/proposal/%s/respond", f.match.Id, msg.Id),
+					"action=reject&counter_scores=6-2+6-3"
 			},
 		},
 		{

@@ -9,13 +9,12 @@ import (
 // WithdrawalAction is what a withdrawal does to one match.
 type WithdrawalAction int
 
-// Leave keeps the match as it is, Release deletes a leveled match not yet proposed, Official
-// records the walkover score, and Void empties a playoff match that neither pair can play.
+// Leave keeps the match as it is, Release deletes a leveled match not yet proposed, and Official
+// records the walkover score.
 const (
 	WithdrawalLeave WithdrawalAction = iota
 	WithdrawalRelease
 	WithdrawalOfficial
-	WithdrawalVoid
 )
 
 // NoResultEventText is the timeline line for a void match.
@@ -64,12 +63,6 @@ func IsVoid(m *core.Record) bool {
 	return m.GetString("status") == StatusFinal && m.GetString("winner") == ""
 }
 
-// isPlayed reports whether m was really played: final with a winner and not a walkover.
-func isPlayed(m *core.Record) bool {
-	return m.GetString("status") == StatusFinal && m.GetString("winner") != "" &&
-		m.GetString("review_type") != "walkover"
-}
-
 // WithdrawalPlan decides what the withdrawal of pairID does to match m. proposed holds the
 // match ids with a standing result proposal.
 func WithdrawalPlan(comp, m *core.Record, pairID string, proposed map[string]bool) WithdrawalAction {
@@ -79,12 +72,10 @@ func WithdrawalPlan(comp, m *core.Record, pairID string, proposed map[string]boo
 	switch {
 	case IsPlayoff(comp) && opponent == "":
 		return WithdrawalLeave // next round not seeded yet; advanceRound resolves it
-	case IsPlayoff(comp) && WithdrawnSet(comp)[opponent] && !isPlayed(m):
-		return WithdrawalVoid // the opponent already withdrew, so this match has no playable pair
 	case status == StatusFinal && WithdrawnSet(comp)[opponent]:
 		return WithdrawalLeave // both pairs withdrew; the match stands as the first withdrawal set it
 	case status == StatusFinal && IsPlayoff(comp):
-		return WithdrawalLeave // earlier rounds stand
+		return WithdrawalLeave // a playoff match that is final stands, a played or walkover one alike
 	case status == StatusFinal && m.GetBool("admin_result") &&
 		m.GetString("winner") == opponent && isOfficialScore(m, woScore):
 		return WithdrawalLeave // an admin already set exactly this

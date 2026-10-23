@@ -2108,3 +2108,28 @@ func TestTopUp_RematchNeverRecreatesAvoidedPairing(t *testing.T) {
 		assert.False(t, isAvoided, "released pairing recreated in the same run")
 	}
 }
+
+// TestTallyMatchState_PlayedMatchKeepsReviewType guards the rule that a played final match with no
+// review type counts as a played home match, while an approved walkover counts as a walkover.
+func TestTallyMatchState_PlayedMatchKeepsReviewType(t *testing.T) {
+	app := newTestApp(t)
+	pa := makePair(t, app, "TyA")
+	pb := makePair(t, app, "TyB")
+	pc := makePair(t, app, "TyC")
+	comp := makeLeveledCompetition(t, app, []*core.Record{pa, pb, pc}, 1, 1)
+	played := makeLeveledMatch(t, app, comp.Id, pa.Id, pb.Id, "6-4 6-4", pa.Id, "final", time.Now().Add(-time.Hour))
+	walkover := makeLeveledMatch(t, app, comp.Id, pb.Id, pc.Id, "6-0 6-0", pb.Id, "final", time.Now())
+	walkover.Set("review_type", "walkover")
+	require.NoError(t, app.Save(walkover))
+
+	tally := tallyMatchState([]string{pa.Id, pb.Id, pc.Id}, []*core.Record{played, walkover}, map[string]bool{})
+
+	assert.Equal(t, 1, tally.home[pa.Id], "the played match is pa's home match")
+	assert.Equal(t, 0, tally.home[pb.Id], "the walkover is not a home match")
+	assert.Equal(t, 0, tally.walkover[pa.Id], "the played match is not a walkover")
+	assert.Equal(t, 1, tally.walkover[pb.Id], "the approved walkover is counted as a walkover for pb")
+	assert.Equal(t, 1, tally.walkover[pc.Id], "the approved walkover is counted as a walkover for pc")
+	assert.Equal(t, 1, tally.played[pa.Id])
+	assert.Equal(t, 2, tally.played[pb.Id], "both matches count as played for pb")
+	assert.Equal(t, 1, tally.played[pc.Id])
+}

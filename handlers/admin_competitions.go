@@ -85,6 +85,7 @@ func (h *CompetitionHandler) buildDetailData(e *core.RequestEvent, id string, co
 		"ActivePenalty":       firstActivePenalty(penaltyRows),
 		"IsLeague":            comp.GetString("type") == "league",
 		"IsLeveled":           isLeveled,
+		"IsPlayoff":           league.IsPlayoff(comp),
 		"Levels":              league.Levels,
 		"HasFixtures":         len(matches) > 0,
 		"HasUnpaid":           anyUnpaid(pairEntries),
