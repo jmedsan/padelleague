@@ -96,7 +96,7 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     // Indicator in the pairs list, reached by the withdraw click on the same page.
     await expect(withdrawnNameOf(page, 'Pareja Alpha').first()).toBeVisible();
     const indicator = page.locator(WITHDRAWN_VISIBLE).first();
-    await expect(indicator.locator('.tooltip')).toHaveAttribute('data-tip', 'Pareja retirada de esta competición');
+    await expect(indicator.locator('.tooltip')).toHaveAttribute('data-tip', 'Pareja retirada');
     await expect(indicator.locator('.tooltip')).toHaveClass(/\btooltip-error\b/);
     await expect(page.locator('.badge', { hasText: 'Retirada' })).toHaveCount(0);
     // The name wraps instead of truncating, and the icon stays inside the viewport.
@@ -104,6 +104,8 @@ test.describe('pair withdrawal @withdrawal', { tag: '@withdrawal' }, () => {
     await expect(name).toHaveText('Pareja Alpha');
     await expect(name).toHaveClass(/\bbreak-words\b/);
     await expect(name).not.toHaveClass(/\btruncate\b/);
+    // The withdrawn name is grayed; only the icon beside it is red.
+    await expect(name).toHaveClass(/\bopacity-50\b/);
     const box = (await indicator.boundingBox())!;
     expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   });

@@ -1,3 +1,3 @@
 {{/* withdrawnIndicator — the ONE marker for a pair withdrawn from the competition. Rendered only by
      pairName, so every current-state pair name shows it the same way. */}}
-{{define "withdrawnIndicator"}}<span data-testid="withdrawn-indicator" class="align-middle shrink-0 ml-1">{{template "tooltipIcon" (dict "Tip" "Pareja retirada de esta competición" "TipClass" "tooltip-error" "IconClass" "text-error" "Path" "M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75")}}</span>{{end}}
+{{define "withdrawnIndicator"}}<span data-testid="withdrawn-indicator" class="align-middle shrink-0 ml-1">{{template "tooltipIcon" (dict "Tip" "Pareja retirada" "TipClass" "tooltip-error tooltip-right" "IconClass" "text-error" "Path" "M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z")}}</span>{{end}}
