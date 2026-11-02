@@ -60,6 +60,19 @@ func (h *LogoHandler) SponsorLogo(e *core.RequestEvent) error {
 	return h.serveRecordFile(e, rec, filename)
 }
 
+// PromotionImage serves a promotion's image.
+func (h *LogoHandler) PromotionImage(e *core.RequestEvent) error {
+	rec, err := h.app.FindRecordById("promotions", e.Request.PathValue("id"))
+	if err != nil {
+		return e.JSON(http.StatusNotFound, map[string]string{"error": "not found"})
+	}
+	filename := rec.GetString("image")
+	if filename == "" {
+		return e.JSON(http.StatusNotFound, map[string]string{"error": "no image"})
+	}
+	return h.serveRecordFile(e, rec, filename)
+}
+
 func (h *LogoHandler) serveRecordFile(e *core.RequestEvent, rec *core.Record, filename string) error {
 	fsys, err := h.app.NewFilesystem()
 	if err != nil {

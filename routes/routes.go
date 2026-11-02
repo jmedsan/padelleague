@@ -91,6 +91,7 @@ func registerStaticRoutes(se *core.ServeEvent, deps Deps) {
 	se.Router.GET("/logo/league", logo.LeagueLogo)
 	se.Router.GET("/logo/competition/{id}", logo.CompetitionLogo)
 	se.Router.GET("/logo/sponsor/{id}", logo.SponsorLogo)
+	se.Router.GET("/logo/promotion/{id}", logo.PromotionImage)
 
 	se.Router.GET("/privacy", func(e *core.RequestEvent) error {
 		return deps.Renderer.Page(e, "privacy.html", map[string]any{"PageTitle": "Política de Privacidad", "LegalEmail": league.LoadContactInfo(deps.App).Email})
@@ -168,6 +169,11 @@ func registerPublicRoutes(se *core.ServeEvent, deps Deps) {
 
 	view := handlers.NewViewHandler()
 	se.Router.GET("/view/{mode}", view.Switch).BindFunc(middleware.RequireAuth)
+
+	promo := handlers.NewPromotionHandler(deps.App, deps.Renderer.Page, deps.Renderer.Partial, deps.Renderer.ErrorPage)
+	se.Router.GET("/promotions", promo.List).BindFunc(middleware.RequireAuth)
+	se.Router.GET("/promo/card", promo.Card).BindFunc(middleware.RequireAuth)
+	se.Router.GET("/promo/{id}", promo.Click).BindFunc(middleware.RequireAuth)
 
 	srch := handlers.NewSearchHandler(deps.App, deps.LeagueSvc, deps.SearchIndex, deps.Renderer.Partial)
 	se.Router.GET("/search", srch.Search).BindFunc(middleware.RequireAuth)

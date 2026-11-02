@@ -1,0 +1,29 @@
+{{define "promotionCard"}}
+<div class="card bg-base-200 shadow-sm mb-4" data-promo-card data-testid="promo-card" data-promo-id="{{.ID}}">
+    <div class="card-body p-4 gap-2">
+        <div class="flex items-center justify-between gap-2">
+            <span class="badge badge-ghost badge-sm">Patrocinado</span>
+            {{if not .Mode.Full}}
+            <button type="button" class="btn btn-ghost btn-circle -mr-2 -mt-2" data-promo-dismiss="{{.ID}}" aria-label="descartar promoción">
+                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+            </button>
+            {{end}}
+        </div>
+        <div class="flex items-start gap-3">
+            {{if .ImageURL}}
+            <a href="{{.ClickURL}}" target="_blank" rel="noopener sponsored nofollow" data-promo-link="{{.ID}}" class="flex-none" tabindex="-1" aria-hidden="true">
+                <img src="{{.ImageURL}}" alt="" class="w-16 h-16 object-contain rounded bg-base-100">
+            </a>
+            {{end}}
+            <div class="flex-1 min-w-0">
+                <a href="{{.ClickURL}}" target="_blank" rel="noopener sponsored nofollow" data-promo-link="{{.ID}}" class="link link-hover font-semibold break-words">{{.Title}}</a>
+                {{if .Description}}<p class="text-sm opacity-80 break-words whitespace-pre-wrap">{{.Description}}</p>{{end}}
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "promotionSlot"}}
+<div id="promo-slot" data-testid="promo-slot" hx-get="/promo/card" hx-trigger="load" hx-swap="innerHTML" hx-vals='js:{exclude: promoDismissed()}'></div>
+{{end}}

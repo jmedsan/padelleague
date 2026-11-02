@@ -1,0 +1,11 @@
+{{define "content"}}
+<h1 class="text-2xl font-bold mb-6">Promociones</h1>
+
+<div class="space-y-3">
+    {{range .Promotions}}
+    {{template "promotionCard" .}}
+    {{else}}
+    {{template "emptyState" "No hay promociones disponibles"}}
+    {{end}}
+</div>
+{{end}}
