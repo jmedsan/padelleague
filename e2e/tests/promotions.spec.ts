@@ -1,6 +1,6 @@
-import type { Page } from '@playwright/test';
+import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, loadTestData, isMobile, openDrawer, suGet, suPatch, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { loginAs, loadTestData, isMobile, openDrawer, suGet, suPatch, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 import { clickAndWaitForHxRedirect } from '../tour-helpers';
 import { clickConfirmAndWaitForHxRedirect } from '../helpers';
 
@@ -105,5 +105,253 @@ test.describe.serial('promociones admin', { tag: '@promotions' }, () => {
     await clickConfirmAndWaitForHxRedirect(page, row.getByText('Eliminar'), '/admin/promotions');
     await expect(row).toHaveCount(0);
     expect(await promoByTitle(page, 'Promo E2E editada')).toBeUndefined();
+  });
+});
+
+// ---- Player card ----------------------------------------------------------
+
+interface Offer { id: string; title: string }
+
+const EXTERNAL = 'https://stub.example/oferta';
+
+// setOffers makes the given offers the only current ones: every existing offer
+// is switched off through the superuser API, then each wanted offer is created
+// through the live admin form (multipart POST), the same flow the admin uses.
+async function setOffers(
+  browser: Browser,
+  baseURL: string | undefined,
+  wanted: Array<{ title: string; description?: string; expiresOn?: string; image?: boolean; active?: boolean }>,
+): Promise<Offer[]> {
+  const admin = await browser.newContext({ baseURL });
+  const page = await admin.newPage();
+  try {
+    const token = loadTestData().adminToken;
+    const all = await suGet(page.request, token, '/api/collections/promotions/records?perPage=200');
+    for (const rec of all.items) {
+      await suPatch(page.request, token, `/api/collections/promotions/records/${rec.id}`, { active: false });
+    }
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    const made: Offer[] = [];
+    for (const w of wanted) {
+      const multipart: Record<string, string | { name: string; mimeType: string; buffer: Buffer }> = {
+        title: w.title,
+        description: w.description ?? `Descripción de ${w.title}`,
+        url: EXTERNAL,
+      };
+      if (w.expiresOn) multipart.expires_on = w.expiresOn;
+      if (w.image) multipart.image = { name: 'promo.jpg', mimeType: 'image/jpeg', buffer: PROMO_JPEG };
+      const resp = await page.request.post('/admin/promotions', { multipart, headers: { 'HX-Request': 'true' } });
+      expect(resp.status(), `create ${w.title}`).toBe(204);
+      const rec = (await suGet(page.request, token,
+        `/api/collections/promotions/records?filter=${encodeURIComponent(`title="${w.title}"&&active=true`)}`)).items[0];
+      if (w.active === false) {
+        await suPatch(page.request, token, `/api/collections/promotions/records/${rec.id}`, { active: false });
+      }
+      made.push({ id: rec.id, title: w.title });
+    }
+    return made;
+  } finally {
+    await admin.close();
+  }
+}
+
+async function promoRecord(page: Page, id: string): Promise<any> {
+  return suGet(page.request, loadTestData().adminToken, `/api/collections/promotions/records/${id}`);
+}
+
+async function stubExternal(context: BrowserContext): Promise<void> {
+  await context.route('https://stub.example/**', route =>
+    route.fulfill({ status: 200, contentType: 'text/html', body: '<title>stub</title>' }));
+}
+
+// playerHome logs in as a player and waits for the card request of the home page.
+async function playerHome(page: Page): Promise<void> {
+  await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+}
+
+async function dismissed(page: Page): Promise<string | null> {
+  return page.evaluate(() => localStorage.getItem('promo-dismissed'));
+}
+
+const reloadAndSettle = async (page: Page) => {
+  await Promise.all([page.waitForResponse(r => r.url().includes('/promo/card')), page.reload()]);
+};
+
+test.describe.serial('promociones player card', { tag: '@promotions' }, () => {
+  test('P1: Inicio shows the card with badge, title, description and image', async ({ browser, baseURL, page }) => {
+    const [offer] = await setOffers(browser, baseURL, [{ title: 'Oferta P1', description: 'Descripción P1', image: true }]);
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.locator('.navbar a[href="/"]').first().click();
+    const card = page.getByTestId('promo-card');
+    await expect(card).toHaveAttribute('data-promo-id', offer.id);
+    await expect(card.getByText('Patrocinado')).toBeVisible();
+    await expect(card.getByRole('link', { name: 'Oferta P1' })).toBeVisible();
+    await expect(card.getByText('Descripción P1')).toBeVisible();
+    await expect(card.locator('img')).toBeVisible();
+  });
+
+  test('P2: the card shows on the competition page and not on a match page', async ({ browser, baseURL, page }) => {
+    const [offer] = await setOffers(browser, baseURL, [{ title: 'Oferta P2' }]);
+    const data = loadTestData();
+    await playerHome(page);
+    await page.locator(`a[href^="/competition/${data.competitionId}"]`).first().click();
+    await page.waitForURL(`**/competition/${data.competitionId}**`);
+    await expect(page.getByTestId('promo-card')).toHaveAttribute('data-promo-id', offer.id);
+    const link = page.locator(`a[href="/match/${data.matchIds[0]}"]`).first();
+    const round = page.locator('.collapse', { has: link }).locator('> input');
+    if (await round.count()) await round.check();
+    await link.click();
+    await page.waitForURL(`**/match/${data.matchIds[0]}`);
+    await expect(page.getByTestId('promo-slot')).toHaveCount(0);
+  });
+
+  test('P3: a dismissed offer never shows again while another is current', async ({ browser, baseURL, page }) => {
+    const [a, b] = await setOffers(browser, baseURL, [{ title: 'Oferta P3A' }, { title: 'Oferta P3B' }]);
+    await page.addInitScript(id => localStorage.setItem('promo-dismissed', JSON.stringify([id])), a.id);
+    await playerHome(page);
+    for (let i = 0; i < 10; i++) {
+      await expect(page.getByTestId('promo-card')).toHaveAttribute('data-promo-id', b.id);
+      await reloadAndSettle(page);
+    }
+  });
+
+  test('P4: the X removes the card, it stays gone after a reload, and the ID is stored once', async ({ browser, baseURL, page }) => {
+    const [offer] = await setOffers(browser, baseURL, [{ title: 'Oferta P4' }]);
+    await playerHome(page);
+    await page.getByRole('button', { name: 'descartar promoción' }).click();
+    await expect(page.getByTestId('promo-card')).toHaveCount(0);
+    expect(await dismissed(page)).toBe(JSON.stringify([offer.id]));
+    await reloadAndSettle(page);
+    await expect(page.getByTestId('promo-card')).toHaveCount(0);
+    expect(await dismissed(page)).toBe(JSON.stringify([offer.id]));
+  });
+
+  test('P5: clicking the card opens the offer in a new tab, dismisses it and counts one click', async ({ browser, baseURL, page, context }) => {
+    const [offer] = await setOffers(browser, baseURL, [{ title: 'Oferta P5' }]);
+    await stubExternal(context);
+    await playerHome(page);
+    const [popup] = await Promise.all([
+      context.waitForEvent('page'),
+      page.getByTestId('promo-card').getByRole('link', { name: 'Oferta P5' }).click(),
+    ]);
+    await popup.waitForURL(EXTERNAL);
+    await expect(page.getByTestId('promo-card')).toHaveCount(0);
+    expect(await dismissed(page)).toBe(JSON.stringify([offer.id]));
+    expect((await promoRecord(page, offer.id)).clicks).toBe(1);
+  });
+
+  test('P6: one reload adds exactly one view to the shown offer and none to the other', async ({ browser, baseURL, page }) => {
+    const [a, b] = await setOffers(browser, baseURL, [{ title: 'Oferta P6A' }, { title: 'Oferta P6B' }]);
+    await playerHome(page);
+    const before = { [a.id]: (await promoRecord(page, a.id)).views, [b.id]: (await promoRecord(page, b.id)).views };
+    await reloadAndSettle(page);
+    const shown = await page.getByTestId('promo-card').getAttribute('data-promo-id');
+    expect([a.id, b.id]).toContain(shown);
+    for (const id of [a.id, b.id]) {
+      expect((await promoRecord(page, id)).views, id).toBe(before[id] + (id === shown ? 1 : 0));
+    }
+  });
+
+  test('P7: with no current offer the slot is empty and has no height', async ({ browser, baseURL, page }) => {
+    await setOffers(browser, baseURL, []);
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await reloadAndSettle(page);
+    const slot = page.getByTestId('promo-slot');
+    await expect(slot).toBeEmpty();
+    expect((await slot.boundingBox())?.height ?? 0).toBe(0);
+  });
+
+  test('P11: inactive and expired offers never show; one expiring today does', async ({ browser, baseURL, page }) => {
+    const [off, old, today] = await setOffers(browser, baseURL, [
+      { title: 'Oferta P11 apagada', active: false },
+      { title: 'Oferta P11 vieja', expiresOn: leagueDate(-1) },
+      { title: 'Oferta P11 hoy', expiresOn: leagueDate(0) },
+    ]);
+    await playerHome(page);
+    for (let i = 0; i < 5; i++) {
+      await expect(page.getByTestId('promo-card')).toHaveAttribute('data-promo-id', today.id);
+      await reloadAndSettle(page);
+    }
+    expect((await promoRecord(page, off.id)).views).toBe(0);
+    expect((await promoRecord(page, old.id)).views).toBe(0);
+
+    // The admin sees both states in the list.
+    await page.context().clearCookies();
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await openAdminPromotions(page);
+    const offRow = page.locator(`[data-promo-id="${off.id}"]`);
+    const oldRow = page.locator(`[data-promo-id="${old.id}"]`);
+    await expect(offRow.getByText('Inactiva')).toBeVisible();
+    await expect(oldRow.getByText('Expirada')).toBeVisible();
+    await expect(page.locator(`[data-promo-id="${today.id}"]`).getByText('Expirada')).toHaveCount(0);
+  });
+
+  for (const stored of ['{', '"x"', '{"a":1}']) {
+    test(`P13: invalid stored value ${stored} still shows the card without page errors`, async ({ browser, baseURL, page }) => {
+      await setOffers(browser, baseURL, [{ title: 'Oferta P13' }]);
+      const errors: string[] = [];
+      page.on('pageerror', e => errors.push(e.message));
+      await page.addInitScript(v => localStorage.setItem('promo-dismissed', v), stored);
+      await playerHome(page);
+      await expect(page.getByTestId('promo-card')).toBeVisible();
+      expect(errors).toEqual([]);
+    });
+  }
+
+  test('P13: blocked localStorage still shows the card, and the X removes it for this page', async ({ browser, baseURL, page }) => {
+    await setOffers(browser, baseURL, [{ title: 'Oferta P13 bloqueada' }]);
+    const errors: string[] = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('denied', 'SecurityError'); } });
+    });
+    await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
+    await page.goto('/');
+    await expect(page.getByTestId('promo-card')).toBeVisible();
+    await page.getByRole('button', { name: 'descartar promoción' }).click();
+    await expect(page.getByTestId('promo-card')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('P14: navigating home and back keeps one slot and one card, and a click stores the ID once', async ({ browser, baseURL, page, context }) => {
+    const [offer] = await setOffers(browser, baseURL, [{ title: 'Oferta P14' }]);
+    await stubExternal(context);
+    const data = loadTestData();
+    await playerHome(page);
+    for (let i = 0; i < 2; i++) {
+      await page.locator(`a[href^="/competition/${data.competitionId}"]`).first().click();
+      await page.waitForURL(`**/competition/${data.competitionId}**`);
+      await expect(page.getByTestId('promo-slot')).toHaveCount(1);
+      await expect(page.getByTestId('promo-card')).toHaveCount(1);
+      await page.getByRole('link', { name: '← Inicio' }).click();
+      await page.waitForURL(/\/$/);
+      await expect(page.getByTestId('promo-slot')).toHaveCount(1);
+      await expect(page.getByTestId('promo-card')).toHaveCount(1);
+    }
+    const [popup] = await Promise.all([
+      context.waitForEvent('page'),
+      page.getByTestId('promo-card').getByRole('link', { name: 'Oferta P14' }).click(),
+    ]);
+    await popup.waitForURL(EXTERNAL);
+    expect(await dismissed(page)).toBe(JSON.stringify([offer.id]));
+  });
+
+  test('P15: a 100-character title and 300-character description fit at 360px in both themes', async ({ browser, baseURL, page }) => {
+    await setOffers(browser, baseURL, [{ title: 'T'.repeat(100), description: 'D'.repeat(300), image: true }]);
+    await page.setViewportSize({ width: 360, height: 780 });
+    await playerHome(page);
+    await expect(page.getByTestId('promo-card')).toBeVisible();
+    for (const theme of ['dark', 'padel']) {
+      if (await page.locator('html').getAttribute('data-theme') !== theme) {
+        await page.getByRole('button', { name: 'cambiar tema' }).click();
+      }
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(overflow, theme).toBeLessThanOrEqual(0);
+      const box = await page.getByTestId('promo-card').boundingBox();
+      expect(box!.x + box!.width, theme).toBeLessThanOrEqual(360);
+    }
   });
 });

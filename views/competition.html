@@ -5,6 +5,8 @@
 
 {{template "competitionHeader" (dict "Mode" .Mode "Comp" .Competition "IsArchived" .IsArchived)}}
 
+{{if not .AdminView}}{{template "promotionSlot"}}{{end}}
+
 {{if .Awards}}
 <div class="mb-6">
     <h2 class="text-lg font-bold mb-3">Premios</h2>

@@ -31,6 +31,8 @@
 </div>
 {{end}}
 
+{{if not .AdminView}}{{template "promotionSlot"}}{{end}}
+
 {{if .UpcomingMatches}}
 <div class="mb-6" data-testid="upcoming-matches">
     <h2 class="text-lg font-bold mb-3">Próximos partidos</h2>

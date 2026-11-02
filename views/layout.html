@@ -18,6 +18,7 @@
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/confirm.js" defer></script>
     <script src="/static/js/score-input.js"></script>
+    <script src="/static/js/promotions.js"></script>
     <script src="/static/js/flatpickr.min.js"></script>
     <script src="/static/js/flatpickr-es.js"></script>
     <script src="/static/js/localtime.js"></script>
@@ -61,7 +62,8 @@
     </script>
     <script>
         (function() {
-            var t = localStorage.getItem('theme') || 'dark';
+            var t = 'dark';
+            try { t = localStorage.getItem('theme') || 'dark'; } catch (e) {}
             if (t !== 'padel' && t !== 'dark') t = 'dark';
             document.documentElement.setAttribute('data-theme', t);
         })();
@@ -69,7 +71,7 @@
             var cur = document.documentElement.getAttribute('data-theme');
             var next = cur === 'dark' ? 'padel' : 'dark';
             document.documentElement.setAttribute('data-theme', next);
-            localStorage.setItem('theme', next);
+            try { localStorage.setItem('theme', next); } catch (e) {}
         }
     </script>
 </head>
