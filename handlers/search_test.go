@@ -397,3 +397,38 @@ func TestSearch_ZeroQueryObligationsAreLinks(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestSearch_PromocionesPageFollowsCurrentOffers(t *testing.T) {
+	t.Parallel()
+	for _, offers := range []bool{true, false} {
+		name := "player search finds no Promociones page without a current offer"
+		if offers {
+			name = "player search finds the Promociones page with a current offer"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			s := &tests.ApiScenario{
+				TestAppFactory: handlers.TestAppFactory,
+				Name:           name,
+				Method:         http.MethodGet,
+				URL:            "/search?q=promociones",
+				ExpectedStatus: 200,
+			}
+			if offers {
+				s.ExpectedContent = []string{`href="/promotions"`}
+			} else {
+				s.NotExpectedContent = []string{`href="/promotions"`}
+			}
+			s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+				ix := setupProductionRoutes(tb, app, e).SearchIndex
+				makePromotionTB(tb, app, "promooff0000001", "Apagada", "https://example.com/off", false, "")
+				if offers {
+					makePromotionTB(tb, app, "promolive000001", "Decathlon", "https://www.decathlon.es", true, "")
+				}
+				ix.Replace(search.Build(app))
+				s.Headers = handlers.AuthHeaders(tb, handlers.MakeUserTB(tb, app, "Jugador", ""))
+			}
+			s.Test(t)
+		})
+	}
+}

@@ -379,3 +379,39 @@ func TestPromotionsNavbarEntries(t *testing.T) {
 		})
 	}
 }
+
+func TestPromotionsNavbarOnErrorPage(t *testing.T) {
+	t.Parallel()
+	const phoneIcon = `aria-label="promociones"`
+	const desktopLink = `<li><a href="/promotions"`
+	for _, offers := range []bool{true, false} {
+		name := "404 page without a current offer hides the navbar entries"
+		if offers {
+			name = "404 page with a current offer shows the navbar entries"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			s := &tests.ApiScenario{
+				TestAppFactory:  handlers.TestAppFactory,
+				Name:            name,
+				Method:          http.MethodGet,
+				URL:             "/promo/promomissing0001",
+				ExpectedStatus:  404,
+				ExpectedContent: []string{"Promoción no disponible"},
+			}
+			if offers {
+				s.ExpectedContent = append(s.ExpectedContent, phoneIcon, desktopLink)
+			} else {
+				s.NotExpectedContent = []string{phoneIcon, desktopLink}
+			}
+			s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+				setupProductionRoutes(tb, app, e)
+				if offers {
+					makePromotionTB(tb, app, "promolive000001", "Decathlon", "https://www.decathlon.es", true, "")
+				}
+				s.Headers = handlers.AuthHeaders(tb, handlers.MakeUserTB(tb, app, "Jugador", ""))
+			}
+			s.Test(t)
+		})
+	}
+}
