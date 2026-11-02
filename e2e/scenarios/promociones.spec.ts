@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { expect, test } from '@playwright/test';
-import { ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { ADMIN_EMAIL, ADMIN_PASSWORD, leagueDate } from '../helpers';
 import {
   PLAYER_PASSWORD, ScenarioApi, ScenarioData, formPost, loadCtx, printLinks, saveCtx, seedChatMatch,
 } from '../scenario-helpers';
@@ -14,8 +14,6 @@ interface Offer {
   expiresInDays: number | null;
   active: boolean;
 }
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 const OFFERS: Offer[] = [
   {
@@ -47,17 +45,13 @@ const OFFERS: Offer[] = [
 const SHOWN = OFFERS.filter(o => o.active && (o.expiresInDays === null || o.expiresInDays > 0));
 const HIDDEN = OFFERS.filter(o => !SHOWN.includes(o));
 
-function isoDay(offsetDays: number): string {
-  return new Date(Date.now() + offsetDays * DAY_MS).toISOString().slice(0, 10);
-}
-
 // Creates an offer the way the admin form does: multipart POST to /admin/promotions.
 async function createOffer(api: ScenarioApi, o: Offer): Promise<void> {
   const form = new FormData();
   form.set('title', o.title);
   form.set('description', o.description);
   form.set('url', o.url);
-  form.set('expires_on', o.expiresInDays === null ? '' : isoDay(o.expiresInDays));
+  form.set('expires_on', o.expiresInDays === null ? '' : leagueDate(o.expiresInDays));
   if (o.image) {
     const png = readFileSync(join(__dirname, '../../static/img/sample-sponsors/decathlon.png'));
     form.set('image', new Blob([png], { type: 'image/png' }), 'decathlon.png');
