@@ -93,6 +93,20 @@
 }
 
 @layer components {
+  /* Menu rows that are buttons (plain or wrapped in an hx-post
+     `<form class="contents">`) line up exactly like menu links: icon then
+     label, left-aligned. The form wrapper hides the button from DaisyUI's
+     `li > *:not(ul)` rule, so it is restated here for both shapes. */
+  .menu li > button, .menu li form.contents > button {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    width: 100%;
+    text-align: start;
+    padding: 0.5rem 1rem;
+    border-radius: var(--rounded-btn, 0.5rem);
+  }
   /* A badge is one label: it never wraps ("1 alerta", "-3", "En
      recuperación" broke over two lines in narrow flex rows). Its row
      wraps or the badge's container gives way instead; the page guard's

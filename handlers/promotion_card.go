@@ -38,3 +38,9 @@ func NewPromotionView(rec *core.Record, mode Mode, now time.Time, loc *time.Loca
 	}
 	return v
 }
+
+// ViewsLabel is the view counter with its Spanish singular or plural noun.
+func (v PromotionView) ViewsLabel() string { return countPhrase(v.Views, "vista", "vistas") }
+
+// ClicksLabel is the click counter with its Spanish singular or plural noun.
+func (v PromotionView) ClicksLabel() string { return countPhrase(v.Clicks, "clic", "clics") }

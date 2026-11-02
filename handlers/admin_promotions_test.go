@@ -492,6 +492,28 @@ func TestPromotionAdminDeleteUnknown(t *testing.T) {
 	s.Test(t)
 }
 
+func TestPromotionAdminListSingularCounters(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:     handlers.TestAppFactory,
+		Name:               "GET /admin/promotions singular counters",
+		Method:             http.MethodGet,
+		URL:                "/admin/promotions",
+		ExpectedStatus:     200,
+		ExpectedContent:    []string{"1 vista<", "1 clic<"},
+		NotExpectedContent: []string{"1 vistas", "1 clics"},
+	}
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		rec := makePromo(tb, app, "promosingular01", "Oferta", true, "")
+		rec.Set("views", 1)
+		rec.Set("clicks", 1)
+		require.NoError(tb, app.Save(rec))
+		s.Headers = handlers.AuthHeaders(tb, handlers.MakeAdminUserTB(tb, app))
+	}
+	s.Test(t)
+}
+
 func TestPromotionAdminList(t *testing.T) {
 	t.Parallel()
 	cases := []struct {

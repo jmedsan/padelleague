@@ -447,3 +447,48 @@ test.describe.serial('promociones navbar and page', { tag: '@promotions' }, () =
     await expect(page.getByText('Promoción no disponible')).toBeVisible();
   });
 });
+
+test.describe('promociones admin list layout', { tag: '@promotions' }, () => {
+  test('P17: row menu items line up, titles line up with and without image, counters use singular', async ({ browser, baseURL, page }) => {
+    const [plain, pictured] = await setOffers(browser, baseURL, [{ title: 'Oferta P17 sin imagen' }, { title: 'Oferta P17 con imagen', image: true }]);
+    const su = loadTestData().adminToken;
+    await suPatch(page.request, su, `/api/collections/promotions/records/${plain.id}`, { views: 1, clicks: 1 });
+    await suPatch(page.request, su, `/api/collections/promotions/records/${pictured.id}`, { views: 2, clicks: 0 });
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await openAdminPromotions(page);
+    const rowPlain = page.locator(`[data-promo-id="${plain.id}"]`);
+    const rowPictured = page.locator(`[data-promo-id="${pictured.id}"]`);
+
+    // Counters: correct singular and plural.
+    await expect(rowPlain).toContainText('1 vista');
+    await expect(rowPlain).not.toContainText('1 vistas');
+    await expect(rowPlain).toContainText('1 clic');
+    await expect(rowPlain).not.toContainText('1 clics');
+    await expect(rowPictured).toContainText('2 vistas');
+    await expect(rowPictured).toContainText('0 clics');
+
+    // Titles start at the same x whether or not the row has a thumbnail.
+    const titleLeft = (row: typeof rowPlain) => row.locator('p.font-medium').evaluate(el => el.getBoundingClientRect().left);
+    expect(await titleLeft(rowPlain)).toBe(await titleLeft(rowPictured));
+
+    // Menu items: same icon x and same text x for every entry, all left-aligned.
+    await rowPlain.getByLabel('Más acciones').click();
+    const items = rowPlain.locator('.dropdown-content li > button, .dropdown-content li > form > button');
+    await expect(items).toHaveCount(3);
+    const geo = await items.evaluateAll(btns => btns.map(b => {
+      const menu = b.closest('.dropdown-content')!.getBoundingClientRect();
+      const text = [...b.childNodes].filter(n => n.nodeType === Node.TEXT_NODE && n.textContent!.trim()).pop()!;
+      const range = document.createRange();
+      range.selectNodeContents(text);
+      return {
+        label: text.textContent!.trim(),
+        iconLeft: b.querySelector('svg')!.getBoundingClientRect().left,
+        textLeft: range.getBoundingClientRect().left,
+        menuLeft: menu.left,
+      };
+    }));
+    expect(geo.map(g => g.label)).toEqual(['Pausar', 'Editar', 'Eliminar']);
+    expect(new Set(geo.map(g => Math.round(g.iconLeft))).size, JSON.stringify(geo)).toBe(1);
+    expect(new Set(geo.map(g => Math.round(g.textLeft))).size, JSON.stringify(geo)).toBe(1);
+  });
+});
