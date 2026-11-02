@@ -502,3 +502,43 @@ func TestWipeSelective_AllEqualsWipe(t *testing.T) {
 	assert.Equal(t, 0, countRecords(t, app, "competitions"))
 	assert.Equal(t, 0, countRecords(t, app, "matches"))
 }
+
+func TestSampleLeague_PromotionMatchesLiveFormShape(t *testing.T) {
+	app := newTestApp(t)
+
+	notifier := notify.NewNotifier(app, "", "")
+	svc := league.New(app, notifier)
+	hooks.Register(app, hooks.Deps{Svc: svc, Notifier: notifier})
+
+	require.NoError(t, SampleLeaguePartial(app, SampleOptions{
+		Players: true, Pairs: true, Competitions: true, Matches: true,
+		StaticFS: os.DirFS(".."),
+	}))
+
+	promos, err := app.FindRecordsByFilter("promotions", "id != ''", "", 0, 0)
+	require.NoError(t, err)
+	require.Len(t, promos, 1)
+	p := promos[0]
+
+	assert.Equal(t, "20 % en palas de pádel", p.GetString("title"))
+	assert.Equal(t, "Hasta un 20 % de descuento en palas de pádel seleccionadas.", p.GetString("description"))
+	assert.Equal(t, "https://www.decathlon.es/es/browse/c0-deportes/c1-padel/_/N-1g6yy3s", p.GetString("url"))
+	assert.True(t, p.GetBool("active"))
+	assert.True(t, p.GetDateTime("expires_on").IsZero(), "no expiry, like an empty form field")
+	assert.Zero(t, p.GetInt("views"))
+	assert.Zero(t, p.GetInt("clicks"))
+
+	imageFile := p.GetString("image")
+	require.NotEmpty(t, imageFile)
+	assert.True(t, strings.HasSuffix(imageFile, ".jpg"), "image %q should be a JPEG like the live pipeline's output", imageFile)
+
+	fsys, err := app.NewFilesystem()
+	require.NoError(t, err)
+	defer func() { _ = fsys.Close() }()
+	r, err := fsys.GetReader(p.BaseFilesPath() + "/" + imageFile)
+	require.NoError(t, err)
+	_, format, err := image.DecodeConfig(r)
+	_ = r.Close()
+	require.NoError(t, err)
+	assert.Equal(t, "jpeg", format)
+}

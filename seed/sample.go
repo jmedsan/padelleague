@@ -80,6 +80,9 @@ func populateSampleLeague(txApp core.App, comp *core.Record, pairIDs []string, o
 	if err := createSampleSponsor(txApp, comp, opts.StaticFS); err != nil {
 		return err
 	}
+	if err := createSamplePromotion(txApp, opts.StaticFS); err != nil {
+		return err
+	}
 	if err := createSampleInvitations(txApp, comp.Id); err != nil {
 		return err
 	}
