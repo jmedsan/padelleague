@@ -9,8 +9,7 @@
                 {{if not .Active}}<span class="badge badge-ghost badge-sm">Inactiva</span>{{else if not .Expired}}<span class="badge badge-success badge-sm">Activa</span>{{end}}
                 {{if .Expired}}<span class="badge badge-error badge-sm">Expirada</span>{{end}}
                 {{if .ExpiresLabel}}<span class="text-sm opacity-70">{{.ExpiresLabel}}</span>{{end}}
-                <span class="text-sm opacity-70">{{.ViewsLabel}}</span>
-                <span class="text-sm opacity-70">{{.ClicksLabel}}</span>
+                <span class="inline-flex gap-2 whitespace-nowrap" data-testid="promo-counters"><span class="text-sm opacity-70">{{.ViewsLabel}}</span><span class="text-sm opacity-70">{{.ClicksLabel}}</span></span>
             </div>
             <a href="{{.URL}}" target="_blank" rel="noopener" class="link link-row link-primary text-sm break-all sm:truncate flex items-center w-full">{{.URL}}</a>
         </div>
