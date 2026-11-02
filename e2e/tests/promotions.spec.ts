@@ -404,7 +404,12 @@ test.describe.serial('promociones navbar and page', { tag: '@promotions' }, () =
     await stubExternal(context);
     await page.addInitScript(id => { if (!localStorage.getItem('promo-dismissed')) localStorage.setItem('promo-dismissed', JSON.stringify([id])); }, a.id);
     await playerHome(page);
-    await page.goto('/promotions');
+    if (isMobile(page)) {
+      await page.getByRole('link', { name: 'promociones' }).click();
+    } else {
+      await page.locator('.navbar').getByRole('link', { name: 'Promociones', exact: true }).click();
+    }
+    await page.waitForURL('**/promotions');
     const cardA = page.locator(`[data-promo-id="${a.id}"]`);
     await expect(cardA).toBeVisible();
     await expect(page.getByRole('button', { name: 'descartar promoción' })).toHaveCount(0);
