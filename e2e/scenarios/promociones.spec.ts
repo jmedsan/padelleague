@@ -88,7 +88,7 @@ test.describe('Promociones: four offers (active, no image, paused, expired)', ()
   test('00 seed: competition, players and the four offers', async () => {
     const raw = loadCtx();
     const api: ScenarioApi = { baseURL: raw.baseURL, suToken: raw.suToken, adminCookie: raw.adminCookie };
-    const m = await seedChatMatch(api, 'Promociones', 'none');
+    const m = await seedChatMatch(api, 'Liga de prueba', 'none');
     ctx = { ...raw, competitionId: m.competitionId, players: m.players, pairs: m.pairs, stage: 'blank' };
     saveCtx(ctx);
 
