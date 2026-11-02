@@ -120,7 +120,7 @@ const EXTERNAL = 'https://stub.example/oferta';
 async function setOffers(
   browser: Browser,
   baseURL: string | undefined,
-  wanted: Array<{ title: string; description?: string; expiresOn?: string; image?: boolean; active?: boolean }>,
+  wanted: Array<{ title: string; url?: string; description?: string; expiresOn?: string; image?: boolean; active?: boolean }>,
 ): Promise<Offer[]> {
   const admin = await browser.newContext({ baseURL });
   const page = await admin.newPage();
@@ -136,7 +136,7 @@ async function setOffers(
       const multipart: Record<string, string | { name: string; mimeType: string; buffer: Buffer }> = {
         title: w.title,
         description: w.description ?? `Descripción de ${w.title}`,
-        url: EXTERNAL,
+        url: w.url ?? EXTERNAL,
       };
       if (w.expiresOn) multipart.expires_on = w.expiresOn;
       if (w.image) multipart.image = { name: 'promo.jpg', mimeType: 'image/jpeg', buffer: PROMO_JPEG };
@@ -503,5 +503,25 @@ test.describe('promociones admin list layout', { tag: '@promotions' }, () => {
     expect(geo.map(g => g.label)).toEqual(['Pausar', 'Editar', 'Eliminar']);
     expect(new Set(geo.map(g => Math.round(g.iconLeft))).size, JSON.stringify(geo)).toBe(1);
     expect(new Set(geo.map(g => Math.round(g.textLeft))).size, JSON.stringify(geo)).toBe(1);
+  });
+  test('P18: a long URL wraps inside the admin row at 360px instead of being clipped', async ({ browser, baseURL, page }) => {
+    const longUrl = 'https://www.playtomic.io/tenants/0123456789abcdef/courts/padel-pista-central-cubierta?utm_source=liga-dale-fuerte&utm_campaign=promociones';
+    const [offer] = await setOffers(browser, baseURL, [{ title: 'Oferta P18', url: longUrl }]);
+    await page.setViewportSize({ width: 360, height: 780 });
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await openAdminPromotions(page);
+    const row = page.locator(`[data-promo-id="${offer.id}"]`);
+    const link = row.locator(`a[href="${longUrl}"]`);
+    await expect(link).toHaveText(longUrl);
+    const m = await link.evaluate(el => ({
+      clipped: el.scrollWidth > el.clientWidth,
+      right: el.getBoundingClientRect().right,
+      lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)),
+      page: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    }));
+    expect(m.clipped, 'URL text is not clipped').toBe(false);
+    expect(m.right, 'URL ends inside the 360px viewport').toBeLessThanOrEqual(360);
+    expect(m.lines, 'URL wraps onto several lines').toBeGreaterThan(1);
+    expect(m.page, 'page has no horizontal overflow').toBe(false);
   });
 });
