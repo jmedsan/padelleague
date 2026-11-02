@@ -140,6 +140,7 @@ async function setOffers(
       };
       if (w.expiresOn) multipart.expires_on = w.expiresOn;
       if (w.image) multipart.image = { name: 'promo.jpg', mimeType: 'image/jpeg', buffer: PROMO_JPEG };
+      // raw-request: the admin multipart form post, 204 asserted below
       const resp = await page.request.post('/admin/promotions', { multipart, headers: { 'HX-Request': 'true' } });
       expect(resp.status(), `create ${w.title}`).toBe(204);
       const rec = (await suGet(page.request, token,
@@ -391,7 +392,7 @@ test.describe.serial('promociones navbar and page', { tag: '@promotions' }, () =
     page.on('request', r => { if (r.url().includes('/promo/card')) requests.push(r.url()); });
     const data = loadTestData();
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await expect(page.locator('.navbar a[href="/promotions"], .navbar a[aria-label="promociones"]')).toHaveCount(0);
+    await expect(page.locator('.navbar a[href="/promotions"], .navbar a[aria-label^="promociones"]')).toHaveCount(0);
     // No admin-view link leads to the player page, so this negative guard opens it by URL.
     await page.goto(`/competition/${data.competitionId}`);
     await page.waitForLoadState('networkidle');
