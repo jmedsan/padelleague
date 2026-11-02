@@ -404,8 +404,9 @@ test.describe.serial('promociones navbar and page', { tag: '@promotions' }, () =
     const data = loadTestData();
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await expect(page.locator('.navbar a[href="/promotions"], .navbar a[aria-label^="promociones"]')).toHaveCount(0);
-    // No admin-view link leads to the player page, so this negative guard opens it by URL.
-    await page.goto(`/competition/${data.competitionId}`);
+    await page.locator(`a[href="/admin/competitions/${data.competitionId}"]`).first().click();
+    await page.locator(`a[href="/competition/${data.competitionId}"]:visible`).first().click();
+    await expect(page).toHaveURL(new RegExp(`/competition/${data.competitionId}$`));
     await page.waitForLoadState('networkidle');
     await expect(page.getByTestId('promo-card')).toHaveCount(0);
     expect(requests).toEqual([]);
