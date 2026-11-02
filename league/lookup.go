@@ -233,6 +233,14 @@ func SponsorLogoURL(sponsorID, filename string) string {
 	return "/logo/sponsor/" + sponsorID
 }
 
+// PromotionImageURL returns the image route for an offer, or "" when it has no image.
+func PromotionImageURL(id, filename string) string {
+	if filename == "" {
+		return ""
+	}
+	return "/logo/promotion/" + id
+}
+
 // SettingsLogoURL returns a predictable public URL for the league logo,
 // or "" if filename is empty.
 func SettingsLogoURL(_, filename string) string {
