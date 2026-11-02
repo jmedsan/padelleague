@@ -86,6 +86,11 @@ export const SCENARIOS: Record<string, Scenario> = {
     startStage: 'blank',
     specs: ['pair-withdrawal-leveled.spec.ts'],
   },
+  promociones: {
+    description: 'four offers: active with image, active without image (expires in 60 days), paused, expired — player card/page and admin list',
+    startStage: 'blank',
+    specs: ['promociones.spec.ts'],
+  },
   'mail-chat': {
     description: 'one match, four players with distinct emails, SMTP pointed at Mailpit (run `make mail`) — post a chat message and watch the inbox',
     startStage: 'blank',
