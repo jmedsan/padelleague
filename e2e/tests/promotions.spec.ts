@@ -350,6 +350,17 @@ test.describe.serial('promociones player card', { tag: '@promotions' }, () => {
     expect(await dismissed(page)).toBeNull();
   });
 
+  test('P10d: a middle click on an offer dismisses it and removes the card', async ({ browser, baseURL, page, context }) => {
+    const [a] = await setOffers(browser, baseURL, [{ title: 'Oferta P10D' }]);
+    await stubExternal(context);
+    await playerHome(page);
+    const card = page.getByTestId('promo-card');
+    await expect(card).toHaveAttribute('data-promo-id', a.id);
+    await card.getByRole('link', { name: 'Oferta P10D' }).click({ button: 'middle' });
+    await expect(page.getByTestId('promo-card')).toHaveCount(0);
+    expect(await dismissed(page)).toContain(a.id);
+  });
+
   test('P15: a 100-character title and 300-character description fit at 360px in both themes', async ({ browser, baseURL, page }) => {
     await setOffers(browser, baseURL, [{ title: 'T'.repeat(100), description: 'D'.repeat(300), image: true }]);
     await page.setViewportSize({ width: 360, height: 780 });
@@ -535,5 +546,16 @@ test.describe('promociones admin list layout', { tag: '@promotions' }, () => {
     expect(m.right, 'URL ends inside the 360px viewport').toBeLessThanOrEqual(360);
     expect(m.lines, 'URL wraps onto several lines').toBeGreaterThan(1);
     expect(m.page, 'page has no horizontal overflow').toBe(false);
+  });
+
+  test('P20: the views and clicks counters stay on one line at 360px', async ({ browser, baseURL, page }) => {
+    const [offer] = await setOffers(browser, baseURL, [{ title: 'Oferta P20 con título largo para ocupar el ancho' }]);
+    await page.setViewportSize({ width: 360, height: 780 });
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await openAdminPromotions(page);
+    const labels = page.locator(`[data-promo-id="${offer.id}"] [data-testid="promo-counters"] > span`);
+    await expect(labels).toHaveText(['0 vistas', '0 clics']);
+    const tops = await labels.evaluateAll(els => els.map(el => Math.round(el.getBoundingClientRect().top)));
+    expect(tops[0], 'both counters share one row').toBe(tops[1]);
   });
 });
