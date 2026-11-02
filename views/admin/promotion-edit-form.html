@@ -1,0 +1,37 @@
+<h3 class="text-lg font-bold mb-4">Editar promoción</h3>
+<div id="edit-promotion-error" class="mb-2" aria-live="polite"></div>
+<form hx-post="/admin/promotions/{{.Promotion.ID}}" hx-target="#edit-promotion-error" enctype="multipart/form-data">
+    <div class="form-control">
+        <label class="label" for="edit-promotion-title"><span class="label-text font-medium">Título</span></label>
+        <input type="text" id="edit-promotion-title" name="title" value="{{.Promotion.Title}}" class="input input-bordered w-full" maxlength="100" required>
+    </div>
+    <div class="form-control mt-3">
+        <label class="label" for="edit-promotion-description"><span class="label-text font-medium">Descripción</span></label>
+        <textarea id="edit-promotion-description" name="description" class="textarea textarea-bordered w-full" maxlength="300" rows="3">{{.Promotion.Description}}</textarea>
+    </div>
+    <div class="form-control mt-3">
+        <label class="label" for="edit-promotion-url"><span class="label-text font-medium">Enlace</span></label>
+        <input type="text" id="edit-promotion-url" name="url" value="{{.Promotion.URL}}" class="input input-bordered w-full" placeholder="https://..." required>
+    </div>
+    <div class="form-control mt-3">
+        <label class="label" for="edit-promotion-image"><span class="label-text font-medium">Imagen</span></label>
+        <input type="file" id="edit-promotion-image" name="image" class="file-input file-input-bordered w-full" accept="image/*">
+        <p class="text-sm opacity-50 mt-1">Deja vacío para conservar la imagen actual.</p>
+    </div>
+    {{if .Promotion.ImageURL}}
+    <div class="form-control mt-3">
+        <label class="label cursor-pointer justify-start gap-3">
+            <input type="checkbox" name="remove_image" class="checkbox checkbox-sm">
+            <span class="label-text">Quitar imagen</span>
+        </label>
+    </div>
+    {{end}}
+    <div class="form-control mt-3">
+        <label class="label" for="edit-promotion-expires"><span class="label-text font-medium">Caduca el (opcional)</span></label>
+        <input type="date" id="edit-promotion-expires" name="expires_on" value="{{.ExpiresOn}}" class="input input-bordered w-full">
+    </div>
+    <div class="modal-action">
+        <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
+        <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Guardar</button>
+    </div>
+</form>

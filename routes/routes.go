@@ -192,6 +192,7 @@ func registerAdminRoutes(se *core.ServeEvent, deps Deps) {
 	registerAdminVenueRoutes(g, deps)
 	registerAdminDocumentRoutes(g, deps)
 	registerAdminSponsorRoutes(g, deps)
+	registerAdminPromotionRoutes(g, deps)
 	registerAdminSettingsRoutes(g, deps)
 	registerAdminHealthRoutes(g, deps)
 	registerAdminDevToolsRoutes(g, deps)
@@ -215,6 +216,16 @@ func registerAdminSponsorRoutes(g *router.RouterGroup[*core.RequestEvent], deps 
 	g.POST("/sponsors/{id}/delete", sponsor.SponsorsDelete)
 	g.POST("/competitions/{id}/attach-sponsor", sponsor.AttachSponsor)
 	g.POST("/competitions/{id}/detach-sponsor/{sponsorId}", sponsor.DetachSponsor)
+}
+
+func registerAdminPromotionRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {
+	promo := handlers.NewAdminPromotionHandler(deps.App, deps.Renderer.Page, deps.Renderer.Partial)
+	g.GET("/promotions", promo.List)
+	g.GET("/promotions/{id}/edit", promo.EditForm)
+	g.POST("/promotions", promo.Create)
+	g.POST("/promotions/{id}", promo.Update)
+	g.POST("/promotions/{id}/toggle", promo.Toggle)
+	g.POST("/promotions/{id}/delete", promo.Delete)
 }
 
 func registerAdminCompetitionRoutes(g *router.RouterGroup[*core.RequestEvent], deps Deps) {

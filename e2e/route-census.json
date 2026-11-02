@@ -41,6 +41,8 @@
     { "path": "/admin/documents/{id}/edit", "auth": "admin", "param": "documentId", "skipCensus": "HTMX fragment (renderPartial, no layout/modal wrapper) — never navigated to directly" },
     { "path": "/admin/sponsors", "auth": "admin" },
     { "path": "/admin/sponsors/{id}/edit", "auth": "admin", "param": "sponsorId", "skipCensus": "HTMX fragment (renderPartial, no layout/modal wrapper) — never navigated to directly" },
+    { "path": "/admin/promotions", "auth": "admin" },
+    { "path": "/admin/promotions/{id}/edit", "auth": "admin", "param": "promotionId", "skipCensus": "HTMX fragment (renderPartial, no layout/modal wrapper) — never navigated to directly" },
     { "path": "/manifest.json", "auth": "none", "skipCensus": "PWA manifest, application/manifest+json — not an HTML page" },
     { "path": "/sw.js", "auth": "none", "skipCensus": "service worker script, application/javascript — not an HTML page" },
     { "path": "/static/{path...}", "auth": "none", "skipCensus": "static asset passthrough (apis.Static) — not an HTML page" },

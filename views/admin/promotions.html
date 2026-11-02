@@ -1,0 +1,88 @@
+{{define "content"}}
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div>
+        <a href="/admin/competitions" class="link link-hover text-sm opacity-60 breadcrumb-link">← Competiciones</a>
+        <h1 class="text-2xl font-bold mt-1">Promociones</h1>
+    </div>
+    <button class="btn btn-primary btn-sm sm:btn-md" onclick="document.getElementById('modal-create-promotion').showModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+        Nueva promoción
+    </button>
+</div>
+
+<div class="space-y-3">
+    {{range .Promotions}}
+    <div class="flex items-center justify-between gap-3 p-3 bg-base-200/50 rounded-lg" data-testid="promotion-row" data-promo-id="{{.ID}}">
+        <div class="flex items-center gap-3 flex-1 min-w-0">
+            {{if .ImageURL}}<img src="{{.ImageURL}}" alt="" class="w-12 h-12 object-contain rounded bg-base-100 flex-none">{{end}}
+            <div class="flex-1 min-w-0">
+                <p class="font-medium break-words">{{.Title}}</p>
+                <div class="flex flex-wrap items-center gap-2 mt-1">
+                    {{if not .Active}}<span class="badge badge-ghost badge-sm">Inactiva</span>{{else if not .Expired}}<span class="badge badge-success badge-sm">Activa</span>{{end}}
+                    {{if .Expired}}<span class="badge badge-error badge-sm">Expirada</span>{{end}}
+                    {{if .ExpiresLabel}}<span class="text-sm opacity-70">{{.ExpiresLabel}}</span>{{end}}
+                    <span class="text-sm opacity-70">{{.Views}} vistas</span>
+                    <span class="text-sm opacity-70">{{.Clicks}} clics</span>
+                </div>
+                <a href="{{.URL}}" target="_blank" rel="noopener" class="link link-row link-primary text-sm truncate flex items-center w-full">{{.URL}}</a>
+            </div>
+        </div>
+        <div class="dropdown dropdown-end shrink-0">
+            <button tabindex="0" class="btn btn-ghost btn-sm btn-circle" aria-label="Más acciones">
+                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" /></svg>
+            </button>
+            <ul tabindex="0" class="dropdown-content menu bg-base-300 rounded-box shadow-lg z-30 w-48 p-2 text-sm">
+                <li><form class="contents" hx-post="/admin/promotions/{{.ID}}/toggle">
+                    <button type="submit" hx-disabled-elt="this">{{if .Active}}Pausar{{else}}Reanudar{{end}}</button>
+                </form></li>
+                <li><button hx-get="/admin/promotions/{{.ID}}/edit" hx-target="#edit-promotion-body" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful)document.getElementById('edit-promotion-modal').showModal()">Editar</button></li>
+                <li><form class="contents" hx-post="/admin/promotions/{{.ID}}/delete" hx-confirm="¿Eliminar esta promoción?" data-confirm-danger data-confirm-ok="Eliminar">
+                    <button type="submit" hx-disabled-elt="this" class="text-error">Eliminar</button>
+                </form></li>
+            </ul>
+        </div>
+    </div>
+    {{else}}
+    {{template "emptyState" "No hay promociones registradas"}}
+    {{end}}
+</div>
+
+<dialog id="edit-promotion-modal" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box" id="edit-promotion-body"></div>
+    <form method="dialog" class="modal-backdrop"><button>cerrar</button></form>
+</dialog>
+
+<dialog id="modal-create-promotion" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box">
+        <form method="dialog"><button class="btn btn-ghost btn-sm btn-circle absolute right-2 top-2" aria-label="cerrar">&times;</button></form>
+        <h3 class="text-lg font-bold mb-4">Nueva promoción</h3>
+        <div id="create-promotion-error" class="mb-2" aria-live="polite"></div>
+        <form hx-post="/admin/promotions" hx-target="#create-promotion-error" enctype="multipart/form-data">
+            <div class="form-control">
+                <label class="label" for="create-promotion-title"><span class="label-text font-medium">Título</span></label>
+                <input type="text" id="create-promotion-title" name="title" class="input input-bordered w-full" maxlength="100" required>
+            </div>
+            <div class="form-control mt-3">
+                <label class="label" for="create-promotion-description"><span class="label-text font-medium">Descripción</span></label>
+                <textarea id="create-promotion-description" name="description" class="textarea textarea-bordered w-full" maxlength="300" rows="3"></textarea>
+            </div>
+            <div class="form-control mt-3">
+                <label class="label" for="create-promotion-url"><span class="label-text font-medium">Enlace</span></label>
+                <input type="text" id="create-promotion-url" name="url" class="input input-bordered w-full" placeholder="https://..." required>
+            </div>
+            <div class="form-control mt-3">
+                <label class="label" for="create-promotion-image"><span class="label-text font-medium">Imagen (opcional)</span></label>
+                <input type="file" id="create-promotion-image" name="image" class="file-input file-input-bordered w-full" accept="image/*">
+            </div>
+            <div class="form-control mt-3">
+                <label class="label" for="create-promotion-expires"><span class="label-text font-medium">Caduca el (opcional)</span></label>
+                <input type="date" id="create-promotion-expires" name="expires_on" class="input input-bordered w-full">
+            </div>
+            <div class="modal-action">
+                <button type="submit" hx-disabled-elt="this" class="btn btn-primary">Crear</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>cerrar</button></form>
+</dialog>
+{{end}}

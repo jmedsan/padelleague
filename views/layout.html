@@ -161,6 +161,7 @@
                                     <li><a href="/admin/venues" class="{{if hasPrefix .RequestPath "/admin/venues"}}active{{end}}">Clubes</a></li>
                                     <li><a href="/admin/documents" class="{{if hasPrefix .RequestPath "/admin/documents"}}active{{end}}">Documentos</a></li>
                                     <li><a href="/admin/sponsors" class="{{if hasPrefix .RequestPath "/admin/sponsors"}}active{{end}}">Patrocinadores</a></li>
+                                    <li><a href="/admin/promotions" class="{{if hasPrefix .RequestPath "/admin/promotions"}}active{{end}}">Promociones</a></li>
                                     <li><a href="/admin/settings" class="{{if hasPrefix .RequestPath "/admin/settings"}}active{{end}}">Configuración</a></li>
                                     {{if .AppDevTools}}<li><a href="/admin/dev-tools" class="{{if hasPrefix .RequestPath "/admin/dev-tools"}}active{{end}}">Dev Tools</a></li>{{end}}
                                 </ul>
@@ -293,6 +294,7 @@
                     <li><a href="/admin/venues" class="rounded-lg{{if hasPrefix .RequestPath "/admin/venues"}} active{{end}}">Clubes</a></li>
                     <li><a href="/admin/documents" class="rounded-lg{{if hasPrefix .RequestPath "/admin/documents"}} active{{end}}">Documentos</a></li>
                     <li><a href="/admin/sponsors" class="rounded-lg{{if hasPrefix .RequestPath "/admin/sponsors"}} active{{end}}">Patrocinadores</a></li>
+                    <li><a href="/admin/promotions" class="rounded-lg{{if hasPrefix .RequestPath "/admin/promotions"}} active{{end}}">Promociones</a></li>
                     <li><a href="/admin/settings" class="rounded-lg{{if hasPrefix .RequestPath "/admin/settings"}} active{{end}}">Configuración</a></li>
                     {{if .AppDevTools}}<li><a href="/admin/dev-tools" class="rounded-lg{{if hasPrefix .RequestPath "/admin/dev-tools"}} active{{end}}">Dev Tools</a></li>{{end}}
                     {{end}}
