@@ -1,6 +1,6 @@
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
-import { loginAs, loadTestData, isMobile, openDrawer, suGet, suPatch, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
+import { loginAs, loadTestData, isMobile, openDrawer, suGet, suPatch, suDelete, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 import { clickAndWaitForHxRedirect } from '../tour-helpers';
 import { clickConfirmAndWaitForHxRedirect } from '../helpers';
 
@@ -353,5 +353,91 @@ test.describe.serial('promociones player card', { tag: '@promotions' }, () => {
       const box = await page.getByTestId('promo-card').boundingBox();
       expect(box!.x + box!.width, theme).toBeLessThanOrEqual(360);
     }
+  });
+});
+
+// ---- Navbar and Promociones page ------------------------------------------
+
+test.describe.serial('promociones navbar and page', { tag: '@promotions' }, () => {
+  test('P8: the player reaches Promociones from the navbar (icon on phone, link on desktop)', async ({ browser, baseURL, page }) => {
+    await setOffers(browser, baseURL, [{ title: 'Oferta P8' }]);
+    await playerHome(page);
+    if (isMobile(page)) {
+      await page.setViewportSize({ width: 360, height: 780 });
+      const icon = page.getByRole('link', { name: 'promociones' });
+      const box = await icon.boundingBox();
+      expect(box!.width).toBeGreaterThanOrEqual(44);
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+      const blocks = await page.evaluate(() =>
+        [...document.querySelector('.navbar')!.children]
+          .filter(d => (d as HTMLElement).offsetParent !== null)
+          .map(d => { const r = d.getBoundingClientRect(); return [r.left, r.right]; }));
+      for (let i = 1; i < blocks.length; i++) {
+        expect(blocks[i][0], `block ${i} starts after block ${i - 1}`).toBeGreaterThanOrEqual(blocks[i - 1][1] - 1);
+      }
+      expect(blocks[blocks.length - 1][1]).toBeLessThanOrEqual(360);
+      await icon.click();
+    } else {
+      await page.locator('.navbar').getByRole('link', { name: 'Promociones', exact: true }).click();
+    }
+    await page.waitForURL('**/promotions');
+    await expect(page.getByRole('heading', { name: 'Promociones' })).toBeVisible();
+    await expect(page.getByTestId('promo-card').getByRole('link', { name: 'Oferta P8' })).toBeVisible();
+  });
+
+  test('P9: the admin view has no player entry, no card and no card request', async ({ browser, baseURL, page }) => {
+    await setOffers(browser, baseURL, [{ title: 'Oferta P9' }]);
+    const requests: string[] = [];
+    page.on('request', r => { if (r.url().includes('/promo/card')) requests.push(r.url()); });
+    const data = loadTestData();
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await expect(page.locator('.navbar a[href="/promotions"], .navbar a[aria-label="promociones"]')).toHaveCount(0);
+    // No admin-view link leads to the player page, so this negative guard opens it by URL.
+    await page.goto(`/competition/${data.competitionId}`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByTestId('promo-card')).toHaveCount(0);
+    expect(requests).toEqual([]);
+  });
+
+  test('P10: a dismissed offer is still listed without X; opening one there hides it on Inicio', async ({ browser, baseURL, page, context }) => {
+    const [a, b] = await setOffers(browser, baseURL, [{ title: 'Oferta P10A' }, { title: 'Oferta P10B' }]);
+    await stubExternal(context);
+    await page.addInitScript(id => { if (!localStorage.getItem('promo-dismissed')) localStorage.setItem('promo-dismissed', JSON.stringify([id])); }, a.id);
+    await playerHome(page);
+    await page.goto('/promotions');
+    const cardA = page.locator(`[data-promo-id="${a.id}"]`);
+    await expect(cardA).toBeVisible();
+    await expect(page.getByRole('button', { name: 'descartar promoción' })).toHaveCount(0);
+    const [popup] = await Promise.all([
+      context.waitForEvent('page'),
+      page.locator(`[data-promo-id="${b.id}"]`).getByRole('link', { name: 'Oferta P10B' }).click(),
+    ]);
+    await popup.waitForURL(EXTERNAL);
+    expect(JSON.parse((await dismissed(page))!)).toEqual([a.id, b.id]);
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByTestId('promo-card')).toHaveCount(0);
+  });
+
+  test('P15: long title and description fit on the Promociones page at 360px', async ({ browser, baseURL, page }) => {
+    await setOffers(browser, baseURL, [{ title: 'T'.repeat(100), description: 'D'.repeat(300), image: true }]);
+    await page.setViewportSize({ width: 360, height: 780 });
+    await playerHome(page);
+    await page.getByRole('link', { name: 'promociones' }).click();
+    await page.waitForURL('**/promotions');
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test('P16: a deleted offer left in localStorage is harmless and its old link says it is unavailable', async ({ browser, baseURL, page }, testInfo) => {
+    testInfo.annotations.push({ type: 'expected-http-error', description: '404 /promo/' });
+    const [gone, kept] = await setOffers(browser, baseURL, [{ title: 'Oferta P16 borrada' }, { title: 'Oferta P16 vigente' }]);
+    await suDelete(page.request, loadTestData().adminToken, `/api/collections/promotions/records/${gone.id}`);
+    await page.addInitScript(id => localStorage.setItem('promo-dismissed', JSON.stringify([id])), gone.id);
+    await playerHome(page);
+    await expect(page.getByTestId('promo-card')).toHaveAttribute('data-promo-id', kept.id);
+    const resp = await page.goto(`/promo/${gone.id}`);
+    expect(resp!.status()).toBe(404);
+    await expect(page.getByText('Promoción no disponible')).toBeVisible();
   });
 });

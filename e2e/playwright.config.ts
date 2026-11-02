@@ -22,6 +22,7 @@ const MOBILE_VIEWPORT_SPECS = [
   'tour-reference.spec.ts',
   'route-census.spec.ts',
   'mobile-lifecycle.spec.ts',
+  'promotions.spec.ts',
   'search.spec.ts',
   'admin-edit-forms.spec.ts',
   'player-contact.spec.ts',

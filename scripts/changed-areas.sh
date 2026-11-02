@@ -28,6 +28,7 @@ while IFS= read -r f; do
 		views/partials/simple-link-row.html) add search ;;
 		views/thread*|handlers/thread*.go|handlers/match_thread*.go) add thread ;;
 		league/standings*|league/tiebreak*|handlers/*standings*) add standings ;;
+		handlers/*promotion*.go|views/*promotion*|views/admin/promotion*|views/partials/promotion*|static/js/promotions.js|league/promotion*) add promotions ;;
 		league/leveled.go|league/rating.go|handlers/admin_pairs.go) add leveled ;;
 		handlers/admin_*.go|views/admin/*) add admin ;;
 		handlers/*scoring*|handlers/match*.go|league/scoring*) add scoring ;;

@@ -407,3 +407,25 @@ func TestUpsertRecord_ResultProposal_ShowsProposedScore(t *testing.T) {
 	assert.Equal(t, "Liga Prop · 6-3 6-4 · Propuesta", entry.Secondary)
 	assert.Equal(t, 1, ix.Len(), "saving the proposal upserts its match's entry")
 }
+
+func TestPromocionesPagesScope(t *testing.T) {
+	t.Parallel()
+	ix := &Index{}
+	ix.Replace(staticPages)
+
+	urls := func(v Viewer) []string {
+		var out []string
+		for _, r := range ix.Search("promociones", v, 10) {
+			out = append(out, r.URL)
+		}
+		return out
+	}
+
+	player := urls(Viewer{CompIDs: map[string]struct{}{}})
+	assert.Contains(t, player, "/promotions")
+	assert.NotContains(t, player, "/admin/promotions", "player must not see the admin page")
+
+	admin := urls(Viewer{IsAdmin: true, CompIDs: map[string]struct{}{}})
+	assert.Contains(t, admin, "/promotions")
+	assert.Contains(t, admin, "/admin/promotions")
+}
