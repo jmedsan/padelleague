@@ -397,6 +397,18 @@ test.describe.serial('promociones navbar and page', { tag: '@promotions' }, () =
     await expect(page.getByTestId('promo-card').getByRole('link', { name: 'Oferta P8' })).toBeVisible();
   });
 
+  test('P19: with no current offer the player has no Promociones entry in the navbar', async ({ browser, baseURL, page }) => {
+    await setOffers(browser, baseURL, []);
+    await playerHome(page);
+    if (isMobile(page)) await page.setViewportSize({ width: 360, height: 780 });
+    await expect(page.locator('.navbar')).toBeVisible();
+    await expect(page.locator('.navbar a[href="/promotions"]')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'promociones' })).toHaveCount(0);
+    await setOffers(browser, baseURL, [{ title: 'Oferta P19' }]);
+    await reloadAndSettle(page);
+    await expect(page.locator('.navbar a[href="/promotions"]:visible')).toHaveCount(1);
+  });
+
   test('P9: the admin view has no player entry, no card and no card request', async ({ browser, baseURL, page }) => {
     await setOffers(browser, baseURL, [{ title: 'Oferta P9' }]);
     const requests: string[] = [];

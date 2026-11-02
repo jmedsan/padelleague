@@ -154,6 +154,13 @@ func setViewContext(e *core.RequestEvent, data map[string]any) {
 	data["AdminView"] = AdminView(e)
 }
 
+// setPromotionsNav sets HasPromotions, which gates the player Promociones
+// navbar entries. It only runs for signed-in players: the entries never show
+// otherwise.
+func setPromotionsNav(e *core.RequestEvent, data map[string]any) {
+	data["HasPromotions"] = e.Auth != nil && !AdminView(e) && league.HasCurrentPromotions(e.App, time.Now())
+}
+
 func (r *Renderer) partialFiles() []string {
 	entries, _ := fs.Glob(r.viewsFS, "views/partials/*.html")
 	return entries
@@ -221,6 +228,7 @@ func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) 
 		data = map[string]any{}
 	}
 	r.withAuth(e, data)
+	setPromotionsNav(e, data)
 	resolveFooter(e, data)
 	resolveFlash(e, data)
 	files := append([]string{"views/layout.html"}, r.partialFiles()...)
@@ -237,6 +245,7 @@ func (r *Renderer) Page(e *core.RequestEvent, page string, data map[string]any) 
 func (r *Renderer) ErrorPage(e *core.RequestEvent, statusCode int, message string) error {
 	data := map[string]any{"ErrorMessage": message, "PageTitle": "Error"}
 	r.withAuth(e, data)
+	setPromotionsNav(e, data)
 	resolveFooter(e, data)
 	files := append([]string{"views/layout.html"}, r.partialFiles()...)
 	files = append(files, "views/error.html")

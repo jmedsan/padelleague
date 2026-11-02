@@ -18,6 +18,8 @@ type Scope struct {
 	Public bool
 	Admin  bool
 	CompID string
+	// NeedsPromotions hides the entry from viewers when no promotion is current.
+	NeedsPromotions bool
 }
 
 // Entry is a single searchable item in the index.
@@ -46,6 +48,8 @@ type Index struct {
 type Viewer struct {
 	IsAdmin bool
 	CompIDs map[string]struct{}
+	// HasPromotions is true when at least one promotion is current.
+	HasPromotions bool
 }
 
 // Result is a ranked search match returned to the caller.
@@ -225,6 +229,9 @@ func (e Entry) dedupKey() string {
 }
 
 func (e Entry) visibleTo(v Viewer) bool {
+	if e.Scope.NeedsPromotions && !v.HasPromotions {
+		return false
+	}
 	if e.Scope.Admin {
 		return v.IsAdmin
 	}

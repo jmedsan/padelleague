@@ -421,11 +421,17 @@ func TestPromocionesPagesScope(t *testing.T) {
 		return out
 	}
 
-	player := urls(Viewer{CompIDs: map[string]struct{}{}})
+	assert.NotContains(t, urls(Viewer{CompIDs: map[string]struct{}{}}), "/promotions", "hidden when no offer is current")
+	assert.NotContains(t, urls(Viewer{IsAdmin: true, CompIDs: map[string]struct{}{}}), "/promotions")
+
+	player := urls(Viewer{CompIDs: map[string]struct{}{}, HasPromotions: true})
 	assert.Contains(t, player, "/promotions")
 	assert.NotContains(t, player, "/admin/promotions", "player must not see the admin page")
 
-	admin := urls(Viewer{IsAdmin: true, CompIDs: map[string]struct{}{}})
+	admin := urls(Viewer{IsAdmin: true, CompIDs: map[string]struct{}{}, HasPromotions: true})
 	assert.Contains(t, admin, "/promotions")
 	assert.Contains(t, admin, "/admin/promotions")
+
+	adminNoOffers := urls(Viewer{IsAdmin: true, CompIDs: map[string]struct{}{}})
+	assert.Contains(t, adminNoOffers, "/admin/promotions", "admin management page stays")
 }

@@ -50,7 +50,8 @@ func (h *SearchHandler) Search(e *core.RequestEvent) error {
 
 func (h *SearchHandler) buildViewer(e *core.RequestEvent) search.Viewer {
 	v := search.Viewer{
-		CompIDs: make(map[string]struct{}),
+		CompIDs:       make(map[string]struct{}),
+		HasPromotions: league.HasCurrentPromotions(h.app, time.Now()),
 	}
 	if e.Auth == nil {
 		return v

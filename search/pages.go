@@ -13,7 +13,7 @@ var staticPages = []Entry{
 	NewEntry(Entry{Label: "Pistas", Secondary: "Gestión de pistas", Type: "página", URL: "/admin/venues", Keywords: []string{"pista"}, Scope: Scope{Admin: true}}),
 	NewEntry(Entry{Label: "Documentos", Secondary: "Biblioteca de documentos", Type: "página", URL: "/admin/documents", Keywords: []string{"documento"}, Scope: Scope{Admin: true}}),
 	NewEntry(Entry{Label: "Configuración", Secondary: "Ajustes de la aplicación", Type: "página", URL: "/admin/settings", Scope: Scope{Admin: true}}),
-	NewEntry(Entry{Label: "Promociones", Secondary: "Ofertas de patrocinadores", Type: "página", URL: "/promotions", Keywords: []string{"promoción", "oferta", "ofertas", "descuento"}, Scope: Scope{Public: true}}),
+	NewEntry(Entry{Label: "Promociones", Secondary: "Ofertas de patrocinadores", Type: "página", URL: "/promotions", Keywords: []string{"promoción", "oferta", "ofertas", "descuento"}, Scope: Scope{Public: true, NeedsPromotions: true}}),
 	NewEntry(Entry{Label: "Promociones", Secondary: "Gestión de promociones", Type: "página", URL: "/admin/promotions", Keywords: []string{"promoción", "oferta", "ofertas"}, Scope: Scope{Admin: true}}),
 	NewEntry(Entry{Label: "Clasificación", Secondary: "Tabla de clasificación", Type: "página", URL: "/", Keywords: []string{"ranking", "tabla", "clasificación"}, Scope: Scope{Public: true}}),
 	NewEntry(Entry{Label: "Partidos", Secondary: "Todos los partidos", Type: "página", URL: "/", Keywords: []string{"partido", "partidos", "jornada", "jornadas"}, Scope: Scope{Public: true}}),

@@ -2,6 +2,7 @@ package league
 
 import (
 	"fmt"
+	"log/slog"
 	"net/url"
 	"strings"
 	"time"
@@ -49,6 +50,19 @@ func CurrentPromotions(app core.App, now time.Time) ([]*core.Record, error) {
 		}
 	}
 	return current, nil
+}
+
+// HasCurrentPromotions reports whether any offer is current, by the same
+// definition the card picker and the /promotions list use. A failed lookup
+// counts as none, so the player entry stays hidden rather than leading to an
+// empty page.
+func HasCurrentPromotions(app core.App, now time.Time) bool {
+	recs, err := CurrentPromotions(app, now)
+	if err != nil {
+		slog.Error("promotions: check current offers", "err", err)
+		return false
+	}
+	return len(recs) > 0
 }
 
 // PickPromotion chooses one offer whose ID is not excluded, or nil if none remain.

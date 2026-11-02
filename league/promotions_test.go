@@ -166,3 +166,18 @@ func TestPromotionImageURL(t *testing.T) {
 	assert.Equal(t, "/logo/promotion/p1", PromotionImageURL("p1", "x.jpg"))
 	assert.Equal(t, "", PromotionImageURL("p1", ""))
 }
+
+func TestHasCurrentPromotions(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	loc := Timezone(app)
+	now := time.Now()
+	yesterday := now.In(loc).AddDate(0, 0, -1).Format("2006-01-02")
+
+	assert.False(t, HasCurrentPromotions(app, now), "no offers")
+	makePromotion(t, app, "off", false, "")
+	makePromotion(t, app, "old", true, yesterday)
+	assert.False(t, HasCurrentPromotions(app, now), "inactive and expired offers do not count")
+	makePromotion(t, app, "live", true, "")
+	assert.True(t, HasCurrentPromotions(app, now))
+}

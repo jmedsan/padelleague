@@ -333,3 +333,49 @@ func TestPromotionsListEmptyState(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+func TestPromotionsNavbarEntries(t *testing.T) {
+	t.Parallel()
+	const phoneIcon = `aria-label="promociones"`
+	const desktopLink = `<li><a href="/promotions"`
+	cases := []struct {
+		name    string
+		offers  bool
+		admin   bool
+		visible bool
+	}{
+		{"player, current offer: entries shown", true, false, true},
+		{"player, no current offer: entries hidden", false, false, false},
+		{"admin view never shows the player entries", true, true, false},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			s := &tests.ApiScenario{
+				TestAppFactory: handlers.TestAppFactory,
+				Name:           tt.name,
+				Method:         http.MethodGet,
+				URL:            "/promotions",
+				ExpectedStatus: 200,
+			}
+			if tt.visible {
+				s.ExpectedContent = []string{phoneIcon, desktopLink}
+			} else {
+				s.NotExpectedContent = []string{phoneIcon, desktopLink}
+			}
+			s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+				setupProductionRoutes(tb, app, e)
+				makePromotionTB(tb, app, "promooff0000001", "Apagada", "https://example.com/off", false, "")
+				if tt.offers {
+					makePromotionTB(tb, app, "promolive000001", "Decathlon", "https://www.decathlon.es", true, "")
+				}
+				if tt.admin {
+					s.Headers = handlers.AuthHeaders(tb, handlers.MakeAdminUserTB(tb, app))
+					return
+				}
+				s.Headers = handlers.AuthHeaders(tb, handlers.MakeUserTB(tb, app, "Jugador", ""))
+			}
+			s.Test(t)
+		})
+	}
+}
