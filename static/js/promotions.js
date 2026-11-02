@@ -36,5 +36,7 @@
   }
 
   document.addEventListener('click', handle);
-  document.addEventListener('auxclick', handle);
+  document.addEventListener('auxclick', function (ev) {
+    if (ev.button === 1) handle(ev);
+  });
 })();

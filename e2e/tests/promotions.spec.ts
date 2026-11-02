@@ -339,6 +339,17 @@ test.describe.serial('promociones player card', { tag: '@promotions' }, () => {
     expect(await dismissed(page)).toBe(JSON.stringify([offer.id]));
   });
 
+  test('P10c: a right click on an offer neither dismisses nor hides it', async ({ browser, baseURL, page, context }) => {
+    const [a] = await setOffers(browser, baseURL, [{ title: 'Oferta P10C' }]);
+    await stubExternal(context);
+    await playerHome(page);
+    const card = page.getByTestId('promo-card');
+    await expect(card).toHaveAttribute('data-promo-id', a.id);
+    await card.getByRole('link', { name: 'Oferta P10C' }).click({ button: 'right' });
+    await expect(card).toBeVisible();
+    expect(await dismissed(page)).toBeNull();
+  });
+
   test('P15: a 100-character title and 300-character description fit at 360px in both themes', async ({ browser, baseURL, page }) => {
     await setOffers(browser, baseURL, [{ title: 'T'.repeat(100), description: 'D'.repeat(300), image: true }]);
     await page.setViewportSize({ width: 360, height: 780 });
@@ -420,6 +431,7 @@ test.describe.serial('promociones navbar and page', { tag: '@promotions' }, () =
     ]);
     await popup.waitForURL(EXTERNAL);
     expect(JSON.parse((await dismissed(page))!)).toEqual([a.id, b.id]);
+    await expect(page.locator(`[data-promo-id="${b.id}"]`)).toBeVisible();
     await page.goto('/');
     await page.waitForLoadState('networkidle');
     await expect(page.getByTestId('promo-card')).toHaveCount(0);
