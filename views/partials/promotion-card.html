@@ -41,14 +41,14 @@
 </div>
 {{else}}
 <div class="promo-card rounded-2xl p-4 mb-4 flex flex-col gap-3" {{if not .Mode.Full}}data-promo-card {{end}}data-testid="promo-card" data-promo-id="{{.ID}}">
+    {{if not .Mode.Full}}
     <div class="flex items-center justify-between gap-2">
         <span class="promo-pill rounded-full px-3 text-sm" data-testid="promo-label">Patrocinado</span>
-        {{if not .Mode.Full}}
         <button type="button" class="btn btn-ghost btn-circle -m-2" data-promo-dismiss="{{.ID}}" aria-label="descartar promoción">
             <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
         </button>
-        {{end}}
     </div>
+    {{end}}
     <div class="flex items-start gap-3">
         <a href="{{.ClickURL}}" target="_blank" rel="noopener sponsored nofollow" data-promo-link="{{.ID}}" class="flex-none" tabindex="-1" aria-hidden="true" data-testid="promo-tile">
             {{if .ImageURL}}<img src="{{.ImageURL}}" alt="" class="w-[64px] h-[64px] object-contain rounded-xl bg-base-300">

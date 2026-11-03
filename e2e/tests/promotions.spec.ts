@@ -472,6 +472,24 @@ test.describe.serial('promociones navbar and page', { tag: '@promotions' }, () =
     expect((await promoRecord(page, offer.id)).clicks).toBe(1);
   });
 
+  test('P24: the Promociones page lists the offer without the Patrocinado pill, Inicio keeps it', async ({ browser, baseURL, page }) => {
+    await setOffers(browser, baseURL, [{ title: 'Oferta P24' }]);
+    await playerHome(page);
+    await expect(page.getByTestId('promo-card').getByTestId('promo-label')).toHaveText('Patrocinado');
+    if (isMobile(page)) {
+      await page.setViewportSize({ width: 360, height: 780 });
+      await page.getByRole('link', { name: 'promociones' }).click();
+    } else {
+      await page.locator('.navbar').getByRole('link', { name: 'Promociones', exact: true }).click();
+    }
+    await page.waitForURL('**/promotions');
+    const card = page.getByTestId('promo-card');
+    await expect(card.getByRole('link', { name: 'Oferta P24' })).toBeVisible();
+    await expect(card.getByTestId('promo-label')).toHaveCount(0);
+    await expect(card.getByText('Patrocinado')).toHaveCount(0);
+    await expect(card.getByTestId('promo-cta')).toBeVisible();
+  });
+
   test('P19: with no current offer the player has no Promociones entry in the navbar', async ({ browser, baseURL, page }) => {
     await setOffers(browser, baseURL, []);
     await playerHome(page);
