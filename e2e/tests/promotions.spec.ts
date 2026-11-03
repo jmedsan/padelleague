@@ -172,11 +172,9 @@ async function playerHome(page: Page): Promise<void> {
   await page.waitForLoadState('networkidle');
 }
 
-// Asserts, in every theme, that the card is set apart from the page: its background differs, it has
-// a border, and the tinted lime edge keeps at least 1.5:1 contrast with the body background. The
-// edge is a brand tint, not a neutral line, so it does not reach WCAG 1.4.11's 3:1; the lime
-// surface, the Patrocinado pill and the primary button carry the identification. The measured
-// ratio is attached to the test report.
+// Asserts, in every theme, that the card edge is clearly visible against the page: the border
+// color must reach WCAG 1.4.11's 3:1 contrast with the body background (owner, 2026-11-03). The
+// measured ratio is attached to the test report.
 async function expectSeparatedFromPage(page: Page, target: Locator, label: string): Promise<void> {
   for (const theme of ['dark', 'padel']) {
     if (await page.locator('html').getAttribute('data-theme') !== theme) {
@@ -198,7 +196,7 @@ async function expectSeparatedFromPage(page: Page, target: Locator, label: strin
     test.info().annotations.push({ type: 'edge-contrast', description: `${label} ${theme}: ${m.ratio.toFixed(2)}` });
     expect(m.bg, `${label} (${theme}) background differs from the page`).not.toBe(m.bodyBg);
     expect(parseFloat(m.width), `${label} (${theme}) has a border`).toBeGreaterThan(0);
-    expect(m.ratio, `${label} (${theme}) border contrast vs page`).toBeGreaterThanOrEqual(1.5);
+    expect(m.ratio, `${label} (${theme}) border contrast vs page`).toBeGreaterThanOrEqual(3);
   }
 }
 

@@ -97,11 +97,11 @@
      ad reads as an ad in both themes. */
   .promo-card {
     background: linear-gradient(rgba(181, 211, 52, 0.12), rgba(181, 211, 52, 0.12)), oklch(var(--b1));
-    border: 1px solid rgba(120, 150, 10, 0.55);
+    border: 1px solid rgb(112, 140, 10);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   }
   .promo-pill {
-    border: 1px solid rgba(120, 150, 10, 0.55);
+    border: 1px solid rgb(112, 140, 10);
   }
   [data-theme="dark"] .promo-card {
     background: linear-gradient(rgba(181, 211, 52, 0.08), rgba(181, 211, 52, 0.08)), oklch(var(--b1));
