@@ -93,6 +93,23 @@
 }
 
 @layer components {
+  /* Player promotion card: lime-tinted surface with a lime-olive edge, so an
+     ad reads as an ad in both themes. */
+  .promo-card {
+    background: linear-gradient(rgba(181, 211, 52, 0.12), rgba(181, 211, 52, 0.12)), oklch(var(--b1));
+    border: 1px solid rgba(120, 150, 10, 0.55);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  }
+  .promo-pill {
+    border: 1px solid rgba(120, 150, 10, 0.55);
+  }
+  [data-theme="dark"] .promo-card {
+    background: linear-gradient(rgba(181, 211, 52, 0.08), rgba(181, 211, 52, 0.08)), oklch(var(--b1));
+    border-color: rgba(181, 211, 52, 0.45);
+  }
+  [data-theme="dark"] .promo-pill {
+    border-color: rgba(181, 211, 52, 0.45);
+  }
   /* Menu rows that are buttons (plain or wrapped in an hx-post
      `<form class="contents">`) line up exactly like menu links: icon then
      label, left-aligned. The form wrapper hides the button from DaisyUI's

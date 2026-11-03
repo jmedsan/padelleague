@@ -40,28 +40,26 @@
     </div>
 </div>
 {{else}}
-<div class="card bg-base-100 shadow border border-base-content/50 mb-4" {{if not .Mode.Full}}data-promo-card {{end}}data-testid="promo-card" data-promo-id="{{.ID}}">
-    <div class="card-body p-4 gap-2">
-        <div class="flex items-center justify-between gap-2">
-            <span class="badge badge-ghost badge-sm">Patrocinado</span>
-            {{if not .Mode.Full}}
-            <button type="button" class="btn btn-ghost btn-circle -mr-2 -mt-2" data-promo-dismiss="{{.ID}}" aria-label="descartar promoción">
-                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-            </button>
-            {{end}}
-        </div>
-        <div class="flex items-start gap-3">
-            {{if .ImageURL}}
-            <a href="{{.ClickURL}}" target="_blank" rel="noopener sponsored nofollow" data-promo-link="{{.ID}}" class="flex-none" tabindex="-1" aria-hidden="true">
-                <img src="{{.ImageURL}}" alt="" class="w-16 h-16 object-contain rounded bg-base-100">
-            </a>
-            {{end}}
-            <div class="flex-1 min-w-0">
-                <a href="{{.ClickURL}}" target="_blank" rel="noopener sponsored nofollow" data-promo-link="{{.ID}}" class="link link-hover font-semibold break-words">{{.Title}}</a>
-                {{if .Description}}<p class="text-sm opacity-80 break-words whitespace-pre-wrap">{{.Description}}</p>{{end}}
-            </div>
+<div class="promo-card rounded-2xl p-4 mb-4 flex flex-col gap-3" {{if not .Mode.Full}}data-promo-card {{end}}data-testid="promo-card" data-promo-id="{{.ID}}">
+    <div class="flex items-center justify-between gap-2">
+        <span class="promo-pill rounded-full px-3 text-sm" data-testid="promo-label">Patrocinado</span>
+        {{if not .Mode.Full}}
+        <button type="button" class="btn btn-ghost btn-circle -m-2" data-promo-dismiss="{{.ID}}" aria-label="descartar promoción">
+            <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+        </button>
+        {{end}}
+    </div>
+    <div class="flex items-start gap-3">
+        <a href="{{.ClickURL}}" target="_blank" rel="noopener sponsored nofollow" data-promo-link="{{.ID}}" class="flex-none" tabindex="-1" aria-hidden="true" data-testid="promo-tile">
+            {{if .ImageURL}}<img src="{{.ImageURL}}" alt="" class="w-[64px] h-[64px] object-contain rounded-xl bg-base-300">
+            {{else}}<div class="w-[64px] h-[64px] rounded-xl bg-base-300 flex items-center justify-center opacity-60"><svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z" /></svg></div>{{end}}
+        </a>
+        <div class="flex-1 min-w-0">
+            <a href="{{.ClickURL}}" target="_blank" rel="noopener sponsored nofollow" data-promo-link="{{.ID}}" class="link link-hover font-bold text-lg leading-snug break-words">{{.Title}}</a>
+            {{if .Description}}<p class="text-sm opacity-80 break-words whitespace-pre-wrap">{{.Description}}</p>{{end}}
         </div>
     </div>
+    <a href="{{.ClickURL}}" target="_blank" rel="noopener sponsored nofollow" data-promo-link="{{.ID}}" class="btn btn-primary w-full min-h-11" data-testid="promo-cta">Ver oferta →</a>
 </div>
 {{end}}
 {{end}}
