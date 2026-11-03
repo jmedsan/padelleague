@@ -1,4 +1,4 @@
-import type { Browser, BrowserContext, Page } from '@playwright/test';
+import type { Browser, BrowserContext, Locator, Page } from '@playwright/test';
 import { test, expect } from '../overflow-guard';
 import { loginAs, loadTestData, isMobile, openDrawer, suGet, suPatch, suDelete, leagueDate, ADMIN_EMAIL, ADMIN_PASSWORD, PLAYER1_EMAIL, PLAYER1_PASSWORD } from '../helpers';
 import { clickAndWaitForHxRedirect } from '../tour-helpers';
@@ -170,6 +170,32 @@ async function playerHome(page: Page): Promise<void> {
   await loginAs(page, PLAYER1_EMAIL, PLAYER1_PASSWORD);
   await page.goto('/');
   await page.waitForLoadState('networkidle');
+}
+
+// Asserts, in every theme, that the card edge is clearly visible against the page: the border
+// color must reach WCAG 1.4.11's 3:1 contrast with the body background (owner, 2026-11-03).
+async function expectSeparatedFromPage(page: Page, target: Locator, label: string): Promise<void> {
+  for (const theme of ['dark', 'padel']) {
+    if (await page.locator('html').getAttribute('data-theme') !== theme) {
+      await page.getByRole('button', { name: 'cambiar tema' }).click();
+    }
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+    await page.waitForTimeout(400);
+    const m = await target.evaluate(el => {
+      const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!;
+      const rgb = (c: string) => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = c; ctx.fillRect(0, 0, 1, 1); const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data; return [r, g, b, a / 255]; };
+      const lum = (c: number[]) => { const [r, g, b] = c.slice(0, 3).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+      const over = (fg: number[], bg: number[]) => { const a = fg[3] ?? 1; return [0, 1, 2].map(i => fg[i] * a + bg[i] * (1 - a)); };
+      const cs = getComputedStyle(el);
+      const body = rgb(getComputedStyle(document.body).backgroundColor);
+      const border = over(rgb(cs.borderTopColor), body);
+      const [hi, lo] = [lum(border), lum(body)].sort((x, y) => y - x);
+      return { bg: cs.backgroundColor, bodyBg: getComputedStyle(document.body).backgroundColor, width: cs.borderTopWidth, ratio: (hi + 0.05) / (lo + 0.05) };
+    });
+    expect(m.bg, `${label} (${theme}) background differs from the page`).not.toBe(m.bodyBg);
+    expect(parseFloat(m.width), `${label} (${theme}) has a border`).toBeGreaterThan(0);
+    expect(m.ratio, `${label} (${theme}) border contrast vs page`).toBeGreaterThanOrEqual(3);
+  }
 }
 
 async function dismissed(page: Page): Promise<string | null> {
@@ -406,6 +432,20 @@ test.describe.serial('promociones navbar and page', { tag: '@promotions' }, () =
     await page.waitForURL('**/promotions');
     await expect(page.getByRole('heading', { name: 'Promociones' })).toBeVisible();
     await expect(page.getByTestId('promo-card').getByRole('link', { name: 'Oferta P8' })).toBeVisible();
+  });
+
+  test('P22: the player card stands out from the page background in every theme, on Inicio and Promociones', async ({ browser, baseURL, page }) => {
+    await setOffers(browser, baseURL, [{ title: 'Oferta P22' }]);
+    await playerHome(page);
+    await expectSeparatedFromPage(page, page.getByTestId('promo-card'), 'Inicio card');
+    if (isMobile(page)) {
+      await page.setViewportSize({ width: 360, height: 780 });
+      await page.getByRole('link', { name: 'promociones' }).click();
+    } else {
+      await page.locator('.navbar').getByRole('link', { name: 'Promociones', exact: true }).click();
+    }
+    await page.waitForURL('**/promotions');
+    await expectSeparatedFromPage(page, page.getByTestId('promo-card').first(), 'Promociones card');
   });
 
   test('P19: with no current offer the player has no Promociones entry in the navbar', async ({ browser, baseURL, page }) => {
