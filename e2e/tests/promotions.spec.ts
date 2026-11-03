@@ -463,7 +463,7 @@ test.describe.serial('promociones navbar and page', { tag: '@promotions' }, () =
     expect(Math.round(tile!.width)).toBe(64);
     expect(Math.round(tile!.height)).toBe(64);
     const cta = card.getByTestId('promo-cta');
-    await expect(cta).toHaveText('Ver oferta →');
+    await expect(cta).toHaveText('Ver oferta');
     await expect(cta).toHaveClass(/btn-primary/);
     await expect(cta).toHaveAttribute('href', new RegExp(`/promo/${offer.id}$`));
     expect((await cta.boundingBox())!.height).toBeGreaterThanOrEqual(44);
