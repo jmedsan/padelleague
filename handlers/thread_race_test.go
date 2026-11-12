@@ -44,6 +44,16 @@ func raceScenarioResponses(t *testing.T, name string,
 	check func(tb testing.TB, app *tests.TestApp, fx []raceFixture, rs []*httptest.ResponseRecorder),
 ) {
 	t.Helper()
+	raceScenarioWithRoutes(t, name, nil, setup, check)
+}
+
+// raceScenarioWithRoutes is raceScenarioResponses plus extraRoutes, which may
+// register test-only routes next to the production ones.
+func raceScenarioWithRoutes(t *testing.T, name string, extraRoutes func(e *core.ServeEvent),
+	setup func(tb testing.TB, app *tests.TestApp, fx []raceFixture) []racer,
+	check func(tb testing.TB, app *tests.TestApp, fx []raceFixture, rs []*httptest.ResponseRecorder),
+) {
+	t.Helper()
 	s := &tests.ApiScenario{
 		TestAppFactory:  handlers.TestAppFactory,
 		Name:            name,
@@ -56,6 +66,9 @@ func raceScenarioResponses(t *testing.T, name string,
 	var responses []*httptest.ResponseRecorder
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupProductionRoutes(tb, app, e)
+		if extraRoutes != nil {
+			extraRoutes(e)
+		}
 		p1 := handlers.MakePairTB(tb, app, "Race A")
 		p2 := handlers.MakePairTB(tb, app, "Race B")
 		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2})

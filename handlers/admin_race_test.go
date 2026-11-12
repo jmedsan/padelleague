@@ -3,14 +3,17 @@ package handlers_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
+	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"padelleague/handlers"
 	"padelleague/league"
+	"padelleague/middleware"
 )
 
 // succeeded counts the responses that redirected with 204 (the handlers'
@@ -124,6 +127,52 @@ func TestAdminReleaseVsAccept_Concurrent_NeverLosesTheMatch(t *testing.T) {
 				require.NoError(tb, err, "match %d is never deleted", i)
 				assert.Equal(tb, league.StatusReleased, m.GetString("status"), "match %d ends released", i)
 			}
+		})
+}
+
+// Two admins releasing the same match: one wins, the other is told it is
+// already released, and the release logs, notifies and tops up exactly once.
+func TestAdminRelease_TwoAdmins_ReleasedOnce(t *testing.T) {
+	t.Parallel()
+	var topUps atomic.Int32
+	raceScenarioWithRoutes(t, "two admins release one match",
+		func(e *core.ServeEvent) {
+			e.Router.POST("/test-release/{id}", handlers.CountingReleaseHandler(e.App, &topUps)).
+				BindFunc(middleware.RequireAuth).BindFunc(middleware.RequireAppAdmin)
+		},
+		func(tb testing.TB, app *tests.TestApp, fx []raceFixture) []racer {
+			comp, err := app.FindRecordById("competitions", fx[0].match.GetString("competition"))
+			require.NoError(tb, err)
+			pairs := comp.GetStringSlice("pairs")
+			for _, n := range []string{"Race C", "Race D"} {
+				pairs = append(pairs, handlers.MakePairTB(tb, app, n).Id)
+			}
+			comp.Set("pairs", pairs)
+			comp.Set("target_matches", 1)
+			require.NoError(tb, app.Save(comp))
+			require.True(tb, league.IsLeveled(comp))
+			// The production route builds its own handler, so the race runs on
+			// a twin route backed by a counting top-up.
+			a1, a2 := makeAdminUser(tb, app), makeAdminUser(tb, app)
+			var racers []racer
+			for _, f := range fx {
+				path := "/test-release/" + f.match.Id
+				racers = append(racers, racer{a1, path, ""}, racer{a2, path, ""})
+			}
+			return racers
+		},
+		func(tb testing.TB, app *tests.TestApp, fx []raceFixture, rs []*httptest.ResponseRecorder) {
+			onePerMatch(tb, rs, "release the match")
+			assert.EqualValues(tb, len(fx), topUps.Load(), "one top-up per released match")
+			for i, f := range fx {
+				acts, err := app.FindRecordsByFilter("match_messages",
+					"match = {:m} && type = 'admin_action' && content ~ 'liberó el partido'", "", 0, 0, map[string]any{"m": f.match.Id})
+				require.NoError(tb, err)
+				assert.Len(tb, acts, 1, "match %d: one release entry", i)
+			}
+			evs, err := app.FindRecordsByFilter("competition_events", "kind = 'assignment_released'", "", 0, 0)
+			require.NoError(tb, err)
+			assert.Len(tb, evs, len(fx), "one assignment_released event per match")
 		})
 }
 

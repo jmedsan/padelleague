@@ -426,8 +426,7 @@ func releaseMatchTx(txApp core.App, id, adminID string) error {
 	if err := txApp.Save(match); err != nil {
 		return err
 	}
-	addTimelineEntry(txApp, timelineEntry{MatchID: id, ActorID: adminID, Kind: "admin_action", Detail: "liberó el partido"})
-	return nil
+	return saveTimelineEntry(txApp, timelineEntry{MatchID: id, ActorID: adminID, Kind: "admin_action", Detail: "liberó el partido"})
 }
 
 // AdminRelease releases a match of a leveled league in any status, so the

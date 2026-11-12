@@ -2045,3 +2045,43 @@ func TestHomeGen2_PendingCountSkipsUnconfirmedResult(t *testing.T) {
 	}
 	s.Test(t)
 }
+
+// A rival's pending result proposal on a released match is not a home action.
+func TestHome_ReleasedMatchProposalNotAction(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		status    string
+		wantShown bool
+	}{{"pending", true}, {"released", false}} {
+		t.Run(tc.status, func(t *testing.T) {
+			t.Parallel()
+			s := &tests.ApiScenario{
+				TestAppFactory:  handlers.TestAppFactory,
+				Name:            "result proposal on " + tc.status + " match",
+				ExpectedContent: []string{"Liga Dale Fuerte"},
+				Method:          http.MethodGet,
+				URL:             "/",
+				ExpectedStatus:  200,
+			}
+			s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+				setupProductionRoutes(tb, app, e)
+				myPair := handlers.MakePairTB(tb, app, "RelHomeMy")
+				oppPair := handlers.MakePairTB(tb, app, "RelHomeOpp")
+				comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{myPair, oppPair})
+				match := handlers.MakeMatchTB(tb, app, comp.Id, myPair.Id, oppPair.Id, tc.status)
+				createResultProposal(tb, app, match.Id, oppPair.GetString("player1"), "6-3 6-4")
+				user, _ := app.FindRecordById("users", myPair.GetString("player1"))
+				s.Headers = handlers.AuthHeaders(tb, user)
+			}
+			s.AfterTestFunc = func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+				body := handlers.ReadBody(tb, res)
+				if tc.wantShown {
+					assert.Contains(tb, body, "Responder resultado: 6-3 6-4")
+				} else {
+					assert.NotContains(tb, body, "Responder resultado")
+				}
+			}
+			s.Test(t)
+		})
+	}
+}

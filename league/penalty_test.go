@@ -413,3 +413,34 @@ func TestPendingPenalties_Withdrawn(t *testing.T) {
 	require.Equal(t, 0.0, totals[c.Id], "released match does not count")
 	require.Equal(t, 0.0, totals[d.Id], "released match does not count")
 }
+
+// TestApplyPendingMatchPenalties_LeveledCloseOpenAgainstWithdrawn (req 2.5):
+// an unreleased open match against a withdrawn pair is not played, so it
+// counts in the rival's shortfall; a released one is no different.
+func TestApplyPendingMatchPenalties_LeveledCloseOpenAgainstWithdrawn(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 6)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "CloseWd")
+	}
+	comp := makeLeveledCompetition(t, app, pairs, 4, 2)
+	comp.Set("max_pending_matches", 2)
+	comp.Set("withdrawn_pairs", []string{pairs[5].Id})
+	require.NoError(t, app.Save(comp))
+	played := makeMatch(t, app, comp.Id, pairs[0].Id, pairs[1].Id, "final")
+	played.Set("winner", pairs[0].Id)
+	require.NoError(t, app.Save(played))
+	makeMatch(t, app, comp.Id, pairs[0].Id, pairs[5].Id, "pending")
+	makeMatch(t, app, comp.Id, pairs[2].Id, pairs[5].Id, "released")
+	setFinishedPhase(t, app, comp)
+	comp, err := app.FindRecordById("competitions", comp.Id)
+	require.NoError(t, err)
+
+	_, err = ApplyPendingMatchPenalties(app, comp)
+	require.NoError(t, err)
+	totals, err := PenaltyTotals(app, comp.Id)
+	require.NoError(t, err)
+	require.Equal(t, 3.0, totals[pairs[0].Id], "played 1 of 4; the open match with the withdrawn pair is not played")
+	require.Equal(t, 4.0, totals[pairs[2].Id], "the released match is not played either")
+	require.Equal(t, 0.0, totals[pairs[5].Id], "withdrawn pair is not penalized")
+}

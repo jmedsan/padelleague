@@ -1,7 +1,9 @@
 package handlers_test
 
 import (
+	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -33,6 +35,7 @@ func TestReleasedRefusesAdminWrites(t *testing.T) {
 		{"override", "/admin-override", "date=2026-10-10"},
 		{"cancel date", "/cancel-date", ""},
 		{"arbitration", "/arbitration", "reason=x"},
+		{"close arbitration", "/arbitration/close", ""},
 		{"correct", "/correct", "score=6-3 6-4"},
 		{"proposal", "/thread/proposal", "type=date&date=2026-10-10"},
 		{"respond", "/thread/proposal/x/respond", "action=accept"},
@@ -205,7 +208,10 @@ func TestAdminRelease_Lifecycle(t *testing.T) {
 		p2 := handlers.MakePairTB(tb, app, "LcB")
 		p3 := handlers.MakePairTB(tb, app, "LcC")
 		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3})
+		compID = comp.Id
 		m := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		m.Set("scores", "6-3 6-4")
+		require.NoError(tb, app.Save(m))
 		matchID = m.Id
 		col, err := app.FindCollectionByNameOrId("notifications")
 		require.NoError(tb, err)
@@ -220,10 +226,21 @@ func TestAdminRelease_Lifecycle(t *testing.T) {
 		s.URL = "/match/" + m.Id + "/release"
 		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
 		m, err := app.FindRecordById("matches", matchID)
 		require.NoError(tb, err)
 		assert.Equal(tb, league.StatusReleased, m.GetString("status"))
+		assert.Equal(tb, "6-3 6-4", m.GetString("scores"), "release leaves the scores untouched")
+		var flashed string
+		for _, c := range res.Cookies() {
+			if c.Name == "flash_msg" {
+				flashed, _ = url.QueryUnescape(c.Value)
+			}
+		}
+		assert.Equal(tb, "Partido liberado", flashed)
+		evs, err := app.FindRecordsByFilter("competition_events", "kind = 'assignment_released' && competition = {:c}", "", 0, 0, map[string]any{"c": compID})
+		require.NoError(tb, err)
+		assert.Len(tb, evs, 1, "exactly one assignment_released event")
 		notifs, err := app.FindRecordsByFilter("notifications", "related_match = {:m}", "", 0, 0, map[string]any{"m": matchID})
 		require.NoError(tb, err)
 		assert.Empty(tb, notifs)
@@ -231,6 +248,47 @@ func TestAdminRelease_Lifecycle(t *testing.T) {
 		require.NoError(tb, err)
 		require.Len(tb, log, 1)
 		assert.Equal(tb, adminID, log[0].GetString("author"))
+	}
+	s.Test(t)
+}
+
+// A failed timeline insert rolls the whole release back (req 3.6): the match
+// stays as it was and no half-released state remains.
+func TestAdminRelease_TimelineInsertFails_RollsBack(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory:  handlers.TestAppFactory,
+		Name:            "release rolls back when the timeline entry cannot be written",
+		Method:          http.MethodPost,
+		ExpectedStatus:  200,
+		ExpectedContent: []string{"Error al liberar el partido"},
+	}
+	var matchID, compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		p1 := handlers.MakePairTB(tb, app, "RbA")
+		p2 := handlers.MakePairTB(tb, app, "RbB")
+		p3 := handlers.MakePairTB(tb, app, "RbC")
+		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3})
+		compID = comp.Id
+		m := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
+		matchID = m.Id
+		app.OnRecordCreate("match_messages").BindFunc(func(re *core.RecordEvent) error {
+			if re.Record.GetString("type") == "admin_action" {
+				return errors.New("forced timeline failure")
+			}
+			return re.Next()
+		})
+		s.URL = "/match/" + m.Id + "/release"
+		s.Headers = handlers.AuthHeaders(tb, handlers.MakeAdminUserTB(tb, app))
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, "pending", m.GetString("status"), "the release is rolled back")
+		evs, err := app.FindRecordsByFilter("competition_events", "kind = 'assignment_released' && competition = {:c}", "", 0, 0, map[string]any{"c": compID})
+		require.NoError(tb, err)
+		assert.Empty(tb, evs, "no release event for a rolled-back release")
 	}
 	s.Test(t)
 }

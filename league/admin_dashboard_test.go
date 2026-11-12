@@ -668,3 +668,45 @@ func TestOutstandingMatches_SkipsProvisional(t *testing.T) {
 	assert.True(t, ids[undecided.Id], "an open set is not a result yet")
 	assert.True(t, ids[plain.Id])
 }
+
+func TestAdminDashboard_ReleasedMatchNotArbitrationIncident(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "RelArbA")
+	p2 := makePair(t, app, "RelArbB")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2})
+
+	m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, StatusReleased)
+	m.Set("arbitration", "scheduling")
+	require.NoError(t, app.Save(m))
+
+	_, alerts, err := AdminDashboard(app, time.Now())
+	require.NoError(t, err)
+	assert.Empty(t, alerts, "a released match with a stale arbitration flag is not an incident")
+}
+
+func TestPlayoffPrompts_ReleasedMatchDoesNotBlock(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	p1 := makePair(t, app, "RelPoA")
+	p2 := makePair(t, app, "RelPoB")
+	p3 := makePair(t, app, "RelPoC")
+	comp := makeCompetition(t, app, []*core.Record{p1, p2, p3})
+
+	sd, _ := types.ParseDateTime(time.Now().AddDate(0, 0, -60))
+	ed, _ := types.ParseDateTime(time.Now().AddDate(0, 0, -30))
+	comp.Set("start_date", sd)
+	comp.Set("end_date", ed)
+	require.NoError(t, app.Save(comp))
+
+	makeMatch(t, app, comp.Id, p1.Id, p2.Id, "final")
+	rel := makeMatch(t, app, comp.Id, p1.Id, p3.Id, StatusReleased)
+
+	require.Len(t, PlayoffPrompts(app, []*core.Record{comp}, time.Now()), 1,
+		"released matches do not hold back the playoff prompt")
+
+	rel.Set("status", "pending")
+	require.NoError(t, app.Save(rel))
+	require.Empty(t, PlayoffPrompts(app, []*core.Record{comp}, time.Now()),
+		"control: an open match does hold it back")
+}

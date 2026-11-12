@@ -125,6 +125,24 @@ func TestLevelLocked(t *testing.T) {
 	assert.False(t, LevelLocked(app, pe.Id), "pair with no matches must not be locked")
 }
 
+// A pair whose only leveled match was released is not locked: the release
+// removed the match from the schedule.
+func TestLevelLocked_IgnoresReleased(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	pa := makePair(t, app, "RelA")
+	pb := makePair(t, app, "RelB")
+	pc := makePair(t, app, "RelC")
+	comp := makeCompetition(t, app, []*core.Record{pa, pb, pc})
+	comp.Set("target_matches", 1)
+	require.NoError(t, app.Save(comp))
+	makeLeveledMatch(t, app, comp.Id, pa.Id, pb.Id, "", "", StatusReleased, time.Time{})
+
+	assert.False(t, LevelLocked(app, pa.Id), "released match must not lock the level")
+	makeLeveledMatch(t, app, comp.Id, pa.Id, pc.Id, "", "", "pending", time.Time{})
+	assert.True(t, LevelLocked(app, pa.Id), "a live match still locks")
+}
+
 func TestRatings_OneMatch(t *testing.T) {
 	t.Parallel()
 

@@ -31,11 +31,20 @@ type timelineEntry struct {
 	Note string
 }
 
+// addTimelineEntry writes a timeline entry and only logs a failure: for a
+// best-effort history line that must not undo the action it records.
 func addTimelineEntry(app core.App, e timelineEntry) {
+	if err := saveTimelineEntry(app, e); err != nil {
+		slog.Error("timeline: save entry", "match", e.MatchID, "err", err)
+	}
+}
+
+// saveTimelineEntry writes a timeline entry and returns the failure, for
+// callers (inside a transaction) whose action must roll back with the entry.
+func saveTimelineEntry(app core.App, e timelineEntry) error {
 	col, err := app.FindCollectionByNameOrId("match_messages")
 	if err != nil {
-		slog.Error("timeline: find collection", "err", err)
-		return
+		return err
 	}
 	rec := core.NewRecord(col)
 	rec.Set("match", e.MatchID)
@@ -59,7 +68,5 @@ func addTimelineEntry(app core.App, e timelineEntry) {
 		pdJSON, _ := json.Marshal(pd)
 		rec.Set("proposal_data", string(pdJSON))
 	}
-	if err := app.Save(rec); err != nil {
-		slog.Error("timeline: save entry", "match", e.MatchID, "err", err)
-	}
+	return app.Save(rec)
 }

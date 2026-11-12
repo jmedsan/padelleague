@@ -71,7 +71,7 @@ func LevelElo(key string) float64 {
 }
 
 // LevelLocked reports whether pairID has any match at all in a leveled
-// competition — draft included, not just played — in which case its level
+// competition — draft included, not just played, but released matches excluded — in which case its level
 // can no longer be changed; the schedule already depends on the starting
 // Elo. To change a level, delete the calendar and regenerate.
 func LevelLocked(app core.App, pairID string) bool {
@@ -82,6 +82,9 @@ func LevelLocked(app core.App, pairID string) bool {
 	}
 	seen := make(map[string]struct{})
 	for _, m := range matches {
+		if m.GetString("status") == StatusReleased {
+			continue // a released match leaves no schedule dependency
+		}
 		compID := m.GetString("competition")
 		if _, ok := seen[compID]; ok {
 			continue

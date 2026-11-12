@@ -1,6 +1,23 @@
 package handlers
 
-import "github.com/pocketbase/pocketbase/core"
+import (
+	"sync/atomic"
+	"time"
+
+	"github.com/pocketbase/pocketbase/core"
+
+	"padelleague/league"
+)
+
+// CountingReleaseHandler is AdminRelease on a MatchHandler whose top-up only
+// counts its calls, so a test can assert how many releases reached the top-up.
+func CountingReleaseHandler(app core.App, calls *atomic.Int32) func(*core.RequestEvent) error {
+	h := &MatchHandler{app: app, topUp: func(string, time.Time, ...league.Pairing) ([]*core.Record, error) {
+		calls.Add(1)
+		return nil, nil
+	}}
+	return h.AdminRelease
+}
 
 // export_test.go bridges unexported package internals to the external
 // handlers_test package. It exists ONLY because Go forbids handlers' own
