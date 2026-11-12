@@ -46,9 +46,6 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	if err != nil {
 		return err
 	}
-	if match.GetString("status") == league.StatusReleased {
-		return refuseReleased(e)
-	}
 
 	pair1ID := match.GetString("pair1")
 	pair2ID := match.GetString("pair2")
@@ -87,7 +84,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 		"ResultPanel":          td.ResultPanel,
 		"Card":                 resultCard,
 		"Venues":               venues,
-		"CanPost":              isParticipant || isAdmin,
+		"CanPost":              (isParticipant || isAdmin) && match.GetString("status") != league.StatusReleased,
 		"CanPropose":           canPropose,
 		"IsAdmin":              isAdmin,
 		"IsParticipant":        isParticipant,
@@ -117,6 +114,9 @@ func (h *ThreadHandler) buildResultCard(match *core.Record, viewerID string, isA
 	if isAdmin {
 		mode = AdminFull
 	}
+	if match.GetString("status") == league.StatusReleased {
+		mode = AdminReadOnly
+	}
 	c := NewMatchCard(h.app, match, mode, viewerID)
 	if !compModifiable {
 		c.CanSubmit = false
@@ -145,9 +145,6 @@ func (h *ThreadHandler) ThreadMessages(e *core.RequestEvent) error {
 	match, err := findMatchOr404(h.app, e, matchID)
 	if err != nil {
 		return err
-	}
-	if match.GetString("status") == league.StatusReleased {
-		return refuseReleased(e)
 	}
 
 	isAdmin := render.AdminView(e)

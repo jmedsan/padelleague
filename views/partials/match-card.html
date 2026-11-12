@@ -371,7 +371,8 @@
      caller (thread.html) next to the "Resultado" heading. */}}
 {{define "resultStatusBadge"}}
 {{$status := .Card.Match.GetString "status"}}
-{{if .ResultPanel.Void}}<span class="badge badge-ghost">Sin resultado</span>
+{{if eq $status "released"}}<span class="badge badge-ghost">Liberado</span>
+{{else if .ResultPanel.Void}}<span class="badge badge-ghost">Sin resultado</span>
 {{else if .ResultPanel.HasFinal}}<span class="badge badge-soft-success">Confirmado</span>
 {{else if eq $status "disputed"}}<span class="badge badge-soft-error">En disputa</span>
 {{else if .ResultPanel.Live}}<span class="badge badge-soft-warning">Propuesta</span>

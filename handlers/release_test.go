@@ -35,8 +35,6 @@ func TestReleasedRefusesAdminWrites(t *testing.T) {
 		{"arbitration", "/arbitration", "reason=x"},
 		{"correct", "/correct", "score=6-3 6-4"},
 		{"proposal", "/thread/proposal", "type=date&date=2026-10-10"},
-		{"GET thread", "/thread", ""},
-		{"GET thread messages", "/thread-messages", ""},
 		{"respond", "/thread/proposal/x/respond", "action=accept"},
 		{"withdraw", "/thread/proposal/x/withdraw", ""},
 		{"reject and counter", "/thread/proposal/x/reject-and-counter", "type=date&date=2026-10-10"},
@@ -66,6 +64,27 @@ func TestReleasedRefusesAdminWrites(t *testing.T) {
 			if c.body != "" {
 				s.Body = strings.NewReader(c.body)
 			}
+		}
+		s.Test(t)
+	}
+}
+
+func TestReleasedThread_AdminReadOnly(t *testing.T) {
+	t.Parallel()
+	for path, content := range map[string][]string{"/thread": {"Liberado"}, "/thread-messages": nil} {
+		s := &tests.ApiScenario{
+			TestAppFactory:     handlers.TestAppFactory,
+			Name:               "admin reads released match " + path,
+			Method:             http.MethodGet,
+			ExpectedStatus:     200,
+			ExpectedContent:    content,
+			NotExpectedContent: []string{"hx-post=\"/match/", "El partido está liberado"},
+		}
+		s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+			setupProductionRoutes(tb, app, e)
+			m, _ := releasedMatch(tb, app)
+			s.URL = "/match/" + m.Id + path
+			s.Headers = handlers.AuthHeaders(tb, handlers.MakeAdminUserTB(tb, app))
 		}
 		s.Test(t)
 	}

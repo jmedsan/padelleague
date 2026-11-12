@@ -220,6 +220,15 @@ test.describe('leveled league', { tag: '@leveled' }, () => {
     await expect(acc).toBeVisible();
     await expect(acc).toContainText('Liberados');
 
+    // The admin opens the released match: read-only page, Liberado badge, history, no actions.
+    await acc.locator('input[type=checkbox]').check();
+    await acc.locator(`a[href="${href}"]`).first().click();
+    await expect(page.locator('main').getByText('Liberado').locator('visible=true').first()).toBeVisible();
+    await expect(page.getByText('liberó el partido').locator('visible=true').first()).toBeVisible();
+    await expect(page.locator('form[hx-post*="/thread/message"]')).toHaveCount(0);
+    await expect(page.locator('[hx-post*="admin-override"]')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Liberar partido' })).toHaveCount(0);
+
     // A player of the released match gets 404.
     const p1 = PLAYERS[PAIR_DEFS[0].p1].email;
     await loginAs(page, p1, PLAYER_PASSWORD);
