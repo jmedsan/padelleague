@@ -38,6 +38,9 @@ func matchVisibleTo(app core.App, e *core.RequestEvent, match *core.Record) bool
 	if render.AdminView(e) {
 		return true
 	}
+	if match.GetString("status") == league.StatusReleased {
+		return false
+	}
 	comp, err := app.FindRecordById("competitions", match.GetString("competition"))
 	return err == nil && comp.GetString("calendar_status") == "published"
 }

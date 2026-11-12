@@ -198,7 +198,7 @@ func addCompHealth(app core.App, c *core.Record, now time.Time, categories map[s
 	// untouched (result/no_show already surfaced above via status='disputed'),
 	// so it needs its own query to show up as a disputes incident.
 	arbitrating, _ := app.FindRecordsByFilter("matches",
-		"competition = {:cid} && status != 'disputed' && arbitration != ''",
+		"competition = {:cid} && status != 'disputed' && status != 'released' && arbitration != ''",
 		"round_number", 0, 0,
 		map[string]any{"cid": c.Id})
 	for _, m := range arbitrating {
@@ -558,7 +558,7 @@ func PlayoffPrompts(app core.App, activeComps []*core.Record, now time.Time) []P
 
 func allMatchesFinal(app core.App, compID string) bool {
 	pending, err := app.FindRecordsByFilter("matches",
-		"competition = {:cid} && status != 'final'", "", 1, 0,
+		"competition = {:cid} && status != 'final' && status != 'released'", "", 1, 0,
 		map[string]any{"cid": compID})
 	if err != nil {
 		slog.Error("playoff prompts: count non-final matches", "comp", compID, "err", err)

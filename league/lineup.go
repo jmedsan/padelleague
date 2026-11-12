@@ -78,6 +78,9 @@ func PlayerStatPairIDs(app core.App, userID string) []string {
 		return ids
 	}
 	for _, m := range played {
+		if m.GetString("status") == StatusReleased {
+			continue
+		}
 		for i, pairField := range [2]string{"pair1", "pair2"} {
 			pid := m.GetString(pairField)
 			if slices.Contains(m.GetStringSlice(lineupFields[i]), userID) && !slices.Contains(ids, pid) {

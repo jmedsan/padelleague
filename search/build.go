@@ -95,6 +95,9 @@ func buildMatches(app core.App) []Entry {
 	proposed := proposedScores(app, matches)
 	entries := make([]Entry, 0, len(matches))
 	for _, m := range matches {
+		if m.GetString("status") == league.StatusReleased {
+			continue
+		}
 		entries = append(entries, buildMatchEntry(app, m, proposed[m.Id]))
 	}
 	return entries
@@ -178,6 +181,7 @@ func buildMessages(app core.App) []Entry {
 	}
 
 	matchCompMap := make(map[string]string)
+	releasedMatches := make(map[string]bool)
 	for _, msg := range msgs {
 		matchCompMap[msg.GetString("match")] = ""
 	}
@@ -187,10 +191,14 @@ func buildMessages(app core.App) []Entry {
 			continue
 		}
 		matchCompMap[matchID] = m.GetString("competition")
+		releasedMatches[matchID] = m.GetString("status") == league.StatusReleased
 	}
 
 	entries := make([]Entry, 0, len(msgs))
 	for _, msg := range msgs {
+		if releasedMatches[msg.GetString("match")] {
+			continue
+		}
 		content := msg.GetString("content")
 		if len(content) > 100 {
 			content = content[:100]
@@ -437,6 +445,10 @@ func UpsertRecord(ix *Index, app core.App, collection string, record *core.Recor
 	case "competitions":
 		ix.Upsert(record.Id, []Entry{buildCompetitionEntry(record)})
 	case "matches":
+		if record.GetString("status") == league.StatusReleased {
+			ix.Upsert(record.Id, nil)
+			return
+		}
 		ix.Upsert(record.Id, []Entry{buildMatchEntry(app, record, proposedScores(app, []*core.Record{record})[record.Id])})
 	case "match_messages":
 		// A result proposal changes what its match's entry shows.

@@ -139,16 +139,6 @@ func notificationConstructorCases() []constructorCase {
 			want: Notification{Type: "calendar_published", Title: "Calendario publicado", Body: "El calendario ha sido publicado.", Link: "/competition/c1", CompID: "c1", CompName: "Liga Primavera"},
 		},
 		{
-			name: "OpponentWithdrawn",
-			got:  NotifOpponentWithdrawn(OpponentWithdrawnParams{CompID: "c1", MatchID: "m1", PairName: "Pareja B", CompName: "Liga Primavera", WoScore: "6-0 6-0"}),
-			want: Notification{Type: "general", Title: "Pareja retirada", Body: "La pareja Pareja B se ha retirado. El partido se registra como 6-0 6-0 a tu favor.", MatchID: "m1", CompID: "c1", CompName: "Liga Primavera"},
-		},
-		{
-			name: "OpponentWithdrawnReleasedMatch",
-			got:  NotifOpponentWithdrawn(OpponentWithdrawnParams{CompID: "c1", PairName: "Pareja B", CompName: "Liga Primavera", WoScore: "6-0 6-0"}),
-			want: Notification{Type: "general", Title: "Pareja retirada", Body: "La pareja Pareja B se ha retirado de la competición. Tu partido contra esa pareja se ha liberado y se te puede asignar un nuevo rival.", Link: "/competition/c1", CompID: "c1", CompName: "Liga Primavera"},
-		},
-		{
 			name: "PairWithdrawn",
 			got:  NotifPairWithdrawn("Liga Primavera"),
 			want: Notification{Type: "general", Title: "Retirada de la competición", Body: "Tu pareja ha sido retirada de Liga Primavera.", CompName: "Liga Primavera"},

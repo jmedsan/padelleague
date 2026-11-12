@@ -2434,7 +2434,7 @@ func TestWithdrawPairNotifications(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: handlers.TestAppFactory,
-		Name:           "POST withdraw-pair notifies opponents with withdrawal text, notifies withdrawn pair",
+		Name:           "POST withdraw-pair notifies only the withdrawn pair",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
@@ -2457,15 +2457,12 @@ func TestWithdrawPairNotifications(t *testing.T) {
 		s.Headers = hdrs
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		// Opponents receive the "pareja retirada" notification with correct text.
-		opponentWant := league.Notification{
-			Type:     "general",
-			Title:    "Pareja retirada",
-			Body:     "La pareja Withdrawn Pair se ha retirado. El partido se registra como 6-0 6-0 a tu favor.",
-			CompName: "Test Competition",
-		}
+		// The rival gets no notice: withdrawal only flags the pair.
 		for _, uid := range league.PlayersForPair(app, opponentPair.Id) {
-			assertNotified(tb, app, uid, opponentWant)
+			var n int
+			require.NoError(tb, app.DB().NewQuery("SELECT COUNT(*) FROM notifications WHERE user = {:u}").
+				Bind(map[string]any{"u": uid}).Row(&n))
+			require.Zero(tb, n)
 		}
 
 		// Withdrawn pair's players receive "retirada de la competición" notification.

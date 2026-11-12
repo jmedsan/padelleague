@@ -169,7 +169,7 @@
         </form>
         {{end}}
 
-        {{if and .HasFixtures (not .Rounds)}}
+        {{if and .HasFixtures (not .Rounds) (not .Released)}}
         {{template "emptyState" "Esta pareja no tiene partidos"}}
         {{else if .HasFixtures}}
         <div class="space-y-3">
@@ -188,6 +188,22 @@
                 <div class="collapse-content">
                     <div class="divide-y divide-base-200 pt-2">
                         {{range .Matches}}
+                        {{template "matchRow" .}}
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+            {{end}}
+            {{if .Released}}
+            <div class="collapse collapse-arrow bg-base-200 rounded-box" id="released-matches">
+                <input type="checkbox">
+                <div class="collapse-title font-medium text-sm">
+                    Liberados
+                    <span class="badge badge-soft-ghost badge-sm ml-2">{{len .Released}}</span>
+                </div>
+                <div class="collapse-content">
+                    <div class="divide-y divide-base-200 pt-2">
+                        {{range .Released}}
                         {{template "matchRow" .}}
                         {{end}}
                     </div>
@@ -294,7 +310,7 @@
                                 </label>
                             </span>
                             <span class="tooltip tooltip-left" data-tip="Retirar de la competición">
-                                {{template "withdrawPairForm" (dict "CompetitionID" $.Competition.Id "PairID" .PairID "PairName" .PairName "Leveled" $.IsLeveled "IsPlayoff" $.IsPlayoff "Walkover" walkoverScore "Class" "inline" "ButtonClass" "btn btn-ghost btn-sm btn-circle min-h-[44px] min-w-[44px] text-warning")}}
+                                {{template "withdrawPairForm" (dict "CompetitionID" $.Competition.Id "PairID" .PairID "PairName" .PairName "Class" "inline" "ButtonClass" "btn btn-ghost btn-sm btn-circle min-h-[44px] min-w-[44px] text-warning")}}
                             </span>
                             <form hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja de la competición?" data-confirm-danger data-confirm-ok="Quitar" class="inline">
                                 <input type="hidden" name="pair_id" value="{{.PairID}}">
@@ -344,7 +360,7 @@
                                         </button>
                                     </form></li>
                                     {{end}}{{end}}
-                                    <li>{{template "withdrawPairForm" (dict "CompetitionID" $.Competition.Id "PairID" $e.PairID "PairName" $e.PairName "Leveled" $.IsLeveled "IsPlayoff" $.IsPlayoff "Walkover" walkoverScore "Class" "contents" "ButtonClass" "text-warning" "Text" true)}}</li>
+                                    <li>{{template "withdrawPairForm" (dict "CompetitionID" $.Competition.Id "PairID" $e.PairID "PairName" $e.PairName "Class" "contents" "ButtonClass" "text-warning" "Text" true)}}</li>
                                     <li><form class="contents" hx-post="/admin/competitions/{{$.Competition.Id}}/remove-pair" hx-confirm="¿Quitar esta pareja de la competición?" data-confirm-danger data-confirm-ok="Quitar">
                                         <input type="hidden" name="pair_id" value="{{$e.PairID}}">
                                         <button type="submit" hx-disabled-elt="this" class="text-error">

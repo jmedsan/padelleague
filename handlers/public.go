@@ -361,7 +361,7 @@ func (h *PublicHandler) findPendingProposals(c *core.Record, playerPairIDs map[s
 	})
 	for _, p := range proposals {
 		m, err := h.app.FindRecordById("matches", p.GetString("match"))
-		if err != nil || m.GetString("competition") != c.Id {
+		if err != nil || m.GetString("competition") != c.Id || m.GetString("status") == league.StatusReleased {
 			continue
 		}
 		if !isRivalAction(m, league.MessageAuthorTeam(p, m), playerPairIDs) {
@@ -410,7 +410,7 @@ func (h *PublicHandler) recentResultEntries(c *core.Record) []recentResult {
 		Sort: "-date,-created", Limit: 20, Params: map[string]any{"cid": c.Id},
 	})
 	open := findRecordsLogged(h.app, "findRecentResults: find open matches", RecordQuery{
-		Collection: "matches", Filter: "competition = {:cid} && status != 'final' && status != 'disputed'",
+		Collection: "matches", Filter: "competition = {:cid} && status != 'final' && status != 'disputed' && status != 'released'",
 		Params: map[string]any{"cid": c.Id},
 	})
 	unconfirmed, err := league.ProvisionalResults(h.app, open)

@@ -114,6 +114,17 @@ func (h *CompetitionHandler) buildLeveledRoundGroups(comp *core.Record, matches 
 	return result
 }
 
+// releasedCards builds the rows of the admin "Liberados" accordion.
+func (h *CompetitionHandler) releasedCards(comp *core.Record, matches []*core.Record, pairNames map[string]string) []MatchCard {
+	noPairs := map[string]struct{}{}
+	withdrawn := league.WithdrawnSet(comp)
+	cards := make([]MatchCard, 0, len(matches))
+	for _, m := range matches {
+		cards = append(cards, NewMatchRow(m, pairNames, noPairs, withdrawn))
+	}
+	return cards
+}
+
 // firstIncompleteRoundGroup returns the key of the first round with an
 // unplayed match, or "" if every round is complete (or there are none).
 func firstIncompleteRoundGroup(rounds []roundGroup) string {
@@ -200,7 +211,7 @@ func (h *CompetitionHandler) refreshRoundSchedule(comp *core.Record) {
 func (h *CompetitionHandler) refreshLeveledArrangeBy(comp *core.Record) {
 	matches := findRecordsLogged(h.app, "refreshLeveledArrangeBy: find matches", RecordQuery{
 		Collection: "matches",
-		Filter:     "competition = {:cid} && status != 'final'",
+		Filter:     "competition = {:cid} && status != 'final' && status != 'released'",
 		Params:     map[string]any{"cid": comp.Id},
 	})
 	for _, m := range matches {

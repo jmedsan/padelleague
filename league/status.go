@@ -18,6 +18,9 @@ const (
 	StatusConfirmed = "confirmed"
 	StatusDisputed  = "disputed"
 	StatusFinal     = "final"
+	// StatusReleased marks a leveled match the admin released: terminal, kept
+	// with its thread, and excluded from every count and player surface.
+	StatusReleased = "released"
 )
 
 // IsPreScore returns true for statuses before any score has been submitted.
@@ -40,6 +43,8 @@ func StatusLabel(status string) string {
 		return "En disputa"
 	case StatusFinal:
 		return "Confirmado"
+	case StatusReleased:
+		return "Liberado"
 	}
 	return status
 }

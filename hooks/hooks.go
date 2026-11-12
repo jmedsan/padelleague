@@ -15,10 +15,11 @@ import (
 )
 
 var validTransitions = map[string][]string{
-	league.StatusPending:   {league.StatusScheduled, league.StatusConfirmed, league.StatusFinal, league.StatusDisputed},
-	league.StatusScheduled: {league.StatusPending, league.StatusConfirmed, league.StatusFinal, league.StatusDisputed},
-	league.StatusConfirmed: {league.StatusFinal, league.StatusDisputed},
-	league.StatusDisputed:  {league.StatusFinal},
+	league.StatusPending:   {league.StatusScheduled, league.StatusConfirmed, league.StatusFinal, league.StatusDisputed, league.StatusReleased},
+	league.StatusScheduled: {league.StatusPending, league.StatusConfirmed, league.StatusFinal, league.StatusDisputed, league.StatusReleased},
+	league.StatusConfirmed: {league.StatusFinal, league.StatusDisputed, league.StatusReleased},
+	league.StatusDisputed:  {league.StatusFinal, league.StatusReleased},
+	league.StatusFinal:     {league.StatusReleased},
 }
 
 func validateTransition(oldStatus, newStatus string) error {
@@ -124,8 +125,9 @@ func remindCompetitionMatches(app core.App, notifier *notify.Notifier, comp *cor
 
 	// A match with an unconfirmed result counts as played: nothing to arrange.
 	proposed := league.ProvisionalIDs(app, matches)
+	withdrawn := league.WithdrawnSet(comp)
 	for _, m := range matches {
-		if proposed[m.Id] {
+		if proposed[m.Id] || withdrawn[m.GetString("pair1")] || withdrawn[m.GetString("pair2")] {
 			continue
 		}
 		deadline, ok := league.MatchArrangeDate(comp, m)
@@ -218,6 +220,9 @@ func (rc reminderCtx) remindMatch(m *core.Record, compCache map[string]*core.Rec
 
 	pair1ID := m.GetString("pair1")
 	pair2ID := m.GetString("pair2")
+	if w := league.WithdrawnSet(comp); w[pair1ID] || w[pair2ID] {
+		return
+	}
 	pairNames := league.PairNames(rc.app, []string{pair1ID, pair2ID})
 
 	type side struct {

@@ -1770,7 +1770,7 @@ func TestAdminRelease_OK(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
 		TestAppFactory: handlers.TestAppFactory,
-		Name:           "POST /match/{id}/release admin deletes a pending leveled match",
+		Name:           "POST /match/{id}/release admin releases a pending leveled match",
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
@@ -1795,9 +1795,12 @@ func TestAdminRelease_OK(t *testing.T) {
 		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
 	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-		// match must be deleted
-		_, err := app.FindRecordById("matches", matchID)
-		assert.Error(tb, err, "match must be deleted after release")
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err, "the released match is kept")
+		assert.Equal(tb, league.StatusReleased, m.GetString("status"))
+		entries, _ := app.FindRecordsByFilter("match_messages", "match = {:m} && type = 'admin_action'", "", 0, 0, map[string]any{"m": matchID})
+		require.Len(tb, entries, 1)
+		assert.Equal(tb, "liberó el partido", entries[0].GetString("content"))
 		// notification must be deleted
 		notifs, _ := app.FindRecordsByFilter("notifications", "related_match = {:m}", "", 0, 0, map[string]any{"m": matchID})
 		assert.Empty(tb, notifs, "notifications for the match must be deleted")
@@ -1805,7 +1808,7 @@ func TestAdminRelease_OK(t *testing.T) {
 		events, _ := app.FindRecordsByFilter("competition_events", "kind = 'assignment_released'", "", 0, 0, nil)
 		assert.NotEmpty(tb, events, "assignment_released event must be logged")
 	}
-	handlers.ExpectRedirect(s, func(core.App) string { return "/competition/" + compID })
+	handlers.ExpectRedirect(s, func(core.App) string { return "/admin/competitions/" + compID })
 	s.Test(t)
 }
 
@@ -1842,25 +1845,34 @@ func TestAdminRelease_PlayerForbidden(t *testing.T) {
 func TestAdminRelease_ConfirmedMatch(t *testing.T) {
 	t.Parallel()
 	s := &tests.ApiScenario{
-		TestAppFactory:  handlers.TestAppFactory,
-		Name:            "POST /match/{id}/release confirmed match returns error",
-		Method:          http.MethodPost,
-		ExpectedStatus:  200,
-		ExpectedContent: []string{"Solo se puede liberar un partido sin resultado de una liga nivelada"},
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "POST /match/{id}/release confirmed match is released",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
 	}
+	var matchID string
+	var compID string
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupProductionRoutes(tb, app, e)
 		p1 := handlers.MakePairTB(tb, app, "CfmA")
 		p2 := handlers.MakePairTB(tb, app, "CfmB")
 		p3 := handlers.MakePairTB(tb, app, "CfmC")
 		comp := makeLeveledCompTB(tb, app, []*core.Record{p1, p2, p3})
+		compID = comp.Id
 		m := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "confirmed")
 		m.Set("round_number", 0)
 		require.NoError(tb, app.Save(m))
+		matchID = m.Id
 		s.URL = "/match/" + m.Id + "/release"
 		admin := handlers.MakeAdminUserTB(tb, app)
 		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		m, err := app.FindRecordById("matches", matchID)
+		require.NoError(tb, err)
+		assert.Equal(tb, league.StatusReleased, m.GetString("status"))
+	}
+	handlers.ExpectRedirect(s, func(core.App) string { return "/admin/competitions/" + compID })
 	s.Test(t)
 }
 
@@ -1871,7 +1883,7 @@ func TestAdminRelease_RoundRobinMatch(t *testing.T) {
 		Name:            "POST /match/{id}/release round-robin match returns error",
 		Method:          http.MethodPost,
 		ExpectedStatus:  200,
-		ExpectedContent: []string{"Solo se puede liberar un partido sin resultado de una liga nivelada"},
+		ExpectedContent: []string{"Solo se puede liberar un partido de una liga nivelada"},
 	}
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupProductionRoutes(tb, app, e)

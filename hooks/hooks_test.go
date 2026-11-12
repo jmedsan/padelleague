@@ -1714,3 +1714,55 @@ func TestMatch_ActorPairsSurvivePlayerSwap(t *testing.T) {
 	assert.Equal(t, 1, league.SubmitterTeam(saved), "the submitter's pair is frozen")
 	assert.Equal(t, 2, league.DisputerTeam(saved))
 }
+
+func TestValidateTransition_Released(t *testing.T) {
+	for _, from := range []string{
+		league.StatusPending, league.StatusScheduled, league.StatusConfirmed,
+		league.StatusDisputed, league.StatusFinal,
+	} {
+		assert.NoError(t, validateTransition(from, league.StatusReleased), from)
+	}
+	// Released is terminal.
+	for _, to := range []string{
+		league.StatusPending, league.StatusScheduled, league.StatusConfirmed,
+		league.StatusDisputed, league.StatusFinal,
+	} {
+		assert.Error(t, validateTransition(league.StatusReleased, to), to)
+	}
+}
+
+func TestReminders_SkipWithdrawn(t *testing.T) {
+	t.Run("scheduling", func(t *testing.T) {
+		app := newTestApp(t)
+		notifier := notify.NewNotifier(app, "", "")
+		p1 := makePair(t, app, "WdA")
+		p2 := makePair(t, app, "WdB")
+		comp := makeLeagueComp(t, app, []*core.Record{p1, p2}, time.Now().AddDate(0, -2, 0), time.Now().AddDate(0, 0, -20), 1)
+		m := makeMatch(t, app, comp.Id, p1.Id, p2.Id, 1)
+		comp, err := app.FindRecordById("competitions", comp.Id)
+		require.NoError(t, err)
+		comp.Set("recovery_days", 60)
+		comp.Set("withdrawn_pairs", []string{p2.Id})
+		require.NoError(t, app.Save(comp))
+
+		checkSchedulingReminders(app, notifier)
+
+		notifs, err := app.FindRecordsByFilter("notifications", "type = 'scheduling'", "", 0, 0, nil)
+		require.NoError(t, err)
+		assert.Empty(t, notifs, "no reminder for a match of a withdrawn pair")
+		assert.Equal(t, 0, freshMatch(t, app, m.Id).GetInt("last_warn_level"))
+	})
+	t.Run("match", func(t *testing.T) {
+		app, notifier, m, now := setupMatchReminder(t, 26*time.Hour, "18:00")
+		comp, err := app.FindRecordById("competitions", m.GetString("competition"))
+		require.NoError(t, err)
+		comp.Set("withdrawn_pairs", []string{m.GetString("pair1")})
+		require.NoError(t, app.Save(comp))
+
+		checkMatchReminders(app, notifier, now)
+
+		notifs, err := app.FindRecordsByFilter("notifications", "type = 'match_reminder'", "", 0, 0, nil)
+		require.NoError(t, err)
+		assert.Empty(t, notifs)
+	})
+}

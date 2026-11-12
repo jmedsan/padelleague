@@ -11,6 +11,8 @@ import (
 var (
 	// ErrNoWinner indicates the score is valid but no side has won yet.
 	ErrNoWinner = errors.New("league: no winner")
+	// ErrMatchReleased indicates the match was already released.
+	ErrMatchReleased = errors.New("league: match released")
 	// ErrMatchNotPreScore indicates the match is already past the scoring stage.
 	ErrMatchNotPreScore = errors.New("league: match not in pre-score status")
 )

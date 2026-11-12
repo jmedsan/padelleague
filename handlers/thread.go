@@ -46,6 +46,9 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	if err != nil {
 		return err
 	}
+	if match.GetString("status") == league.StatusReleased {
+		return refuseReleased(e)
+	}
 
 	pair1ID := match.GetString("pair1")
 	pair2ID := match.GetString("pair2")
@@ -61,11 +64,7 @@ func (h *ThreadHandler) Thread(e *core.RequestEvent) error {
 	}
 
 	isParticipant := myTeam != 0
-	isPlayoff, compModifiable := false, true
-	if comp, err := h.app.FindRecordById("competitions", match.GetString("competition")); err == nil {
-		isPlayoff = league.IsPlayoff(comp)
-		compModifiable = isAdmin || league.PlayerCanModify(comp, time.Now())
-	}
+	isPlayoff, compModifiable := h.threadCompState(match, isAdmin)
 	td := h.buildThreadData(match, matchID, threadViewerCtx{viewerID: e.Auth.Id, myTeam: myTeam, compModifiable: compModifiable})
 	venues := findRecordsLogged(h.app, "Thread: find venues", RecordQuery{
 		Collection: "venues", Filter: "id != ''", Sort: "name",
@@ -147,6 +146,9 @@ func (h *ThreadHandler) ThreadMessages(e *core.RequestEvent) error {
 	if err != nil {
 		return err
 	}
+	if match.GetString("status") == league.StatusReleased {
+		return refuseReleased(e)
+	}
 
 	isAdmin := render.AdminView(e)
 	myTeam, _ := league.PlayerTeam(h.app, e.Auth.Id, match)
@@ -170,6 +172,9 @@ func (h *ThreadHandler) PostMessage(e *core.RequestEvent) error {
 	match, err := findMatchOr404(h.app, e, matchID)
 	if err != nil {
 		return err
+	}
+	if match.GetString("status") == league.StatusReleased {
+		return refuseReleased(e)
 	}
 
 	if err := checkDocGate(h.app, e, match); err != nil {
@@ -226,6 +231,9 @@ func (h *ThreadHandler) PostProposal(e *core.RequestEvent) error {
 	match, err := findMatchOr404(h.app, e, matchID)
 	if err != nil {
 		return err
+	}
+	if match.GetString("status") == league.StatusReleased {
+		return refuseReleased(e)
 	}
 
 	if err := checkDocGate(h.app, e, match); err != nil {
@@ -354,6 +362,9 @@ func (h *ThreadHandler) RespondProposal(e *core.RequestEvent) error {
 	if err != nil {
 		return err
 	}
+	if match.GetString("status") == league.StatusReleased {
+		return refuseReleased(e)
+	}
 
 	if err := checkDocGate(h.app, e, match); err != nil {
 		return err
@@ -427,6 +438,9 @@ func (h *ThreadHandler) RejectAndCounterPropose(e *core.RequestEvent) error {
 	match, err := findMatchOr404(h.app, e, matchID)
 	if err != nil {
 		return err
+	}
+	if match.GetString("status") == league.StatusReleased {
+		return refuseReleased(e)
 	}
 	if err := checkDocGate(h.app, e, match); err != nil {
 		return err
@@ -685,6 +699,9 @@ func (h *ThreadHandler) WithdrawProposal(e *core.RequestEvent) error {
 	if err != nil {
 		return err
 	}
+	if match.GetString("status") == league.StatusReleased {
+		return refuseReleased(e)
+	}
 
 	if err := checkDocGate(h.app, e, match); err != nil {
 		return err
@@ -760,4 +777,14 @@ func (h *ThreadHandler) notifyWithdrawal(match *core.Record, authorID string) {
 	authorName := pairPlayerLabel(h.app, authorID, match)
 	compName := league.CompetitionName(h.app, match.GetString("competition"))
 	h.notifier.NotifyPlayers(recipients, league.NotifProposalWithdrawn(match.Id, authorName, compName))
+}
+
+// threadCompState reports whether the match's competition is a playoff and
+// whether the viewer may still change it.
+func (h *ThreadHandler) threadCompState(match *core.Record, isAdmin bool) (isPlayoff, modifiable bool) {
+	comp, err := h.app.FindRecordById("competitions", match.GetString("competition"))
+	if err != nil {
+		return false, true
+	}
+	return league.IsPlayoff(comp), isAdmin || league.PlayerCanModify(comp, time.Now())
 }

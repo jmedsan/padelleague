@@ -45,7 +45,7 @@ type PlayerStanding struct {
 // NewCompetitionView builds a CompetitionView from a competition record and its matches.
 func NewCompetitionView(app core.App, comp *core.Record, mode Mode) CompetitionView {
 	allMatches, _ := app.FindRecordsByFilter("matches",
-		"competition = {:cid}", "", 0, 0,
+		"competition = {:cid} && status != 'released'", "", 0, 0,
 		map[string]any{"cid": comp.Id})
 
 	unconfirmed, err := league.ProvisionalResults(app, allMatches)

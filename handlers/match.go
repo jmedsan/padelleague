@@ -32,11 +32,19 @@ type MatchHandler struct {
 	notifier        *notify.Notifier
 	renderPage      RenderFunc
 	renderErrorPage RenderErrorFunc
+	// topUp is the leveled-league assignment top-up; a field so tests can count calls.
+	topUp func(compID string, now time.Time, avoid ...league.Pairing) ([]*core.Record, error)
+}
+
+// MatchRenderers are the page renderers a MatchHandler needs.
+type MatchRenderers struct {
+	Page  RenderFunc
+	Error RenderErrorFunc
 }
 
 // NewMatchHandler creates a MatchHandler with the given dependencies.
-func NewMatchHandler(app core.App, notifier *notify.Notifier, renderPage RenderFunc, renderErrorPage RenderErrorFunc) *MatchHandler {
-	return &MatchHandler{app: app, notifier: notifier, renderPage: renderPage, renderErrorPage: renderErrorPage}
+func NewMatchHandler(app core.App, svc *league.Service, notifier *notify.Notifier, r MatchRenderers) *MatchHandler {
+	return &MatchHandler{app: app, notifier: notifier, renderPage: r.Page, renderErrorPage: r.Error, topUp: svc.TopUpAssignments}
 }
 
 func statusClass(status string) string {
@@ -60,6 +68,9 @@ func statusClass(status string) string {
 // already disputed or final, which keep their own badge ("En disputa" wins
 // over an open request; a final match can't have one open anyway). A void match reads "Sin resultado".
 func effectiveStatusBadge(status, arbitration string, void bool) (label, class string) {
+	if status == league.StatusReleased {
+		return "Liberado", "badge-ghost"
+	}
 	if void {
 		return "Sin resultado", "badge-ghost"
 	}
@@ -73,7 +84,7 @@ func effectiveStatusBadge(status, arbitration string, void bool) (label, class s
 // enforces: shown to a participant while the match isn't final and no
 // arbitration request is already open.
 func canRequestArbitration(status string, team int, openArbitration string) bool {
-	return team > 0 && status != league.StatusFinal && openArbitration == ""
+	return team > 0 && status != league.StatusFinal && status != league.StatusReleased && openArbitration == ""
 }
 
 // matchRoundLabel returns the breadcrumb label for a match's round: the
@@ -118,10 +129,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 	if comp != nil {
 		compName = comp.GetString("name")
 		if !isAdmin && !league.PlayerCanModify(comp, time.Now()) {
-			mc.CanSubmit = false
-			mc.CanEdit = false
-			mc.CanRequestArbitration = false
-			mc.CanCorrect = false
+			mc.lockActions()
 		}
 		roundLabel = matchRoundLabel(h.app, comp, mc.RoundNum)
 	}
@@ -133,7 +141,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 
 	precedentes := buildPrecedentesView(h.app, match, mc)
 
-	canRelease := isAdmin && comp != nil && league.IsLeveled(comp) && league.IsPreScore(match.GetString("status"))
+	canRelease := isAdmin && comp != nil && league.IsLeveled(comp) && match.GetString("status") != league.StatusReleased
 
 	return h.renderPage(e, "match.html", map[string]any{
 		"PageTitle":           matchPageTitle(mc),
@@ -147,6 +155,7 @@ func (h *MatchHandler) MatchDetail(e *core.RequestEvent) error {
 		"OGImage":             mc.CompetitionLogo,
 		"FooterCompetitionID": compID,
 		"CanRelease":          canRelease,
+		"ReleaseConfirm":      ReleaseConfirmText(match.GetString("status")),
 		"RivalContacts":       matchRivalContacts(h.app, match, mode, userID),
 	})
 }
@@ -381,15 +390,28 @@ func (h *MatchHandler) notifyResultProposal(match *core.Record, userID, scores s
 	}
 }
 
-// releaseMatchTx deletes a match and its notifications, re-checking on a fresh
-// record that it is still unplayed.
-func releaseMatchTx(txApp core.App, id string) error {
+// ReleaseConfirmText is the confirmation shown before releasing a match: an
+// unplayed match is dropped, a played or proposed one loses its result too.
+func ReleaseConfirmText(status string) string {
+	if league.IsPreScore(status) {
+		return "¿Liberar este partido? Las parejas podrán ser emparejadas de nuevo."
+	}
+	return "¿Liberar este partido? El resultado dejará de contar en la clasificación y las estadísticas. Las parejas podrán ser emparejadas de nuevo."
+}
+
+// releaseMatchTx marks a match released on a fresh read, keeping the record and
+// its thread. Pending proposals are rejected by the admin and the match's
+// notifications are deleted.
+func releaseMatchTx(txApp core.App, id, adminID string) error {
 	match, err := txApp.FindRecordById("matches", id)
 	if err != nil {
 		return err
 	}
-	if !league.IsPreScore(match.GetString("status")) {
-		return league.ErrMatchNotPreScore
+	if match.GetString("status") == league.StatusReleased {
+		return league.ErrMatchReleased
+	}
+	if err := rejectPendingByAdmin(txApp, match, adminID, "result_submission", "scheduling_proposal"); err != nil {
+		return err
 	}
 	notifs, err := txApp.FindRecordsByFilter("notifications", "related_match = {:m}", "", 0, 0, map[string]any{"m": id})
 	if err != nil {
@@ -400,12 +422,16 @@ func releaseMatchTx(txApp core.App, id string) error {
 			return err
 		}
 	}
-	return txApp.Delete(match)
+	match.Set("status", league.StatusReleased)
+	if err := txApp.Save(match); err != nil {
+		return err
+	}
+	addTimelineEntry(txApp, timelineEntry{MatchID: id, ActorID: adminID, Kind: "admin_action", Detail: "liberó el partido"})
+	return nil
 }
 
-// AdminRelease deletes a pending leveled-league match so the pair-assignment
-// cron can re-pair the affected pairs. Only valid for leveled competitions and
-// pre-score match statuses.
+// AdminRelease releases a match of a leveled league in any status, so the
+// top-up can pair the affected pairs again.
 func (h *MatchHandler) AdminRelease(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 	match, err := h.app.FindRecordById("matches", id)
@@ -415,22 +441,29 @@ func (h *MatchHandler) AdminRelease(e *core.RequestEvent) error {
 
 	compID := match.GetString("competition")
 	comp, _ := h.app.FindRecordById("competitions", compID)
-
-	if comp == nil || !league.IsLeveled(comp) || !league.IsPreScore(match.GetString("status")) {
-		return alertError(e, "Solo se puede liberar un partido sin resultado de una liga nivelada")
+	if comp == nil || !league.IsLeveled(comp) {
+		return alertError(e, "Solo se puede liberar un partido de una liga nivelada")
 	}
 
-	if err := h.app.RunInTransaction(func(txApp core.App) error { return releaseMatchTx(txApp, id) }); err != nil {
-		if errors.Is(err, league.ErrMatchNotPreScore) {
-			return alertError(e, "Solo se puede liberar un partido sin resultado de una liga nivelada")
+	if err := h.app.RunInTransaction(func(txApp core.App) error { return releaseMatchTx(txApp, id, e.Auth.Id) }); err != nil {
+		if errors.Is(err, league.ErrMatchReleased) {
+			return alertError(e, "El partido ya está liberado")
 		}
 		return alertError(e, "Error al liberar el partido")
 	}
 
 	league.LogAssignmentReleased(h.app, compID, e.Auth.Id)
+	if _, err := h.topUp(compID, time.Now(), league.Pairing{A: match.GetString("pair1"), B: match.GetString("pair2")}); err != nil {
+		slog.Error("top-up after release failed", "match", id, "err", err)
+	}
 
 	flash(e, "Partido liberado")
-	return redirectHX(e, "/competition/"+compID)
+	return redirectHX(e, "/admin/competitions/"+compID)
+}
+
+// refuseReleased stops writes to a released match, admin view included.
+func refuseReleased(e *core.RequestEvent) error {
+	return alertError(e, "El partido está liberado")
 }
 
 func detectFieldChange(match *core.Record, field, newVal, label string) []string {
@@ -471,6 +504,9 @@ func (h *MatchHandler) RequestArbitration(e *core.RequestEvent) error {
 	match, err := findMatchOr404(h.app, e, id)
 	if err != nil {
 		return err
+	}
+	if match.GetString("status") == league.StatusReleased {
+		return refuseReleased(e)
 	}
 
 	userID := e.Auth.Id
@@ -582,6 +618,9 @@ func (h *MatchHandler) CloseArbitration(e *core.RequestEvent) error {
 	if err != nil {
 		return err
 	}
+	if match.GetString("status") == league.StatusReleased {
+		return refuseReleased(e)
+	}
 	if match.GetString("arbitration") == "" {
 		return alertError(e, "Este partido no tiene arbitraje abierto")
 	}
@@ -620,6 +659,9 @@ func (h *MatchHandler) CancelDate(e *core.RequestEvent) error {
 	match, err := findMatchOr404(h.app, e, id)
 	if err != nil {
 		return err
+	}
+	if match.GetString("status") == league.StatusReleased {
+		return refuseReleased(e)
 	}
 
 	userID := e.Auth.Id
@@ -804,4 +846,12 @@ func buildShareText(app core.App, match *core.Record, baseURL, matchPath string)
 	fullURL := baseURL + matchPath
 	line := NewMatchCard(app, match, PlayerFull, "").SummaryLine()
 	return url.QueryEscape(line + "\n" + fullURL), fullURL
+}
+
+// lockActions hides every player action once the competition no longer accepts changes.
+func (mc *MatchCard) lockActions() {
+	mc.CanSubmit = false
+	mc.CanEdit = false
+	mc.CanRequestArbitration = false
+	mc.CanCorrect = false
 }

@@ -57,6 +57,7 @@ func TestStatusLabel(t *testing.T) {
 		{StatusConfirmed, "Propuesta"},
 		{StatusDisputed, "En disputa"},
 		{StatusFinal, "Confirmado"},
+		{StatusReleased, "Liberado"},
 		{"unknown", "unknown"},
 	}
 	for _, tc := range cases {

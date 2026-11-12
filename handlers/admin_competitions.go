@@ -50,9 +50,7 @@ func (h *CompetitionHandler) buildDetailData(e *core.RequestEvent, id string, co
 	allComps := findRecordsLogged(h.app, "Detail: find other competitions", RecordQuery{
 		Collection: "competitions", Filter: "id != {:cid}", Sort: "name", Params: map[string]any{"cid": id},
 	})
-	matches := findRecordsLogged(h.app, "Detail: find matches", RecordQuery{
-		Collection: "matches", Filter: "competition = {:cid}", Sort: "round_number,created", Params: map[string]any{"cid": id},
-	})
+	matches, releasedMatches := h.findCompMatches(id)
 	allUsers := findRecordsLogged(h.app, "Detail: find players", RecordQuery{
 		Collection: "users", Filter: "roles ~ 'player'", Sort: "display_name",
 	})
@@ -69,7 +67,6 @@ func (h *CompetitionHandler) buildDetailData(e *core.RequestEvent, id string, co
 	}
 
 	penaltyRows := h.getPenaltyRows(id)
-	disputes := league.CompHealthItems(h.app, id, time.Now(), "disputes", "walkovers")
 
 	data := map[string]any{
 		"PageTitle":           comp.GetString("name"),
@@ -80,14 +77,14 @@ func (h *CompetitionHandler) buildDetailData(e *core.RequestEvent, id string, co
 		"AllUsers":            allUsers,
 		"Rounds":              rounds,
 		"AutoExpandRound":     firstIncompleteRoundGroup(rounds),
-		"Disputes":            disputes,
+		"Disputes":            league.CompHealthItems(h.app, id, time.Now(), "disputes", "walkovers"),
 		"PenaltyRows":         penaltyRows,
 		"ActivePenalty":       firstActivePenalty(penaltyRows),
 		"IsLeague":            comp.GetString("type") == "league",
 		"IsLeveled":           isLeveled,
 		"IsPlayoff":           league.IsPlayoff(comp),
 		"Levels":              league.Levels,
-		"HasFixtures":         len(matches) > 0,
+		"HasFixtures":         len(matches)+len(releasedMatches) > 0,
 		"HasUnpaid":           anyUnpaid(pairEntries),
 		"UnpaidCount":         countUnpaid(pairEntries),
 		"HasNoBolas":          anyNoBolas(pairEntries),
@@ -101,6 +98,9 @@ func (h *CompetitionHandler) buildDetailData(e *core.RequestEvent, id string, co
 		if shortfall := h.leveledShortfallView(comp, pairNameMap, len(matches) > 0); shortfall != nil {
 			data["Shortfall"] = shortfall
 		}
+	}
+	if len(releasedMatches) > 0 {
+		data["Released"] = h.releasedCards(comp, releasedMatches, pairNameMap)
 	}
 	h.addDetailExtras(data, comp, matches, fileTokenFor(e))
 	return data
@@ -795,4 +795,14 @@ func compReminderHoursDisplay(comp *core.Record) string {
 		return ""
 	}
 	return league.FormatReminderHours(hours)
+}
+
+// findCompMatches returns a competition's live matches and its released ones.
+func (h *CompetitionHandler) findCompMatches(id string) (live, released []*core.Record) {
+	find := func(label, op string) []*core.Record {
+		return findRecordsLogged(h.app, label, RecordQuery{
+			Collection: "matches", Filter: "competition = {:cid} && status " + op + " 'released'", Sort: "round_number,created", Params: map[string]any{"cid": id},
+		})
+	}
+	return find("Detail: find matches", "!="), find("Detail: find released matches", "=")
 }

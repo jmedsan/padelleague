@@ -89,7 +89,7 @@ func (h *PublicHandler) Competition(e *core.RequestEvent) error {
 	var matches []*core.Record
 	if published || isAdmin {
 		matches = findRecordsLogged(h.app, "Competition: find matches", RecordQuery{
-			Collection: "matches", Filter: "competition = {:cid}",
+			Collection: "matches", Filter: "competition = {:cid} && status != 'released'",
 			Sort: "round_number,created", Params: map[string]any{"cid": id},
 		})
 	}

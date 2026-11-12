@@ -282,7 +282,7 @@ func (svc *Service) responsivenessScore(pairIDs []string, scope reliabilityScope
 			continue
 		}
 		for _, m := range matches {
-			if !scope.includes(m, pid) {
+			if m.GetString("status") == StatusReleased || !scope.includes(m, pid) {
 				continue
 			}
 			responders := playerIDs
@@ -432,7 +432,7 @@ func pairMatchResults(app core.App, pairID string) []matchResult {
 		"", 0, 0,
 		map[string]any{"pid": pairID})
 	candidates, _ := app.FindRecordsByFilter("matches",
-		"(pair1 = {:pid} || pair2 = {:pid}) && status != 'final' && status != 'disputed'",
+		"(pair1 = {:pid} || pair2 = {:pid}) && status != 'final' && status != 'disputed' && status != 'released'",
 		"", 0, 0,
 		map[string]any{"pid": pairID})
 	unconfirmed, err := ProvisionalResults(app, candidates)

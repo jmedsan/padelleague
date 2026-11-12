@@ -128,12 +128,6 @@ func TestAdminDecisions_RejectTheProposalsTheyDecide(t *testing.T) {
 			},
 			body:   func(m *core.Record) string { return "winner=" + m.GetString("pair1") },
 			result: "rejected", date: "rejected"},
-		{name: "pair withdrawal walkover rejects both",
-			url: func(m *core.Record) string {
-				return "/admin/competitions/" + m.GetString("competition") + "/withdraw-pair"
-			},
-			body:   func(m *core.Record) string { return "pair_id=" + m.GetString("pair1") },
-			result: "rejected", date: "rejected"},
 		{name: "dispute resolve rejects both", url: func(m *core.Record) string { return "/admin/disputes/" + m.Id + "/resolve" },
 			prep: func(tb testing.TB, app core.App, m *core.Record) {
 				m.Set("status", "disputed")

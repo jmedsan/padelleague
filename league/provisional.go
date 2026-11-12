@@ -19,7 +19,7 @@ import (
 func ProvisionalResults(app core.App, candidates []*core.Record) ([]*core.Record, error) {
 	var open []*core.Record
 	for _, m := range candidates {
-		if s := m.GetString("status"); s != StatusFinal && s != StatusDisputed {
+		if s := m.GetString("status"); s != StatusFinal && s != StatusDisputed && s != StatusReleased {
 			open = append(open, m)
 		}
 	}

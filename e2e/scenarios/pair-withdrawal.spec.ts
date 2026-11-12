@@ -60,11 +60,8 @@ test('00 seed: six pairs, play twice, the pair under test in nine states and spa
   ]);
   printLogin(ctx.baseURL, players[mine.player1Idx].email, `/match/${matches[0].id}`);
   console.log('\nChecklist, after withdrawing the pair (typed RETIRAR):');
-  console.log('  1. Every match of the pair ends final with the rival winning 6-0 6-0: pending, scheduled,');
-  console.log('     proposed result, disputed, the players\' 6-3 6-4 final, and the spare.');
-  console.log('  2. The match an admin set to 6-0 6-0 is unchanged: no timeline entry, no notice.');
-  console.log('  3. The disputed and arbitrated matches have no open arbitration request.');
-  console.log('  4. The pair name shows a red withdrawn icon in this competition; hovering it shows "Pareja retirada".');
-  console.log('  5. The withdrawn pair gets one notice, then no more competition notices.');
-  console.log('  6. Each rival gets one notice per changed match.');
+  console.log('  1. Every match of the pair is unchanged: same status, score, date and thread.');
+  console.log('  2. No timeline entry and no rival notice on any match.');
+  console.log('  3. The pair name shows a red withdrawn icon in this competition; hovering it shows "Pareja retirada".');
+  console.log('  4. The withdrawn pair gets one notice, then no more competition notices.');
 });

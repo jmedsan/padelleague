@@ -381,3 +381,35 @@ func TestAutoCloseCompetition(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, closed, "already closed")
 }
+
+func TestPendingPenalties_Withdrawn(t *testing.T) {
+	app := newTestApp(t)
+	w := makePair(t, app, "Wd")
+	a := makePair(t, app, "Ra")
+	b := makePair(t, app, "Rb")
+	c := makePair(t, app, "Rc")
+	d := makePair(t, app, "Rd")
+	comp := makeCompetition(t, app, []*core.Record{w, a, b, c, d})
+	comp.Set("max_pending_matches", 1)
+	comp.Set("withdrawn_pairs", []string{w.Id})
+	require.NoError(t, app.Save(comp))
+	setRecoveryPhase(t, app, comp)
+
+	// The withdrawn pair has 3 open matches; rival a has 2 (one with w, one with b).
+	makeMatch(t, app, comp.Id, w.Id, a.Id, "pending")
+	makeMatch(t, app, comp.Id, w.Id, b.Id, "pending")
+	makeMatch(t, app, comp.Id, w.Id, c.Id, "scheduled")
+	makeMatch(t, app, comp.Id, a.Id, b.Id, "pending")
+	makeMatch(t, app, comp.Id, c.Id, d.Id, "released")
+
+	_, err := ApplyPendingMatchPenalties(app, comp)
+	require.NoError(t, err)
+
+	totals, err := PenaltyTotals(app, comp.Id)
+	require.NoError(t, err)
+	require.Equal(t, 0.0, totals[w.Id], "withdrawn pair is never penalized")
+	require.Equal(t, 0.0, totals[a.Id], "match with a withdrawn pair does not count; a has 1 open")
+	require.Equal(t, 0.0, totals[b.Id], "b has 1 open")
+	require.Equal(t, 0.0, totals[c.Id], "released match does not count")
+	require.Equal(t, 0.0, totals[d.Id], "released match does not count")
+}

@@ -2,7 +2,6 @@ package league
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -142,10 +141,6 @@ func advanceRound(txApp core.App, compID string, currentRound int) error {
 		"competition = {:cid} && round_number = {:rn}", "created", 0, 0,
 		map[string]any{"cid": compID, "rn": currentRound + 1})
 
-	comp, err := txApp.FindRecordById("competitions", compID)
-	if err != nil {
-		return err
-	}
 	var roundWinners []string
 	for _, m := range roundMatches {
 		roundWinners = append(roundWinners, m.GetString("winner"))
@@ -155,7 +150,7 @@ func advanceRound(txApp core.App, compID string, currentRound int) error {
 			continue
 		}
 		if seedNextMatch(nm, roundWinners, i) {
-			if err := settleSeeds(txApp, comp, nm, roundMatches); err != nil {
+			if err := settleSeeds(txApp, nm); err != nil {
 				return err
 			}
 		}
@@ -197,17 +192,11 @@ func seedNextMatch(nm *core.Record, winners []string, matchIdx int) bool {
 	return ready
 }
 
-// settleSeeds decides nm once the previous round is final. Two withdrawn seeds are first swapped
-// for the pairs that lost to them. A match with no playable pair is void, and a single playable
-// pair wins by walkover over the withdrawn or empty side.
-func settleSeeds(txApp core.App, comp, nm *core.Record, roundMatches []*core.Record) error {
-	withdrawn := comp.GetStringSlice("withdrawn_pairs")
-	if slices.Contains(withdrawn, nm.GetString("pair1")) && slices.Contains(withdrawn, nm.GetString("pair2")) {
-		if err := replaceWithdrawnSeeds(txApp, nm, roundMatches); err != nil {
-			return err
-		}
-	}
-	playable := func(id string) bool { return id != "" && !slices.Contains(withdrawn, id) }
+// settleSeeds decides nm once the previous round is final. A withdrawn seed is flag-only: it
+// advances like any pair. A match with no pair at all is void, and a single seeded pair wins by
+// walkover over the empty side.
+func settleSeeds(txApp core.App, nm *core.Record) error {
+	playable := func(id string) bool { return id != "" }
 	p1, p2 := nm.GetString("pair1"), nm.GetString("pair2")
 	p1Ok, p2Ok := playable(p1), playable(p2)
 	switch {
@@ -224,74 +213,15 @@ func settleSeeds(txApp core.App, comp, nm *core.Record, roundMatches []*core.Rec
 	}
 }
 
-// walkoverOver gives nm to winner by walkover. A withdrawn opponent is named in the timeline; an
-// empty opponent means no pair is left to play the winner.
+// walkoverOver gives nm to winner by walkover over an empty side: no pair is left to play it.
 func walkoverOver(txApp core.App, nm *core.Record, score, winner string) error {
-	loser := OpponentOf(nm, winner)
 	ApplyWalkoverResult(nm, winner, score)
 	winnerName, err := pairName(txApp, winner)
 	if err != nil {
 		return err
 	}
-	if loser == "" {
-		AddSystemResultEvent(txApp, nm.Id, walkoverNoRivalText(winnerName))
-		return nil
-	}
-	loserName, err := pairName(txApp, loser)
-	if err != nil {
-		return err
-	}
-	AddSystemResultEvent(txApp, nm.Id, WithdrawalEventText(loserName))
+	AddSystemResultEvent(txApp, nm.Id, walkoverNoRivalText(winnerName))
 	return nil
-}
-
-// replaceWithdrawnSeeds swaps each withdrawn seed of nm for the pair that lost to it in roundMatches.
-// A seed with a bye is replaced by "".
-func replaceWithdrawnSeeds(txApp core.App, nm *core.Record, roundMatches []*core.Record) error {
-	var sides [2]string
-	for i, seed := range []string{nm.GetString("pair1"), nm.GetString("pair2")} {
-		repl, err := replacementFor(txApp, nm, seed, roundMatches)
-		if err != nil {
-			return err
-		}
-		sides[i] = repl
-	}
-	nm.Set("pair1", sides[0])
-	nm.Set("pair2", sides[1])
-	return nil
-}
-
-// replacementFor is the pair that replaces seed in nm, or "" when seed had a bye. It writes the timeline line.
-func replacementFor(txApp core.App, nm *core.Record, seed string, roundMatches []*core.Record) (string, error) {
-	repl := previousLoser(roundMatches, seed)
-	if repl == "" {
-		return "", nil
-	}
-	seedName, err := pairName(txApp, seed)
-	if err != nil {
-		return "", err
-	}
-	replName, err := pairName(txApp, repl)
-	if err != nil {
-		return "", err
-	}
-	AddSystemResultEvent(txApp, nm.Id, replacementEventText(replName, seedName))
-	return repl, nil
-}
-
-// previousLoser is the pair that lost to winner in roundMatches, or "" when winner had a bye.
-func previousLoser(roundMatches []*core.Record, winner string) string {
-	for _, m := range roundMatches {
-		if m.GetString("winner") == winner {
-			return OpponentOf(m, winner)
-		}
-	}
-	return ""
-}
-
-// replacementEventText is the timeline line for replacement taking the seed of a withdrawn pair.
-func replacementEventText(replacement, withdrawn string) string {
-	return fmt.Sprintf("%s juega en lugar de %s, retirada de la competición", replacement, withdrawn)
 }
 
 // walkoverNoRivalText is the timeline line for a walkover over an empty side (a void previous match).

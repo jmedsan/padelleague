@@ -133,17 +133,15 @@ func (h *CompetitionHandler) buildDetailDocs(comp *core.Record, fileToken string
 	return views, unattached
 }
 
-// WithdrawPair marks a pair as withdrawn, then gives every match of the pair the official
-// withdrawal result (or releases it, in a leveled league) in one transaction.
+// WithdrawPair flags a pair as withdrawn. Nothing else changes: its matches stay as they are
+// and only the withdrawn pair's players are told.
 func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
 	compID := e.Request.PathValue("id")
 	pairID := e.Request.FormValue("pair_id")
 
-	// The guards and the match list are read inside the transaction.
-	var out withdrawalOutcome
+	// The guards are read inside the transaction, so two admins withdraw a pair once.
 	var comp *core.Record
-	var w pairWithdrawal
-	var refusal string
+	var pairName, refusal string
 	if err := h.app.RunInTransaction(func(txApp core.App) error {
 		var err error
 		comp, err = txApp.FindRecordById("competitions", compID)
@@ -159,14 +157,9 @@ func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
 			refusal = "Pareja no encontrada"
 			return nil
 		}
-		w = pairWithdrawal{adminID: e.Auth.Id, pairID: pairID, pairName: pair.GetString("name"),
-			woScore: league.WalkoverScore}
-		matches, err := findPairMatches(txApp, compID, pairID)
-		if err != nil {
-			return err
-		}
-		out, err = applyWithdrawal(txApp, comp, matches, w)
-		return err
+		pairName = pair.GetString("name")
+		comp.Set("withdrawn_pairs", append(comp.GetStringSlice("withdrawn_pairs"), pairID))
+		return txApp.Save(comp)
 	}); err != nil {
 		return alertError(e, "Error al procesar el retiro")
 	}
@@ -174,29 +167,9 @@ func (h *CompetitionHandler) WithdrawPair(e *core.RequestEvent) error {
 		return alertError(e, refusal)
 	}
 
-	for range out.released {
-		league.LogAssignmentReleased(h.app, compID, e.Auth.Id)
-	}
-	h.notifyWithdrawal(withdrawalNotice{
-		compID: compID, pairID: w.pairID,
-		pairName: w.pairName, compName: comp.GetString("name"), woScore: w.woScore,
-		changed: out.changed, released: out.released,
-	})
-	flashWithdrawal(e, w.pairName, out)
+	h.notifier.NotifyPlayers(league.PlayersForPair(h.app, pairID), league.NotifPairWithdrawn(comp.GetString("name")))
+	flash(e, pairName+" retirada")
 	return redirectHX(e, "/admin/competitions/"+compID)
-}
-
-// pairWithdrawal is the withdrawing pair and the admin and walkover score it is recorded with.
-type pairWithdrawal struct {
-	adminID  string
-	pairID   string
-	pairName string
-	woScore  string
-}
-
-// withdrawalOutcome is what applyWithdrawal did to the matches of the withdrawn pair.
-type withdrawalOutcome struct {
-	changed, released []*core.Record
 }
 
 // withdrawalRefusal is why pairID cannot be withdrawn from comp, or "" when it can.
@@ -210,115 +183,6 @@ func withdrawalRefusal(comp *core.Record, pairID string) string {
 		return "La pareja ya está retirada"
 	}
 	return ""
-}
-
-// applyWithdrawal gives every match of the withdrawn pair its official result, or releases it when
-// the league is leveled and the match has no real score. It runs on txApp, the caller's transaction.
-func applyWithdrawal(txApp core.App, comp *core.Record, matches []*core.Record, w pairWithdrawal) (withdrawalOutcome, error) {
-	var out withdrawalOutcome
-	comp.Set("withdrawn_pairs", append(comp.GetStringSlice("withdrawn_pairs"), w.pairID))
-	if err := txApp.Save(comp); err != nil {
-		return out, err
-	}
-	proposed := league.ProvisionalIDs(txApp, matches)
-	for _, m := range matches {
-		switch league.WithdrawalPlan(comp, m, w.pairID, proposed) {
-		case league.WithdrawalRelease:
-			if err := releaseMatchTx(txApp, m.Id); err != nil {
-				return out, err
-			}
-			out.released = append(out.released, m)
-		case league.WithdrawalOfficial:
-			if err := setOfficialResult(txApp, w, m); err != nil {
-				return out, err
-			}
-			out.changed = append(out.changed, m)
-		}
-	}
-	return out, nil
-}
-
-// setOfficialResult gives match m the withdrawal walkover for w.pairID. A played score is kept
-// on the match as rating_scores and its review type is kept, so the rating and the quota
-// still count the match as played.
-func setOfficialResult(txApp core.App, w pairWithdrawal, m *core.Record) error {
-	opponent := league.OpponentOf(m, w.pairID)
-	detail := league.WithdrawalEventText(w.pairName)
-	_, _, err := writeAsAdmin(txApp, adminWrite{
-		matchID: m.Id, adminID: w.adminID,
-		apply: func(app core.App, fresh *core.Record) (adminChange, error) {
-			played, err := league.RealScore(app, fresh)
-			if err != nil {
-				return adminChange{}, err
-			}
-			reviewType := fresh.GetString("review_type")
-			league.ApplyWalkoverResult(fresh, opponent, w.woScore)
-			if played != "" {
-				fresh.Set("rating_scores", played)
-				fresh.Set("review_type", reviewType)
-			}
-			return adminChange{kind: "result_event", detail: detail,
-				decides: []string{proposalResult, proposalScheduling}}, nil
-		},
-	})
-	return err
-}
-
-// findPairMatches returns every match of pairID in the competition, whatever its status.
-func findPairMatches(app core.App, compID, pairID string) ([]*core.Record, error) {
-	return app.FindRecordsByFilter("matches",
-		"competition = {:cid} && (pair1 = {:pid} || pair2 = {:pid})",
-		"created", 0, 0, map[string]any{"cid": compID, "pid": pairID})
-}
-
-type withdrawalNotice struct {
-	compID   string
-	pairID   string
-	pairName string
-	compName string
-	woScore  string
-	changed  []*core.Record
-	released []*core.Record
-}
-
-func (h *CompetitionHandler) notifyWithdrawal(n withdrawalNotice) {
-	for _, match := range n.changed {
-		h.notifyOpponent(n, match, match.Id)
-	}
-	for _, match := range n.released {
-		h.notifyOpponent(n, match, "")
-	}
-	withdrawnPlayers := league.PlayersForPair(h.app, n.pairID)
-	h.notifier.NotifyPlayers(withdrawnPlayers, league.NotifPairWithdrawn(n.compName))
-}
-
-// notifyOpponent tells the opponent of match that the pair withdrew. matchID is empty for a released match.
-func (h *CompetitionHandler) notifyOpponent(n withdrawalNotice, match *core.Record, matchID string) {
-	opponentID := match.GetString("pair2")
-	if opponentID == n.pairID {
-		opponentID = match.GetString("pair1")
-	}
-	h.notifier.NotifyPlayers(league.PlayersForPair(h.app, opponentID), league.NotifOpponentWithdrawn(league.OpponentWithdrawnParams{
-		CompID: n.compID, MatchID: matchID, PairName: n.pairName, CompName: n.compName, WoScore: n.woScore,
-	}))
-}
-
-func flashWithdrawal(e *core.RequestEvent, pairName string, out withdrawalOutcome) {
-	msg := fmt.Sprintf("%s retirada (%s por incomparecencia", pairName,
-		countPhrase(len(out.changed), "partido registrado", "partidos registrados"))
-	if len(out.released) > 0 {
-		msg += ", " + countPhrase(len(out.released), "partido sin resultado liberado", "partidos sin resultado liberados")
-	}
-	msg += ")"
-	flash(e, msg)
-}
-
-// countPhrase is "1 <singular>" for one and "<n> <plural>" otherwise, zero included.
-func countPhrase(n int, singular, plural string) string {
-	if n == 1 {
-		return "1 " + singular
-	}
-	return fmt.Sprintf("%d %s", n, plural)
 }
 
 func anyUnpaid(entries []pairEntry) bool {
@@ -357,4 +221,12 @@ func countNoBolas(entries []pairEntry) int {
 		}
 	}
 	return n
+}
+
+// countPhrase is "1 <singular>" for one and "<n> <plural>" otherwise, zero included.
+func countPhrase(n int, singular, plural string) string {
+	if n == 1 {
+		return "1 " + singular
+	}
+	return fmt.Sprintf("%d %s", n, plural)
 }

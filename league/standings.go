@@ -70,7 +70,7 @@ func (svc *Service) computeStandings(competitionID string, includeProvisional bo
 	var provisional []*core.Record
 	if includeProvisional {
 		candidates, err := svc.app.FindRecordsByFilter("matches",
-			"competition = {:cid} && status != 'final' && status != 'disputed'",
+			"competition = {:cid} && status != 'final' && status != 'disputed' && status != 'released'",
 			"", 0, 0, map[string]any{"cid": competitionID})
 		if err != nil {
 			return nil, err

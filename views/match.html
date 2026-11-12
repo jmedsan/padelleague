@@ -40,7 +40,7 @@
     {{if .CanRelease}}
     <div class="mt-4">
         <button hx-post="/match/{{.Card.Match.Id}}/release" hx-target="body"
-                hx-confirm="¿Liberar este partido? Se eliminará y las parejas podrán ser emparejadas de nuevo."
+                hx-confirm="{{.ReleaseConfirm}}"
                 data-confirm-title="Liberar partido" data-confirm-danger data-confirm-ok="Liberar"
                 class="btn btn-error btn-outline btn-sm">Liberar partido</button>
     </div>

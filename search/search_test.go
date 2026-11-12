@@ -435,3 +435,49 @@ func TestPromocionesPagesScope(t *testing.T) {
 	adminNoOffers := urls(Viewer{IsAdmin: true, CompIDs: map[string]struct{}{}})
 	assert.Contains(t, adminNoOffers, "/admin/promotions", "admin management page stays")
 }
+
+// A released match and its chat messages never appear in the index.
+func TestBuild_ReleasedMatchAndChatExcluded(t *testing.T) {
+	t.Parallel()
+	app := newSearchTestApp(t)
+	p1 := makeSearchPair(t, app, "RelSrchA")
+	p2 := makeSearchPair(t, app, "RelSrchB")
+
+	cCol, err := app.FindCollectionByNameOrId("competitions")
+	require.NoError(t, err)
+	comp := core.NewRecord(cCol)
+	comp.Set("name", "Liga Rel")
+	comp.Set("type", "league")
+	comp.Set("active", true)
+	comp.Set("pairs", []string{p1.Id, p2.Id})
+	comp.Set("calendar_status", "published")
+	require.NoError(t, app.Save(comp))
+
+	mCol, err := app.FindCollectionByNameOrId("matches")
+	require.NoError(t, err)
+	m := core.NewRecord(mCol)
+	m.Set("competition", comp.Id)
+	m.Set("pair1", p1.Id)
+	m.Set("pair2", p2.Id)
+	m.Set("round_number", 0)
+	m.Set("status", "released")
+	require.NoError(t, app.Save(m))
+
+	msgCol, err := app.FindCollectionByNameOrId("match_messages")
+	require.NoError(t, err)
+	msg := core.NewRecord(msgCol)
+	msg.Set("match", m.Id)
+	msg.Set("type", "chat")
+	msg.Set("content", "hola liberado")
+	require.NoError(t, app.Save(msg))
+
+	for _, e := range Build(app) {
+		assert.NotContains(t, e.URL, m.Id, "released match entry %q", e.Label)
+	}
+	for _, e := range buildMessages(app) {
+		assert.NotEqual(t, msg.Id, e.RecordID)
+	}
+	ix := &Index{}
+	UpsertRecord(ix, app, "matches", m)
+	assert.Empty(t, ix.Search("RelSrchA", Viewer{IsAdmin: true, CompIDs: map[string]struct{}{}}, 10))
+}

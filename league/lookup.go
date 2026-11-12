@@ -362,7 +362,7 @@ func Precedents(app core.App, q PrecedentsQuery) (summary PrecedentsSummary, ok 
 	if err != nil {
 		return PrecedentsSummary{}, false
 	}
-	candidates, err := app.FindRecordsByFilter("matches", "status != 'final' && "+between,
+	candidates, err := app.FindRecordsByFilter("matches", "status != 'final' && status != 'released' && "+between,
 		"", 0, 0, params)
 	if err != nil {
 		return PrecedentsSummary{}, false

@@ -92,7 +92,7 @@ func TestDisputesResolve_TwoAdmins_ResolvedOnce(t *testing.T) {
 
 // An admin releasing a leveled match while a player accepts its result: the
 // release must not delete a match that just became final.
-func TestAdminReleaseVsAccept_Concurrent_NeverDeletesAFinalMatch(t *testing.T) {
+func TestAdminReleaseVsAccept_Concurrent_NeverLosesTheMatch(t *testing.T) {
 	t.Parallel()
 	raceScenarioResponses(t, "release races the accept of a result",
 		func(tb testing.TB, app *tests.TestApp, fx []raceFixture) []racer {
@@ -116,8 +116,14 @@ func TestAdminReleaseVsAccept_Concurrent_NeverDeletesAFinalMatch(t *testing.T) {
 			}
 			return racers
 		},
-		func(tb testing.TB, _ *tests.TestApp, _ []raceFixture, rs []*httptest.ResponseRecorder) {
-			onePerMatch(tb, rs, "win: release or accept")
+		func(tb testing.TB, app *tests.TestApp, fx []raceFixture, rs []*httptest.ResponseRecorder) {
+			require.Len(tb, rs, 2*raceMatches)
+			for i, f := range fx {
+				assert.Equal(tb, 1, succeeded(rs[2*i:2*i+1]), "match %d: the release always succeeds", i)
+				m, err := app.FindRecordById("matches", f.match.Id)
+				require.NoError(tb, err, "match %d is never deleted", i)
+				assert.Equal(tb, league.StatusReleased, m.GetString("status"), "match %d ends released", i)
+			}
 		})
 }
 

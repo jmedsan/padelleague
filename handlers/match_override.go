@@ -50,11 +50,15 @@ func readOverrideForm(e *core.RequestEvent) (f overrideForm, ok bool) {
 // rejected by the admin (see writeAsAdmin).
 func (h *MatchHandler) AdminOverride(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
-	if _, err := h.app.FindRecordById("matches", id); err != nil {
+	m, err := h.app.FindRecordById("matches", id)
+	if err != nil {
 		return alertError(e, "Partido no encontrado")
 	}
 	if !render.AdminView(e) {
 		return alertError(e, "Solo administradores")
+	}
+	if m.GetString("status") == league.StatusReleased {
+		return refuseReleased(e)
 	}
 	form, ok := readOverrideForm(e)
 	if !ok {
@@ -74,6 +78,8 @@ func (h *MatchHandler) adminOverrideWrite(e *core.RequestEvent, id string, form 
 		},
 	})
 	switch {
+	case errors.Is(err, league.ErrMatchReleased):
+		return refuseReleased(e)
 	case errors.Is(err, errOverrideNoChanges):
 		return alertWarning(e, "No se detectaron cambios")
 	case errors.Is(err, errOverrideNoWinner):

@@ -235,18 +235,19 @@ test.describe('leveled-16 scenario', () => {
     await page.locator('#match-thread').waitFor({ state: 'visible', timeout: 10000 });
 
     // Click "Liberar partido" — uses custom hx-confirm DaisyUI modal.
-    // handlers/match.go's AdminRelease redirects to /competition/{compID}.
+    // handlers/match.go's AdminRelease redirects to /admin/competitions/{compID}.
     const releaseBtn = page.locator('button:has-text("Liberar partido")');
     await expect(releaseBtn).toBeVisible({ timeout: 10000 });
-    await clickConfirmAndWaitForHxRedirect(page, releaseBtn, `/competition/${ctx.competitionId}`);
+    await clickConfirmAndWaitForHxRedirect(page, releaseBtn, `/admin/competitions/${ctx.competitionId}`);
     await page.waitForLoadState('domcontentloaded');
 
-    // Verify the released match is gone
+    // Verify the released match is kept, with the terminal released status
     const releasedResp = await page.request.get(
       `/api/collections/matches/records/${matchId}`,
       { headers: { Authorization: api.suToken } },
     );
-    expect(releasedResp.status()).toBe(404);
+    expect(releasedResp.status()).toBe(200);
+    expect((await releasedResp.json()).status).toBe('released');
 
     // Allow a moment for top-up to fire
     await page.waitForTimeout(1000);

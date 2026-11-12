@@ -273,93 +273,58 @@ func unorderedKey(m RoundMatch) string {
 	return m.Home + ":" + m.Away
 }
 
-// A playable seed walks over when the other seed is withdrawn, whichever side the withdrawn one is on.
-func TestSettleSeeds_OneWithdrawnSeedWalksOverPlayable(t *testing.T) {
-	t.Parallel()
-	cases := []struct {
-		name         string
-		withdrawnIs1 bool
-	}{
-		{"withdrawn seed in pair1", true},
-		{"withdrawn seed in pair2", false},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			app := newTestApp(t)
-			w := makePair(t, app, "Retirada")
-			wLoser := makePair(t, app, "Perdedor de la retirada")
-			p := makePair(t, app, "Vivo")
-			pLoser := makePair(t, app, "Perdedor del vivo")
-			comp := makeCompetition(t, app, []*core.Record{w, wLoser, p, pLoser})
-			comp.Set("withdrawn_pairs", []string{w.Id})
-			require.NoError(t, app.Save(comp))
-
-			wWon := makeMatch(t, app, comp.Id, w.Id, wLoser.Id, "final")
-			wWon.Set("winner", w.Id)
-			require.NoError(t, app.Save(wWon))
-			pWon := makeMatch(t, app, comp.Id, p.Id, pLoser.Id, "final")
-			pWon.Set("winner", p.Id)
-			require.NoError(t, app.Save(pWon))
-
-			pair1, pair2 := w.Id, p.Id
-			if !tc.withdrawnIs1 {
-				pair1, pair2 = p.Id, w.Id
-			}
-			nm := makeMatch(t, app, comp.Id, pair1, pair2, "pending")
-			require.NoError(t, settleSeeds(app, comp, nm, []*core.Record{wWon, pWon}))
-
-			assert.Equal(t, pair1, nm.GetString("pair1"), "the seeds are not swapped")
-			assert.Equal(t, pair2, nm.GetString("pair2"), "the seeds are not swapped")
-			assert.Equal(t, "final", nm.GetString("status"))
-			assert.Equal(t, p.Id, nm.GetString("winner"), "the playable seed wins by walkover")
-		})
-	}
-}
-
-// A replacement that cannot be named fails the settle instead of seeding a blank side.
-func TestSettleSeeds_MissingReplacementFails(t *testing.T) {
+// A withdrawn seed is flag-only: it advances and the match stays pending, seeds untouched.
+func TestSettleSeeds_WithdrawnSeedAdvances(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
 	w := makePair(t, app, "Retirada")
-	v := makePair(t, app, "Retirada doble")
-	comp := makeCompetition(t, app, []*core.Record{w, v})
-	comp.Set("withdrawn_pairs", []string{w.Id, v.Id})
+	p := makePair(t, app, "Viva")
+	comp := makeCompetition(t, app, []*core.Record{w, p})
+	comp.Set("withdrawn_pairs", []string{w.Id})
 	require.NoError(t, app.Save(comp))
 
-	matchCol, err := app.FindCollectionByNameOrId("matches")
-	require.NoError(t, err)
-	lostToW := core.NewRecord(matchCol)
-	lostToW.Set("pair1", w.Id)
-	lostToW.Set("pair2", "pair-deleted-after-round")
-	lostToW.Set("winner", w.Id)
+	nm := makeMatch(t, app, comp.Id, w.Id, p.Id, "pending")
+	require.NoError(t, settleSeeds(app, nm))
 
-	nm := makeMatch(t, app, comp.Id, w.Id, v.Id, "pending")
-	assert.Error(t, settleSeeds(app, comp, nm, []*core.Record{lostToW}))
+	assert.Equal(t, w.Id, nm.GetString("pair1"))
+	assert.Equal(t, p.Id, nm.GetString("pair2"))
+	assert.Equal(t, "pending", nm.GetString("status"))
+	assert.Empty(t, nm.GetString("winner"))
 }
 
-// A final whose two seeds are withdrawn and whose replacements are withdrawn too has no pair that
-// can play it, so it is void: final, no winner, no score.
-func TestSettleSeeds_BothUnplayableVoidsFinal(t *testing.T) {
+// A single seeded pair wins by walkover over the empty side.
+func TestSettleSeeds_OneEmptySideWalksOver(t *testing.T) {
+	t.Parallel()
+	for _, emptyIs1 := range []bool{true, false} {
+		app := newTestApp(t)
+		p := makePair(t, app, "Viva")
+		q := makePair(t, app, "Otra")
+		comp := makeCompetition(t, app, []*core.Record{p, q})
+		nm := makeMatch(t, app, comp.Id, p.Id, q.Id, "pending")
+		if emptyIs1 {
+			nm.Set("pair1", "")
+			nm.Set("pair2", p.Id)
+		} else {
+			nm.Set("pair2", "")
+		}
+		require.NoError(t, settleSeeds(app, nm))
+		assert.Equal(t, "final", nm.GetString("status"))
+		assert.Equal(t, p.Id, nm.GetString("winner"))
+		assert.Equal(t, "walkover", nm.GetString("review_type"))
+	}
+}
+
+// A match with no seeded pair at all is void: final, no winner, no score.
+func TestSettleSeeds_BothEmptyVoids(t *testing.T) {
 	t.Parallel()
 	app := newTestApp(t)
-	w := makePair(t, app, "Retirada A")
-	wLoser := makePair(t, app, "Perdedor A")
-	v := makePair(t, app, "Retirada B")
-	vLoser := makePair(t, app, "Perdedor B")
-	comp := makeCompetition(t, app, []*core.Record{w, wLoser, v, vLoser})
-	comp.Set("withdrawn_pairs", []string{w.Id, wLoser.Id, v.Id, vLoser.Id})
-	require.NoError(t, app.Save(comp))
-
-	wWon := makeMatch(t, app, comp.Id, w.Id, wLoser.Id, "final")
-	wWon.Set("winner", w.Id)
-	require.NoError(t, app.Save(wWon))
-	vWon := makeMatch(t, app, comp.Id, v.Id, vLoser.Id, "final")
-	vWon.Set("winner", v.Id)
-	require.NoError(t, app.Save(vWon))
-
-	nm := makeMatch(t, app, comp.Id, w.Id, v.Id, "pending")
-	require.NoError(t, settleSeeds(app, comp, nm, []*core.Record{wWon, vWon}))
+	p := makePair(t, app, "Viva")
+	q := makePair(t, app, "Otra")
+	comp := makeCompetition(t, app, []*core.Record{p, q})
+	nm := makeMatch(t, app, comp.Id, p.Id, q.Id, "pending")
+	nm.Set("pair1", "")
+	nm.Set("pair2", "")
+	require.NoError(t, settleSeeds(app, nm))
 
 	assert.Equal(t, "final", nm.GetString("status"))
 	assert.Empty(t, nm.GetString("winner"))

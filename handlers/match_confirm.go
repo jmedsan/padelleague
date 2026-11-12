@@ -21,6 +21,9 @@ func (h *MatchHandler) MatchCorrect(e *core.RequestEvent) error {
 	if err != nil {
 		return err
 	}
+	if match.GetString("status") == league.StatusReleased {
+		return refuseReleased(e)
+	}
 
 	if err := checkDocGate(h.app, e, match); err != nil {
 		return err

@@ -3,6 +3,7 @@ package league
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -132,7 +133,11 @@ func ApplyPendingMatchPenalties(app core.App, comp *core.Record) ([]*core.Record
 	}
 
 	var applied []*core.Record
+	withdrawn := comp.GetStringSlice("withdrawn_pairs")
 	for _, pairID := range pairIDs {
+		if slices.Contains(withdrawn, pairID) {
+			continue
+		}
 		recs, err := applyPairPenalties(app, pairPenaltyParams{
 			compID: comp.Id, pairID: pairID,
 			pendingCount: counts[pairID], alreadyApplied: autoTotal[pairID],
@@ -149,7 +154,7 @@ func ApplyPendingMatchPenalties(app core.App, comp *core.Record) ([]*core.Record
 // unplayedCounts returns the per-pair count the penalty rule is based on:
 // assigned matches not yet final, except at the close of a leveled league,
 // where it is the projected shortfall target − played (matches never
-// assigned count too; a withdrawn pair counts nothing).
+// assigned count too). Released matches and matches of a withdrawn pair count nothing.
 func unplayedCounts(app core.App, comp *core.Record, phase Phase) (map[string]int, error) {
 	matches, err := app.FindRecordsByFilter("matches",
 		"competition = {:c}", "", 0, 0, map[string]any{"c": comp.Id})
@@ -159,9 +164,14 @@ func unplayedCounts(app core.App, comp *core.Record, phase Phase) (map[string]in
 	if phase == PhaseFinished && IsLeveled(comp) {
 		return projectedShortfall(comp, matches), nil
 	}
+	withdrawn := comp.GetStringSlice("withdrawn_pairs")
 	counts := make(map[string]int)
 	for _, m := range matches {
-		if m.GetString("status") != StatusFinal {
+		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
+		if slices.Contains(withdrawn, p1) || slices.Contains(withdrawn, p2) {
+			continue
+		}
+		if st := m.GetString("status"); st != StatusFinal && st != StatusReleased {
 			counts[m.GetString("pair1")]++
 			counts[m.GetString("pair2")]++
 		}
@@ -178,7 +188,7 @@ func projectedShortfall(comp *core.Record, matches []*core.Record) map[string]in
 			played[m.GetString("pair2")]++
 		}
 	}
-	active, _ := activePairs(comp)
+	active := activePairs(comp)
 	target := comp.GetInt("target_matches")
 	counts := make(map[string]int, len(active))
 	for _, id := range active {

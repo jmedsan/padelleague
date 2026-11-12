@@ -282,34 +282,6 @@ func formatRemaining(d time.Duration) string {
 	return fmt.Sprintf("en %d minutos", mins)
 }
 
-// OpponentWithdrawnParams holds the dynamic parts of the notice an opponent gets when a pair withdraws.
-// MatchID is empty when the match was released, so the notice links to the competition instead.
-type OpponentWithdrawnParams struct {
-	CompID, MatchID, PairName, CompName, WoScore string
-}
-
-// NotifOpponentWithdrawn notifies an opponent that a pair withdrew.
-func NotifOpponentWithdrawn(p OpponentWithdrawnParams) Notification {
-	if p.MatchID == "" {
-		return Notification{
-			Type:     "general",
-			Title:    "Pareja retirada",
-			Body:     fmt.Sprintf("La pareja %s se ha retirado de la competición. Tu partido contra esa pareja se ha liberado y se te puede asignar un nuevo rival.", p.PairName),
-			Link:     "/competition/" + p.CompID,
-			CompID:   p.CompID,
-			CompName: p.CompName,
-		}
-	}
-	return Notification{
-		Type:     "general",
-		Title:    "Pareja retirada",
-		Body:     fmt.Sprintf("La pareja %s se ha retirado. El partido se registra como %s a tu favor.", p.PairName, p.WoScore),
-		MatchID:  p.MatchID,
-		CompID:   p.CompID,
-		CompName: p.CompName,
-	}
-}
-
 // NotifPairWithdrawn notifies the players of the pair that was withdrawn.
 func NotifPairWithdrawn(compName string) Notification {
 	return Notification{

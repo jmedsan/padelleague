@@ -335,7 +335,7 @@ func registerAdminDevToolsRoutes(g *router.RouterGroup[*core.RequestEvent], deps
 }
 
 func registerMatchRoutes(se *core.ServeEvent, deps Deps) {
-	match := handlers.NewMatchHandler(deps.App, deps.Notifier, deps.Renderer.Page, deps.Renderer.ErrorPage)
+	match := handlers.NewMatchHandler(deps.App, deps.LeagueSvc, deps.Notifier, handlers.MatchRenderers{Page: deps.Renderer.Page, Error: deps.Renderer.ErrorPage})
 	se.Router.GET("/match/{id}", match.MatchDetail).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/match/{id}/submit", match.MatchSubmit).BindFunc(middleware.RequireAuth)
 	se.Router.POST("/match/{id}/correct", match.MatchCorrect).BindFunc(middleware.RequireAuth)

@@ -768,7 +768,7 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now tim
 	target := comp.GetInt("target_matches")
 	open := OpenAssignments(comp)
 
-	activePairIDs, withdrawnSet := activePairs(comp)
+	activePairIDs := activePairs(comp)
 
 	ratings, err := Ratings(app, comp)
 	if err != nil {
@@ -790,7 +790,7 @@ func buildLeveledState(app core.App, comp *core.Record, avoid []Pairing, now tim
 		return nil, err
 	}
 
-	tally := tallyMatchState(sortedPairs, matches, withdrawnSet)
+	tally := tallyMatchState(sortedPairs, matches)
 
 	avoidSet := map[string]map[string]struct{}{}
 	for _, av := range avoid {
@@ -908,16 +908,15 @@ func shortfallMatches(need []int) int {
 	return total % 2
 }
 
-// activePairs splits comp's pairs into the active ids (configured order)
-// and the withdrawn set.
-func activePairs(comp *core.Record) (active []string, withdrawn map[string]bool) {
-	withdrawn = WithdrawnSet(comp)
+// activePairs returns comp's pair ids without the withdrawn ones (configured order).
+func activePairs(comp *core.Record) (active []string) {
+	withdrawn := WithdrawnSet(comp)
 	for _, id := range comp.GetStringSlice("pairs") {
 		if !withdrawn[id] {
 			active = append(active, id)
 		}
 	}
-	return active, withdrawn
+	return active
 }
 
 // createMatchRecords writes one match record per pairing using txApp.
@@ -993,8 +992,8 @@ type matchTally struct {
 
 // tallyMatchState classifies existing matches into played/pending counts, the
 // met-pairs set, each pair's occupied slots, and home-match counts, skipping
-// matches involving withdrawn pairs.
-func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[string]bool) matchTally {
+// released matches. A withdrawn pair's matches count like any other (flag-only).
+func tallyMatchState(pairs []string, matches []*core.Record) matchTally {
 	t := matchTally{
 		played:   make(map[string]int, len(pairs)),
 		pending:  make(map[string]int, len(pairs)),
@@ -1009,15 +1008,11 @@ func tallyMatchState(pairs []string, matches []*core.Record, withdrawn map[strin
 	}
 	for _, m := range matches {
 		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
-		final := m.GetString("status") == "final"
-		// A non-final match against a withdrawn pair never resolves — the
-		// pending side skips it entirely. A final match still counts in
-		// full for the non-withdrawn side: a real result played before the
-		// withdrawal, or the walkover WithdrawPair records for the
-		// opponent, is a genuine result the standings must keep.
-		if (withdrawn[p1] || withdrawn[p2]) && !final {
+		// A released match is cancelled: it counts nowhere.
+		if m.GetString("status") == StatusReleased {
 			continue
 		}
+		final := m.GetString("status") == StatusFinal
 		addMet(t.met, p1, p2)
 		if m.GetString("review_type") == "walkover" {
 			t.walkover[p1]++

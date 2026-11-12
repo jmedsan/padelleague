@@ -2122,7 +2122,7 @@ func TestTallyMatchState_PlayedMatchKeepsReviewType(t *testing.T) {
 	walkover.Set("review_type", "walkover")
 	require.NoError(t, app.Save(walkover))
 
-	tally := tallyMatchState([]string{pa.Id, pb.Id, pc.Id}, []*core.Record{played, walkover}, map[string]bool{})
+	tally := tallyMatchState([]string{pa.Id, pb.Id, pc.Id}, []*core.Record{played, walkover})
 
 	assert.Equal(t, 1, tally.home[pa.Id], "the played match is pa's home match")
 	assert.Equal(t, 0, tally.home[pb.Id], "the walkover is not a home match")
@@ -2132,4 +2132,50 @@ func TestTallyMatchState_PlayedMatchKeepsReviewType(t *testing.T) {
 	assert.Equal(t, 1, tally.played[pa.Id])
 	assert.Equal(t, 2, tally.played[pb.Id], "both matches count as played for pb")
 	assert.Equal(t, 1, tally.played[pc.Id])
+}
+
+func TestTallyMatchState_WithdrawnOpenCountsReleasedSkipped(t *testing.T) {
+	app := newTestApp(t)
+	pa := makePair(t, app, "TwA")
+	pb := makePair(t, app, "TwB")
+	pc := makePair(t, app, "TwC")
+	comp := makeLeveledCompetition(t, app, []*core.Record{pa, pb, pc}, 1, 1)
+	open := makeLeveledMatch(t, app, comp.Id, pa.Id, pb.Id, "", "", "pending", time.Now())
+	released := makeLeveledMatch(t, app, comp.Id, pb.Id, pc.Id, "", "", "released", time.Now())
+
+	tally := tallyMatchState([]string{pa.Id, pb.Id, pc.Id}, []*core.Record{open, released})
+
+	assert.Equal(t, 1, tally.pending[pa.Id], "an open match counts as pending (withdrawn or not)")
+	assert.Equal(t, 1, tally.pending[pb.Id])
+	assert.Equal(t, 0, tally.pending[pc.Id], "released match counts nowhere")
+	assert.NotContains(t, tally.met[pc.Id], pb.Id, "released pairing is not a met pairing")
+}
+
+// -- TestTopUp_ReleasedFreesPairing -----------------------------------------
+
+func TestTopUp_ReleasedFreesPairing(t *testing.T) {
+	app := newTestApp(t)
+	names := []string{"RfA", "RfB", "RfC", "RfD", "RfE"}
+	p := make([]*core.Record, len(names))
+	for i, n := range names {
+		p[i] = makePair(t, app, n)
+	}
+	comp := makeLeveledCompetition(t, app, p, 3, 2)
+	// C, D and E reach the target; A needs one more, B two. A-B is the only
+	// pairing left with room, and it exists only as a released match.
+	for _, pr := range [][2]int{{2, 3}, {2, 4}, {3, 4}, {2, 0}, {3, 0}, {4, 1}} {
+		makeLeveledMatch(t, app, comp.Id, p[pr[0]].Id, p[pr[1]].Id, "", "", "final", time.Now())
+	}
+	makeLeveledMatch(t, app, comp.Id, p[0].Id, p[1].Id, "", "", "released", time.Now())
+
+	svc := newDeterministicSvc(app)
+	_, err := svc.TopUpAssignments(comp.Id, time.Now())
+	require.NoError(t, err)
+
+	fresh, err := app.FindRecordsByFilter("matches",
+		"competition = {:c} && status != 'released' && status != 'final'", "", 0, 0, map[string]any{"c": comp.Id})
+	require.NoError(t, err)
+	require.Len(t, fresh, 1, "the freed A-B pairing is assigned again")
+	got := map[string]bool{fresh[0].GetString("pair1"): true, fresh[0].GetString("pair2"): true}
+	assert.True(t, got[p[0].Id] && got[p[1].Id])
 }

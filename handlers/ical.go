@@ -98,6 +98,9 @@ func (h *ICalHandler) Match(e *core.RequestEvent) error {
 	if err != nil {
 		return e.String(http.StatusNotFound, "Partido no encontrado")
 	}
+	if match.GetString("status") == league.StatusReleased {
+		return e.String(http.StatusNotFound, "Partido no encontrado")
+	}
 
 	dateStr := match.GetString("date")
 	if dateStr == "" {
@@ -187,7 +190,7 @@ func (h *ICalHandler) Competition(e *core.RequestEvent) error {
 	}
 
 	allMatches, _ := h.app.FindRecordsByFilter("matches",
-		"competition = {:cid}",
+		"competition = {:cid} && status != 'released'",
 		"round_number", 0, 0,
 		map[string]any{"cid": id})
 

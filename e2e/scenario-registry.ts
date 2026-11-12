@@ -77,14 +77,14 @@ export const SCENARIOS: Record<string, Scenario> = {
     specs: ['pair-swap.spec.ts'],
   },
   'pair-withdrawal': {
-    description: 'standard league, 6 pairs, play twice — one pair in nine match states (assigned to admin 6-0) plus spares; withdraw it from its detail page',
+    description: 'standard league, 6 pairs, play twice — one pair in nine match states (flag only, nothing changes) plus spares; withdraw it from its detail page',
     startStage: 'blank',
     specs: ['pair-withdrawal.spec.ts'],
   },
-  'pair-withdrawal-leveled': {
-    description: 'leveled league, 8 pairs, target 6, open 5 — one pair with assigned, date-proposed, scheduled, proposed-result and final matches; withdraw it',
+  'withdraw-release': {
+    description: 'leveled league, 8 pairs — pair A with a final and a proposed-result match, pair W to withdraw (flag only), then Liberar both of A\'s matches',
     startStage: 'blank',
-    specs: ['pair-withdrawal-leveled.spec.ts'],
+    specs: ['withdraw-release.spec.ts'],
   },
   promociones: {
     description: 'four offers: active with image, active without image (expires in 60 days), paused, expired — player card/page and admin list',

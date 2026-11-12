@@ -46,6 +46,9 @@ func writeAsAdmin(app core.App, w adminWrite) (*core.Record, adminChange, error)
 		if err != nil {
 			return err
 		}
+		if match.GetString("status") == league.StatusReleased {
+			return league.ErrMatchReleased
+		}
 		if change, err = w.apply(txApp, match); err != nil {
 			return err
 		}

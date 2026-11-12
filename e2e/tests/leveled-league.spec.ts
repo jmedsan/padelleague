@@ -199,4 +199,32 @@ test.describe('leveled league', { tag: '@leveled' }, () => {
     const bodyText = await page.locator('main').textContent() ?? '';
     expect(bodyText).not.toMatch(/Jornada\s+0/);
   });
+
+  test('admin releases a leveled match: Liberados accordion, hidden from players', async ({ page }) => {
+    page.on('dialog', d => d.accept());
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/admin/competitions/${competitionId}`);
+    const link = page.locator('a[href^="/match/"]:visible').first();
+    const href = await link.getAttribute('href');
+    await link.click();
+    await waitForHxRedirect(page, /^\/admin\/competitions\/[^/]+$/, async () => {
+      await page.getByRole('button', { name: 'Liberar partido' }).first().click();
+      await expect(page.locator('#confirm-message')).toContainText('¿Liberar este partido? Las parejas podrán ser emparejadas de nuevo.');
+      await page.locator('#confirm-ok').click();
+    });
+    await expect(page.getByText('Liberado').locator('visible=true').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Liberar partido' })).toHaveCount(0);
+
+    await page.goto(`/admin/competitions/${competitionId}`);
+    const acc = page.locator('#released-matches');
+    await expect(acc).toBeVisible();
+    await expect(acc).toContainText('Liberados');
+
+    // A player of the released match gets 404.
+    const p1 = PLAYERS[PAIR_DEFS[0].p1].email;
+    await loginAs(page, p1, PLAYER_PASSWORD);
+    // raw-request: an app route, not the records API; the 404 status is asserted.
+    const res = await page.request.get(href!);
+    expect(res.status()).toBe(404);
+  });
 });

@@ -48,6 +48,9 @@ func (h *DisputeHandler) WalkoverApprove(e *core.RequestEvent) error {
 	if err != nil {
 		return err
 	}
+	if match.GetString("status") == league.StatusReleased {
+		return refuseReleased(e)
+	}
 
 	if match.GetString("review_type") != "walkover" {
 		return alertError(e, "Este partido no es una solicitud de incomparecencia")
@@ -130,6 +133,9 @@ func (h *DisputeHandler) DisputesResolve(e *core.RequestEvent) error {
 	match, err := findMatchOr404(h.app, e, id)
 	if err != nil {
 		return err
+	}
+	if match.GetString("status") == league.StatusReleased {
+		return refuseReleased(e)
 	}
 
 	if match.GetString("status") != league.StatusDisputed {
