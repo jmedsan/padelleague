@@ -116,6 +116,7 @@ func TestAdminRelease_RejectsPendingProposals(t *testing.T) {
 		propID = handlers.MakeResultProposal(tb, app, m.Id, u1.Id, "6-3 6-4").Id
 		admin := handlers.MakeAdminUserTB(tb, app)
 		adminID = admin.Id
+		compID = m.GetString("competition")
 		s.URL = "/match/" + m.Id + "/release"
 		s.Headers = handlers.AuthHeaders(tb, admin)
 	}
@@ -177,7 +178,8 @@ func TestAdminRelease_Lifecycle(t *testing.T) {
 		Method:         http.MethodPost,
 		ExpectedStatus: 204,
 	}
-	var matchID, adminID string
+	var matchID, adminID, compID string
+	handlers.ExpectRedirect(s, func(core.App) string { return "/admin/competitions/" + compID })
 	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
 		setupProductionRoutes(tb, app, e)
 		p1 := handlers.MakePairTB(tb, app, "LcA")
