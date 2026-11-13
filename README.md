@@ -163,6 +163,20 @@ make scenario-migrate        # the kept scenario server (PORT=<port> if several)
 
 Each target boots the binary on a free port against the data dir, waits until `/healthz` answers, then stops it. Running one again changes nothing.
 
+## Serving a production backup locally
+
+```bash
+make backup-serve BACKUP=backup.zip.enc   # or a plain backup.zip
+```
+
+The target decrypts the emailed backup with `BACKUP_ENCRYPTION_KEY` (from `.env`) and unzips it into a `/tmp/padelleague-test-backup-*` data dir. It then serves the data on a free port; pending migrations run on boot. Log in with the prod credentials. Nothing leaves the machine:
+
+- The script disables the backup's SMTP settings in `data.db` before boot, and refuses to start if that fails.
+- Mail goes to Mailpit (`make mail`).
+- Push and the backup email are off.
+
+`make scenario-stop PORT=<port>` stops the server, and `make scenario-migrate PORT=<port>` applies new migrations to it.
+
 ## UI language
 
 All user-facing text is in Spanish. Code (Go, HTML, CSS classes) is in English.

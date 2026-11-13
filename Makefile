@@ -264,6 +264,10 @@ scenario-serve: ## boot a scenario and keep server alive: make scenario-serve SC
 	cd e2e && E2E_KEEP=1 SCENARIO=$(SCENARIO) E2E_PORT=$$E2E_PORT npx playwright test \
 	  --config playwright.scenario.config.ts --project="$$FIRST_PROJECT" --grep "00 "
 
+backup-serve: build ## serve a prod backup as a kept scenario server (mail to Mailpit only): make backup-serve BACKUP=<file.zip.enc>
+	@if [ -z "$(BACKUP)" ]; then echo "usage: make backup-serve BACKUP=<file.zip.enc>"; exit 1; fi
+	@scripts/backup-serve.sh "$(BACKUP)"
+
 scenario-migrate: build ## apply pending migrations to a kept scenario server's data: make scenario-migrate [PORT=<port>]
 	@port=$$(scripts/scenario-port.sh $(PORT)) || exit 1; \
 	if [ ! -f e2e/.test-data/$$port/scenario.dir ]; then echo "no scenario server running on port $$port"; exit 1; fi; \
