@@ -27,8 +27,6 @@ async function standingsRow(page: Page, competitionId: string, pairName: string)
         pts: Number((tr.querySelector('td.text-lg.font-bold')?.textContent ?? '').trim()),
       };
     }));
-  // No played match left anywhere: the page renders the empty state instead of the table.
-  if (rows.length === 0 && (await page.getByText('No hay datos de clasificación todavía').count()) === 1) return { name: pairName, pj: 0, pts: 0 };
   const row = rows.find((r) => r.name.startsWith(pairName) && !/^\d/.test(r.name.slice(pairName.length).trim()));
   if (!row) throw new Error(`no Clasificación row for ${pairName}: ${JSON.stringify(rows)}`);
   return row;
@@ -72,6 +70,13 @@ test.describe.serial('withdraw-release', () => {
     await driveTo(api, duelOf(ctx, wb, w), 'final');
     await driveTo(api, duelOf(ctx, wc, w), 'scheduledResult');
 
+    // A final that stays: B against its first other opponent. It keeps the Clasificación non-empty after
+    // W-B and W-C are released, so the test can assert exact rows.
+    const rivalOf0 = (m: any) => pairs.find((p) => p.id === (m.pair1 === w.id ? m.pair2 : m.pair1))!;
+    const bPair = rivalOf0(wb);
+    const bx = (await pairMatches(api, competitionId, bPair.id)).find((m) => m.id !== wb.id)!;
+    await driveTo(api, duelOf(ctx, bx, bPair), 'final');
+
     const rivalOf = (m: any) => pairs.find((p) => p.id === (m.pair1 === w.id ? m.pair2 : m.pair1))!;
     const b = rivalOf(wb);
     const c = rivalOf(wc);
@@ -91,7 +96,7 @@ test.describe.serial('withdraw-release', () => {
     const wb2 = w2Matches[0];
     const b2 = pairs2.find((p) => p.id === (wb2.pair1 === w2.id ? wb2.pair2 : wb2.pair1))!;
 
-    saveCtx({ ...ctx, stage: 'assigned', withdrawRelease: { w: w.id, b: b.id, c: c.id, wb: wb.id, wc: wc.id, wo: wo.id },
+    saveCtx({ ...ctx, stage: 'assigned', withdrawRelease: { w: w.id, b: b.id, c: c.id, wb: wb.id, wc: wc.id, wo: wo.id, bx: bx.id },
       noRival: { competition: competition2, w: w2.id, b: b2.id, wb: wb2.id, players: players2, pairs: pairs2 } } as ScenarioData);
 
     const base = ctx.baseURL;
@@ -103,7 +108,7 @@ test.describe.serial('withdraw-release', () => {
     const as = (p: { player1Idx: number }, path: string) => url(email(p), PLAYER_PASSWORD, path);
     const as2 = (p: { player1Idx: number }, path: string) => url(players2[p.player1Idx].email, PLAYER_PASSWORD, path);
     const steps: Array<[string, string, string]> = [
-      ['Player of B', as(b, '/'), 'Note your matches: W-B is final (counts in your stats), plus your open matches.'],
+      ['Player of B', as(b, '/'), 'Note your matches: W-B and another match are final (both count in your stats), plus your open matches.'],
       ['Player of C', as(c, `/match/${wc.id}`), 'W-C shows the proposed result waiting for C.'],
       ['Admin', admin(`/admin/competitions/${competitionId}`), 'Retirar W (type RETIRAR): the flash says "<pair> retirada"; the withdrawn icon shows beside W.'],
       ['Admin', admin(`/match/${wo.id}`), "W's open match is unchanged: still open, no 6-0 6-0."],
@@ -113,7 +118,7 @@ test.describe.serial('withdraw-release', () => {
       ['Admin', admin(`/match/${wc.id}`), 'Liberar W-C (proposed result): confirm.'],
       ['Admin', admin(`/admin/competitions/${competitionId}`), 'Open "Liberados": W-B and W-C are listed; open one: read-only, "Liberado" badge, history kept.'],
       ['Player of B', as(b, `/match/${wb.id}`), 'W-B now returns 404.'],
-      ['Player of B', as(b, comp), 'W-B is gone, B has ONE NEW match against a new opponent (not W; open the later Jornada sections in Partidos), and the W-B points are gone from the standings.'],
+      ['Player of B', as(b, comp), 'W-B is gone, B has ONE NEW match against a new opponent (not W; open the later Jornada sections in Partidos), and the W-B points are gone from the standings (the other final stays).'],
       ['Player of C', as(c, `/match/${wc.id}`), 'W-C now returns 404.'],
       ['Player of C', as(c, comp), 'W-C is gone and C has ONE NEW match against a new opponent (not W; open the later Jornada sections).'],
       ['Player of W', as(w, comp), 'W still has only its open match: no new assignment.'],
@@ -131,7 +136,7 @@ test.describe.serial('withdraw-release', () => {
 
   test('01 withdraw W, release W-B and W-C through the UI: B and C get one new opponent each', async ({ page }) => {
     const ctx = loadCtx() as any;
-    const { w, b, c, wb, wc, wo } = ctx.withdrawRelease;
+    const { w, b, c, wb, wc, wo, bx } = ctx.withdrawRelease;
     const api: ScenarioApi = { baseURL: ctx.baseURL, suToken: ctx.suToken, adminCookie: ctx.adminCookie };
     const live = async (pair: string) =>
       (await pairMatches(api, ctx.competitionId, pair)).filter((m) => !['final', 'released'].includes(m.status));
@@ -152,12 +157,22 @@ test.describe.serial('withdraw-release', () => {
 
     // Case 3: the released results drop out of the Clasificación (W-B final, W-C proposed result).
     const nameOf = (id: string) => ctx.pairs.find((p: any) => p.id === id).name as string;
-    const rowsBefore = {
-      w: await standingsRow(page, ctx.competitionId, nameOf(w)),
-      b: await standingsRow(page, ctx.competitionId, nameOf(b)),
-      c: await standingsRow(page, ctx.competitionId, nameOf(c)),
+    // Expected rows from independent facts: W-B and bx are final (winner stored), W-C holds a proposed
+    // result that counts as played (proposal = played) and the proposer's score 6-3 6-4 is pair1's win.
+    const rec = async (id: string) => apiGet(api, `/api/collections/matches/records/${id}`);
+    const counted = [await rec(wb), await rec(bx), { ...(await rec(wc)), winner: (await rec(wc)).pair1 }];
+    const expectRow = (pair: string, ms: any[]) => {
+      const mine = ms.filter((m) => m.pair1 === pair || m.pair2 === pair);
+      return { pj: mine.length, pts: 3 * mine.filter((m) => m.winner === pair).length };
     };
-    expect(rowsBefore.w.pj).toBeGreaterThanOrEqual(2);
+    const rowOf = async (pair: string) => {
+      const { pj, pts } = await standingsRow(page, ctx.competitionId, nameOf(pair));
+      return { pj, pts };
+    };
+    expect(await rowOf(w)).toEqual(expectRow(w, counted));
+    expect(await rowOf(b)).toEqual(expectRow(b, counted));
+    expect(await rowOf(c)).toEqual(expectRow(c, counted));
+    expect(expectRow(w, counted).pj).toBe(2);
 
     for (const id of [wb, wc]) {
       await page.goto(`/match/${id}`);
@@ -182,19 +197,11 @@ test.describe.serial('withdraw-release', () => {
     }
     expect((await live(w)).map((m) => m.id)).toEqual([wo]);
 
-    const rowsAfter = {
-      w: await standingsRow(page, ctx.competitionId, nameOf(w)),
-      b: await standingsRow(page, ctx.competitionId, nameOf(b)),
-      c: await standingsRow(page, ctx.competitionId, nameOf(c)),
-    };
-    expect(rowsAfter.w.pj).toBe(rowsBefore.w.pj - 2);
-    expect(rowsAfter.b.pj).toBe(rowsBefore.b.pj - 1);
-    expect(rowsAfter.c.pj).toBe(rowsBefore.c.pj - 1);
-    // Points: every released result is gone, so the pairs' points never grow and the pair that won loses 3.
-    expect(rowsAfter.w.pts).toBeLessThanOrEqual(rowsBefore.w.pts);
-    expect(rowsAfter.b.pts).toBeLessThanOrEqual(rowsBefore.b.pts);
-    expect(rowsAfter.c.pts).toBeLessThanOrEqual(rowsBefore.c.pts);
-    expect(rowsBefore.w.pts + rowsBefore.b.pts + rowsBefore.c.pts - (rowsAfter.w.pts + rowsAfter.b.pts + rowsAfter.c.pts)).toBeGreaterThanOrEqual(3);
+    // After the release only bx counts: W (withdrawn, nothing else played) is at 0/0.
+    const remaining = [counted[1]];
+    expect(await rowOf(w)).toEqual({ pj: 0, pts: 0 });
+    expect(await rowOf(b)).toEqual(expectRow(b, remaining));
+    expect(await rowOf(c)).toEqual(expectRow(c, remaining));
 
     const bPlayer = ctx.players[ctx.pairs.find((p: any) => p.id === b).player1Idx].email;
     await loginAs(page, bPlayer, PLAYER_PASSWORD);
