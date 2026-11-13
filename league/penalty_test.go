@@ -312,10 +312,10 @@ func TestApplyPendingMatchPenalties_GrowingCount(t *testing.T) {
 	require.Equal(t, 2.0, totals[pA.Id])
 }
 
-// TestApplyPendingMatchPenalties_LeveledCloseProjected: at the close of a
-// leveled league the penalty counts target − played, assigned or not, and a
-// withdrawn pair counts nothing.
-func TestApplyPendingMatchPenalties_LeveledCloseProjected(t *testing.T) {
+// TestCloseLeveled_PenalizesOnlyAssignedUnplayed: at the close of a leveled
+// league the penalty counts assigned, unplayed matches only. A pair short of
+// target with nothing open gets 0; a withdrawn pair counts nothing.
+func TestCloseLeveled_PenalizesOnlyAssignedUnplayed(t *testing.T) {
 	app := newTestApp(t)
 	pairs := make([]*core.Record, 6)
 	for i := range pairs {
@@ -342,12 +342,12 @@ func TestApplyPendingMatchPenalties_LeveledCloseProjected(t *testing.T) {
 		perPair[r.GetString("pair")]++
 		reasons[r.GetString("pair")] = r.GetString("reason")
 	}
-	require.Equal(t, "Partido no disputado al cierre de la competición (3 sin jugar)", reasons[pairs[0].Id])
-	require.Equal(t, "Partido no disputado al cierre de la competición (4 sin jugar)", reasons[pairs[3].Id])
-	require.Equal(t, 3, perPair[pairs[0].Id], "played 1 of 4")
-	require.Equal(t, 3, perPair[pairs[1].Id], "played 1 of 4, nothing assigned")
-	require.Equal(t, 4, perPair[pairs[2].Id], "one assigned but unplayed still counts as 4 short")
-	require.Equal(t, 4, perPair[pairs[3].Id], "never assigned: 4 short")
+	require.Equal(t, 0, perPair[pairs[1].Id], "played 1 of 4, nothing assigned: no penalty")
+	require.Equal(t, 0, perPair[pairs[3].Id], "never assigned: no penalty")
+	require.Equal(t, 0, perPair[pairs[4].Id], "never assigned: no penalty")
+	require.Equal(t, 1, perPair[pairs[0].Id], "one assigned, unplayed match")
+	require.Equal(t, 1, perPair[pairs[2].Id], "one assigned, unplayed match")
+	require.NotEmpty(t, reasons[pairs[0].Id])
 	require.Equal(t, 0, perPair[pairs[5].Id], "withdrawn pair is not penalized")
 }
 
@@ -440,7 +440,7 @@ func TestApplyPendingMatchPenalties_LeveledCloseOpenAgainstWithdrawn(t *testing.
 	require.NoError(t, err)
 	totals, err := PenaltyTotals(app, comp.Id)
 	require.NoError(t, err)
-	require.Equal(t, 3.0, totals[pairs[0].Id], "played 1 of 4; the open match with the withdrawn pair is not played")
-	require.Equal(t, 4.0, totals[pairs[2].Id], "the released match is not played either")
+	require.Equal(t, 0.0, totals[pairs[0].Id], "a match with a withdrawn pair counts nothing")
+	require.Equal(t, 0.0, totals[pairs[2].Id], "the released match counts nothing")
 	require.Equal(t, 0.0, totals[pairs[5].Id], "withdrawn pair is not penalized")
 }

@@ -477,7 +477,7 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     await expect(penalizeLabel).toBeVisible();
   });
 
-  test('E: leveled league shows Revancha badge and admin shortfall notice', async ({ page }) => {
+  test('E: leveled league shows the admin shortfall notice', async ({ page }) => {
     const suToken = loadTestData().adminToken;
     const suffix = `e-shortfall-${Date.now()}`;
 
@@ -503,12 +503,11 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
       pairs: [data.pair1Id, data.pair2Id, pair3Id],
       target_matches: 1, open_assignments: 1,
     });
-    // pair1-pair2 already has their one match (rematch: true, exercising
-    // the shared matchCard/matchRow badge); pair3 has none, and neither of
-    // the others can supply it — the unavoidable shortfall.
+    // pair1-pair2 already has their one match; pair3 has none, and neither
+    // of the others can supply it — the unavoidable shortfall.
     const matchId = await apiCreate(page.request, suToken, 'matches', {
       competition: compId, pair1: data.pair1Id, pair2: data.pair2Id,
-      status: 'pending', round_number: 0, rematch: true,
+      status: 'pending', round_number: 0,
     });
 
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
@@ -518,7 +517,6 @@ test.describe('R-178: presentation quality guards', { tag: '@presentation' }, ()
     await page.getByRole('link', { name: compName }).first().click();
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('Revancha').locator('visible=true').first()).toBeVisible({ timeout: 5000 });
     const notice = page.getByTestId('leveled-shortfall-notice');
     await expect(notice).toBeVisible({ timeout: 5000 });
     await expect(notice).toContainText('quedará con 0 partidos en vez de 1');

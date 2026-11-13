@@ -148,7 +148,7 @@ func TestSeason_HomeAwayAfterWithdrawal(t *testing.T) {
 		require.NoError(t, app.Save(comp))
 		st, err := buildLeveledState(app, comp, nil, now)
 		require.NoError(t, err)
-		require.False(t, st.rematch, "trial %d: an exact completion must exist for this roster", trial)
+		require.False(t, st.inexact, "trial %d: an exact completion must exist for this roster", trial)
 		require.True(t, st.orient, "trial %d: the split must be attainable at the start", trial)
 
 		_, err = svc.TopUpAssignments(comp.Id, now)

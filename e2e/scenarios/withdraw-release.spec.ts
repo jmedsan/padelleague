@@ -2,19 +2,21 @@ import { test, expect } from '@playwright/test';
 import { loginAs, clickAction, waitForHxRedirect, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import {
   PLAYER_PASSWORD, ScenarioApi, ScenarioData, addPairToCompetition, apiGet, assertAssignmentInvariants,
-  createCompetition, createPairs, createPlayers, generateAssignments, loadCtx, printLinks, publishCalendar,
+  createCompetition, createPairs, createPlayers, generateAssignments, loadCtx, publishCalendar,
   saveCtx, setCompetitionDates, uniqueSuffix,
 } from '../scenario-helpers';
 import { driveTo, duelOf, pairMatches } from './withdrawal-states';
 
-// Leveled: 10 pairs, target 6, open 5. Pair A has a final match (vs B) and a proposed result (vs C);
-// pair W has open matches and is withdrawn by the admin: flag only, nothing else changes.
+// Leveled: 10 pairs, target 3, open 3. Pair W has a final match (vs B), a proposed result (vs C) and
+// one open match. The admin withdraws W (flag only, nothing changes), then releases W-B and W-C.
+// Target 3 = open 3 makes re-pairing observable: after W-B is final, B sits at its target with a free
+// open slot, so releasing W-B (and W-C) gives B and C one new opponent each, never W.
 const PAIRS = 10;
-const TARGET = 6;
-const OPEN = 5;
+const TARGET = 3;
+const OPEN = 3;
 
 test.describe.serial('withdraw-release', () => {
-  test('00 seed: A has a final and a proposed-result match, W is ready to be withdrawn', async () => {
+  test('00 seed: W has a final (vs B) and a proposed-result (vs C) match', async () => {
     const raw = loadCtx();
     const api: ScenarioApi = { baseURL: raw.baseURL, suToken: raw.suToken, adminCookie: raw.adminCookie };
     const suffix = uniqueSuffix();
@@ -30,72 +32,95 @@ test.describe.serial('withdraw-release', () => {
     const ctx: ScenarioData = { ...raw, api, competitionId, players, pairs, target: TARGET, open: OPEN, stage: 'assigned' };
     await assertAssignmentInvariants(api, ctx);
 
-    const a = pairs[0];
-    const aMatches = await pairMatches(api, competitionId, a.id);
-    const [ab, ac] = aMatches;
-    await driveTo(api, duelOf(ctx, ab, a), 'final');
-    await driveTo(api, duelOf(ctx, ac, a), 'scheduledResult');
+    // Deterministic pick from the met-graph, never a re-run: the first pair W (in creation order) with two
+    // rivals B and C that have not met each other. After both releases B and C are then the only pairs
+    // short of the target and the only unmet partners left for each other.
+    const rivalIdOf = (m: any, p: string) => (m.pair1 === p ? m.pair2 : m.pair1);
+    const matchesOf = new Map<string, any[]>();
+    for (const p of pairs) matchesOf.set(p.id, await pairMatches(api, competitionId, p.id));
+    const met = (x: string, y: string) => matchesOf.get(x)!.some((m) => m.pair1 === y || m.pair2 === y);
+    let chosen: { w: (typeof pairs)[number]; wb: any; wc: any; wo: any } | undefined;
+    for (const cand of pairs) {
+      const ms = matchesOf.get(cand.id)!;
+      if (ms.length !== 3) throw new Error(`${cand.name}: expected 3 matches`);
+      for (const [i, j] of [[0, 1], [0, 2], [1, 2]]) {
+        if (!met(rivalIdOf(ms[i], cand.id), rivalIdOf(ms[j], cand.id))) { chosen = { w: cand, wb: ms[i], wc: ms[j], wo: ms[3 - i - j] }; break; }
+      }
+      if (chosen) break;
+    }
+    if (!chosen) throw new Error('met-graph: no pair has two rivals that have not met each other');
+    const { w, wb, wc, wo } = chosen;
+    await driveTo(api, duelOf(ctx, wb, w), 'final');
+    await driveTo(api, duelOf(ctx, wc, w), 'scheduledResult');
 
-    const rivalOf = (m: any) => pairs.find((p) => p.id === (m.pair1 === a.id ? m.pair2 : m.pair1))!;
-    const b = rivalOf(ab);
-    const c = rivalOf(ac);
-    const w = pairs.find((p) => ![a.id, b.id, c.id].includes(p.id))!;
-    const wMatches = (await pairMatches(api, competitionId, w.id)).filter((m) => m.status !== 'final');
-    if (wMatches.length === 0) throw new Error(`${w.name}: expected open matches`);
+    const rivalOf = (m: any) => pairs.find((p) => p.id === (m.pair1 === w.id ? m.pair2 : m.pair1))!;
+    const b = rivalOf(wb);
+    const c = rivalOf(wc);
 
-    saveCtx({ ...ctx, stage: 'assigned', withdrawRelease: { a: a.id, b: b.id, c: c.id, w: w.id, ab: ab.id, ac: ac.id } } as ScenarioData);
+    // Case 2: 4 pairs, target 2 = a 4-cycle W-B-Y-X-W. After W is withdrawn and only W-B is released, B has
+    // met Y and W, and its only other pair X is already at its target: B has no placeable opponent left.
+    const players2 = await createPlayers(api, 8, `${suffix}s`);
+    const pairs2 = await createPairs(api, players2, `${suffix}s`);
+    const competition2 = await createCompetition(api, `Retirada sin rival ${suffix}`, 2, 2);
+    for (const p of pairs2) await addPairToCompetition(api, competition2, p.id);
+    await setCompetitionDates(api, competition2);
+    await generateAssignments(api, competition2);
+    await publishCalendar(api, competition2);
+    const w2 = pairs2[0];
+    const w2Matches = await pairMatches(api, competition2, w2.id);
+    if (w2Matches.length !== 2) throw new Error(`${w2.name}: expected 2 matches in the small competition`);
+    const wb2 = w2Matches[0];
+    const b2 = pairs2.find((p) => p.id === (wb2.pair1 === w2.id ? wb2.pair2 : wb2.pair1))!;
+
+    saveCtx({ ...ctx, stage: 'assigned', withdrawRelease: { w: w.id, b: b.id, c: c.id, wb: wb.id, wc: wc.id, wo: wo.id },
+      noRival: { competition: competition2, w: w2.id, b: b2.id, wb: wb2.id, players: players2, pairs: pairs2 } } as ScenarioData);
 
     const base = ctx.baseURL;
     const comp = `/competition/${competitionId}`;
     const email = (p: { player1Idx: number }) => players[p.player1Idx].email;
-    console.log(`\nA = ${a.name}, B = ${b.name}, C = ${c.name}, W = ${w.name}`);
-    console.log('\n=== Admin ===');
-    printLinks(base, [
-      { label: 'Competition', email: ADMIN_EMAIL, password: ADMIN_PASSWORD, path: `/admin/competitions/${competitionId}` },
-      { label: 'Match A-B (final)', email: ADMIN_EMAIL, password: ADMIN_PASSWORD, path: `/match/${ab.id}` },
-      { label: 'Match A-C (proposed result)', email: ADMIN_EMAIL, password: ADMIN_PASSWORD, path: `/match/${ac.id}` },
-    ]);
-    console.log('  1. Retirar W (type RETIRAR): the flash says "<pair> retirada".');
-    console.log('  2. Check W\'s matches are unchanged (still open, none became a walkover).');
-    console.log('  3. Liberar A-B and read the dialog.');
-    console.log('  4. Liberar A-C.');
-    console.log('  5. Open "Liberados": both matches are listed.');
-    console.log(`\n=== Player of W (${email(w)}) ===`);
-    printLinks(base, [
-      { label: 'Home', email: email(w), password: PLAYER_PASSWORD, path: '/' },
-      { label: 'Competition', email: email(w), password: PLAYER_PASSWORD, path: comp },
-      { label: 'Match', email: email(w), password: PLAYER_PASSWORD, path: `/match/${wMatches[0].id}` },
-    ]);
-    console.log('  1. Check the notice. 2. No new match was assigned. 3. The withdrawn icon shows beside the pair name.');
-    console.log(`\n=== Player of B (${email(b)}) ===`);
-    printLinks(base, [
-      { label: 'Home', email: email(b), password: PLAYER_PASSWORD, path: '/' },
-      { label: 'Competition', email: email(b), password: PLAYER_PASSWORD, path: comp },
-      { label: 'Match A-B', email: email(b), password: PLAYER_PASSWORD, path: `/match/${ab.id}` },
-    ]);
-    console.log('  1. After Liberar, A-B is gone from home, the competition page and stats.');
-    console.log('  2. The A-B URL returns 404. 3. The standings dropped the points.');
-    console.log('  4. Re-pairing: Liberar frees open slots, so after Liberar A-C the top-up may give A and/or C a new');
-    console.log('     opponent (never each other again, never W). Check Home or Competition for the new match; a rival');
-    console.log('     with no eligible opponent left simply gets none. W never gets a new match.');
-    console.log(`\n=== Rival view of the proposed result: player of C (${email(c)}) ===`);
-    printLinks(base, [
-      { label: 'Home', email: email(c), password: PLAYER_PASSWORD, path: '/' },
-      { label: 'Match A-C (before Liberar)', email: email(c), password: PLAYER_PASSWORD, path: `/match/${ac.id}` },
-    ]);
-    console.log('  1. Before Liberar, A-C shows the proposed result awaiting C. After Liberar it is gone everywhere');
-    console.log('     (home, competition, stats, standings) and its URL returns 404.');
+    const url = (who: string, pw: string, path: string) =>
+      `${base}/dev-login?${new URLSearchParams({ email: who, password: pw, next: path })}`;
+    const admin = (path: string) => url(ADMIN_EMAIL, ADMIN_PASSWORD, path);
+    const as = (p: { player1Idx: number }, path: string) => url(email(p), PLAYER_PASSWORD, path);
+    const as2 = (p: { player1Idx: number }, path: string) => url(players2[p.player1Idx].email, PLAYER_PASSWORD, path);
+    const steps: Array<[string, string, string]> = [
+      ['Player of B', as(b, '/'), 'Note your matches: W-B is final (counts in your stats), plus your open matches.'],
+      ['Player of C', as(c, `/match/${wc.id}`), 'W-C shows the proposed result waiting for C.'],
+      ['Admin', admin(`/admin/competitions/${competitionId}`), 'Retirar W (type RETIRAR): the flash says "<pair> retirada"; the withdrawn icon shows beside W.'],
+      ['Admin', admin(`/match/${wo.id}`), "W's open match is unchanged: still open, no 6-0 6-0."],
+      ['Player of W', as(w, '/'), 'The withdrawal notice is there; no new match appears now or later.'],
+      ['Player of W', as(w, comp), 'The withdrawn icon shows beside the pair name.'],
+      ['Admin', admin(`/match/${wb.id}`), 'Liberar W-B (it has a final result): read the dialog and confirm.'],
+      ['Admin', admin(`/match/${wc.id}`), 'Liberar W-C (proposed result): confirm.'],
+      ['Admin', admin(`/admin/competitions/${competitionId}`), 'Open "Liberados": W-B and W-C are listed; open one: read-only, "Liberado" badge, history kept.'],
+      ['Player of B', as(b, `/match/${wb.id}`), 'W-B now returns 404.'],
+      ['Player of B', as(b, comp), 'W-B is gone, B has ONE NEW match against a new opponent (not W; open the later Jornada sections in Partidos), and the W-B points are gone from the standings.'],
+      ['Player of C', as(c, `/match/${wc.id}`), 'W-C now returns 404.'],
+      ['Player of C', as(c, comp), 'W-C is gone and C has ONE NEW match against a new opponent (not W; open the later Jornada sections).'],
+      ['Player of W', as(w, comp), 'W still has only its open match: no new assignment.'],
+      ['Admin', admin(`/admin/competitions/${competitionId}`), 'Case 3: open Clasificación and the stats of B and C: the W-B and W-C results no longer count anywhere.'],
+      ['Admin', admin(`/admin/competitions/${competition2}`), 'Case 2 (second competition, 4 pairs, target 2): Retirar W2 (type RETIRAR).'],
+      ['Admin', admin(`/match/${wb2.id}`), 'Liberar W2-B2 (the match against B2).'],
+      ['Player of B2', as2(b2, `/competition/${competition2}`), 'B2 has NO new match (the only pair left is already at its target) and no "Revancha" anywhere; B2 stays one match short.'],
+      ['Admin', admin(`/admin/competitions/${competition2}`), 'The shortfall notice names B2 as ending below the target. Case 4 (the league-close penalty ignores a match that was never assigned) is cron-only and covered by unit tests.'],
+    ];
+    console.log(`\nW = ${w.name} (withdrawn), B = ${b.name}, C = ${c.name}`);
+    console.log(`Admin ${ADMIN_EMAIL}; W ${email(w)}; B ${email(b)}; C ${email(c)}\n`);
+    steps.forEach(([who, link, check], i) => console.log(`${i + 1}. ${who}: ${link}\n   ${check}`));
   });
 
-  test('01 withdraw W, then release A-B and A-C through the UI', async ({ page }) => {
+  test('01 withdraw W, release W-B and W-C through the UI: B and C get one new opponent each', async ({ page }) => {
     const ctx = loadCtx() as any;
-    const { a, w, b, c, ab, ac } = ctx.withdrawRelease;
-    const liveIds = async (api: ScenarioApi, pair: string) =>
-      (await pairMatches(api, ctx.competitionId, pair)).filter((m) => !['final', 'released'].includes(m.status)).map((m) => m.id);
+    const { w, b, c, wb, wc, wo } = ctx.withdrawRelease;
     const api: ScenarioApi = { baseURL: ctx.baseURL, suToken: ctx.suToken, adminCookie: ctx.adminCookie };
-    const openBefore = (await pairMatches(api, ctx.competitionId, w)).map((m) => `${m.id}:${m.status}`);
+    const live = async (pair: string) =>
+      (await pairMatches(api, ctx.competitionId, pair)).filter((m) => !['final', 'released'].includes(m.status));
+    const wBefore = (await pairMatches(api, ctx.competitionId, w)).map((m) => `${m.id}:${m.status}`).sort();
+    const opponentsBefore = async (pair: string) =>
+      (await pairMatches(api, ctx.competitionId, pair)).map((m) => (m.pair1 === pair ? m.pair2 : m.pair1));
+    const metBefore = { b: await opponentsBefore(b), c: await opponentsBefore(c) };
+    const liveBefore = { b: (await live(b)).map((m) => m.id), c: (await live(c)).map((m) => m.id) };
 
-    const liveBefore = { a: await liveIds(api, a), b: await liveIds(api, b), c: await liveIds(api, c) };
     await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto(`/admin/competitions/${ctx.competitionId}`);
     await waitForHxRedirect(page, `/admin/competitions/${ctx.competitionId}`, async () => {
@@ -103,43 +128,67 @@ test.describe.serial('withdraw-release', () => {
       await page.locator('#confirm-typed').fill('RETIRAR');
       await page.locator('#confirm-ok').click();
     });
-    const openAfter = (await pairMatches(api, ctx.competitionId, w)).map((m) => `${m.id}:${m.status}`);
-    expect(openAfter).toEqual(openBefore);
+    expect((await pairMatches(api, ctx.competitionId, w)).map((m) => `${m.id}:${m.status}`).sort()).toEqual(wBefore);
 
-    const fresh = async (pair: string, before: string[]) =>
-      (await pairMatches(api, ctx.competitionId, pair)).filter((m) => !before.includes(m.id) && !['final', 'released'].includes(m.status));
-    for (const id of [ac, ab]) {
+    for (const id of [wb, wc]) {
       await page.goto(`/match/${id}`);
       await waitForHxRedirect(page, /^\/admin\/competitions\/[^/]+$/, async () => {
         await page.getByRole('button', { name: 'Liberar partido' }).first().click();
         await expect(page.locator('#confirm-message')).toContainText('Liberar');
         await page.locator('#confirm-ok').click();
       });
-      if (id === ac) {
-        // The top-up runs after the response, so poll for the new matches.
-        // Each rival gets at most one new opponent; at least one does (the other may have no eligible opponent left).
-        await expect.poll(async () => (await fresh(a, liveBefore.a)).length + (await fresh(c, liveBefore.c)).length, { timeout: 20_000 }).toBeGreaterThan(0);
-        const newA = await fresh(a, liveBefore.a);
-        const newC = await fresh(c, liveBefore.c);
-        expect(newA.length).toBeLessThanOrEqual(1);
-        expect(newC.length).toBeLessThanOrEqual(1);
-        for (const m of [...newA, ...newC]) {
-          expect([m.pair1, m.pair2].sort()).not.toEqual([a, c].sort());
-          expect([m.pair1, m.pair2]).not.toContain(w);
-        }
+    }
+    await expect(page.locator(`#released-matches a[href="/match/${wb}"]`)).toHaveCount(1);
+    await expect(page.locator(`#released-matches a[href="/match/${wc}"]`)).toHaveCount(1);
+
+    // The top-up runs after the response: poll until B and C each have exactly one new match, never vs W.
+    const fresh = async (pair: string, before: string[]) => (await live(pair)).filter((m) => !before.includes(m.id) && m.id !== wc);
+    await expect.poll(async () => [(await fresh(b, liveBefore.b)).length, (await fresh(c, liveBefore.c)).length], { timeout: 20_000 }).toEqual([1, 1]);
+    for (const [pair, before] of [[b, metBefore.b], [c, metBefore.c]] as const) {
+      for (const m of await fresh(pair, liveBefore[pair === b ? 'b' : 'c'])) {
+        expect([m.pair1, m.pair2]).not.toContain(w);
+        // Never a repeat: the new opponent is a pair this one has never been assigned to.
+        expect(before).not.toContain(m.pair1 === pair ? m.pair2 : m.pair1);
       }
     }
-    expect((await liveIds(api, w)).sort()).toEqual(openBefore.map((x) => x.split(':')[0]).sort());
-    await expect(page.locator('#released-matches')).toContainText('Liberados');
-    await expect(page.locator(`#released-matches a[href="/match/${ab}"]`)).toHaveCount(1);
-    await expect(page.locator(`#released-matches a[href="/match/${ac}"]`)).toHaveCount(1);
+    expect((await live(w)).map((m) => m.id)).toEqual([wo]);
 
     const bPlayer = ctx.players[ctx.pairs.find((p: any) => p.id === b).player1Idx].email;
     await loginAs(page, bPlayer, PLAYER_PASSWORD);
-    expect((await page.request.get(`/match/${ab}`)).status()).toBe(404);
+    expect((await page.request.get(`/match/${wb}`)).status()).toBe(404);
+    const newB = (await fresh(b, liveBefore.b))[0];
     for (const path of ['/', `/competition/${ctx.competitionId}`]) {
       await page.goto(path);
-      await expect(page.locator(`a[href="/match/${ab}"]`)).toHaveCount(0);
+      await expect(page.locator(`a[href="/match/${wb}"]`)).toHaveCount(0);
     }
+    await page.goto(`/competition/${ctx.competitionId}`);
+    await expect(page.locator(`a[href="/match/${newB.id}"]`)).toHaveCount(1); // inside a closed Jornada accordion
+  });
+  test('02 withdraw W2, release W2-B2: B2 stays short, no new match, no Revancha', async ({ page }) => {
+    const ctx = loadCtx() as any;
+    const { competition, w, b, wb } = ctx.noRival;
+    const api: ScenarioApi = { baseURL: ctx.baseURL, suToken: ctx.suToken, adminCookie: ctx.adminCookie };
+    const live = async () => (await pairMatches(api, competition, b)).filter((m) => !['final', 'released'].includes(m.status));
+    const before = (await live()).map((m) => m.id);
+    expect(before).toHaveLength(2); // B2 has W2-B2 (about to be released) and its match against Y2
+
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto(`/admin/competitions/${competition}`);
+    await waitForHxRedirect(page, `/admin/competitions/${competition}`, async () => {
+      await clickAction(page, `form[hx-post$="/withdraw-pair"]:has(input[name="pair_id"][value="${w}"]) button`, 'Retirar de la competición');
+      await page.locator('#confirm-typed').fill('RETIRAR');
+      await page.locator('#confirm-ok').click();
+    });
+    await page.goto(`/match/${wb}`);
+    await waitForHxRedirect(page, /^\/admin\/competitions\/[^/]+$/, async () => {
+      await page.getByRole('button', { name: 'Liberar partido' }).first().click();
+      await page.locator('#confirm-ok').click();
+    });
+
+    // The top-up ran with the release: B2's only unmet pair is full, so nothing new may appear.
+    await page.waitForTimeout(3000);
+    expect((await live()).map((m) => m.id)).toEqual(before.filter((id) => id !== wb));
+    await expect(page.getByText('Revancha')).toHaveCount(0);
+    await expect(page.locator('[data-testid="leveled-shortfall-notice"]')).toContainText('quedará con');
   });
 });

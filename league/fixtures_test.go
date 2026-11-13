@@ -240,10 +240,10 @@ func TestRoundRobin_DoubleEveryOrderedPairOnce(t *testing.T) {
 	}
 }
 
-func TestRoundRobin_DoubleNoConsecutiveRematch(t *testing.T) {
+func TestRoundRobin_DoubleNoConsecutiveRepeat(t *testing.T) {
 	t.Parallel()
 	// n=2 has only one possible matchup and one match per round, so the
-	// leg boundary is unavoidably a rematch — start at n=3, where there's
+	// leg boundary is unavoidably a repeat — start at n=3, where there's
 	// another pair the rotation could interleave with instead.
 	for n := 3; n <= 16; n++ {
 		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
@@ -375,4 +375,41 @@ func TestPlayoffMaxRound(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, 3, maxRound)
 	})
+}
+
+// Planned repeats exist only in double legs: single leg meets every pair once,
+// double meets every pair exactly twice (once per venue side), and home/away
+// stays balanced (within one for single, exactly even for double).
+func TestRoundRobin_PlannedRepeatsAndBalance(t *testing.T) {
+	t.Parallel()
+	for n := 3; n <= 10; n++ {
+		for _, double := range []bool{false, true} {
+			t.Run(fmt.Sprintf("n=%d/double=%v", n, double), func(t *testing.T) {
+				ids := genPairIDs(n)
+				meets := map[string]int{}
+				home := map[string]int{}
+				for _, r := range RoundRobin(ids, double) {
+					for _, m := range r.Matches {
+						meets[unorderedKey(m)]++
+						home[m.Home]++
+					}
+				}
+				want := 1
+				if double {
+					want = 2
+				}
+				require.Len(t, meets, n*(n-1)/2)
+				for k, c := range meets {
+					assert.Equal(t, want, c, "pairing %s", k)
+				}
+				for _, id := range ids {
+					games := want * (n - 1)
+					assert.LessOrEqual(t, abs(2*home[id]-games), 1, "pair %s: %d home of %d", id, home[id], games)
+					if double {
+						assert.Equal(t, n-1, home[id], "double leg is exactly even")
+					}
+				}
+			})
+		}
+	}
 }

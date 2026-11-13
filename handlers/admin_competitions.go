@@ -127,7 +127,7 @@ func (h *CompetitionHandler) leveledShortfallView(comp *core.Record, pairNameMap
 }
 
 // shortfallView is the admin-facing rendering of league.Shortfall: how many
-// matches the leveled assignment run cannot realize even with rematches,
+// matches the leveled assignment run cannot realize without repeating a pairing,
 // and which pairs will fall short of target_matches.
 type shortfallView struct {
 	PairNames []string
@@ -143,10 +143,19 @@ func buildShortfallView(s league.Shortfall, target int, pairNameMap map[string]s
 	names := pairNamesFor(pairNameMap, s.PairIDs)
 	v := shortfallView{PairNames: names}
 	if len(names) == 1 {
-		v.Message = fmt.Sprintf("%s quedará con %d partidos en vez de %d", names[0], target-s.Matches, target)
+		left := target - s.Matches
+		noun := "partidos"
+		if left == 1 {
+			noun = "partido"
+		}
+		v.Message = fmt.Sprintf("%s quedará con %d %s en vez de %d", names[0], left, noun, target)
 		return v
 	}
-	v.Message = fmt.Sprintf("Una de estas %d parejas quedará con un partido menos: %s", len(names), strings.Join(names, ", "))
+	if s.Matches == 1 {
+		v.Message = fmt.Sprintf("Una de estas %d parejas quedará con un partido menos: %s", len(names), strings.Join(names, ", "))
+		return v
+	}
+	v.Message = fmt.Sprintf("Estas parejas pueden quedar por debajo de %d partidos: %s", target, strings.Join(names, ", "))
 	return v
 }
 

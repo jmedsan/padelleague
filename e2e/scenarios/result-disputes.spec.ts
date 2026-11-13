@@ -1,7 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { loginAs, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import {
-  PLAYER_PASSWORD, ScenarioApi, ScenarioData, apiGet, apiPatch, apiPost, loadCtx, printLogin, printLinks, jornadaHiISO,
+  PLAYER_PASSWORD, ScenarioApi, ScenarioData, apiGet, apiPatch, apiPost, loadCtx, printLogin, printLinks,
 } from '../scenario-helpers';
 
 const WARNING = '[data-testid="provisional-warning"]';
@@ -13,7 +13,6 @@ interface Case {
   matchId: string;
   rivalPairId: string;
   rivalPlayerEmail: string;
-  extraMatchId: string; // a later, unplayed match against the same rival: its Precedentes strip reads this pair's history
 }
 interface Seeded { control: Case; disputed: Case }
 
@@ -56,27 +55,6 @@ const submit = (email: string, matchId: string, scores: string) =>
 const mine = () => ctx.pairs[0];
 const mineEmail = () => ctx.players[mine().player1Idx].email;
 
-// createRematch adds a later match against the same rival, so the Precedentes
-// strip has a page to live on. The leveled engine only repeats a pairing in
-// rematch mode (after withdrawals), so this writes the record exactly as that
-// path does (league/leveled.go setMatchFields): round 0, rematch, the next
-// Jornada slot after the pairs' last one, with that slot's arrange_by.
-async function createRematch(pair1: string, pair2: string): Promise<void> {
-  const all = (await apiGet(api, `/api/collections/matches/records?filter=${encodeURIComponent(
-    `competition='${ctx.competitionId}'`)}&perPage=500`)).items;
-  const taken = all
-    .filter((x: any) => [x.pair1, x.pair2].some(p => p === pair1 || p === pair2))
-    .map((x: any) => x.slot as number);
-  const slot = Math.max(...taken) + 1;
-  if (slot > ctx.target) throw new Error('no Jornada slot left for the rematch');
-  const comp = await apiGet(api, `/api/collections/competitions/records/${ctx.competitionId}`);
-  const arrangeBy = jornadaHiISO(comp.start_date.slice(0, 10), comp.end_date.slice(0, 10), ctx.target, slot);
-  await apiPost(api, '/api/collections/matches/records', {
-    competition: ctx.competitionId, pair1, pair2, status: 'pending', round_number: 0, matches_to_win: 1,
-    rematch: true, slot, arrange_by: arrangeBy,
-  });
-}
-
 // openRow expands every accordion around a match row and returns the row in
 // the calendar (a disputed match also appears in the Alertas card above).
 async function openRow(page: Page, matchId: string) {
@@ -98,15 +76,12 @@ const groupTitle = (row: Locator) => row.locator('xpath=ancestor::div[contains(c
 // pair's first two matches, in id order, are control / disputed.
 async function seeded(): Promise<Seeded> {
   const list = await apiGet(api, `/api/collections/matches/records?filter=${encodeURIComponent(
-    `competition='${ctx.competitionId}' && rematch=false && (pair1='${mine().id}' || pair2='${mine().id}')`)}&sort=id&perPage=2`);
-  const extras = await apiGet(api, `/api/collections/matches/records?filter=${encodeURIComponent(
-    `competition='${ctx.competitionId}' && rematch=true && (pair1='${mine().id}' || pair2='${mine().id}')`)}&perPage=10`);
+    `competition='${ctx.competitionId}' && (pair1='${mine().id}' || pair2='${mine().id}')`)}&sort=id&perPage=2`);
   const build = (m: any): Case => {
     const rivalPairId = m.pair1 === mine().id ? m.pair2 : m.pair1;
     const rival = ctx.pairs.find(p => p.id === rivalPairId)!;
-    const extra = extras.items.find((x: any) => x.pair1 === rivalPairId || x.pair2 === rivalPairId);
     return {
-      matchId: m.id, rivalPairId, rivalPlayerEmail: ctx.players[rival.player1Idx].email, extraMatchId: extra.id,
+      matchId: m.id, rivalPairId, rivalPlayerEmail: ctx.players[rival.player1Idx].email,
     };
   };
   const [control, disputed] = list.items.map(build);
@@ -154,7 +129,6 @@ test.describe('a disputed result is not counted', () => {
     if (list.items.length < 2) throw new Error(`pair needs 2 open matches, has ${list.items.length}`);
     for (const m of list.items) {
       await apiPatch(api, `/api/collections/matches/records/${m.id}`, { date: '2025-03-15', club: 'Padel 360' });
-      await createRematch(m.pair1, m.pair2);
     }
     const { control, disputed } = await seeded();
 
@@ -175,7 +149,7 @@ test.describe('a disputed result is not counted', () => {
       { label: 'Disputed match (no score)', email: mineEmail(), password: PLAYER_PASSWORD, path: `/match/${disputed.matchId}` },
       { label: 'Admin rounds page', email: ADMIN_EMAIL, password: ADMIN_PASSWORD, path: `/admin/competitions/${ctx.competitionId}` },
     ]);
-    console.log('Two matches of this pair: (1) a lone proposal 6-3 6-4 — counts, with the warning; (2) disputed — counts nowhere. Check Clasificación, your profile, the "Precedentes" strip on the later match against each rival, and the admin counters.');
+    console.log('Two matches of this pair: (1) a lone proposal 6-3 6-4 — counts, with the warning; (2) disputed — counts nowhere. Check Clasificación, your profile and the admin counters.');
   });
 
   test('01 standings: only the lone proposal counts, and only it warns', async ({ page }) => {
@@ -200,18 +174,6 @@ test.describe('a disputed result is not counted', () => {
     const tile = page.locator('.stat', { hasText: 'Partidos' }).first();
     await expect(tile.locator('.stat-value')).toHaveText('1');
     await expect(tile.locator(WARNING)).toBeVisible();
-  });
-
-  test('03 Precedentes: only the lone proposal is a precedent', async ({ page }) => {
-    const { control, disputed } = await seeded();
-    await asMine(page);
-    await openMatch(page, control.extraMatchId);
-    const strip = page.locator('.card', { hasText: 'Precedentes' }).last();
-    await expect(strip).toContainText('1 · 0');
-    await expect(strip.locator(WARNING)).toBeVisible();
-
-    await openMatch(page, disputed.extraMatchId);
-    await expect(page.locator('.card', { hasText: 'Precedentes' }), 'no precedent exists, so no strip').toHaveCount(0);
   });
 
   test('05 calendar: the lone proposal shows its score with Propuesta, the disputed match shows none', async ({ page }) => {

@@ -60,7 +60,7 @@ func TestReleasedMatch_NotUnplayed(t *testing.T) {
 	app := newTestApp(t)
 	comp, _, p1, p2 := releasedWithProposal(t, app)
 
-	counts, err := unplayedCounts(app, comp, PhasePlaying)
+	counts, err := unplayedCounts(app, comp)
 	require.NoError(t, err)
 	assert.Zero(t, counts[p1.Id])
 	assert.Zero(t, counts[p2.Id])

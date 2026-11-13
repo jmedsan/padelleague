@@ -115,3 +115,8 @@ func (h *FixtureHandler) RegenerateFixturesTx(txApp core.App, comp *core.Record,
 func (h *ThreadHandler) BuildThreadData(match *core.Record, matchID string, viewerID string, myTeam int, compModifiable bool) ThreadData {
 	return h.buildThreadData(match, matchID, threadViewerCtx{viewerID: viewerID, myTeam: myTeam, compModifiable: compModifiable})
 }
+
+// ShortfallMessage exposes buildShortfallView's message to the external test package.
+func ShortfallMessage(s league.Shortfall, target int, names map[string]string) string {
+	return buildShortfallView(s, target, names).Message
+}

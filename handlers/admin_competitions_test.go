@@ -281,52 +281,6 @@ func TestDetailPage_LeveledShortfallNotice(t *testing.T) {
 	s.Test(t)
 }
 
-// TestMatchCard_RematchBadge verifies the shared matchCard/matchRow
-// components (views/partials/match-card.html) render a "Revancha" badge for
-// a match flagged rematch — and that a normal match does not.
-func TestMatchCard_RematchBadge(t *testing.T) {
-	t.Parallel()
-	s := &tests.ApiScenario{
-		TestAppFactory: handlers.TestAppFactory,
-		Name:           "admin competition detail shows Revancha badge on a rematch-flagged match",
-		Method:         http.MethodGet,
-		ExpectedStatus: 200,
-		ExpectedContent: []string{
-			"Revancha",
-		},
-	}
-	var normalMatchID string
-	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
-		setupProductionRoutes(tb, app, e)
-		admin := handlers.MakeAdminUserTB(tb, app)
-		p1 := handlers.MakePairTB(tb, app, "RmA")
-		p2 := handlers.MakePairTB(tb, app, "RmB")
-		p3 := handlers.MakePairTB(tb, app, "RmC")
-		comp := handlers.MakeCompetitionTB(tb, app, "league", []*core.Record{p1, p2, p3})
-		comp.Set("target_matches", 2)
-		comp.Set("open_assignments", 2)
-		require.NoError(tb, app.Save(comp))
-
-		rematchMatch := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p2.Id, "pending")
-		rematchMatch.Set("rematch", true)
-		require.NoError(tb, app.Save(rematchMatch))
-
-		normalMatch := handlers.MakeMatchTB(tb, app, comp.Id, p1.Id, p3.Id, "pending")
-		normalMatchID = normalMatch.Id
-
-		s.URL = "/admin/competitions/" + comp.Id
-		s.Headers = handlers.AuthHeaders(tb, admin)
-	}
-	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, res *http.Response) {
-		body := handlers.ReadBody(tb, res)
-		assert.Contains(tb, body, "Revancha", "the rematch-flagged match must show the badge")
-		normalMatch, err := app.FindRecordById("matches", normalMatchID)
-		require.NoError(tb, err)
-		assert.False(tb, normalMatch.GetBool("rematch"), "the non-rematch match must not be flagged")
-	}
-	s.Test(t)
-}
-
 // ═══════════════════════════════════════════════════════════════════════
 // Group 5: dispute rendering via matchCard AdminFull
 // ═══════════════════════════════════════════════════════════════════════
@@ -2704,4 +2658,24 @@ func TestUpdateCompetition_RefreshesLeveledArrangeBy(t *testing.T) {
 	}
 	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
 	s.Test(t)
+}
+
+func TestShortfallView_Messages(t *testing.T) {
+	t.Parallel()
+	names := map[string]string{"a": "Ana", "b": "Beto", "c": "Cai"}
+	cases := []struct {
+		name string
+		s    league.Shortfall
+		want string
+	}{
+		{"one pair", league.Shortfall{Matches: 1, PairIDs: []string{"a"}}, "Ana quedará con 3 partidos en vez de 4"},
+		{"one pair left with one match", league.Shortfall{Matches: 3, PairIDs: []string{"a"}}, "Ana quedará con 1 partido en vez de 4"},
+		{"one missing, several pairs", league.Shortfall{Matches: 1, PairIDs: []string{"a", "b"}}, "Una de estas 2 parejas quedará con un partido menos: Ana, Beto"},
+		{"several missing", league.Shortfall{Matches: 2, PairIDs: []string{"a", "b", "c"}}, "Estas parejas pueden quedar por debajo de 4 partidos: Ana, Beto, Cai"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, handlers.ShortfallMessage(tc.s, 4, names))
+		})
+	}
 }

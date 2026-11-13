@@ -112,7 +112,7 @@ func ApplyPendingMatchPenalties(app core.App, comp *core.Record) ([]*core.Record
 
 	pairIDs := comp.GetStringSlice("pairs")
 
-	counts, err := unplayedCounts(app, comp, phase)
+	counts, err := unplayedCounts(app, comp)
 	if err != nil {
 		return nil, err
 	}
@@ -152,17 +152,14 @@ func ApplyPendingMatchPenalties(app core.App, comp *core.Record) ([]*core.Record
 }
 
 // unplayedCounts returns the per-pair count the penalty rule is based on:
-// assigned matches not yet final, except at the close of a leveled league,
-// where it is the projected shortfall target − played (matches never
-// assigned count too). Released matches and matches of a withdrawn pair count nothing.
-func unplayedCounts(app core.App, comp *core.Record, phase Phase) (map[string]int, error) {
+// assigned matches not yet final. A match never assigned counts nothing, at
+// the close of a leveled league too. Released matches and matches of a
+// withdrawn pair count nothing.
+func unplayedCounts(app core.App, comp *core.Record) (map[string]int, error) {
 	matches, err := app.FindRecordsByFilter("matches",
 		"competition = {:c}", "", 0, 0, map[string]any{"c": comp.Id})
 	if err != nil {
 		return nil, fmt.Errorf("pending match penalties: list matches: %w", err)
-	}
-	if phase == PhaseFinished && IsLeveled(comp) {
-		return projectedShortfall(comp, matches), nil
 	}
 	withdrawn := comp.GetStringSlice("withdrawn_pairs")
 	counts := make(map[string]int)
@@ -177,24 +174,6 @@ func unplayedCounts(app core.App, comp *core.Record, phase Phase) (map[string]in
 		}
 	}
 	return counts, nil
-}
-
-// projectedShortfall returns target − played per active pair.
-func projectedShortfall(comp *core.Record, matches []*core.Record) map[string]int {
-	played := make(map[string]int)
-	for _, m := range matches {
-		if m.GetString("status") == StatusFinal && !IsVoid(m) {
-			played[m.GetString("pair1")]++
-			played[m.GetString("pair2")]++
-		}
-	}
-	active := activePairs(comp)
-	target := comp.GetInt("target_matches")
-	counts := make(map[string]int, len(active))
-	for _, id := range active {
-		counts[id] = max(0, target-played[id])
-	}
-	return counts
 }
 
 // AutoCloseCompetition finalizes comp once its recovery window has ended:

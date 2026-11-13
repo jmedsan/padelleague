@@ -1948,11 +1948,11 @@ func playSeason(t *testing.T, app core.App, svc *Service, compID string, now tim
 	return played
 }
 
-// TestTopUp_RematchAfterWithdrawal: 6 pairs, target 4. Two withdraw before
-// any match, leaving 4 active pairs with only 3 unique opponents each — no
-// exact completion exists, so rematch mode engages: everyone still reaches
-// exactly target, repeats are flagged, and each pair repeats only once.
-func TestTopUp_RematchAfterWithdrawal(t *testing.T) {
+// TestTopUp_NoRepeatAfterWithdrawal: 6 pairs, target 4. Two withdraw before
+// any match, leaving 4 active pairs with only 3 unique opponents each. A
+// pairing is never repeated, so each active pair ends on 3 matches and the
+// shortfall names all four.
+func TestTopUp_NoRepeatAfterWithdrawal(t *testing.T) {
 	app := newTestApp(t)
 	pairs := make([]*core.Record, 6)
 	for i := range pairs {
@@ -1966,37 +1966,27 @@ func TestTopUp_RematchAfterWithdrawal(t *testing.T) {
 	now := time.Now()
 	sf, err := LeveledShortfall(app, comp, now)
 	require.NoError(t, err)
-	assert.Equal(t, Shortfall{}, sf, "rematches can complete the season, no shortfall")
+	assert.Equal(t, 2, sf.Matches)
+	assert.Len(t, sf.PairIDs, 4)
 
 	_, err = svc.GenerateInitialAssignments(app, comp, now)
 	require.NoError(t, err)
-	assert.Equal(t, 8, playSeason(t, app, svc, comp.Id, now))
+	assert.Equal(t, 6, playSeason(t, app, svc, comp.Id, now))
+	assert.False(t, hasDuplicatePairing(t, app, comp.Id))
 
-	rematches := 0
 	for _, p := range pairs[:4] {
 		ms := allMatchesFor(t, app, comp.Id, p.Id)
-		assert.Len(t, ms, 4, "pair %s must reach exactly target", p.Id)
-		opp := map[string]int{}
-		for _, m := range ms {
-			assert.Equal(t, "final", m.GetString("status"))
-			o := m.GetString("pair1")
-			if o == p.Id {
-				o = m.GetString("pair2")
-			}
-			opp[o]++
-			if m.GetBool("rematch") {
-				rematches++
-			}
-		}
-		assert.Len(t, opp, 3, "pair %s plays every other active pair", p.Id)
+		assert.Len(t, ms, 3, "pair %s plays every other active pair once", p.Id)
 	}
-	// Each of the 8 matches is seen from both sides; 2 of them are repeats.
-	assert.Equal(t, 4, rematches, "exactly two rematch matches (counted twice)")
+	home := homeCounts(t, app, comp.Id)
+	for _, p := range pairs[:4] {
+		assert.Contains(t, []int{1, 2}, home[p.Id], "pair %s home count", p.Id)
+	}
 }
 
-// TestTopUp_NoRematchWhileExactCompletionExists: the same roster without
-// withdrawals never repeats a pairing.
-func TestTopUp_NoRematchWhileExactCompletionExists(t *testing.T) {
+// TestTopUp_NoRepeatWhileExactCompletionExists: the same roster without
+// withdrawals never repeats a pairing and fills the target.
+func TestTopUp_NoRepeatWhileExactCompletionExists(t *testing.T) {
 	app := newTestApp(t)
 	pairs := make([]*core.Record, 6)
 	for i := range pairs {
@@ -2009,16 +1999,16 @@ func TestTopUp_NoRematchWhileExactCompletionExists(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 12, playSeason(t, app, svc, comp.Id, now))
 	assert.False(t, hasDuplicatePairing(t, app, comp.Id))
-	n, err := app.FindRecordsByFilter("matches",
-		"competition = {:c} && rematch = true", "", 0, 0, map[string]any{"c": comp.Id})
-	require.NoError(t, err)
-	assert.Empty(t, n)
+	home := homeCounts(t, app, comp.Id)
+	for _, p := range pairs {
+		assert.Equal(t, 2, home[p.Id], "pair %s home count", p.Id)
+	}
 }
 
 // TestLeveledShortfall_OddParity: 6 pairs, target 4; pa beat pf, then pf
-// withdraws. Total remaining need is 3+4+4+4+4 = 19 (odd), so one match can
-// never be scheduled under the cap: the shortfall is 1 and every needing
-// pair is a candidate to end short.
+// withdraws. Remaining need is 3+4+4+4+4 = 19 (odd), so one match can never
+// be scheduled: the shortfall is 1. pa already met three of its neighbors'
+// slots, so it is not a candidate; the four others are.
 func TestLeveledShortfall_OddParity(t *testing.T) {
 	app := newTestApp(t)
 	pairs := make([]*core.Record, 6)
@@ -2033,21 +2023,21 @@ func TestLeveledShortfall_OddParity(t *testing.T) {
 	sf, err := LeveledShortfall(app, comp, time.Now())
 	require.NoError(t, err)
 	assert.Equal(t, 1, sf.Matches)
-	assert.Len(t, sf.PairIDs, 5)
+	assert.Len(t, sf.PairIDs, 4)
+	assert.NotContains(t, sf.PairIDs, pairs[0].Id)
 
-	// Assignment still does what it can: everyone but one pair reaches target.
 	svc := newDeterministicSvc(app)
 	now := time.Now()
 	_, err = svc.TopUpAssignments(comp.Id, now)
 	require.NoError(t, err)
 	playSeason(t, app, svc, comp.Id, now)
+	assert.False(t, hasDuplicatePairing(t, app, comp.Id))
 	short := 0
 	for _, p := range pairs[:5] {
 		if n := len(allMatchesFor(t, app, comp.Id, p.Id)); n < 4 {
 			short++
 			assert.Equal(t, 3, n, "the short pair ends exactly one below target")
-		} else {
-			assert.Equal(t, 4, n)
+			assert.Contains(t, sf.PairIDs, p.Id)
 		}
 	}
 	assert.Equal(t, 1, short, "exactly one pair ends short")
@@ -2080,14 +2070,12 @@ func TestTopUp_FallbackAboveOpenPlusOne(t *testing.T) {
 		opp = m.GetString("pair2")
 	}
 	assert.Contains(t, []string{pd.Id, pe.Id, pf.Id}, opp, "least-loaded opponents (load 2) are preferred over pb/pc (load 3)")
-	assert.False(t, m.GetBool("rematch"))
 }
 
-// TestTopUp_RematchNeverRecreatesAvoidedPairing: a released pairing is
-// excluded for the run even in rematch mode. 4 active pairs, target 4 and
-// open 3: no exact completion exists, so met pairs become eligible — the
-// just-released pa–pb pairing must still not be recreated by this run.
-func TestTopUp_RematchNeverRecreatesAvoidedPairing(t *testing.T) {
+// TestTopUp_NeverRecreatesAvoidedPairing: a released pairing is excluded
+// for the run. 4 active pairs, target 4 and open 3: the just-released pa–pb
+// pairing must not be recreated by this run.
+func TestTopUp_NeverRecreatesAvoidedPairing(t *testing.T) {
 	app := newTestApp(t)
 	pairs := make([]*core.Record, 6)
 	for i := range pairs {
@@ -2178,4 +2166,126 @@ func TestTopUp_ReleasedFreesPairing(t *testing.T) {
 	require.Len(t, fresh, 1, "the freed A-B pairing is assigned again")
 	got := map[string]bool{fresh[0].GetString("pair1"): true, fresh[0].GetString("pair2"): true}
 	assert.True(t, got[p[0].Id] && got[p[1].Id])
+}
+
+func TestMaxPairings(t *testing.T) {
+	full := func(n int) []uint32 {
+		a := make([]uint32, n)
+		for v := range a {
+			a[v] = (1<<uint(n) - 1) &^ (1 << uint(v))
+		}
+		return a
+	}
+	cases := []struct {
+		name  string
+		need  []int
+		avail []uint32
+		want  int
+	}{
+		{"empty", nil, nil, 0},
+		{"no need", []int{0, 0, 0}, full(3), 0},
+		{"one edge", []int{1, 1}, full(2), 1},
+		{"triangle need 1 leaves one over", []int{1, 1, 1}, full(3), 1},
+		{"k4 need 2 is exact", []int{2, 2, 2, 2}, full(4), 4},
+		{"star limited by center", []int{2, 1, 1, 1}, []uint32{0b1110, 1, 1, 1}, 2},
+		{"no avail", []int{2, 2}, []uint32{0, 0}, 0},
+		{"stuck pair B C already met", []int{1, 1, 0}, []uint32{0b100, 0b100, 0b011}, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			needCopy := append([]int(nil), tc.need...)
+			availCopy := append([]uint32(nil), tc.avail...)
+			if got := maxPairings(tc.need, tc.avail); got != tc.want {
+				t.Fatalf("maxPairings = %d, want %d", got, tc.want)
+			}
+			for i := range needCopy {
+				if needCopy[i] != tc.need[i] || availCopy[i] != tc.avail[i] {
+					t.Fatal("inputs mutated")
+				}
+			}
+		})
+	}
+}
+
+// seedStuckRoster plays the 5-pair graph A-D, A-E, D-E, A-B, D-B, E-C, B-C
+// (target 3): A, D, E, B end on 3 matches, C on 2, and C has no unmet
+// opponent left. The edge sum is odd, so one slot can never be filled.
+func seedStuckRoster(t *testing.T, app core.App, comp *core.Record, p []*core.Record) {
+	t.Helper()
+	const A, B, C, D, E = 0, 1, 2, 3, 4
+	for _, pr := range [][2]int{{A, D}, {D, E}, {E, A}, {A, B}, {B, D}, {C, B}, {E, C}} {
+		makeLeveledMatch(t, app, comp.Id, p[pr[0]].Id, p[pr[1]].Id, "6-3 6-4", p[pr[0]].Id, "final", time.Now().Add(-time.Hour))
+	}
+}
+
+// assertSplitWithinOne fails when a pair's home and away counts over all its
+// non-released matches differ by more than one.
+func assertSplitWithinOne(t *testing.T, app core.App, compID string, pairs []*core.Record) {
+	t.Helper()
+	for _, p := range pairs {
+		home, total := 0, 0
+		for _, m := range allMatchesFor(t, app, compID, p.Id) {
+			if m.GetString("status") == "released" {
+				continue
+			}
+			total++
+			if m.GetString("pair1") == p.Id {
+				home++
+			}
+		}
+		assert.LessOrEqual(t, abs(2*home-total), 1, "pair %s: %d home of %d", p.Id, home, total)
+	}
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
+}
+
+// TestTopUp_ObservedBCCase: a pair short of the target whose every remaining
+// opponent is full or already met gets no new match, and nothing is repeated.
+func TestTopUp_ObservedBCCase(t *testing.T) {
+	app := newTestApp(t)
+	p := make([]*core.Record, 5)
+	for i := range p {
+		p[i] = makePair(t, app, "Bc")
+	}
+	comp := makeLeveledCompetition(t, app, p, 3, 2)
+	seedStuckRoster(t, app, comp, p)
+
+	sf, err := LeveledShortfall(app, comp, time.Now())
+	require.NoError(t, err)
+	assert.Equal(t, 1, sf.Matches)
+	assert.Equal(t, []string{p[2].Id}, sf.PairIDs, "only C stays short")
+
+	svc := newDeterministicSvc(app)
+	created, err := svc.TopUpAssignments(comp.Id, time.Now())
+	require.NoError(t, err)
+	assert.Empty(t, created, "no unmet opponent left, so no match is invented")
+	assert.False(t, hasDuplicatePairing(t, app, comp.Id))
+	assertSplitWithinOne(t, app, comp.Id, p)
+}
+
+// TestTopUp_BestEffortFillsOthers: with the stuck roster plus a new pair F,
+// the only placeable pairing is C-F; it is assigned, nothing repeats, and the
+// home/away split stays balanced.
+func TestTopUp_BestEffortFillsOthers(t *testing.T) {
+	app := newTestApp(t)
+	p := make([]*core.Record, 6)
+	for i := range p {
+		p[i] = makePair(t, app, "Be")
+	}
+	comp := makeLeveledCompetition(t, app, p, 3, 2)
+	seedStuckRoster(t, app, comp, p[:5])
+
+	svc := newDeterministicSvc(app)
+	created, err := svc.TopUpAssignments(comp.Id, time.Now())
+	require.NoError(t, err)
+	require.Len(t, created, 1, "the one placeable pairing is assigned")
+	got := map[string]bool{created[0].GetString("pair1"): true, created[0].GetString("pair2"): true}
+	assert.True(t, got[p[2].Id] && got[p[5].Id], "C-F")
+	assert.False(t, hasDuplicatePairing(t, app, comp.Id))
+	assertSplitWithinOne(t, app, comp.Id, p)
 }

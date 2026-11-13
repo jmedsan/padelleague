@@ -392,6 +392,102 @@ func TestGenerateLeagueFixtures(t *testing.T) {
 	s.Test(t)
 }
 
+// assertNoRepeatedPairing counts each match's unordered pair key, failing on a repeat.
+func assertNoRepeatedPairing(tb testing.TB, matches []*core.Record) map[string]int {
+	tb.Helper()
+	seen := map[string]int{}
+	for _, m := range matches {
+		a, b := m.GetString("pair1"), m.GetString("pair2")
+		if a == "" || b == "" {
+			continue
+		}
+		if a > b {
+			a, b = b, a
+		}
+		seen[a+"|"+b]++
+	}
+	for k, n := range seen {
+		assert.Equal(tb, 1, n, "pairing %s created %d times", k, n)
+	}
+	return seen
+}
+
+// TestGeneratePlayoffFixtures_EachMatchOnce pins story 2.5: a bracket creates
+// every concrete pairing once.
+func TestGeneratePlayoffFixtures_EachMatchOnce(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "POST generate for an 8-pair playoff",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		var pairs []*core.Record
+		for _, n := range []string{"A", "B", "C", "D", "E", "F", "G", "H"} {
+			pairs = append(pairs, handlers.MakePairTB(tb, app, "PO8 "+n))
+		}
+		comp := handlers.MakeCompetitionTB(tb, app, "playoff", pairs)
+		compID = comp.Id
+		s.URL = "/admin/competitions/" + comp.Id + "/generate"
+		s.Headers = handlers.AuthHeaders(tb, handlers.MakeAdminUserTB(tb, app))
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		matches, err := app.FindRecordsByFilter("matches", "competition = {:comp}", "", 0, 0, map[string]any{"comp": compID})
+		require.NoError(tb, err)
+		assert.Len(tb, matches, 7)
+		assert.Len(tb, assertNoRepeatedPairing(tb, matches), 4, "only the first round has both pairs set")
+	}
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	s.Test(t)
+}
+
+// TestGenerateFixturesRegenerate_KeepsRepeatRules pins story 2.4: confirming a
+// regeneration yields a fresh single round-robin, every pairing once, home and
+// away split within one.
+func TestGenerateFixturesRegenerate_KeepsRepeatRules(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "POST generate?confirm=true over existing matches",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID string
+	var pairIDs []string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		var pairs []*core.Record
+		for _, n := range []string{"A", "B", "C", "D", "E"} {
+			p := handlers.MakePairTB(tb, app, "RG "+n)
+			pairs = append(pairs, p)
+			pairIDs = append(pairIDs, p.Id)
+		}
+		comp := handlers.MakeCompetitionTB(tb, app, "league", pairs)
+		compID = comp.Id
+		handlers.MakeMatchTB(tb, app, comp.Id, pairs[0].Id, pairs[1].Id, "pending")
+		s.URL = "/admin/competitions/" + comp.Id + "/generate?confirm=true"
+		s.Headers = handlers.AuthHeaders(tb, handlers.MakeAdminUserTB(tb, app))
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		matches, err := app.FindRecordsByFilter("matches", "competition = {:comp}", "", 0, 0, map[string]any{"comp": compID})
+		require.NoError(tb, err)
+		assert.Len(tb, matches, 10)
+		assert.Len(tb, assertNoRepeatedPairing(tb, matches), 10)
+		home := map[string]int{}
+		for _, m := range matches {
+			home[m.GetString("pair1")]++
+		}
+		for _, id := range pairIDs {
+			assert.InDelta(tb, 2, home[id], 1, "home count of %s", id)
+		}
+	}
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	s.Test(t)
+}
+
 // TestGenerateFlashMessage verifies the post-generation handlers.Flash: plain for
 // round-robin and on-time leveled leagues, with an appended note when the
 // admin generates a leveled calendar after Jornada 1 already closed.
