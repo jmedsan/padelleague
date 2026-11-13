@@ -488,6 +488,53 @@ func TestGenerateFixturesRegenerate_KeepsRepeatRules(t *testing.T) {
 	s.Test(t)
 }
 
+func TestGenerateFixturesRegenerate_DoubleLeg(t *testing.T) {
+	t.Parallel()
+	s := &tests.ApiScenario{
+		TestAppFactory: handlers.TestAppFactory,
+		Name:           "POST generate?confirm=true on a play_twice competition",
+		Method:         http.MethodPost,
+		ExpectedStatus: 204,
+	}
+	var compID string
+	var pairIDs []string
+	s.BeforeTestFunc = func(tb testing.TB, app *tests.TestApp, e *core.ServeEvent) {
+		setupProductionRoutes(tb, app, e)
+		var pairs []*core.Record
+		for _, n := range []string{"A", "B", "C", "D"} {
+			p := handlers.MakePairTB(tb, app, "DL "+n)
+			pairs = append(pairs, p)
+			pairIDs = append(pairIDs, p.Id)
+		}
+		comp := handlers.MakeCompetitionTB(tb, app, "league", pairs)
+		comp.Set("play_twice", true)
+		require.NoError(tb, app.Save(comp))
+		compID = comp.Id
+		handlers.MakeMatchTB(tb, app, comp.Id, pairs[0].Id, pairs[1].Id, "pending")
+		s.URL = "/admin/competitions/" + comp.Id + "/generate?confirm=true"
+		s.Headers = handlers.AuthHeaders(tb, handlers.MakeAdminUserTB(tb, app))
+	}
+	s.AfterTestFunc = func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+		matches, err := app.FindRecordsByFilter("matches", "competition = {:comp}", "", 0, 0, map[string]any{"comp": compID})
+		require.NoError(tb, err)
+		assert.Len(tb, matches, 12)
+		ordered := map[string]int{}
+		for _, m := range matches {
+			ordered[m.GetString("pair1")+">"+m.GetString("pair2")]++
+		}
+		assert.Len(tb, ordered, 12, "every ordered pair appears")
+		for _, a := range pairIDs {
+			for _, b := range pairIDs {
+				if a != b {
+					assert.Equal(tb, 1, ordered[a+">"+b], "%s>%s exactly once", a, b)
+				}
+			}
+		}
+	}
+	handlers.ExpectRedirect(s, func(core.App) string { return competitionDetailURL(s.URL) })
+	s.Test(t)
+}
+
 // TestGenerateFlashMessage verifies the post-generation handlers.Flash: plain for
 // round-robin and on-time leveled leagues, with an appended note when the
 // admin generates a leveled calendar after Jornada 1 already closed.

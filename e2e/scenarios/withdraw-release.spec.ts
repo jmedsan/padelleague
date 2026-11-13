@@ -1,7 +1,7 @@
-import { test, expect } from '@playwright/test';
-import { loginAs, clickAction, waitForHxRedirect, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
+import { test, expect, type Page } from '@playwright/test';
+import { loginAs, leagueDate, clickAction, waitForHxRedirect, ADMIN_EMAIL, ADMIN_PASSWORD } from '../helpers';
 import {
-  PLAYER_PASSWORD, ScenarioApi, ScenarioData, addPairToCompetition, apiGet, assertAssignmentInvariants,
+  PLAYER_PASSWORD, ScenarioApi, ScenarioData, addPairToCompetition, apiGet, apiPatch, assertAssignmentInvariants,
   createCompetition, createPairs, createPlayers, generateAssignments, loadCtx, publishCalendar,
   saveCtx, setCompetitionDates, uniqueSuffix,
 } from '../scenario-helpers';
@@ -14,6 +14,25 @@ import { driveTo, duelOf, pairMatches } from './withdrawal-states';
 const PAIRS = 10;
 const TARGET = 3;
 const OPEN = 3;
+
+// Reads one pair's Clasificación row (desktop table): played matches (PJ) and points.
+async function standingsRow(page: Page, competitionId: string, pairName: string) {
+  await page.goto(`/admin/competitions/${competitionId}`);
+  const rows = await page.locator('table.table-zebra').filter({ has: page.locator('th', { hasText: /^PJ$/ }) }).locator('tbody tr').evaluateAll((trs) =>
+    trs.map((tr) => {
+      const tds = Array.from(tr.querySelectorAll('td'));
+      return {
+        name: (tds[1]?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+        pj: Number((tds[2]?.textContent ?? '').trim()),
+        pts: Number((tr.querySelector('td.text-lg.font-bold')?.textContent ?? '').trim()),
+      };
+    }));
+  // No played match left anywhere: the page renders the empty state instead of the table.
+  if (rows.length === 0 && (await page.getByText('No hay datos de clasificación todavía').count()) === 1) return { name: pairName, pj: 0, pts: 0 };
+  const row = rows.find((r) => r.name.startsWith(pairName) && !/^\d/.test(r.name.slice(pairName.length).trim()));
+  if (!row) throw new Error(`no Clasificación row for ${pairName}: ${JSON.stringify(rows)}`);
+  return row;
+}
 
 test.describe.serial('withdraw-release', () => {
   test('00 seed: W has a final (vs B) and a proposed-result (vs C) match', async () => {
@@ -102,7 +121,8 @@ test.describe.serial('withdraw-release', () => {
       ['Admin', admin(`/admin/competitions/${competition2}`), 'Case 2 (second competition, 4 pairs, target 2): Retirar W2 (type RETIRAR).'],
       ['Admin', admin(`/match/${wb2.id}`), 'Liberar W2-B2 (the match against B2).'],
       ['Player of B2', as2(b2, `/competition/${competition2}`), 'B2 has NO new match (the only pair left is already at its target) and no "Revancha" anywhere; B2 stays one match short.'],
-      ['Admin', admin(`/admin/competitions/${competition2}`), 'The shortfall notice names B2 as ending below the target. Case 4 (the league-close penalty ignores a match that was never assigned) is cron-only and covered by unit tests.'],
+      ['Admin', admin(`/admin/competitions/${competition2}`), 'The shortfall notice names B2 as ending below the target.'],
+      ['Admin', admin(`/admin/competitions/${competition2}`), 'Case 4 (test 03 drives B2-Y2 to final, moves the end date into the past and fires the close): the league is closed; B2 has no penalty, Y2 and X2 have -1 each, W2 none.'],
     ];
     console.log(`\nW = ${w.name} (withdrawn), B = ${b.name}, C = ${c.name}`);
     console.log(`Admin ${ADMIN_EMAIL}; W ${email(w)}; B ${email(b)}; C ${email(c)}\n`);
@@ -130,6 +150,15 @@ test.describe.serial('withdraw-release', () => {
     });
     expect((await pairMatches(api, ctx.competitionId, w)).map((m) => `${m.id}:${m.status}`).sort()).toEqual(wBefore);
 
+    // Case 3: the released results drop out of the Clasificación (W-B final, W-C proposed result).
+    const nameOf = (id: string) => ctx.pairs.find((p: any) => p.id === id).name as string;
+    const rowsBefore = {
+      w: await standingsRow(page, ctx.competitionId, nameOf(w)),
+      b: await standingsRow(page, ctx.competitionId, nameOf(b)),
+      c: await standingsRow(page, ctx.competitionId, nameOf(c)),
+    };
+    expect(rowsBefore.w.pj).toBeGreaterThanOrEqual(2);
+
     for (const id of [wb, wc]) {
       await page.goto(`/match/${id}`);
       await waitForHxRedirect(page, /^\/admin\/competitions\/[^/]+$/, async () => {
@@ -153,6 +182,20 @@ test.describe.serial('withdraw-release', () => {
     }
     expect((await live(w)).map((m) => m.id)).toEqual([wo]);
 
+    const rowsAfter = {
+      w: await standingsRow(page, ctx.competitionId, nameOf(w)),
+      b: await standingsRow(page, ctx.competitionId, nameOf(b)),
+      c: await standingsRow(page, ctx.competitionId, nameOf(c)),
+    };
+    expect(rowsAfter.w.pj).toBe(rowsBefore.w.pj - 2);
+    expect(rowsAfter.b.pj).toBe(rowsBefore.b.pj - 1);
+    expect(rowsAfter.c.pj).toBe(rowsBefore.c.pj - 1);
+    // Points: every released result is gone, so the pairs' points never grow and the pair that won loses 3.
+    expect(rowsAfter.w.pts).toBeLessThanOrEqual(rowsBefore.w.pts);
+    expect(rowsAfter.b.pts).toBeLessThanOrEqual(rowsBefore.b.pts);
+    expect(rowsAfter.c.pts).toBeLessThanOrEqual(rowsBefore.c.pts);
+    expect(rowsBefore.w.pts + rowsBefore.b.pts + rowsBefore.c.pts - (rowsAfter.w.pts + rowsAfter.b.pts + rowsAfter.c.pts)).toBeGreaterThanOrEqual(3);
+
     const bPlayer = ctx.players[ctx.pairs.find((p: any) => p.id === b).player1Idx].email;
     await loginAs(page, bPlayer, PLAYER_PASSWORD);
     expect((await page.request.get(`/match/${wb}`)).status()).toBe(404);
@@ -166,7 +209,8 @@ test.describe.serial('withdraw-release', () => {
   });
   test('02 withdraw W2, release W2-B2: B2 stays short, no new match, no Revancha', async ({ page }) => {
     const ctx = loadCtx() as any;
-    const { competition, w, b, wb } = ctx.noRival;
+    const { competition, w, b, wb, players, pairs } = ctx.noRival;
+    const nameOfB2 = pairs.find((p: any) => p.id === b).name as string;
     const api: ScenarioApi = { baseURL: ctx.baseURL, suToken: ctx.suToken, adminCookie: ctx.adminCookie };
     const live = async () => (await pairMatches(api, competition, b)).filter((m) => !['final', 'released'].includes(m.status));
     const before = (await live()).map((m) => m.id);
@@ -188,7 +232,52 @@ test.describe.serial('withdraw-release', () => {
     // The top-up ran with the release: B2's only unmet pair is full, so nothing new may appear.
     await page.waitForTimeout(3000);
     expect((await live()).map((m) => m.id)).toEqual(before.filter((id) => id !== wb));
-    await expect(page.getByText('Revancha')).toHaveCount(0);
     await expect(page.locator('[data-testid="leveled-shortfall-notice"]')).toContainText('quedará con');
+    await expect(page.locator('[data-testid="leveled-shortfall-notice"]')).toContainText(nameOfB2);
+
+    // B2's own view: no new match and no Revancha on its competition page or its match pages.
+    await loginAs(page, players[pairs.find((p: any) => p.id === b).player1Idx].email, PLAYER_PASSWORD);
+    await page.goto(`/competition/${competition}`);
+    await expect(page.getByText('Revancha')).toHaveCount(0);
+    for (const id of before.filter((x) => x !== wb)) {
+      await page.goto(`/match/${id}`);
+      await expect(page.getByText('Revancha')).toHaveCount(0);
+    }
+    expect((await page.request.get(`/match/${wb}`)).status()).toBe(404);
+  });
+
+  test('03 league close: a pair short only for lack of an unmet opponent gets no penalty', async () => {
+    const ctx = loadCtx() as any;
+    const { competition, w, b, players, pairs } = ctx.noRival;
+    const api: ScenarioApi = { baseURL: ctx.baseURL, suToken: ctx.suToken, adminCookie: ctx.adminCookie };
+    const ctx2 = { ...ctx, api, competitionId: competition, players, pairs };
+    const other = (m: any, p: string) => (m.pair1 === p ? m.pair2 : m.pair1);
+
+    // 4-cycle W2-B2-Y2-X2-W2: W2-B2 is released. B2's other match is vs Y2.
+    const bMatches = (await pairMatches(api, competition, b)).filter((m) => m.status !== 'released');
+    expect(bMatches).toHaveLength(1);
+    const y = other(bMatches[0], b);
+    await driveTo(api, duelOf(ctx2, bMatches[0], pairs.find((p: any) => p.id === b)), 'final');
+    const yMatches = (await pairMatches(api, competition, y)).filter((m) => m.status !== 'released' && m.status !== 'final');
+    expect(yMatches).toHaveLength(1); // Y2-X2, assigned and unplayed
+    const x = other(yMatches[0], y);
+    expect((await pairMatches(api, competition, x)).filter((m) => m.status !== 'final')).toHaveLength(2); // X2-Y2 and X2-W2 (W2 withdrawn)
+
+    // Move the window into the past (past the recovery week) so the daily cron closes the league.
+    const stamp = (ago: number) => `${leagueDate(-ago)} 00:00:00.000Z`;
+    await apiPatch(api, `/api/collections/competitions/records/${competition}`, {
+      start_date: stamp(120), end_date: stamp(60), max_pending_matches: 1,
+    });
+    const resp = await fetch(`${ctx.baseURL}/api/crons/pending-match-penalties`, { method: 'POST', headers: { Authorization: ctx.suToken } });
+    expect(resp.ok).toBe(true);
+
+    await expect.poll(async () => (await apiGet(api, `/api/collections/competitions/records/${competition}`)).finalized, { timeout: 20_000 }).toBe(true);
+    const rows = (await apiGet(api, `/api/collections/penalties/records?perPage=200&filter=${encodeURIComponent(`competition="${competition}"`)}`)).items;
+    const totals = new Map<string, number>();
+    for (const r of rows) if (!r.voided) totals.set(r.pair, (totals.get(r.pair) ?? 0) + r.amount);
+    expect(totals.get(b) ?? 0).toBe(0); // short only because no unmet opponent existed
+    expect(totals.get(w) ?? 0).toBe(0); // withdrawn
+    expect(totals.get(y)).toBe(1); // one assigned unplayed match
+    expect(totals.get(x)).toBe(1); // X2-Y2 counts, X2-W2 does not (W2 withdrawn)
   });
 });

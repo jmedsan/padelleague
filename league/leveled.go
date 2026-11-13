@@ -230,10 +230,30 @@ type factorState struct {
 	best    int  // maxPairings of the current need/avail (used when not exact)
 }
 
+// availMask is the bitmask of pairs the pair at index i can still be matched
+// with: not itself, still in need, not met and not avoided.
+func (st *leveledState) availMask(i int, need []int) uint32 {
+	id := st.pairs[i]
+	var mask uint32
+	for j, other := range st.pairs {
+		if j == i || need[j] <= 0 {
+			continue
+		}
+		if _, met := st.met[id][other]; met {
+			continue
+		}
+		if _, avoided := st.avoid[id][other]; avoided {
+			continue
+		}
+		mask |= 1 << uint(j)
+	}
+	return mask
+}
+
 // buildFactorState derives a factorState from st: need[v] is how many more
 // matches st.pairs[v] must play to reach target; avail[v] is the bitmask of
 // vertices v could still be paired with (excludes v itself, anyone already
-// met, and anyone with no remaining need). Rebuilt fresh on every call since
+// met or avoided, and anyone with no remaining need). Rebuilt fresh on every call since
 // plan() mutates st.pending/st.met between requesters.
 func buildFactorState(st *leveledState) factorState {
 	n := len(st.pairs)
@@ -246,18 +266,8 @@ func buildFactorState(st *leveledState) factorState {
 		need[i] = st.target - st.load(id)
 	}
 	avail := make([]uint32, n)
-	for i, id := range st.pairs {
-		var mask uint32
-		for j, other := range st.pairs {
-			if j == i || need[j] <= 0 {
-				continue
-			}
-			if _, met := st.met[id][other]; met {
-				continue
-			}
-			mask |= 1 << uint(j)
-		}
-		avail[i] = mask
+	for i := range st.pairs {
+		avail[i] = st.availMask(i, need)
 	}
 	fs := factorState{need: need, avail: avail, index: index, inexact: st.inexact, orient: st.orient}
 	// Walkovers were never played, so the quota covers only real matches.

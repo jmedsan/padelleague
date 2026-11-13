@@ -2289,3 +2289,35 @@ func TestTopUp_BestEffortFillsOthers(t *testing.T) {
 	assert.False(t, hasDuplicatePairing(t, app, comp.Id))
 	assertSplitWithinOne(t, app, comp.Id, p)
 }
+
+// TestTopUp_ReleasedPairingBetweenActivePairs: the release's own run must
+// not be derailed by the avoided pairing. 4 pairs, target 2, open 2, pa-pb
+// released and avoided. The only completion without pa-pb is the cycle
+// pa-pc-pb-pd, so the run must create exactly it. (Requirement 1.2: a released
+// pairing counts as not met, so only this run avoids it.)
+func TestTopUp_ReleasedPairingBetweenActivePairs(t *testing.T) {
+	app := newTestApp(t)
+	pairs := make([]*core.Record, 4)
+	for i := range pairs {
+		pairs[i] = makePair(t, app, "Rl")
+	}
+	comp := makeLeveledCompetition(t, app, pairs, 2, 2)
+	pa, pb := pairs[0], pairs[1]
+	makeMatch(t, app, comp.Id, pa.Id, pb.Id, "released")
+
+	svc := newDeterministicSvc(app)
+	created, err := svc.TopUpAssignments(comp.Id, time.Now(), Pairing{A: pa.Id, B: pb.Id})
+	require.NoError(t, err)
+
+	load := map[string]int{}
+	for _, m := range created {
+		p1, p2 := m.GetString("pair1"), m.GetString("pair2")
+		assert.False(t, (p1 == pa.Id && p2 == pb.Id) || (p1 == pb.Id && p2 == pa.Id), "released pairing recreated")
+		load[p1]++
+		load[p2]++
+	}
+	assert.Len(t, created, 4, "the 4-cycle without pa-pb is created")
+	for _, p := range pairs {
+		assert.Equal(t, 2, load[p.Id], "every pair reaches its target")
+	}
+}
