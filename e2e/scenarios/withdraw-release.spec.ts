@@ -72,13 +72,11 @@ test.describe.serial('withdraw-release', () => {
 
     // A final that stays: B against its first other opponent. It keeps the Clasificación non-empty after
     // W-B and W-C are released, so the test can assert exact rows.
-    const rivalOf0 = (m: any) => pairs.find((p) => p.id === (m.pair1 === w.id ? m.pair2 : m.pair1))!;
-    const bPair = rivalOf0(wb);
-    const bx = (await pairMatches(api, competitionId, bPair.id)).find((m) => m.id !== wb.id)!;
-    await driveTo(api, duelOf(ctx, bx, bPair), 'final');
-
     const rivalOf = (m: any) => pairs.find((p) => p.id === (m.pair1 === w.id ? m.pair2 : m.pair1))!;
     const b = rivalOf(wb);
+    const bx = (await pairMatches(api, competitionId, b.id)).find((m) => m.id !== wb.id)!;
+    await driveTo(api, duelOf(ctx, bx, b), 'final');
+
     const c = rivalOf(wc);
 
     // Case 2: 4 pairs, target 2 = a 4-cycle W-B-Y-X-W. After W is withdrawn and only W-B is released, B has
@@ -96,6 +94,15 @@ test.describe.serial('withdraw-release', () => {
     const wb2 = w2Matches[0];
     const b2 = pairs2.find((p) => p.id === (wb2.pair1 === w2.id ? wb2.pair2 : wb2.pair1))!;
 
+    const y2 = pairs2.find((p) => p.id !== w2.id && p.id !== b2.id && w2Matches.every((m) => m.pair1 !== p.id && m.pair2 !== p.id))!;
+    const x2 = pairs2.find((p) => ![w2.id, b2.id, y2.id].includes(p.id))!;
+    // Guide-friendly names: PR1 withdrawn, PR2 and PR3 its released rivals, PR11-PR14 the small competition.
+    const order = [w, b, c, ...pairs.filter((p) => ![w.id, b.id, c.id].includes(p.id)), w2, b2, y2, x2];
+    for (const [i, p] of order.entries()) {
+      p.name = `PR${i + 1}`;
+      await apiPatch(api, `/api/collections/pairs/records/${p.id}`, { name: p.name });
+    }
+
     saveCtx({ ...ctx, stage: 'assigned', withdrawRelease: { w: w.id, b: b.id, c: c.id, wb: wb.id, wc: wc.id, wo: wo.id, bx: bx.id },
       noRival: { competition: competition2, w: w2.id, b: b2.id, wb: wb2.id, players: players2, pairs: pairs2 } } as ScenarioData);
 
@@ -108,29 +115,28 @@ test.describe.serial('withdraw-release', () => {
     const as = (p: { player1Idx: number }, path: string) => url(email(p), PLAYER_PASSWORD, path);
     const as2 = (p: { player1Idx: number }, path: string) => url(players2[p.player1Idx].email, PLAYER_PASSWORD, path);
     const steps: Array<[string, string, string]> = [
-      ['Player of B', as(b, '/'), 'Note your matches: W-B and another match are final (both count in your stats), plus your open matches.'],
-      ['Player of C', as(c, `/match/${wc.id}`), 'W-C shows the proposed result waiting for C.'],
-      ['Admin', admin(`/admin/competitions/${competitionId}`), 'Retirar W (type RETIRAR): the flash says "<pair> retirada"; the withdrawn icon shows beside W.'],
-      ['Admin', admin(`/match/${wo.id}`), "W's open match is unchanged: still open, no 6-0 6-0."],
-      ['Player of W', as(w, '/'), 'The withdrawal notice is there; no new match appears now or later.'],
-      ['Player of W', as(w, comp), 'The withdrawn icon shows beside the pair name.'],
-      ['Admin', admin(`/match/${wb.id}`), 'Liberar W-B (it has a final result): read the dialog and confirm.'],
-      ['Admin', admin(`/match/${wc.id}`), 'Liberar W-C (proposed result): confirm.'],
-      ['Admin', admin(`/admin/competitions/${competitionId}`), 'Open "Liberados": W-B and W-C are listed; open one: read-only, "Liberado" badge, history kept.'],
-      ['Player of B', as(b, `/match/${wb.id}`), 'W-B now returns 404.'],
-      ['Player of B', as(b, comp), 'W-B is gone, B has ONE NEW match against a new opponent (not W; open the later Jornada sections in Partidos), and the W-B points are gone from the standings (the other final stays).'],
-      ['Player of C', as(c, `/match/${wc.id}`), 'W-C now returns 404.'],
-      ['Player of C', as(c, comp), 'W-C is gone and C has ONE NEW match against a new opponent (not W; open the later Jornada sections).'],
-      ['Player of W', as(w, comp), 'W still has only its open match: no new assignment.'],
-      ['Admin', admin(`/admin/competitions/${competitionId}`), 'Case 3: open Clasificación and the stats of B and C: the W-B and W-C results no longer count anywhere.'],
-      ['Admin', admin(`/admin/competitions/${competition2}`), 'Case 2 (second competition, 4 pairs, target 2): Retirar W2 (type RETIRAR).'],
-      ['Admin', admin(`/match/${wb2.id}`), 'Liberar W2-B2 (the match against B2).'],
-      ['Player of B2', as2(b2, `/competition/${competition2}`), 'B2 has NO new match (the only pair left is already at its target) and no "Revancha" anywhere; B2 stays one match short.'],
-      ['Admin', admin(`/admin/competitions/${competition2}`), 'The shortfall notice names B2 as ending below the target.'],
-      ['Admin', admin(`/admin/competitions/${competition2}`), 'Case 4 (test 03 drives B2-Y2 to final, moves the end date into the past and fires the close): the league is closed; B2 has no penalty, Y2 and X2 have -1 each, W2 none.'],
+      ['PR2 player', as(b, '/'), 'Look at your matches: PR1-PR2 and one other match are final.'],
+      ['PR3 player', as(c, `/match/${wc.id}`), 'PR1-PR3 has a result proposal waiting for you.'],
+      ['Admin', admin(`/admin/competitions/${competitionId}`), 'Withdraw PR1 ("Retirar", type RETIRAR). The withdrawn icon appears next to PR1.'],
+      ['Admin', admin(`/match/${wo.id}`), 'This other PR1 match did not change: still open, no 6-0 6-0.'],
+      ['PR1 player', as(w, '/'), 'You see the withdrawal notice.'],
+      ['PR1 player', as(w, comp), 'The withdrawn icon is next to PR1.'],
+      ['Admin', admin(`/match/${wb.id}`), 'Release PR1-PR2 ("Liberar"), read the dialog, confirm.'],
+      ['Admin', admin(`/match/${wc.id}`), 'Release PR1-PR3 ("Liberar"), confirm.'],
+      ['Admin', admin(`/admin/competitions/${competitionId}`), 'Open "Liberados": both matches are there. Open one: read-only, "Liberado" badge, history kept.'],
+      ['PR2 player', as(b, `/match/${wb.id}`), 'PR1-PR2 now gives 404.'],
+      ['PR2 player', as(b, comp), 'PR2 has ONE new match against a new rival (not PR1; see the later Jornadas in Partidos). In Clasificación the PR1-PR2 points are gone; the other final still counts.'],
+      ['PR3 player', as(c, `/match/${wc.id}`), 'PR1-PR3 now gives 404.'],
+      ['PR3 player', as(c, comp), 'PR3 has ONE new match against a new rival (not PR1).'],
+      ['PR1 player', as(w, comp), 'PR1 still has only its open match, nothing new.'],
+      ['Admin', admin(`/admin/competitions/${competitionId}`), 'Clasificación and the stats of PR2 and PR3: the released results count nowhere.'],
+      ['Admin', admin(`/admin/competitions/${competition2}`), 'Competition 2: withdraw PR11 (type RETIRAR).'],
+      ['Admin', admin(`/match/${wb2.id}`), 'Release PR11-PR12.'],
+      ['PR12 player', as2(b2, `/competition/${competition2}`), 'PR12 gets NO new match (its only unmet rival, PR14, is full). No "Revancha" anywhere. PR12 ends one match short.'],
+      ['Admin', admin(`/admin/competitions/${competition2}`), 'The notice says PR12 ends below the target.'],
     ];
-    console.log(`\nW = ${w.name} (withdrawn), B = ${b.name}, C = ${c.name}`);
-    console.log(`Admin ${ADMIN_EMAIL}; W ${email(w)}; B ${email(b)}; C ${email(c)}\n`);
+    console.log(`\nCompetition 1: PR1 is withdrawn; PR2 and PR3 are its rivals whose matches get released.`);
+    console.log(`Competition 2: PR11 is withdrawn; PR12 loses its only free rival.\n`);
     steps.forEach(([who, link, check], i) => console.log(`${i + 1}. ${who}: ${link}\n   ${check}`));
   });
 
