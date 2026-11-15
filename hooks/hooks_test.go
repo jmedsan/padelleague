@@ -1722,10 +1722,11 @@ func TestValidateTransition_Released(t *testing.T) {
 	} {
 		assert.NoError(t, validateTransition(from, league.StatusReleased), from)
 	}
-	// Released is terminal.
+	// Released can only become final.
+	assert.NoError(t, validateTransition(league.StatusReleased, league.StatusFinal))
 	for _, to := range []string{
 		league.StatusPending, league.StatusScheduled, league.StatusConfirmed,
-		league.StatusDisputed, league.StatusFinal,
+		league.StatusDisputed,
 	} {
 		assert.Error(t, validateTransition(league.StatusReleased, to), to)
 	}

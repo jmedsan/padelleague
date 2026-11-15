@@ -20,6 +20,7 @@ var validTransitions = map[string][]string{
 	league.StatusConfirmed: {league.StatusFinal, league.StatusDisputed, league.StatusReleased},
 	league.StatusDisputed:  {league.StatusFinal, league.StatusReleased},
 	league.StatusFinal:     {league.StatusReleased},
+	league.StatusReleased:  {league.StatusFinal},
 }
 
 func validateTransition(oldStatus, newStatus string) error {

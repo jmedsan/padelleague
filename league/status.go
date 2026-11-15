@@ -18,8 +18,8 @@ const (
 	StatusConfirmed = "confirmed"
 	StatusDisputed  = "disputed"
 	StatusFinal     = "final"
-	// StatusReleased marks a leveled match the admin released: terminal, kept
-	// with its thread, and excluded from every count and player surface.
+	// StatusReleased marks a leveled match the admin released: kept
+	// with its thread, and excluded from every count and player surface. Its only way out is final.
 	StatusReleased = "released"
 )
 
